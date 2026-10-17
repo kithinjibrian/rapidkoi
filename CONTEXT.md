@@ -96,6 +96,12 @@ CONTEXT.md   — this entry; NEXT SESSION START POINT moved below the sessions
 
 ---
 
+## SESSION 3 — 2026-10-17 — Record the architecture decisions — open
+
+Branch: main
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 3 first. Then read CLAUDE.md, MEMORY.md, DECISIONS.md, CONTEXT.md and `docs/source/stakeholder/vision-2026-10-17.md`. Get the user's answers to DECISIONS 003–006 and move them to RESOLVED and into MEMORY.md. Then run a discovery interview for build path step 1 (the shell: load a local `.wasm` bundle, render a few basic components through kivuli, send events back) and write `PRPs/prp-001-shell.md`. Before any view code, read `../kivuli/README.md` and `docs/DESIGN.md`. If wasmtime is chosen, the user installs it; check its C header before writing any extern.
