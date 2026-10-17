@@ -173,12 +173,39 @@ CLAUDE.md    — stack: wasmtime path package, cbor, contract v1 rule; lugha-cbo
 
 ---
 
-## SESSION 5 — 2026-10-17 — PRP-001: the shell — open
+## SESSION 5 — 2026-10-17 — PRP-001: the shell — closed
 
 Branch: main
+
+### WHAT WAS DONE
+
+Checked `../lugha-cbor` (merged, 86/86 tests, hostile-input probe passed). Researched kivuli's API and GTK startup, lughac's `args`/`read_bytes`/`std.fs`, and the wasmtime and cbor APIs. Wrote PRP-001 (the shell) for the owner's approval. No code written.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-001-shell.md — the shell: contract v1, calling convention, modules, tests, Rust guest
+DECISIONS.md          — 014 (kivuli single-instance) and 015 (std.fs size) deferred
+```
+
+### TESTS WRITTEN
+
+- None (PRP only).
+
+### DECISIONS MADE
+
+- Proposed in PRP-001, pending approval: the i64 (ptr, len) convention; no dealloc; the guest called from the shell's kivuli `update` only, with rule 3 reworded; minicbor for the Rust crate; offline fuel calibration (no clock in std).
+
+### PENDING DECISIONS OPENED
+
+- DECISION-014, DECISION-015 (deferred, gaps upstream).
+
+### STILL OPEN AT CLOSE
+
+- PRP-001 awaits approval.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Wait until `../lugha-cbor`'s PRP-001 is merged (check its CONTEXT.md). Then open session 5 first, read CLAUDE.md, MEMORY.md, DECISIONS.md, CONTEXT.md and `docs/source/meetings/2026-10-17-ui-contract.md`, and write `PRPs/prp-001-shell.md` implementing contract v1 exactly, from the owner's brief. Build it after approval.
+Open session 6 first. If the owner approved PRP-001, build it on branch `prp-001-shell`, test-first, following the PRP exactly; merge once every VALIDATION command passes; then tell the owner exactly what to run to see the window. If they asked for changes, update the PRP and present it again.
