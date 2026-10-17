@@ -1,20 +1,18 @@
 /**
- * The window's state and what changes it: tabs (apps only; home isn't a
- * tab), the current one or home, the address box, pins, "where you left
- * off" and the theme. Calls guests and opens local files the person chose
- * (CLAUDE.md rule 3); never draws.
+ * The window's state and the changes that open nothing: tabs (apps only;
+ * home isn't a tab), the current one or home, the address box's text,
+ * pins, "where you left off" and the theme. Opening files and addresses is
+ * `navigate.la`. Never draws.
  *
- * Depends on: wasmtime, std.fs, actions, tabs, home, themes
- * Used by: shell
+ * Depends on: wasmtime, actions, tabs, home, frame, themes
+ * Used by: navigate, shell
  */
 import wasmtime { Engine };
-import std.fs;
 import actions { Msg };
-import tabs { Page, Tab, Pin, LeftOff, AppPage, open_path, close_page, leave, resume };
+import tabs { Page, Tab, Pin, LeftOff, AppPage, leave };
 import home { Card };
 import frame { icon_of };
 import themes { Theme, DARK };
-import address { is_address, parse };
 
 /** The window's state. */
 public struct Model {
@@ -166,61 +164,6 @@ public fun with_tab(m: Model, id: i64, f: fun(AppPage): AppPage): Model = Model 
 };
 
 /**
- * Opens what the address box says: a local file or development address,
- * or a notice why not.
- *
- * Example:
- *     go(m)
- */
-public fun go(m: Model): Model {
-    let wanted = m.draft.trim();
-    if wanted == "" {
-        return m;
-    }
-    if is_address(wanted) {
-        // Local development addresses open; any other gets the reason why not yet.
-        return match parse(wanted) {
-            Ok(_) => open_file(m, wanted),
-            Err(e) => Model { notice: Some(address.reason(e)), ..m },
-        };
-    }
-    if fs.is_file(wanted) {
-        return open_file(m, wanted);
-    }
-    Model { notice: Some("No app or file called “{wanted}”"), ..m }
-}
-
-/**
- * Opens a local app file: in a new tab from home, or in place of the
- * current tab's app (which becomes "where you left off").
- *
- * Example:
- *     open_file(m, "counter.wasm")
- */
-public fun open_file(m: Model, path: string): Model {
-    let page = open_path(m.engine, path);
-    let opened = match m.current {
-        Some(id) if app(m, id).is_some() => {
-            let left = Model { left_off: app(m, id).map(leave), ..m };
-            with_tab(left, id, fun(_: AppPage) = page)
-        }
-        _ => add_tab(m, page),
-    };
-    Model { draft: "", editing: false, notice: None, ..opened }
-}
-
-/**
- * Reopens the last app closed, with its saved state, in a new tab.
- *
- * Example:
- *     reopen(m)
- */
-public fun reopen(m: Model): Model = match m.left_off {
-    Some(l) => Model { left_off: None, ..add_tab(m, resume(l)) },
-    None => m,
-};
-
-/**
  * Closes a tab; its app becomes "where you left off". The tab to its right
  * (or left) becomes current; with none left, home shows.
  *
@@ -251,23 +194,6 @@ public fun close(m: Model, id: i64): Model {
     };
     Model { tabs: kept, current: current, left_off: left, showing_panel: false, ..m }
 }
-
-/**
- * Fetches or reads the current app again and starts it fresh: a new build
- * from a development server after a repack. Its state starts over (a new
- * build may have a new state shape; DECISION-019 handles state across
- * builds later).
- *
- * Example:
- *     reload(m)
- */
-public fun reload(m: Model): Model = match (m.current, page_of(m)) {
-    (Some(id), App(a)) => {
-        close_page(a);
-        with_tab(m, id, fun(_: AppPage) = open_path(m.engine, a.path))
-    }
-    _ => m,
-};
 
 /**
  * Pins the current app, unless it's pinned already.

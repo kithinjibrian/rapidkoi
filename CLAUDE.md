@@ -257,7 +257,7 @@ public fun load_settings(path: string): Settings { … }
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
 ├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only),
-│                        window.la (the Model and what changes it: tabs, home, address box, pins, left off), themes.la (Rapidkoi's colours as kivuli looks; dark first),
+│                        window.la (the Model, and changes that open nothing: tabs, home, pins, left off), navigate.la (opening: the address box, files, addresses, Continue, Reload), themes.la (Rapidkoi's colours as kivuli looks; dark first),
 │                        bundle.la (pure: bundle format 1, read/write), rules.la (pure: every bundle rule, BundleError), loader.la (a path → manifest + compiled module),
 │                        pack.la (the `./main pack` command), serve.la (the `./main serve` development server), address.la (pure: local development addresses),
 │                        tabs.la (Page, Tab, Pin, LeftOff; an app page's life: open, events, restart, leave, resume), actions.la (the shell's Msg),

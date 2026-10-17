@@ -13,6 +13,7 @@ import wasmtime { Engine };
 import actions { Msg };
 import tabs { AppPage, Pin, open_path, handle };
 public import window { Model, with_pages, title_of };
+import navigate;
 import render { screen, stopped };
 import frame { bar, rail };
 import home;
@@ -55,13 +56,13 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     NewTab | Home => (window.go_home(m), Cmd.focus("address")),
     CloseTab(id) => (window.close(m, id), Cmd.none()),
     Draft(text) => (Model { draft: text, notice: None, ..m }, Cmd.none()),
-    Go => (window.go(m), Cmd.none()),
+    Go => (navigate.go(m), Cmd.none()),
     EditAddress => match window.page_of(m) {
         App(a) => (Model { editing: true, draft: a.path, ..m }, Cmd.focus("address")),
         Home => (m, Cmd.focus("address")),
     },
-    OpenPinned(path) => (window.open_file(window.go_home(m), path), Cmd.none()),
-    Continue => (window.reopen(m), Cmd.none()),
+    OpenPinned(path) => (navigate.open_file(window.go_home(m), path), Cmd.none()),
+    Continue => (navigate.reopen(m), Cmd.none()),
     TogglePanel => (Model { showing_panel: !m.showing_panel, ..m }, Cmd.none()),
     Pin => (window.pin(m), Cmd.none()),
     Unpin(path) => (
@@ -69,7 +70,7 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         Cmd.none(),
     ),
     FocusSearch => (m, Cmd.focus("address")),
-    Reload => (window.reload(m), Cmd.none()),
+    Reload => (navigate.reload(m), Cmd.none()),
 };
 
 /**
