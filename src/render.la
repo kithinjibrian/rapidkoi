@@ -1,0 +1,90 @@
+/**
+ * Rendering, pure: turns a decoded contract tree into kivuli views, and
+ * draws the error screen. Every size comes from `theme.la`; every colour
+ * from the GTK theme. Never calls the guest.
+ *
+ * Depends on: kivuli, cbor, contract, theme
+ * Used by: shell
+ */
+import kivuli { View, ButtonStyle, button, column, input, row, text };
+import cbor { Value };
+import contract { Node, TextStyle, ButtonLook };
+import theme { SPACE_SM, TEXT_TITLE, TEXT_HEADING, pixels };
+
+/** What the shell's window sends its `update`. */
+public enum Msg {
+    /** A node's message, and the event's data (an input's new text). */
+    Event(Value, Option<string>),
+    /** Start the app again in a fresh store. */
+    Restart,
+}
+
+/**
+ * Builds the kivuli view of a decoded tree.
+ *
+ * @param n the tree from `contract.read_tree`
+ * @returns the view; a node without a message is a disabled control
+ *
+ * Example:
+ *     screen(tree).padding(SPACE_LG)
+ */
+public fun screen(n: Node): View<Msg> = match n {
+    Text(s, style) => styled_text(s, style),
+    Button(label, look, msg) => button_of(label, look, msg),
+    // contract.read_tree refuses inputs without a message (DECISION-016).
+    Input(value, hint, Some(msg)) => input(
+        value,
+        fun(s: string) = Msg.Event(msg, Some(s)),
+    ).placeholder(hint),
+    Input(value, _, None) => text(value),
+    Column(spacing, padding, kids) => column(kids.map(screen)).spacing(pixels(spacing)).padding(
+        pixels(padding),
+    ),
+    Row(spacing, padding, kids) => row(kids.map(screen)).spacing(pixels(spacing)).padding(
+        pixels(padding),
+    ),
+    Unsupported(kind) => text("Unsupported component: {kind}").dim(),
+};
+
+/**
+ * Builds the screen shown when an app stopped or never started.
+ *
+ * @param reason why, in plain words
+ * @param can_restart whether to offer Restart (not when the module itself didn't load)
+ * @returns the error screen
+ *
+ * Example:
+ *     stopped("This app stopped responding", true)
+ */
+public fun stopped(reason: string, can_restart: bool): View<Msg> {
+    let mut kids: View<Msg>[] = [
+        text("This app stopped working").size(TEXT_TITLE).bold(),
+        text(reason).dim(),
+    ];
+    if can_restart {
+        kids.push(button("Restart", Msg.Restart).style(ButtonStyle.Primary));
+    }
+    column(kids).spacing(SPACE_SM)
+}
+
+fun styled_text(s: string, style: TextStyle): View<Msg> = match style {
+    Body => text(s),
+    Title => text(s).size(TEXT_TITLE).bold(),
+    Heading => text(s).size(TEXT_HEADING).bold(),
+    Dim => text(s).dim(),
+};
+
+fun button_of(label: string, look: ButtonLook, msg: Option<Value>): View<Msg> {
+    let style = match look {
+        Normal => ButtonStyle.Normal,
+        Primary => ButtonStyle.Primary,
+        Danger => ButtonStyle.Danger,
+        Subtle => ButtonStyle.Subtle,
+    };
+    match msg {
+        Some(m) => button(label, Msg.Event(m, None)).style(style),
+        // kivuli: a button without a message is disabled; any placeholder
+        // message works, since `.disabled(true)` removes it.
+        None => button(label, Msg.Restart).disabled(true).style(style),
+    }
+}

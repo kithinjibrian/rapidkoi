@@ -1,0 +1,45 @@
+// End to end: the Rust counter (guest/rust/counter) driven through the
+// shell, with no display. Skipped unless the guest has been built (see
+// CLAUDE.md COMMANDS), so the suite never needs Rust.
+import rapidkoi.shell { Model, Screen, boot, update, view };
+import kivuli.testing { click, is_disabled, type_into, texts };
+import std.fs;
+
+const COUNTER: string = "guest/rust/target/wasm32-unknown-unknown/release/counter.wasm";
+
+fun started(): Model {
+    if !fs.is_file(COUNTER) {
+        skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
+    }
+    let m = boot(["./main", COUNTER]);
+    if let Stopped(why, _) = m.screen {
+        panic("the counter didn't start: {why}");
+    }
+    m
+}
+
+@test
+fun the_counter_starts_at_zero_with_reset_disabled() {
+    let m = started();
+    assert_eq(texts(view(m)), ["Counter", "Count: 0", "What's your name?"]);
+    assert_eq(is_disabled(view(m), "Reset"), Ok(true));
+    assert_eq(m.title, "Rapidkoi — counter.wasm");
+}
+
+@test
+fun add_counts_and_reset_clears() {
+    let mut m = started();
+    m = update(m, click(view(m), "Add").unwrap());
+    m = update(m, click(view(m), "Add").unwrap());
+    assert_eq(texts(view(m))[1], "Count: 2");
+    assert_eq(is_disabled(view(m), "Reset"), Ok(false));
+    m = update(m, click(view(m), "Reset").unwrap());
+    assert_eq(texts(view(m))[1], "Count: 0");
+}
+
+@test
+fun typing_a_name_greets_it() {
+    let mut m = started();
+    m = update(m, type_into(view(m), "Your name", "Amina").unwrap());
+    assert_eq(texts(view(m))[2], "Hello, Amina!");
+}

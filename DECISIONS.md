@@ -102,6 +102,35 @@ Rules:
 
 ---
 
+### DECISION-016 — A read-only text input (kivuli)
+
+**Status:** open
+**Raised:** 2026-10-17 — Session 6
+**Resolved by:** human
+**Blocks:** Contract v1 inputs without `on_change` (shown as disabled).
+
+**Question:** kivuli's `.disabled()` only affects buttons (`../kivuli/src/views.la`, `disabled`); a text field can't be made read-only or insensitive. How should the shell show an `input` with no `on_change`?
+
+**Options:**
+- A) Add `.disabled(true)` support for text fields to kivuli (`gtk_widget_set_sensitive(false)`, like buttons), in a kivuli session, then render it here. *Recommended: it matches "no handler means disabled" everywhere.*
+- B) Change contract v1 so `on_change` is required on inputs. A contract change: needs a version decision.
+
+**Notes:** Until then `contract.read_tree` refuses such an input with a visible contract error ("an input without \"on_change\" isn't supported yet"), never a fake read-only field.
+
+---
+
+### DECISION-017 — Listing a module's exports (lugha-wasmtime)
+
+**Status:** deferred
+**Raised:** 2026-10-17 — Session 6
+**Revisit when:** The next lugha-wasmtime PRP, or before build path step 2.
+
+**Question:** lugha-wasmtime can't list a module's or instance's exports and their types, so the shell can't check `alloc`, `init`, `update` and `view` before calling them (PRP-001 asked for that). Add export listing (`wasmtime_module_exports` / `wasmtime_instance_export_nth`) upstream?
+
+**Notes:** Safe meanwhile: a missing or mistyped export fails its first call with `MissingExport`/`WrongExport` and the error screen. `memory` and `rapidkoi_version` are still checked at load. Just later than ideal: a missing `update` shows on the first click.
+
+---
+
 ## RESOLVED
 
 ### DECISION-012 — UI contract v1

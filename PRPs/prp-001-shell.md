@@ -1,3 +1,5 @@
+**Status:** approved by the owner, 2026-10-17 (session 6)
+
 ## FEATURE: The shell: load one local WebAssembly app and run it under UI contract v1
 
 ## OBJECTIVE
@@ -14,7 +16,7 @@ $ lughac build src/main.la -o main && ./main guest/rust/target/wasm32-unknown-un
 - Ending state:
 
 ```
-lugha.toml            — + wasmtime and cbor as path packages
+lugha.toml            — + wasmtime and cbor as git packages
 src/main.la           — wiring: args → load → kivuli.sandbox (≤ 40 lines)
 src/limits.la         — every contract limit and the fuel calibration, as named constants
 src/theme.la          — docs/DESIGN.md tokens; contract words (sm, title, primary…) → kivuli values
@@ -43,7 +45,7 @@ CLAUDE.md             — COMMANDS (guest build), FILE ORGANIZATION, architectur
 ### Must Do
 
 **Dependencies**
-- `lugha.toml` `[packages]`: `wasmtime = { path = "../lugha-wasmtime", version = "0.1" }`, `cbor = { path = "../lugha-cbor", version = "0.1" }`. `lugha.lock` is only ever written by lughac.
+- `lugha.toml` `[packages]`: `wasmtime` and `cbor` as git packages from github.com/kithinjibrian (tags v0.1.0), as the owner asked in session 6. `lugha.lock` is only ever written by lughac.
 
 **Opening (`main.la`, `guest.la`)**
 - `./main <path>`: read the file with `read_bytes`. Over 32 MB → error screen. The size is checked after reading, because `std.fs` has no size query (DECISION-015).

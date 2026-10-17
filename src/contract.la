@@ -1,0 +1,233 @@
+/**
+ * UI contract v1, pure: decodes a guest's screen description into a `Node`
+ * tree, reads `update`'s result, and encodes the event envelope sent back.
+ * Never calls a guest or GTK, so it is tested headlessly. Every limit on a
+ * description is enforced here (`limits.la`). The types live in `nodes.la`
+ * and are re-exported here, so callers import them from `contract`.
+ *
+ * Depends on: cbor, limits, nodes, props
+ * Used by: render, theme, shell
+ */
+import cbor { Value, Entry, Limits, decode, encode };
+import limits { MAX_VIEW, MAX_UPDATE, MAX_NODES, MAX_NODE_DEPTH, MAX_STRING, MAX_STATE };
+import props { text, optional_text, text_style, button_look, space };
+public import nodes { TextStyle, ButtonLook, Space, Node, ContractError };
+
+/**
+ * Decodes a screen description into a tree.
+ *
+ * @param bytes what the guest's `view` returned
+ * @returns the tree; `Err(TooLong)` over `MAX_VIEW` (checked before decoding),
+ *     `Err(Decode)` for bad CBOR or a decoder limit, `Err(Invalid)` for a
+ *     node breaking contract v1 or the node limits
+ *
+ * Example:
+ *     read_tree(bytes)?
+ */
+public fun read_tree(bytes: u8[]): Result<Node, ContractError> {
+    if bytes.len > MAX_VIEW {
+        return Err(ContractError.TooLong("the screen description", bytes.len));
+    }
+    // Each node level is two CBOR levels (the node's map, then its
+    // `children` array): 2 × 64 = 128, plus 8 for the props map and the
+    // message values nested inside it. 16 items is a generous bound for one
+    // node (kind, props, a handful of props, a message), so 16 × 10,000.
+    // Node depth and count are then checked exactly while walking.
+    let bounds = Limits {
+        max_depth: 2 * MAX_NODE_DEPTH + 8,
+        max_items: 16 * MAX_NODES,
+        max_bytes: MAX_VIEW,
+        max_string: MAX_STRING,
+    };
+    let value = decode(bytes, bounds).map_err(ContractError.Decode)?;
+    let count = Ref.new(0);
+    node(value, "", 0, 1, count)
+}
+
+/**
+ * Reads the state out of what the guest's `update` returned.
+ *
+ * @param bytes the encoded `{ "state": bytes, "effects": [] }`
+ * @returns the new state; `Err(TooLong)`, `Err(Decode)`, or `Err(Invalid)`
+ *     when it isn't a map holding byte-string `state` and array `effects`
+ *     (effects are reserved and ignored in v1)
+ *
+ * Example:
+ *     read_update(bytes)?
+ */
+public fun read_update(bytes: u8[]): Result<u8[], ContractError> {
+    if bytes.len > MAX_UPDATE {
+        return Err(ContractError.TooLong("the update result", bytes.len));
+    }
+    // A shallow map; `effects` may hold anything, so its depth and items are
+    // still bounded, but loosely: v1 never reads them.
+    let bounds = Limits {
+        max_depth: 32,
+        max_items: 10_000,
+        max_bytes: MAX_UPDATE,
+        max_string: MAX_STATE,
+    };
+    let value = decode(bytes, bounds).map_err(ContractError.Decode)?;
+    if value.as_map().is_none() {
+        return Err(nodes.invalid("update", "the result must be a map"));
+    }
+    let state = match value.get("state") {
+        Some(Bytes(b)) => b,
+        Some(_) => {
+            return Err(nodes.invalid("update", "\"state\" must be bytes"));
+        }
+        None => {
+            return Err(nodes.invalid("update", "\"state\" is missing"));
+        }
+    };
+    match value.get("effects") {
+        Some(Array(_)) => Ok(state),
+        Some(_) => Err(nodes.invalid("update", "\"effects\" must be an array")),
+        None => Err(nodes.invalid("update", "\"effects\" is missing")),
+    }
+}
+
+/**
+ * Encodes the event envelope sent to the guest's `update`.
+ *
+ * @param msg the message the node carried, exactly as decoded
+ * @param value the event's data: an input's new text, or `None`
+ * @returns the CBOR bytes of `{ "msg": msg }` or `{ "msg": msg, "value": text }`
+ *
+ * Example:
+ *     envelope(msg, Some("Amina"))
+ */
+public fun envelope(msg: Value, value: Option<string>): u8[] {
+    let mut entries = [Entry { key: Value.Text("msg"), value: msg }];
+    if let Some(text) = value {
+        entries.push(Entry { key: Value.Text("value"), value: Value.Text(text) });
+    }
+    encode(Value.Map(entries))
+}
+
+/**
+ * Decodes one node, counting it (and its subtree) in `count`. `parent` is
+ * the parent's path and `index` the node's place among its siblings; the
+ * root has parent `""`. Paths read `root > column > button[1]`.
+ */
+fun node(
+    v: Value,
+    parent: string,
+    index: i64,
+    depth: i64,
+    count: Ref<i64>,
+): Result<Node, ContractError> {
+    let path = if parent == "" { "root" } else { "{parent} > [{index}]" };
+    if v.as_map().is_none() {
+        return Err(nodes.invalid(path, "a node must be a map"));
+    }
+    let kind = match v.get("kind") {
+        Some(Text(k)) => k,
+        Some(_) => {
+            return Err(nodes.invalid(path, "\"kind\" must be text"));
+        }
+        None => {
+            return Err(nodes.invalid(path, "\"kind\" is missing"));
+        }
+    };
+    let here = if parent == "" { "root > {kind}" } else { "{parent} > {kind}[{index}]" };
+    count.set(count.get() + 1);
+    if count.get() > MAX_NODES {
+        return Err(nodes.invalid(here, "more than {MAX_NODES} nodes"));
+    }
+    if depth > MAX_NODE_DEPTH {
+        return Err(nodes.invalid(here, "deeper than {MAX_NODE_DEPTH} nodes"));
+    }
+    let given = match v.get("props") {
+        Some(Map(_)) => v.get("props").unwrap(),
+        None => Value.Map([]),
+        Some(_) => {
+            return Err(nodes.invalid(here, "\"props\" must be a map"));
+        }
+    };
+    match kind {
+        "text" => Ok(Node.Text(text(given, "text", here)?, text_style(given, here)?)),
+        "button" => Ok(
+            Node.Button(
+                text(given, "label", here)?,
+                button_look(given, here)?,
+                given.get("on_press"),
+            ),
+        ),
+        "input" => {
+            let value = text(given, "value", here)?;
+            let placeholder = optional_text(given, "placeholder", here)?;
+            match given.get("on_change") {
+                Some(msg) => Ok(Node.Input(value, placeholder, Some(msg))),
+                // kivuli has no read-only text field yet: refuse visibly,
+                // never fake one (DECISION-016).
+                None => Err(
+                    nodes.invalid(here, "an input without \"on_change\" isn't supported yet"),
+                ),
+            }
+        }
+        "column" => Ok(
+            Node.Column(
+                space(given, "spacing", here)?,
+                space(given, "padding", here)?,
+                children(v, here, depth, count)?,
+            ),
+        ),
+        "row" => Ok(
+            Node.Row(
+                space(given, "spacing", here)?,
+                space(given, "padding", here)?,
+                children(v, here, depth, count)?,
+            ),
+        ),
+        _ => {
+            // Unknown kinds aren't read, but their subtree still counts
+            // against the limits, so it can't hide an oversized tree.
+            tally(v, here, depth, count)?;
+            Ok(Node.Unsupported(kind))
+        }
+    }
+}
+
+/** Decodes a container's `children`, each at the next depth. */
+fun children(v: Value, here: string, depth: i64, count: Ref<i64>): Result<Node[], ContractError> {
+    let items = match v.get("children") {
+        Some(Array(xs)) => xs,
+        None => [],
+        Some(_) => {
+            return Err(nodes.invalid(here, "\"children\" must be an array"));
+        }
+    };
+    let mut out: Node[] = [];
+    let mut i = 0;
+    for item of items {
+        out.push(node(item, here, i, depth + 1, count)?);
+        i += 1;
+    }
+    Ok(out)
+}
+
+/** Counts an unknown node's subtree without reading it. */
+fun tally(v: Value, here: string, depth: i64, count: Ref<i64>): Result<(), ContractError> {
+    if let Some(Array(items)) = v.get("children") {
+        let mut i = 0;
+        for item of items {
+            if item.as_map().is_some() {
+                let kind = item.get("kind").map(
+                    fun(k: Value) = k.as_text().unwrap_or("?"),
+                ).unwrap_or("?");
+                let at = "{here} > {kind}[{i}]";
+                count.set(count.get() + 1);
+                if count.get() > MAX_NODES {
+                    return Err(nodes.invalid(at, "more than {MAX_NODES} nodes"));
+                }
+                if depth + 1 > MAX_NODE_DEPTH {
+                    return Err(nodes.invalid(at, "deeper than {MAX_NODE_DEPTH} nodes"));
+                }
+                tally(item, at, depth + 1, count)?;
+            }
+            i += 1;
+        }
+    }
+    Ok(())
+}

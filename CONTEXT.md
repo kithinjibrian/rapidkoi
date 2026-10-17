@@ -206,6 +206,67 @@ DECISIONS.md          — 014 (kivuli single-instance) and 015 (std.fs size) def
 
 ---
 
+## SESSION 6 — 2026-10-17 — Build PRP-001: the shell — closed
+
+Branch: prp-001-shell (not merged)
+
+### WHAT WAS DONE
+
+Built PRP-001 test-first on `prp-001-shell`. The shell loads a `.wasm` app, checks memory and version, and runs init/update/view under contract v1 with every limit. It decodes CBOR into a Node tree, renders through kivuli, and stops a failing app behind an error screen with Restart. A Rust crate (`guest/rust/rapidkoi`) and counter demo work end to end (`test/counter.la`). On the owner's word, wasmtime and cbor come from GitHub (v0.1.0) instead of path packages. Not merged: `src/contract.la` is 368 lines (limit 300) and its split needs approval; DECISION-016 is open.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml, lugha.lock — wasmtime and cbor git packages (lock written by lughac)
+src/main.la            — wiring: sandbox(boot(args()), update, view)
+src/limits.la          — every limit; FUEL_PER_CALL calibrated (700M ≈ 100 ms, i5-4308U)
+src/theme.la           — DESIGN.md tokens, Space → pixels
+src/contract.la        — pure CBOR ↔ contract v1, three-layer limits (368 lines: over the limit)
+src/render.la          — Node → kivuli View, error screen, Msg
+src/guest.la           — store, limits, calling convention, GuestError, reason()
+src/shell.la           — Model (Running | Stopped), boot, launch, update, view
+test/support.la contract.la render.la guest.la shell.la counter.la — 47 tests
+guest/rust/            — workspace: rapidkoi crate (View, App, export!, arena), counter
+CLAUDE.md              — rule 3 reworded (shell's update calls the guest), COMMANDS (cargo), tree, known issues
+DECISIONS.md           — 016 (kivuli read-only input, open), 017 (wasmtime export listing, deferred)
+CHANGELOG.md           — the shell, safe failure, Rust library + demo
+PRPs/prp-001-shell.md  — marked approved; deps line → git
+```
+
+### TESTS WRITTEN
+
+- test/contract.la (15): kinds, props, styles, unknown props/kinds, error paths, node/depth/string/size limits, update results, envelopes.
+- test/render.la (7): texts, button message/disabled, typing, placeholder, error screen with/without Restart.
+- test/guest.la (14): good guest, bytes written reach update, versions, missing memory/version, missing/mistyped export, trap, out of fuel (and recovery), out-of-bounds pointer, huge length, bad alloc pointer, closed, compile errors.
+- test/shell.la (8): start, envelope reaches update, state stored, crash → Stopped → Restart, bad tree, bad update result, boot errors.
+- test/counter.la (3): the real Rust counter end to end (skips until built).
+- guest/rust (7): exact CBOR of a text and a column, disabled button, envelope decode, arena lifetime, counter logic and view.
+
+### DECISIONS MADE
+
+- Messages are kept as decoded CBOR values and re-encoded in preferred serialisation: the same value, not always the same bytes as the guest sent (byte-exact would need raw item spans from lugha-cbor).
+- Fixture guests are generated WebAssembly text in `test/support.la` instead of `test/fixtures/*.wat` files: the blobs come from `cbor.encode`, so they can't drift from the contract.
+- Fuel calibrated offline with `/usr/bin/time` (std has no clock).
+
+### PENDING DECISIONS OPENED
+
+- DECISION-016 (open): kivuli read-only text input.
+- DECISION-017 (deferred): lugha-wasmtime export listing.
+
+### STILL OPEN AT CLOSE
+
+- Split of `src/contract.la`, proposed to the owner: `nodes.la` (the types, ≈90 lines), `props.la` (prop readers, ≈75), `contract.la` (read_tree/read_update/envelope and the walk, ≈210, re-exporting nodes' types so no caller changes).
+- Merge of `prp-001-shell` after the split, with the full VALIDATION run again.
+- The owner opens the window: `./main guest/rust/target/wasm32-unknown-unknown/release/counter.wasm`.
+
+---
+
+## SESSION 7 — 2026-10-17 — Split contract.la; merge PRP-001 — open
+
+Branch: prp-001-shell
+
+---
+
 ## NEXT SESSION START POINT
 
-Open session 6 first. If the owner approved PRP-001, build it on branch `prp-001-shell`, test-first, following the PRP exactly; merge once every VALIDATION command passes; then tell the owner exactly what to run to see the window. If they asked for changes, update the PRP and present it again.
+Open session 7 on `prp-001-shell`. If the owner approved the split: move the types into `src/nodes.la` and the prop readers into `src/props.la`, with `contract.la` re-exporting the types; run every VALIDATION command; merge into `main`. Apply the owner's answer to DECISION-016 (if A, that's kivuli work in a kivuli session first). Then ask whether to push (no remote yet: DECISION-002).

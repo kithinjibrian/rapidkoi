@@ -1,0 +1,64 @@
+// Rendering, pure: decoded trees become kivuli views, checked through
+// kivuli.testing with no display.
+import rapidkoi.contract { Node, TextStyle, ButtonLook, Space };
+import rapidkoi.render { Msg, screen, stopped };
+import kivuli.testing { Lookup, click, is_disabled, type_into, texts };
+import support { t };
+
+@test
+fun texts_appear() {
+    let v = screen(
+        Node.Column(Space.Zero, Space.Zero, [
+            Node.Text("Counter", TextStyle.Title),
+            Node.Text("3", TextStyle.Body),
+            Node.Text("hint", TextStyle.Dim),
+            Node.Text("Section", TextStyle.Heading),
+        ]),
+    );
+    assert_eq(texts(v), ["Counter", "3", "hint", "Section"]);
+}
+
+@test
+fun a_button_sends_its_message() {
+    let v = screen(
+        Node.Row(Space.Sm, Space.Zero, [Node.Button("Add", ButtonLook.Primary, Some(t("add")))]),
+    );
+    assert_eq(click(v, "Add"), Ok(Msg.Event(t("add"), None)));
+    assert_eq(is_disabled(v, "Add"), Ok(false));
+}
+
+@test
+fun a_button_without_a_message_is_disabled() {
+    let v = screen(Node.Button("Reset", ButtonLook.Normal, None));
+    assert_eq(is_disabled(v, "Reset"), Ok(true));
+}
+
+@test
+fun typing_sends_the_message_and_the_text() {
+    let v = screen(Node.Input("", "Your name", Some(t("name"))));
+    assert_eq(type_into(v, "Your name", "Amina"), Ok(Msg.Event(t("name"), Some("Amina"))));
+}
+
+@test
+fun an_unsupported_kind_shows_a_placeholder() {
+    let v = screen(
+        Node.Column(Space.Zero, Space.Zero, [
+            Node.Unsupported("map"),
+            Node.Text("after", TextStyle.Body),
+        ]),
+    );
+    assert_eq(texts(v), ["Unsupported component: map", "after"]);
+}
+
+@test
+fun the_error_screen_offers_restart() {
+    let v = stopped("This app stopped responding", true);
+    assert_eq(texts(v), ["This app stopped working", "This app stopped responding"]);
+    assert_eq(click(v, "Restart"), Ok(Msg.Restart));
+}
+
+@test
+fun no_restart_when_the_app_never_loaded() {
+    let v = stopped("Couldn't read app.wasm", false);
+    assert_eq(click(v, "Restart"), Err(Lookup.NotFound("button \"Restart\"")));
+}

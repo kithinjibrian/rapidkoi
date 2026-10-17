@@ -1,0 +1,186 @@
+// Running guests: loading, the version check, the calling convention, and
+// every way a guest can misbehave. Fixture guests are WebAssembly text; no
+// Rust and no display needed.
+import rapidkoi.guest { Guest, GuestError, compile, open, reason };
+import wasmtime { Engine, Module };
+import support { fixed, pack, counter_tree, result_of };
+
+/** Opens WebAssembly text as a guest. */
+fun start(wat: string): Result<Guest, GuestError> {
+    let engine = Engine.new();
+    match Module.from_text(engine, wat) {
+        Ok(module) => open(engine, module),
+        Err(e) => Err(GuestError.Compile("{e}")),
+    }
+}
+
+/** A guest with memory and a bump `alloc`, plus the exports in `funcs`. */
+fun with(version: i32, funcs: string): string = [
+    "(module (memory (export \"memory\") 1)",
+    "(global $next (mut i32) (i32.const 1024))",
+    "(func (export \"rapidkoi_version\") (result i32) (i32.const {version}))",
+    "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
+    "  (local.set $p (global.get $next))",
+    "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
+    "  (local.get $p))",
+    funcs + ")",
+].join("\n");
+
+/** The usual three exports, each returning (0, 0), with `view` replaced. */
+fun with_view(view: string): string = with(
+    1,
+    [
+        "(func (export \"init\") (result i64) (i64.const 0))",
+        "(func (export \"update\") (param i32 i32 i32 i32) (result i64) (i64.const 0))",
+        view,
+    ].join("\n"),
+);
+
+@test
+fun a_good_guest_answers_each_call() {
+    let state: u8[] = [7, 7];
+    let tree = counter_tree("0");
+    let result = result_of([8]);
+    let g = start(fixed(1, state, tree, result)).unwrap();
+    assert_eq(g.init(), Ok(state));
+    assert_eq(g.view(state), Ok(tree));
+    assert_eq(g.update(state, [1, 2, 3]), Ok(result));
+    g.close();
+}
+
+@test
+fun the_update_receives_the_bytes_written() {
+    // update returns (event_ptr, event_len): the event bytes, read back.
+    let g = start(
+        with(
+            1,
+            [
+                "(func (export \"init\") (result i64) (i64.const 0))",
+                "(func (export \"view\") (param i32 i32) (result i64) (i64.const 0))",
+                "(func (export \"update\") (param i32 i32 i32 i32) (result i64)",
+                "  (i64.or (i64.shl (i64.extend_i32_u (local.get 2)) (i64.const 32)) (i64.extend_i32_u (local.get 3))))",
+            ].join("\n"),
+        ),
+    ).unwrap();
+    assert_eq(g.update([1, 2], [9, 8, 7]), Ok([9, 8, 7]));
+}
+
+@test
+fun another_version_is_refused() {
+    let tree = counter_tree("0");
+    match start(fixed(2, [], tree, [])) {
+        Err(Version(2)) => (),
+        _ => panic("expected Version(2)"),
+    }
+    assert_eq(reason(GuestError.Version(2)), "This app needs a newer version of Rapidkoi");
+    assert_eq(reason(GuestError.Version(0)), "This app isn't a Rapidkoi app");
+}
+
+@test
+fun a_missing_memory_or_version_is_refused() {
+    match start("(module (func (export \"rapidkoi_version\") (result i32) (i32.const 1)))") {
+        Err(MissingExport("memory")) => (),
+        _ => panic("expected MissingExport(memory)"),
+    }
+    match start("(module (memory (export \"memory\") 1))") {
+        Err(MissingExport("rapidkoi_version")) => (),
+        _ => panic("expected MissingExport(rapidkoi_version)"),
+    }
+}
+
+@test
+fun a_missing_export_is_named() {
+    let g = start(with(1, "(func (export \"init\") (result i64) (i64.const 0))")).unwrap();
+    assert_eq(g.view([]), Err(GuestError.MissingExport("view")));
+}
+
+@test
+fun a_mistyped_export_is_named() {
+    let g = start(
+        with(1, "(func (export \"init\") (param i32) (result i64) (i64.const 0))"),
+    ).unwrap();
+    assert_eq(g.init(), Err(GuestError.WrongExport("init")));
+}
+
+@test
+fun a_trap_stops_the_call() {
+    let g = start(
+        with_view("(func (export \"view\") (param i32 i32) (result i64) unreachable)"),
+    ).unwrap();
+    match g.view([]) {
+        Err(Trap(_)) => (),
+        _ => panic("expected a trap"),
+    }
+}
+
+@test
+fun an_endless_loop_runs_out_of_fuel() {
+    let g = start(
+        with_view(
+            "(func (export \"view\") (param i32 i32) (result i64) (loop $l (br $l)) (i64.const 0))",
+        ),
+    ).unwrap();
+    assert_eq(g.view([]), Err(GuestError.OutOfFuel));
+    // Each call gets a fresh budget, so the guest can still be called.
+    assert_eq(g.init(), Ok([]));
+}
+
+@test
+fun a_pointer_past_memory_is_out_of_bounds() {
+    let g = start(
+        with_view(
+            "(func (export \"view\") (param i32 i32) (result i64) (i64.const {pack(65530, 100)}))",
+        ),
+    ).unwrap();
+    assert_eq(g.view([]), Err(GuestError.OutOfBounds));
+}
+
+@test
+fun a_huge_length_is_refused_before_reading() {
+    let g = start(
+        with_view(
+            "(func (export \"view\") (param i32 i32) (result i64) (i64.const {pack(0, 2147483648)}))",
+        ),
+    ).unwrap();
+    assert_eq(g.view([]), Err(GuestError.TooLong("the screen description", 2147483648)));
+}
+
+@test
+fun a_bad_alloc_pointer_is_out_of_bounds() {
+    let g = start(
+        [
+            "(module (memory (export \"memory\") 1)",
+            "(func (export \"rapidkoi_version\") (result i32) (i32.const 1))",
+            "(func (export \"alloc\") (param i32) (result i32) (i32.const -256))",
+            "(func (export \"view\") (param i32 i32) (result i64) (i64.const 0)))",
+        ].join("\n"),
+    ).unwrap();
+    assert_eq(g.view([1, 2, 3]), Err(GuestError.OutOfBounds));
+}
+
+@test
+fun a_closed_guest_says_so() {
+    let g = start(fixed(1, [], counter_tree("0"), [])).unwrap();
+    g.close();
+    assert_eq(g.init(), Err(GuestError.Closed));
+}
+
+@test
+fun compiling_refuses_bad_and_oversized_modules() {
+    let engine = Engine.new();
+    match compile(engine, [0, 1, 2]) {
+        Err(Compile(_)) => (),
+        _ => panic("expected Compile"),
+    }
+    let big: u8[] = [0; 32 * 1024 * 1024 + 1];
+    match compile(engine, big) {
+        Err(TooLarge(n)) => assert_eq(n, 33554433),
+        _ => panic("expected TooLarge"),
+    }
+}
+
+@test
+fun reasons_are_plain() {
+    assert_eq(reason(GuestError.OutOfFuel), "This app stopped responding");
+    assert_eq(reason(GuestError.MissingExport("view")), "This app is missing \"view\"");
+}

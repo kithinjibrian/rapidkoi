@@ -1,0 +1,47 @@
+/**
+ * The design tokens of `docs/DESIGN.md`, and the contract's meaning words
+ * mapped onto them. Every number the shell passes to kivuli comes from here.
+ *
+ * Depends on: contract
+ * Used by: render
+ */
+import contract { Space };
+
+/** Inside tight groups, in pixels. */
+public const SPACE_XS: i64 = 4;
+/** Between related controls, in pixels. */
+public const SPACE_SM: i64 = 8;
+/** Between rows of a form, in pixels. */
+public const SPACE_MD: i64 = 12;
+/** Window padding and between sections, in pixels. */
+public const SPACE_LG: i64 = 24;
+/** Between major regions, in pixels. */
+public const SPACE_XL: i64 = 36;
+
+/** A view's title, in points (with bold). */
+public const TEXT_TITLE: i64 = 18;
+/** A section heading, in points (with bold). */
+public const TEXT_HEADING: i64 = 14;
+
+/** The window's default width, in pixels. */
+public const WINDOW_WIDTH: i64 = 480;
+/** The window's default height, in pixels. */
+public const WINDOW_HEIGHT: i64 = 640;
+
+/**
+ * Returns the pixels a contract spacing or padding word stands for.
+ *
+ * @param s the word, as decoded
+ * @returns its token's pixels; `0` for `none`
+ *
+ * Example:
+ *     column(kids).spacing(pixels(Space.Md))
+ */
+public fun pixels(s: Space): i64 = match s {
+    Zero => 0,
+    Xs => SPACE_XS,
+    Sm => SPACE_SM,
+    Md => SPACE_MD,
+    Lg => SPACE_LG,
+    Xl => SPACE_XL,
+};

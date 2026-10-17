@@ -1,0 +1,78 @@
+/**
+ * The types of UI contract v1's decoded form: the node tree, its meaning
+ * words, and why a description was refused. Data only; reading bytes into
+ * them is `contract.la`, reading props is `props.la`.
+ *
+ * Depends on: cbor
+ * Used by: contract, props (and, through contract's re-export, render, theme, shell)
+ */
+import cbor { Value, DecodeError };
+
+/** How a text reads: the contract's `style` words. */
+public enum TextStyle {
+    /** The theme's ordinary text (no `style`, or `"body"`). */
+    Body,
+    /** A view's title (`"title"`). */
+    Title,
+    /** A section heading (`"heading"`). */
+    Heading,
+    /** Secondary text (`"dim"`). */
+    Dim,
+}
+
+/** What a button means: the contract's button `style` words. */
+public enum ButtonLook {
+    /** An ordinary action (no `style`, or `"normal"`). */
+    Normal,
+    /** The one main action in a view (`"primary"`). */
+    Primary,
+    /** Deletes or discards (`"danger"`). */
+    Danger,
+    /** Low emphasis (`"subtle"`). */
+    Subtle,
+}
+
+/** A spacing or padding word; sizes come from `theme.la`. */
+public enum Space {
+    /** `"none"`, or the prop left out. */
+    Zero,
+    /** `"xs"`. */
+    Xs,
+    /** `"sm"`. */
+    Sm,
+    /** `"md"`. */
+    Md,
+    /** `"lg"`. */
+    Lg,
+    /** `"xl"`. */
+    Xl,
+}
+
+/** One decoded node. Messages stay CBOR values the shell never looks inside. */
+public enum Node {
+    /** A text and its style. */
+    Text(string, TextStyle),
+    /** A label, its look, and the message a press sends (`None`: disabled). */
+    Button(string, ButtonLook, Option<Value>),
+    /** The text shown, the placeholder, and the message each edit sends. */
+    Input(string, string, Option<Value>),
+    /** Spacing, padding, and the children top to bottom. */
+    Column(Space, Space, Self[]),
+    /** Spacing, padding, and the children left to right. */
+    Row(Space, Space, Self[]),
+    /** A kind this shell doesn't know: shown as a placeholder. */
+    Unsupported(string),
+}
+
+/** Why a description or result was refused. */
+public enum ContractError {
+    /** The bytes aren't CBOR this shell accepts (or pass a decoder limit). */
+    Decode(DecodeError),
+    /** What was too long, and its length in bytes. */
+    TooLong(string, i64),
+    /** Where in the tree (`root > column > button[1]`), and what's wrong. */
+    Invalid(string, string),
+}
+
+/** A contract error at `path`. */
+fun invalid(path: string, problem: string): ContractError = ContractError.Invalid(path, problem);

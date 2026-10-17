@@ -125,11 +125,10 @@ Read this at the start of every session before writing any code.
 - `../lugha-wasmtime` PRP-001 (core runtime) merged in that repo: everything the shell needs.
 
 ### In Progress
-- Nothing.
+- PRP-001 (the shell): built, not merged.
 
 ### Not Started
-- Build path step 1, the shell: contract designed (decision 10); needs PRP-001.
-- `../lugha-cbor`: scaffolded (session 4); needs its PRP-001.
+- Build path step 1, the shell: PRP-001 built on `prp-001-shell` (session 6), 47 Lugha + 7 Rust tests green; merge waits on the contract.la split approval.
 
 ---
 

@@ -168,7 +168,14 @@ lughac fmt --check src test           # formatting; drop --check to rewrite
 lughac update src/main.la             # re-resolve git packages, rewrite lugha.lock
 lughac explain E0312                  # what an error code means
 lughac spec                           # the full Lugha language reference: check it before assuming a feature exists
+
+# The Rust guest (guest/rust/): cargo, never lughac
+cargo test --manifest-path guest/rust/Cargo.toml
+cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown
+./main guest/rust/target/wasm32-unknown-unknown/release/counter.wasm   # opens a window: the user's
 ```
+
+`test/counter.la` drives the built counter end to end; it skips itself until the guest is built.
 
 A task is done only when `fmt --check` is clean, `lughac test test/` passes (skips allowed only for `no display`), and `lughac build src/main.la -o main` succeeds.
 
@@ -182,8 +189,8 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 - **kivuli 0.1** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.1" }`): the UI. Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
 - **lugha-gtk** comes in through kivuli. rapidkoi does not import `gtk` directly.
 - **GTK 4** + GLib, through kivuli.
-- **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` from `../lugha-wasmtime` (`wasmtime = { path = "../lugha-wasmtime", version = "0.1" }` until it has a remote). rapidkoi never declares a wasmtime `extern` itself.
-- **CBOR** through the package `cbor` from `../lugha-cbor`. The guest↔shell contract is v1 (MEMORY.md decision 10): implement it exactly; any change is a DECISIONS.md entry and a version bump.
+- **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` (`wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }`; source in `../lugha-wasmtime`). rapidkoi never declares a wasmtime `extern` itself.
+- **CBOR** through the package `cbor` (`cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1" }`; source in `../lugha-cbor`). The guest↔shell contract is v1 (MEMORY.md decision 10): implement it exactly; any change is a DECISIONS.md entry and a version bump.
 - **Guests:** Rust (`wasm32-unknown-unknown`) under `guest/rust/`, built with cargo, never by `lughac`. The shell's tests use hand-written `.wat` fixtures and never need Rust.
 - **SQLite** for app data, from build path step 3 or 4 (MEMORY.md decision 5). Not before.
 
@@ -193,7 +200,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 
 1. **The app is one kivuli program: a `Model`, a `Msg` enum, a pure `update`, and a pure `view`.** *Why:* that is kivuli's contract; state changed anywhere else is invisible to the diff and won't render.
 2. **Never touch a GTK widget or import `gtk` from rapidkoi.** *Why:* kivuli owns the widgets; reaching past it breaks its diff and pinned-closure bookkeeping.
-3. **`update` and `view` never do I/O.** File, process and network work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. *Why:* blocking in `update` freezes the window.
+3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. The one exception: the shell's `update` (`src/shell.la`) calls the running guest synchronously, each call bounded by fuel (`src/limits.la`). *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
 4. **Keep `src/main.la` to wiring:** `main` calls kivuli with the initial model, `update` and `view` imported from their modules. *Why:* `main.la` can't be tested on its own; everything worth testing lives in a module.
 
 5. **Follow the vision's build path in order** (shell → links → a real app → storage and sync → live sessions → history). Never build part of a later step early. *Why:* each step shapes the next; a speculative later piece locks in guesses.
@@ -240,8 +247,14 @@ public fun load_settings(path: string): Settings { … }
 ├── .llmignore         — protected paths
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
-├── src/               — main.la (entry: a placeholder hello-world today)
-├── test/              — @test files mirroring src/ (created with the first PRP)
+├── src/               — main.la (entry: wiring only), shell.la (the kivuli app: Running | Stopped, calls the guest),
+│                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1; re-exports nodes' types),
+│                        nodes.la (the decoded types: Node, style words, ContractError), props.la (reading one node's props),
+│                        render.la (pure: Node → kivuli View; the error screen), theme.la (DESIGN.md tokens), limits.la (every limit)
+│                        Imports run one way: nodes ← props ← contract ← theme ← render ← shell ← main; limits ← contract, guest; guest ← shell
+├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text),
+│                        counter.la (end to end with the Rust counter; skips until it's built)
+├── guest/rust/        — Cargo workspace: rapidkoi (contract v1 for Rust: View builder, App trait, export!), counter (the demo)
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)
 ├── docs/
 │   ├── CODE_STYLE.md  — documentation rules for .la code
@@ -271,4 +284,6 @@ Update this tree when modules are added.
 
 ## KNOWN ISSUES — DO NOT FIX
 
-- **`src/main.la` imports `kivuli` but doesn't use it.** It is the `lughac init` placeholder, kept until the first PRP replaces it.
+- **A missing `update`, `alloc` or `view` export is only found on its first call**, not at load: lugha-wasmtime can't list exports yet (DECISION-017). The error screen still shows.
+- **An `input` without `on_change` is refused as a contract error**, not shown disabled: kivuli has no read-only text field yet (DECISION-016).
+- **A second `./main other.wasm` raises the first window** instead of opening the app: kivuli makes GTK single-instance (DECISION-014).
