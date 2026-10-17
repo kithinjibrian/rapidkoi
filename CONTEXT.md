@@ -662,6 +662,12 @@ docs/DESIGN.md, DECISIONS.md (020: done, renumbered), CLAUDE.md, CHANGELOG.md
 
 ---
 
+## SESSION 17 — 2026-10-17 — Center the frame's icons — open
+
+Branch: center-icons
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 12 on a new branch. PRP-002 with Amendments 1 and 2 is on `main`. Wait for the owner's style feedback before restyling. Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), discussed in chat first. As kivuli ships the rest of DECISION-020, swap each placeholder out.
