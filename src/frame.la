@@ -6,7 +6,7 @@
  * Depends on: kivuli, actions, tabs, theme
  * Used by: panel, shell
  */
-import kivuli { View, ButtonStyle, button, column, input, separator, spacer };
+import kivuli { View, Align, ButtonStyle, button, column, input, separator, spacer };
 import actions { Msg };
 import tabs { Page, Tab, AppPage };
 import theme { SPACE_SM, RAIL_WIDTH, TAB_SIZE };
@@ -74,11 +74,14 @@ public fun bar(page: Page, draft: string, editing: bool): Bar {
 public fun rail(open: Tab[], current: Option<i64>): View<Msg> {
     let mut items = open.map(fun(t: Tab) = tab_button(t, current));
     items.push(icon_button("list-add-symbolic", "New tab", Some(Msg.NewTab)));
-    items.push(separator());
+    items.push(separator().width(RAIL_WIDTH));
     items.push(spacer());
     items.push(icon_button("emblem-system-symbolic", "Settings (coming soon)", None));
     items.push(icon_button("view-more-symbolic", "More (coming soon)", None));
-    column(items).spacing(SPACE_SM).padding(SPACE_SM).width(RAIL_WIDTH)
+    // Each item at its own size on the rail's center line, not stretched
+    // across it: a stretched button's icon would sit at its left.
+    let centered = items.map(fun(v: View<Msg>) = v.align(Align.Center));
+    column(centered).spacing(SPACE_SM).padding(SPACE_SM).width(RAIL_WIDTH)
 }
 
 /**
