@@ -1,3 +1,5 @@
+**Status:** approved by the owner, 2026-10-18 (session 23)
+
 ## FEATURE: Local development: `./main serve` a bundle, and open it at `rapidkoi://localhost:PORT`
 
 ## OBJECTIVE

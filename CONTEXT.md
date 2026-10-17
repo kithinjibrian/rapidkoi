@@ -902,6 +902,12 @@ MEMORY.md    — next steps renumbered
 
 ---
 
+## SESSION 23 — 2026-10-18 — Build PRP-004: local development — open
+
+Branch: prp-004-dev-server
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 23 on `prp-004-dev-server`. If the owner approved PRP-004, build it test-first: address.la, then serve.la (handler, then command), then loader fetching (test with a server on a spawned green thread), then window/panel/frame. Keep tabs.la under 300 lines.
