@@ -248,9 +248,10 @@ public fun load_settings(path: string): Settings { … }
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
 ├── src/               — main.la (entry: wiring only), shell.la (the kivuli app: Running | Stopped, calls the guest),
-│                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1),
+│                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1; re-exports nodes' types),
+│                        nodes.la (the decoded types: Node, style words, ContractError), props.la (reading one node's props),
 │                        render.la (pure: Node → kivuli View; the error screen), theme.la (DESIGN.md tokens), limits.la (every limit)
-│                        Imports run one way: limits ← contract ← theme ← render ← shell ← main; limits ← guest ← shell
+│                        Imports run one way: nodes ← props ← contract ← theme ← render ← shell ← main; limits ← contract, guest; guest ← shell
 ├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
 ├── guest/rust/        — Cargo workspace: rapidkoi (contract v1 for Rust: View builder, App trait, export!), counter (the demo)

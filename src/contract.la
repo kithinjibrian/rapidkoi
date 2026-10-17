@@ -2,79 +2,16 @@
  * UI contract v1, pure: decodes a guest's screen description into a `Node`
  * tree, reads `update`'s result, and encodes the event envelope sent back.
  * Never calls a guest or GTK, so it is tested headlessly. Every limit on a
- * description is enforced here (`limits.la`).
+ * description is enforced here (`limits.la`). The types live in `nodes.la`
+ * and are re-exported here, so callers import them from `contract`.
  *
- * Depends on: cbor, limits
- * Used by: render, shell
+ * Depends on: cbor, limits, nodes, props
+ * Used by: render, theme, shell
  */
-import cbor { Value, Entry, DecodeError, Limits, decode, encode };
+import cbor { Value, Entry, Limits, decode, encode };
 import limits { MAX_VIEW, MAX_UPDATE, MAX_NODES, MAX_NODE_DEPTH, MAX_STRING, MAX_STATE };
-
-/** How a text reads: the contract's `style` words. */
-public enum TextStyle {
-    /** The theme's ordinary text (no `style`, or `"body"`). */
-    Body,
-    /** A view's title (`"title"`). */
-    Title,
-    /** A section heading (`"heading"`). */
-    Heading,
-    /** Secondary text (`"dim"`). */
-    Dim,
-}
-
-/** What a button means: the contract's button `style` words. */
-public enum ButtonLook {
-    /** An ordinary action (no `style`, or `"normal"`). */
-    Normal,
-    /** The one main action in a view (`"primary"`). */
-    Primary,
-    /** Deletes or discards (`"danger"`). */
-    Danger,
-    /** Low emphasis (`"subtle"`). */
-    Subtle,
-}
-
-/** A spacing or padding word; sizes come from `theme.la`. */
-public enum Space {
-    /** `"none"`, or the prop left out. */
-    Zero,
-    /** `"xs"`. */
-    Xs,
-    /** `"sm"`. */
-    Sm,
-    /** `"md"`. */
-    Md,
-    /** `"lg"`. */
-    Lg,
-    /** `"xl"`. */
-    Xl,
-}
-
-/** One decoded node. Messages stay CBOR values the shell never looks inside. */
-public enum Node {
-    /** A text and its style. */
-    Text(string, TextStyle),
-    /** A label, its look, and the message a press sends (`None`: disabled). */
-    Button(string, ButtonLook, Option<Value>),
-    /** The text shown, the placeholder, and the message each edit sends. */
-    Input(string, string, Option<Value>),
-    /** Spacing, padding, and the children top to bottom. */
-    Column(Space, Space, Self[]),
-    /** Spacing, padding, and the children left to right. */
-    Row(Space, Space, Self[]),
-    /** A kind this shell doesn't know: shown as a placeholder. */
-    Unsupported(string),
-}
-
-/** Why a description or result was refused. */
-public enum ContractError {
-    /** The bytes aren't CBOR this shell accepts (or pass a decoder limit). */
-    Decode(DecodeError),
-    /** What was too long, and its length in bytes. */
-    TooLong(string, i64),
-    /** Where in the tree (`root > column > button[1]`), and what's wrong. */
-    Invalid(string, string),
-}
+import props { text, optional_text, text_style, button_look, space };
+public import nodes { TextStyle, ButtonLook, Space, Node, ContractError };
 
 /**
  * Decodes a screen description into a tree.
@@ -132,21 +69,21 @@ public fun read_update(bytes: u8[]): Result<u8[], ContractError> {
     };
     let value = decode(bytes, bounds).map_err(ContractError.Decode)?;
     if value.as_map().is_none() {
-        return Err(invalid("update", "the result must be a map"));
+        return Err(nodes.invalid("update", "the result must be a map"));
     }
     let state = match value.get("state") {
         Some(Bytes(b)) => b,
         Some(_) => {
-            return Err(invalid("update", "\"state\" must be bytes"));
+            return Err(nodes.invalid("update", "\"state\" must be bytes"));
         }
         None => {
-            return Err(invalid("update", "\"state\" is missing"));
+            return Err(nodes.invalid("update", "\"state\" is missing"));
         }
     };
     match value.get("effects") {
         Some(Array(_)) => Ok(state),
-        Some(_) => Err(invalid("update", "\"effects\" must be an array")),
-        None => Err(invalid("update", "\"effects\" is missing")),
+        Some(_) => Err(nodes.invalid("update", "\"effects\" must be an array")),
+        None => Err(nodes.invalid("update", "\"effects\" is missing")),
     }
 }
 
@@ -168,8 +105,6 @@ public fun envelope(msg: Value, value: Option<string>): u8[] {
     encode(Value.Map(entries))
 }
 
-fun invalid(path: string, problem: string): ContractError = ContractError.Invalid(path, problem);
-
 /**
  * Decodes one node, counting it (and its subtree) in `count`. `parent` is
  * the parent's path and `index` the node's place among its siblings; the
@@ -184,62 +119,64 @@ fun node(
 ): Result<Node, ContractError> {
     let path = if parent == "" { "root" } else { "{parent} > [{index}]" };
     if v.as_map().is_none() {
-        return Err(invalid(path, "a node must be a map"));
+        return Err(nodes.invalid(path, "a node must be a map"));
     }
     let kind = match v.get("kind") {
         Some(Text(k)) => k,
         Some(_) => {
-            return Err(invalid(path, "\"kind\" must be text"));
+            return Err(nodes.invalid(path, "\"kind\" must be text"));
         }
         None => {
-            return Err(invalid(path, "\"kind\" is missing"));
+            return Err(nodes.invalid(path, "\"kind\" is missing"));
         }
     };
     let here = if parent == "" { "root > {kind}" } else { "{parent} > {kind}[{index}]" };
     count.set(count.get() + 1);
     if count.get() > MAX_NODES {
-        return Err(invalid(here, "more than {MAX_NODES} nodes"));
+        return Err(nodes.invalid(here, "more than {MAX_NODES} nodes"));
     }
     if depth > MAX_NODE_DEPTH {
-        return Err(invalid(here, "deeper than {MAX_NODE_DEPTH} nodes"));
+        return Err(nodes.invalid(here, "deeper than {MAX_NODE_DEPTH} nodes"));
     }
-    let props = match v.get("props") {
+    let given = match v.get("props") {
         Some(Map(_)) => v.get("props").unwrap(),
         None => Value.Map([]),
         Some(_) => {
-            return Err(invalid(here, "\"props\" must be a map"));
+            return Err(nodes.invalid(here, "\"props\" must be a map"));
         }
     };
     match kind {
-        "text" => Ok(Node.Text(text(props, "text", here)?, text_style(props, here)?)),
+        "text" => Ok(Node.Text(text(given, "text", here)?, text_style(given, here)?)),
         "button" => Ok(
             Node.Button(
-                text(props, "label", here)?,
-                button_look(props, here)?,
-                props.get("on_press"),
+                text(given, "label", here)?,
+                button_look(given, here)?,
+                given.get("on_press"),
             ),
         ),
         "input" => {
-            let value = text(props, "value", here)?;
-            let placeholder = optional_text(props, "placeholder", here)?;
-            match props.get("on_change") {
+            let value = text(given, "value", here)?;
+            let placeholder = optional_text(given, "placeholder", here)?;
+            match given.get("on_change") {
                 Some(msg) => Ok(Node.Input(value, placeholder, Some(msg))),
                 // kivuli has no read-only text field yet: refuse visibly,
                 // never fake one (DECISION-016).
-                None => Err(invalid(here, "an input without \"on_change\" isn't supported yet")),
+                None => Err(
+                    nodes.invalid(here, "an input without \"on_change\" isn't supported yet"),
+                ),
             }
         }
         "column" => Ok(
             Node.Column(
-                space(props, "spacing", here)?,
-                space(props, "padding", here)?,
+                space(given, "spacing", here)?,
+                space(given, "padding", here)?,
                 children(v, here, depth, count)?,
             ),
         ),
         "row" => Ok(
             Node.Row(
-                space(props, "spacing", here)?,
-                space(props, "padding", here)?,
+                space(given, "spacing", here)?,
+                space(given, "padding", here)?,
                 children(v, here, depth, count)?,
             ),
         ),
@@ -258,7 +195,7 @@ fun children(v: Value, here: string, depth: i64, count: Ref<i64>): Result<Node[]
         Some(Array(xs)) => xs,
         None => [],
         Some(_) => {
-            return Err(invalid(here, "\"children\" must be an array"));
+            return Err(nodes.invalid(here, "\"children\" must be an array"));
         }
     };
     let mut out: Node[] = [];
@@ -282,10 +219,10 @@ fun tally(v: Value, here: string, depth: i64, count: Ref<i64>): Result<(), Contr
                 let at = "{here} > {kind}[{i}]";
                 count.set(count.get() + 1);
                 if count.get() > MAX_NODES {
-                    return Err(invalid(at, "more than {MAX_NODES} nodes"));
+                    return Err(nodes.invalid(at, "more than {MAX_NODES} nodes"));
                 }
                 if depth + 1 > MAX_NODE_DEPTH {
-                    return Err(invalid(at, "deeper than {MAX_NODE_DEPTH} nodes"));
+                    return Err(nodes.invalid(at, "deeper than {MAX_NODE_DEPTH} nodes"));
                 }
                 tally(item, at, depth + 1, count)?;
             }
@@ -293,76 +230,4 @@ fun tally(v: Value, here: string, depth: i64, count: Ref<i64>): Result<(), Contr
         }
     }
     Ok(())
-}
-
-/** A required text prop. */
-fun text(props: Value, name: string, here: string): Result<string, ContractError> = match props.get(
-    name,
-) {
-    Some(Text(s)) => Ok(s),
-    Some(_) => Err(invalid(here, "\"{name}\" must be text")),
-    None => Err(invalid(here, "\"{name}\" is missing")),
-};
-
-/** An optional text prop: `""` when left out. */
-fun optional_text(
-    props: Value,
-    name: string,
-    here: string,
-): Result<string, ContractError> = match props.get(name) {
-    Some(Text(s)) => Ok(s),
-    Some(_) => Err(invalid(here, "\"{name}\" must be text")),
-    None => Ok(""),
-};
-
-/** An optional word prop: `default` when left out. */
-fun word(
-    props: Value,
-    name: string,
-    here: string,
-    default: string,
-): Result<string, ContractError> = match props.get(name) {
-    Some(Text(s)) => Ok(s),
-    Some(_) => Err(invalid(here, "\"{name}\" must be text")),
-    None => Ok(default),
-};
-
-fun meaningless(here: string, name: string, w: string): ContractError = invalid(
-    here,
-    "\"{name}\" has no meaning \"{w}\"",
-);
-
-fun text_style(props: Value, here: string): Result<TextStyle, ContractError> {
-    let w = word(props, "style", here, "body")?;
-    match w {
-        "body" => Ok(TextStyle.Body),
-        "title" => Ok(TextStyle.Title),
-        "heading" => Ok(TextStyle.Heading),
-        "dim" => Ok(TextStyle.Dim),
-        _ => Err(meaningless(here, "style", w)),
-    }
-}
-
-fun button_look(props: Value, here: string): Result<ButtonLook, ContractError> {
-    let w = word(props, "style", here, "normal")?;
-    match w {
-        "normal" => Ok(ButtonLook.Normal),
-        "primary" => Ok(ButtonLook.Primary),
-        "danger" => Ok(ButtonLook.Danger),
-        "subtle" => Ok(ButtonLook.Subtle),
-        _ => Err(meaningless(here, "style", w)),
-    }
-}
-
-fun space(props: Value, name: string, here: string): Result<Space, ContractError> {
-    let w = word(props, name, here, "none")?;
-    match w {
-        "none" => Ok(Space.Zero),
-        "xs" => Ok(Space.Xs),
-        "sm" => Ok(Space.Sm),
-        "md" => Ok(Space.Md),
-        "lg" => Ok(Space.Lg),
-        "xl" => Ok(Space.Xl),
-        _ => Err(meaningless(here, name, w)),
-    }
 }
