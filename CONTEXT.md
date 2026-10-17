@@ -662,9 +662,36 @@ docs/DESIGN.md, DECISIONS.md (020: done, renumbered), CLAUDE.md, CHANGELOG.md
 
 ---
 
-## SESSION 17 — 2026-10-17 — Center the frame's icons — open
+## SESSION 17 — 2026-10-17 — Center the frame's icons — closed
 
-Branch: center-icons
+Branch: center-icons → merged into main
+
+### WHAT WAS DONE
+
+The owner: "center align all icons". The rail's items are now `.align(Align.Center)`: each at its own size on the rail's center line. The separator keeps the rail's width. Found the cause of off-center icons: kivuli builds a button's content in a GtkBox left at fill alignment, so content sits at the start of any button wider than it. It's a kivuli bug (DECISION-020 item 0); a fix prompt was given to the owner. Header icons are GTK's header bar layout, centered vertically already.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/frame.la — rail items centered; separator full width
+DECISIONS.md (020 item 0), CLAUDE.md (known issue)
+```
+
+### TESTS WRITTEN
+
+- None (layout only; all 74 pass).
+
+### DECISIONS MADE
+
+- Centering the rail's items is correct layout, not a workaround; the button-content fix belongs to kivuli.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- kivuli: center button content.
 
 ---
 

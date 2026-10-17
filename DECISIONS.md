@@ -143,6 +143,7 @@ Rules:
   - kivuli 0.4.0: per-corner radius. The page curves only at its top right (session 16)
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
 - **Still to come:**
+  0. **A bug: button content sits at the button's start.** kivuli's button holds its icon and label in a GtkBox with the default (fill) alignment (`src/build.la`, the button), so a button wider than its content shows it at the left: stretched rail buttons, fixed-size tabs, home's tiles. GTK's own buttons center it. The rail centers its items meanwhile (session 17)
   1. a file dialog
   2. an overlay, for the panel over the app
   3. context menus, for tab actions
