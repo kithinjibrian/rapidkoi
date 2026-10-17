@@ -250,7 +250,7 @@ public fun load_settings(path: string): Settings { … }
 ├── src/               — main.la (entry: wiring only), shell.la (the kivuli app: Running | Stopped, calls the guest),
 │                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1),
 │                        render.la (pure: Node → kivuli View; the error screen), theme.la (DESIGN.md tokens), limits.la (every limit)
-│                        Imports run one way: limits, theme ← contract ← render ← shell → guest ← limits; main → shell
+│                        Imports run one way: limits ← contract ← theme ← render ← shell ← main; limits ← guest ← shell
 ├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
 ├── guest/rust/        — Cargo workspace: rapidkoi (contract v1 for Rust: View builder, App trait, export!), counter (the demo)
