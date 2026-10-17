@@ -594,6 +594,39 @@ docs/DESIGN.md, DECISIONS.md (020 item 1), CLAUDE.md, CHANGELOG.md, docs/source/
 
 ---
 
+## SESSION 15 — 2026-10-17 — The rail as thick as the top bar — closed
+
+Branch: even-frame → merged into main
+
+### WHAT WAS DONE
+
+The owner: "make the top bar and sidebar have the same width". Read as thickness: the rail's width equals the header bar's height. Measured screenshot 4: header 70 px, rail 113 px (the old 64 + 2 × 8 = 80), so the header is about 50. New tokens: FRAME_THICKNESS = 50, TAB_SIZE = 34 (the header's icon-button size), RAIL_WIDTH = FRAME_THICKNESS − 2 × SPACE_SM = 34. The header bar's height is GTK's: if the owner's next screenshot shows a mismatch, adjust FRAME_THICKNESS.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/theme.la   — FRAME_THICKNESS, TAB_SIZE 34, RAIL_WIDTH derived
+docs/DESIGN.md — the frame tokens
+```
+
+### TESTS WRITTEN
+
+- None (sizes only; all 74 pass).
+
+### DECISIONS MADE
+
+- "Same width" means the rail's width equals the header bar's height.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner checks it on screen.
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 12 on a new branch. PRP-002 with Amendments 1 and 2 is on `main`. Wait for the owner's style feedback before restyling. Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), discussed in chat first. As kivuli ships the rest of DECISION-020, swap each placeholder out.
