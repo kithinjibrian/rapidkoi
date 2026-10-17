@@ -136,6 +136,12 @@ CLAUDE.md    — ecosystem goal, generic-code rule, stack (wasmtime, Rust guests
 
 ---
 
+## SESSION 4 — 2026-10-17 — Record the UI contract — open
+
+Branch: main
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 4 first. Then read CLAUDE.md, MEMORY.md, DECISIONS.md, CONTEXT.md and `docs/source/meetings/2026-10-17-architecture.md`. Continue in chat at the owner's pace: run the discovery interview for build path step 1 (the shell), one question at a time, and write `PRPs/prp-001-shell.md`. Its bindings come first from `../lugha-wasmtime` (resolve that repo's DECISIONS 001–002 in a session there). Before any view code, read `../kivuli/README.md` and `docs/DESIGN.md`.
