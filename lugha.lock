@@ -1,6 +1,5 @@
 # Written by lughac; `lughac update` refreshes it.
 [locked]
 cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1.0", commit = "eaad158c396e96afc03422509c9c92710909da90" }
-gtk = { git = "https://github.com/kithinjibrian/lugha-gtk", version = "0.1.24", commit = "dad330d329cb854608efdf2bd5d93446e6ab1d4d" }
 kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.4.1", commit = "d8657269b34b8def862bd1f0697bd1790251e2cd" }
 wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1.0", commit = "e3e9477736a01ebed44725575e2255684c7253e5" }
