@@ -1,0 +1,94 @@
+/**
+ * Helpers shared by the tests: short CBOR value builders for contract v1
+ * trees, and WebAssembly text for fixture guests. Holds no tests itself.
+ *
+ * Depends on: cbor
+ * Used by: contract, render, guest, shell
+ */
+import cbor { Value, Entry, encode };
+
+/** A text value. */
+public fun t(s: string): Value = Value.Text(s);
+
+/** A map from text keys, in order. */
+public fun kv(pairs: (string, Value)[]): Value = Value.Map(
+    pairs.map(fun(p: (string, Value)) = Entry { key: Value.Text(p.0), value: p.1 }),
+);
+
+/** A contract node without children. */
+public fun leaf(kind: string, props: (string, Value)[]): Value = kv([("kind", t(kind)), ("props", kv(props))]);
+
+/** A contract container node. */
+public fun parent(kind: string, props: (string, Value)[], children: Value[]): Value = kv([
+    ("kind", t(kind)),
+    ("props", kv(props)),
+    ("children", Value.Array(children)),
+]);
+
+/** A column of `n` text nodes. */
+public fun wide(n: i64): Value {
+    let mut kids: Value[] = [];
+    for i in 0..n {
+        kids.push(leaf("text", [("text", t("{i}"))]));
+    }
+    parent("column", [], kids)
+}
+
+/** `depth` nodes: columns nested inside each other, a text at the bottom. */
+public fun deep(depth: i64): Value {
+    let mut v = leaf("text", [("text", t("bottom"))]);
+    for _ in 1..depth {
+        v = parent("column", [], [v]);
+    }
+    v
+}
+
+/** One hex digit. */
+fun hex(n: u8): string = "0123456789abcdef".slice(n as i64, (n as i64) + 1);
+
+/** The bytes as a WebAssembly text data string: every byte escaped as `\hh`. */
+public fun wat_bytes(bytes: u8[]): string {
+    let mut parts: string[] = [];
+    for b of bytes {
+        parts.push("\\" + hex(b >> 4) + hex(b & 15));
+    }
+    parts.join("")
+}
+
+/** A (pointer, length) packed the contract's way: pointer high, length low. */
+public fun pack(ptr: i64, len: i64): i64 = (ptr << 32) | len;
+
+/**
+ * A guest answering every call with fixed bytes: `init` returns `state`,
+ * `view` returns `tree`, `update` returns `result`. `alloc` bumps from
+ * 65536, past the blobs, and resets after each export.
+ * `rapidkoi_version` returns `version`.
+ */
+public fun fixed(version: i32, state: u8[], tree: u8[], result: u8[]): string {
+    let s = 1024;
+    let v = s + state.len;
+    let r = v + tree.len;
+    "(module (memory (export \"memory\") 4)"
+        + " (global $next (mut i32) (i32.const 65536))"
+        + " (data (i32.const {s}) \"{wat_bytes(state)}\")"
+        + " (data (i32.const {v}) \"{wat_bytes(tree)}\")"
+        + " (data (i32.const {r}) \"{wat_bytes(result)}\")"
+        + " (func (export \"rapidkoi_version\") (result i32) (i32.const {version}))"
+        + " (func (export \"alloc\") (param $n i32) (result i32) (local $p i32)"
+        + " (local.set $p (global.get $next))"
+        + " (global.set $next (i32.add (global.get $next) (local.get $n)))"
+        + " (local.get $p))"
+        + " (func $reset (global.set $next (i32.const 65536)))"
+        + " (func (export \"init\") (result i64) (call $reset) (i64.const {pack(s, state.len)}))"
+        + " (func (export \"view\") (param i32 i32) (result i64) (call $reset) (i64.const {pack(v, tree.len)}))"
+        + " (func (export \"update\") (param i32 i32 i32 i32) (result i64) (call $reset) (i64.const {pack(r, result.len)})))"
+}
+
+/** A tree: a column holding a text and a button sending "add". */
+public fun counter_tree(label: string): u8[] = encode(parent("column", [], [
+    leaf("text", [("text", t(label))]),
+    leaf("button", [("label", t("Add")), ("on_press", t("add"))]),
+]));
+
+/** An update result holding `state`. */
+public fun result_of(state: u8[]): u8[] = encode(kv([("state", Value.Bytes(state)), ("effects", Value.Array([]))]));
