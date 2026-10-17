@@ -695,6 +695,12 @@ DECISIONS.md (020 item 0), CLAUDE.md (known issue)
 
 ---
 
+## SESSION 18 — 2026-10-17 — kivuli 0.4.1: centered button content — open
+
+Branch: kivuli-0.4.1
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 12 on a new branch. PRP-002 with Amendments 1 and 2 is on `main`. Wait for the owner's style feedback before restyling. Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), discussed in chat first. As kivuli ships the rest of DECISION-020, swap each placeholder out.
