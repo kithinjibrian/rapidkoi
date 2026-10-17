@@ -431,6 +431,12 @@ DECISIONS.md (020), docs/DESIGN.md (theme colours, rule), CLAUDE.md (design rule
 
 ---
 
+## SESSION 11 — 2026-10-17 — PRP-002 Amendment 2: kivuli 0.2 (header, theme, maximized, disabled inputs) — open
+
+Branch: prp-002-amend2
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 11 on a new branch. PRP-002 (frame and tabs, with Amendment 1) is on `main`. When kivuli ships the DECISION-020 features, swap each placeholder out (theme first: `.class` the bar, rail and home, and load `themes.stylesheet(DARK)`; then maximize). Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), starting with a discussion in chat. Wait for the owner's style feedback before restyling anything.
