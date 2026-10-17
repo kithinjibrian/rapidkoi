@@ -479,6 +479,12 @@ CLAUDE.md, DECISIONS.md (016 shipped, 020 progress), docs/DESIGN.md, CHANGELOG.m
 
 ---
 
+## SESSION 12 — 2026-10-17 — The frame look: one frame colour, the page as a card — open
+
+Branch: frame-look
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 12 on a new branch. PRP-002 with Amendments 1 and 2 is on `main`. Wait for the owner's style feedback before restyling. Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), discussed in chat first. As kivuli ships the rest of DECISION-020, swap each placeholder out.
