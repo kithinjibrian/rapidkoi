@@ -335,12 +335,58 @@ PRPs/prp-002-frame_and_tabs.md — for approval
 
 ---
 
-## SESSION 9 — 2026-10-17 — Build PRP-002: frame and tabs — open
+## SESSION 9 — 2026-10-17 — Build PRP-002: frame and tabs — closed
 
-Branch: prp-002-frame
+Branch: prp-002-frame (not merged)
+
+### WHAT WAS DONE
+
+Built PRP-002 test-first: the contract's root `title`, tabs.la (pages and their life, moved out of shell.la), actions.la, the pure frame/home/panel views, a new shell.la (tabs, address box, pins, left off, Continue restoring state), and main.la on kivuli `application` (for Ctrl+K focus). The Rust crate gained `screen_title`. 70 Lugha tests and 8 Rust tests pass, and the build works. Not merged: `src/shell.la` is 305 lines (limit 300), and the owner's approval of its split is pending.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/tabs.la (new)    — Screen, Program, AppPage, Page, Tab, Pin, LeftOff; open_path/open_module/handle/leave/resume
+src/actions.la (new) — the shell's Msg
+src/frame.la (new)   — bar, rail, label, initial, icon_button
+src/home.la (new)    — home.view, matches; tiles in rows of 4
+src/panel.la (new)   — panel.view
+src/shell.la         — rewritten: Model, boot, with_pages, update, view, title_of (305 lines)
+src/main.la          — kivuli application
+src/contract.la, nodes.la, props.la — Described { root, title }, maybe_text
+src/theme.la         — frame tokens; window 960 × 700
+test/tabs.la test/views.la (new); test/shell.la test/counter.la (rewritten); test/contract.la, support.la
+guest/rust           — View::screen_title; the counter titles itself "Counter"
+CLAUDE.md            — rule 3's second exception, file tree, imports, placeholder KNOWN ISSUES
+docs/DESIGN.md, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- tabs (6): start with title, events/restart, crash then ignore, leave/resume with state, resume after a crash, open paths.
+- views (9): bar on home and on an app, rail, labels, empty home, left off and pinned, search, matching, panel.
+- shell (12): boot, events per tab, crash isolation and restart, open/select/close, close all, home → Continue restores state, address box notices, editing, pins, panel, titles.
+- counter (5, e2e): adds Home→Continue keeping the count, and opening a pin.
+- contract (+2): root title, non-text title, nested title ignored.
+
+### DECISIONS MADE
+
+- Continue keeps the compiled module in memory (LeftOff.program), so it needn't re-read the file. That also makes it testable with fixtures.
+- On home, ⌂ carries Ctrl+K (it moves to the search box); on an app page the address button does. There's only ever one enabled Ctrl+K.
+- Rust: `screen_title` rather than `title` (`title()` already meant the text style).
+- `home.view` / `panel.view` instead of `home()` / `panel()` (a function can't share its module's name when imported).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The split of `src/shell.la`, proposed: `src/window.la` gets Model, with_pages, title_of and the helpers (go, open_here, close, leave_current, with_page, page_of, has, pinned), about 150 lines. `shell.la` keeps boot, update, view and app_view, about 160, re-exporting Model, with_pages and title_of so no caller changes.
+- The owner checks the window on screen (PRP-002 VALIDATION).
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 9 on `prp-002-frame`. If the owner approved PRP-002, build it test-first, exactly, with its placeholders. Move start/step/show/halt from shell.la into tabs.la first, keeping PRP-001's tests green, then the rest. Merge once every VALIDATION command passes. Then PRP-003 (remembering).
+Open session 10 on `prp-002-frame`. If the owner approved the split, move Model and the helpers into `src/window.la` (shell.la re-exports them), run every VALIDATION command, update the CLAUDE.md tree, and merge into `main`. Then PRP-003 (remembering), and the kivuli prompt for the placeholders' real features when the owner wants it.
