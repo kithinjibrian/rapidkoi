@@ -182,8 +182,8 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 - **kivuli 0.1** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.1" }`): the UI. Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
 - **lugha-gtk** comes in through kivuli. rapidkoi does not import `gtk` directly.
 - **GTK 4** + GLib, through kivuli.
-- **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` from `../lugha-wasmtime` (`wasmtime = { path = "../lugha-wasmtime", version = "0.1" }` until it has a remote). rapidkoi never declares a wasmtime `extern` itself.
-- **CBOR** through the package `cbor` from `../lugha-cbor`. The guest↔shell contract is v1 (MEMORY.md decision 10): implement it exactly; any change is a DECISIONS.md entry and a version bump.
+- **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` (`wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }`; source in `../lugha-wasmtime`). rapidkoi never declares a wasmtime `extern` itself.
+- **CBOR** through the package `cbor` (`cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1" }`; source in `../lugha-cbor`). The guest↔shell contract is v1 (MEMORY.md decision 10): implement it exactly; any change is a DECISIONS.md entry and a version bump.
 - **Guests:** Rust (`wasm32-unknown-unknown`) under `guest/rust/`, built with cargo, never by `lughac`. The shell's tests use hand-written `.wat` fixtures and never need Rust.
 - **SQLite** for app data, from build path step 3 or 4 (MEMORY.md decision 5). Not before.
 
