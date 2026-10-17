@@ -2,7 +2,7 @@
 
 Behavioral instructions for AI coding assistants. Each rule exists to prevent a specific mistake.
 
-rapidkoi is a desktop app written in Lugha, with its UI built on kivuli (Elm architecture over GTK 4). What the app does is not decided yet: see DECISION-001 in `DECISIONS.md`. Do not invent a product.
+rapidkoi is the Rapidkoi shell: a native desktop app, written in Lugha with kivuli (Elm architecture over GTK 4), that runs sandboxed WebAssembly apps and renders the component trees they describe. The vision is `docs/source/stakeholder/vision-2026-10-17.md`; MEMORY.md decision 4 summarises it. Do not re-litigate it.
 
 ---
 
@@ -79,6 +79,7 @@ Never implement without explicit human review and approval:
 - Payment processing
 - Secrets or credential handling
 - Running external processes (`std.process`)
+- **Any host function exposed to a WebAssembly guest.** Each one is a capability that untrusted code can call
 
 For everything else:
 - Never hardcode credentials, API keys, tokens, or secrets, not even in comments or examples.
@@ -87,6 +88,11 @@ For everything else:
 - Never log sensitive data (passwords, tokens, PII).
 - Never show a raw internal error to the user. Map it to a message in the view.
 - Never add a package dependency, an `extern`, or a `[link]` library without stating why in the PRP. An `extern` must match its C prototype exactly: check the header, do not guess.
+
+**Guests are untrusted.** Everything a bundle sends (view trees, messages, lengths, pointers into its memory) is hostile input:
+- Bounds-check every pointer and length against the guest's memory before reading. A bad offset is a decode error, never a crash.
+- Cap what a guest can make the shell do: tree size, depth, string length, runtime fuel/time and memory. Exceeding a cap stops that app with an error the person sees.
+- A guest never gets a GTK handle, a file path, or anything the shell didn't explicitly decide to give it.
 
 If unsure whether something has a security implication, stop and ask.
 
@@ -182,6 +188,9 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 3. **`update` and `view` never do I/O.** File, process and network work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. *Why:* blocking in `update` freezes the window.
 4. **Keep `src/main.la` to wiring:** `main` calls kivuli with the initial model, `update` and `view` imported from their modules. *Why:* `main.la` can't be tested on its own; everything worth testing lives in a module.
 
+5. **Follow the vision's build path in order** (shell → links → a real app → storage and sync → live sessions → history). Never build part of a later step early. *Why:* each step shapes the next; a speculative later piece locks in guesses.
+6. **The guest↔host contract carries a version from its first commit.** *Why:* it is the platform's public API, and published bundles can't be recompiled.
+
 Add rules here as PRPs settle the module layout.
 
 ---
@@ -248,6 +257,7 @@ Update this tree when modules are added.
 5. **Never name a local or parameter after an imported module (E0311).**
 6. **Never reassign a captured variable in a closure (E0511).** Capture a `Ref` and `set`/`update` it.
 7. **Never compare messages or views with `==`.** A `View` holding closures isn't `Eq`; test views through `kivuli.testing`.
+8. **Never let a guest's failure crash the shell.** A trap, a decode error or a cap hit ends that app, not Rapidkoi.
 
 ---
 
