@@ -867,12 +867,41 @@ CLAUDE.md, DECISIONS.md (020 item done), docs/DESIGN.md, CHANGELOG.md
 
 ---
 
-## SESSION 22 — 2026-10-18 — Propose PRP-004: local development (serve, open localhost) — open
+## SESSION 22 — 2026-10-18 — Propose PRP-004: local development (serve, open localhost) — closed
 
 Branch: prp-004-dev-server
+
+### WHAT WAS DONE
+
+The owner wanted to serve counter.rkb and open it over localhost. Lugha gained `std.net` (m110) and `std.http` (m111: an HTTP/1.1 server and client with limits, http only; TLS is proposed as lugha PRP-144). Wrote PRP-004: `./main serve`, opening `rapidkoi://localhost:PORT` (local hosts only), and a manual Reload. Remembering becomes PRP-005. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-004-local_development.md — for approval
+DECISIONS.md — DECISION-021 (loading in the background), deferred
+MEMORY.md    — next steps renumbered
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- `std.http` instead of a `lugha-http` package (Lugha's std has it now).
+- `./main serve` built in, rather than Python's http.server.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-021.
+
+### STILL OPEN AT CLOSE
+
+- PRP-004 awaits approval. It includes extending rule 3 to a localhost fetch.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 21 on a new branch. PRP-003 (bundles, format 1) is on `main`. Next, at the owner's choice: PRP-004 (remembering: an on-device store for history, pins and state across restarts, with `migrate` and starting over, DECISION-019), a `lugha-toml` package for `rapidkoi.toml`, or signing and format 2 (DECISION-009, needs the owner's review). When kivuli ships an image from bytes, show bundle icons on tabs and tiles.
+Open session 23 on `prp-004-dev-server`. If the owner approved PRP-004, build it test-first: address.la, then serve.la (handler, then command), then loader fetching (test with a server on a spawned green thread), then window/panel/frame. Keep tabs.la under 300 lines.
