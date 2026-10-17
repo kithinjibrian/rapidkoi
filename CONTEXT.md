@@ -387,12 +387,50 @@ docs/DESIGN.md, CHANGELOG.md
 
 ---
 
-## SESSION 10 — 2026-10-17 — PRP-002 amendments: split, home not a tab, themes — open
+## SESSION 10 — 2026-10-17 — PRP-002 amendments: split, home not a tab, themes — closed
 
-Branch: prp-002-frame
+Branch: prp-002-frame → merged into main
+
+### WHAT WAS DONE
+
+After trying PRP-002, the owner asked for: the split (approved), home not being a tab, themes starting with dark (bars `#242424`, home `#161616`), and starting maximized ("full screen… because it is a browser", read as maximized with the title bar kept). Recorded as PRP-002 Amendment 1, built test-first, and merged. The theme and maximizing are placeholders until kivuli can apply a stylesheet and maximize (DECISION-020). The owner parked "what looked off in the style" until they raise it.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/window.la (new) — Model and what changes it: show_tab, go_home, open_file, go, close, reopen, pin, card, page_of, title_of
+src/themes.la (new) — Theme, DARK, stylesheet(); rk-bar / rk-rail / rk-home
+src/shell.la        — boot, update, view only (110 lines); re-exports Model, with_pages, title_of
+src/tabs.la         — Tab holds an AppPage (home isn't a tab)
+src/frame.la        — rail lists apps only, current is Option
+src/home.la         — Card (name, title, msg): Select(id) for an open app, Continue for a closed one
+test/shell.la (rewritten), test/views.la, test/counter.la
+DECISIONS.md (020), docs/DESIGN.md (theme colours, rule), CLAUDE.md (design rule, tree, imports, known issues), CHANGELOG.md, PRPs/prp-002 (amendment)
+```
+
+### TESTS WRITTEN
+
+- shell (14): no tabs on boot, + and ⌂ keep apps, the card selects an open app, a closed app reopens with its state, neighbours then home, the address box from home vs from an app, pins, panel, titles.
+- views (+1, now 10): the app-only rail, cards, the dark stylesheet.
+- counter e2e: ⌂ → Continue, and close → Continue, both keep the count.
+
+### DECISIONS MADE
+
+- `select` is a Lugha keyword, so it's `window.show_tab`.
+- Typing an address on an app page replaces that tab's app (as a browser navigates a tab); from home it opens a new tab.
+- "Full screen" means maximized: true full screen would hide the window controls the owner keeps.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-020 (deferred): kivuli additions behind the placeholders.
+
+### STILL OPEN AT CLOSE
+
+- The kivuli work (DECISION-016, DECISION-020); the owner runs it.
+- Style feedback: the owner will say what looked off.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 10 on `prp-002-frame`. If the owner approved the split, move Model and the helpers into `src/window.la` (shell.la re-exports them), run every VALIDATION command, update the CLAUDE.md tree, and merge into `main`. Then PRP-003 (remembering), and the kivuli prompt for the placeholders' real features when the owner wants it.
+Open session 11 on a new branch. PRP-002 (frame and tabs, with Amendment 1) is on `main`. When kivuli ships the DECISION-020 features, swap each placeholder out (theme first: `.class` the bar, rail and home, and load `themes.stylesheet(DARK)`; then maximize). Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), starting with a discussion in chat. Wait for the owner's style feedback before restyling anything.

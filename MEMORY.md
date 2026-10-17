@@ -142,6 +142,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - Context system in place (session 1). Vision recorded (session 2). Architecture decisions recorded (session 3). UI contract v1 designed (session 4).
 - `../lugha-wasmtime` PRP-001 (core runtime) merged in that repo: everything the shell needs.
 - **Build path step 1, the shell (PRP-001), merged in session 7:** `./main app.wasm` runs a guest under contract v1; a Rust crate and counter demo in `guest/rust/`. 47 Lugha tests, 7 Rust tests.
+- **Rapidkoi's frame and tabs (PRP-002 + Amendment 1), merged in session 10:** the bar, an app-only tab rail, home (Where you left off, Pinned, search), the info panel, the dark theme defined (placeholder). 73 Lugha tests.
 
 ### In Progress
 - Nothing.
