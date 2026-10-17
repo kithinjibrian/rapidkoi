@@ -173,6 +173,12 @@ CLAUDE.md    — stack: wasmtime path package, cbor, contract v1 rule; lugha-cbo
 
 ---
 
+## SESSION 5 — 2026-10-17 — PRP-001: the shell — open
+
+Branch: main
+
+---
+
 ## NEXT SESSION START POINT
 
 Wait until `../lugha-cbor`'s PRP-001 is merged (check its CONTEXT.md). Then open session 5 first, read CLAUDE.md, MEMORY.md, DECISIONS.md, CONTEXT.md and `docs/source/meetings/2026-10-17-ui-contract.md`, and write `PRPs/prp-001-shell.md` implementing contract v1 exactly, from the owner's brief. Build it after approval.
