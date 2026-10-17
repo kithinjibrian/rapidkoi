@@ -728,12 +728,41 @@ DECISIONS.md (020), CLAUDE.md (known issue removed)
 
 ---
 
-## SESSION 19 — 2026-10-18 — Record the packaging discussion; propose PRP-003 (bundles) — open
+## SESSION 19 — 2026-10-18 — Record the packaging discussion; propose PRP-003 (bundles) — closed
 
 Branch: prp-003-bundles
+
+### WHAT WAS DONE
+
+Recorded the packaging discussion: the problem first, code shapes A–D (A chosen, room for D), vocabulary (one app per host), keeping and withdrawing versions, versioned state (start over without `migrate`), the hosting layout, and signing (deferred). Wrote PRP-003 (bundle format 1: a single-file `.rkb`, `./main pack` with flags, opening by path). No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-packaging.md — the discussion and decisions
+DECISIONS.md — DECISION-009 partly settled
+MEMORY.md    — decision 13 (packaging)
+PRPs/prp-003-bundles.md — for approval
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- See the meeting note. "Remembering" becomes PRP-004.
+
+### PENDING DECISIONS OPENED
+
+- None (signing stays in DECISION-009).
+
+### STILL OPEN AT CLOSE
+
+- PRP-003 awaits approval. kivuli: an image from bytes (for bundle icons).
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 12 on a new branch. PRP-002 with Amendments 1 and 2 is on `main`. Wait for the owner's style feedback before restyling. Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), discussed in chat first. As kivuli ships the rest of DECISION-020, swap each placeholder out.
+Open session 20 on `prp-003-bundles`. If the owner approved PRP-003, build it test-first: bundle.la first (the format and every check), then pack.la and main's `pack`, then opening `.rkb` in tabs.la, then the panel and address. Make the demo's icon.png once. Merge when every VALIDATION command passes.
