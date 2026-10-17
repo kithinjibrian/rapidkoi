@@ -117,6 +117,24 @@ Read this at the start of every session before writing any code.
 
 ---
 
+### 12. Rapidkoi's own UI (meeting 2026-10-17, ui-design)
+
+**Decision:**
+- **The frame:** the system title bar; Rapidkoi's bar (← ⌂ →, address/search, ⓘ, ⤴); a tab rail on the right (tabs, +, divider, settings).
+- **Home:** logo, "Where you left off", a Pinned grid. Visual: big tiles and banners.
+- **History:** on-device and searchable.
+- **Pictures:** page banner → app banner → generated art. No screenshots.
+- **App info:** a panel.
+- **Contract:** optional root props `title`, `banner`, `private`.
+
+Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missing kivuli features get explicit placeholders (DECISION-018).
+
+**Why:** The owner's sketches and direction (`docs/source/meetings/2026-10-17-ui-design.md`). With no search engine, Rapidkoi's memory is how people find things again.
+
+**Rules out:** Screenshots of what people saw; apps drawing in the bar or rail; history leaving the device; silent workarounds for kivuli gaps.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working
@@ -124,6 +142,7 @@ Read this at the start of every session before writing any code.
 - Context system in place (session 1). Vision recorded (session 2). Architecture decisions recorded (session 3). UI contract v1 designed (session 4).
 - `../lugha-wasmtime` PRP-001 (core runtime) merged in that repo: everything the shell needs.
 - **Build path step 1, the shell (PRP-001), merged in session 7:** `./main app.wasm` runs a guest under contract v1; a Rust crate and counter demo in `guest/rust/`. 47 Lugha tests, 7 Rust tests.
+- **Rapidkoi's frame and tabs (PRP-002 + Amendment 1), merged in session 10:** the bar, an app-only tab rail, home (Where you left off, Pinned, search), the info panel, the dark theme defined (placeholder). 73 Lugha tests.
 
 ### In Progress
 - Nothing.

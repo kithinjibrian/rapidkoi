@@ -1,134 +1,191 @@
-// The shell app: starting a guest, handling events, failing safely and
-// restarting. Fixture guests are WebAssembly text; no display needed.
-import rapidkoi.shell { Model, Screen, boot, launch, update, view };
-import rapidkoi.render { Msg };
+// The window: tabs (apps only; home isn't a tab), the address box, pins,
+// "where you left off", the info panel, and failing safely per tab.
+// Fixture guests; no display.
+import rapidkoi.shell { Model, boot, with_pages, update, view, title_of };
+import rapidkoi.window { card };
+import rapidkoi.actions { Msg };
+import rapidkoi.tabs { AppPage, open_module, state_of };
+import rapidkoi.render;
 import rapidkoi.contract { envelope };
-import kivuli.testing { click, texts };
+import kivuli.testing { click, texts, type_into };
 import wasmtime { Engine, Module };
-import support { t, fixed, counter_tree, result_of, wat_bytes };
+import support { t, fixed, echo, crashing, titled_tree, result_of };
 
-/** A model running WebAssembly text. */
-fun run(wat: string): Model {
+fun app(engine: Engine, name: string, wat: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, wat).unwrap(),
+);
+
+/** A window with two echo apps, tabs 0 and 1, tab 0 current. */
+fun two(): Model {
     let engine = Engine.new();
-    launch("test", engine, Module.from_text(engine, wat).unwrap())
+    with_pages(engine, [app(engine, "a", echo()), app(engine, "b", echo())])
 }
 
-fun state_of(m: Model): u8[] = match m.screen {
-    Running(_, s, _) => s,
-    Stopped(r, _) => panic("expected a running app, got: {r}"),
-};
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
 
-fun reason_of(m: Model): string = match m.screen {
-    Stopped(r, _) => r,
-    Running(_, _, _) => "running",
-};
+fun page(m: Model, id: i64): AppPage {
+    for tab of m.tabs {
+        if tab.id == id {
+            return tab.page;
+        }
+    }
+    panic("no tab {id}")
+}
 
-/**
- * A guest whose `update` answers `{ "state": <the event bytes>, "effects": [] }`,
- * built in memory each call, and whose `view` shows a button sending "add".
- */
-fun echo(): string {
-    let tree = counter_tree("echo");
-    let head: u8[] = [0xa2, 0x65, 115, 116, 97, 116, 101, 0x59];
-    let tail: u8[] = [0x67, 101, 102, 102, 101, 99, 116, 115, 0x80];
-    [
-        "(module (memory (export \"memory\") 1)",
-        "(global $next (mut i32) (i32.const 8192))",
-        "(data (i32.const 1024) \"{wat_bytes(tree)}\")",
-        "(data (i32.const 3000) \"{wat_bytes(head)}\")",
-        "(data (i32.const 3100) \"{wat_bytes(tail)}\")",
-        "(func (export \"rapidkoi_version\") (result i32) (i32.const 1))",
-        "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
-        "  (local.set $p (global.get $next))",
-        "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
-        "  (local.get $p))",
-        "(func (export \"init\") (result i64) (i64.const 0))",
-        "(func (export \"view\") (param i32 i32) (result i64) (global.set $next (i32.const 8192)) (i64.const {(1024 << 32) | tree.len}))",
-        "(func (export \"update\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
-        "  (memory.copy (i32.const 4096) (i32.const 3000) (i32.const 8))",
-        "  (i32.store8 (i32.const 4104) (i32.shr_u (local.get $el) (i32.const 8)))",
-        "  (i32.store8 (i32.const 4105) (local.get $el))",
-        "  (memory.copy (i32.const 4106) (local.get $ep) (local.get $el))",
-        "  (memory.copy (i32.add (i32.const 4106) (local.get $el)) (i32.const 3100) (i32.const 9))",
-        "  (i64.or (i64.const {4096 << 32}) (i64.extend_i32_u (i32.add (local.get $el) (i32.const 19)))))",
-        ")",
-    ].join("\n")
+fun add(id: i64): Msg = Msg.Tab(id, render.Msg.Event(t("add"), None));
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+@test
+fun booting_without_an_app_shows_home_with_no_tabs() {
+    let (m, _) = boot(["./main"]);
+    assert_eq(m.tabs.len, 0);
+    assert_eq(m.current, None);
+    assert_eq(shows(m, "Rapidkoi"), true);
+    assert_eq(title_of(m), "Rapidkoi");
 }
 
 @test
-fun a_guest_starts_and_shows_its_screen() {
-    let m = run(fixed(1, [5], counter_tree("Count: 0"), result_of([6])));
-    assert_eq(state_of(m), [5]);
-    assert_eq(texts(view(m)), ["Count: 0"]);
-}
-
-@test
-fun an_event_reaches_update_as_an_envelope() {
-    let m = run(echo());
-    let next = update(m, click(view(m), "Add").unwrap());
-    assert_eq(state_of(next), envelope(t("add"), None));
-}
-
-@test
-fun an_event_stores_the_new_state() {
-    let m = run(fixed(1, [5], counter_tree("Count: 0"), result_of([6])));
-    assert_eq(state_of(update(m, Msg.Event(t("add"), None))), [6]);
-}
-
-@test
-fun a_failing_update_stops_the_app_and_restart_brings_it_back() {
-    let wat = [
-        "(module (memory (export \"memory\") 1)",
-        "(data (i32.const 1024) \"{wat_bytes(counter_tree("x"))}\")",
-        "(func (export \"rapidkoi_version\") (result i32) (i32.const 1))",
-        "(func (export \"alloc\") (param i32) (result i32) (i32.const 8192))",
-        "(func (export \"init\") (result i64) (i64.const 0))",
-        "(func (export \"view\") (param i32 i32) (result i64) (i64.const {(1024 << 32) | counter_tree("x").len}))",
-        "(func (export \"update\") (param i32 i32 i32 i32) (result i64) unreachable))",
-    ].join("\n");
-    let m = run(wat);
-    let broken = update(m, Msg.Event(t("add"), None));
-    assert_eq(reason_of(broken).starts_with("This app crashed"), true);
-    assert_eq(texts(view(broken))[0], "This app stopped working");
-    // Events are ignored while stopped.
-    assert_eq(reason_of(update(broken, Msg.Event(t("add"), None))), reason_of(broken));
-    let again = update(broken, click(view(broken), "Restart").unwrap());
-    assert_eq(state_of(again), []);
-}
-
-@test
-fun a_bad_screen_description_stops_the_app() {
-    let m = run(fixed(1, [], [0xa1], []));
-    assert_eq(reason_of(m).starts_with("This app's screen description is broken"), true);
-}
-
-@test
-fun a_bad_update_result_stops_the_app() {
-    let m = run(fixed(1, [], counter_tree("x"), [0x80]));
-    let next = update(m, Msg.Event(t("add"), None));
+fun booting_a_bad_file_shows_why_in_its_tab() {
+    let (m, _) = boot(["./main", "lugha.toml"]);
+    assert_eq(m.tabs.len, 1);
     assert_eq(
-        reason_of(next),
-        "This app's update result is broken (update: the result must be a map)",
-    );
-}
-
-@test
-fun booting_without_an_app_explains_how() {
-    let m = boot(["./main"]);
-    assert_eq(reason_of(m), "Open an app: ./main path/to/app.wasm");
-    assert_eq(click(view(m), "Restart").is_err(), true);
-}
-
-@test
-fun booting_a_missing_or_bad_file_shows_why() {
-    assert_eq(
-        reason_of(boot(["./main", "no/such/app.wasm"])).starts_with(
-            "Couldn't read no/such/app.wasm",
-        ),
+        texts(view(m)).any(fun(s: string) = s.starts_with("This file isn't a WebAssembly app")),
         true,
     );
+}
+
+@test
+fun an_event_reaches_only_its_tab() {
+    let m = step(two(), add(0));
+    assert_eq(state_of(page(m, 0)), Some(envelope(t("add"), None)));
+    assert_eq(state_of(page(m, 1)), Some([]));
+}
+
+@test
+fun a_crash_stays_in_its_tab_and_restart_brings_it_back() {
+    let engine = Engine.new();
+    let m = with_pages(engine, [app(engine, "bad", crashing()), app(engine, "good", echo())]);
+    let crashed = step(m, add(0));
+    assert_eq(state_of(page(crashed, 0)), None);
+    assert_eq(state_of(page(crashed, 1)), Some([]));
+    assert_eq(state_of(page(step(crashed, Msg.Tab(0, render.Msg.Restart)), 0)), Some([]));
+}
+
+@test
+fun new_tab_and_home_show_home_and_keep_every_app() {
+    let m = step(step(two(), add(0)), Msg.NewTab);
+    assert_eq(m.current, None);
+    assert_eq(m.tabs.len, 2);
+    let home = step(step(m, Msg.Select(1)), Msg.Home);
+    assert_eq(home.current, None);
+    assert_eq(home.tabs.len, 2);
+    // The app kept its state while home showed.
+    assert_eq(state_of(page(home, 0)), Some(envelope(t("add"), None)));
+}
+
+@test
+fun where_you_left_off_selects_an_open_app() {
+    let m = step(step(two(), Msg.Select(1)), Msg.Home);
+    assert_eq(card(m).map(fun(c) = c.msg), Some(Msg.Select(1)));
+    assert_eq(shows(m, "Where you left off"), true);
+    assert_eq(step(m, click(view(m), "Continue").unwrap()).current, Some(1));
+}
+
+@test
+fun a_closed_app_reopens_with_its_state() {
+    let closed = step(step(two(), add(0)), Msg.CloseTab(0));
+    assert_eq(closed.current, Some(1));
+    let home = step(closed, Msg.Home);
+    // Tab 1 is still open and was visited last, so it's the card; close it too.
+    let both = step(step(home, Msg.Select(1)), Msg.CloseTab(1));
+    assert_eq(both.current, None);
+    assert_eq(card(both).map(fun(c) = c.msg), Some(Msg.Continue));
+    let back = step(both, Msg.Continue);
+    assert_eq(back.tabs.len, 1);
+    assert_eq(back.left_off.is_none(), true);
+}
+
+@test
+fun continue_restores_the_closed_apps_state() {
+    let closed = step(step(two(), add(0)), Msg.CloseTab(0));
+    let back = step(step(closed, Msg.Home), Msg.Continue);
+    let reopened = page(back, back.current.unwrap());
+    // init gives [], so this state comes from view(saved state).
+    assert_eq(state_of(reopened), Some(envelope(t("add"), None)));
+}
+
+@test
+fun closing_tabs_picks_a_neighbour_then_home() {
+    let m = step(two(), Msg.CloseTab(0));
+    assert_eq(m.current, Some(1));
+    assert_eq(state_of(page(step(m, add(0)), 1)), Some([]));
+    let none = step(m, Msg.CloseTab(1));
+    assert_eq(none.tabs.len, 0);
+    assert_eq(none.current, None);
+}
+
+@test
+fun the_address_box() {
+    let (m, _) = boot(["./main"]);
+    let typed = step(m, type_into(view(m), "address", "rapidkoi://notes.acme.com").unwrap());
+    assert_eq(step(typed, Msg.Go).notice, Some("Links come in a later step"));
     assert_eq(
-        reason_of(boot(["./main", "lugha.toml"])).starts_with("This file isn't a WebAssembly app"),
+        step(step(m, Msg.Draft("no/such/app.wasm")), Msg.Go).notice,
+        Some("No app or file called “no/such/app.wasm”"),
+    );
+    // From home a file opens in a new tab.
+    let opened = step(step(m, Msg.Draft("lugha.toml")), Msg.Go);
+    assert_eq(opened.tabs.len, 1);
+    assert_eq(page(opened, 0).name, "lugha.toml");
+    assert_eq(opened.draft, "");
+}
+
+@test
+fun the_address_box_on_an_app_replaces_its_app() {
+    let editing = step(two(), Msg.EditAddress);
+    assert_eq(editing.draft, "a.wasm");
+    let replaced = step(step(editing, Msg.Draft("lugha.toml")), Msg.Go);
+    assert_eq(replaced.tabs.len, 2);
+    assert_eq(page(replaced, 0).name, "lugha.toml");
+    assert_eq(replaced.left_off.map(fun(l) = l.name), Some("a"));
+}
+
+@test
+fun pinning_and_opening_a_pin() {
+    let m = step(two(), Msg.Pin);
+    assert_eq(m.pinned.len, 1);
+    assert_eq(step(m, Msg.Pin).pinned.len, 1);
+    // The pin's file doesn't exist here, so its new tab shows why.
+    let opened = step(m, Msg.OpenPinned("a.wasm"));
+    assert_eq(opened.tabs.len, 3);
+    assert_eq(
+        texts(view(opened)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
         true,
     );
+    assert_eq(step(m, Msg.Unpin("a.wasm")).pinned.len, 0);
+}
+
+@test
+fun the_info_panel_opens_beside_the_app() {
+    let m = step(two(), Msg.TogglePanel);
+    assert_eq(shows(m, "Contract v1"), true);
+    assert_eq(click(view(m), "Close tab"), Ok(Msg.CloseTab(0)));
+    assert_eq(shows(step(m, Msg.TogglePanel), "Contract v1"), false);
+}
+
+@test
+fun window_titles() {
+    let engine = Engine.new();
+    let titled = with_pages(engine, [
+        app(engine, "counter", fixed(1, [], titled_tree("0", "Counter"), result_of([]))),
+    ]);
+    assert_eq(title_of(titled), "Rapidkoi — Counter");
+    assert_eq(title_of(two()), "Rapidkoi — a");
 }

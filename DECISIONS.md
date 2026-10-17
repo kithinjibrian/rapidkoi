@@ -102,23 +102,6 @@ Rules:
 
 ---
 
-### DECISION-016 — A read-only text input (kivuli)
-
-**Status:** open
-**Raised:** 2026-10-17 — Session 6
-**Resolved by:** human
-**Blocks:** Contract v1 inputs without `on_change` (shown as disabled).
-
-**Question:** kivuli's `.disabled()` only affects buttons (`../kivuli/src/views.la`, `disabled`); a text field can't be made read-only or insensitive. How should the shell show an `input` with no `on_change`?
-
-**Options:**
-- A) Add `.disabled(true)` support for text fields to kivuli (`gtk_widget_set_sensitive(false)`, like buttons), in a kivuli session, then render it here. *Recommended: it matches "no handler means disabled" everywhere.*
-- B) Change contract v1 so `on_change` is required on inputs. A contract change: needs a version decision.
-
-**Notes:** Until then `contract.read_tree` refuses such an input with a visible contract error ("an input without \"on_change\" isn't supported yet"), never a fake read-only field.
-
----
-
 ### DECISION-017 — Listing a module's exports (lugha-wasmtime)
 
 **Status:** deferred
@@ -131,7 +114,76 @@ Rules:
 
 ---
 
+### DECISION-019 — Restoring an app's exact state on Continue
+
+**Status:** deferred
+**Raised:** 2026-10-17 — Session 8
+**Revisit when:** PRP-003 (remembering).
+
+**Question:** Rapidkoi holds each app's state, so "Continue" could reopen an app exactly as it was. Within a session that's free: the bytes are in memory. Across restarts, the state is saved to disk. How big may it be, is it encrypted, and how is it forgotten?
+
+**Notes:** PRP-002 restores state within a session only. See `docs/source/meetings/2026-10-17-ui-design.md`.
+
+---
+
+### DECISION-020 — What kivuli needs for Rapidkoi's frame
+
+**Status:** deferred (waiting on kivuli work; Rapidkoi uses placeholders, DECISION-018)
+**Raised:** 2026-10-17 — Session 10
+**Revisit when:** Each kivuli release. Swap the matching placeholder out.
+
+**Question:** Which kivuli additions replace PRP-002's placeholders?
+
+**Notes:**
+1. **App stylesheets and CSS classes.** An app loads one stylesheet, and `.class(name)` tags a node. Rapidkoi's themes (`src/themes.la`) need this to paint `rk-bar`, `rk-rail` and `rk-home`. kivuli's own rule (colours only from the theme) stays for kivuli itself: the colours are the app's, in one stylesheet.
+2. **A dark preference.** The app asks GTK for its dark variant (`gtk-application-prefer-dark-theme`), so text and app content match the dark frame.
+3. **Start maximized.** `.window(…)` gains a way to open maximized: the owner wants Rapidkoi to open like a browser.
+4. **A file dialog** (GtkFileDialog), for "Open a file…".
+5. **An overlay**, for the info panel over the app.
+6. **Context menus** (a popover on right-click), for tab actions.
+7. **A wrapping grid** (GtkFlowBox), for home's tiles.
+8. **Disabled text fields:** already its PRP-006 (DECISION-016).
+
+---
+
 ## RESOLVED
+
+### DECISION-018 — Placeholders while kivuli catches up
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 8
+**Resolved:** 2026-10-17 — Session 8 (the owner: "placeholders where you can, don't get blocked")
+
+**Question:** PRP-002 needs kivuli features that don't exist yet: a file dialog, an overlay, right-click menus, a wrapping grid, a disabled text field. Wait, or build around them?
+
+**Outcome:** Build with **explicit placeholders**. Each one is recorded in PRP-002's placeholder table and in KNOWN ISSUES, and swapped out when kivuli ships the feature:
+- an "Open a file" path field instead of a file dialog
+- the info panel as a column beside the app instead of over it
+- tab actions in the info panel only, without right-click
+- fixed rows of tiles instead of a wrapping grid
+- inputs without `on_change` still refused (DECISION-016)
+
+**Rationale:** It keeps momentum without silent workarounds: every placeholder is visible, named and temporary. The real features are fixed upstream (MEMORY.md decision 9).
+
+**Copied to MEMORY.md:** yes
+
+---
+
+### DECISION-016 — A read-only text input (kivuli)
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 6
+**Resolved:** 2026-10-17 — Session 8 (the owner chose A)
+
+**Question:** How should the shell show a contract `input` with no `on_change`?
+
+**Outcome:** A: kivuli gains `.disabled(true)` for text fields (its PRP-006, prompt given to the owner). Until kivuli 0.1.1 is tagged, `contract.read_tree` keeps refusing such inputs with a visible error.
+
+**Rationale:** It matches "no handler means disabled" everywhere, with no contract change.
+
+**Copied to MEMORY.md:** yes
+
+---
 
 ### DECISION-012 — UI contract v1
 

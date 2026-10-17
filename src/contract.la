@@ -10,21 +10,22 @@
  */
 import cbor { Value, Entry, Limits, decode, encode };
 import limits { MAX_VIEW, MAX_UPDATE, MAX_NODES, MAX_NODE_DEPTH, MAX_STRING, MAX_STATE };
-import props { text, optional_text, text_style, button_look, space };
-public import nodes { TextStyle, ButtonLook, Space, Node, ContractError };
+import props { text, optional_text, maybe_text, text_style, button_look, space };
+public import nodes { TextStyle, ButtonLook, Space, Node, Described, ContractError };
 
 /**
- * Decodes a screen description into a tree.
+ * Decodes a screen description into a tree and its title.
  *
  * @param bytes what the guest's `view` returned
- * @returns the tree; `Err(TooLong)` over `MAX_VIEW` (checked before decoding),
- *     `Err(Decode)` for bad CBOR or a decoder limit, `Err(Invalid)` for a
- *     node breaking contract v1 or the node limits
+ * @returns the tree and the root's optional `title`; `Err(TooLong)` over
+ *     `MAX_VIEW` (checked before decoding), `Err(Decode)` for bad CBOR or a
+ *     decoder limit, `Err(Invalid)` for a node breaking contract v1 or the
+ *     node limits
  *
  * Example:
- *     read_tree(bytes)?
+ *     read_tree(bytes)?.root
  */
-public fun read_tree(bytes: u8[]): Result<Node, ContractError> {
+public fun read_tree(bytes: u8[]): Result<Described, ContractError> {
     if bytes.len > MAX_VIEW {
         return Err(ContractError.TooLong("the screen description", bytes.len));
     }
@@ -41,7 +42,13 @@ public fun read_tree(bytes: u8[]): Result<Node, ContractError> {
     };
     let value = decode(bytes, bounds).map_err(ContractError.Decode)?;
     let count = Ref.new(0);
-    node(value, "", 0, 1, count)
+    let root = node(value, "", 0, 1, count)?;
+    // `title` is read on the root only; on other nodes it's an unknown prop.
+    let title = match (value.get("kind"), value.get("props")) {
+        (Some(Text(kind)), Some(given)) => maybe_text(given, "title", "root > {kind}")?,
+        _ => None,
+    };
+    Ok(Described { root: root, title: title })
 }
 
 /**

@@ -1,7 +1,8 @@
 // End to end: the Rust counter (guest/rust/counter) driven through the
-// shell, with no display. Skipped unless the guest has been built (see
+// window, with no display. Skipped unless the guest has been built (see
 // CLAUDE.md COMMANDS), so the suite never needs Rust.
-import rapidkoi.shell { Model, Screen, boot, update, view };
+import rapidkoi.shell { Model, boot, update, view, title_of };
+import rapidkoi.actions { Msg };
 import kivuli.testing { click, is_disabled, type_into, texts };
 import std.fs;
 
@@ -11,35 +12,62 @@ fun started(): Model {
     if !fs.is_file(COUNTER) {
         skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
     }
-    let m = boot(["./main", COUNTER]);
-    if let Stopped(why, _) = m.screen {
-        panic("the counter didn't start: {why}");
-    }
+    let (m, _) = boot(["./main", COUNTER]);
     m
 }
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+/** The app's texts: the window's, without the frame's. */
+fun shown(m: Model): string[] = texts(view(m)).filter(fun(s: string) = !s.starts_with("📄"));
 
 @test
 fun the_counter_starts_at_zero_with_reset_disabled() {
     let m = started();
-    assert_eq(texts(view(m)), ["Counter", "Count: 0", "What's your name?"]);
+    assert_eq(shown(m), ["Counter", "Count: 0", "What's your name?"]);
     assert_eq(is_disabled(view(m), "Reset"), Ok(true));
-    assert_eq(m.title, "Rapidkoi — counter.wasm");
+    assert_eq(title_of(m), "Rapidkoi — Counter");
 }
 
 @test
 fun add_counts_and_reset_clears() {
     let mut m = started();
-    m = update(m, click(view(m), "Add").unwrap());
-    m = update(m, click(view(m), "Add").unwrap());
-    assert_eq(texts(view(m))[1], "Count: 2");
+    m = step(m, click(view(m), "Add").unwrap());
+    m = step(m, click(view(m), "Add").unwrap());
+    assert_eq(shown(m)[1], "Count: 2");
     assert_eq(is_disabled(view(m), "Reset"), Ok(false));
-    m = update(m, click(view(m), "Reset").unwrap());
-    assert_eq(texts(view(m))[1], "Count: 0");
+    m = step(m, click(view(m), "Reset").unwrap());
+    assert_eq(shown(m)[1], "Count: 0");
 }
 
 @test
 fun typing_a_name_greets_it() {
+    let m = started();
+    let named = step(m, type_into(view(m), "Your name", "Amina").unwrap());
+    assert_eq(shown(named)[2], "Hello, Amina!");
+}
+
+@test
+fun home_and_continue_keep_the_count() {
     let mut m = started();
-    m = update(m, type_into(view(m), "Your name", "Amina").unwrap());
-    assert_eq(texts(view(m))[2], "Hello, Amina!");
+    m = step(m, click(view(m), "Add").unwrap());
+    m = step(m, click(view(m), "Add").unwrap());
+    m = step(m, Msg.Home);
+    m = step(m, click(view(m), "Continue").unwrap());
+    assert_eq(shown(m)[1], "Count: 2");
+    // Closed, then reopened from home, it still has its count.
+    m = step(m, Msg.CloseTab(0));
+    m = step(m, click(view(m), "Continue").unwrap());
+    assert_eq(shown(m)[1], "Count: 2");
+}
+
+@test
+fun a_pinned_counter_opens_from_home() {
+    let mut m = step(started(), Msg.Pin);
+    m = step(m, Msg.NewTab);
+    m = step(m, click(view(m), "Open counter").unwrap());
+    assert_eq(shown(m)[1], "Count: 0");
 }

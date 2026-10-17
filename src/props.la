@@ -28,6 +28,17 @@ fun optional_text(
     None => Ok(""),
 };
 
+/** An optional text prop: `None` when left out. */
+fun maybe_text(
+    props: Value,
+    name: string,
+    here: string,
+): Result<Option<string>, ContractError> = match props.get(name) {
+    Some(Text(s)) => Ok(Some(s)),
+    Some(_) => Err(invalid(here, "\"{name}\" must be text")),
+    None => Ok(None),
+};
+
 /** An optional word prop: `default` when left out. */
 fun word(
     props: Value,

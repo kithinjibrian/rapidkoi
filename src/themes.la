@@ -1,0 +1,46 @@
+/**
+ * Rapidkoi's themes: the colours of its own parts (the bar and rail, and
+ * home's background), and the stylesheet that applies them. Apps never get
+ * colours; their content follows the GTK theme. Dark is first and the
+ * default; others come later.
+ *
+ * The stylesheet isn't applied yet: kivuli can't load one or tag widgets
+ * with CSS classes (DECISION-020). Until it can, this is a placeholder
+ * (DECISION-018), built and tested so the switch is one line.
+ *
+ * Used by: window, shell
+ */
+
+/** One theme: a name, and a colour per part of Rapidkoi's frame. */
+public struct Theme {
+    /** What settings will call it. */
+    public name: string,
+    /** The bar across the top and the tab rail. */
+    public bar: string,
+    /** Home's background. */
+    public home: string,
+}
+
+/** The dark theme, the default (the owner's colours, 2026-10-17). */
+public const DARK: Theme = Theme { name: "dark", bar: "#242424", home: "#161616" };
+
+/** The CSS class on the bar across the top. */
+public const BAR_CLASS: string = "rk-bar";
+/** The CSS class on the tab rail. */
+public const RAIL_CLASS: string = "rk-rail";
+/** The CSS class on home. */
+public const HOME_CLASS: string = "rk-home";
+
+/**
+ * Builds the stylesheet that paints Rapidkoi's parts in a theme.
+ *
+ * @param t the theme
+ * @returns GTK CSS for `.rk-bar`, `.rk-rail` and `.rk-home`
+ *
+ * Example:
+ *     stylesheet(DARK)
+ */
+public fun stylesheet(t: Theme): string = [
+    ".{BAR_CLASS}, .{RAIL_CLASS} {{ background-color: {t.bar}; }}",
+    ".{HOME_CLASS} {{ background-color: {t.home}; }}",
+].join("\n");

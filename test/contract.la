@@ -6,6 +6,7 @@ import rapidkoi.contract {
     ButtonLook,
     Space,
     ContractError,
+    Described,
     read_tree,
     read_update,
     envelope,
@@ -13,7 +14,9 @@ import rapidkoi.contract {
 import cbor { Value, encode, decode, Limits };
 import support { t, kv, leaf, parent, wide, deep };
 
-fun tree(v: Value): Result<Node, ContractError> = read_tree(encode(v));
+fun tree(v: Value): Result<Node, ContractError> = read_tree(encode(v)).map(
+    fun(d: Described) = d.root,
+);
 
 /** The problem text of a contract error, or "" when it isn't one. */
 fun problem(r: Result<Node, ContractError>): string = match r {
@@ -209,8 +212,11 @@ fun string_and_size_limits() {
     assert_eq(tree(leaf("text", [("text", t(xs(65536)))])).is_ok(), true);
     assert_eq(problem(tree(leaf("text", [("text", t(xs(65537)))]))), "Decode(TooLarge)");
     let big: u8[] = [0; 4 * 1024 * 1024 + 1];
-    assert_eq(problem(read_tree(big)), "TooLong(\"the screen description\", 4194305)");
-    assert_eq(problem(read_tree([0xa1])), "Decode(Truncated)");
+    assert_eq(
+        problem(read_tree(big).map(fun(d: Described) = d.root)),
+        "TooLong(\"the screen description\", 4194305)",
+    );
+    assert_eq(problem(read_tree([0xa1]).map(fun(d: Described) = d.root)), "Decode(Truncated)");
 }
 
 @test
@@ -248,4 +254,24 @@ fun envelopes_carry_the_message_and_value() {
         decoded(envelope(t("name"), Some("Amina K"))),
         kv([("msg", t("name")), ("value", t("Amina K"))]),
     );
+}
+
+@test
+fun the_root_may_carry_a_title() {
+    let titled = read_tree(encode(parent("column", [("title", t("Sprint 3"))], [])));
+    assert_eq(titled.map(fun(d: Described) = d.title), Ok(Some("Sprint 3")));
+    let untitled = read_tree(encode(parent("column", [], [])));
+    assert_eq(untitled.map(fun(d: Described) = d.title), Ok(None));
+}
+
+@test
+fun a_title_must_be_text_and_only_counts_on_the_root() {
+    assert_eq(
+        problem(tree(leaf("text", [("text", t("a")), ("title", Value.int(3))]))),
+        "root > text: \"title\" must be text",
+    );
+    let nested = read_tree(
+        encode(parent("column", [], [leaf("text", [("text", t("a")), ("title", t("ignored"))])])),
+    );
+    assert_eq(nested.map(fun(d: Described) = d.title), Ok(None));
 }

@@ -1,177 +1,110 @@
 /**
- * The shell's kivuli app: one guest, its state and its decoded screen, or
- * the error screen. `update` calls the guest (fuel bounds every call:
- * CLAUDE.md architecture rule 3); `view` only renders what's stored.
+ * Rapidkoi's window as a kivuli app: `boot` from the command line, `update`
+ * for every message, and `view` composing the bar, home or the current
+ * app (with the info panel beside it), and the rail. The state and what
+ * changes it live in `window.la`; `view` never calls a guest.
  *
- * Depends on: kivuli, wasmtime, guest, contract, render, theme
+ * Depends on: kivuli, wasmtime, actions, tabs, window, render, frame, home, panel, theme
  * Used by: main
  */
-import kivuli { View };
-import cbor { Value };
-import wasmtime { Engine, Module };
-import guest { Guest, compile, open, reason };
-import contract { Node, ContractError, read_tree, read_update, envelope };
-import render { Msg, screen, stopped };
-import theme { SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
-
-/** What the window shows. */
-public enum Screen {
-    /** The guest, its state, and its decoded screen. */
-    Running(Guest, u8[], Node),
-    /** Why the app isn't running, and whether Restart can help. */
-    Stopped(string, bool),
-}
-
-/** The compiled app, kept so Restart can start it again. */
-public struct Program {
-    engine: Engine,
-    module: Module,
-}
-
-/** The shell's model. */
-public struct Model {
-    /** The window title. */
-    public title: string,
-    /** The app, when one loaded. */
-    program: Option<Program>,
-    /** What's on screen. */
-    public screen: Screen,
-}
+import kivuli { View, Cmd, column, row, scroll, text };
+import wasmtime { Engine };
+import actions { Msg };
+import tabs { AppPage, Pin, open_path, handle };
+public import window { Model, with_pages, title_of };
+import render { screen, stopped };
+import frame { bar, rail };
+import home;
+import panel;
+import theme { SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
 
 /**
- * Builds the first model from the command line: `./main path/to/app.wasm`.
+ * Builds the first window from the command line: `./main` shows home,
+ * `./main path/to/app.wasm` opens that app in a tab.
  *
  * @param argv the program's arguments, `argv[0]` its path
- * @returns a running app, or the error screen saying why not (no Restart)
+ * @returns the first model, and a command focusing the box on home
  *
  * Example:
- *     sandbox("app.rapidkoi.shell", boot(args()), update, view)
+ *     App { init: boot(args()), … }
  */
-public fun boot(argv: string[]): Model {
-    if argv.len < 2 {
-        return failed("Rapidkoi", "Open an app: ./main path/to/app.wasm");
-    }
-    let path = argv[1];
-    let parts = path.split("/");
-    let title = "Rapidkoi — {parts[parts.len - 1]}";
-    let bytes = match read_bytes(path) {
-        Ok(b) => b,
-        Err(e) => {
-            return failed(title, "Couldn't read {path}: {e}");
-        }
-    };
+public fun boot(argv: string[]): (Model, Cmd<Msg>) {
     let engine = Engine.new();
-    match compile(engine, bytes) {
-        Ok(module) => launch(title, engine, module),
-        Err(e) => failed(title, reason(e)),
+    if argv.len < 2 {
+        return (with_pages(engine, []), Cmd.focus("address"));
     }
+    (with_pages(engine, [open_path(engine, argv[1])]), Cmd.none())
 }
 
 /**
- * Starts a compiled app.
- *
- * @param title the window title
- * @param engine the engine `module` was compiled with
- * @param module the app
- * @returns the model: running, or stopped with Restart offered
- *
- * Example:
- *     launch("Rapidkoi — counter.wasm", engine, module)
- */
-public fun launch(title: string, engine: Engine, module: Module): Model {
-    let program = Program { engine: engine, module: module };
-    Model { title: title, program: Some(program), screen: start(program) }
-}
-
-/**
- * Handles one message: an event goes to the guest, Restart starts afresh.
+ * Handles one message from the window.
  *
  * @param m the model
- * @param msg what the window sent
- * @returns the next model; any guest or contract failure stops the app
+ * @param msg what was pressed or typed
+ * @returns the next model, and a command (focusing the box, or none)
  *
  * Example:
- *     update(m, Msg.Restart)
+ *     update(m, Msg.NewTab)
  */
-public fun update(m: Model, msg: Msg): Model = match (m.screen, msg) {
-    (Running(g, state, _), Event(value, text)) => Model {
-        screen: step(g, state, value, text),
-        ..m,
+public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
+    Tab(id, inner) => (window.with_tab(m, id, fun(a: AppPage) = handle(a, inner)), Cmd.none()),
+    Select(id) => (window.show_tab(m, id), Cmd.none()),
+    // Home isn't a tab: + and ⌂ both show it, keeping every app open.
+    NewTab | Home => (window.go_home(m), Cmd.focus("address")),
+    CloseTab(id) => (window.close(m, id), Cmd.none()),
+    Draft(text) => (Model { draft: text, notice: None, ..m }, Cmd.none()),
+    Go => (window.go(m), Cmd.none()),
+    EditAddress => match window.page_of(m) {
+        App(a) => (Model { editing: true, draft: a.path, ..m }, Cmd.focus("address")),
+        Home => (m, Cmd.focus("address")),
     },
-    // An event can only come from the guest's screen; once stopped, ignore it.
-    (Stopped(_, _), Event(_, _)) => m,
-    (_, Restart) => {
-        if let Running(g, _, _) = m.screen {
-            g.close();
-        }
-        match m.program {
-            Some(p) => Model { screen: start(p), ..m },
-            None => m,
-        }
-    }
+    OpenPinned(path) => (window.open_file(window.go_home(m), path), Cmd.none()),
+    Continue => (window.reopen(m), Cmd.none()),
+    TogglePanel => (Model { showing_panel: !m.showing_panel, ..m }, Cmd.none()),
+    Pin => (window.pin(m), Cmd.none()),
+    Unpin(path) => (
+        Model { pinned: m.pinned.filter(fun(p: Pin) = p.path != path), ..m },
+        Cmd.none(),
+    ),
+    FocusSearch => (m, Cmd.focus("address")),
 };
 
 /**
- * Renders the model: the guest's screen or the error screen, in the window.
+ * Draws the window: the bar, home or the current app (with the panel
+ * beside it when open), and the rail. Never calls a guest.
  *
  * @param m the model
- * @returns the window's view; never calls the guest
+ * @returns the window's view
  *
  * Example:
  *     view(m)
  */
 public fun view(m: Model): View<Msg> {
-    let content = match m.screen {
-        Running(_, _, tree) => screen(tree),
+    let page = window.page_of(m);
+    // On an app page m.current is Some: page_of found its tab.
+    let id = m.current.unwrap_or(-1);
+    let middle = match page {
+        Home => scroll(home.view(m.draft, m.pinned, window.card(m), m.tabs).padding(SPACE_LG)),
+        App(a) if m.showing_panel => row([
+            scroll(app_view(id, a).padding(SPACE_LG)).expand(),
+            panel.view(id, a, window.is_pinned(m, a.path)),
+        ]).spacing(SPACE_MD),
+        App(a) => scroll(app_view(id, a).padding(SPACE_LG)),
+    };
+    let mut parts = [bar(page, m.draft, m.editing).padding(SPACE_MD)];
+    if let Some(n) = m.notice {
+        parts.push(text(n).dim().padding(SPACE_MD));
+    }
+    parts.push(row([middle.expand(), rail(m.tabs, m.current)]).expand());
+    // kivuli can't maximize yet (DECISION-020): the default size stands in.
+    column(parts).window(title_of(m), WINDOW_WIDTH, WINDOW_HEIGHT)
+}
+
+/** A tab's app, its messages tagged with the tab, so they reach only it. */
+fun app_view(id: i64, a: AppPage): View<Msg> {
+    let shown = match a.screen {
+        Running(_, _, d) => screen(d.root),
         Stopped(why, can_restart) => stopped(why, can_restart),
     };
-    content.padding(SPACE_LG).window(m.title, WINDOW_WIDTH, WINDOW_HEIGHT)
+    shown.map(fun(inner: render.Msg) = Msg.Tab(id, inner))
 }
-
-fun failed(title: string, why: string): Model = Model {
-    title: title,
-    program: None,
-    screen: Screen.Stopped(why, false),
-};
-
-/** Opens the guest in a fresh store, then `init` and `view`. */
-fun start(p: Program): Screen = match open(p.engine, p.module) {
-    Err(e) => Screen.Stopped(reason(e), true),
-    Ok(g) => match g.init() {
-        Err(e) => halt(g, reason(e)),
-        Ok(state) => show(g, state),
-    },
-};
-
-/** Sends one event to the guest's `update`, then renders the new state. */
-fun step(g: Guest, state: u8[], msg: Value, text: Option<string>): Screen = match g.update(
-    state,
-    envelope(msg, text),
-) {
-    Err(e) => halt(g, reason(e)),
-    Ok(bytes) => match read_update(bytes) {
-        Err(e) => halt(g, broken("update result", e)),
-        Ok(next) => show(g, next),
-    },
-};
-
-/** Calls `view(state)` and decodes the screen. */
-fun show(g: Guest, state: u8[]): Screen = match g.view(state) {
-    Err(e) => halt(g, reason(e)),
-    Ok(bytes) => match read_tree(bytes) {
-        Err(e) => halt(g, broken("screen description", e)),
-        Ok(tree) => Screen.Running(g, state, tree),
-    },
-};
-
-/** Stops the guest: frees its store and keeps why. */
-fun halt(g: Guest, why: string): Screen {
-    g.close();
-    Screen.Stopped(why, true)
-}
-
-fun broken(what: string, e: ContractError): string = match e {
-    Invalid(path, problem) => "This app's {what} is broken ({path}: {problem})",
-    TooLong(_, n) => "This app's {what} is too large ({n} bytes)",
-    Decode(d) => "This app's {what} is broken (bad CBOR: {d})",
-};

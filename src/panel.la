@@ -1,0 +1,44 @@
+/**
+ * The app info panel, pure: what an app is, what it may do, and the
+ * actions on its tab. Shown beside the app until kivuli has an overlay
+ * (DECISION-018).
+ *
+ * Depends on: kivuli, render, actions, tabs, frame, theme
+ * Used by: shell
+ */
+import kivuli { View, ButtonStyle, button, column, row, text };
+import render;
+import actions { Msg };
+import tabs { AppPage };
+import frame { icon_button };
+import theme { SPACE_SM, SPACE_MD, TEXT_TITLE, PANEL_WIDTH };
+
+/**
+ * Builds the info panel for an app page.
+ *
+ * @param id the page's tab
+ * @param p the page
+ * @param pinned whether the app is pinned
+ * @returns the panel: name, title, file, contract, permissions, Restart, Pin/Unpin, Close tab
+ *
+ * Example:
+ *     panel.view(tab.id, page, false)
+ */
+public fun view(id: i64, p: AppPage, pinned: bool): View<Msg> {
+    let mut parts = [
+        row([
+            text(p.name).size(TEXT_TITLE).bold().expand(),
+            icon_button("window-close-symbolic", "Close the panel", Some(Msg.TogglePanel)),
+        ]),
+    ];
+    if let Some(t) = p.title {
+        parts.push(text(t));
+    }
+    parts.push(text("📄 {p.path} · local file").dim().wrap());
+    parts.push(text("Contract v1").dim());
+    parts.push(text("Permissions: none. This app can't reach anything outside itself.").wrap());
+    parts.push(button("Restart", Msg.Tab(id, render.Msg.Restart)));
+    parts.push(if pinned { button("Unpin", Msg.Unpin(p.path)) } else { button("Pin", Msg.Pin) });
+    parts.push(button("Close tab", Msg.CloseTab(id)).style(ButtonStyle.Danger));
+    column(parts).spacing(SPACE_SM).padding(SPACE_MD).width(PANEL_WIDTH)
+}

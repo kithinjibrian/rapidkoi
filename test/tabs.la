@@ -1,0 +1,78 @@
+// Pages in tabs: starting a guest, events and Restart, leaving a page and
+// resuming it with its saved state. Fixture guests; no display.
+import rapidkoi.tabs { AppPage, open_module, open_path, handle, leave, resume, state_of };
+import rapidkoi.render { Msg };
+import rapidkoi.contract { envelope };
+import wasmtime { Engine, Module };
+import support { t, fixed, counter_tree, result_of, echo, titled_tree, crashing };
+
+fun page(wat: string): AppPage {
+    let engine = Engine.new();
+    open_module("fixture", "fixture.wasm", engine, Module.from_text(engine, wat).unwrap())
+}
+
+fun reason_of(p: AppPage): string = match p.screen {
+    Stopped(r, _) => r,
+    Running(_, _, _) => "running",
+};
+
+@test
+fun a_page_starts_and_keeps_its_title() {
+    let p = page(fixed(1, [5], titled_tree("Count: 0", "Counter"), result_of([6])));
+    assert_eq(state_of(p), Some([5]));
+    assert_eq(p.title, Some("Counter"));
+    assert_eq(p.name, "fixture");
+}
+
+@test
+fun events_and_restart() {
+    let p = page(echo());
+    let next = handle(p, Msg.Event(t("add"), None));
+    assert_eq(state_of(next), Some(envelope(t("add"), None)));
+    let again = handle(next, Msg.Restart);
+    assert_eq(state_of(again), Some([]));
+}
+
+@test
+fun a_crash_stops_the_page_and_events_are_then_ignored() {
+    let p = handle(page(crashing()), Msg.Event(t("add"), None));
+    assert_eq(reason_of(p).starts_with("This app crashed"), true);
+    assert_eq(reason_of(handle(p, Msg.Event(t("add"), None))), reason_of(p));
+    assert_eq(state_of(p), None);
+}
+
+@test
+fun leaving_keeps_the_state_and_resume_restores_it() {
+    let p = handle(page(echo()), Msg.Event(t("add"), None));
+    let left = leave(p);
+    assert_eq(left.state, Some(envelope(t("add"), None)));
+    // `init` would give [], so this state can only come from `view(saved)`.
+    assert_eq(state_of(resume(left)), Some(envelope(t("add"), None)));
+}
+
+@test
+fun leaving_a_stopped_page_resumes_fresh() {
+    let p = handle(page(crashing()), Msg.Event(t("add"), None));
+    let left = leave(p);
+    assert_eq(left.state, None);
+    assert_eq(state_of(resume(left)), Some([]));
+}
+
+@test
+fun opening_paths() {
+    let engine = Engine.new();
+    assert_eq(
+        reason_of(open_path(engine, "no/such/app.wasm")).starts_with(
+            "Couldn't read no/such/app.wasm",
+        ),
+        true,
+    );
+    let not_wasm = open_path(engine, "lugha.toml");
+    assert_eq(reason_of(not_wasm).starts_with("This file isn't a WebAssembly app"), true);
+    assert_eq(not_wasm.name, "lugha.toml");
+    // Restart can't help when the module never loaded.
+    match not_wasm.screen {
+        Stopped(_, can_restart) => assert_eq(can_restart, false),
+        Running(_, _, _) => panic("expected a stopped page"),
+    }
+}

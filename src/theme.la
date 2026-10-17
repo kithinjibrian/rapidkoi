@@ -24,9 +24,22 @@ public const TEXT_TITLE: i64 = 18;
 public const TEXT_HEADING: i64 = 14;
 
 /** The window's default width, in pixels. */
-public const WINDOW_WIDTH: i64 = 480;
+public const WINDOW_WIDTH: i64 = 960;
 /** The window's default height, in pixels. */
-public const WINDOW_HEIGHT: i64 = 640;
+public const WINDOW_HEIGHT: i64 = 700;
+
+/** The tab rail on the right, in pixels. */
+public const RAIL_WIDTH: i64 = 64;
+/** One tab button in the rail, in pixels (square). */
+public const TAB_SIZE: i64 = 44;
+/** A Pinned tile on home, in pixels (square). */
+public const TILE_SIZE: i64 = 120;
+/** Tiles in one row, until kivuli has a wrapping grid (DECISION-018). */
+public const TILES_PER_ROW: i64 = 4;
+/** "Where you left off", in pixels. */
+public const BANNER_HEIGHT: i64 = 180;
+/** The app info panel, in pixels. */
+public const PANEL_WIDTH: i64 = 280;
 
 /**
  * Returns the pixels a contract spacing or padding word stands for.

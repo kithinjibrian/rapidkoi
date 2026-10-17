@@ -1,0 +1,40 @@
+/**
+ * What Rapidkoi's window can send its `update`: the frame's buttons, the
+ * address box, home, the info panel, and each tab's own screen.
+ *
+ * Depends on: render
+ * Used by: frame, home, panel, shell
+ */
+import render;
+
+/** A message to the shell. */
+public enum Msg {
+    /** A message from a tab's own screen (a guest event, or Restart), by tab id. */
+    Tab(i64, render.Msg),
+    /** Show this tab. */
+    Select(i64),
+    /** Open a new tab on home. */
+    NewTab,
+    /** Close this tab. */
+    CloseTab(i64),
+    /** Go home in the current tab. */
+    Home,
+    /** The address box's new text. */
+    Draft(string),
+    /** Open what the address box says. */
+    Go,
+    /** Turn the address shown on an app page back into the box. */
+    EditAddress,
+    /** Open a pinned app, by path, in the current tab. */
+    OpenPinned(string),
+    /** Reopen where the person left off. */
+    Continue,
+    /** Show or hide the app info panel. */
+    TogglePanel,
+    /** Pin the current app. */
+    Pin,
+    /** Unpin an app, by path. */
+    Unpin(string),
+    /** Move the keyboard to the address box (Ctrl+K). */
+    FocusSearch,
+}

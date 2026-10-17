@@ -64,6 +64,14 @@ public enum Node {
     Unsupported(string),
 }
 
+/** A decoded screen: its tree, and the title its root carries (contract v1, optional). */
+public struct Described {
+    /** The root node. */
+    public root: Node,
+    /** The screen's title, from the root's `props.title`. */
+    public title: Option<string>,
+}
+
 /** Why a description or result was refused. */
 public enum ContractError {
     /** The bytes aren't CBOR this shell accepts (or pass a decoder limit). */

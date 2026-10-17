@@ -297,6 +297,140 @@ CLAUDE.md       — file tree and import order
 
 ---
 
+## SESSION 8 — 2026-10-17 — Record Rapidkoi's UI design; propose PRP-002 — closed
+
+Branch: prp-002-frame
+
+### WHAT WAS DONE
+
+Recorded the UI design the owner sketched in chat (frame, tab rail, home, finding things again, pictures, info panel), with their two sketches. Recorded DECISION-016 as A. On the owner's "placeholders where you can, don't get blocked", recorded DECISION-018 and wrote PRP-002 (frame and tabs) with a placeholder table. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-17-ui-design.md   — the design discussion and decisions
+docs/source/meetings/2026-10-17-ui/*.png       — the owner's two sketches
+docs/DESIGN.md                                 — the frame's tokens and icons
+DECISIONS.md — 016 resolved (A), 018 resolved (placeholders), 019 deferred (state across restarts)
+MEMORY.md    — decision 12 (Rapidkoi's own UI)
+PRPs/prp-002-frame_and_tabs.md — for approval
+```
+
+### TESTS WRITTEN
+
+- None (design only).
+
+### DECISIONS MADE
+
+- DECISION-016 (A), DECISION-018 (placeholders).
+
+### PENDING DECISIONS OPENED
+
+- DECISION-019 (deferred to PRP-003).
+
+### STILL OPEN AT CLOSE
+
+- PRP-002 awaits approval. It includes extending rule 3 to opening a local app file in `update`.
+- kivuli work for the owner: disabled text fields (prompt given), then a file dialog, an overlay, context menus and a wrapping grid.
+
+---
+
+## SESSION 9 — 2026-10-17 — Build PRP-002: frame and tabs — closed
+
+Branch: prp-002-frame (not merged)
+
+### WHAT WAS DONE
+
+Built PRP-002 test-first: the contract's root `title`, tabs.la (pages and their life, moved out of shell.la), actions.la, the pure frame/home/panel views, a new shell.la (tabs, address box, pins, left off, Continue restoring state), and main.la on kivuli `application` (for Ctrl+K focus). The Rust crate gained `screen_title`. 70 Lugha tests and 8 Rust tests pass, and the build works. Not merged: `src/shell.la` is 305 lines (limit 300), and the owner's approval of its split is pending.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/tabs.la (new)    — Screen, Program, AppPage, Page, Tab, Pin, LeftOff; open_path/open_module/handle/leave/resume
+src/actions.la (new) — the shell's Msg
+src/frame.la (new)   — bar, rail, label, initial, icon_button
+src/home.la (new)    — home.view, matches; tiles in rows of 4
+src/panel.la (new)   — panel.view
+src/shell.la         — rewritten: Model, boot, with_pages, update, view, title_of (305 lines)
+src/main.la          — kivuli application
+src/contract.la, nodes.la, props.la — Described { root, title }, maybe_text
+src/theme.la         — frame tokens; window 960 × 700
+test/tabs.la test/views.la (new); test/shell.la test/counter.la (rewritten); test/contract.la, support.la
+guest/rust           — View::screen_title; the counter titles itself "Counter"
+CLAUDE.md            — rule 3's second exception, file tree, imports, placeholder KNOWN ISSUES
+docs/DESIGN.md, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- tabs (6): start with title, events/restart, crash then ignore, leave/resume with state, resume after a crash, open paths.
+- views (9): bar on home and on an app, rail, labels, empty home, left off and pinned, search, matching, panel.
+- shell (12): boot, events per tab, crash isolation and restart, open/select/close, close all, home → Continue restores state, address box notices, editing, pins, panel, titles.
+- counter (5, e2e): adds Home→Continue keeping the count, and opening a pin.
+- contract (+2): root title, non-text title, nested title ignored.
+
+### DECISIONS MADE
+
+- Continue keeps the compiled module in memory (LeftOff.program), so it needn't re-read the file. That also makes it testable with fixtures.
+- On home, ⌂ carries Ctrl+K (it moves to the search box); on an app page the address button does. There's only ever one enabled Ctrl+K.
+- Rust: `screen_title` rather than `title` (`title()` already meant the text style).
+- `home.view` / `panel.view` instead of `home()` / `panel()` (a function can't share its module's name when imported).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The split of `src/shell.la`, proposed: `src/window.la` gets Model, with_pages, title_of and the helpers (go, open_here, close, leave_current, with_page, page_of, has, pinned), about 150 lines. `shell.la` keeps boot, update, view and app_view, about 160, re-exporting Model, with_pages and title_of so no caller changes.
+- The owner checks the window on screen (PRP-002 VALIDATION).
+
+---
+
+## SESSION 10 — 2026-10-17 — PRP-002 amendments: split, home not a tab, themes — closed
+
+Branch: prp-002-frame → merged into main
+
+### WHAT WAS DONE
+
+After trying PRP-002, the owner asked for: the split (approved), home not being a tab, themes starting with dark (bars `#242424`, home `#161616`), and starting maximized ("full screen… because it is a browser", read as maximized with the title bar kept). Recorded as PRP-002 Amendment 1, built test-first, and merged. The theme and maximizing are placeholders until kivuli can apply a stylesheet and maximize (DECISION-020). The owner parked "what looked off in the style" until they raise it.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/window.la (new) — Model and what changes it: show_tab, go_home, open_file, go, close, reopen, pin, card, page_of, title_of
+src/themes.la (new) — Theme, DARK, stylesheet(); rk-bar / rk-rail / rk-home
+src/shell.la        — boot, update, view only (110 lines); re-exports Model, with_pages, title_of
+src/tabs.la         — Tab holds an AppPage (home isn't a tab)
+src/frame.la        — rail lists apps only, current is Option
+src/home.la         — Card (name, title, msg): Select(id) for an open app, Continue for a closed one
+test/shell.la (rewritten), test/views.la, test/counter.la
+DECISIONS.md (020), docs/DESIGN.md (theme colours, rule), CLAUDE.md (design rule, tree, imports, known issues), CHANGELOG.md, PRPs/prp-002 (amendment)
+```
+
+### TESTS WRITTEN
+
+- shell (14): no tabs on boot, + and ⌂ keep apps, the card selects an open app, a closed app reopens with its state, neighbours then home, the address box from home vs from an app, pins, panel, titles.
+- views (+1, now 10): the app-only rail, cards, the dark stylesheet.
+- counter e2e: ⌂ → Continue, and close → Continue, both keep the count.
+
+### DECISIONS MADE
+
+- `select` is a Lugha keyword, so it's `window.show_tab`.
+- Typing an address on an app page replaces that tab's app (as a browser navigates a tab); from home it opens a new tab.
+- "Full screen" means maximized: true full screen would hide the window controls the owner keeps.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-020 (deferred): kivuli additions behind the placeholders.
+
+### STILL OPEN AT CLOSE
+
+- The kivuli work (DECISION-016, DECISION-020); the owner runs it.
+- Style feedback: the owner will say what looked off.
+
+---
+
 ## NEXT SESSION START POINT
 
-Open session 8 on a new branch. PRP-001 (build path step 1, the shell) is on `main`. First get the owner's answer to DECISION-016. If A, that's a kivuli PRP in a kivuli session; then a small rapidkoi change to render a disabled input and drop the contract error. Next on the build path is step 2, links (`rapidkoi://` addresses): it needs DECISION-014 (kivuli app flags) and DECISION-009 (manifest/bundle) revisited, and starts with a discovery interview.
+Open session 11 on a new branch. PRP-002 (frame and tabs, with Amendment 1) is on `main`. When kivuli ships the DECISION-020 features, swap each placeholder out (theme first: `.class` the bar, rail and home, and load `themes.stylesheet(DARK)`; then maximize). Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), starting with a discussion in chat. Wait for the owner's style feedback before restyling anything.

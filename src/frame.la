@@ -1,0 +1,130 @@
+/**
+ * Rapidkoi's frame, pure: the bar across the top (back, home, forward, the
+ * address box, info, share) and the tab rail down the right. Only Rapidkoi
+ * draws these; an app's view lives between them and can't reach them.
+ *
+ * Depends on: kivuli, actions, tabs, theme
+ * Used by: panel, shell
+ */
+import kivuli { View, ButtonStyle, button, column, input, row, separator, spacer };
+import actions { Msg };
+import tabs { Page, Tab, AppPage };
+import theme { SPACE_SM, RAIL_WIDTH, TAB_SIZE };
+
+/**
+ * Builds the bar across the top.
+ *
+ * @param page what the current tab shows
+ * @param draft the address box's text
+ * @param editing whether an app page's address is being edited
+ * @returns the bar; back, forward and share are disabled until links (DECISION-018)
+ *
+ * Example:
+ *     bar(Page.Home, "", false)
+ */
+public fun bar(page: Page, draft: string, editing: bool): View<Msg> {
+    let back = icon_button("go-previous-symbolic", "Back (comes with links)", None);
+    let forward = icon_button("go-next-symbolic", "Forward (comes with links)", None);
+    let share = icon_button("emblem-shared-symbolic", "Share (comes with links)", None);
+    let box = input(draft, Msg.Draft).placeholder("Search or type a path").name(
+        "address",
+    ).on_submit(Msg.Go).autofocus();
+    match page {
+        Home => row([
+            back,
+            // On home, ⌂ moves to the search box; it carries Ctrl+K.
+            icon_button("go-home-symbolic", "Search (Ctrl+K)", Some(Msg.FocusSearch)).shortcut("Ctrl+K"),
+            forward,
+            box.expand(),
+            share,
+        ]).spacing(SPACE_SM),
+        App(p) => {
+            // Drawn by Rapidkoi only: an app can never show this marker.
+            let address = if editing {
+                box
+            } else {
+                button("📄 {file_of(p.path)} · local file", Msg.EditAddress).style(
+                    ButtonStyle.Subtle,
+                ).tooltip("Search or type a path (Ctrl+K)").shortcut("Ctrl+K")
+            };
+            row([
+                back,
+                icon_button("go-home-symbolic", "Home", Some(Msg.Home)),
+                forward,
+                address.expand(),
+                icon_button("dialog-information-symbolic", "App info", Some(Msg.TogglePanel)),
+                share,
+            ]).spacing(SPACE_SM)
+        }
+    }
+}
+
+/**
+ * Builds the tab rail on the right. Home isn't a tab: + and ⌂ show it.
+ *
+ * @param open the open tabs, in order
+ * @param current the current tab's id; `None` on home
+ * @returns the rail: one button per app, +, then settings and more (disabled)
+ *
+ * Example:
+ *     rail(m.tabs, m.current)
+ */
+public fun rail(open: Tab[], current: Option<i64>): View<Msg> {
+    let mut items = open.map(fun(t: Tab) = tab_button(t, current));
+    items.push(icon_button("list-add-symbolic", "New tab", Some(Msg.NewTab)));
+    items.push(separator());
+    items.push(spacer());
+    items.push(icon_button("emblem-system-symbolic", "Settings (coming soon)", None));
+    items.push(icon_button("view-more-symbolic", "More (coming soon)", None));
+    column(items).spacing(SPACE_SM).padding(SPACE_SM).width(RAIL_WIDTH)
+}
+
+/**
+ * Returns what a tab is called: "name · title", or the name alone.
+ *
+ * @param p the app page
+ * @returns its label
+ *
+ * Example:
+ *     label(page)
+ */
+public fun label(p: AppPage): string = match p.title {
+    Some(t) => "{p.name} · {t}",
+    None => p.name,
+};
+
+/**
+ * Returns a name's first character, upper-cased: the stand-in for app art
+ * until PRP-003 (DECISION-018).
+ *
+ * @param name the app's name
+ * @returns one character, or "?" for an empty name
+ *
+ * Example:
+ *     initial("counter")
+ */
+public fun initial(name: string): string {
+    for c of name.chars() {
+        return "{c.to_upper()}";
+    }
+    "?"
+}
+
+/** An icon-only button with a tooltip; `None` means disabled. */
+fun icon_button(icon: string, tip: string, msg: Option<Msg>): View<Msg> = match msg {
+    Some(m) => button("", m).icon(icon).tooltip(tip).style(ButtonStyle.Subtle),
+    // kivuli: `.disabled(true)` removes the message, so any one will do.
+    None => button("", Msg.Home).disabled(true).icon(icon).tooltip(tip).style(ButtonStyle.Subtle),
+};
+
+fun tab_button(t: Tab, current: Option<i64>): View<Msg> {
+    let look = if current == Some(t.id) { ButtonStyle.Primary } else { ButtonStyle.Subtle };
+    button(initial(t.page.title.unwrap_or(t.page.name)), Msg.Select(t.id)).tooltip(
+        label(t.page),
+    ).style(look).width(TAB_SIZE).height(TAB_SIZE)
+}
+
+fun file_of(path: string): string {
+    let parts = path.split("/");
+    parts[parts.len - 1]
+}
