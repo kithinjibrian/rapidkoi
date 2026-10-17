@@ -261,6 +261,12 @@ PRPs/prp-001-shell.md  — marked approved; deps line → git
 
 ---
 
+## SESSION 7 — 2026-10-17 — Split contract.la; merge PRP-001 — open
+
+Branch: prp-001-shell
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 7 on `prp-001-shell`. If the owner approved the split: move the types into `src/nodes.la` and the prop readers into `src/props.la`, with `contract.la` re-exporting the types; run every VALIDATION command; merge into `main`. Apply the owner's answer to DECISION-016 (if A, that's kivuli work in a kivuli session first). Then ask whether to push (no remote yet: DECISION-002).
