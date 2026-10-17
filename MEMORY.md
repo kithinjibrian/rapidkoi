@@ -97,21 +97,42 @@ Read this at the start of every session before writing any code.
 
 ---
 
+### 10. UI contract v1 (DECISION-012)
+
+**Decision:** Guests and the shell speak CBOR. Nodes are `{kind, props, children?, key?}` with semantic props only. Messages are opaque, returned as `{msg, value?}`. Guests export `rapidkoi_version`, `init`, `update → {state, effects}` and `view`; the shell holds state. Fixed limits; a failing app stops alone. Detail: `docs/source/meetings/2026-10-17-ui-contract.md`.
+
+**Why:** Language-neutral, inspectable, and every person's settings apply to every app.
+
+**Rules out:** Pixel or colour props; the shell interpreting app messages; guest-held state; failing a whole screen over an unknown kind; changing v1 without bumping the version.
+
+---
+
+### 11. lugha-cbor (DECISION-013)
+
+**Decision:** CBOR lives in the standalone pure-Lugha package `../lugha-cbor` (`cbor`), built before the shell.
+
+**Why:** Generic and useful to all of Lugha (decision 9).
+
+**Rules out:** A CBOR decoder inside rapidkoi.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working
 - `src/main.la` prints a greeting; it passes `lughac check` and `fmt --check`.
-- Context system in place (session 1). Vision recorded (session 2). Architecture decisions recorded (session 3).
+- Context system in place (session 1). Vision recorded (session 2). Architecture decisions recorded (session 3). UI contract v1 designed (session 4).
+- `../lugha-wasmtime` PRP-001 (core runtime) merged in that repo: everything the shell needs.
 
 ### In Progress
 - Nothing.
 
 ### Not Started
-- Build path step 1, the shell: decisions made; needs its discovery interview and PRP-001.
-- `../lugha-wasmtime`: repository scaffolded (session 3); no bindings yet.
+- Build path step 1, the shell: contract designed (decision 10); needs PRP-001.
+- `../lugha-cbor`: scaffolded (session 4); needs its PRP-001.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Read CLAUDE.md, MEMORY.md, DECISIONS.md and CONTEXT.md. Run the discovery interview for build path step 1 (the shell) in chat, one question at a time, and write `PRPs/prp-001-shell.md`. The shell needs wasmtime bindings first: that work is a PRP in `../lugha-wasmtime`, under its own CLAUDE.md.
+After `../lugha-cbor`'s PRP-001 is merged: open a session, read the four files and `docs/source/meetings/2026-10-17-ui-contract.md`, then write `PRPs/prp-001-shell.md` implementing contract v1 exactly, and build it after approval.

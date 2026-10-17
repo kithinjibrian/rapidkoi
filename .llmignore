@@ -19,3 +19,4 @@ lugha.lock
 ../kivuli/
 ../lugha-gtk/
 ../lugha-wasmtime/
+../lugha-cbor/

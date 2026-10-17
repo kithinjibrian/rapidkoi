@@ -80,6 +80,38 @@ Rules:
 
 ## RESOLVED
 
+### DECISION-012 — UI contract v1
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 4
+**Resolved:** 2026-10-17 — Session 4
+
+**Question:** What exactly passes between a guest and the shell?
+
+**Outcome:** CBOR. Nodes are `{kind, props, children?, key?}`; step 1 kinds are text, button, input, column, row. Props are semantic only (no pixels or colours). Unknown props are ignored; unknown kinds render a placeholder. Messages are opaque app-chosen CBOR values, returned in an envelope `{msg, value?}`. No handler means disabled. The guest exports `rapidkoi_version() → 1`, `init`, `update(state, event) → {state, effects: []}` and `view(state)`; the shell holds the state bytes. Limits: fuel ≈100 ms per call, 256 MB memory, view 4 MB / 10,000 nodes / depth 64, strings 64 KB, state 16 MB. A failing app stops alone, behind a Restart screen. Full detail: `docs/source/meetings/2026-10-17-ui-contract.md`.
+
+**Rationale:** Language-neutral, inspectable, one crossing per call; semantic props let the person's settings apply to every app; reserved `key` and `effects` avoid breaking changes later.
+
+**Copied to MEMORY.md:** yes
+
+---
+
+### DECISION-013 — lugha-cbor
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 4
+**Resolved:** 2026-10-17 — Session 4
+
+**Question:** Where does the CBOR code live?
+
+**Outcome:** A standalone, pure-Lugha package `../lugha-cbor` (package `cbor`), built before the shell. Its decoder is safe on hostile input.
+
+**Rationale:** MEMORY.md decision 9: generic pieces are their own packages.
+
+**Copied to MEMORY.md:** yes
+
+---
+
 ### DECISION-003 — Which WebAssembly runtime the shell embeds
 
 **Status:** resolved

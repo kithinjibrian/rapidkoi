@@ -136,12 +136,43 @@ CLAUDE.md    — ecosystem goal, generic-code rule, stack (wasmtime, Rust guests
 
 ---
 
-## SESSION 4 — 2026-10-17 — Record the UI contract — open
+## SESSION 4 — 2026-10-17 — Record the UI contract — closed
 
 Branch: main
+
+### WHAT WAS DONE
+
+Checked `../lugha-wasmtime` against the shell's needs: everything is there (56/56 tests, example runs, a probe built kivuli + wasmtime together via a `path` package). Designed UI contract v1 with the owner in chat and recorded it. Set up `../lugha-cbor` (package `cbor`) with its own context system, on the owner's go. No rapidkoi code changed.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-17-ui-contract.md — contract v1 in full
+DECISIONS.md — 012 (contract v1), 013 (lugha-cbor) resolved
+MEMORY.md    — decisions 10–11; state; next step
+CLAUDE.md    — stack: wasmtime path package, cbor, contract v1 rule; lugha-cbor protected
+.llmignore, .claude/settings.json — ../lugha-cbor added
+../lugha-cbor/ — new repo: lughac init --lib, context system, hostile-input rules
+```
+
+### TESTS WRITTEN
+
+- None (no code).
+
+### DECISIONS MADE
+
+- DECISIONS 012 and 013.
+
+### PENDING DECISIONS OPENED
+
+- None here. lugha-cbor DECISION-001 (streaming) deferred.
+
+### STILL OPEN AT CLOSE
+
+- lugha-cbor PRP-001, then rapidkoi PRP-001 (the shell).
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 4 first. Then read CLAUDE.md, MEMORY.md, DECISIONS.md, CONTEXT.md and `docs/source/meetings/2026-10-17-architecture.md`. Continue in chat at the owner's pace: run the discovery interview for build path step 1 (the shell), one question at a time, and write `PRPs/prp-001-shell.md`. Its bindings come first from `../lugha-wasmtime` (resolve that repo's DECISIONS 001–002 in a session there). Before any view code, read `../kivuli/README.md` and `docs/DESIGN.md`.
+Wait until `../lugha-cbor`'s PRP-001 is merged (check its CONTEXT.md). Then open session 5 first, read CLAUDE.md, MEMORY.md, DECISIONS.md, CONTEXT.md and `docs/source/meetings/2026-10-17-ui-contract.md`, and write `PRPs/prp-001-shell.md` implementing contract v1 exactly, from the owner's brief. Build it after approval.
