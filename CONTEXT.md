@@ -297,6 +297,12 @@ CLAUDE.md       — file tree and import order
 
 ---
 
+## SESSION 8 — 2026-10-17 — Record Rapidkoi's UI design; propose PRP-002 — open
+
+Branch: prp-002-frame
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 8 on a new branch. PRP-001 (build path step 1, the shell) is on `main`. First get the owner's answer to DECISION-016. If A, that's a kivuli PRP in a kivuli session; then a small rapidkoi change to render a disabled input and drop the contract error. Next on the build path is step 2, links (`rapidkoi://` addresses): it needs DECISION-014 (kivuli app flags) and DECISION-009 (manifest/bundle) revisited, and starts with a discovery interview.
