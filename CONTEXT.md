@@ -627,6 +627,41 @@ docs/DESIGN.md — the frame tokens
 
 ---
 
+## SESSION 16 — 2026-10-17 — The page's top-right curve (kivuli 0.4) — closed
+
+Branch: page-curve → merged into main
+
+### WHAT WAS DONE
+
+kivuli 0.4.0 (per-corner radius, content clipped to the curve) was tagged, and the owner pushed it. Rapidkoi now depends on kivuli 0.4 (lock: kivuli 0.4.0, lugha-gtk 0.1.24), and the page curves only at its top-right corner (`radius_top_right: PAGE_RADIUS`, 12 px), as the owner asked in session 14.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml, lugha.lock — kivuli 0.4
+src/themes.la, src/theme.la — the page's top-right curve
+test/views.la — only the top-right corner curves
+docs/DESIGN.md, DECISIONS.md (020: done, renumbered), CLAUDE.md, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- views: radius_top_right 12, the other corners unset.
+
+### DECISIONS MADE
+
+- None new.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- DECISION-020's remaining kivuli items: a file dialog, an overlay, context menus, a wrapping grid.
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 12 on a new branch. PRP-002 with Amendments 1 and 2 is on `main`. Wait for the owner's style feedback before restyling. Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), discussed in chat first. As kivuli ships the rest of DECISION-020, swap each placeholder out.

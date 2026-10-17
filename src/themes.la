@@ -6,11 +6,12 @@
  * the GTK theme. Dark is first and the default; others come later, with
  * settings.
  *
- * Depends on: kivuli
+ * Depends on: kivuli, theme
  * Used by: window, shell
  */
 // kivuli's Theme and theme() are imported under other names: this module has a Theme of its own.
 import kivuli { Surface, hex, Theme as Looks, theme as looks };
+import theme { PAGE_RADIUS };
 
 /** The parts of Rapidkoi's window a theme colours. */
 public enum Look {
@@ -60,8 +61,10 @@ public fun kivuli_theme(t: Theme): Looks = looks(
 public fun surface(t: Theme, l: Look): Surface = match l {
     // Flat: no theme shadow or edge line, so the header bar, rail and gaps are one surface.
     Frame => Surface { background: Some(hex(t.frame)), flat: Some(true), ..Surface.theme() },
-    // Only the top-right corner should curve (where the frame wraps the page);
-    // kivuli rounds all four or none, so none until it can round one
-    // (DECISION-020). PAGE_RADIUS is the curve's size then.
-    Page => Surface { background: Some(hex(t.page)), ..Surface.theme() },
+    // Only the top-right corner curves: where the frame wraps the page.
+    Page => Surface {
+        background: Some(hex(t.page)),
+        radius_top_right: Some(PAGE_RADIUS),
+        ..Surface.theme(),
+    },
 };
