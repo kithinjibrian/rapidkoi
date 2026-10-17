@@ -47,6 +47,7 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels.
 | `TILES_PER_ROW` | 4 | until kivuli has a wrapping grid (DECISION-018) |
 | `BANNER_HEIGHT` | 180 | "Where you left off" |
 | `PANEL_WIDTH` | 280 | the app info panel |
+| `WINDOW_WIDTH` × `WINDOW_HEIGHT` | 960 × 700 | the window's default size |
 
 - Toolbar buttons are icon-only (`button("", msg).icon(name)` with a `.tooltip`), using symbolic theme icons:
   - back `go-previous-symbolic`, home `go-home-symbolic`, forward `go-next-symbolic`

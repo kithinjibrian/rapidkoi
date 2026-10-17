@@ -200,7 +200,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 
 1. **The app is one kivuli program: a `Model`, a `Msg` enum, a pure `update`, and a pure `view`.** *Why:* that is kivuli's contract; state changed anywhere else is invisible to the diff and won't render.
 2. **Never touch a GTK widget or import `gtk` from rapidkoi.** *Why:* kivuli owns the widgets; reaching past it breaks its diff and pinned-closure bookkeeping.
-3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. The one exception: the shell's `update` (`src/shell.la`) calls the running guest synchronously, each call bounded by fuel (`src/limits.la`). *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
+3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/limits.la`), and it opens local app files the person chose (≤ 32 MB, PRP-002). *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
 4. **Keep `src/main.la` to wiring:** `main` calls kivuli with the initial model, `update` and `view` imported from their modules. *Why:* `main.la` can't be tested on its own; everything worth testing lives in a module.
 
 5. **Follow the vision's build path in order** (shell → links → a real app → storage and sync → live sessions → history). Never build part of a later step early. *Why:* each step shapes the next; a speculative later piece locks in guesses.
@@ -247,11 +247,13 @@ public fun load_settings(path: string): Settings { … }
 ├── .llmignore         — protected paths
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
-├── src/               — main.la (entry: wiring only), shell.la (the kivuli app: Running | Stopped, calls the guest),
+├── src/               — main.la (entry: kivuli application, wiring only), shell.la (the window: tabs, address box, pins, left off; update/view),
+│                        tabs.la (Page, Tab, Pin, LeftOff; an app page's life: open, events, restart, leave, resume), actions.la (the shell's Msg),
+│                        frame.la (pure: the bar and the tab rail), home.la (pure: home and search), panel.la (pure: app info),
 │                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1; re-exports nodes' types),
 │                        nodes.la (the decoded types: Node, style words, ContractError), props.la (reading one node's props),
 │                        render.la (pure: Node → kivuli View; the error screen), theme.la (DESIGN.md tokens), limits.la (every limit)
-│                        Imports run one way: nodes ← props ← contract ← theme ← render ← shell ← main; limits ← contract, guest; guest ← shell
+│                        Imports run one way: nodes ← props ← contract ← theme ← render ← tabs ← actions ← frame ← home, panel ← shell ← main; limits ← contract, guest ← tabs
 ├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
 ├── guest/rust/        — Cargo workspace: rapidkoi (contract v1 for Rust: View builder, App trait, export!), counter (the demo)
@@ -287,3 +289,11 @@ Update this tree when modules are added.
 - **A missing `update`, `alloc` or `view` export is only found on its first call**, not at load: lugha-wasmtime can't list exports yet (DECISION-017). The error screen still shows.
 - **An `input` without `on_change` is refused as a contract error**, not shown disabled: kivuli has no read-only text field yet (DECISION-016).
 - **A second `./main other.wasm` raises the first window** instead of opening the app: kivuli makes GTK single-instance (DECISION-014).
+- **Placeholders until kivuli and PRP-003 catch up (DECISION-018), each to be replaced, never extended:**
+  - Opening a file means typing its path into the box, since there's no file dialog.
+  - The info panel sits beside the app, not over it (no overlay).
+  - Tab actions are in the panel only (no right-click menu).
+  - Home tiles sit in fixed rows of 4 (no wrapping grid).
+  - Tiles and tabs show the app's initial; there's no art or banners yet.
+  - Pins, "where you left off" and search are in memory only.
+  - Back, forward, share, settings and more are shown disabled.

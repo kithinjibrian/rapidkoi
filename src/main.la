@@ -1,10 +1,17 @@
 /**
- * Rapidkoi's entry: `./main path/to/app.wasm` opens one app under UI
- * contract v1. Wiring only; everything worth testing lives in `shell`.
+ * Rapidkoi's entry: `./main` opens home, `./main path/to/app.wasm` opens
+ * that app. Wiring only; everything worth testing lives in `shell`.
  *
  * Depends on: kivuli, shell
  */
-import kivuli { sandbox };
-import shell { boot, update, view };
+import kivuli { App, Sub, application };
+import shell { Model, boot, update, view };
+import actions { Msg };
 
-fun main(): i32 = sandbox("app.rapidkoi.shell", boot(args()), update, view);
+fun main(): i32 = application(App {
+    id: "app.rapidkoi.shell",
+    init: boot(args()),
+    update: update,
+    view: view,
+    subscriptions: fun(_: Model) = Sub.none(),
+});
