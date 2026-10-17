@@ -17,7 +17,7 @@ import render { screen, stopped };
 import frame { bar, rail };
 import home;
 import panel;
-import theme { SPACE_SM, SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
+import theme { SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
 import themes { Look, kivuli_theme };
 
 /**
@@ -109,12 +109,10 @@ public fun view(m: Model): View<Msg> {
 }
 
 /**
- * The page as a rounded card. Its margin (`padding`) shows the frame around
- * it, so the top, the rail and the gaps read as one surface.
+ * The page, flush with the frame: it meets the header bar above and the rail
+ * on its right, and the window's edges on the left and bottom.
  */
-fun card(v: View<Msg>): View<Msg> = scroll(v.padding(SPACE_LG)).style([Look.Page]).padding(
-    SPACE_SM,
-);
+fun card(v: View<Msg>): View<Msg> = scroll(v.padding(SPACE_LG)).style([Look.Page]);
 
 /** A tab's app, its messages tagged with the tab, so they reach only it. */
 fun app_view(id: i64, a: AppPage): View<Msg> {

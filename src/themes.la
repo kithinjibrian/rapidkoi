@@ -1,17 +1,16 @@
 /**
  * Rapidkoi's themes: the colours of its own parts as kivuli typed looks.
- * The frame (the header bar, the rail and the gaps around the page) is one
- * flat colour, with no shadow, and the page sits in it as a rounded card, as
- * in the owner's inspiration. Apps never get colours; their content follows
+ * The frame (the header bar and the rail) is one flat colour, with no
+ * shadow, and the page sits flush inside it, curving only at its top-right
+ * corner (the owner's direction, after the Opera inspiration). Apps never get colours; their content follows
  * the GTK theme. Dark is first and the default; others come later, with
  * settings.
  *
- * Depends on: kivuli, theme
+ * Depends on: kivuli
  * Used by: window, shell
  */
 // kivuli's Theme and theme() are imported under other names: this module has a Theme of its own.
 import kivuli { Surface, hex, Theme as Looks, theme as looks };
-import theme { PAGE_RADIUS };
 
 /** The parts of Rapidkoi's window a theme colours. */
 public enum Look {
@@ -61,5 +60,8 @@ public fun kivuli_theme(t: Theme): Looks = looks(
 public fun surface(t: Theme, l: Look): Surface = match l {
     // Flat: no theme shadow or edge line, so the header bar, rail and gaps are one surface.
     Frame => Surface { background: Some(hex(t.frame)), flat: Some(true), ..Surface.theme() },
-    Page => Surface { background: Some(hex(t.page)), radius: Some(PAGE_RADIUS), ..Surface.theme() },
+    // Only the top-right corner should curve (where the frame wraps the page);
+    // kivuli rounds all four or none, so none until it can round one
+    // (DECISION-020). PAGE_RADIUS is the curve's size then.
+    Page => Surface { background: Some(hex(t.page)), ..Surface.theme() },
 };

@@ -38,7 +38,7 @@ public const TILE_SIZE: i64 = 120;
 public const TILES_PER_ROW: i64 = 4;
 /** "Where you left off", in pixels. */
 public const BANNER_HEIGHT: i64 = 180;
-/** The page card's corner radius, in pixels. */
+/** The page's top-right curve, in pixels (once kivuli can round one corner: DECISION-020). */
 public const PAGE_RADIUS: i64 = 12;
 /** The app info panel, in pixels. */
 public const PANEL_WIDTH: i64 = 280;

@@ -142,10 +142,11 @@ Rules:
   - kivuli 0.3.0: `.header_style([…])` and `Surface.flat`. The header bar takes the flat frame look, with no shadow (session 13)
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
 - **Still to come:**
-  1. a file dialog
-  2. an overlay, for the panel over the app
-  3. context menus, for tab actions
-  4. a wrapping grid, for home's tiles
+  1. **Per-corner radius**, so the page can curve only at its top-right corner (the owner, session 14). `Surface.radius` rounds all four today, so the page stays square until then
+  2. a file dialog
+  3. an overlay, for the panel over the app
+  4. context menus, for tab actions
+  5. a wrapping grid, for home's tiles
 
 ---
 
