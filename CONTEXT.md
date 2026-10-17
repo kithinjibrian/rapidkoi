@@ -261,12 +261,42 @@ PRPs/prp-001-shell.md  — marked approved; deps line → git
 
 ---
 
-## SESSION 7 — 2026-10-17 — Split contract.la; merge PRP-001 — open
+## SESSION 7 — 2026-10-17 — Split contract.la; merge PRP-001 — closed
 
-Branch: prp-001-shell
+Branch: prp-001-shell → merged into main
+
+### WHAT WAS DONE
+
+The owner approved the split. `src/contract.la` (368 lines) became `nodes.la` (types, 78), `props.la` (prop readers, 81) and `contract.la` (decoding and the walk, 232), with `contract` re-exporting the types so no caller changed. Every VALIDATION command passed, and PRP-001 was merged into `main`.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/nodes.la    — new: Node, TextStyle, ButtonLook, Space, ContractError, invalid()
+src/props.la    — new: text, optional_text, word, text_style, button_look, space
+src/contract.la — read_tree, read_update, envelope, the walk; re-exports nodes' types
+CLAUDE.md       — file tree and import order
+```
+
+### TESTS WRITTEN
+
+- None new; all 47 Lugha and 7 Rust tests pass after the split.
+
+### DECISIONS MADE
+
+- Inside `contract.la`, `invalid` is called as `nodes.invalid` (a module is imported once, and the re-export binds `nodes`); the local `props` became `given` (E0311 with the `props` module).
+
+### PENDING DECISIONS OPENED
+
+- None. DECISION-016 still awaits the owner (recommended: A, a disabled text field in kivuli).
+
+### STILL OPEN AT CLOSE
+
+- DECISION-016.
+- No remote for rapidkoi (DECISION-002); nothing pushed.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 7 on `prp-001-shell`. If the owner approved the split: move the types into `src/nodes.la` and the prop readers into `src/props.la`, with `contract.la` re-exporting the types; run every VALIDATION command; merge into `main`. Apply the owner's answer to DECISION-016 (if A, that's kivuli work in a kivuli session first). Then ask whether to push (no remote yet: DECISION-002).
+Open session 8 on a new branch. PRP-001 (build path step 1, the shell) is on `main`. First get the owner's answer to DECISION-016. If A, that's a kivuli PRP in a kivuli session; then a small rapidkoi change to render a disabled input and drop the contract error. Next on the build path is step 2, links (`rapidkoi://` addresses): it needs DECISION-014 (kivuli app flags) and DECISION-009 (manifest/bundle) revisited, and starts with a discovery interview.

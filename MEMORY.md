@@ -123,12 +123,13 @@ Read this at the start of every session before writing any code.
 - `src/main.la` prints a greeting; it passes `lughac check` and `fmt --check`.
 - Context system in place (session 1). Vision recorded (session 2). Architecture decisions recorded (session 3). UI contract v1 designed (session 4).
 - `../lugha-wasmtime` PRP-001 (core runtime) merged in that repo: everything the shell needs.
+- **Build path step 1, the shell (PRP-001), merged in session 7:** `./main app.wasm` runs a guest under contract v1; a Rust crate and counter demo in `guest/rust/`. 47 Lugha tests, 7 Rust tests.
 
 ### In Progress
-- PRP-001 (the shell): built, not merged.
+- Nothing.
 
 ### Not Started
-- Build path step 1, the shell: PRP-001 built on `prp-001-shell` (session 6), 47 Lugha + 7 Rust tests green; merge waits on the contract.la split approval.
+- Build path step 2 (links). Next: DECISION-016, then the links discovery interview.
 
 ---
 
