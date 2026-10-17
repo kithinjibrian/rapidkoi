@@ -297,3 +297,4 @@ Update this tree when modules are added.
   - Tiles and tabs show the app's initial; there's no art or banners yet.
   - Pins, "where you left off" and search are in memory only.
   - Back, forward, share, settings and more are shown disabled.
+  - The page's corners are square; only the top-right should curve, once kivuli can round one corner (DECISION-020).

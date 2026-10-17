@@ -19,5 +19,5 @@ Never deleted. Older entries are never modified.
 - The app info panel: what the app is, its permissions (none), and Restart, Pin and Close tab.
 - Apps can give each screen a title; Rapidkoi shows it in the tab and the window title.
 - The bar lives in the title bar, one row with the window controls; Rapidkoi opens maximized, in its dark theme.
-- The window is one flat frame colour, the title bar and the rail included, with no shadow; the page sits inside as a rounded card.
+- The window is one flat frame colour, the title bar and the rail included, with no shadow; the page sits flush inside it.
 - Text fields an app gives no handler show greyed out instead of failing.

@@ -558,9 +558,39 @@ CLAUDE.md, DECISIONS.md (020: item done, renumbered), docs/DESIGN.md, CHANGELOG.
 
 ---
 
-## SESSION 14 — 2026-10-17 — The page flush with the frame; one top-right curve (placeholder) — open
+## SESSION 14 — 2026-10-17 — The page flush with the frame; one top-right curve (placeholder) — closed
 
-Branch: flush-page
+Branch: flush-page → merged into main
+
+### WHAT WAS DONE
+
+The owner (screenshot 4): "remove that margin/padding. only the top right curve should be visible." The page's `SPACE_SM` margin is gone: it now meets the header bar, the rail and the window's edges. kivuli's `Surface.radius` rounds all four corners or none, so the page is square for now, and per-corner radius is DECISION-020 item 1 (kivuli prompt given to the owner).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/shell.la  — card(): no margin
+src/themes.la — Page has no radius until one corner can curve
+src/theme.la  — PAGE_RADIUS documented as the top-right curve
+test/views.la — Page radius None
+docs/DESIGN.md, DECISIONS.md (020 item 1), CLAUDE.md, CHANGELOG.md, docs/source/meetings/2026-10-17-ui/screenshot-4-after-header-look.png
+```
+
+### TESTS WRITTEN
+
+- views: the page is square for now.
+
+### DECISIONS MADE
+
+- Square corners rather than four curves while waiting: four would add curves at the window's edges, which the owner doesn't want.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- kivuli: per-corner radius.
 
 ---
 
