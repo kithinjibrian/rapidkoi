@@ -56,13 +56,22 @@ Rules:
 
 ### DECISION-009 — Manifest, bundle format and signing
 
-**Status:** deferred
+**Status:** deferred, partly settled (2026-10-18; see `docs/source/meetings/2026-10-18-packaging.md`)
 **Raised:** 2026-10-17 — Session 2
-**Revisit when:** Build path step 2 (links and addresses).
+**Revisit when:** Opening apps by address (links), after PRP-003.
 
 **Question:** The manifest's format and location at a domain, the bundle's container format, content addressing, and how domain-tied keys are verified.
 
-**Notes:** Signing is cryptography: human review is required (SECURITY RULE). Step 1 loads a bare `.wasm` file.
+**Settled:**
+- one module per app, room for prerendered screens
+- app = host, build, version, index
+- the publisher keeps what they want; the device keeps the previous build
+- versions can be withdrawn
+- everything Rapidkoi holds is stamped with its version (`state_version`, optional `migrate`, start over without one)
+- the static hosting layout under `/.well-known/rapidkoi/`
+- bundle format 1: a single CBOR `.rkb`, for local files (PRP-003)
+
+**Still open:** signing (where the key lives, rotation, loss, the crypto library), format 2 (hash-addressed pieces, signatures, lazy assets). Human review is required (SECURITY RULE).
 
 ---
 
