@@ -1,0 +1,134 @@
+// The shell app: starting a guest, handling events, failing safely and
+// restarting. Fixture guests are WebAssembly text; no display needed.
+import rapidkoi.shell { Model, Screen, boot, launch, update, view };
+import rapidkoi.render { Msg };
+import rapidkoi.contract { envelope };
+import kivuli.testing { click, texts };
+import wasmtime { Engine, Module };
+import support { t, fixed, counter_tree, result_of, wat_bytes };
+
+/** A model running WebAssembly text. */
+fun run(wat: string): Model {
+    let engine = Engine.new();
+    launch("test", engine, Module.from_text(engine, wat).unwrap())
+}
+
+fun state_of(m: Model): u8[] = match m.screen {
+    Running(_, s, _) => s,
+    Stopped(r, _) => panic("expected a running app, got: {r}"),
+};
+
+fun reason_of(m: Model): string = match m.screen {
+    Stopped(r, _) => r,
+    Running(_, _, _) => "running",
+};
+
+/**
+ * A guest whose `update` answers `{ "state": <the event bytes>, "effects": [] }`,
+ * built in memory each call, and whose `view` shows a button sending "add".
+ */
+fun echo(): string {
+    let tree = counter_tree("echo");
+    let head: u8[] = [0xa2, 0x65, 115, 116, 97, 116, 101, 0x59];
+    let tail: u8[] = [0x67, 101, 102, 102, 101, 99, 116, 115, 0x80];
+    [
+        "(module (memory (export \"memory\") 1)",
+        "(global $next (mut i32) (i32.const 8192))",
+        "(data (i32.const 1024) \"{wat_bytes(tree)}\")",
+        "(data (i32.const 3000) \"{wat_bytes(head)}\")",
+        "(data (i32.const 3100) \"{wat_bytes(tail)}\")",
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const 1))",
+        "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
+        "  (local.set $p (global.get $next))",
+        "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
+        "  (local.get $p))",
+        "(func (export \"init\") (result i64) (i64.const 0))",
+        "(func (export \"view\") (param i32 i32) (result i64) (global.set $next (i32.const 8192)) (i64.const {(1024 << 32) | tree.len}))",
+        "(func (export \"update\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
+        "  (memory.copy (i32.const 4096) (i32.const 3000) (i32.const 8))",
+        "  (i32.store8 (i32.const 4104) (i32.shr_u (local.get $el) (i32.const 8)))",
+        "  (i32.store8 (i32.const 4105) (local.get $el))",
+        "  (memory.copy (i32.const 4106) (local.get $ep) (local.get $el))",
+        "  (memory.copy (i32.add (i32.const 4106) (local.get $el)) (i32.const 3100) (i32.const 9))",
+        "  (i64.or (i64.const {4096 << 32}) (i64.extend_i32_u (i32.add (local.get $el) (i32.const 19)))))",
+        ")",
+    ].join("\n")
+}
+
+@test
+fun a_guest_starts_and_shows_its_screen() {
+    let m = run(fixed(1, [5], counter_tree("Count: 0"), result_of([6])));
+    assert_eq(state_of(m), [5]);
+    assert_eq(texts(view(m)), ["Count: 0"]);
+}
+
+@test
+fun an_event_reaches_update_as_an_envelope() {
+    let m = run(echo());
+    let next = update(m, click(view(m), "Add").unwrap());
+    assert_eq(state_of(next), envelope(t("add"), None));
+}
+
+@test
+fun an_event_stores_the_new_state() {
+    let m = run(fixed(1, [5], counter_tree("Count: 0"), result_of([6])));
+    assert_eq(state_of(update(m, Msg.Event(t("add"), None))), [6]);
+}
+
+@test
+fun a_failing_update_stops_the_app_and_restart_brings_it_back() {
+    let wat = [
+        "(module (memory (export \"memory\") 1)",
+        "(data (i32.const 1024) \"{wat_bytes(counter_tree("x"))}\")",
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const 1))",
+        "(func (export \"alloc\") (param i32) (result i32) (i32.const 8192))",
+        "(func (export \"init\") (result i64) (i64.const 0))",
+        "(func (export \"view\") (param i32 i32) (result i64) (i64.const {(1024 << 32) | counter_tree("x").len}))",
+        "(func (export \"update\") (param i32 i32 i32 i32) (result i64) unreachable))",
+    ].join("\n");
+    let m = run(wat);
+    let broken = update(m, Msg.Event(t("add"), None));
+    assert_eq(reason_of(broken).starts_with("This app crashed"), true);
+    assert_eq(texts(view(broken))[0], "This app stopped working");
+    // Events are ignored while stopped.
+    assert_eq(reason_of(update(broken, Msg.Event(t("add"), None))), reason_of(broken));
+    let again = update(broken, click(view(broken), "Restart").unwrap());
+    assert_eq(state_of(again), []);
+}
+
+@test
+fun a_bad_screen_description_stops_the_app() {
+    let m = run(fixed(1, [], [0xa1], []));
+    assert_eq(reason_of(m).starts_with("This app's screen description is broken"), true);
+}
+
+@test
+fun a_bad_update_result_stops_the_app() {
+    let m = run(fixed(1, [], counter_tree("x"), [0x80]));
+    let next = update(m, Msg.Event(t("add"), None));
+    assert_eq(
+        reason_of(next),
+        "This app's update result is broken (update: the result must be a map)",
+    );
+}
+
+@test
+fun booting_without_an_app_explains_how() {
+    let m = boot(["./main"]);
+    assert_eq(reason_of(m), "Open an app: ./main path/to/app.wasm");
+    assert_eq(click(view(m), "Restart").is_err(), true);
+}
+
+@test
+fun booting_a_missing_or_bad_file_shows_why() {
+    assert_eq(
+        reason_of(boot(["./main", "no/such/app.wasm"])).starts_with(
+            "Couldn't read no/such/app.wasm",
+        ),
+        true,
+    );
+    assert_eq(
+        reason_of(boot(["./main", "lugha.toml"])).starts_with("This file isn't a WebAssembly app"),
+        true,
+    );
+}

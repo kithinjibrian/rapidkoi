@@ -193,7 +193,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 
 1. **The app is one kivuli program: a `Model`, a `Msg` enum, a pure `update`, and a pure `view`.** *Why:* that is kivuli's contract; state changed anywhere else is invisible to the diff and won't render.
 2. **Never touch a GTK widget or import `gtk` from rapidkoi.** *Why:* kivuli owns the widgets; reaching past it breaks its diff and pinned-closure bookkeeping.
-3. **`update` and `view` never do I/O.** File, process and network work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. *Why:* blocking in `update` freezes the window.
+3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. The one exception: the shell's `update` (`src/shell.la`) calls the running guest synchronously, each call bounded by fuel (`src/limits.la`). *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
 4. **Keep `src/main.la` to wiring:** `main` calls kivuli with the initial model, `update` and `view` imported from their modules. *Why:* `main.la` can't be tested on its own; everything worth testing lives in a module.
 
 5. **Follow the vision's build path in order** (shell → links → a real app → storage and sync → live sessions → history). Never build part of a later step early. *Why:* each step shapes the next; a speculative later piece locks in guesses.
