@@ -58,3 +58,9 @@ docs/source/…, docs/specs, docs/decisions, docs/incidents, docs/status, report
 ## NEXT SESSION START POINT
 
 Open session 2 first. Then read CLAUDE.md, MEMORY.md, DECISIONS.md, CONTEXT.md. Ask the user to resolve DECISION-001 (what rapidkoi does). Record the answer in `docs/source/stakeholder/`, move DECISION-001 to RESOLVED and into MEMORY.md, then run a discovery interview for the first feature and write `PRPs/prp-001-….md`. Before any view code, read `../kivuli/README.md` and `docs/DESIGN.md`.
+
+---
+
+## SESSION 2 — 2026-10-17 — Record the vision — open
+
+Branch: main
