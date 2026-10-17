@@ -3,11 +3,10 @@
  * info, share) for the window's header bar, and the tab rail down the right. Only Rapidkoi
  * draws these; an app's view lives between them and can't reach them.
  *
- * Depends on: kivuli, actions, tabs, theme, themes
+ * Depends on: kivuli, actions, tabs, theme
  * Used by: panel, shell
  */
 import kivuli { View, ButtonStyle, button, column, input, separator, spacer };
-import themes { Look };
 import actions { Msg };
 import tabs { Page, Tab, AppPage };
 import theme { SPACE_SM, RAIL_WIDTH, TAB_SIZE };
@@ -79,7 +78,7 @@ public fun rail(open: Tab[], current: Option<i64>): View<Msg> {
     items.push(spacer());
     items.push(icon_button("emblem-system-symbolic", "Settings (coming soon)", None));
     items.push(icon_button("view-more-symbolic", "More (coming soon)", None));
-    column(items).spacing(SPACE_SM).padding(SPACE_SM).width(RAIL_WIDTH).style([Look.Rail])
+    column(items).spacing(SPACE_SM).padding(SPACE_SM).width(RAIL_WIDTH)
 }
 
 /**

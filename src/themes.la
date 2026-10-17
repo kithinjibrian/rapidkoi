@@ -1,35 +1,38 @@
 /**
- * Rapidkoi's themes: the colours of its own parts (the tab rail and home;
- * the header bar keeps the system's colour, DECISION-020), as kivuli typed
- * looks. Apps never get colours; their content follows the GTK theme. Dark
- * is first and the default; others come later, with settings.
+ * Rapidkoi's themes: the colours of its own parts as kivuli typed looks.
+ * The frame (around the page, with the rail on it) is one colour, and the
+ * page sits in it as a rounded card, as in the owner's inspiration. The
+ * header bar keeps the system's colour until kivuli can style it
+ * (DECISION-020). Apps never get colours; their content follows the GTK
+ * theme. Dark is first and the default; others come later, with settings.
  *
- * Depends on: kivuli
- * Used by: window, frame, shell
+ * Depends on: kivuli, theme
+ * Used by: window, shell
  */
 // kivuli's Theme and theme() are imported under other names: this module has a Theme of its own.
 import kivuli { Surface, hex, Theme as Looks, theme as looks };
+import theme { PAGE_RADIUS };
 
-/** The parts of Rapidkoi's frame a theme colours. */
+/** The parts of Rapidkoi's window a theme colours. */
 public enum Look {
-    /** The tab rail. */
-    Rail,
-    /** Home's background. */
-    Home,
+    /** The frame: everything around the page, the rail included. */
+    Frame,
+    /** The page: home or an app, a rounded card inside the frame. */
+    Page,
 }
 
 /** One theme: a name, and a colour per part. Hex values live only here. */
 public struct Theme {
     /** What settings will call it. */
     public name: string,
-    /** The tab rail (the owner's "bars"). */
-    public bar: string,
-    /** Home's background. */
-    public home: string,
+    /** The frame (the owner's "bars": top and side, one colour). */
+    public frame: string,
+    /** The page card. */
+    public page: string,
 }
 
 /** The dark theme, the default (the owner's colours, 2026-10-17). */
-public const DARK: Theme = Theme { name: "dark", bar: "#242424", home: "#161616" };
+public const DARK: Theme = Theme { name: "dark", frame: "#242424", page: "#161616" };
 
 /**
  * Builds the kivuli theme that paints Rapidkoi's looks in `t`.
@@ -41,7 +44,7 @@ public const DARK: Theme = Theme { name: "dark", bar: "#242424", home: "#161616"
  *     view.theme(kivuli_theme(DARK))
  */
 public fun kivuli_theme(t: Theme): Looks = looks(
-    [Look.Rail, Look.Home],
+    [Look.Frame, Look.Page],
     fun(l: Look) = surface(t, l),
 );
 
@@ -53,9 +56,9 @@ public fun kivuli_theme(t: Theme): Looks = looks(
  * @returns its surface; unset fields stay the GTK theme's
  *
  * Example:
- *     surface(DARK, Look.Home)
+ *     surface(DARK, Look.Page)
  */
 public fun surface(t: Theme, l: Look): Surface = match l {
-    Rail => Surface { background: Some(hex(t.bar)), ..Surface.theme() },
-    Home => Surface { background: Some(hex(t.home)), ..Surface.theme() },
+    Frame => Surface { background: Some(hex(t.frame)), ..Surface.theme() },
+    Page => Surface { background: Some(hex(t.page)), radius: Some(PAGE_RADIUS), ..Surface.theme() },
 };

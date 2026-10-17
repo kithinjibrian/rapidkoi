@@ -17,14 +17,17 @@ The values below are a starting scale. Revisit them once DECISION-001 says what 
 | Low-emphasis, toolbar-like | `.style(ButtonStyle.Subtle)` |
 | Secondary text | `text(…).dim()` |
 
-**Rapidkoi's own parts** (the rail, home) take colours from a **Rapidkoi theme** (`src/themes.la`), the owner's choice (2026-10-17, session 10). The theme is a set of kivuli typed looks (`Look.Rail`, `Look.Home`) applied with `.style([…])` and the root's `.theme(…)`. Dark is first and the default:
+**Rapidkoi's own parts** take colours from a **Rapidkoi theme** (`src/themes.la`), the owner's choice (2026-10-17, sessions 10 and 12; inspiration: `docs/source/meetings/2026-10-17-ui/inspiration-opera-frame.png`).
+- **The frame is one surface:** the top bar and the rail are the same colour, with no shadow or line between them.
+- **The page (home or an app) sits in it as a rounded card**, with a `SPACE_SM` gap of frame all round.
+- Dark is first and the default:
 
 | Field | Dark | Look |
 |-------|------|------|
-| `bar` | `#242424` | `Look.Rail`: the tab rail (and the header bar, once kivuli can style it: DECISION-020) |
-| `home` | `#161616` | `Look.Home`: home's background |
+| `frame` | `#242424` | `Look.Frame`: the window around the page, the rail on it (and the header bar, once kivuli can style it: DECISION-020) |
+| `page` | `#161616` | `Look.Page`: the page card, corner radius `PAGE_RADIUS` (12 px) |
 
-Only backgrounds are set; text and borders stay the GTK theme's. Light and other themes come later, with settings. Hex values live only in `src/themes.la`.
+Only backgrounds and the card's corners are set; text and borders stay the GTK theme's. Light and other themes come later, with settings. Hex values live only in `src/themes.la`.
 
 ## Spacing (pixels: `.padding`, `.spacing`)
 
@@ -56,6 +59,7 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the
 | `TILES_PER_ROW` | 4 | until kivuli has a wrapping grid (DECISION-018) |
 | `BANNER_HEIGHT` | 180 | "Where you left off" |
 | `PANEL_WIDTH` | 280 | the app info panel |
+| `PAGE_RADIUS` | 12 | the page card's corners |
 | `WINDOW_WIDTH` × `WINDOW_HEIGHT` | 960 × 700 | the window's default size |
 
 - Toolbar buttons are icon-only (`button("", msg).icon(name)` with a `.tooltip`), using symbolic theme icons:

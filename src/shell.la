@@ -17,7 +17,7 @@ import render { screen, stopped };
 import frame { bar, rail };
 import home;
 import panel;
-import theme { SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
+import theme { SPACE_SM, SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
 import themes { Look, kivuli_theme };
 
 /**
@@ -86,14 +86,12 @@ public fun view(m: Model): View<Msg> {
     // On an app page m.current is Some: page_of found its tab.
     let id = m.current.unwrap_or(-1);
     let middle = match page {
-        Home => scroll(
-            home.view(m.draft, m.pinned, window.card(m), m.tabs).padding(SPACE_LG),
-        ).style([Look.Home]),
+        Home => card(home.view(m.draft, m.pinned, window.card(m), m.tabs)),
         App(a) if m.showing_panel => row([
-            scroll(app_view(id, a).padding(SPACE_LG)).expand(),
+            card(app_view(id, a)).expand(),
             panel.view(id, a, window.is_pinned(m, a.path)),
-        ]).spacing(SPACE_MD),
-        App(a) => scroll(app_view(id, a).padding(SPACE_LG)),
+        ]),
+        App(a) => card(app_view(id, a)),
     };
     let mut parts: View<Msg>[] = [];
     if let Some(n) = m.notice {
@@ -101,10 +99,20 @@ public fun view(m: Model): View<Msg> {
     }
     parts.push(row([middle.expand(), rail(m.tabs, m.current)]).expand());
     let b = bar(page, m.draft, m.editing);
-    column(parts).window(title_of(m), WINDOW_WIDTH, WINDOW_HEIGHT).maximized().theme(
-        kivuli_theme(m.theme),
-    ).header(b.start, b.title, b.end)
+    column(parts).style([Look.Frame]).window(
+        title_of(m),
+        WINDOW_WIDTH,
+        WINDOW_HEIGHT,
+    ).maximized().theme(kivuli_theme(m.theme)).header(b.start, b.title, b.end)
 }
+
+/**
+ * The page as a rounded card. Its margin (`padding`) shows the frame around
+ * it, so the top, the rail and the gaps read as one surface.
+ */
+fun card(v: View<Msg>): View<Msg> = scroll(v.padding(SPACE_LG)).style([Look.Page]).padding(
+    SPACE_SM,
+);
 
 /** A tab's app, its messages tagged with the tab, so they reach only it. */
 fun app_view(id: i64, a: AppPage): View<Msg> {

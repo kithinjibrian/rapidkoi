@@ -297,4 +297,4 @@ Update this tree when modules are added.
   - Tiles and tabs show the app's initial; there's no art or banners yet.
   - Pins, "where you left off" and search are in memory only.
   - Back, forward, share, settings and more are shown disabled.
-  - The header bar (the top row) keeps the system's colour; only the rail and home take the theme's. kivuli can't style the header bar itself yet (DECISION-020).
+  - The header bar (the top row) keeps the system's colour (`#272727`) and its shadow, so it doesn't yet match the frame (`#242424`): kivuli can't style the header bar itself yet (DECISION-020).
