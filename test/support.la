@@ -152,3 +152,22 @@ public fun titled_tree(label: string, title: string): u8[] = encode(
         leaf("button", [("label", t("Add")), ("on_press", t("add"))]),
     ]),
 );
+
+/**
+ * The start of a PNG declaring `w` × `h` pixels: its signature and IHDR
+ * chunk header, which is all Rapidkoi reads (GTK decodes the rest).
+ */
+public fun png(w: i64, h: i64): u8[] {
+    let mut b: u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82];
+    for v of [w, h] {
+        b.push((v >> 24 & 255) as u8);
+        b.push((v >> 16 & 255) as u8);
+        b.push((v >> 8 & 255) as u8);
+        b.push((v & 255) as u8);
+    }
+    // Bit depth 8, colour type 6 (RGBA), compression, filter, interlace.
+    for x of [8, 6, 0, 0, 0] {
+        b.push(x as u8);
+    }
+    b
+}

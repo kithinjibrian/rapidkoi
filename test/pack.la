@@ -3,6 +3,7 @@
 import rapidkoi.pack { make };
 import rapidkoi.bundle { read, asset };
 import std.fs;
+import support { png as png_of };
 
 const DIR: string = "test/tmp";
 
@@ -22,7 +23,7 @@ fun file(name: string, bytes: u8[]): string {
     p
 }
 
-fun png(): u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7];
+fun png(): u8[] = png_of(32, 32);
 
 /** A module file of one test's own: tests run in parallel, so none share a path. */
 fun module(tag: string): string = file("{tag}.wasm", [0, 97, 115, 109, 1, 0, 0, 0]);

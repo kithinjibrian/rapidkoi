@@ -1,17 +1,17 @@
 // The frame, home and the info panel, pure: what each shows and sends,
 // checked through kivuli.testing with no display.
-import rapidkoi.frame { Bar, bar, rail, label, initial };
+import rapidkoi.frame { Bar, bar, rail, label, initial, icon_of };
 import rapidkoi.home { Card, matches };
 import rapidkoi.panel;
 import rapidkoi.tabs { Page, Tab, Pin, AppPage, open_module };
 import rapidkoi.bundle { Manifest };
 import rapidkoi.actions { Msg };
 import rapidkoi.render;
-import kivuli { View, row, hex };
+import kivuli { View, Image, row, hex };
 import kivuli.testing { Lookup, click, is_disabled, press, submit, texts, tooltip, type_into };
 import wasmtime { Engine, Module };
 import rapidkoi.themes { DARK, Look, surface };
-import support { fixed, titled_tree, result_of };
+import support { png, fixed, titled_tree, result_of };
 
 fun counter(): AppPage {
     let engine = Engine.new();
@@ -32,7 +32,7 @@ fun shown(b: Bar): View<Msg> {
 fun pins(n: i64): Pin[] {
     let mut out: Pin[] = [];
     for i in 0..n {
-        out.push(Pin { name: "app{i}", path: "app{i}.wasm" });
+        out.push(Pin { name: "app{i}", path: "app{i}.wasm", icon: None });
     }
     out
 }
@@ -95,7 +95,7 @@ fun an_empty_home_explains_how_to_start() {
 
 @test
 fun home_shows_where_you_left_off_and_pinned() {
-    let c = Card { name: "counter", title: Some("Counter"), msg: Msg.Select(3) };
+    let c = Card { name: "counter", title: Some("Counter"), msg: Msg.Select(3), icon: None };
     let v = home.view("", pins(5), Some(c), []);
     assert_eq(texts(v)[2], "Where you left off");
     assert_eq(texts(v)[3], "counter · Counter");
@@ -110,7 +110,7 @@ fun searching_filters_home() {
     let v = home.view("COUNT", pins(3), None, open);
     assert_eq(click(v, "Open counter"), Ok(Msg.Select(7)));
     assert_eq(click(v, "Open app1"), Err(Lookup.NotFound("button \"Open app1\"")));
-    let closed = Card { name: "counter", title: Some("Counter"), msg: Msg.Continue };
+    let closed = Card { name: "counter", title: Some("Counter"), msg: Msg.Continue, icon: None };
     let by_title = home.view("counter", [], Some(closed), []);
     assert_eq(click(by_title, "Open counter"), Ok(Msg.Continue));
     assert_eq(texts(home.view("zzz", pins(3), None, [])), [
@@ -181,3 +181,25 @@ fun the_info_panel_for_a_bundle() {
 }
 
 fun shown_bar(page: AppPage): View<Msg> = shown(bar(Page.App(page), "", false));
+
+@test
+fun an_app_with_an_icon_shows_it_on_its_tab_and_tile() {
+    let page = AppPage { icon: Some(png(64, 64)), ..counter() };
+    let v = rail([Tab { id: 2, page: page }], Some(2));
+    // Found by its tooltip; there's no letter on it any more.
+    assert_eq(click(v, "counter · Counter"), Ok(Msg.Select(2)));
+    assert_eq(click(v, "C"), Err(Lookup.NotFound("button \"C\"")));
+    let pins = [Pin { name: "counter", path: "apps/counter.rkb", icon: Some(png(64, 64)) }];
+    let h = home.view("", pins, None, []);
+    assert_eq(click(h, "Open counter"), Ok(Msg.OpenPinned("apps/counter.rkb")));
+    assert_eq(click(h, "C"), Err(Lookup.NotFound("button \"C\"")));
+}
+
+@test
+fun icons_are_keyed_by_file() {
+    assert_eq(
+        icon_of("apps/counter.rkb", Some([1])),
+        Some(Image.Bytes("apps/counter.rkb#icon", [1])),
+    );
+    assert_eq(icon_of("apps/counter.rkb", None), None);
+}

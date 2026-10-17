@@ -151,13 +151,13 @@ Rules:
   - kivuli 0.3.0: `.header_style([…])` and `Surface.flat`. The header bar takes the flat frame look, with no shadow (session 13)
   - kivuli 0.4.0: per-corner radius. The page curves only at its top right (session 16)
   - kivuli 0.4.1: button content centered (a bug found in session 17). Tabs and tiles center their letter (session 18)
+  - kivuli 0.5.0: images from bytes. A bundle's icon shows on its tab and home tile (session 21)
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
 - **Still to come:**
-  1. **An image from bytes** (GdkTexture from a GBytes), so a bundle's icon and banners show without writing them to disk (PRP-003)
-  2. a file dialog
-  3. an overlay, for the panel over the app
-  4. context menus, for tab actions
-  5. a wrapping grid, for home's tiles
+  1. a file dialog
+  2. an overlay, for the panel over the app
+  3. context menus, for tab actions
+  4. a wrapping grid, for home's tiles
 
 ---
 

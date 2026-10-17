@@ -817,6 +817,56 @@ guest/rust/counter/icon.png
 
 ---
 
+## SESSION 21 — 2026-10-18 — App icons from bundles (kivuli 0.5) — closed
+
+Branch: app-icons → merged into main
+
+### WHAT WAS DONE
+
+kivuli 0.5.0 (images from bytes, keyed) was tagged and pushed. Rapidkoi moved to it (lock: kivuli 0.5.0, lugha-gtk 0.1.25).
+- **The bundle rules read each PNG's declared size** from its IHDR header: every asset ≤ 4096 px a side, the icon ≤ 1024 × 1024, banners ≤ 2048 × 1024, and zero sizes or a missing IHDR refused.
+- **The icon's bytes travel** with the page, its pin, "where you left off" and home's card.
+- **The rail tab and the home tile show the icon** (`Image.Bytes("{path}#icon", bytes)`), with the initial when there's none.
+
+99 Lugha tests. counter.rkb was rebuilt at the repo root.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml, lugha.lock — kivuli 0.5
+src/rules.la  — png_size (IHDR), check_asset image size, check_role; ImageTooLarge
+src/bundle.la — icon and banner role caps
+src/limits.la — MAX_IMAGE_PX, MAX_ICON_PX, MAX_BANNER_WIDTH/HEIGHT
+src/loader.la — Loaded.icon
+src/tabs.la   — AppPage.icon, LeftOff.icon, Pin.icon
+src/window.la — pins and cards carry icons
+src/frame.la  — icon_of (keyed by path); tabs show the icon
+src/home.la   — Card.icon; tiles show the icon
+src/theme.la  — TAB_ICON 22, TILE_ICON 64
+test/support.la (png(w, h)), test/bundle.la, test/pack.la, test/views.la, test/counter.la
+CLAUDE.md, DECISIONS.md (020 item done), docs/DESIGN.md, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- bundle (+2): sizes by role; IHDR required.
+- views (+2): the icon on the tab and tile instead of the letter; icons keyed by file.
+- counter: the bundled counter's tab has its icon.
+
+### DECISIONS MADE
+
+- `icon_of` lives in frame.la (home and window import it; frame importing home would be a cycle).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check.
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 21 on a new branch. PRP-003 (bundles, format 1) is on `main`. Next, at the owner's choice: PRP-004 (remembering: an on-device store for history, pins and state across restarts, with `migrate` and starting over, DECISION-019), a `lugha-toml` package for `rapidkoi.toml`, or signing and format 2 (DECISION-009, needs the owner's review). When kivuli ships an image from bytes, show bundle icons on tabs and tiles.

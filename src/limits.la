@@ -63,3 +63,15 @@ public const MAX_DESCRIPTION: i64 = 280;
 
 /** The longest asset name in a bundle, in bytes. */
 public const MAX_ASSET_NAME: i64 = 128;
+
+/** The largest image any asset may declare, in pixels per side (kivuli's own cap). */
+public const MAX_IMAGE_PX: i64 = 4096;
+
+/** The largest icon, in pixels per side. */
+public const MAX_ICON_PX: i64 = 1024;
+
+/** The largest banner, in pixels: width. */
+public const MAX_BANNER_WIDTH: i64 = 2048;
+
+/** The largest banner, in pixels: height. */
+public const MAX_BANNER_HEIGHT: i64 = 1024;

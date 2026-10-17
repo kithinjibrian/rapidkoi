@@ -8,7 +8,7 @@
  */
 import wasmtime { Engine, Module };
 import guest { compile, reason };
-import bundle { Manifest, read, reason as bundle_reason };
+import bundle { Manifest, asset, read, reason as bundle_reason };
 
 /** An app ready to start: what to call it, its manifest if it has one, and its compiled module. */
 public struct Loaded {
@@ -16,6 +16,8 @@ public struct Loaded {
     public name: string,
     /** The bundle's manifest; `None` for a bare `.wasm`. */
     public manifest: Option<Manifest>,
+    /** The icon's PNG bytes, checked by the bundle rules; `None` without one. */
+    public icon: Option<u8[]>,
     /** The compiled module. */
     public module: Module,
 }
@@ -36,7 +38,7 @@ public fun load(engine: Engine, path: string): Result<Loaded, (string, string)> 
     let bytes = read_bytes(path).map_err(fun(e: string) = (file, "Couldn't read {path}: {e}"))?;
     if !path.ends_with(".rkb") {
         let module = compile(engine, bytes).map_err(fun(e) = (file, reason(e)))?;
-        return Ok(Loaded { name: file, manifest: None, module: module });
+        return Ok(Loaded { name: file, manifest: None, icon: None, module: module });
     }
     let b = read(bytes).map_err(fun(e) = (file, bundle_reason(e)))?;
     let m = b.manifest;
@@ -44,7 +46,11 @@ public fun load(engine: Engine, path: string): Result<Loaded, (string, string)> 
         return Err((m.name, "This app needs a newer version of Rapidkoi"));
     }
     let module = compile(engine, b.module).map_err(fun(e) = (m.name, reason(e)))?;
-    Ok(Loaded { name: m.name, manifest: Some(m), module: module })
+    let icon = match m.icon {
+        Some(name) => asset(b, name),
+        None => None,
+    };
+    Ok(Loaded { name: m.name, manifest: Some(m), icon: icon, module: module })
 }
 
 /**

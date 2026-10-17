@@ -22,3 +22,4 @@ Never deleted. Older entries are never modified.
 - The window is one flat frame colour, the title bar and the rail included, with no shadow; the page sits flush inside it, curving only at its top-right corner.
 - Text fields an app gives no handler show greyed out instead of failing.
 - Bundles: `./main pack` packs an app (its module, name, version, description, icon, banners and assets) into one `.rkb` file; type its path, or run `./main app.rkb`, to open it. The info panel shows its version and description.
+- A bundle's icon shows on its tab and its home tile. Icons and banners are checked for size before anything decodes them.

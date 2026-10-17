@@ -2,10 +2,10 @@
 // a bundle must keep. No files, no guest, no display.
 import rapidkoi.bundle { Bundle, Manifest, BundleError, read, write, asset, reason };
 import cbor { Value, encode };
-import support { t, kv };
+import support { t, kv, png as png_of };
 
-/** Bytes that pass the PNG signature check. */
-fun png(): u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3];
+/** A small PNG header: 64 × 64. */
+fun png(): u8[] = png_of(64, 64);
 
 fun manifest(): Manifest = Manifest {
     contract: 1,
@@ -208,8 +208,9 @@ fun sizes_and_counts_are_limited() {
     }
     assert_eq(error_of(raw(base(), many)), "This bundle has too many assets (257; at most 256)");
     let mut big: u8[] = [0; 4 * 1024 * 1024 + 1];
-    for i in 0..8 {
-        big[i] = png()[i];
+    let header = png();
+    for i in 0..header.len {
+        big[i] = header[i];
     }
     assert_eq(
         error_of(raw(base(), [("big.png", Value.Bytes(big))])),
@@ -248,4 +249,52 @@ fun write_refuses_what_read_refuses() {
     );
     let bad_version = Bundle { manifest: Manifest { version: "1", ..manifest() }, ..good() };
     assert_eq(write(bad_version).is_err(), true);
+}
+
+@test
+fun image_sizes_are_limited_by_role() {
+    let icon_ok = raw(with("icon", t("i.png")), [("i.png", Value.Bytes(png_of(1024, 1024)))]);
+    assert_eq(error_of(icon_ok), "ok");
+    let icon_big = raw(with("icon", t("i.png")), [("i.png", Value.Bytes(png_of(1025, 64)))]);
+    assert_eq(
+        error_of(icon_big),
+        "This bundle's \"icon\" image is too large (1025 × 64 px; at most 1024 × 1024)",
+    );
+    let banner_ok = raw(with("banners", kv([("home", t("b.png"))])), [
+        ("b.png", Value.Bytes(png_of(2048, 1024))),
+    ]);
+    assert_eq(error_of(banner_ok), "ok");
+    let banner_big = raw(with("banners", kv([("home", t("b.png"))])), [
+        ("b.png", Value.Bytes(png_of(2048, 1025))),
+    ]);
+    assert_eq(
+        error_of(banner_big),
+        "This bundle's \"banners\" image is too large (2048 × 1025 px; at most 2048 × 1024)",
+    );
+    assert_eq(
+        error_of(raw(base(), [("x.png", Value.Bytes(png_of(4097, 10)))])),
+        "This bundle's asset \"x.png\" image is too large (4097 × 10 px; at most 4096 × 4096)",
+    );
+    assert_eq(
+        error_of(raw(base(), [("z.png", Value.Bytes(png_of(0, 10)))])),
+        "This bundle's asset \"z.png\" isn't a PNG image",
+    );
+}
+
+@test
+fun a_png_needs_its_header_chunk() {
+    let mut no_ihdr = png_of(10, 10);
+    // "IHDR" → "IDAT": the first chunk must be the header.
+    no_ihdr[13] = 68;
+    no_ihdr[14] = 65;
+    no_ihdr[15] = 84;
+    assert_eq(
+        error_of(raw(base(), [("a.png", Value.Bytes(no_ihdr))])),
+        "This bundle's asset \"a.png\" isn't a PNG image",
+    );
+    let short: u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0];
+    assert_eq(
+        error_of(raw(base(), [("a.png", Value.Bytes(short))])),
+        "This bundle's asset \"a.png\" isn't a PNG image",
+    );
 }

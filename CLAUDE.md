@@ -191,7 +191,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 ## STACK
 
 - **Lugha** via `lughac` 0.1.0. Use only what `lughac spec` documents. **Never build or reinstall `lughac` yourself**: when rapidkoi needs a newer one, stop and ask the user.
-- **kivuli 0.4** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.4" }`): the UI. 0.4 added per-corner radius; 0.3 added `.header_style` and `Surface.flat`; 0.2 renamed `.style(ButtonStyle…)` to `.button_style(…)`; `.style([…])` takes looks. Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
+- **kivuli 0.5** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.5" }`): the UI. 0.5 added images from bytes (`Image.Bytes(key, bytes)`, `.image(…)`); 0.4 added per-corner radius; 0.3 added `.header_style` and `Surface.flat`; 0.2 renamed `.style(ButtonStyle…)` to `.button_style(…)`; `.style([…])` takes looks. Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
 - **lugha-gtk** comes in through kivuli. rapidkoi does not import `gtk` directly.
 - **GTK 4** + GLib, through kivuli.
 - **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` (`wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }`; source in `../lugha-wasmtime`). rapidkoi never declares a wasmtime `extern` itself.
@@ -301,7 +301,6 @@ Update this tree when modules are added.
   - The info panel sits beside the app, not over it (no overlay).
   - Tab actions are in the panel only (no right-click menu).
   - Home tiles sit in fixed rows of 4 (no wrapping grid).
-  - Tiles and tabs show the app's initial; there's no art or banners yet.
+  - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
   - Pins, "where you left off" and search are in memory only.
   - Back, forward, share, settings and more are shown disabled.
-  - A bundle's icon is read and checked but not shown: kivuli shows images from files only, and Rapidkoi won't write a bundle's bytes to disk (DECISION-020). Tabs and tiles show the initial meanwhile.

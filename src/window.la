@@ -12,6 +12,7 @@ import std.fs;
 import actions { Msg };
 import tabs { Page, Tab, Pin, LeftOff, AppPage, open_path, leave, resume };
 import home { Card };
+import frame { icon_of };
 import themes { Theme, DARK };
 
 /** The window's state. */
@@ -106,10 +107,22 @@ public fun title_of(m: Model): string = match page_of(m) {
 public fun card(m: Model): Option<Card> {
     if let Some(id) = m.last {
         if let Some(a) = app(m, id) {
-            return Some(Card { name: a.name, title: a.title, msg: Msg.Select(id) });
+            return Some(Card {
+                name: a.name,
+                title: a.title,
+                msg: Msg.Select(id),
+                icon: icon_of(a.path, a.icon),
+            });
         }
     }
-    m.left_off.map(fun(l: LeftOff) = Card { name: l.name, title: l.title, msg: Msg.Continue })
+    m.left_off.map(
+        fun(l: LeftOff) = Card {
+            name: l.name,
+            title: l.title,
+            msg: Msg.Continue,
+            icon: icon_of(l.path, l.icon),
+        },
+    )
 }
 
 /**
@@ -244,7 +257,7 @@ public fun close(m: Model, id: i64): Model {
 public fun pin(m: Model): Model = match page_of(m) {
     App(a) if !is_pinned(m, a.path) => {
         let mut more = m.pinned;
-        more.push(Pin { name: a.name, path: a.path });
+        more.push(Pin { name: a.name, path: a.path, icon: a.icon });
         Model { pinned: more, ..m }
     }
     _ => m,

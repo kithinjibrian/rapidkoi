@@ -6,10 +6,10 @@
  * Depends on: kivuli, actions, tabs, theme
  * Used by: panel, shell
  */
-import kivuli { View, Align, ButtonStyle, button, column, input, separator, spacer };
+import kivuli { View, Image, Align, ButtonStyle, button, column, input, separator, spacer };
 import actions { Msg };
 import tabs { Page, Tab, AppPage };
-import theme { SPACE_SM, RAIL_WIDTH, TAB_SIZE };
+import theme { SPACE_SM, RAIL_WIDTH, TAB_SIZE, TAB_ICON };
 
 /** The bar's parts in the window's header bar: start, title (it fills the row), end. */
 public struct Bar {
@@ -126,9 +126,11 @@ fun icon_button(icon: string, tip: string, msg: Option<Msg>): View<Msg> = match 
 
 fun tab_button(t: Tab, current: Option<i64>): View<Msg> {
     let look = if current == Some(t.id) { ButtonStyle.Primary } else { ButtonStyle.Subtle };
-    button(initial(t.page.title.unwrap_or(t.page.name)), Msg.Select(t.id)).tooltip(
-        label(t.page),
-    ).button_style(look).width(TAB_SIZE).height(TAB_SIZE)
+    let face = match icon_of(t.page.path, t.page.icon) {
+        Some(img) => button("", Msg.Select(t.id)).image(img).size(TAB_ICON),
+        None => button(initial(t.page.title.unwrap_or(t.page.name)), Msg.Select(t.id)),
+    };
+    face.tooltip(label(t.page)).button_style(look).width(TAB_SIZE).height(TAB_SIZE)
 }
 
 /**
@@ -143,6 +145,21 @@ public fun marker(p: AppPage, shown: string): string = match p.manifest {
     Some(_) => "📦 {shown} · local bundle",
     None => "📄 {shown} · local file",
 };
+
+/**
+ * Returns an app's icon as a kivuli image, keyed by its file and role, so
+ * kivuli decodes it once, not on every render.
+ *
+ * @param path the app's file
+ * @param icon its icon's PNG bytes, if any
+ * @returns the keyed image, or `None`
+ *
+ * Example:
+ *     icon_of(page.path, page.icon)
+ */
+public fun icon_of(path: string, icon: Option<u8[]>): Option<Image> = icon.map(
+    fun(b: u8[]) = Image.Bytes("{path}#icon", b),
+);
 
 fun file_of(path: string): string {
     let parts = path.split("/");

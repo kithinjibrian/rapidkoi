@@ -7,7 +7,15 @@
  * Depends on: limits
  * Used by: bundle
  */
-import limits { MAX_MODULE, MAX_ASSET, MAX_ASSETS, MAX_NAME, MAX_DESCRIPTION, MAX_ASSET_NAME };
+import limits {
+    MAX_MODULE,
+    MAX_ASSET,
+    MAX_ASSETS,
+    MAX_NAME,
+    MAX_DESCRIPTION,
+    MAX_ASSET_NAME,
+    MAX_IMAGE_PX,
+};
 
 /** Why a bundle was refused. */
 public enum BundleError {
@@ -29,6 +37,8 @@ public enum BundleError {
     NotPng(string),
     /** An asset whose value isn't bytes. */
     AssetNotBytes(string),
+    /** An image larger than its role allows: what, its width and height, the most allowed. */
+    ImageTooLarge(string, i64, i64, i64, i64),
     /** A field naming an asset the bundle doesn't have: the field, the name. */
     MissingAsset(string, string),
     /** More assets than allowed. */
@@ -60,6 +70,7 @@ public fun reason(e: BundleError): string = match e {
     BadName(name) => "This bundle has an asset with a bad name: \"{name}\"",
     NotPng(name) => "This bundle's asset \"{name}\" isn't a PNG image",
     AssetNotBytes(name) => "This bundle's asset \"{name}\" must be bytes",
+    ImageTooLarge(what, w, h, mw, mh) => "This bundle's {what} image is too large ({w} × {h} px; at most {mw} × {mh})",
     MissingAsset(field, name) => "This bundle's \"{field}\" names an asset it doesn't have: \"{name}\"",
     TooManyAssets(n) => "This bundle has too many assets ({n}; at most {MAX_ASSETS})",
     NotEmpty(field) => "This bundle asks for \"{field}\", which this version of Rapidkoi can't grant yet",
@@ -145,8 +156,9 @@ public fun check_asset_name(name: string): Result<(), BundleError> {
 }
 
 /**
- * Checks one asset: its name, its size, and that it starts with PNG's
- * 8-byte signature. Rapidkoi decodes nothing itself.
+ * Checks one asset: its name, its size, and that it's a PNG: the 8-byte
+ * signature, then the IHDR chunk declaring a width and height from 1 to
+ * `MAX_IMAGE_PX`. Rapidkoi reads only this header; GTK decodes the rest.
  *
  * Example:
  *     check_asset("icon.png", bytes)?
@@ -156,17 +168,61 @@ public fun check_asset(name: string, bytes: u8[]): Result<(), BundleError> {
     if bytes.len > MAX_ASSET {
         return Err(BundleError.TooLarge("asset \"{name}\"", bytes.len));
     }
-    let signature: u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-    if bytes.len < 8 {
-        return Err(BundleError.NotPng(name));
-    }
-    for i in 0..8 {
-        if bytes[i] != signature[i] {
-            return Err(BundleError.NotPng(name));
-        }
+    let (w, h) = png_size(bytes).ok_or(BundleError.NotPng(name))?;
+    if w > MAX_IMAGE_PX || h > MAX_IMAGE_PX {
+        return Err(BundleError.ImageTooLarge("asset \"{name}\"", w, h, MAX_IMAGE_PX, MAX_IMAGE_PX));
     }
     Ok(())
 }
+
+/**
+ * Checks an image used in a role (the icon, a banner) is no larger than the
+ * role allows, so a tiny file can't claim a huge picture.
+ *
+ * @param field the manifest field naming it (`icon`, `banners`)
+ * @param bytes the asset, already checked by `check_asset`
+ *
+ * Example:
+ *     check_role("icon", bytes, 1024, 1024)?
+ */
+public fun check_role(field: string, bytes: u8[], max_w: i64, max_h: i64): Result<(), BundleError> {
+    match png_size(bytes) {
+        Some((w, h)) if w > max_w || h > max_h => Err(
+            BundleError.ImageTooLarge("\"{field}\"", w, h, max_w, max_h),
+        ),
+        _ => Ok(()),
+    }
+}
+
+/**
+ * Reads a PNG's declared size from its header: the signature, then the
+ * first chunk, which must be IHDR (length 13). Width and height are
+ * big-endian at bytes 16–23 (PNG spec, section 11.2.2).
+ *
+ * @returns (width, height) when both are at least 1; `None` for anything else
+ *
+ * Example:
+ *     png_size(bytes)
+ */
+public fun png_size(bytes: u8[]): Option<(i64, i64)> {
+    let head: u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82];
+    if bytes.len < 24 {
+        return None;
+    }
+    for i in 0..16 {
+        if bytes[i] != head[i] {
+            return None;
+        }
+    }
+    let w = big_endian(bytes, 16);
+    let h = big_endian(bytes, 20);
+    if w < 1 || h < 1 { None } else { Some((w, h)) }
+}
+
+fun big_endian(
+    b: u8[],
+    at: i64,
+): i64 = (b[at] as i64) << 24 | (b[at + 1] as i64) << 16 | (b[at + 2] as i64) << 8 | b[at + 3] as i64;
 
 /**
  * Checks the counts and sizes of a whole bundle's parts.
