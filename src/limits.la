@@ -34,7 +34,14 @@ public const MAX_NODE_DEPTH: i64 = 64;
 public const MAX_STRING: i64 = 64 * 1024;
 
 /**
- * Fuel for one call into a guest: about 100 ms of work on the development
- * machine. Calibrated in session 6; see the measurement in CONTEXT.md.
+ * Fuel for one call into a guest: about 100 ms of work.
+ *
+ * Calibrated 2026-10-17 (session 6) on an Intel Core i5-4308U (2.8 GHz):
+ * a busy `i32.add` loop, built with `lughac build -O 2`, ran out of 1, 2
+ * and 4 billion fuel in 0.14, 0.28 and 0.57 s (`/usr/bin/time`), about
+ * 7 billion fuel a second, so 100 ms is about 700 million. Fuel counts
+ * instructions, not time: slower instructions (calls, memory traffic)
+ * take longer per unit, so real code gets less than 100 ms of wall time,
+ * never more by much.
  */
-public const FUEL_PER_CALL: u64 = 100_000_000;
+public const FUEL_PER_CALL: u64 = 700_000_000;
