@@ -8,7 +8,8 @@
       "Edit(./lugha.lock)",
       "Edit(../lugha/**)",
       "Edit(../kivuli/**)",
-      "Edit(../lugha-gtk/**)"
+      "Edit(../lugha-gtk/**)",
+      "Edit(../lugha-wasmtime/**)"
     ]
   }
 }

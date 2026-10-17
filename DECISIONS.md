@@ -12,75 +12,7 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-### DECISION-003 — Which WebAssembly runtime the shell embeds
-
-**Status:** open
-**Raised:** 2026-10-17 — Session 2
-**Resolved by:** human
-**Blocks:** Build path step 1 (the shell): loading and running any bundle.
-
-**Question:** Which C-API WebAssembly runtime does the shell link through `[link]` and `extern`s?
-
-**Options:**
-- A) **wasmtime** (C API). Mature, fast (Cranelift), fuel/epoch limits to stop runaway guests, memory limits, strong security record. Large; not in Ubuntu's apt, so it's a prebuilt tarball or a source build. *Recommended.*
-- B) **WAMR** (wasm-micro-runtime). Small, interpreter or AOT, runs on Android too. Less hardened, more build configuration.
-- C) **wasm3**. Tiny interpreter, trivial to build. Slow, and barely maintained.
-- D) **wasm2c** (its `wasm-rt.h` is installed here). Rules itself out: it translates to C, so running a downloaded bundle needs a C compiler on the person's machine.
-
-**Notes:** Every runtime call is a hand-written `extern` that has to match the C header exactly (SECURITY RULE). The sandbox is only as strong as this runtime.
-
----
-
-### DECISION-004 — Where an app's state lives
-
-**Status:** open
-**Raised:** 2026-10-17 — Session 2
-**Resolved by:** human
-**Blocks:** The guest↔host contract (DECISION-005), and so step 1.
-
-**Question:** Does the guest own its state, or does the platform hold it?
-
-**Options:**
-- A) **Platform-held model.** The guest is Elm-shaped: it exports `init`, `update(model, msg) → model` and `view(model) → tree`. The model is serialisable bytes that Rapidkoi stores. Links to exact state, history, snapshots, live sessions and offline sync then all work on the platform's copy, for every app, with no extra code in the app. Costs: every app's state has to be serialisable, and there's a copy per update. *Recommended: it is what makes signature features 1, 2 and 4 possible.*
-- B) **Guest-held state.** The guest keeps its own memory and just emits view trees. Simpler for app authors and faster, but time travel, snapshots and live sessions each need the app's cooperation (a save/restore hook), so they stop being free.
-
-**Notes:** Very hard to change once apps exist. See `docs/source/stakeholder/vision-2026-10-17.md`.
-
----
-
-### DECISION-005 — The guest↔host UI contract
-
-**Status:** open
-**Raised:** 2026-10-17 — Session 2
-**Resolved by:** human
-**Blocks:** Step 1: rendering anything.
-
-**Question:** How does a bundle hand its view tree to the shell, and how do events get back to it?
-
-**Options:**
-- A) **A serialised tree per render.** The guest writes the whole view tree into its linear memory in a versioned, compact encoding (CBOR or a custom binary format) and returns pointer and length. The shell decodes it into kivuli `View`s, and kivuli diffs. Events go back as an encoded message to an exported function. One crossing per render, language-neutral, easy to inspect (it fits the inspector feature). *Recommended.*
-- B) **Host builder imports.** The guest calls imported functions (`ui_text`, `ui_button`, …) to build the tree. Many crossings per render, and the order of calls becomes the API.
-- C) **Component Model + WIT.** A standard interface with generated bindings for many languages. wasmtime's C API support for components is limited, and Lugha would need its own bindings.
-
-**Notes:** This is the platform's core API: its encoding needs a version field from day one.
-
----
-
-### DECISION-006 — The first guest language and test bundles
-
-**Status:** open
-**Raised:** 2026-10-17 — Session 2
-**Resolved by:** human
-**Blocks:** Step 1: having a bundle to load.
-
-**Question:** What language is the first guest UI library and demo bundle written in, and where does it live?
-
-**Options:**
-- A) **Rust** (`wasm32-unknown-unknown`), as in the vision's example, in this repo under `guest/rust/`. Hand-written `.wat` fixtures for the shell's own tests, so `lughac test` doesn't need Rust. *Recommended.*
-- B) **Lugha** compiled to WebAssembly. Not possible today: `lughac` emits native code only.
-- C) **C** with clang's wasm target. Small, but a poor model for the app-author experience.
-
-**Notes:** The demo bundle's code is not in the shell's Lugha test suite; it needs its own build command in CLAUDE.md.
+(none)
 
 ---
 
@@ -134,7 +66,99 @@ Rules:
 
 ---
 
+### DECISION-011 — How synced app data resolves conflicts
+
+**Status:** deferred
+**Raised:** 2026-10-17 — Session 3
+**Revisit when:** Build path step 4 (storage and sync).
+
+**Question:** When two devices or two people edit the same data, what wins: last write per row, a change log with merge rules per table, or CRDTs on SQLite (e.g. cr-sqlite)?
+
+**Notes:** Safe to defer: Rapidkoi owns each app's database (DECISION-004), so any of the three stays possible. See `docs/source/meetings/2026-10-17-architecture.md`.
+
+---
+
 ## RESOLVED
+
+### DECISION-003 — Which WebAssembly runtime the shell embeds
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 2
+**Resolved:** 2026-10-17 — Session 3
+
+**Question:** Which C-API WebAssembly runtime does the shell embed?
+
+**Outcome:** wasmtime, through its C API, wrapped by the separate Lugha package `lugha-wasmtime` (DECISION-010).
+
+**Rationale:** The most mature and hardened option, with fuel/epoch and memory limits for untrusted code. WAMR is the fallback to reconsider for Android (DECISION-007).
+
+**Copied to MEMORY.md:** yes
+
+---
+
+### DECISION-004 — Where an app's state lives
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 2
+**Resolved:** 2026-10-17 — Session 3
+
+**Question:** Does the guest own its state, or does the platform hold it?
+
+**Outcome:** Two kinds of state. Screen state (route, filters, drafts, selection) is a serialisable model Rapidkoi holds; apps are Elm-shaped (`init`, `update`, `view`). App data lives in a per-app SQLite database that Rapidkoi owns and provides (from build path step 3 or 4); queries and writes are effects, with live-query subscriptions. Apps don't bundle their own database. Conflict handling is DECISION-011.
+
+**Rationale:** Platform-held screen state gives links, history and live sessions to every app. A real database is needed for offline apps (the owner's point), and Rapidkoi owning it keeps sync, export, inspection and removal possible. SQLite fits many small reads and writes; DuckDB is for analytics.
+
+**Copied to MEMORY.md:** yes
+
+---
+
+### DECISION-005 — The guest↔host UI contract
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 2
+**Resolved:** 2026-10-17 — Session 3
+
+**Question:** How does a bundle hand its view tree to the shell, and how do events get back?
+
+**Outcome:** The guest writes its whole view tree into its memory as one compact, versioned encoding per update; the shell decodes it into kivuli `View`s, and kivuli diffs. Events go back to the guest as its own encoded messages. Step 1 components: text, button, text input, column, row. The exact encoding is designed in the step 1 PRP and stays language-neutral.
+
+**Rationale:** One crossing per update, simple, inspectable, and independent of any guest language.
+
+**Copied to MEMORY.md:** yes
+
+---
+
+### DECISION-006 — The first guest language and test bundles
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 2
+**Resolved:** 2026-10-17 — Session 3
+
+**Question:** What language is the first guest UI library and demo bundle written in?
+
+**Outcome:** Rust (`wasm32-unknown-unknown`), in this repo under `guest/rust/`. The shell's own tests use hand-written `.wat` fixtures, so `lughac test` never needs Rust. A lughac WebAssembly target and a Lugha guest library are a later milestone in the lugha repository.
+
+**Rationale:** Rust is the best-supported WebAssembly language and already installed; lughac emits native code only today.
+
+**Copied to MEMORY.md:** yes
+
+---
+
+### DECISION-010 — Rapidkoi grows Lugha's ecosystem
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 3
+**Resolved:** 2026-10-17 — Session 3
+
+**Question:** Where do general-purpose pieces built for Rapidkoi live?
+
+**Outcome:** A second project goal is improving Lugha's ecosystem. Generic pieces (runtime bindings, database bindings) are standalone Lugha packages in their own repositories, starting with `lugha-wasmtime` (package `wasmtime`) from day one. Rapidkoi-specific pieces (link parser, UI encoding) start in this repo and split out once their shape settles. kivuli and lughac gaps are fixed upstream.
+
+**Rationale:** The owner's direction (`docs/source/meetings/2026-10-17-architecture.md`).
+
+**Copied to MEMORY.md:** yes
+
+---
 
 ### DECISION-001 — What rapidkoi is for
 

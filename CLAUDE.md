@@ -4,6 +4,8 @@ Behavioral instructions for AI coding assistants. Each rule exists to prevent a 
 
 rapidkoi is the Rapidkoi shell: a native desktop app, written in Lugha with kivuli (Elm architecture over GTK 4), that runs sandboxed WebAssembly apps and renders the component trees they describe. The vision is `docs/source/stakeholder/vision-2026-10-17.md`; MEMORY.md decision 4 summarises it. Do not re-litigate it.
 
+The project has a second goal: growing Lugha's ecosystem (MEMORY.md decision 9). Generic pieces become standalone Lugha packages, and gaps in Lugha's tools are fixed upstream as contributions.
+
 ---
 
 ## SESSION HANDOFF RULE — NON-NEGOTIABLE
@@ -50,7 +52,9 @@ One PRP at a time. Never implement more than one feature's scope in a single ses
 
 If mid-implementation the scope turns out larger than the PRP described: stop, document what was discovered, update or create a PRP, and get approval before continuing. The human decides what is "small enough to add", not the model.
 
-**A missing or broken lughac or kivuli feature is never worked around silently.** Stop, record it in `DECISIONS.md`, and report it. It is fixed in its own repository (`../lugha`, `../kivuli`) under that repo's `CLAUDE.md`, never from a rapidkoi session.
+**A missing or broken lughac, kivuli or lugha-wasmtime feature is never worked around silently.** Stop, record it in `DECISIONS.md`, and report it. It is fixed in its own repository (`../lugha`, `../kivuli`, `../lugha-wasmtime`) under that repo's `CLAUDE.md`, never from a rapidkoi session.
+
+**Generic code doesn't go in rapidkoi.** Anything another Lugha program could use unchanged (bindings to a C library, a general data structure) belongs in its own package. Propose it as a new package instead of writing it here.
 
 ---
 
@@ -147,7 +151,7 @@ Never read, modify, or delete:
 - `.env` and `.env.*`
 - `lugha.lock`: written only by `lughac build`/`update`, never hand-edited
 - Built executables (the paths in `.gitignore`)
-- `../lugha/`, `../kivuli/`, `../lugha-gtk/`: other repositories with their own rules. Read for reference; never write
+- `../lugha/`, `../kivuli/`, `../lugha-gtk/`, `../lugha-wasmtime/`: other repositories with their own rules. Read for reference; never write from a rapidkoi session
 
 If a task seems to require touching a protected file, stop and ask. See also `.llmignore`. `.claude/settings.json` denies Claude's Read and Edit tools on the same paths. Keep all three in sync.
 
@@ -178,6 +182,9 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 - **kivuli 0.1** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.1" }`): the UI. Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
 - **lugha-gtk** comes in through kivuli. rapidkoi does not import `gtk` directly.
 - **GTK 4** + GLib, through kivuli.
+- **wasmtime** (C API) runs guests, through the package `wasmtime` from `../lugha-wasmtime`. rapidkoi never declares a wasmtime `extern` itself.
+- **Guests:** Rust (`wasm32-unknown-unknown`) under `guest/rust/`, built with cargo, never by `lughac`. The shell's tests use hand-written `.wat` fixtures and never need Rust.
+- **SQLite** for app data, from build path step 3 or 4 (MEMORY.md decision 5). Not before.
 
 ---
 
