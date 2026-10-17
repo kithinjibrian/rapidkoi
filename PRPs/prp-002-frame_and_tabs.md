@@ -164,3 +164,15 @@ Runtime (fixture guests from `test/support.la`):
 - `lughac build src/main.la -o main`
 - `cargo test --manifest-path guest/rust/Cargo.toml && cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown`
 - For the owner: `./main`, type `guest/rust/target/wasm32-unknown-unknown/release/counter.wasm` ↵, click Add twice, then ⌂, then Continue (the count should still be 2). Then + for a second tab, ⓘ, Pin, ⌂, and the Pinned tile.
+
+## AMENDMENT 1 — 2026-10-17 (session 10, the owner after trying it)
+
+Approved by the owner in chat:
+1. **Split** `src/shell.la` (305 lines): the Model and its helpers move to `src/window.la`, and `shell.la` keeps `boot`, `update`, `view` and re-exports what moved.
+2. **Home is not a tab.**
+   - The rail lists only apps. + and ⌂ show home, with no rail item highlighted.
+   - Opening an app from home opens a new tab. Opening one from an app page's address box replaces that tab's app.
+   - ⌂ keeps the app open in its tab. "Where you left off" is the last app visited: an open tab is selected again; a closed one is reopened with its saved state in a new tab.
+   - Closing the last tab shows home.
+3. **Themes, starting with dark.** Rapidkoi's own parts (the bar and rail, and home's background) take colours from a Rapidkoi theme. Dark comes first: bars `#242424`, home `#161616`. Apps still can't set colours.
+   - kivuli can't apply colours yet, so the theme is defined, turned into a stylesheet and tested, but not applied: a placeholder (DECISION-018) until kivuli has app stylesheets and CSS classes (DECISION-020).

@@ -387,6 +387,12 @@ docs/DESIGN.md, CHANGELOG.md
 
 ---
 
+## SESSION 10 — 2026-10-17 — PRP-002 amendments: split, home not a tab, themes — open
+
+Branch: prp-002-frame
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 10 on `prp-002-frame`. If the owner approved the split, move Model and the helpers into `src/window.la` (shell.la re-exports them), run every VALIDATION command, update the CLAUDE.md tree, and merge into `main`. Then PRP-003 (remembering), and the kivuli prompt for the placeholders' real features when the owner wants it.
