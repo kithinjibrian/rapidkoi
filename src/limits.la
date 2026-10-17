@@ -41,7 +41,7 @@ public const MAX_STRING: i64 = 64 * 1024;
  * and 4 billion fuel in 0.14, 0.28 and 0.57 s (`/usr/bin/time`), about
  * 7 billion fuel a second, so 100 ms is about 700 million. Fuel counts
  * instructions, not time: slower instructions (calls, memory traffic)
- * take longer per unit, so real code gets less than 100 ms of wall time,
- * never more by much.
+ * take longer per unit, so real code can run somewhat past 100 ms. It is a
+ * bound on work, not a timer (epoch interruption would be, if ever needed).
  */
 public const FUEL_PER_CALL: u64 = 700_000_000;
