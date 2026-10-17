@@ -43,7 +43,7 @@ public fun bar(page: Page, draft: string, editing: bool): View<Msg> {
             let address = if editing {
                 box
             } else {
-                button("📄 {file_of(p.path)} · local file", Msg.EditAddress).style(
+                button("📄 {file_of(p.path)} · local file", Msg.EditAddress).button_style(
                     ButtonStyle.Subtle,
                 ).tooltip("Search or type a path (Ctrl+K)").shortcut("Ctrl+K")
             };
@@ -112,16 +112,18 @@ public fun initial(name: string): string {
 
 /** An icon-only button with a tooltip; `None` means disabled. */
 fun icon_button(icon: string, tip: string, msg: Option<Msg>): View<Msg> = match msg {
-    Some(m) => button("", m).icon(icon).tooltip(tip).style(ButtonStyle.Subtle),
+    Some(m) => button("", m).icon(icon).tooltip(tip).button_style(ButtonStyle.Subtle),
     // kivuli: `.disabled(true)` removes the message, so any one will do.
-    None => button("", Msg.Home).disabled(true).icon(icon).tooltip(tip).style(ButtonStyle.Subtle),
+    None => button("", Msg.Home).disabled(true).icon(icon).tooltip(tip).button_style(
+        ButtonStyle.Subtle,
+    ),
 };
 
 fun tab_button(t: Tab, current: Option<i64>): View<Msg> {
     let look = if current == Some(t.id) { ButtonStyle.Primary } else { ButtonStyle.Subtle };
     button(initial(t.page.title.unwrap_or(t.page.name)), Msg.Select(t.id)).tooltip(
         label(t.page),
-    ).style(look).width(TAB_SIZE).height(TAB_SIZE)
+    ).button_style(look).width(TAB_SIZE).height(TAB_SIZE)
 }
 
 fun file_of(path: string): string {

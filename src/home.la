@@ -121,7 +121,7 @@ fun left_off(c: Card): View<Msg> {
     column([
         text("Where you left off").size(TEXT_HEADING).bold(),
         spacer(),
-        row([text(place).expand(), button("Continue", c.msg).style(ButtonStyle.Primary)]),
+        row([text(place).expand(), button("Continue", c.msg).button_style(ButtonStyle.Primary)]),
     ]).padding(SPACE_LG).height(BANNER_HEIGHT)
 }
 

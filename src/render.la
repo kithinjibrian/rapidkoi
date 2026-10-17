@@ -62,7 +62,7 @@ public fun stopped(reason: string, can_restart: bool): View<Msg> {
         text(reason).dim(),
     ];
     if can_restart {
-        kids.push(button("Restart", Msg.Restart).style(ButtonStyle.Primary));
+        kids.push(button("Restart", Msg.Restart).button_style(ButtonStyle.Primary));
     }
     column(kids).spacing(SPACE_SM)
 }
@@ -82,9 +82,9 @@ fun button_of(label: string, look: ButtonLook, msg: Option<Value>): View<Msg> {
         Subtle => ButtonStyle.Subtle,
     };
     match msg {
-        Some(m) => button(label, Msg.Event(m, None)).style(style),
+        Some(m) => button(label, Msg.Event(m, None)).button_style(style),
         // kivuli: a button without a message is disabled; any placeholder
         // message works, since `.disabled(true)` removes it.
-        None => button(label, Msg.Restart).disabled(true).style(style),
+        None => button(label, Msg.Restart).disabled(true).button_style(style),
     }
 }

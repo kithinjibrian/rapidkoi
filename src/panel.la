@@ -39,6 +39,6 @@ public fun view(id: i64, p: AppPage, pinned: bool): View<Msg> {
     parts.push(text("Permissions: none. This app can't reach anything outside itself.").wrap());
     parts.push(button("Restart", Msg.Tab(id, render.Msg.Restart)));
     parts.push(if pinned { button("Unpin", Msg.Unpin(p.path)) } else { button("Pin", Msg.Pin) });
-    parts.push(button("Close tab", Msg.CloseTab(id)).style(ButtonStyle.Danger));
+    parts.push(button("Close tab", Msg.CloseTab(id)).button_style(ButtonStyle.Danger));
     column(parts).spacing(SPACE_SM).padding(SPACE_MD).width(PANEL_WIDTH)
 }
