@@ -2,7 +2,7 @@
 // kivuli.testing with no display.
 import rapidkoi.contract { Node, TextStyle, ButtonLook, Space };
 import rapidkoi.render { Msg, screen, stopped };
-import kivuli.testing { Lookup, click, is_disabled, type_into, texts };
+import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, texts };
 import support { t };
 
 @test
@@ -61,4 +61,15 @@ fun the_error_screen_offers_restart() {
 fun no_restart_when_the_app_never_loaded() {
     let v = stopped("Couldn't read app.wasm", false);
     assert_eq(click(v, "Restart"), Err(Lookup.NotFound("button \"Restart\"")));
+}
+
+@test
+fun an_input_without_a_message_is_disabled() {
+    let v = screen(Node.Input("Amina", "Your name", None));
+    assert_eq(is_field_disabled(v, "Your name"), Ok(true));
+    assert_eq(type_into(v, "Your name", "x"), Err(Lookup.Silent("text field \"Your name\"")));
+    assert_eq(
+        is_field_disabled(screen(Node.Input("", "Your name", Some(t("n")))), "Your name"),
+        Ok(false),
+    );
 }

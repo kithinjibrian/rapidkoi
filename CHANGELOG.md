@@ -18,3 +18,5 @@ Never deleted. Older entries are never modified.
 - Home: "Where you left off" (Continue returns to the app, or reopens a closed one exactly as it was) and Pinned apps, filtered as you type; Ctrl+K jumps to search.
 - The app info panel: what the app is, its permissions (none), and Restart, Pin and Close tab.
 - Apps can give each screen a title; Rapidkoi shows it in the tab and the window title.
+- The bar lives in the title bar, one row with the window controls; Rapidkoi opens maximized, in its dark theme.
+- Text fields an app gives no handler show greyed out instead of failing.

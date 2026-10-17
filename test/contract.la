@@ -185,12 +185,8 @@ fun contract_errors_name_where_they_are() {
 }
 
 @test
-fun an_input_without_on_change_is_refused_for_now() {
-    // kivuli has no read-only text field yet (DECISION-016).
-    assert_eq(
-        problem(tree(leaf("input", [("value", t("x"))]))),
-        "root > input: an input without \"on_change\" isn't supported yet",
-    );
+fun an_input_without_on_change_is_disabled() {
+    assert_eq(tree(leaf("input", [("value", t("x"))])), Ok(Node.Input("x", "", None)));
 }
 
 @test

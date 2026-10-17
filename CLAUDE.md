@@ -186,7 +186,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 ## STACK
 
 - **Lugha** via `lughac` 0.1.0. Use only what `lughac spec` documents. **Never build or reinstall `lughac` yourself**: when rapidkoi needs a newer one, stop and ask the user.
-- **kivuli 0.1** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.1" }`): the UI. Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
+- **kivuli 0.2** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.2" }`): the UI. 0.2 renamed `.style(ButtonStyle…)` to `.button_style(…)`; `.style([…])` takes looks. Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
 - **lugha-gtk** comes in through kivuli. rapidkoi does not import `gtk` directly.
 - **GTK 4** + GLib, through kivuli.
 - **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` (`wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }`; source in `../lugha-wasmtime`). rapidkoi never declares a wasmtime `extern` itself.
@@ -248,7 +248,7 @@ public fun load_settings(path: string): Settings { … }
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
 ├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only),
-│                        window.la (the Model and what changes it: tabs, home, address box, pins, left off), themes.la (Rapidkoi's colours; dark first),
+│                        window.la (the Model and what changes it: tabs, home, address box, pins, left off), themes.la (Rapidkoi's colours as kivuli looks; dark first),
 │                        tabs.la (Page, Tab, Pin, LeftOff; an app page's life: open, events, restart, leave, resume), actions.la (the shell's Msg),
 │                        frame.la (pure: the bar and the tab rail), home.la (pure: home and search), panel.la (pure: app info),
 │                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1; re-exports nodes' types),
@@ -288,7 +288,6 @@ Update this tree when modules are added.
 ## KNOWN ISSUES — DO NOT FIX
 
 - **A missing `update`, `alloc` or `view` export is only found on its first call**, not at load: lugha-wasmtime can't list exports yet (DECISION-017). The error screen still shows.
-- **An `input` without `on_change` is refused as a contract error**, not shown disabled: kivuli has no read-only text field yet (DECISION-016).
 - **A second `./main other.wasm` raises the first window** instead of opening the app: kivuli makes GTK single-instance (DECISION-014).
 - **Placeholders until kivuli and PRP-003 catch up (DECISION-018), each to be replaced, never extended:**
   - Opening a file means typing its path into the box, since there's no file dialog.
@@ -298,4 +297,4 @@ Update this tree when modules are added.
   - Tiles and tabs show the app's initial; there's no art or banners yet.
   - Pins, "where you left off" and search are in memory only.
   - Back, forward, share, settings and more are shown disabled.
-  - The dark theme (bars `#242424`, home `#161616`) is defined but not applied, and the window opens at its default size instead of maximized: kivuli can't apply a stylesheet or maximize yet (DECISION-020).
+  - The header bar (the top row) keeps the system's colour; only the rail and home take the theme's. kivuli can't style the header bar itself yet (DECISION-020).

@@ -1,21 +1,28 @@
 /**
- * Rapidkoi's themes: the colours of its own parts (the bar and rail, and
- * home's background), and the stylesheet that applies them. Apps never get
- * colours; their content follows the GTK theme. Dark is first and the
- * default; others come later.
+ * Rapidkoi's themes: the colours of its own parts (the tab rail and home;
+ * the header bar keeps the system's colour, DECISION-020), as kivuli typed
+ * looks. Apps never get colours; their content follows the GTK theme. Dark
+ * is first and the default; others come later, with settings.
  *
- * The stylesheet isn't applied yet: kivuli can't load one or tag widgets
- * with CSS classes (DECISION-020). Until it can, this is a placeholder
- * (DECISION-018), built and tested so the switch is one line.
- *
- * Used by: window, shell
+ * Depends on: kivuli
+ * Used by: window, frame, shell
  */
+// kivuli's Theme and theme() are imported under other names: this module has a Theme of its own.
+import kivuli { Surface, hex, Theme as Looks, theme as looks };
 
-/** One theme: a name, and a colour per part of Rapidkoi's frame. */
+/** The parts of Rapidkoi's frame a theme colours. */
+public enum Look {
+    /** The tab rail. */
+    Rail,
+    /** Home's background. */
+    Home,
+}
+
+/** One theme: a name, and a colour per part. Hex values live only here. */
 public struct Theme {
     /** What settings will call it. */
     public name: string,
-    /** The bar across the top and the tab rail. */
+    /** The tab rail (the owner's "bars"). */
     public bar: string,
     /** Home's background. */
     public home: string,
@@ -24,23 +31,31 @@ public struct Theme {
 /** The dark theme, the default (the owner's colours, 2026-10-17). */
 public const DARK: Theme = Theme { name: "dark", bar: "#242424", home: "#161616" };
 
-/** The CSS class on the bar across the top. */
-public const BAR_CLASS: string = "rk-bar";
-/** The CSS class on the tab rail. */
-public const RAIL_CLASS: string = "rk-rail";
-/** The CSS class on home. */
-public const HOME_CLASS: string = "rk-home";
-
 /**
- * Builds the stylesheet that paints Rapidkoi's parts in a theme.
+ * Builds the kivuli theme that paints Rapidkoi's looks in `t`.
  *
  * @param t the theme
- * @returns GTK CSS for `.rk-bar`, `.rk-rail` and `.rk-home`
+ * @returns the kivuli theme for the root's `.theme(…)`
  *
  * Example:
- *     stylesheet(DARK)
+ *     view.theme(kivuli_theme(DARK))
  */
-public fun stylesheet(t: Theme): string = [
-    ".{BAR_CLASS}, .{RAIL_CLASS} {{ background-color: {t.bar}; }}",
-    ".{HOME_CLASS} {{ background-color: {t.home}; }}",
-].join("\n");
+public fun kivuli_theme(t: Theme): Looks = looks(
+    [Look.Rail, Look.Home],
+    fun(l: Look) = surface(t, l),
+);
+
+/**
+ * Returns how one look appears in a theme.
+ *
+ * @param t the theme
+ * @param l the look
+ * @returns its surface; unset fields stay the GTK theme's
+ *
+ * Example:
+ *     surface(DARK, Look.Home)
+ */
+public fun surface(t: Theme, l: Look): Surface = match l {
+    Rail => Surface { background: Some(hex(t.bar)), ..Surface.theme() },
+    Home => Surface { background: Some(hex(t.home)), ..Surface.theme() },
+};

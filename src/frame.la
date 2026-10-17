@@ -1,28 +1,41 @@
 /**
- * Rapidkoi's frame, pure: the bar across the top (back, home, forward, the
- * address box, info, share) and the tab rail down the right. Only Rapidkoi
+ * Rapidkoi's frame, pure: the bar (back, home, forward, the address box,
+ * info, share) for the window's header bar, and the tab rail down the right. Only Rapidkoi
  * draws these; an app's view lives between them and can't reach them.
  *
- * Depends on: kivuli, actions, tabs, theme
+ * Depends on: kivuli, actions, tabs, theme, themes
  * Used by: panel, shell
  */
-import kivuli { View, ButtonStyle, button, column, input, row, separator, spacer };
+import kivuli { View, ButtonStyle, button, column, input, separator, spacer };
+import themes { Look };
 import actions { Msg };
 import tabs { Page, Tab, AppPage };
 import theme { SPACE_SM, RAIL_WIDTH, TAB_SIZE };
 
+/** The bar's parts in the window's header bar: start, title (it fills the row), end. */
+public struct Bar {
+    /** Back, home, forward. */
+    public start: View<Msg>[],
+    /** The address box, or an app page's address. */
+    public title: View<Msg>,
+    /** App info (app pages only), share. */
+    public end: View<Msg>[],
+}
+
 /**
- * Builds the bar across the top.
+ * Builds the bar, for the window's header bar: GTK draws the window
+ * controls beside it, in one row.
  *
- * @param page what the current tab shows
+ * @param page what the window shows
  * @param draft the address box's text
  * @param editing whether an app page's address is being edited
- * @returns the bar; back, forward and share are disabled until links (DECISION-018)
+ * @returns its parts; back, forward and share are disabled until links (DECISION-018)
  *
  * Example:
- *     bar(Page.Home, "", false)
+ *     let b = bar(Page.Home, "", false);
+ *     view.header(b.start, b.title, b.end)
  */
-public fun bar(page: Page, draft: string, editing: bool): View<Msg> {
+public fun bar(page: Page, draft: string, editing: bool): Bar {
     let back = icon_button("go-previous-symbolic", "Back (comes with links)", None);
     let forward = icon_button("go-next-symbolic", "Forward (comes with links)", None);
     let share = icon_button("emblem-shared-symbolic", "Share (comes with links)", None);
@@ -30,32 +43,22 @@ public fun bar(page: Page, draft: string, editing: bool): View<Msg> {
         "address",
     ).on_submit(Msg.Go).autofocus();
     match page {
-        Home => row([
-            back,
+        Home => Bar {
             // On home, ⌂ moves to the search box; it carries Ctrl+K.
-            icon_button("go-home-symbolic", "Search (Ctrl+K)", Some(Msg.FocusSearch)).shortcut("Ctrl+K"),
-            forward,
-            box.expand(),
-            share,
-        ]).spacing(SPACE_SM),
-        App(p) => {
+            start: [back, icon_button("go-home-symbolic", "Search (Ctrl+K)", Some(Msg.FocusSearch)).shortcut("Ctrl+K"), forward],
+            title: box.expand(),
+            end: [share],
+        },
+        App(p) => Bar {
+            start: [back, icon_button("go-home-symbolic", "Home", Some(Msg.Home)), forward],
             // Drawn by Rapidkoi only: an app can never show this marker.
-            let address = if editing {
-                box
+            title: if editing {
+                box.expand()
             } else {
-                button("📄 {file_of(p.path)} · local file", Msg.EditAddress).button_style(
-                    ButtonStyle.Subtle,
-                ).tooltip("Search or type a path (Ctrl+K)").shortcut("Ctrl+K")
-            };
-            row([
-                back,
-                icon_button("go-home-symbolic", "Home", Some(Msg.Home)),
-                forward,
-                address.expand(),
-                icon_button("dialog-information-symbolic", "App info", Some(Msg.TogglePanel)),
-                share,
-            ]).spacing(SPACE_SM)
-        }
+                button("📄 {file_of(p.path)} · local file", Msg.EditAddress).button_style(ButtonStyle.Subtle).tooltip("Search or type a path (Ctrl+K)").shortcut("Ctrl+K").expand()
+            },
+            end: [icon_button("dialog-information-symbolic", "App info", Some(Msg.TogglePanel)), share],
+        },
     }
 }
 
@@ -76,7 +79,7 @@ public fun rail(open: Tab[], current: Option<i64>): View<Msg> {
     items.push(spacer());
     items.push(icon_button("emblem-system-symbolic", "Settings (coming soon)", None));
     items.push(icon_button("view-more-symbolic", "More (coming soon)", None));
-    column(items).spacing(SPACE_SM).padding(SPACE_SM).width(RAIL_WIDTH)
+    column(items).spacing(SPACE_SM).padding(SPACE_SM).width(RAIL_WIDTH).style([Look.Rail])
 }
 
 /**

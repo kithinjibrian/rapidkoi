@@ -164,14 +164,8 @@ fun node(
         "input" => {
             let value = text(given, "value", here)?;
             let placeholder = optional_text(given, "placeholder", here)?;
-            match given.get("on_change") {
-                Some(msg) => Ok(Node.Input(value, placeholder, Some(msg))),
-                // kivuli has no read-only text field yet: refuse visibly,
-                // never fake one (DECISION-016).
-                None => Err(
-                    nodes.invalid(here, "an input without \"on_change\" isn't supported yet"),
-                ),
-            }
+            // No `on_change` means disabled (kivuli 0.1.1, DECISION-016).
+            Ok(Node.Input(value, placeholder, given.get("on_change")))
         }
         "column" => Ok(
             Node.Column(
