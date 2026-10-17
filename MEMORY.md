@@ -117,6 +117,24 @@ Read this at the start of every session before writing any code.
 
 ---
 
+### 12. Rapidkoi's own UI (meeting 2026-10-17, ui-design)
+
+**Decision:**
+- **The frame:** the system title bar; Rapidkoi's bar (← ⌂ →, address/search, ⓘ, ⤴); a tab rail on the right (tabs, +, divider, settings).
+- **Home:** logo, "Where you left off", a Pinned grid. Visual: big tiles and banners.
+- **History:** on-device and searchable.
+- **Pictures:** page banner → app banner → generated art. No screenshots.
+- **App info:** a panel.
+- **Contract:** optional root props `title`, `banner`, `private`.
+
+Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missing kivuli features get explicit placeholders (DECISION-018).
+
+**Why:** The owner's sketches and direction (`docs/source/meetings/2026-10-17-ui-design.md`). With no search engine, Rapidkoi's memory is how people find things again.
+
+**Rules out:** Screenshots of what people saw; apps drawing in the bar or rail; history leaving the device; silent workarounds for kivuli gaps.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working

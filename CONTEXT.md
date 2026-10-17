@@ -297,12 +297,44 @@ CLAUDE.md       — file tree and import order
 
 ---
 
-## SESSION 8 — 2026-10-17 — Record Rapidkoi's UI design; propose PRP-002 — open
+## SESSION 8 — 2026-10-17 — Record Rapidkoi's UI design; propose PRP-002 — closed
 
 Branch: prp-002-frame
+
+### WHAT WAS DONE
+
+Recorded the UI design the owner sketched in chat (frame, tab rail, home, finding things again, pictures, info panel), with their two sketches. Recorded DECISION-016 as A. On the owner's "placeholders where you can, don't get blocked", recorded DECISION-018 and wrote PRP-002 (frame and tabs) with a placeholder table. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-17-ui-design.md   — the design discussion and decisions
+docs/source/meetings/2026-10-17-ui/*.png       — the owner's two sketches
+docs/DESIGN.md                                 — the frame's tokens and icons
+DECISIONS.md — 016 resolved (A), 018 resolved (placeholders), 019 deferred (state across restarts)
+MEMORY.md    — decision 12 (Rapidkoi's own UI)
+PRPs/prp-002-frame_and_tabs.md — for approval
+```
+
+### TESTS WRITTEN
+
+- None (design only).
+
+### DECISIONS MADE
+
+- DECISION-016 (A), DECISION-018 (placeholders).
+
+### PENDING DECISIONS OPENED
+
+- DECISION-019 (deferred to PRP-003).
+
+### STILL OPEN AT CLOSE
+
+- PRP-002 awaits approval. It includes extending rule 3 to opening a local app file in `update`.
+- kivuli work for the owner: disabled text fields (prompt given), then a file dialog, an overlay, context menus and a wrapping grid.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 8 on a new branch. PRP-001 (build path step 1, the shell) is on `main`. First get the owner's answer to DECISION-016. If A, that's a kivuli PRP in a kivuli session; then a small rapidkoi change to render a disabled input and drop the contract error. Next on the build path is step 2, links (`rapidkoi://` addresses): it needs DECISION-014 (kivuli app flags) and DECISION-009 (manifest/bundle) revisited, and starts with a discovery interview.
+Open session 9 on `prp-002-frame`. If the owner approved PRP-002, build it test-first, exactly, with its placeholders. Move start/step/show/halt from shell.la into tabs.la first, keeping PRP-001's tests green, then the rest. Merge once every VALIDATION command passes. Then PRP-003 (remembering).

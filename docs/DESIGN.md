@@ -35,9 +35,30 @@ No colour tokens. Colours come only from the theme, through kivuli:
 | `TEXT_TITLE` | 18 | a view's title, with `.bold()` |
 | `TEXT_HEADING` | 14 | section headings, with `.bold()` |
 
+## The frame (Rapidkoi's own UI)
+
+From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels.
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `RAIL_WIDTH` | 64 | the tab rail on the right |
+| `TAB_SIZE` | 44 | one tab button in the rail |
+| `TILE_SIZE` | 120 | a Pinned tile on home (square) |
+| `TILES_PER_ROW` | 4 | until kivuli has a wrapping grid (DECISION-018) |
+| `BANNER_HEIGHT` | 180 | "Where you left off" |
+| `PANEL_WIDTH` | 280 | the app info panel |
+
+- Toolbar buttons are icon-only (`button("", msg).icon(name)` with a `.tooltip`), using symbolic theme icons:
+  - back `go-previous-symbolic`, home `go-home-symbolic`, forward `go-next-symbolic`
+  - info `dialog-information-symbolic`, share `emblem-shared-symbolic`
+  - new tab `list-add-symbolic`, settings `emblem-system-symbolic`, more `view-more-symbolic`
+- The current tab is `Primary`; the others are `Subtle`.
+- The verified mark is `✓`; a local file is marked `📄 … · local file`. Both are drawn only by Rapidkoi, never inside the app's area.
+- The art palette for generated app art comes with PRP-003.
+
 ## In code
 
-The tokens become `public` constants in one module (`src/theme.la`), created by the first PRP that writes view code. Views use the names, never the numbers.
+The tokens are `public` constants in `src/theme.la`. Views use the names, never the numbers.
 
 ## Component Rules
 
