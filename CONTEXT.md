@@ -479,9 +479,46 @@ CLAUDE.md, DECISIONS.md (016 shipped, 020 progress), docs/DESIGN.md, CHANGELOG.m
 
 ---
 
-## SESSION 12 — 2026-10-17 — The frame look: one frame colour, the page as a card — open
+## SESSION 12 — 2026-10-17 — The frame look: one frame colour, the page as a card — closed
 
-Branch: frame-look
+Branch: frame-look → merged into main
+
+### WHAT WAS DONE
+
+The owner sent a screenshot ("topbar and sidebar should have same color. remove that shadow under topbar") and an Opera-style inspiration. Measured the screenshot:
+- header `#272727` with a 2 px `#0a0a0a` shadow
+- rail `#242424`, with a `#2c2c2c` strip around it: the rail's margin showed GTK's window background
+- home `#161616`
+
+Rapidkoi now paints the whole window `Look.Frame` (`#242424`), which removes the strip and puts the rail on the frame, and the page is a rounded `Look.Page` card (`#161616`, 12 px) inset by `SPACE_SM`. The header bar's colour and shadow need kivuli (DECISION-020 item 1, prompt given to the owner).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/themes.la  — Look { Frame, Page }; Theme { frame, page }; Page has PAGE_RADIUS
+src/theme.la   — PAGE_RADIUS = 12
+src/shell.la   — root .style([Look.Frame]); card(): the page as an inset rounded card
+src/frame.la   — the rail has no look of its own (it sits on the frame)
+test/views.la  — the theme's surfaces
+docs/DESIGN.md, DECISIONS.md (020 item 1 measured), CLAUDE.md, CHANGELOG.md
+docs/source/meetings/2026-10-17-ui/screenshot-3-after-amendment-2.png, inspiration-opera-frame.png
+```
+
+### TESTS WRITTEN
+
+- views: frame and page surfaces (colour, radius; text untouched).
+
+### DECISIONS MADE
+
+- App pages get the same card as home (`#161616`), as in the inspiration.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- kivuli: the header bar's look and no shadow.
 
 ---
 

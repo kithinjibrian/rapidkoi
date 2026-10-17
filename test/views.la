@@ -145,8 +145,10 @@ fun the_info_panel() {
 
 @test
 fun the_dark_theme() {
-    assert_eq(surface(DARK, Look.Rail).background, Some(hex("#242424")));
-    assert_eq(surface(DARK, Look.Home).background, Some(hex("#161616")));
-    // Only backgrounds: text and borders stay the GTK theme's.
-    assert_eq(surface(DARK, Look.Home).text, None);
+    assert_eq(surface(DARK, Look.Frame).background, Some(hex("#242424")));
+    assert_eq(surface(DARK, Look.Page).background, Some(hex("#161616")));
+    assert_eq(surface(DARK, Look.Page).radius, Some(12));
+    // Only backgrounds and the card's corners: text and borders stay the GTK theme's.
+    assert_eq(surface(DARK, Look.Page).text, None);
+    assert_eq(surface(DARK, Look.Frame).radius, None);
 }

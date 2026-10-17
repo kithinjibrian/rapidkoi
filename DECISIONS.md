@@ -141,7 +141,7 @@ Rules:
   - `.header(start, title, end)`: the bar lives in the title bar
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
 - **Still to come:**
-  1. a look on the header bar itself, so the top row can take the theme's bar colour (today it keeps the system's)
+  1. **The header bar's own look, and no shadow.** Today it is the system's `#272727`, with a 2 px dark shadow under it (measured in the owner's screenshot, session 12). The owner wants it the frame's `#242424`, with no shadow, so the top and the rail read as one surface.
   2. a file dialog
   3. an overlay, for the panel over the app
   4. context menus, for tab actions
