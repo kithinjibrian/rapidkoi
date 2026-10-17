@@ -431,12 +431,54 @@ DECISIONS.md (020), docs/DESIGN.md (theme colours, rule), CLAUDE.md (design rule
 
 ---
 
-## SESSION 11 — 2026-10-17 — PRP-002 Amendment 2: kivuli 0.2 (header, theme, maximized, disabled inputs) — open
+## SESSION 11 — 2026-10-17 — PRP-002 Amendment 2: kivuli 0.2 (header, theme, maximized, disabled inputs) — closed
 
-Branch: prp-002-amend2
+Branch: prp-002-amend2 → merged into main
+
+### WHAT WAS DONE
+
+kivuli 0.1.1 (disabled text fields) and 0.2.0 (typed looks, `.maximized()`, `.header`) shipped. The owner approved swapping the placeholders, recorded as PRP-002 Amendment 2. Rapidkoi now:
+- has its bar in the window's header bar (the owner's screenshot request)
+- opens maximized
+- paints the rail `#242424` and home `#161616` through kivuli looks
+- shows inputs without `on_change` disabled
+
+The header bar itself keeps the system's colour: kivuli can't style it yet (DECISION-020). Not verified on screen by me: the owner checks.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml, lugha.lock — kivuli 0.2 (lock: kivuli 0.2.0, lugha-gtk 0.1.23, by lughac update)
+src/themes.la  — rewritten: Look { Rail, Home }, Theme, DARK, kivuli_theme(), surface()
+src/frame.la   — Bar { start, title, end } for the header; rail styled Look.Rail
+src/shell.la   — .maximized().theme(…).header(…); home styled Look.Home
+src/contract.la, src/render.la — inputs without on_change: Node.Input(…, None), rendered .disabled(true)
+src/*.la       — .style(ButtonStyle…) → .button_style(…)
+test/views.la, test/contract.la, test/render.la — bar parts, theme surfaces, disabled inputs
+CLAUDE.md, DECISIONS.md (016 shipped, 020 progress), docs/DESIGN.md, CHANGELOG.md, PRPs/prp-002 (Amendment 2)
+```
+
+### TESTS WRITTEN
+
+- views: the theme's surfaces (backgrounds only); the bar tests read the header parts in one row.
+- contract: an input without on_change decodes as disabled.
+- render: a disabled input is greyed out and silent (`is_field_disabled`, `Lookup.Silent`).
+
+### DECISIONS MADE
+
+- kivuli's `Theme`/`theme` are imported as `Looks`/`looks` in themes.la, which has its own `Theme`.
+- Only backgrounds are set; text stays the GTK theme's (dark on the owner's desktop).
+
+### PENDING DECISIONS OPENED
+
+- None. DECISION-020 now lists what's left: a header bar look, a file dialog, an overlay, context menus, a wrapping grid.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check, and their style feedback when they're ready.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 11 on a new branch. PRP-002 (frame and tabs, with Amendment 1) is on `main`. When kivuli ships the DECISION-020 features, swap each placeholder out (theme first: `.class` the bar, rail and home, and load `themes.stylesheet(DARK)`; then maximize). Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), starting with a discussion in chat. Wait for the owner's style feedback before restyling anything.
+Open session 12 on a new branch. PRP-002 with Amendments 1 and 2 is on `main`. Wait for the owner's style feedback before restyling. Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), discussed in chat first. As kivuli ships the rest of DECISION-020, swap each placeholder out.
