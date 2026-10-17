@@ -1,0 +1,7 @@
+[package]
+name = "rapidkoi"
+version = "0.1.0"
+source = "src"
+
+[packages]
+kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.1" }
