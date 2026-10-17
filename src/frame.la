@@ -8,6 +8,7 @@
  */
 import kivuli { View, Image, Align, ButtonStyle, button, column, input, separator, spacer };
 import actions { Msg };
+import address { parse };
 import tabs { Page, Tab, AppPage };
 import theme { SPACE_SM, RAIL_WIDTH, TAB_SIZE, TAB_ICON };
 
@@ -134,16 +135,20 @@ fun tab_button(t: Tab, current: Option<i64>): View<Msg> {
 }
 
 /**
- * Returns how Rapidkoi names where an app came from: `📦 file · local
- * bundle` for a `.rkb`, `📄 file · local file` for a bare module. Drawn
- * only by Rapidkoi, never by an app.
+ * Returns how Rapidkoi names where an app came from: `🛠 localhost:8000 ·
+ * development` from a development server, `📦 file · local bundle` for a
+ * `.rkb`, `📄 file · local file` for a bare module. Drawn only by Rapidkoi,
+ * never by an app.
  *
  * Example:
  *     marker(page, "counter.rkb")
  */
-public fun marker(p: AppPage, shown: string): string = match p.manifest {
-    Some(_) => "📦 {shown} · local bundle",
-    None => "📄 {shown} · local file",
+public fun marker(p: AppPage, shown: string): string = match parse(p.path) {
+    Ok(a) => "🛠 {address.shown(a)} · development",
+    Err(_) => match p.manifest {
+        Some(_) => "📦 {shown} · local bundle",
+        None => "📄 {shown} · local file",
+    },
 };
 
 /**

@@ -867,6 +867,91 @@ CLAUDE.md, DECISIONS.md (020 item done), docs/DESIGN.md, CHANGELOG.md
 
 ---
 
+## SESSION 22 — 2026-10-18 — Propose PRP-004: local development (serve, open localhost) — closed
+
+Branch: prp-004-dev-server
+
+### WHAT WAS DONE
+
+The owner wanted to serve counter.rkb and open it over localhost. Lugha gained `std.net` (m110) and `std.http` (m111: an HTTP/1.1 server and client with limits, http only; TLS is proposed as lugha PRP-144). Wrote PRP-004: `./main serve`, opening `rapidkoi://localhost:PORT` (local hosts only), and a manual Reload. Remembering becomes PRP-005. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-004-local_development.md — for approval
+DECISIONS.md — DECISION-021 (loading in the background), deferred
+MEMORY.md    — next steps renumbered
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- `std.http` instead of a `lugha-http` package (Lugha's std has it now).
+- `./main serve` built in, rather than Python's http.server.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-021.
+
+### STILL OPEN AT CLOSE
+
+- PRP-004 awaits approval. It includes extending rule 3 to a localhost fetch.
+
+---
+
+## SESSION 23 — 2026-10-18 — Build PRP-004: local development — closed
+
+Branch: prp-004-dev-server → merged into main
+
+### WHAT WAS DONE
+
+Built PRP-004 test-first:
+- `address.la`: local development addresses, with typed errors.
+- `serve.la`: `./main serve`, std.http on 127.0.0.1 only, one fixed route, re-reading and re-checking the bundle on every request.
+- The loader fetches `rapidkoi://localhost:PORT` (std.http, 32 MB, 3 s) and loads the bundle like a file.
+- The address box opens local addresses and gives a notice for other hosts and https.
+- Reload refetches and starts fresh; the address and panel are marked `🛠 … · development`.
+
+115 Lugha tests pass, including live-socket tests (a server on a spawned green thread per test, each on its own port). The real `./main serve` was checked with curl: 127.0.0.1 only (ss), 200 for the bundle, 404 for anything else, exit 1 for a missing bundle.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/address.la, src/serve.la (new); src/loader.la (fetch, from_bundle); src/main.la (serve)
+src/window.la (go for addresses, reload); src/actions.la (Reload); src/shell.la
+src/frame.la (marker: 🛠 development); src/panel.la (Served from…, Reload); src/limits.la (FETCH_TIMEOUT_MS)
+test/address.la, test/serve.la, test/loader.la (new); test/shell.la (notice)
+CLAUDE.md (rule 3, commands, tree, known issues), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- address (6), serve (4), loader (6, live sockets: load, http, 404 / unreachable / not local, too large, reload, panel).
+
+### DECISIONS MADE
+
+- Typed AddressError variants instead of strings.
+- "serving …" goes to stderr: std has no flush, and stdout stays buffered while the server runs (a small lughac gap).
+- `tabs.la` untouched: reload lives in window.la.
+
+### PENDING DECISIONS OPENED
+
+- None (DECISION-021 was opened in session 22).
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check: serve plus open, then repack and Reload.
+
+---
+
 ## NEXT SESSION START POINT
 
-Open session 21 on a new branch. PRP-003 (bundles, format 1) is on `main`. Next, at the owner's choice: PRP-004 (remembering: an on-device store for history, pins and state across restarts, with `migrate` and starting over, DECISION-019), a `lugha-toml` package for `rapidkoi.toml`, or signing and format 2 (DECISION-009, needs the owner's review). When kivuli ships an image from bytes, show bundle icons on tabs and tiles.
+Open session 24 on a new branch. PRP-004 (local development) is on `main`. Next, at the owner's choice:
+- PRP-005, remembering: an on-device store for history, pins and state across restarts, with `migrate` and starting over (DECISION-019)
+- live reload for `./main serve`
+- `lugha-toml`
+- background loading (DECISION-021)
+- signing and format 2 (DECISION-009), once lugha's TLS (its PRP-144) lands

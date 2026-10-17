@@ -69,6 +69,7 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         Cmd.none(),
     ),
     FocusSearch => (m, Cmd.focus("address")),
+    Reload => (window.reload(m), Cmd.none()),
 };
 
 /**

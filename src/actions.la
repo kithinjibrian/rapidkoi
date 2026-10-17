@@ -37,4 +37,6 @@ public enum Msg {
     Unpin(string),
     /** Move the keyboard to the address box (Ctrl+K). */
     FocusSearch,
+    /** Fetch or read the current app again and start it fresh. */
+    Reload,
 }

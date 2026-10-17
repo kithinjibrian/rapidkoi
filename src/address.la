@@ -1,0 +1,162 @@
+/**
+ * Development addresses, pure: `rapidkoi://HOST:PORT[/route]` and
+ * `http://HOST:PORT/…`, for local hosts only (localhost, 127.0.0.1, [::1]).
+ * Other hosts wait for HTTPS and signing (DECISION-009); fetching them
+ * waits for loading in the background (DECISION-021).
+ *
+ * Used by: loader, window, frame, panel
+ */
+
+/** A parsed local address. */
+public struct Address {
+    /** `localhost`, `127.0.0.1` or `[::1]`. */
+    public host: string,
+    /** From 1 to 65535. */
+    public port: i64,
+    /** The path after the port, `/` without one: kept for the links step, not yet given to apps. */
+    public route: string,
+    /** Whether it was an `http://` address (the bundle's own URL) rather than `rapidkoi://`. */
+    public http: bool,
+}
+
+/** Why an address can't open. */
+public enum AddressError {
+    /** A host that isn't this machine. */
+    NotLocal(string),
+    /** `https://`: needs TLS, and signing. */
+    NotYet,
+    /** Not `rapidkoi://` or `http://`. */
+    NotAnAddress,
+    /** No host, or a malformed one. */
+    NoHost,
+    /** A local host without a port. */
+    NoPort,
+    /** A port that isn't a number from 1 to 65535. */
+    BadPort,
+}
+
+/**
+ * Says whether text is an address rather than a file path or a search.
+ *
+ * Example:
+ *     is_address("rapidkoi://localhost:8000")
+ */
+public fun is_address(text: string): bool = text.starts_with("rapidkoi://") || text.starts_with(
+    "http://",
+) || text.starts_with("https://");
+
+/**
+ * Parses a local development address.
+ *
+ * @param text what the person typed or passed
+ * @returns the address; `Err(NotLocal)` for another host, `Err(NotYet)` for
+ *     https, `Err(NoHost)`, `Err(NoPort)`, `Err(BadPort)` or `Err(NotAnAddress)`
+ *
+ * Example:
+ *     parse("rapidkoi://localhost:8000/folder/42")?
+ */
+public fun parse(text: string): Result<Address, AddressError> {
+    if text.starts_with("https://") {
+        return Err(AddressError.NotYet);
+    }
+    let http = text.starts_with("http://");
+    let rest = if http {
+        text.slice(7, text.len)
+    } else if text.starts_with("rapidkoi://") {
+        text.slice(11, text.len)
+    } else {
+        return Err(AddressError.NotAnAddress);
+    };
+    // host[:port][/route]; an IPv6 host is bracketed, so its colons aren't the port's.
+    let slash = find(rest, "/");
+    let authority = if slash < 0 { rest } else { rest.slice(0, slash) };
+    let route = if slash < 0 { "/" } else { rest.slice(slash, rest.len) };
+    let (host, port_text) = split_authority(authority)?;
+    if host != "localhost" && host != "127.0.0.1" && host != "[::1]" {
+        return Err(AddressError.NotLocal(host));
+    }
+    let port_part = port_text.ok_or(AddressError.NoPort)?;
+    let port = parse_i64(port_part).ok_or(AddressError.BadPort)?;
+    if port < 1 || port > 65535 {
+        return Err(AddressError.BadPort);
+    }
+    Ok(Address { host: host, port: port, route: route, http: http })
+}
+
+/**
+ * Returns the URL a bundle is fetched from: the well-known bundle path for
+ * `rapidkoi://`, the address itself for `http://`.
+ *
+ * Example:
+ *     url(a)
+ */
+public fun url(a: Address): string = if a.http {
+    "http://{a.host}:{a.port}{a.route}"
+} else {
+    "http://{a.host}:{a.port}/.well-known/rapidkoi/app.rkb"
+};
+
+/**
+ * Returns the address as the bar shows it: host and port.
+ *
+ * Example:
+ *     shown(a)
+ */
+public fun shown(a: Address): string = "{a.host}:{a.port}";
+
+/**
+ * Returns a plain sentence for an address error.
+ *
+ * Example:
+ *     reason(AddressError.NotYet)
+ */
+public fun reason(e: AddressError): string = match e {
+    NotLocal(_) => "Only local development addresses (localhost) can be opened yet",
+    NotYet => "HTTPS comes with signing, in a later step",
+    NotAnAddress => "This isn't a rapidkoi:// or http:// address",
+    NoHost => "This address has no host",
+    NoPort => "This address needs a port, like rapidkoi://localhost:8000",
+    BadPort => "The port must be a number from 1 to 65535",
+};
+
+/** `host` and an optional port, from `host`, `host:port`, `[v6]` or `[v6]:port`. */
+fun split_authority(a: string): Result<(string, Option<string>), AddressError> {
+    if a.starts_with("[") {
+        let close = find(a, "]");
+        if close < 0 {
+            return Err(AddressError.NoHost);
+        }
+        let host = a.slice(0, close + 1);
+        let after = a.slice(close + 1, a.len);
+        if after == "" {
+            return Ok((host, None));
+        }
+        if !after.starts_with(":") {
+            return Err(AddressError.NoHost);
+        }
+        return Ok((host, Some(after.slice(1, after.len))));
+    }
+    let parts = a.split(":");
+    if parts[0] == "" {
+        return Err(AddressError.NoHost);
+    }
+    if parts.len == 1 {
+        Ok((parts[0], None))
+    } else if parts.len == 2 {
+        Ok((parts[0], Some(parts[1])))
+    } else {
+        Err(AddressError.NoHost)
+    }
+}
+
+/** The byte offset of `needle` in `s`, or -1. */
+fun find(s: string, needle: string): i64 {
+    let mut i = 0;
+    while i + needle.len <= s.len {
+        if s.slice(i, i + needle.len) == needle {
+            return i;
+        }
+        i += 1;
+    }
+    -1
+}

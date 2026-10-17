@@ -10,10 +10,11 @@
 import wasmtime { Engine };
 import std.fs;
 import actions { Msg };
-import tabs { Page, Tab, Pin, LeftOff, AppPage, open_path, leave, resume };
+import tabs { Page, Tab, Pin, LeftOff, AppPage, open_path, close_page, leave, resume };
 import home { Card };
 import frame { icon_of };
 import themes { Theme, DARK };
+import address { is_address, parse };
 
 /** The window's state. */
 public struct Model {
@@ -165,7 +166,8 @@ public fun with_tab(m: Model, id: i64, f: fun(AppPage): AppPage): Model = Model 
 };
 
 /**
- * Opens what the address box says: a local file, or a notice why not.
+ * Opens what the address box says: a local file or development address,
+ * or a notice why not.
  *
  * Example:
  *     go(m)
@@ -175,10 +177,12 @@ public fun go(m: Model): Model {
     if wanted == "" {
         return m;
     }
-    if wanted.starts_with("rapidkoi://") || wanted.starts_with("https://") || wanted.starts_with(
-        "http://",
-    ) {
-        return Model { notice: Some("Links come in a later step"), ..m };
+    if is_address(wanted) {
+        // Local development addresses open; any other gets the reason why not yet.
+        return match parse(wanted) {
+            Ok(_) => open_file(m, wanted),
+            Err(e) => Model { notice: Some(address.reason(e)), ..m },
+        };
     }
     if fs.is_file(wanted) {
         return open_file(m, wanted);
@@ -247,6 +251,23 @@ public fun close(m: Model, id: i64): Model {
     };
     Model { tabs: kept, current: current, left_off: left, showing_panel: false, ..m }
 }
+
+/**
+ * Fetches or reads the current app again and starts it fresh: a new build
+ * from a development server after a repack. Its state starts over (a new
+ * build may have a new state shape; DECISION-019 handles state across
+ * builds later).
+ *
+ * Example:
+ *     reload(m)
+ */
+public fun reload(m: Model): Model = match (m.current, page_of(m)) {
+    (Some(id), App(a)) => {
+        close_page(a);
+        with_tab(m, id, fun(_: AppPage) = open_path(m.engine, a.path))
+    }
+    _ => m,
+};
 
 /**
  * Pins the current app, unless it's pinned already.
