@@ -3,12 +3,15 @@
  * manifest checked, its module compiled) or a bare `.wasm`. Never runs it;
  * `tabs` starts the guest.
  *
- * Depends on: wasmtime, guest, bundle
+ * Depends on: wasmtime, std.http, guest, bundle, address, limits
  * Used by: tabs
  */
 import wasmtime { Engine, Module };
 import guest { compile, reason };
 import bundle { Manifest, asset, read, reason as bundle_reason };
+import address { Address, is_address, parse, url, shown };
+import limits { MAX_BUNDLE, FETCH_TIMEOUT_MS };
+import std.http { Limits };
 
 /** An app ready to start: what to call it, its manifest if it has one, and its compiled module. */
 public struct Loaded {
@@ -26,7 +29,7 @@ public struct Loaded {
  * Loads the app in a local file.
  *
  * @param engine the program's engine
- * @param path a `.rkb` bundle or a `.wasm` module
+ * @param path a `.rkb` bundle, a `.wasm` module, or a local development address
  * @returns the app; or the file's name and a plain reason (unreadable, not a
  *     bundle, a contract this Rapidkoi doesn't speak, not a module)
  *
@@ -34,12 +37,44 @@ public struct Loaded {
  *     load(engine, "counter.rkb")
  */
 public fun load(engine: Engine, path: string): Result<Loaded, (string, string)> {
+    if is_address(path) {
+        let a = parse(path).map_err(fun(e) = (path, address.reason(e)))?;
+        let bytes = fetch(a).map_err(fun(why: string) = (shown(a), why))?;
+        return from_bundle(engine, shown(a), bytes);
+    }
     let file = name_of(path);
     let bytes = read_bytes(path).map_err(fun(e: string) = (file, "Couldn't read {path}: {e}"))?;
     if !path.ends_with(".rkb") {
         let module = compile(engine, bytes).map_err(fun(e) = (file, reason(e)))?;
         return Ok(Loaded { name: file, manifest: None, icon: None, module: module });
     }
+    from_bundle(engine, file, bytes)
+}
+
+/**
+ * Fetches a bundle from a local development server: at most `MAX_BUNDLE`
+ * bytes, within `FETCH_TIMEOUT_MS`. Waits on the window's thread (CLAUDE.md
+ * rule 3; DECISION-021 for loading in the background).
+ *
+ * @returns the bundle's bytes, unchecked; or why not (unreachable, timed
+ *     out, too large, a status other than 200)
+ *
+ * Example:
+ *     fetch(parse("rapidkoi://localhost:8000")?)
+ */
+public fun fetch(a: Address): Result<u8[], string> {
+    let bounds = Limits { body: MAX_BUNDLE, timeout_ms: FETCH_TIMEOUT_MS, ..http.limits() };
+    let r = http.request_with("GET", url(a), #{}, [], bounds).map_err(
+        fun(e: string) = "Couldn't reach rapidkoi://{shown(a)}: {e}",
+    )?;
+    if r.status != 200 {
+        return Err("The development server answered {r.status}");
+    }
+    Ok(r.body)
+}
+
+/** A bundle's bytes, checked, then its module compiled. */
+fun from_bundle(engine: Engine, file: string, bytes: u8[]): Result<Loaded, (string, string)> {
     let b = read(bytes).map_err(fun(e) = (file, bundle_reason(e)))?;
     let m = b.manifest;
     if m.contract != 1 {

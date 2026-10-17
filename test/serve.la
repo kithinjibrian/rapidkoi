@@ -1,0 +1,92 @@
+// The development server, without a network: what its handler answers,
+// and how the command checks its arguments. Writes only under test/tmp/.
+import rapidkoi.serve { BUNDLE_PATH, handle, prepare };
+import rapidkoi.bundle { Bundle, Manifest, write };
+import std.http { Request };
+import std.fs;
+
+fun request(method: string, path: string): Request = Request {
+    method: method,
+    path: path,
+    query: "",
+    headers: #{},
+    body: [],
+    peer: "127.0.0.1:40000",
+};
+
+/** Writes a valid bundle of `version` to `test/tmp/{tag}.rkb`. */
+fun bundle_file(tag: string, version: string): string {
+    let p = "test/tmp/{tag}.rkb";
+    let m = Manifest {
+        contract: 1,
+        name: "Served",
+        version: version,
+        description: None,
+        state_version: 1,
+        icon: None,
+        banners: [],
+    };
+    write_bytes(
+        p,
+        write(Bundle { manifest: m, module: [0, 97, 115, 109, 1, 0, 0, 0], assets: [] }).unwrap(),
+    ).unwrap();
+    p
+}
+
+@test
+fun the_bundle_route_serves_the_current_file() {
+    let file = bundle_file("serve-current", "1.0.0");
+    let first = handle(file, 8000, request("GET", BUNDLE_PATH));
+    assert_eq(first.status, 200);
+    assert_eq(first.body, read_bytes(file).unwrap());
+    assert_eq(first.header("content-type"), Some("application/vnd.rapidkoi.bundle"));
+    // Repacked: the next request gets the new bytes, with no restart.
+    bundle_file("serve-current", "1.1.0");
+    assert_eq(handle(file, 8000, request("GET", BUNDLE_PATH)).body, read_bytes(file).unwrap());
+    fs.remove_file(file).unwrap();
+}
+
+@test
+fun other_requests() {
+    let file = bundle_file("serve-other", "1.0.0");
+    let root = handle(file, 8000, request("GET", "/"));
+    assert_eq(
+        (root.status, root.text()),
+        (200, Ok("Rapidkoi development server: open rapidkoi://localhost:8000")),
+    );
+    assert_eq(handle(file, 8000, request("GET", "/etc/passwd")).status, 404);
+    assert_eq(handle(file, 8000, request("GET", "/.well-known/rapidkoi/../../x")).status, 404);
+    assert_eq(handle(file, 8000, request("POST", BUNDLE_PATH)).status, 405);
+    fs.remove_file(file).unwrap();
+}
+
+@test
+fun a_bundle_broken_by_a_repack_is_a_500() {
+    let file = "test/tmp/serve-broken.rkb";
+    write_bytes(file, [1, 2, 3]).unwrap();
+    let r = handle(file, 8000, request("GET", BUNDLE_PATH));
+    assert_eq(r.status, 500);
+    assert_eq(r.text().unwrap().starts_with("This file isn't a Rapidkoi bundle"), true);
+    fs.remove_file(file).unwrap();
+}
+
+@test
+fun the_command_checks_its_arguments() {
+    let file = bundle_file("serve-args", "1.0.0");
+    assert_eq(prepare([file]).map(fun(p: (string, i64)) = p.1), Ok(8000));
+    assert_eq(prepare([file, "--port", "9001"]).map(fun(p: (string, i64)) = p.1), Ok(9001));
+    assert_eq(prepare([]), Err("no bundle given: rapidkoi serve BUNDLE.rkb [--port N]"));
+    assert_eq(prepare([file, "--port", "0"]), Err("--port takes a number from 1 to 65535"));
+    assert_eq(prepare([file, "--port"]), Err("--port needs a value"));
+    assert_eq(prepare([file, "--colour", "red"]), Err("unknown flag --colour"));
+    assert_eq(prepare(["test/tmp/none.rkb"]).is_err(), true);
+    write_bytes("test/tmp/serve-bad.rkb", [9]).unwrap();
+    assert_eq(
+        prepare(["test/tmp/serve-bad.rkb"]).map_err(
+            fun(e: string) = e.starts_with("This file isn't a Rapidkoi bundle"),
+        ),
+        Err(true),
+    );
+    fs.remove_file(file).unwrap();
+    fs.remove_file("test/tmp/serve-bad.rkb").unwrap();
+}

@@ -12,6 +12,7 @@ import actions { Msg };
 import tabs { AppPage };
 import frame { icon_button, marker };
 import bundle { Manifest };
+import address { parse };
 import theme { SPACE_SM, SPACE_MD, TEXT_TITLE, PANEL_WIDTH };
 
 /**
@@ -45,6 +46,14 @@ public fun view(id: i64, p: AppPage, pinned: bool): View<Msg> {
     let state = p.manifest.map(fun(m: Manifest) = m.state_version).unwrap_or(1);
     parts.push(text("Contract v1 · state v{state}").dim());
     parts.push(text("Permissions: none. This app can't reach anything outside itself.").wrap());
+    if let Ok(a) = parse(p.path) {
+        parts.push(
+            text("Served from rapidkoi://{address.shown(a)} (development, unsigned)").dim().wrap(),
+        );
+        parts.push(
+            button("Reload", Msg.Reload).tooltip("Fetch the server's bundle again and start fresh"),
+        );
+    }
     parts.push(button("Restart", Msg.Tab(id, render.Msg.Restart)));
     parts.push(if pinned { button("Unpin", Msg.Unpin(p.path)) } else { button("Pin", Msg.Pin) });
     parts.push(button("Close tab", Msg.CloseTab(id)).button_style(ButtonStyle.Danger));

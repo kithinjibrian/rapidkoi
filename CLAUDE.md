@@ -178,6 +178,10 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
 ./main pack guest/rust/target/wasm32-unknown-unknown/release/counter.wasm --name Counter --version 0.1.0 \
     --description "Counts, and says hello" --icon guest/rust/counter/icon.png -o counter.rkb
 ./main counter.rkb                                                     # opens a window: the user's
+
+# Local development: serve a bundle, open it at its address (Reload in ⓘ after a repack)
+./main serve counter.rkb --port 8000                                   # 127.0.0.1 only; Ctrl+C to stop
+./main rapidkoi://localhost:8000                                       # opens a window: the user's
 ```
 
 `test/counter.la` drives the built counter end to end; it skips itself until the guest is built.
@@ -205,7 +209,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 
 1. **The app is one kivuli program: a `Model`, a `Msg` enum, a pure `update`, and a pure `view`.** *Why:* that is kivuli's contract; state changed anywhere else is invisible to the diff and won't render.
 2. **Never touch a GTK widget or import `gtk` from rapidkoi.** *Why:* kivuli owns the widgets; reaching past it breaks its diff and pinned-closure bookkeeping.
-3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/limits.la`), and it opens local app files the person chose (≤ 32 MB, PRP-002). *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
+3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/limits.la`), it opens local app files the person chose (≤ 32 MB, PRP-002), and it fetches a bundle from a local development address (localhost only, ≤ 32 MB, 3 s timeout, PRP-004; background loading is DECISION-021). *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
 4. **Keep `src/main.la` to wiring:** `main` calls kivuli with the initial model, `update` and `view` imported from their modules. *Why:* `main.la` can't be tested on its own; everything worth testing lives in a module.
 
 5. **Follow the vision's build path in order** (shell → links → a real app → storage and sync → live sessions → history). Never build part of a later step early. *Why:* each step shapes the next; a speculative later piece locks in guesses.
@@ -255,7 +259,7 @@ public fun load_settings(path: string): Settings { … }
 ├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only),
 │                        window.la (the Model and what changes it: tabs, home, address box, pins, left off), themes.la (Rapidkoi's colours as kivuli looks; dark first),
 │                        bundle.la (pure: bundle format 1, read/write), rules.la (pure: every bundle rule, BundleError), loader.la (a path → manifest + compiled module),
-│                        pack.la (the `./main pack` command),
+│                        pack.la (the `./main pack` command), serve.la (the `./main serve` development server), address.la (pure: local development addresses),
 │                        tabs.la (Page, Tab, Pin, LeftOff; an app page's life: open, events, restart, leave, resume), actions.la (the shell's Msg),
 │                        frame.la (pure: the bar and the tab rail), home.la (pure: home and search), panel.la (pure: app info),
 │                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1; re-exports nodes' types),
@@ -304,3 +308,4 @@ Update this tree when modules are added.
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
   - Pins, "where you left off" and search are in memory only.
   - Back, forward, share, settings and more are shown disabled.
+  - Only local development addresses open (localhost, 127.0.0.1, [::1]); other hosts wait for HTTPS and signing (DECISION-009). A fetch waits on the window's thread, so the window pauses while it downloads (DECISION-021). Reload is manual; there's no live reload yet.

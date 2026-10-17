@@ -23,3 +23,4 @@ Never deleted. Older entries are never modified.
 - Text fields an app gives no handler show greyed out instead of failing.
 - Bundles: `./main pack` packs an app (its module, name, version, description, icon, banners and assets) into one `.rkb` file; type its path, or run `./main app.rkb`, to open it. The info panel shows its version and description.
 - A bundle's icon shows on its tab and its home tile. Icons and banners are checked for size before anything decodes them.
+- Local development: `./main serve app.rkb` serves a bundle on this machine, and `rapidkoi://localhost:8000` opens it, marked development; Reload in the info panel picks up a repack.

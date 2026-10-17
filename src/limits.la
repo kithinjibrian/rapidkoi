@@ -64,6 +64,9 @@ public const MAX_DESCRIPTION: i64 = 280;
 /** The longest asset name in a bundle, in bytes. */
 public const MAX_ASSET_NAME: i64 = 128;
 
+/** How long fetching a bundle from a development server may take, in milliseconds. */
+public const FETCH_TIMEOUT_MS: i64 = 3000;
+
 /** The largest image any asset may declare, in pixels per side (kivuli's own cap). */
 public const MAX_IMAGE_PX: i64 = 4096;
 
