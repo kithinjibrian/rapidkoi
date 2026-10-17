@@ -1,20 +1,31 @@
 // The frame, home and the info panel, pure: what each shows and sends,
 // checked through kivuli.testing with no display.
-import rapidkoi.frame { bar, rail, label, initial };
+import rapidkoi.frame { Bar, bar, rail, label, initial };
 import rapidkoi.home { Card, matches };
 import rapidkoi.panel;
 import rapidkoi.tabs { Page, Tab, Pin, AppPage, open_module };
 import rapidkoi.actions { Msg };
 import rapidkoi.render;
+import kivuli { View, row, hex };
 import kivuli.testing { Lookup, click, is_disabled, press, submit, texts, tooltip, type_into };
 import wasmtime { Engine, Module };
-import rapidkoi.themes { DARK, stylesheet };
+import rapidkoi.themes { DARK, Look, surface };
 import support { fixed, titled_tree, result_of };
 
 fun counter(): AppPage {
     let engine = Engine.new();
     let wat = fixed(1, [1], titled_tree("Count: 0", "Counter"), result_of([2]));
     open_module("counter", "apps/counter.wasm", engine, Module.from_text(engine, wat).unwrap())
+}
+
+/** The bar's parts in one row, as the header bar shows them. */
+fun shown(b: Bar): View<Msg> {
+    let mut all = b.start;
+    all.push(b.title);
+    for e of b.end {
+        all.push(e);
+    }
+    row(all)
 }
 
 fun pins(n: i64): Pin[] {
@@ -27,7 +38,7 @@ fun pins(n: i64): Pin[] {
 
 @test
 fun the_bar_on_home() {
-    let v = bar(Page.Home, "", false);
+    let v = shown(bar(Page.Home, "", false));
     assert_eq(is_disabled(v, "Back (comes with links)"), Ok(true));
     assert_eq(is_disabled(v, "Forward (comes with links)"), Ok(true));
     assert_eq(is_disabled(v, "Share (comes with links)"), Ok(true));
@@ -39,13 +50,16 @@ fun the_bar_on_home() {
 
 @test
 fun the_bar_on_an_app_page() {
-    let v = bar(Page.App(counter()), "", false);
+    let v = shown(bar(Page.App(counter()), "", false));
     assert_eq(click(v, "App info"), Ok(Msg.TogglePanel));
     assert_eq(click(v, "Home"), Ok(Msg.Home));
     assert_eq(click(v, "📄 counter.wasm · local file"), Ok(Msg.EditAddress));
     assert_eq(press(v, "Ctrl+K"), Ok(Msg.EditAddress));
     // Editing turns the address back into the box.
-    assert_eq(submit(bar(Page.App(counter()), "apps/counter.wasm", true), "address"), Ok(Msg.Go));
+    assert_eq(
+        submit(shown(bar(Page.App(counter()), "apps/counter.wasm", true)), "address"),
+        Ok(Msg.Go),
+    );
 }
 
 @test
@@ -130,9 +144,9 @@ fun the_info_panel() {
 }
 
 @test
-fun the_dark_theme_stylesheet() {
-    assert_eq(
-        stylesheet(DARK),
-        ".rk-bar, .rk-rail {{ background-color: #242424; }}\n.rk-home {{ background-color: #161616; }}",
-    );
+fun the_dark_theme() {
+    assert_eq(surface(DARK, Look.Rail).background, Some(hex("#242424")));
+    assert_eq(surface(DARK, Look.Home).background, Some(hex("#161616")));
+    // Only backgrounds: text and borders stay the GTK theme's.
+    assert_eq(surface(DARK, Look.Home).text, None);
 }

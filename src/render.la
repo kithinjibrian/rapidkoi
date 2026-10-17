@@ -31,12 +31,15 @@ public enum Msg {
 public fun screen(n: Node): View<Msg> = match n {
     Text(s, style) => styled_text(s, style),
     Button(label, look, msg) => button_of(label, look, msg),
-    // contract.read_tree refuses inputs without a message (DECISION-016).
     Input(value, hint, Some(msg)) => input(
         value,
         fun(s: string) = Msg.Event(msg, Some(s)),
     ).placeholder(hint),
-    Input(value, _, None) => text(value),
+    // No message: greyed out and silent (kivuli 0.1.1); `.disabled` drops the handler.
+    Input(value, hint, None) => input(
+        value,
+        fun(s: string) = Msg.Event(Value.Null, Some(s)),
+    ).placeholder(hint).disabled(true),
     Column(spacing, padding, kids) => column(kids.map(screen)).spacing(pixels(spacing)).padding(
         pixels(padding),
     ),
@@ -62,7 +65,7 @@ public fun stopped(reason: string, can_restart: bool): View<Msg> {
         text(reason).dim(),
     ];
     if can_restart {
-        kids.push(button("Restart", Msg.Restart).style(ButtonStyle.Primary));
+        kids.push(button("Restart", Msg.Restart).button_style(ButtonStyle.Primary));
     }
     column(kids).spacing(SPACE_SM)
 }
@@ -82,9 +85,9 @@ fun button_of(label: string, look: ButtonLook, msg: Option<Value>): View<Msg> {
         Subtle => ButtonStyle.Subtle,
     };
     match msg {
-        Some(m) => button(label, Msg.Event(m, None)).style(style),
+        Some(m) => button(label, Msg.Event(m, None)).button_style(style),
         // kivuli: a button without a message is disabled; any placeholder
         // message works, since `.disabled(true)` removes it.
-        None => button(label, Msg.Restart).disabled(true).style(style),
+        None => button(label, Msg.Restart).disabled(true).button_style(style),
     }
 }

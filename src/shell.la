@@ -1,10 +1,11 @@
 /**
  * Rapidkoi's window as a kivuli app: `boot` from the command line, `update`
- * for every message, and `view` composing the bar, home or the current
- * app (with the info panel beside it), and the rail. The state and what
+ * for every message, and `view` composing the bar (in the header bar), home
+ * or the current app (with the info panel beside it), and the rail, in the
+ * current theme, maximized. The state and what
  * changes it live in `window.la`; `view` never calls a guest.
  *
- * Depends on: kivuli, wasmtime, actions, tabs, window, render, frame, home, panel, theme
+ * Depends on: kivuli, wasmtime, actions, tabs, window, render, frame, home, panel, theme, themes
  * Used by: main
  */
 import kivuli { View, Cmd, column, row, scroll, text };
@@ -17,6 +18,7 @@ import frame { bar, rail };
 import home;
 import panel;
 import theme { SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
+import themes { Look, kivuli_theme };
 
 /**
  * Builds the first window from the command line: `./main` shows home,
@@ -84,20 +86,24 @@ public fun view(m: Model): View<Msg> {
     // On an app page m.current is Some: page_of found its tab.
     let id = m.current.unwrap_or(-1);
     let middle = match page {
-        Home => scroll(home.view(m.draft, m.pinned, window.card(m), m.tabs).padding(SPACE_LG)),
+        Home => scroll(
+            home.view(m.draft, m.pinned, window.card(m), m.tabs).padding(SPACE_LG),
+        ).style([Look.Home]),
         App(a) if m.showing_panel => row([
             scroll(app_view(id, a).padding(SPACE_LG)).expand(),
             panel.view(id, a, window.is_pinned(m, a.path)),
         ]).spacing(SPACE_MD),
         App(a) => scroll(app_view(id, a).padding(SPACE_LG)),
     };
-    let mut parts = [bar(page, m.draft, m.editing).padding(SPACE_MD)];
+    let mut parts: View<Msg>[] = [];
     if let Some(n) = m.notice {
         parts.push(text(n).dim().padding(SPACE_MD));
     }
     parts.push(row([middle.expand(), rail(m.tabs, m.current)]).expand());
-    // kivuli can't maximize yet (DECISION-020): the default size stands in.
-    column(parts).window(title_of(m), WINDOW_WIDTH, WINDOW_HEIGHT)
+    let b = bar(page, m.draft, m.editing);
+    column(parts).window(title_of(m), WINDOW_WIDTH, WINDOW_HEIGHT).maximized().theme(
+        kivuli_theme(m.theme),
+    ).header(b.start, b.title, b.end)
 }
 
 /** A tab's app, its messages tagged with the tab, so they reach only it. */

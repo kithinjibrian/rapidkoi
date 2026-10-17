@@ -177,3 +177,12 @@ Approved by the owner in chat:
 3. **Themes, starting with dark.** Rapidkoi's own parts (the bar and rail, and home's background) take colours from a Rapidkoi theme. Dark comes first: bars `#242424`, home `#161616`. Apps still can't set colours.
    - kivuli can't apply colours yet, so the theme is defined, turned into a stylesheet and tested, but not applied: a placeholder (DECISION-018) until kivuli has app stylesheets and CSS classes (DECISION-020).
 4. **Start maximized** (the owner: "start in full screen mode because it is a browser"). This means maximized: filling the screen with the system title bar kept, as browsers open. Not F11-style full screen, which would hide the window controls the owner keeps. kivuli can't maximize a window yet, so it's a placeholder: the default size stays until kivuli adds it (DECISION-020).
+
+## AMENDMENT 2 — 2026-10-17 (session 11, the owner approved in chat)
+
+kivuli 0.2.0 shipped what Amendment 1 waited for, so these placeholders are swapped out:
+1. Depend on kivuli `0.2` (lockfile by `lughac update`); rename `.style(ButtonStyle…)` to `.button_style(…)` (a breaking change in kivuli 0.2).
+2. **The bar moves into the window's header bar** (`.header(start, title, end)`): ‹ ⌂ › at the start, the address box filling the middle, ⓘ ⤴ at the end, one row with the window controls (the owner's screenshot request).
+3. **Themes as kivuli typed looks:** `themes.la` gives `Look.Rail` and `Look.Home` their dark colours. The root gets `.theme(kivuli_theme(m.theme))`. The header bar itself can't take a look yet, so it keeps the system's colour (DECISION-020).
+4. **Open maximized** (`.maximized()`).
+5. **Inputs without `on_change` render disabled** (kivuli 0.1.1), and the contract error is gone (DECISION-016).

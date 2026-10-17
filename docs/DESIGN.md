@@ -17,14 +17,14 @@ The values below are a starting scale. Revisit them once DECISION-001 says what 
 | Low-emphasis, toolbar-like | `.style(ButtonStyle.Subtle)` |
 | Secondary text | `text(…).dim()` |
 
-**Rapidkoi's own parts** (the bar, the rail, home) take colours from a **Rapidkoi theme** (`src/themes.la`), the owner's choice (2026-10-17, session 10). Dark is first and the default:
+**Rapidkoi's own parts** (the rail, home) take colours from a **Rapidkoi theme** (`src/themes.la`), the owner's choice (2026-10-17, session 10). The theme is a set of kivuli typed looks (`Look.Rail`, `Look.Home`) applied with `.style([…])` and the root's `.theme(…)`. Dark is first and the default:
 
-| Token | Dark | Applies to (CSS class) |
-|-------|------|------------------------|
-| `bar` | `#242424` | the bar across the top and the tab rail (`rk-bar`, `rk-rail`) |
-| `home` | `#161616` | home's background (`rk-home`) |
+| Field | Dark | Look |
+|-------|------|------|
+| `bar` | `#242424` | `Look.Rail`: the tab rail (and the header bar, once kivuli can style it: DECISION-020) |
+| `home` | `#161616` | `Look.Home`: home's background |
 
-Light and other themes come later, with settings. Hex values live only in `src/themes.la`. Until kivuli can load a stylesheet and tag nodes (DECISION-020), the theme is built and tested but not applied.
+Only backgrounds are set; text and borders stay the GTK theme's. Light and other themes come later, with settings. Hex values live only in `src/themes.la`.
 
 ## Spacing (pixels: `.padding`, `.spacing`)
 
@@ -46,7 +46,7 @@ Light and other themes come later, with settings. Hex values live only in `src/t
 
 ## The frame (Rapidkoi's own UI)
 
-From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels.
+From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the window's header bar (one row with the window controls), and the window opens maximized.
 
 | Token | Value | Use |
 |-------|-------|-----|
@@ -87,5 +87,5 @@ The tokens are `public` constants in `src/theme.la`. Views use the names, never 
 ## What Is Forbidden
 
 - No numbers in `.padding`, `.spacing` or `.size` other than the tokens above.
-- No colours, custom CSS or inline styles, except Rapidkoi's themes in `src/themes.la`, applied through one stylesheet to Rapidkoi's own parts. Apps never get colours.
+- No colours, custom CSS or inline styles, except Rapidkoi's themes in `src/themes.la`, applied as kivuli looks to Rapidkoi's own parts. Apps never get colours.
 - Icons are theme icon names, preferably `…-symbolic`.

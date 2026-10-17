@@ -128,21 +128,24 @@ Rules:
 
 ### DECISION-020 — What kivuli needs for Rapidkoi's frame
 
-**Status:** deferred (waiting on kivuli work; Rapidkoi uses placeholders, DECISION-018)
+**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018)
 **Raised:** 2026-10-17 — Session 10
 **Revisit when:** Each kivuli release. Swap the matching placeholder out.
 
 **Question:** Which kivuli additions replace PRP-002's placeholders?
 
 **Notes:**
-1. **App stylesheets and CSS classes.** An app loads one stylesheet, and `.class(name)` tags a node. Rapidkoi's themes (`src/themes.la`) need this to paint `rk-bar`, `rk-rail` and `rk-home`. kivuli's own rule (colours only from the theme) stays for kivuli itself: the colours are the app's, in one stylesheet.
-2. **A dark preference.** The app asks GTK for its dark variant (`gtk-application-prefer-dark-theme`), so text and app content match the dark frame.
-3. **Start maximized.** `.window(…)` gains a way to open maximized: the owner wants Rapidkoi to open like a browser.
-4. **A file dialog** (GtkFileDialog), for "Open a file…".
-5. **An overlay**, for the info panel over the app.
-6. **Context menus** (a popover on right-click), for tab actions.
-7. **A wrapping grid** (GtkFlowBox), for home's tiles.
-8. **Disabled text fields:** already its PRP-006 (DECISION-016).
+- **Done in kivuli 0.2.0, used since session 11:**
+  - typed looks and themes (`.style`, `.theme`), which replaced the stylesheet idea
+  - `.maximized()`
+  - `.header(start, title, end)`: the bar lives in the title bar
+- **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
+- **Still to come:**
+  1. a look on the header bar itself, so the top row can take the theme's bar colour (today it keeps the system's)
+  2. a file dialog
+  3. an overlay, for the panel over the app
+  4. context menus, for tab actions
+  5. a wrapping grid, for home's tiles
 
 ---
 
@@ -180,6 +183,8 @@ Rules:
 **Outcome:** A: kivuli gains `.disabled(true)` for text fields (its PRP-006, prompt given to the owner). Until kivuli 0.1.1 is tagged, `contract.read_tree` keeps refusing such inputs with a visible error.
 
 **Rationale:** It matches "no handler means disabled" everywhere, with no contract change.
+
+**Shipped:** kivuli 0.1.1; Rapidkoi renders such inputs disabled since session 11.
 
 **Copied to MEMORY.md:** yes
 
