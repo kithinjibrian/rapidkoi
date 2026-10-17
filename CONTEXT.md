@@ -763,6 +763,12 @@ PRPs/prp-003-bundles.md — for approval
 
 ---
 
+## SESSION 20 — 2026-10-18 — Build PRP-003: bundles — open
+
+Branch: prp-003-bundles
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 20 on `prp-003-bundles`. If the owner approved PRP-003, build it test-first: bundle.la first (the format and every check), then pack.la and main's `pack`, then opening `.rkb` in tabs.la, then the panel and address. Make the demo's icon.png once. Merge when every VALIDATION command passes.

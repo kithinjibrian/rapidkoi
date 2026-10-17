@@ -1,3 +1,5 @@
+**Status:** approved by the owner, 2026-10-18 (session 20)
+
 ## FEATURE: Bundles: pack an app into one `.rkb` file, and open it by its path
 
 ## OBJECTIVE
