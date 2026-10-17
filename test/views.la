@@ -147,8 +147,10 @@ fun the_info_panel() {
 fun the_dark_theme() {
     assert_eq(surface(DARK, Look.Frame).background, Some(hex("#242424")));
     assert_eq(surface(DARK, Look.Page).background, Some(hex("#161616")));
-    // Square until kivuli can round only the top-right corner (DECISION-020).
+    // Only the top-right corner curves.
+    assert_eq(surface(DARK, Look.Page).radius_top_right, Some(12));
     assert_eq(surface(DARK, Look.Page).radius, None);
+    assert_eq(surface(DARK, Look.Page).radius_top_left, None);
     // Only backgrounds: text and borders stay the GTK theme's.
     assert_eq(surface(DARK, Look.Page).text, None);
     assert_eq(surface(DARK, Look.Frame).radius, None);

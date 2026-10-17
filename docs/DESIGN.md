@@ -25,9 +25,9 @@ The values below are a starting scale. Revisit them once DECISION-001 says what 
 | Field | Dark | Look |
 |-------|------|------|
 | `frame` | `#242424`, flat (no shadow or edge line) | `Look.Frame`: the header bar (`.header_style`), the window around the page, and the rail on it |
-| `page` | `#161616` | `Look.Page`: the page; its top-right corner curves `PAGE_RADIUS` (12 px) once kivuli can round one corner (DECISION-020). Square until then |
+| `page` | `#161616` | `Look.Page`: the page; only its top-right corner curves, `PAGE_RADIUS` (12 px) |
 
-Only backgrounds are set (and, later, the one corner); text and borders stay the GTK theme's. Light and other themes come later, with settings. Hex values live only in `src/themes.la`.
+Only backgrounds and the one corner are set; text and borders stay the GTK theme's. Light and other themes come later, with settings. Hex values live only in `src/themes.la`.
 
 ## Spacing (pixels: `.padding`, `.spacing`)
 
