@@ -728,6 +728,95 @@ DECISIONS.md (020), CLAUDE.md (known issue removed)
 
 ---
 
+## SESSION 19 — 2026-10-18 — Record the packaging discussion; propose PRP-003 (bundles) — closed
+
+Branch: prp-003-bundles
+
+### WHAT WAS DONE
+
+Recorded the packaging discussion: the problem first, code shapes A–D (A chosen, room for D), vocabulary (one app per host), keeping and withdrawing versions, versioned state (start over without `migrate`), the hosting layout, and signing (deferred). Wrote PRP-003 (bundle format 1: a single-file `.rkb`, `./main pack` with flags, opening by path). No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-packaging.md — the discussion and decisions
+DECISIONS.md — DECISION-009 partly settled
+MEMORY.md    — decision 13 (packaging)
+PRPs/prp-003-bundles.md — for approval
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- See the meeting note. "Remembering" becomes PRP-004.
+
+### PENDING DECISIONS OPENED
+
+- None (signing stays in DECISION-009).
+
+### STILL OPEN AT CLOSE
+
+- PRP-003 awaits approval. kivuli: an image from bytes (for bundle icons).
+
+---
+
+## SESSION 20 — 2026-10-18 — Build PRP-003: bundles — closed
+
+Branch: prp-003-bundles → merged into main
+
+### WHAT WAS DONE
+
+Built PRP-003 test-first:
+- **Bundle format 1** (`bundle.la` read/write, `rules.la` every check, used both ways).
+- **The `./main pack` command** (`pack.la`; main runs it without a window).
+- **Opening `.rkb` by path** (`loader.la`, new: a path → manifest + compiled module; `tabs.open_path` now calls it).
+- **The manifest shown:** the name in the tab and title; version, description, `📦 … · local bundle` and the state version in the panel and address.
+- **The counter demo:** a 128 × 128 icon.png.
+
+95 Lugha tests pass; the real `./main pack` works (summary and exit 0; refusing to overwrite; unreadable files, exit 1).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/bundle.la, src/rules.la, src/pack.la, src/loader.la (new)
+src/tabs.la    — AppPage.manifest; LeftOff.state_version and manifest; open_path via loader (281 lines)
+src/main.la    — `pack` subcommand
+src/frame.la   — marker(): 📦 bundle / 📄 file
+src/panel.la   — version, description, marker, "Contract v1 · state vN"
+src/limits.la  — MAX_BUNDLE, MAX_ASSET, MAX_ASSETS, MAX_NAME, MAX_DESCRIPTION, MAX_ASSET_NAME
+test/bundle.la, test/pack.la (new); test/tabs.la, test/views.la, test/shell.la, test/counter.la (+bundle e2e)
+test/tmp/.gitignore — scratch for tests
+guest/rust/counter/icon.png
+.gitignore (/*.rkb), CLAUDE.md (commands, tree, known issue), DECISIONS.md (020: image from bytes), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- bundle (12): round trip, minimal, unknown keys, format, fields, semver, asset names, PNG and references, permissions/prerendered, sizes and counts, hostile bytes, write refuses what read refuses.
+- pack (4): every flag, the simplest, plain errors, no overwrite without --force.
+- tabs (+3): opening a bundle uses its manifest (state_version 4 recorded); a newer contract; a broken bundle.
+- views (+1): the panel and address for a bundle.
+- counter (+1): the real counter packed with its icon runs the same; the panel shows version and description.
+
+### DECISIONS MADE
+
+- Decoder `max_string` is MAX_MODULE (a module is one byte string); each asset's 4 MB cap is checked after decoding. This corrects the PRP's "strings MAX_ASSET".
+- `loader.la` is a new module rather than growing tabs.la past 300 lines.
+- Each pack test uses its own scratch files (tests run in parallel).
+
+### PENDING DECISIONS OPENED
+
+- DECISION-020 item 1: an image from bytes in kivuli (for icons and banners).
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of `./main counter.rkb`.
+
+---
+
 ## NEXT SESSION START POINT
 
-Open session 12 on a new branch. PRP-002 with Amendments 1 and 2 is on `main`. Wait for the owner's style feedback before restyling. Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), discussed in chat first. As kivuli ships the rest of DECISION-020, swap each placeholder out.
+Open session 21 on a new branch. PRP-003 (bundles, format 1) is on `main`. Next, at the owner's choice: PRP-004 (remembering: an on-device store for history, pins and state across restarts, with `migrate` and starting over, DECISION-019), a `lugha-toml` package for `rapidkoi.toml`, or signing and format 2 (DECISION-009, needs the owner's review). When kivuli ships an image from bytes, show bundle icons on tabs and tiles.

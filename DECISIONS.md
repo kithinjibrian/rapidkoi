@@ -56,13 +56,22 @@ Rules:
 
 ### DECISION-009 — Manifest, bundle format and signing
 
-**Status:** deferred
+**Status:** deferred, partly settled (2026-10-18; see `docs/source/meetings/2026-10-18-packaging.md`)
 **Raised:** 2026-10-17 — Session 2
-**Revisit when:** Build path step 2 (links and addresses).
+**Revisit when:** Opening apps by address (links), after PRP-003.
 
 **Question:** The manifest's format and location at a domain, the bundle's container format, content addressing, and how domain-tied keys are verified.
 
-**Notes:** Signing is cryptography: human review is required (SECURITY RULE). Step 1 loads a bare `.wasm` file.
+**Settled:**
+- one module per app, room for prerendered screens
+- app = host, build, version, index
+- the publisher keeps what they want; the device keeps the previous build
+- versions can be withdrawn
+- everything Rapidkoi holds is stamped with its version (`state_version`, optional `migrate`, start over without one)
+- the static hosting layout under `/.well-known/rapidkoi/`
+- bundle format 1: a single CBOR `.rkb`, for local files (PRP-003)
+
+**Still open:** signing (where the key lives, rotation, loss, the crypto library), format 2 (hash-addressed pieces, signatures, lazy assets). Human review is required (SECURITY RULE).
 
 ---
 
@@ -144,10 +153,11 @@ Rules:
   - kivuli 0.4.1: button content centered (a bug found in session 17). Tabs and tiles center their letter (session 18)
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
 - **Still to come:**
-  1. a file dialog
-  2. an overlay, for the panel over the app
-  3. context menus, for tab actions
-  4. a wrapping grid, for home's tiles
+  1. **An image from bytes** (GdkTexture from a GBytes), so a bundle's icon and banners show without writing them to disk (PRP-003)
+  2. a file dialog
+  3. an overlay, for the panel over the app
+  4. context menus, for tab actions
+  5. a wrapping grid, for home's tiles
 
 ---
 

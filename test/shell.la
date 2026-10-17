@@ -175,9 +175,9 @@ fun pinning_and_opening_a_pin() {
 @test
 fun the_info_panel_opens_beside_the_app() {
     let m = step(two(), Msg.TogglePanel);
-    assert_eq(shows(m, "Contract v1"), true);
+    assert_eq(shows(m, "Contract v1 · state v1"), true);
     assert_eq(click(view(m), "Close tab"), Ok(Msg.CloseTab(0)));
-    assert_eq(shows(step(m, Msg.TogglePanel), "Contract v1"), false);
+    assert_eq(shows(step(m, Msg.TogglePanel), "Contract v1 · state v1"), false);
 }
 
 @test

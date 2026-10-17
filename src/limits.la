@@ -45,3 +45,21 @@ public const MAX_STRING: i64 = 64 * 1024;
  * bound on work, not a timer (epoch interruption would be, if ever needed).
  */
 public const FUEL_PER_CALL: u64 = 700_000_000;
+
+/** The largest `.rkb` bundle Rapidkoi will read, in bytes. */
+public const MAX_BUNDLE: i64 = 32 * 1024 * 1024;
+
+/** The largest one asset in a bundle, in bytes. */
+public const MAX_ASSET: i64 = 4 * 1024 * 1024;
+
+/** The most assets in one bundle. */
+public const MAX_ASSETS: i64 = 256;
+
+/** The longest app name in a manifest, in bytes. */
+public const MAX_NAME: i64 = 64;
+
+/** The longest description in a manifest, in bytes. */
+public const MAX_DESCRIPTION: i64 = 280;
+
+/** The longest asset name in a bundle, in bytes. */
+public const MAX_ASSET_NAME: i64 = 128;

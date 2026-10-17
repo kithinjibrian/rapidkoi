@@ -1,5 +1,6 @@
 // Pages in tabs: starting a guest, events and Restart, leaving a page and
 // resuming it with its saved state. Fixture guests; no display.
+import rapidkoi.bundle { Bundle, Manifest, write };
 import rapidkoi.tabs { AppPage, open_module, open_path, handle, leave, resume, state_of };
 import rapidkoi.render { Msg };
 import rapidkoi.contract { envelope };
@@ -75,4 +76,52 @@ fun opening_paths() {
         Stopped(_, can_restart) => assert_eq(can_restart, false),
         Running(_, _, _) => panic("expected a stopped page"),
     }
+}
+
+/** Writes a bundle to test/tmp, its manifest speaking contract `speaks`, and gives its path. */
+fun rkb(tag: string, speaks: i64): string {
+    let path = "test/tmp/{tag}.rkb";
+    let m = Manifest {
+        contract: speaks,
+        name: "Bundled",
+        version: "2.0.1",
+        description: Some("A bundle"),
+        state_version: 4,
+        icon: None,
+        banners: [],
+    };
+    // An empty module: it compiles, then stops for want of `memory`.
+    let bytes = write(Bundle {
+        manifest: m,
+        module: [0, 97, 115, 109, 1, 0, 0, 0],
+        assets: [],
+    }).unwrap();
+    write_bytes(path, bytes).unwrap();
+    path
+}
+
+@test
+fun opening_a_bundle_uses_its_manifest() {
+    let p = open_path(Engine.new(), rkb("opening", 1));
+    assert_eq(p.name, "Bundled");
+    assert_eq(p.manifest.map(fun(m: Manifest) = m.version), Some("2.0.1"));
+    // The module compiled; the empty module has no memory, so it stops with Restart offered.
+    assert_eq(reason_of(p), "This app is missing \"memory\"");
+    assert_eq(leave(p).state_version, 4);
+}
+
+@test
+fun a_bundle_for_a_newer_contract_says_so() {
+    let p = open_path(Engine.new(), rkb("newer", 2));
+    assert_eq(reason_of(p), "This app needs a newer version of Rapidkoi");
+    assert_eq(p.name, "Bundled");
+}
+
+@test
+fun a_broken_bundle_shows_why() {
+    write_bytes("test/tmp/broken.rkb", [1, 2, 3]).unwrap();
+    let p = open_path(Engine.new(), "test/tmp/broken.rkb");
+    assert_eq(reason_of(p).starts_with("This file isn't a Rapidkoi bundle"), true);
+    assert_eq(p.name, "broken.rkb");
+    assert_eq(p.manifest.is_none(), true);
 }

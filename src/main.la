@@ -1,17 +1,25 @@
 /**
- * Rapidkoi's entry: `./main` opens home, `./main path/to/app.wasm` opens
- * that app. Wiring only; everything worth testing lives in `shell`.
+ * Rapidkoi's entry: `./main` opens home, `./main path/to/app.rkb` (or
+ * `.wasm`) opens that app, and `./main pack …` packs a bundle and exits
+ * without a window. Wiring only; the work lives in `shell` and `pack`.
  *
- * Depends on: kivuli, shell
+ * Depends on: kivuli, shell, actions, pack
  */
 import kivuli { App, Sub, application };
 import shell { Model, boot, update, view };
 import actions { Msg };
+import pack;
 
-fun main(): i32 = application(App {
-    id: "app.rapidkoi.shell",
-    init: boot(args()),
-    update: update,
-    view: view,
-    subscriptions: fun(_: Model) = Sub.none(),
-});
+fun main(): i32 {
+    let argv = args();
+    if argv.len >= 2 && argv[1] == "pack" {
+        return pack.run(argv);
+    }
+    application(App {
+        id: "app.rapidkoi.shell",
+        init: boot(argv),
+        update: update,
+        view: view,
+        subscriptions: fun(_: Model) = Sub.none(),
+    })
+}

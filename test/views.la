@@ -4,6 +4,7 @@ import rapidkoi.frame { Bar, bar, rail, label, initial };
 import rapidkoi.home { Card, matches };
 import rapidkoi.panel;
 import rapidkoi.tabs { Page, Tab, Pin, AppPage, open_module };
+import rapidkoi.bundle { Manifest };
 import rapidkoi.actions { Msg };
 import rapidkoi.render;
 import kivuli { View, row, hex };
@@ -133,7 +134,7 @@ fun the_info_panel() {
         "counter",
         "Counter",
         "📄 apps/counter.wasm · local file",
-        "Contract v1",
+        "Contract v1 · state v1",
         "Permissions: none. This app can't reach anything outside itself.",
     ]);
     assert_eq(click(v, "Restart"), Ok(Msg.Tab(4, render.Msg.Restart)));
@@ -158,3 +159,25 @@ fun the_dark_theme() {
     assert_eq(surface(DARK, Look.Frame).flat, Some(true));
     assert_eq(surface(DARK, Look.Page).flat, None);
 }
+
+@test
+fun the_info_panel_for_a_bundle() {
+    let m = Manifest {
+        contract: 1,
+        name: "counter",
+        version: "0.3.0",
+        description: Some("Counts things"),
+        state_version: 2,
+        icon: None,
+        banners: [],
+    };
+    let page = AppPage { manifest: Some(m), path: "apps/counter.rkb", ..counter() };
+    let shown = texts(panel.view(4, page, false));
+    assert_eq(shown[2], "Version 0.3.0");
+    assert_eq(shown[3], "Counts things");
+    assert_eq(shown[4], "📦 apps/counter.rkb · local bundle");
+    assert_eq(shown[5], "Contract v1 · state v2");
+    assert_eq(click(shown_bar(page), "📦 counter.rkb · local bundle"), Ok(Msg.EditAddress));
+}
+
+fun shown_bar(page: AppPage): View<Msg> = shown(bar(Page.App(page), "", false));

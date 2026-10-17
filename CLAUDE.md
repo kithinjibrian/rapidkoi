@@ -173,6 +173,11 @@ lughac spec                           # the full Lugha language reference: check
 cargo test --manifest-path guest/rust/Cargo.toml
 cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown
 ./main guest/rust/target/wasm32-unknown-unknown/release/counter.wasm   # opens a window: the user's
+
+# Bundles: pack the counter into one .rkb, then open it
+./main pack guest/rust/target/wasm32-unknown-unknown/release/counter.wasm --name Counter --version 0.1.0 \
+    --description "Counts, and says hello" --icon guest/rust/counter/icon.png -o counter.rkb
+./main counter.rkb                                                     # opens a window: the user's
 ```
 
 `test/counter.la` drives the built counter end to end; it skips itself until the guest is built.
@@ -249,6 +254,8 @@ public fun load_settings(path: string): Settings { … }
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
 ├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only),
 │                        window.la (the Model and what changes it: tabs, home, address box, pins, left off), themes.la (Rapidkoi's colours as kivuli looks; dark first),
+│                        bundle.la (pure: bundle format 1, read/write), rules.la (pure: every bundle rule, BundleError), loader.la (a path → manifest + compiled module),
+│                        pack.la (the `./main pack` command),
 │                        tabs.la (Page, Tab, Pin, LeftOff; an app page's life: open, events, restart, leave, resume), actions.la (the shell's Msg),
 │                        frame.la (pure: the bar and the tab rail), home.la (pure: home and search), panel.la (pure: app info),
 │                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1; re-exports nodes' types),
@@ -297,3 +304,4 @@ Update this tree when modules are added.
   - Tiles and tabs show the app's initial; there's no art or banners yet.
   - Pins, "where you left off" and search are in memory only.
   - Back, forward, share, settings and more are shown disabled.
+  - A bundle's icon is read and checked but not shown: kivuli shows images from files only, and Rapidkoi won't write a bundle's bytes to disk (DECISION-020). Tabs and tiles show the initial meanwhile.

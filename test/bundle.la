@@ -1,0 +1,251 @@
+// Bundle format 1, pure: reading and writing `.rkb` bytes, and every rule
+// a bundle must keep. No files, no guest, no display.
+import rapidkoi.bundle { Bundle, Manifest, BundleError, read, write, asset, reason };
+import cbor { Value, encode };
+import support { t, kv };
+
+/** Bytes that pass the PNG signature check. */
+fun png(): u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3];
+
+fun manifest(): Manifest = Manifest {
+    contract: 1,
+    name: "Counter",
+    version: "0.1.0",
+    description: Some("Counts, and says hello"),
+    state_version: 1,
+    icon: Some("icon.png"),
+    banners: [("home", "banner/home.png")],
+};
+
+fun good(): Bundle = Bundle {
+    manifest: manifest(),
+    module: [0, 97, 115, 109, 1, 0, 0, 0],
+    assets: [("icon.png", png()), ("banner/home.png", png())],
+};
+
+/** A bundle's CBOR with the manifest given as raw pairs, to break rules write won't. */
+fun raw(fields: (string, Value)[], assets: (string, Value)[]): u8[] = encode(
+    kv([
+        ("format", Value.int(1)),
+        ("manifest", kv(fields)),
+        ("module", Value.Bytes([0, 97, 115, 109])),
+        ("assets", kv(assets)),
+    ]),
+);
+
+fun base(): (string, Value)[] = [
+    ("contract", Value.int(1)),
+    ("name", t("Counter")),
+    ("version", t("0.1.0")),
+    ("state_version", Value.int(1)),
+];
+
+/** `base()` with one field replaced or added. */
+fun with(name: string, v: Value): (string, Value)[] {
+    let mut out = base().filter(fun(p: (string, Value)) = p.0 != name);
+    out.push((name, v));
+    out
+}
+
+fun without(name: string): (string, Value)[] = base().filter(fun(p: (string, Value)) = p.0 != name);
+
+fun error_of(bytes: u8[]): string = match read(bytes) {
+    Err(e) => reason(e),
+    Ok(_) => "ok",
+};
+
+@test
+fun a_bundle_round_trips() {
+    let b = good();
+    let back = read(write(b).unwrap()).unwrap();
+    assert_eq(back.manifest == b.manifest, true);
+    assert_eq(back.module, b.module);
+    assert_eq(asset(back, "icon.png"), Some(png()));
+    assert_eq(asset(back, "nope.png"), None);
+}
+
+@test
+fun a_minimal_bundle_reads() {
+    let b = read(raw(base(), [])).unwrap();
+    assert_eq(b.manifest.description, None);
+    assert_eq(b.manifest.icon, None);
+    assert_eq(b.manifest.banners.len, 0);
+}
+
+@test
+fun unknown_keys_are_ignored() {
+    assert_eq(error_of(raw(with("future", t("thing")), [])), "ok");
+}
+
+@test
+fun the_format_is_checked() {
+    let two = encode(
+        kv([
+            ("format", Value.int(2)),
+            ("manifest", kv(base())),
+            ("module", Value.Bytes([])),
+            ("assets", kv([])),
+        ]),
+    );
+    assert_eq(error_of(two), "This bundle needs a newer version of Rapidkoi (format 2)");
+    assert_eq(
+        error_of(encode(kv([("manifest", kv(base()))]))),
+        "This bundle is missing \"format\"",
+    );
+    assert_eq(
+        error_of(encode(kv([("format", Value.int(1)), ("manifest", kv(base()))]))),
+        "This bundle is missing \"module\"",
+    );
+    assert_eq(
+        error_of(encode(kv([("format", Value.int(1)), ("module", Value.Bytes([]))]))),
+        "This bundle is missing \"manifest\"",
+    );
+}
+
+@test
+fun manifest_fields_are_checked() {
+    assert_eq(error_of(raw(without("name"), [])), "This bundle is missing \"name\"");
+    assert_eq(
+        error_of(raw(with("contract", t("1")), [])),
+        "This bundle's \"contract\" must be a whole number",
+    );
+    assert_eq(
+        error_of(raw(with("name", t("")), [])),
+        "This bundle's \"name\" must be 1 to 64 bytes",
+    );
+    assert_eq(
+        error_of(
+            raw(
+                with(
+                    "name",
+                    t("0123456789012345678901234567890123456789012345678901234567890123x"),
+                ),
+                [],
+            ),
+        ),
+        "This bundle's \"name\" must be 1 to 64 bytes",
+    );
+    assert_eq(
+        error_of(raw(with("name", t("tab\there")), [])),
+        "This bundle's \"name\" can't hold control characters",
+    );
+    assert_eq(
+        error_of(raw(with("state_version", Value.int(0)), [])),
+        "This bundle's \"state_version\" must be at least 1",
+    );
+    assert_eq(
+        error_of(raw(with("description", Value.int(5)), [])),
+        "This bundle's \"description\" must be text",
+    );
+}
+
+@test
+fun versions_are_plain_semver() {
+    for v of ["1.0", "1.0.0-beta", "a.b.c", "01.0.0", "1..0", ""] {
+        assert_eq(
+            error_of(raw(with("version", t(v)), [])),
+            "This bundle's \"version\" must be MAJOR.MINOR.PATCH, like 1.4.0",
+        );
+    }
+    assert_eq(error_of(raw(with("version", t("10.0.12")), [])), "ok");
+}
+
+@test
+fun asset_names_are_checked() {
+    for name of ["../x.png", "/x.png", "x.png/", "a//b.png", "X.png", "a b.png", ""] {
+        assert_eq(
+            error_of(raw(base(), [(name, Value.Bytes(png()))])),
+            "This bundle has an asset with a bad name: \"{name}\"",
+        );
+    }
+    let long: u8[] = [97; 129];
+    let long_name = string_from_utf8(long).unwrap();
+    assert_eq(
+        error_of(raw(base(), [(long_name, Value.Bytes(png()))])),
+        "This bundle has an asset with a bad name: \"{long_name}\"",
+    );
+    assert_eq(error_of(raw(base(), [("img/ok-1_2.png", Value.Bytes(png()))])), "ok");
+}
+
+@test
+fun assets_must_be_png_and_referenced_ones_must_exist() {
+    assert_eq(
+        error_of(raw(base(), [("a.png", Value.Bytes([1, 2, 3]))])),
+        "This bundle's asset \"a.png\" isn't a PNG image",
+    );
+    assert_eq(
+        error_of(raw(with("icon", t("icon.png")), [])),
+        "This bundle's \"icon\" names an asset it doesn't have: \"icon.png\"",
+    );
+    assert_eq(
+        error_of(raw(with("banners", kv([("home", t("b.png"))])), [])),
+        "This bundle's \"banners\" names an asset it doesn't have: \"b.png\"",
+    );
+    assert_eq(
+        error_of(raw(base(), [("a.png", t("not bytes"))])),
+        "This bundle's asset \"a.png\" must be bytes",
+    );
+}
+
+@test
+fun permissions_and_prerendered_must_be_empty() {
+    assert_eq(
+        error_of(raw(with("permissions", Value.Array([t("camera")])), [])),
+        "This bundle asks for \"permissions\", which this version of Rapidkoi can't grant yet",
+    );
+    assert_eq(
+        error_of(raw(with("prerendered", Value.Array([t("x")])), [])),
+        "This bundle asks for \"prerendered\", which this version of Rapidkoi can't grant yet",
+    );
+    assert_eq(error_of(raw(with("permissions", Value.Array([])), [])), "ok");
+}
+
+@test
+fun sizes_and_counts_are_limited() {
+    let mut many: (string, Value)[] = [];
+    for i in 0..257 {
+        many.push(("a{i}.png", Value.Bytes(png())));
+    }
+    assert_eq(error_of(raw(base(), many)), "This bundle has too many assets (257; at most 256)");
+    let mut big: u8[] = [0; 4 * 1024 * 1024 + 1];
+    for i in 0..8 {
+        big[i] = png()[i];
+    }
+    assert_eq(
+        error_of(raw(base(), [("big.png", Value.Bytes(big))])),
+        "This bundle's asset \"big.png\" is too large (4194305 bytes)",
+    );
+    let whole: u8[] = [0; 32 * 1024 * 1024 + 1];
+    assert_eq(error_of(whole), "This bundle is too large (33554433 bytes)");
+}
+
+@test
+fun hostile_bytes_are_errors() {
+    assert_eq(error_of([]).starts_with("This file isn't a Rapidkoi bundle"), true);
+    assert_eq(
+        error_of([0x9b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]).starts_with(
+            "This file isn't a Rapidkoi bundle",
+        ),
+        true,
+    );
+    assert_eq(
+        error_of(encode(Value.Array([]))),
+        "This file isn't a Rapidkoi bundle (it isn't a map)",
+    );
+}
+
+@test
+fun write_refuses_what_read_refuses() {
+    let bad_name = Bundle { assets: [("../x.png", png())], ..good() };
+    assert_eq(
+        write(bad_name).map_err(reason),
+        Err("This bundle has an asset with a bad name: \"../x.png\""),
+    );
+    let not_png = Bundle { assets: [("icon.png", [1, 2])], ..good() };
+    assert_eq(
+        write(not_png).map_err(reason),
+        Err("This bundle's asset \"icon.png\" isn't a PNG image"),
+    );
+    let bad_version = Bundle { manifest: Manifest { version: "1", ..manifest() }, ..good() };
+    assert_eq(write(bad_version).is_err(), true);
+}

@@ -135,6 +135,21 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
+### 13. Packaging (meeting 2026-10-18)
+
+**Decision:**
+- One module per app (room for prerendered screens later).
+- **One app per host.** A build is identified by its manifest's hash; a version is the publisher's semver name for one build.
+- The device keeps the previous build. Versions can be withdrawn.
+- **Everything Rapidkoi holds for an app carries the version that wrote it:** `state_version`, an optional `migrate`, and starting over without one.
+- Now: a single-file CBOR bundle `.rkb` (format 1), packed with `./main pack`. Signing comes later.
+
+**Why:** The owner, after framing the problem first (`docs/source/meetings/2026-10-18-packaging.md`).
+
+**Rules out:** Server-run apps by default; per-screen code chunks for now; several apps on one host; state without a version.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working
@@ -143,6 +158,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - `../lugha-wasmtime` PRP-001 (core runtime) merged in that repo: everything the shell needs.
 - **Build path step 1, the shell (PRP-001), merged in session 7:** `./main app.wasm` runs a guest under contract v1; a Rust crate and counter demo in `guest/rust/`. 47 Lugha tests, 7 Rust tests.
 - **Rapidkoi's frame and tabs (PRP-002 + Amendment 1), merged in session 10:** the bar, an app-only tab rail, home (Where you left off, Pinned, search), the info panel, the dark theme defined (placeholder). 73 Lugha tests.
+- **Bundles (PRP-003), merged in session 20:** `./main pack` makes a `.rkb` (format 1); `./main app.rkb` or typing its path opens it. 95 Lugha tests.
 
 ### In Progress
 - Nothing.
