@@ -1,0 +1,74 @@
+// Development addresses, pure: what opens (localhost only, for now), what
+// each one fetches, and the plain reason when one can't open.
+import rapidkoi.address { Address, AddressError, parse, url, shown, is_address, reason };
+
+fun ok(text: string): Address = parse(text).unwrap();
+
+fun why(text: string): string = match parse(text) {
+    Err(e) => reason(e),
+    Ok(_) => "ok",
+};
+
+@test
+fun local_rapidkoi_addresses() {
+    let a = ok("rapidkoi://localhost:8000");
+    assert_eq((a.host, a.port, a.route, a.http), ("localhost", 8000, "/", false));
+    assert_eq(ok("rapidkoi://localhost:8000/folder/42").route, "/folder/42");
+    assert_eq(ok("rapidkoi://127.0.0.1:4000").host, "127.0.0.1");
+    assert_eq(ok("rapidkoi://[::1]:4000").host, "[::1]");
+}
+
+@test
+fun local_http_addresses() {
+    let a = ok("http://localhost:8000/apps/counter.rkb");
+    assert_eq((a.host, a.port, a.route, a.http), ("localhost", 8000, "/apps/counter.rkb", true));
+}
+
+@test
+fun what_each_one_fetches() {
+    assert_eq(
+        url(ok("rapidkoi://localhost:8000/folder/42")),
+        "http://localhost:8000/.well-known/rapidkoi/app.rkb",
+    );
+    assert_eq(url(ok("http://127.0.0.1:9000/x.rkb")), "http://127.0.0.1:9000/x.rkb");
+    assert_eq(shown(ok("rapidkoi://localhost:8000/a")), "localhost:8000");
+}
+
+@test
+fun only_local_hosts_for_now() {
+    assert_eq(
+        why("rapidkoi://example.com:8000"),
+        "Only local development addresses (localhost) can be opened yet",
+    );
+    assert_eq(
+        why("rapidkoi://notes.acme.com"),
+        "Only local development addresses (localhost) can be opened yet",
+    );
+    assert_eq(
+        why("http://192.168.1.4:8000/a.rkb"),
+        "Only local development addresses (localhost) can be opened yet",
+    );
+    assert_eq(why("https://localhost:8000/a.rkb"), "HTTPS comes with signing, in a later step");
+}
+
+@test
+fun malformed_addresses() {
+    assert_eq(
+        why("rapidkoi://localhost"),
+        "This address needs a port, like rapidkoi://localhost:8000",
+    );
+    assert_eq(why("rapidkoi://localhost:0"), "The port must be a number from 1 to 65535");
+    assert_eq(why("rapidkoi://localhost:70000"), "The port must be a number from 1 to 65535");
+    assert_eq(why("rapidkoi://localhost:80a"), "The port must be a number from 1 to 65535");
+    assert_eq(why("rapidkoi://"), "This address has no host");
+    assert_eq(why("rapidkoi://[::1"), "This address has no host");
+}
+
+@test
+fun what_counts_as_an_address() {
+    assert_eq(is_address("rapidkoi://x"), true);
+    assert_eq(is_address("http://x"), true);
+    assert_eq(is_address("https://x"), true);
+    assert_eq(is_address("counter.rkb"), false);
+    assert_eq(is_address("my notes"), false);
+}
