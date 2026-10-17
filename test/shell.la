@@ -1,19 +1,24 @@
-// The window: tabs, the address box, home, pins, "where you left off", the
-// info panel, and failing safely per tab. Fixture guests; no display.
+// The window: tabs (apps only; home isn't a tab), the address box, pins,
+// "where you left off", the info panel, and failing safely per tab.
+// Fixture guests; no display.
 import rapidkoi.shell { Model, boot, with_pages, update, view, title_of };
+import rapidkoi.window { card };
 import rapidkoi.actions { Msg };
-import rapidkoi.tabs { Page, AppPage, open_module, state_of };
+import rapidkoi.tabs { AppPage, open_module, state_of };
 import rapidkoi.render;
 import rapidkoi.contract { envelope };
 import kivuli.testing { click, texts, type_into };
 import wasmtime { Engine, Module };
 import support { t, fixed, echo, crashing, titled_tree, result_of };
 
-fun app(engine: Engine, name: string, wat: string): Page = Page.App(
-    open_module(name, "{name}.wasm", engine, Module.from_text(engine, wat).unwrap()),
+fun app(engine: Engine, name: string, wat: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, wat).unwrap(),
 );
 
-/** A window with two echo apps, tabs 0 and 1. */
+/** A window with two echo apps, tabs 0 and 1, tab 0 current. */
 fun two(): Model {
     let engine = Engine.new();
     with_pages(engine, [app(engine, "a", echo()), app(engine, "b", echo())])
@@ -27,39 +32,29 @@ fun step(m: Model, msg: Msg): Model {
 fun page(m: Model, id: i64): AppPage {
     for tab of m.tabs {
         if tab.id == id {
-            if let App(a) = tab.page {
-                return a;
-            }
+            return tab.page;
         }
     }
-    panic("tab {id} isn't an app")
+    panic("no tab {id}")
 }
 
-fun is_home(m: Model, id: i64): bool {
-    for tab of m.tabs {
-        if tab.id == id {
-            return match tab.page {
-                Home => true,
-                App(_) => false,
-            };
-        }
-    }
-    false
-}
+fun add(id: i64): Msg = Msg.Tab(id, render.Msg.Event(t("add"), None));
 
-fun add(): Msg = Msg.Tab(0, render.Msg.Event(t("add"), None));
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
 @test
-fun booting_without_an_app_shows_home() {
+fun booting_without_an_app_shows_home_with_no_tabs() {
     let (m, _) = boot(["./main"]);
-    assert_eq(m.tabs.len, 1);
-    assert_eq(is_home(m, 0), true);
-    assert_eq(texts(view(m))[1], "Rapidkoi");
+    assert_eq(m.tabs.len, 0);
+    assert_eq(m.current, None);
+    assert_eq(shows(m, "Rapidkoi"), true);
+    assert_eq(title_of(m), "Rapidkoi");
 }
 
 @test
 fun booting_a_bad_file_shows_why_in_its_tab() {
     let (m, _) = boot(["./main", "lugha.toml"]);
+    assert_eq(m.tabs.len, 1);
     assert_eq(
         texts(view(m)).any(fun(s: string) = s.starts_with("This file isn't a WebAssembly app")),
         true,
@@ -68,7 +63,7 @@ fun booting_a_bad_file_shows_why_in_its_tab() {
 
 @test
 fun an_event_reaches_only_its_tab() {
-    let m = step(two(), add());
+    let m = step(two(), add(0));
     assert_eq(state_of(page(m, 0)), Some(envelope(t("add"), None)));
     assert_eq(state_of(page(m, 1)), Some([]));
 }
@@ -77,49 +72,63 @@ fun an_event_reaches_only_its_tab() {
 fun a_crash_stays_in_its_tab_and_restart_brings_it_back() {
     let engine = Engine.new();
     let m = with_pages(engine, [app(engine, "bad", crashing()), app(engine, "good", echo())]);
-    let crashed = step(m, add());
+    let crashed = step(m, add(0));
     assert_eq(state_of(page(crashed, 0)), None);
     assert_eq(state_of(page(crashed, 1)), Some([]));
-    let back = step(crashed, Msg.Tab(0, render.Msg.Restart));
-    assert_eq(state_of(page(back, 0)), Some([]));
+    assert_eq(state_of(page(step(crashed, Msg.Tab(0, render.Msg.Restart)), 0)), Some([]));
 }
 
 @test
-fun tabs_open_select_and_close() {
-    let m = step(two(), Msg.NewTab);
-    assert_eq(m.tabs.len, 3);
-    assert_eq(m.current, 2);
-    assert_eq(is_home(m, 2), true);
-    let picked = step(m, Msg.Select(0));
-    assert_eq(picked.current, 0);
-    // Closing the current tab picks the one to its right.
-    let closed = step(picked, Msg.CloseTab(0));
-    assert_eq(closed.current, 1);
-    assert_eq(closed.left_off.map(fun(l) = l.name), Some("a"));
-    // A message for a closed tab finds nothing.
-    assert_eq(state_of(page(step(closed, add()), 1)), Some([]));
-    // Closing the last tab at the end picks the one to its left.
-    let end = step(step(closed, Msg.Select(2)), Msg.CloseTab(2));
-    assert_eq(end.current, 1);
+fun new_tab_and_home_show_home_and_keep_every_app() {
+    let m = step(step(two(), add(0)), Msg.NewTab);
+    assert_eq(m.current, None);
+    assert_eq(m.tabs.len, 2);
+    let home = step(step(m, Msg.Select(1)), Msg.Home);
+    assert_eq(home.current, None);
+    assert_eq(home.tabs.len, 2);
+    // The app kept its state while home showed.
+    assert_eq(state_of(page(home, 0)), Some(envelope(t("add"), None)));
 }
 
 @test
-fun closing_every_tab_leaves_home() {
-    let m = step(step(two(), Msg.CloseTab(0)), Msg.CloseTab(1));
-    assert_eq(m.tabs.len, 1);
-    assert_eq(is_home(m, m.current), true);
+fun where_you_left_off_selects_an_open_app() {
+    let m = step(step(two(), Msg.Select(1)), Msg.Home);
+    assert_eq(card(m).map(fun(c) = c.msg), Some(Msg.Select(1)));
+    assert_eq(shows(m, "Where you left off"), true);
+    assert_eq(step(m, click(view(m), "Continue").unwrap()).current, Some(1));
 }
 
 @test
-fun home_then_continue_restores_the_state() {
-    let m = step(two(), add());
-    let home = step(m, Msg.Home);
-    assert_eq(is_home(home, 0), true);
-    assert_eq(texts(view(home)).any(fun(s: string) = s == "Where you left off"), true);
-    let back = step(home, Msg.Continue);
-    // init gives [], so this state comes from view(saved state).
-    assert_eq(state_of(page(back, 0)), Some(envelope(t("add"), None)));
+fun a_closed_app_reopens_with_its_state() {
+    let closed = step(step(two(), add(0)), Msg.CloseTab(0));
+    assert_eq(closed.current, Some(1));
+    let home = step(closed, Msg.Home);
+    // Tab 1 is still open and was visited last, so it's the card; close it too.
+    let both = step(step(home, Msg.Select(1)), Msg.CloseTab(1));
+    assert_eq(both.current, None);
+    assert_eq(card(both).map(fun(c) = c.msg), Some(Msg.Continue));
+    let back = step(both, Msg.Continue);
+    assert_eq(back.tabs.len, 1);
     assert_eq(back.left_off.is_none(), true);
+}
+
+@test
+fun continue_restores_the_closed_apps_state() {
+    let closed = step(step(two(), add(0)), Msg.CloseTab(0));
+    let back = step(step(closed, Msg.Home), Msg.Continue);
+    let reopened = page(back, back.current.unwrap());
+    // init gives [], so this state comes from view(saved state).
+    assert_eq(state_of(reopened), Some(envelope(t("add"), None)));
+}
+
+@test
+fun closing_tabs_picks_a_neighbour_then_home() {
+    let m = step(two(), Msg.CloseTab(0));
+    assert_eq(m.current, Some(1));
+    assert_eq(state_of(page(step(m, add(0)), 1)), Some([]));
+    let none = step(m, Msg.CloseTab(1));
+    assert_eq(none.tabs.len, 0);
+    assert_eq(none.current, None);
 }
 
 @test
@@ -127,21 +136,25 @@ fun the_address_box() {
     let (m, _) = boot(["./main"]);
     let typed = step(m, type_into(view(m), "address", "rapidkoi://notes.acme.com").unwrap());
     assert_eq(step(typed, Msg.Go).notice, Some("Links come in a later step"));
-    let missing = step(step(m, Msg.Draft("no/such/app.wasm")), Msg.Go);
-    assert_eq(missing.notice, Some("No app or file called “no/such/app.wasm”"));
-    let words = step(step(m, Msg.Draft("my notes")), Msg.Go);
-    assert_eq(words.notice, Some("No app or file called “my notes”"));
-    // A real file opens in this tab (this one isn't an app, so it shows why).
+    assert_eq(
+        step(step(m, Msg.Draft("no/such/app.wasm")), Msg.Go).notice,
+        Some("No app or file called “no/such/app.wasm”"),
+    );
+    // From home a file opens in a new tab.
     let opened = step(step(m, Msg.Draft("lugha.toml")), Msg.Go);
+    assert_eq(opened.tabs.len, 1);
     assert_eq(page(opened, 0).name, "lugha.toml");
     assert_eq(opened.draft, "");
 }
 
 @test
-fun editing_the_address_of_an_app_page() {
-    let m = step(two(), Msg.EditAddress);
-    assert_eq(m.editing, true);
-    assert_eq(m.draft, "a.wasm");
+fun the_address_box_on_an_app_replaces_its_app() {
+    let editing = step(two(), Msg.EditAddress);
+    assert_eq(editing.draft, "a.wasm");
+    let replaced = step(step(editing, Msg.Draft("lugha.toml")), Msg.Go);
+    assert_eq(replaced.tabs.len, 2);
+    assert_eq(page(replaced, 0).name, "lugha.toml");
+    assert_eq(replaced.left_off.map(fun(l) = l.name), Some("a"));
 }
 
 @test
@@ -149,8 +162,9 @@ fun pinning_and_opening_a_pin() {
     let m = step(two(), Msg.Pin);
     assert_eq(m.pinned.len, 1);
     assert_eq(step(m, Msg.Pin).pinned.len, 1);
-    // The pin's file doesn't exist here, so opening it shows why.
-    let opened = step(step(m, Msg.NewTab), Msg.OpenPinned("a.wasm"));
+    // The pin's file doesn't exist here, so its new tab shows why.
+    let opened = step(m, Msg.OpenPinned("a.wasm"));
+    assert_eq(opened.tabs.len, 3);
     assert_eq(
         texts(view(opened)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
         true,
@@ -161,12 +175,9 @@ fun pinning_and_opening_a_pin() {
 @test
 fun the_info_panel_opens_beside_the_app() {
     let m = step(two(), Msg.TogglePanel);
-    assert_eq(texts(view(m)).any(fun(s: string) = s == "Contract v1"), true);
+    assert_eq(shows(m, "Contract v1"), true);
     assert_eq(click(view(m), "Close tab"), Ok(Msg.CloseTab(0)));
-    assert_eq(
-        texts(view(step(m, Msg.TogglePanel))).any(fun(s: string) = s == "Contract v1"),
-        false,
-    );
+    assert_eq(shows(step(m, Msg.TogglePanel), "Contract v1"), false);
 }
 
 @test
@@ -175,11 +186,6 @@ fun window_titles() {
     let titled = with_pages(engine, [
         app(engine, "counter", fixed(1, [], titled_tree("0", "Counter"), result_of([]))),
     ]);
-    assert_eq(page(titled, 0).title, Some("Counter"));
     assert_eq(title_of(titled), "Rapidkoi — Counter");
-    let engine2 = Engine.new();
-    let plain = with_pages(engine2, [app(engine2, "plain", echo())]);
-    assert_eq(title_of(plain), "Rapidkoi — plain");
-    let (home, _) = boot(["./main"]);
-    assert_eq(title_of(home), "Rapidkoi");
+    assert_eq(title_of(two()), "Rapidkoi — a");
 }

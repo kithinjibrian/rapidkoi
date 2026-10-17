@@ -1,48 +1,26 @@
 /**
- * Rapidkoi's window: tabs, the current one, the address box, pins and
- * "where you left off", composed into the frame. `update` calls guests
- * (each bounded by fuel) and opens local files the person chose (CLAUDE.md
- * rule 3); `view` only draws what's stored.
+ * Rapidkoi's window as a kivuli app: `boot` from the command line, `update`
+ * for every message, and `view` composing the bar, home or the current
+ * app (with the info panel beside it), and the rail. The state and what
+ * changes it live in `window.la`; `view` never calls a guest.
  *
- * Depends on: kivuli, wasmtime, std.fs, actions, tabs, render, frame, home, panel, theme
+ * Depends on: kivuli, wasmtime, actions, tabs, window, render, frame, home, panel, theme
  * Used by: main
  */
 import kivuli { View, Cmd, column, row, scroll, text };
 import wasmtime { Engine };
-import std.fs;
 import actions { Msg };
-import tabs { Page, Tab, Pin, LeftOff, AppPage, open_path, handle, leave, resume };
+import tabs { AppPage, Pin, open_path, handle };
+public import window { Model, with_pages, title_of };
 import render { screen, stopped };
 import frame { bar, rail };
 import home;
 import panel;
 import theme { SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
 
-/** The window's state. */
-public struct Model {
-    engine: Engine,
-    /** The open tabs, in rail order; never empty. */
-    public tabs: Tab[],
-    /** The current tab's id. */
-    public current: i64,
-    next: i64,
-    /** The address box's text. */
-    public draft: string,
-    /** Whether an app page's address is being edited. */
-    public editing: bool,
-    /** Whether the info panel is open. */
-    public showing_panel: bool,
-    /** Pinned apps, in this session (PRP-003 keeps them). */
-    public pinned: Pin[],
-    /** The app last left, in this session. */
-    public left_off: Option<LeftOff>,
-    /** A short message under the bar (an address that can't be opened yet). */
-    public notice: Option<string>,
-}
-
 /**
- * Builds the first window from the command line: `./main` opens home,
- * `./main path/to/app.wasm` opens that app.
+ * Builds the first window from the command line: `./main` shows home,
+ * `./main path/to/app.wasm` opens that app in a tab.
  *
  * @param argv the program's arguments, `argv[0]` its path
  * @returns the first model, and a command focusing the box on home
@@ -53,38 +31,9 @@ public struct Model {
 public fun boot(argv: string[]): (Model, Cmd<Msg>) {
     let engine = Engine.new();
     if argv.len < 2 {
-        return (with_pages(engine, [Page.Home]), Cmd.focus("address"));
+        return (with_pages(engine, []), Cmd.focus("address"));
     }
-    (with_pages(engine, [Page.App(open_path(engine, argv[1]))]), Cmd.none())
-}
-
-/**
- * Builds a window holding `pages`, one tab each, the first current.
- *
- * @param engine the engine the pages' apps were compiled with
- * @param pages at least one
- * @returns the model
- *
- * Example:
- *     with_pages(engine, [Page.Home])
- */
-public fun with_pages(engine: Engine, pages: Page[]): Model {
-    let mut made: Tab[] = [];
-    for p of pages {
-        made.push(Tab { id: made.len, page: p });
-    }
-    Model {
-        engine: engine,
-        tabs: made,
-        current: 0,
-        next: made.len,
-        draft: "",
-        editing: false,
-        showing_panel: false,
-        pinned: [],
-        left_off: None,
-        notice: None,
-    }
+    (with_pages(engine, [open_path(engine, argv[1])]), Cmd.none())
 }
 
 /**
@@ -98,71 +47,21 @@ public fun with_pages(engine: Engine, pages: Page[]): Model {
  *     update(m, Msg.NewTab)
  */
 public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
-    Tab(id, inner) => (
-        with_page(m, id, fun(p: Page) = match p {
-            App(a) => Page.App(handle(a, inner)),
-            Home => p,
-        }),
-        Cmd.none(),
-    ),
-    Select(id) => (
-        Model {
-            current: if has(m, id) { id } else { m.current },
-            editing: false,
-            notice: None,
-            ..m,
-        },
-        Cmd.none(),
-    ),
-    NewTab => {
-        let mut more = m.tabs;
-        more.push(Tab { id: m.next, page: Page.Home });
-        (
-            Model {
-                tabs: more,
-                current: m.next,
-                next: m.next + 1,
-                draft: "",
-                editing: false,
-                notice: None,
-                ..m,
-            },
-            Cmd.focus("address"),
-        )
-    }
-    CloseTab(id) => (close(m, id), Cmd.none()),
-    Home => (
-        Model {
-            draft: "",
-            editing: false,
-            showing_panel: false,
-            ..with_page(leave_current(m), m.current, fun(_: Page) = Page.Home),
-        },
-        Cmd.focus("address"),
-    ),
+    Tab(id, inner) => (window.with_tab(m, id, fun(a: AppPage) = handle(a, inner)), Cmd.none()),
+    Select(id) => (window.show_tab(m, id), Cmd.none()),
+    // Home isn't a tab: + and ⌂ both show it, keeping every app open.
+    NewTab | Home => (window.go_home(m), Cmd.focus("address")),
+    CloseTab(id) => (window.close(m, id), Cmd.none()),
     Draft(text) => (Model { draft: text, notice: None, ..m }, Cmd.none()),
-    Go => (go(m), Cmd.none()),
-    EditAddress => match page_of(m, m.current) {
+    Go => (window.go(m), Cmd.none()),
+    EditAddress => match window.page_of(m) {
         App(a) => (Model { editing: true, draft: a.path, ..m }, Cmd.focus("address")),
         Home => (m, Cmd.focus("address")),
     },
-    OpenPinned(path) => (open_here(m, path), Cmd.none()),
-    Continue => match m.left_off {
-        Some(l) => {
-            let cleared = Model { left_off: None, ..leave_current(m) };
-            (with_page(cleared, m.current, fun(_: Page) = Page.App(resume(l))), Cmd.none())
-        }
-        None => (m, Cmd.none()),
-    },
+    OpenPinned(path) => (window.open_file(window.go_home(m), path), Cmd.none()),
+    Continue => (window.reopen(m), Cmd.none()),
     TogglePanel => (Model { showing_panel: !m.showing_panel, ..m }, Cmd.none()),
-    Pin => match page_of(m, m.current) {
-        App(a) if !pinned(m, a.path) => {
-            let mut more = m.pinned;
-            more.push(Pin { name: a.name, path: a.path });
-            (Model { pinned: more, ..m }, Cmd.none())
-        }
-        _ => (m, Cmd.none()),
-    },
+    Pin => (window.pin(m), Cmd.none()),
     Unpin(path) => (
         Model { pinned: m.pinned.filter(fun(p: Pin) = p.path != path), ..m },
         Cmd.none(),
@@ -171,8 +70,8 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
 };
 
 /**
- * Draws the window: the bar, the current tab (with the panel beside it when
- * open) and the rail. Never calls a guest.
+ * Draws the window: the bar, home or the current app (with the panel
+ * beside it when open), and the rail. Never calls a guest.
  *
  * @param m the model
  * @returns the window's view
@@ -181,39 +80,25 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
  *     view(m)
  */
 public fun view(m: Model): View<Msg> {
-    let page = page_of(m, m.current);
-    let content: View<Msg> = match page {
-        Home => home.view(m.draft, m.pinned, m.left_off, m.tabs),
-        App(a) => app_view(m.current, a),
-    };
+    let page = window.page_of(m);
+    // On an app page m.current is Some: page_of found its tab.
+    let id = m.current.unwrap_or(-1);
     let middle = match page {
+        Home => scroll(home.view(m.draft, m.pinned, window.card(m), m.tabs).padding(SPACE_LG)),
         App(a) if m.showing_panel => row([
-            scroll(content.padding(SPACE_LG)).expand(),
-            panel.view(m.current, a, pinned(m, a.path)),
+            scroll(app_view(id, a).padding(SPACE_LG)).expand(),
+            panel.view(id, a, window.is_pinned(m, a.path)),
         ]).spacing(SPACE_MD),
-        _ => scroll(content.padding(SPACE_LG)),
+        App(a) => scroll(app_view(id, a).padding(SPACE_LG)),
     };
     let mut parts = [bar(page, m.draft, m.editing).padding(SPACE_MD)];
     if let Some(n) = m.notice {
         parts.push(text(n).dim().padding(SPACE_MD));
     }
     parts.push(row([middle.expand(), rail(m.tabs, m.current)]).expand());
+    // kivuli can't maximize yet (DECISION-020): the default size stands in.
     column(parts).window(title_of(m), WINDOW_WIDTH, WINDOW_HEIGHT)
 }
-
-/**
- * Returns the window's title: "Rapidkoi" on home, "Rapidkoi — {title or name}" on an app.
- *
- * @param m the model
- * @returns the title
- *
- * Example:
- *     title_of(m)
- */
-public fun title_of(m: Model): string = match page_of(m, m.current) {
-    Home => "Rapidkoi",
-    App(a) => "Rapidkoi — {a.title.unwrap_or(a.name)}",
-};
 
 /** A tab's app, its messages tagged with the tab, so they reach only it. */
 fun app_view(id: i64, a: AppPage): View<Msg> {
@@ -223,83 +108,3 @@ fun app_view(id: i64, a: AppPage): View<Msg> {
     };
     shown.map(fun(inner: render.Msg) = Msg.Tab(id, inner))
 }
-
-/** Opens what the address box says, in the current tab. */
-fun go(m: Model): Model {
-    let wanted = m.draft.trim();
-    if wanted == "" {
-        return m;
-    }
-    if wanted.starts_with("rapidkoi://") || wanted.starts_with("https://") || wanted.starts_with(
-        "http://",
-    ) {
-        return Model { notice: Some("Links come in a later step"), ..m };
-    }
-    if fs.is_file(wanted) {
-        return open_here(m, wanted);
-    }
-    Model { notice: Some("No app or file called “{wanted}”"), ..m }
-}
-
-/** Opens a local app file in the current tab; the app it replaces becomes "where you left off". */
-fun open_here(m: Model, path: string): Model {
-    let left = leave_current(m);
-    let opened = with_page(left, m.current, fun(_: Page) = Page.App(open_path(m.engine, path)));
-    Model { draft: "", editing: false, notice: None, ..opened }
-}
-
-/** Closes a tab; its app becomes "where you left off". The last tab closed leaves a home tab. */
-fun close(m: Model, id: i64): Model {
-    let mut at = -1;
-    let mut left = m.left_off;
-    let mut kept: Tab[] = [];
-    for t of m.tabs {
-        if t.id == id {
-            at = kept.len;
-            if let App(a) = t.page {
-                left = Some(leave(a));
-            }
-        } else {
-            kept.push(t);
-        }
-    }
-    if at < 0 {
-        return m;
-    }
-    let mut next = m.next;
-    if kept.len == 0 {
-        kept.push(Tab { id: next, page: Page.Home });
-        next += 1;
-    }
-    // The tab to the right takes its place; at the end, the one to the left.
-    let current = if id == m.current {
-        kept[if at < kept.len { at } else { kept.len - 1 }].id
-    } else {
-        m.current
-    };
-    Model { tabs: kept, current: current, next: next, left_off: left, showing_panel: false, ..m }
-}
-
-/** Leaves the current tab's app, if it shows one, keeping it as "where you left off". */
-fun leave_current(m: Model): Model = match page_of(m, m.current) {
-    App(a) => Model { left_off: Some(leave(a)), ..m },
-    Home => m,
-};
-
-fun with_page(m: Model, id: i64, f: fun(Page): Page): Model = Model {
-    tabs: m.tabs.map(fun(t: Tab) = if t.id == id { Tab { page: f(t.page), ..t } } else { t }),
-    ..m,
-};
-
-fun page_of(m: Model, id: i64): Page {
-    for t of m.tabs {
-        if t.id == id {
-            return t.page;
-        }
-    }
-    Page.Home
-}
-
-fun has(m: Model, id: i64): bool = m.tabs.any(fun(t: Tab) = t.id == id);
-
-fun pinned(m: Model, path: string): bool = m.pinned.any(fun(p: Pin) = p.path == path);

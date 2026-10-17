@@ -8,7 +8,7 @@
  */
 import kivuli { View, ButtonStyle, button, column, row, spacer, text };
 import actions { Msg };
-import tabs { Tab, Pin, LeftOff };
+import tabs { Tab, Pin };
 import frame { initial };
 import theme {
     SPACE_XS,
@@ -21,19 +21,29 @@ import theme {
     BANNER_HEIGHT,
 };
 
+/** "Where you left off": the app and its last screen, and what Continue sends. */
+public struct Card {
+    /** The app's name. */
+    public name: string,
+    /** Its last screen's title, if any. */
+    public title: Option<string>,
+    /** `Select(id)` for an open tab, `Continue` for a closed app. */
+    public msg: Msg,
+}
+
 /**
  * Builds home.
  *
  * @param draft the search box's text: empty shows home, anything else filters it
  * @param pinned the pinned apps
- * @param left_off the app last left, if any
+ * @param card "Where you left off", if there is one
  * @param open the open tabs (search finds their apps too)
  * @returns the home view
  *
  * Example:
- *     home.view("", m.pinned, m.left_off, m.tabs)
+ *     home.view("", m.pinned, None, m.tabs)
  */
-public fun view(draft: string, pinned: Pin[], left_off: Option<LeftOff>, open: Tab[]): View<Msg> {
+public fun view(draft: string, pinned: Pin[], card: Option<Card>, open: Tab[]): View<Msg> {
     let logo: View<Msg> = row([
         text("◯").size(TEXT_TITLE),
         text("Rapidkoi").size(TEXT_TITLE).bold(),
@@ -41,20 +51,20 @@ public fun view(draft: string, pinned: Pin[], left_off: Option<LeftOff>, open: T
     let query = draft.trim();
     let mut parts = [logo];
     if query == "" {
-        if let Some(l) = left_off {
-            parts.push(card(l));
+        if let Some(c) = card {
+            parts.push(left_off(c));
         }
         if pinned.len > 0 {
             parts.push(text("Pinned").size(TEXT_HEADING).bold());
             parts.push(grid(pinned.map(fun(p: Pin) = tile(p.name, Msg.OpenPinned(p.path)))));
         }
-        if left_off.is_none() && pinned.len == 0 {
+        if card.is_none() && pinned.len == 0 {
             parts.push(
                 text("Open an app: type the path of a .wasm file above, then press Enter.").dim(),
             );
         }
     } else {
-        let found = results(query, pinned, left_off, open);
+        let found = results(query, pinned, card, open);
         if found.len == 0 {
             parts.push(text("Nothing matches “{query}”").dim());
         } else {
@@ -80,14 +90,12 @@ public fun matches(query: string, name: string, title: Option<string>): bool {
     lower(name).contains(q) || lower(title.unwrap_or("")).contains(q)
 }
 
-/** The tiles matching `query`: open apps, pinned apps, and where the person left off. */
-fun results(query: string, pinned: Pin[], left_off: Option<LeftOff>, open: Tab[]): View<Msg>[] {
+/** The tiles matching `query`: open apps, pinned apps, and a closed "where you left off". */
+fun results(query: string, pinned: Pin[], card: Option<Card>, open: Tab[]): View<Msg>[] {
     let mut found: View<Msg>[] = [];
     for t of open {
-        if let App(p) = t.page {
-            if matches(query, p.name, p.title) {
-                found.push(tile(p.name, Msg.Select(t.id)));
-            }
+        if matches(query, t.page.name, t.page.title) {
+            found.push(tile(t.page.name, Msg.Select(t.id)));
         }
     }
     for p of pinned {
@@ -95,24 +103,25 @@ fun results(query: string, pinned: Pin[], left_off: Option<LeftOff>, open: Tab[]
             found.push(tile(p.name, Msg.OpenPinned(p.path)));
         }
     }
-    if let Some(l) = left_off {
-        if matches(query, l.name, l.title) {
-            found.push(tile(l.name, Msg.Continue));
+    // An open tab is already among the tabs above; only a closed app adds a tile.
+    if let Some(c) = card {
+        if c.msg == Msg.Continue && matches(query, c.name, c.title) {
+            found.push(tile(c.name, Msg.Continue));
         }
     }
     found
 }
 
 /** "Where you left off": the app and its last screen, and Continue. No picture until PRP-003. */
-fun card(l: LeftOff): View<Msg> {
-    let place = match l.title {
-        Some(t) => "{l.name} · {t}",
-        None => l.name,
+fun left_off(c: Card): View<Msg> {
+    let place = match c.title {
+        Some(t) => "{c.name} · {t}",
+        None => c.name,
     };
     column([
         text("Where you left off").size(TEXT_HEADING).bold(),
         spacer(),
-        row([text(place).expand(), button("Continue", Msg.Continue).style(ButtonStyle.Primary)]),
+        row([text(place).expand(), button("Continue", c.msg).style(ButtonStyle.Primary)]),
     ]).padding(SPACE_LG).height(BANNER_HEIGHT)
 }
 

@@ -112,7 +112,7 @@ Ask before anything that leaves this machine: creating the GitHub repository, ad
 
 Read `docs/DESIGN.md` before writing any `view` code.
 
-Every spacing, padding, size and text size comes from the tokens in `docs/DESIGN.md`. Colours come only from the GTK theme through kivuli's styles (`ButtonStyle`, `.dim()`). Never hardcode a colour, never write custom CSS, never pass a bare number to `.padding`, `.spacing` or `.size`.
+Every spacing, padding, size and text size comes from the tokens in `docs/DESIGN.md`. App content's colours come only from the GTK theme through kivuli's styles (`ButtonStyle`, `.dim()`). Rapidkoi's own parts (bar, rail, home) take colours from its themes in `src/themes.la` and nowhere else. Never hardcode a colour outside `themes.la`, never give an app a way to set colours, never pass a bare number to `.padding`, `.spacing` or `.size`.
 
 ---
 
@@ -247,13 +247,14 @@ public fun load_settings(path: string): Settings { … }
 ├── .llmignore         — protected paths
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
-├── src/               — main.la (entry: kivuli application, wiring only), shell.la (the window: tabs, address box, pins, left off; update/view),
+├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only),
+│                        window.la (the Model and what changes it: tabs, home, address box, pins, left off), themes.la (Rapidkoi's colours; dark first),
 │                        tabs.la (Page, Tab, Pin, LeftOff; an app page's life: open, events, restart, leave, resume), actions.la (the shell's Msg),
 │                        frame.la (pure: the bar and the tab rail), home.la (pure: home and search), panel.la (pure: app info),
 │                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1; re-exports nodes' types),
 │                        nodes.la (the decoded types: Node, style words, ContractError), props.la (reading one node's props),
 │                        render.la (pure: Node → kivuli View; the error screen), theme.la (DESIGN.md tokens), limits.la (every limit)
-│                        Imports run one way: nodes ← props ← contract ← theme ← render ← tabs ← actions ← frame ← home, panel ← shell ← main; limits ← contract, guest ← tabs
+│                        Imports run one way: nodes ← props ← contract ← theme ← render ← tabs ← actions ← frame ← home, panel ← window ← shell ← main; limits ← contract, guest ← tabs; themes ← window
 ├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
 ├── guest/rust/        — Cargo workspace: rapidkoi (contract v1 for Rust: View builder, App trait, export!), counter (the demo)
@@ -297,3 +298,4 @@ Update this tree when modules are added.
   - Tiles and tabs show the app's initial; there's no art or banners yet.
   - Pins, "where you left off" and search are in memory only.
   - Back, forward, share, settings and more are shown disabled.
+  - The dark theme (bars `#242424`, home `#161616`) is defined but not applied, and the window opens at its default size instead of maximized: kivuli can't apply a stylesheet or maximize yet (DECISION-020).

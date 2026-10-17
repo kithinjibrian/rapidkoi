@@ -56,7 +56,11 @@ fun home_and_continue_keep_the_count() {
     m = step(m, click(view(m), "Add").unwrap());
     m = step(m, click(view(m), "Add").unwrap());
     m = step(m, Msg.Home);
-    m = step(m, Msg.Continue);
+    m = step(m, click(view(m), "Continue").unwrap());
+    assert_eq(shown(m)[1], "Count: 2");
+    // Closed, then reopened from home, it still has its count.
+    m = step(m, Msg.CloseTab(0));
+    m = step(m, click(view(m), "Continue").unwrap());
     assert_eq(shown(m)[1], "Count: 2");
 }
 

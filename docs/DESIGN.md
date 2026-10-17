@@ -8,7 +8,7 @@ The values below are a starting scale. Revisit them once DECISION-001 says what 
 
 ## Colour
 
-No colour tokens. Colours come only from the theme, through kivuli:
+**App content** has no colour tokens. Colours come only from the GTK theme, through kivuli:
 
 | Intent | kivuli |
 |--------|--------|
@@ -16,6 +16,15 @@ No colour tokens. Colours come only from the theme, through kivuli:
 | Deletes or discards | `.style(ButtonStyle.Danger)` |
 | Low-emphasis, toolbar-like | `.style(ButtonStyle.Subtle)` |
 | Secondary text | `text(…).dim()` |
+
+**Rapidkoi's own parts** (the bar, the rail, home) take colours from a **Rapidkoi theme** (`src/themes.la`), the owner's choice (2026-10-17, session 10). Dark is first and the default:
+
+| Token | Dark | Applies to (CSS class) |
+|-------|------|------------------------|
+| `bar` | `#242424` | the bar across the top and the tab rail (`rk-bar`, `rk-rail`) |
+| `home` | `#161616` | home's background (`rk-home`) |
+
+Light and other themes come later, with settings. Hex values live only in `src/themes.la`. Until kivuli can load a stylesheet and tag nodes (DECISION-020), the theme is built and tested but not applied.
 
 ## Spacing (pixels: `.padding`, `.spacing`)
 
@@ -53,7 +62,7 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels.
   - back `go-previous-symbolic`, home `go-home-symbolic`, forward `go-next-symbolic`
   - info `dialog-information-symbolic`, share `emblem-shared-symbolic`
   - new tab `list-add-symbolic`, settings `emblem-system-symbolic`, more `view-more-symbolic`
-- The current tab is `Primary`; the others are `Subtle`.
+- The current tab is `Primary`; the others are `Subtle`. Home isn't a tab: the rail lists apps only.
 - The verified mark is `✓`; a local file is marked `📄 … · local file`. Both are drawn only by Rapidkoi, never inside the app's area.
 - The art palette for generated app art comes with PRP-003.
 
@@ -78,5 +87,5 @@ The tokens are `public` constants in `src/theme.la`. Views use the names, never 
 ## What Is Forbidden
 
 - No numbers in `.padding`, `.spacing` or `.size` other than the tokens above.
-- No colours, custom CSS, or inline styles.
+- No colours, custom CSS or inline styles, except Rapidkoi's themes in `src/themes.la`, applied through one stylesheet to Rapidkoi's own parts. Apps never get colours.
 - Icons are theme icon names, preferably `…-symbolic`.

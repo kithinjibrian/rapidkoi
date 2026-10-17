@@ -40,20 +40,20 @@ public struct AppPage {
     public screen: Screen,
 }
 
-/** What a tab shows. */
+/** What the window shows: home, or the current tab's app. */
 public enum Page {
-    /** Home: a new tab. */
+    /** Home: no tab is current. */
     Home,
     /** An app. */
     App(AppPage),
 }
 
-/** One tab. Ids are never reused, so a message for a closed tab finds nothing. */
+/** One tab: always an app (home isn't a tab). Ids are never reused, so a message for a closed tab finds nothing. */
 public struct Tab {
     /** The tab's id. */
     public id: i64,
-    /** What it shows. */
-    public page: Page,
+    /** Its app. */
+    public page: AppPage,
 }
 
 /** A pinned app on home. */

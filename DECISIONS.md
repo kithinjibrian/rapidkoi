@@ -126,6 +126,26 @@ Rules:
 
 ---
 
+### DECISION-020 — What kivuli needs for Rapidkoi's frame
+
+**Status:** deferred (waiting on kivuli work; Rapidkoi uses placeholders, DECISION-018)
+**Raised:** 2026-10-17 — Session 10
+**Revisit when:** Each kivuli release. Swap the matching placeholder out.
+
+**Question:** Which kivuli additions replace PRP-002's placeholders?
+
+**Notes:**
+1. **App stylesheets and CSS classes.** An app loads one stylesheet, and `.class(name)` tags a node. Rapidkoi's themes (`src/themes.la`) need this to paint `rk-bar`, `rk-rail` and `rk-home`. kivuli's own rule (colours only from the theme) stays for kivuli itself: the colours are the app's, in one stylesheet.
+2. **A dark preference.** The app asks GTK for its dark variant (`gtk-application-prefer-dark-theme`), so text and app content match the dark frame.
+3. **Start maximized.** `.window(…)` gains a way to open maximized: the owner wants Rapidkoi to open like a browser.
+4. **A file dialog** (GtkFileDialog), for "Open a file…".
+5. **An overlay**, for the info panel over the app.
+6. **Context menus** (a popover on right-click), for tab actions.
+7. **A wrapping grid** (GtkFlowBox), for home's tiles.
+8. **Disabled text fields:** already its PRP-006 (DECISION-016).
+
+---
+
 ## RESOLVED
 
 ### DECISION-018 — Placeholders while kivuli catches up

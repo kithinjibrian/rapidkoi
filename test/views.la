@@ -1,13 +1,14 @@
 // The frame, home and the info panel, pure: what each shows and sends,
 // checked through kivuli.testing with no display.
 import rapidkoi.frame { bar, rail, label, initial };
-import rapidkoi.home { matches };
+import rapidkoi.home { Card, matches };
 import rapidkoi.panel;
-import rapidkoi.tabs { Page, Tab, Pin, AppPage, open_module, leave };
+import rapidkoi.tabs { Page, Tab, Pin, AppPage, open_module };
 import rapidkoi.actions { Msg };
 import rapidkoi.render;
 import kivuli.testing { Lookup, click, is_disabled, press, submit, texts, tooltip, type_into };
 import wasmtime { Engine, Module };
+import rapidkoi.themes { DARK, stylesheet };
 import support { fixed, titled_tree, result_of };
 
 fun counter(): AppPage {
@@ -49,10 +50,12 @@ fun the_bar_on_an_app_page() {
 
 @test
 fun the_rail() {
-    let open = [Tab { id: 1, page: Page.Home }, Tab { id: 2, page: Page.App(counter()) }];
-    let v = rail(open, 2);
-    assert_eq(click(v, "Home tab"), Ok(Msg.Select(1)));
+    let open = [Tab { id: 2, page: counter() }];
+    let v = rail(open, Some(2));
+    // Home isn't a tab: the rail lists apps only.
+    assert_eq(click(v, "Home tab"), Err(Lookup.NotFound("button \"Home tab\"")));
     assert_eq(click(v, "counter · Counter"), Ok(Msg.Select(2)));
+    assert_eq(click(rail(open, None), "counter · Counter"), Ok(Msg.Select(2)));
     assert_eq(click(v, "New tab"), Ok(Msg.NewTab));
     assert_eq(is_disabled(v, "Settings (coming soon)"), Ok(true));
     assert_eq(is_disabled(v, "More (coming soon)"), Ok(true));
@@ -77,22 +80,23 @@ fun an_empty_home_explains_how_to_start() {
 
 @test
 fun home_shows_where_you_left_off_and_pinned() {
-    let left = leave(counter());
-    let v = home.view("", pins(5), Some(left), []);
+    let c = Card { name: "counter", title: Some("Counter"), msg: Msg.Select(3) };
+    let v = home.view("", pins(5), Some(c), []);
     assert_eq(texts(v)[2], "Where you left off");
     assert_eq(texts(v)[3], "counter · Counter");
-    assert_eq(click(v, "Continue"), Ok(Msg.Continue));
+    assert_eq(click(v, "Continue"), Ok(Msg.Select(3)));
     assert_eq(texts(v)[4], "Pinned");
     assert_eq(click(v, "Open app4"), Ok(Msg.OpenPinned("app4.wasm")));
 }
 
 @test
 fun searching_filters_home() {
-    let open = [Tab { id: 7, page: Page.App(counter()) }];
+    let open = [Tab { id: 7, page: counter() }];
     let v = home.view("COUNT", pins(3), None, open);
     assert_eq(click(v, "Open counter"), Ok(Msg.Select(7)));
     assert_eq(click(v, "Open app1"), Err(Lookup.NotFound("button \"Open app1\"")));
-    let by_title = home.view("counter", [], Some(leave(counter())), []);
+    let closed = Card { name: "counter", title: Some("Counter"), msg: Msg.Continue };
+    let by_title = home.view("counter", [], Some(closed), []);
     assert_eq(click(by_title, "Open counter"), Ok(Msg.Continue));
     assert_eq(texts(home.view("zzz", pins(3), None, [])), [
         "◯",
@@ -123,4 +127,12 @@ fun the_info_panel() {
     assert_eq(click(v, "Close tab"), Ok(Msg.CloseTab(4)));
     assert_eq(click(v, "Close the panel"), Ok(Msg.TogglePanel));
     assert_eq(click(panel.view(4, counter(), true), "Unpin"), Ok(Msg.Unpin("apps/counter.wasm")));
+}
+
+@test
+fun the_dark_theme_stylesheet() {
+    assert_eq(
+        stylesheet(DARK),
+        ".rk-bar, .rk-rail {{ background-color: #242424; }}\n.rk-home {{ background-color: #161616; }}",
+    );
 }

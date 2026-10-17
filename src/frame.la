@@ -60,16 +60,16 @@ public fun bar(page: Page, draft: string, editing: bool): View<Msg> {
 }
 
 /**
- * Builds the tab rail on the right.
+ * Builds the tab rail on the right. Home isn't a tab: + and ⌂ show it.
  *
  * @param open the open tabs, in order
- * @param current the current tab's id
- * @returns the rail: one button per tab, +, then settings and more (disabled)
+ * @param current the current tab's id; `None` on home
+ * @returns the rail: one button per app, +, then settings and more (disabled)
  *
  * Example:
  *     rail(m.tabs, m.current)
  */
-public fun rail(open: Tab[], current: i64): View<Msg> {
+public fun rail(open: Tab[], current: Option<i64>): View<Msg> {
     let mut items = open.map(fun(t: Tab) = tab_button(t, current));
     items.push(icon_button("list-add-symbolic", "New tab", Some(Msg.NewTab)));
     items.push(separator());
@@ -117,13 +117,11 @@ fun icon_button(icon: string, tip: string, msg: Option<Msg>): View<Msg> = match 
     None => button("", Msg.Home).disabled(true).icon(icon).tooltip(tip).style(ButtonStyle.Subtle),
 };
 
-fun tab_button(t: Tab, current: i64): View<Msg> {
-    let look = if t.id == current { ButtonStyle.Primary } else { ButtonStyle.Subtle };
-    let b = match t.page {
-        Home => button("", Msg.Select(t.id)).icon("go-home-symbolic").tooltip("Home tab"),
-        App(p) => button(initial(p.title.unwrap_or(p.name)), Msg.Select(t.id)).tooltip(label(p)),
-    };
-    b.style(look).width(TAB_SIZE).height(TAB_SIZE)
+fun tab_button(t: Tab, current: Option<i64>): View<Msg> {
+    let look = if current == Some(t.id) { ButtonStyle.Primary } else { ButtonStyle.Subtle };
+    button(initial(t.page.title.unwrap_or(t.page.name)), Msg.Select(t.id)).tooltip(
+        label(t.page),
+    ).style(look).width(TAB_SIZE).height(TAB_SIZE)
 }
 
 fun file_of(path: string): string {

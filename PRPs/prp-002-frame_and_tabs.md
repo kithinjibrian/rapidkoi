@@ -176,3 +176,4 @@ Approved by the owner in chat:
    - Closing the last tab shows home.
 3. **Themes, starting with dark.** Rapidkoi's own parts (the bar and rail, and home's background) take colours from a Rapidkoi theme. Dark comes first: bars `#242424`, home `#161616`. Apps still can't set colours.
    - kivuli can't apply colours yet, so the theme is defined, turned into a stylesheet and tested, but not applied: a placeholder (DECISION-018) until kivuli has app stylesheets and CSS classes (DECISION-020).
+4. **Start maximized** (the owner: "start in full screen mode because it is a browser"). This means maximized: filling the screen with the system title bar kept, as browsers open. Not F11-style full screen, which would hide the window controls the owner keeps. kivuli can't maximize a window yet, so it's a placeholder: the default size stays until kivuli adds it (DECISION-020).
