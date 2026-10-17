@@ -817,6 +817,12 @@ guest/rust/counter/icon.png
 
 ---
 
+## SESSION 21 — 2026-10-18 — App icons from bundles (kivuli 0.5) — open
+
+Branch: app-icons
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 21 on a new branch. PRP-003 (bundles, format 1) is on `main`. Next, at the owner's choice: PRP-004 (remembering: an on-device store for history, pins and state across restarts, with `migrate` and starting over, DECISION-019), a `lugha-toml` package for `rapidkoi.toml`, or signing and format 2 (DECISION-009, needs the owner's review). When kivuli ships an image from bytes, show bundle icons on tabs and tiles.
