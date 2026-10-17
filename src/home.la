@@ -1,0 +1,149 @@
+/**
+ * Home, pure: what a new tab shows. The logo, "Where you left off", and the
+ * Pinned tiles, or, while the person types, the tiles that match. Search is
+ * in-session only until PRP-003 (DECISION-018).
+ *
+ * Depends on: kivuli, actions, tabs, frame, theme
+ * Used by: shell
+ */
+import kivuli { View, ButtonStyle, button, column, row, spacer, text };
+import actions { Msg };
+import tabs { Tab, Pin, LeftOff };
+import frame { initial };
+import theme {
+    SPACE_XS,
+    SPACE_MD,
+    SPACE_LG,
+    TEXT_TITLE,
+    TEXT_HEADING,
+    TILE_SIZE,
+    TILES_PER_ROW,
+    BANNER_HEIGHT,
+};
+
+/**
+ * Builds home.
+ *
+ * @param draft the search box's text: empty shows home, anything else filters it
+ * @param pinned the pinned apps
+ * @param left_off the app last left, if any
+ * @param open the open tabs (search finds their apps too)
+ * @returns the home view
+ *
+ * Example:
+ *     home.view("", m.pinned, m.left_off, m.tabs)
+ */
+public fun view(draft: string, pinned: Pin[], left_off: Option<LeftOff>, open: Tab[]): View<Msg> {
+    let logo: View<Msg> = row([
+        text("◯").size(TEXT_TITLE),
+        text("Rapidkoi").size(TEXT_TITLE).bold(),
+    ]).spacing(SPACE_MD);
+    let query = draft.trim();
+    let mut parts = [logo];
+    if query == "" {
+        if let Some(l) = left_off {
+            parts.push(card(l));
+        }
+        if pinned.len > 0 {
+            parts.push(text("Pinned").size(TEXT_HEADING).bold());
+            parts.push(grid(pinned.map(fun(p: Pin) = tile(p.name, Msg.OpenPinned(p.path)))));
+        }
+        if left_off.is_none() && pinned.len == 0 {
+            parts.push(
+                text("Open an app: type the path of a .wasm file above, then press Enter.").dim(),
+            );
+        }
+    } else {
+        let found = results(query, pinned, left_off, open);
+        if found.len == 0 {
+            parts.push(text("Nothing matches “{query}”").dim());
+        } else {
+            parts.push(grid(found));
+        }
+    }
+    column(parts).spacing(SPACE_LG)
+}
+
+/**
+ * Says whether a search matches a name or title, ignoring case.
+ *
+ * @param query what the person typed
+ * @param name an app's name
+ * @param title its screen title, if any
+ * @returns true when either contains the query
+ *
+ * Example:
+ *     matches("COUNT", "counter", None)
+ */
+public fun matches(query: string, name: string, title: Option<string>): bool {
+    let q = lower(query);
+    lower(name).contains(q) || lower(title.unwrap_or("")).contains(q)
+}
+
+/** The tiles matching `query`: open apps, pinned apps, and where the person left off. */
+fun results(query: string, pinned: Pin[], left_off: Option<LeftOff>, open: Tab[]): View<Msg>[] {
+    let mut found: View<Msg>[] = [];
+    for t of open {
+        if let App(p) = t.page {
+            if matches(query, p.name, p.title) {
+                found.push(tile(p.name, Msg.Select(t.id)));
+            }
+        }
+    }
+    for p of pinned {
+        if matches(query, p.name, None) {
+            found.push(tile(p.name, Msg.OpenPinned(p.path)));
+        }
+    }
+    if let Some(l) = left_off {
+        if matches(query, l.name, l.title) {
+            found.push(tile(l.name, Msg.Continue));
+        }
+    }
+    found
+}
+
+/** "Where you left off": the app and its last screen, and Continue. No picture until PRP-003. */
+fun card(l: LeftOff): View<Msg> {
+    let place = match l.title {
+        Some(t) => "{l.name} · {t}",
+        None => l.name,
+    };
+    column([
+        text("Where you left off").size(TEXT_HEADING).bold(),
+        spacer(),
+        row([text(place).expand(), button("Continue", Msg.Continue).style(ButtonStyle.Primary)]),
+    ]).padding(SPACE_LG).height(BANNER_HEIGHT)
+}
+
+/** One big tile: the app's initial (its art until PRP-003), and its name below. */
+fun tile(name: string, msg: Msg): View<Msg> = column([
+    button(initial(name), msg).width(TILE_SIZE).height(TILE_SIZE).tooltip("Open {name}"),
+    text(name),
+]).spacing(SPACE_XS);
+
+/** Rows of `TILES_PER_ROW` tiles: a wrapping grid until kivuli has one (DECISION-018). */
+fun grid(tiles: View<Msg>[]): View<Msg> {
+    let mut rows: View<Msg>[] = [];
+    let mut current: View<Msg>[] = [];
+    for t of tiles {
+        current.push(t);
+        if current.len == TILES_PER_ROW {
+            rows.push(row(current).spacing(SPACE_MD));
+            current = [];
+        }
+    }
+    if current.len > 0 {
+        rows.push(row(current).spacing(SPACE_MD));
+    }
+    column(rows).spacing(SPACE_MD)
+}
+
+/** ASCII and Latin-1 lower case (what `char.to_lower` covers). */
+fun lower(s: string): string {
+    let mut out = "";
+    for c of s.chars() {
+        out = out + "{c.to_lower()}";
+    }
+    out
+}

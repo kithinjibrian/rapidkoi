@@ -1,0 +1,126 @@
+// The frame, home and the info panel, pure: what each shows and sends,
+// checked through kivuli.testing with no display.
+import rapidkoi.frame { bar, rail, label, initial };
+import rapidkoi.home { matches };
+import rapidkoi.panel;
+import rapidkoi.tabs { Page, Tab, Pin, AppPage, open_module, leave };
+import rapidkoi.actions { Msg };
+import rapidkoi.render;
+import kivuli.testing { Lookup, click, is_disabled, press, submit, texts, tooltip, type_into };
+import wasmtime { Engine, Module };
+import support { fixed, titled_tree, result_of };
+
+fun counter(): AppPage {
+    let engine = Engine.new();
+    let wat = fixed(1, [1], titled_tree("Count: 0", "Counter"), result_of([2]));
+    open_module("counter", "apps/counter.wasm", engine, Module.from_text(engine, wat).unwrap())
+}
+
+fun pins(n: i64): Pin[] {
+    let mut out: Pin[] = [];
+    for i in 0..n {
+        out.push(Pin { name: "app{i}", path: "app{i}.wasm" });
+    }
+    out
+}
+
+@test
+fun the_bar_on_home() {
+    let v = bar(Page.Home, "", false);
+    assert_eq(is_disabled(v, "Back (comes with links)"), Ok(true));
+    assert_eq(is_disabled(v, "Forward (comes with links)"), Ok(true));
+    assert_eq(is_disabled(v, "Share (comes with links)"), Ok(true));
+    assert_eq(click(v, "App info"), Err(Lookup.NotFound("button \"App info\"")));
+    assert_eq(press(v, "Ctrl+K"), Ok(Msg.FocusSearch));
+    assert_eq(type_into(v, "address", "count"), Ok(Msg.Draft("count")));
+    assert_eq(submit(v, "address"), Ok(Msg.Go));
+}
+
+@test
+fun the_bar_on_an_app_page() {
+    let v = bar(Page.App(counter()), "", false);
+    assert_eq(click(v, "App info"), Ok(Msg.TogglePanel));
+    assert_eq(click(v, "Home"), Ok(Msg.Home));
+    assert_eq(click(v, "📄 counter.wasm · local file"), Ok(Msg.EditAddress));
+    assert_eq(press(v, "Ctrl+K"), Ok(Msg.EditAddress));
+    // Editing turns the address back into the box.
+    assert_eq(submit(bar(Page.App(counter()), "apps/counter.wasm", true), "address"), Ok(Msg.Go));
+}
+
+@test
+fun the_rail() {
+    let open = [Tab { id: 1, page: Page.Home }, Tab { id: 2, page: Page.App(counter()) }];
+    let v = rail(open, 2);
+    assert_eq(click(v, "Home tab"), Ok(Msg.Select(1)));
+    assert_eq(click(v, "counter · Counter"), Ok(Msg.Select(2)));
+    assert_eq(click(v, "New tab"), Ok(Msg.NewTab));
+    assert_eq(is_disabled(v, "Settings (coming soon)"), Ok(true));
+    assert_eq(is_disabled(v, "More (coming soon)"), Ok(true));
+}
+
+@test
+fun labels_and_initials() {
+    assert_eq(label(counter()), "counter · Counter");
+    assert_eq(initial("counter"), "C");
+    assert_eq(initial(""), "?");
+}
+
+@test
+fun an_empty_home_explains_how_to_start() {
+    let v = home.view("", [], None, []);
+    assert_eq(texts(v), [
+        "◯",
+        "Rapidkoi",
+        "Open an app: type the path of a .wasm file above, then press Enter.",
+    ]);
+}
+
+@test
+fun home_shows_where_you_left_off_and_pinned() {
+    let left = leave(counter());
+    let v = home.view("", pins(5), Some(left), []);
+    assert_eq(texts(v)[2], "Where you left off");
+    assert_eq(texts(v)[3], "counter · Counter");
+    assert_eq(click(v, "Continue"), Ok(Msg.Continue));
+    assert_eq(texts(v)[4], "Pinned");
+    assert_eq(click(v, "Open app4"), Ok(Msg.OpenPinned("app4.wasm")));
+}
+
+@test
+fun searching_filters_home() {
+    let open = [Tab { id: 7, page: Page.App(counter()) }];
+    let v = home.view("COUNT", pins(3), None, open);
+    assert_eq(click(v, "Open counter"), Ok(Msg.Select(7)));
+    assert_eq(click(v, "Open app1"), Err(Lookup.NotFound("button \"Open app1\"")));
+    let by_title = home.view("counter", [], Some(leave(counter())), []);
+    assert_eq(click(by_title, "Open counter"), Ok(Msg.Continue));
+    assert_eq(texts(home.view("zzz", pins(3), None, [])), [
+        "◯",
+        "Rapidkoi",
+        "Nothing matches “zzz”",
+    ]);
+}
+
+@test
+fun matching_ignores_case_and_reads_titles() {
+    assert_eq(matches("COUNT", "counter", None), true);
+    assert_eq(matches("sprint", "board", Some("Sprint 3")), true);
+    assert_eq(matches("mail", "board", Some("Sprint 3")), false);
+}
+
+@test
+fun the_info_panel() {
+    let v = panel.view(4, counter(), false);
+    assert_eq(texts(v), [
+        "counter",
+        "Counter",
+        "📄 apps/counter.wasm · local file",
+        "Contract v1",
+        "Permissions: none. This app can't reach anything outside itself.",
+    ]);
+    assert_eq(click(v, "Restart"), Ok(Msg.Tab(4, render.Msg.Restart)));
+    assert_eq(click(v, "Pin"), Ok(Msg.Pin));
+    assert_eq(click(v, "Close tab"), Ok(Msg.CloseTab(4)));
+    assert_eq(click(v, "Close the panel"), Ok(Msg.TogglePanel));
+    assert_eq(click(panel.view(4, counter(), true), "Unpin"), Ok(Msg.Unpin("apps/counter.wasm")));
+}

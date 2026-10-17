@@ -1,0 +1,285 @@
+/**
+ * Pages and tabs: what one tab holds, and the life of an app page. Starting
+ * a guest from a file or a module, sending it events, Restart, and leaving
+ * a page with its state so Continue can resume it. Calls guests (bounded by
+ * fuel); never draws.
+ *
+ * Depends on: cbor, wasmtime, guest, contract, render
+ * Used by: actions, frame, home, panel, shell
+ */
+import cbor { Value };
+import wasmtime { Engine, Module };
+import guest { Guest, compile, open, reason };
+import contract { Described, ContractError, read_tree, read_update, envelope };
+import render { Msg };
+
+/** What an app page shows. */
+public enum Screen {
+    /** The guest, its state, and its decoded screen. */
+    Running(Guest, u8[], Described),
+    /** Why the app isn't running, and whether Restart can help. */
+    Stopped(string, bool),
+}
+
+/** A compiled app, kept so Restart and Continue can start it again. */
+public struct Program {
+    engine: Engine,
+    module: Module,
+}
+
+/** One app in a tab. */
+public struct AppPage {
+    /** The file's name without `.wasm`: what Rapidkoi calls the app. */
+    public name: string,
+    /** The file it came from, as the person gave it. */
+    public path: string,
+    /** The current screen's title, if the app gives one. */
+    public title: Option<string>,
+    program: Option<Program>,
+    /** What's on screen. */
+    public screen: Screen,
+}
+
+/** What a tab shows. */
+public enum Page {
+    /** Home: a new tab. */
+    Home,
+    /** An app. */
+    App(AppPage),
+}
+
+/** One tab. Ids are never reused, so a message for a closed tab finds nothing. */
+public struct Tab {
+    /** The tab's id. */
+    public id: i64,
+    /** What it shows. */
+    public page: Page,
+}
+
+/** A pinned app on home. */
+public struct Pin {
+    /** The app's name. */
+    public name: string,
+    /** Its file. */
+    public path: string,
+}
+
+/** The app page the person last left, for "Where you left off". */
+public struct LeftOff {
+    /** The app's name. */
+    public name: string,
+    /** Its file. */
+    public path: string,
+    /** Its last screen title, if any. */
+    public title: Option<string>,
+    /** Its state when left; `None` when it had stopped. */
+    public state: Option<u8[]>,
+    program: Option<Program>,
+}
+
+/**
+ * Opens the app in a local file the person chose.
+ *
+ * @param engine the program's engine
+ * @param path the file
+ * @returns the page: running, or stopped with the reason (no Restart when
+ *     the file couldn't be read or compiled)
+ *
+ * Example:
+ *     open_path(engine, "counter.wasm")
+ */
+public fun open_path(engine: Engine, path: string): AppPage {
+    let name = name_of(path);
+    let bytes = match read_bytes(path) {
+        Ok(b) => b,
+        Err(e) => {
+            return failed(name, path, "Couldn't read {path}: {e}");
+        }
+    };
+    match compile(engine, bytes) {
+        Ok(module) => open_module(name, path, engine, module),
+        Err(e) => failed(name, path, reason(e)),
+    }
+}
+
+/**
+ * Starts a compiled app as a page.
+ *
+ * @param name what to call it
+ * @param path where it came from
+ * @param engine the engine `module` was compiled with
+ * @param module the app
+ * @returns the page, running or stopped (with Restart)
+ *
+ * Example:
+ *     open_module("counter", "counter.wasm", engine, module)
+ */
+public fun open_module(name: string, path: string, engine: Engine, module: Module): AppPage {
+    let program = Program { engine: engine, module: module };
+    titled(AppPage {
+        name: name,
+        path: path,
+        title: None,
+        program: Some(program),
+        screen: start(program, None),
+    })
+}
+
+/**
+ * Handles a message from the page's own screen.
+ *
+ * @param p the page
+ * @param msg an event for the guest, or Restart
+ * @returns the next page; any guest or contract failure stops it
+ *
+ * Example:
+ *     handle(page, Msg.Restart)
+ */
+public fun handle(p: AppPage, msg: Msg): AppPage = match (p.screen, msg) {
+    (Running(g, state, _), Event(value, text)) => titled(AppPage {
+        screen: step(g, state, value, text),
+        ..p,
+    }),
+    // Events only come from a running screen; once stopped, ignore them.
+    (Stopped(_, _), Event(_, _)) => p,
+    (_, Restart) => {
+        close_page(p);
+        match p.program {
+            Some(prog) => titled(AppPage { screen: start(prog, None), ..p }),
+            None => p,
+        }
+    }
+};
+
+/**
+ * Frees a page's guest. Closing twice does nothing.
+ *
+ * Example:
+ *     close_page(page)
+ */
+public fun close_page(p: AppPage) {
+    if let Running(g, _, _) = p.screen {
+        g.close();
+    }
+}
+
+/**
+ * Closes a page and remembers it for "Where you left off".
+ *
+ * @param p the page
+ * @returns what Continue needs: its name, title, state and compiled module
+ *
+ * Example:
+ *     let left = leave(page);
+ */
+public fun leave(p: AppPage): LeftOff {
+    let left = LeftOff {
+        name: p.name,
+        path: p.path,
+        title: p.title,
+        state: state_of(p),
+        program: p.program,
+    };
+    close_page(p);
+    left
+}
+
+/**
+ * Reopens a page that was left, in a fresh store, with its saved state:
+ * `view(state)` without calling `init`. A page left stopped starts afresh.
+ *
+ * @param l what `leave` kept
+ * @returns the page, running or stopped
+ *
+ * Example:
+ *     resume(left)
+ */
+public fun resume(l: LeftOff): AppPage = match l.program {
+    Some(prog) => titled(AppPage {
+        name: l.name,
+        path: l.path,
+        title: l.title,
+        program: Some(prog),
+        screen: start(prog, l.state),
+    }),
+    None => failed(l.name, l.path, "This app couldn't be reopened"),
+};
+
+/**
+ * Returns a page's current state.
+ *
+ * @returns the state bytes; `None` when the page has stopped
+ *
+ * Example:
+ *     state_of(page)
+ */
+public fun state_of(p: AppPage): Option<u8[]> = match p.screen {
+    Running(_, state, _) => Some(state),
+    Stopped(_, _) => None,
+};
+
+/** A file path's last part, without `.wasm`. */
+fun name_of(path: string): string {
+    let parts = path.split("/");
+    let file = parts[parts.len - 1];
+    if file.ends_with(".wasm") && file.len > 5 { file.slice(0, file.len - 5) } else { file }
+}
+
+fun failed(name: string, path: string, why: string): AppPage = AppPage {
+    name: name,
+    path: path,
+    title: None,
+    program: None,
+    screen: Screen.Stopped(why, false),
+};
+
+/** Copies the running screen's title onto the page; a stopped page keeps its last one. */
+fun titled(p: AppPage): AppPage = match p.screen {
+    Running(_, _, d) => AppPage { title: d.title, ..p },
+    Stopped(_, _) => p,
+};
+
+/** Opens the guest in a fresh store, then `init` (unless resuming `saved`) and `view`. */
+fun start(p: Program, saved: Option<u8[]>): Screen = match open(p.engine, p.module) {
+    Err(e) => Screen.Stopped(reason(e), true),
+    Ok(g) => match saved {
+        Some(state) => show(g, state),
+        None => match g.init() {
+            Err(e) => halt(g, reason(e)),
+            Ok(state) => show(g, state),
+        },
+    },
+};
+
+/** Sends one event to the guest's `update`, then renders the new state. */
+fun step(g: Guest, state: u8[], msg: Value, text: Option<string>): Screen = match g.update(
+    state,
+    envelope(msg, text),
+) {
+    Err(e) => halt(g, reason(e)),
+    Ok(bytes) => match read_update(bytes) {
+        Err(e) => halt(g, broken("update result", e)),
+        Ok(next) => show(g, next),
+    },
+};
+
+/** Calls `view(state)` and decodes the screen. */
+fun show(g: Guest, state: u8[]): Screen = match g.view(state) {
+    Err(e) => halt(g, reason(e)),
+    Ok(bytes) => match read_tree(bytes) {
+        Err(e) => halt(g, broken("screen description", e)),
+        Ok(d) => Screen.Running(g, state, d),
+    },
+};
+
+/** Stops the guest: frees its store and keeps why. */
+fun halt(g: Guest, why: string): Screen {
+    g.close();
+    Screen.Stopped(why, true)
+}
+
+fun broken(what: string, e: ContractError): string = match e {
+    Invalid(path, problem) => "This app's {what} is broken ({path}: {problem})",
+    TooLong(_, n) => "This app's {what} is too large ({n} bytes)",
+    Decode(d) => "This app's {what} is broken (bad CBOR: {d})",
+};
