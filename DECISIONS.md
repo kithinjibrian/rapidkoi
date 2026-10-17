@@ -78,6 +78,30 @@ Rules:
 
 ---
 
+### DECISION-014 — Running two apps at once (kivuli single-instance)
+
+**Status:** deferred
+**Raised:** 2026-10-17 — Session 5
+**Revisit when:** The shell runs more than one app, or a second launch must open a second app.
+
+**Question:** kivuli starts GTK with `gtk_application_new(id, 0)` (`../kivuli/src/live.la:74`), so GTK makes the program single-instance: a second `./main other.wasm` raises the first window and drops the new app. Should kivuli accept application flags (e.g. `G_APPLICATION_NON_UNIQUE`, or `HANDLES_OPEN` for links later)?
+
+**Notes:** A kivuli gap, fixed upstream when needed. Step 1 runs one app, so it's a known limitation. Build path step 2 (links) will need `HANDLES_OPEN`-style behaviour anyway.
+
+---
+
+### DECISION-015 — A file-size query in std.fs (lughac)
+
+**Status:** deferred
+**Raised:** 2026-10-17 — Session 5
+**Revisit when:** Opening apps that aren't local files the person chose (step 2), or the next lughac std work.
+
+**Question:** `std.fs` has no size query, so the shell's 32 MB module cap is checked after `read_bytes` has read the whole file. Add `fs.size(path)` (or `metadata`) to lughac's std?
+
+**Notes:** A lughac gap, reported upstream. Acceptable for step 1: the file is local and chosen by the person.
+
+---
+
 ## RESOLVED
 
 ### DECISION-012 — UI contract v1
