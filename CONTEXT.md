@@ -627,6 +627,12 @@ docs/DESIGN.md — the frame tokens
 
 ---
 
+## SESSION 16 — 2026-10-17 — The page's top-right curve (kivuli 0.4) — open
+
+Branch: page-curve
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 12 on a new branch. PRP-002 with Amendments 1 and 2 is on `main`. Wait for the owner's style feedback before restyling. Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), discussed in chat first. As kivuli ships the rest of DECISION-020, swap each placeholder out.
