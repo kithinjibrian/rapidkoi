@@ -206,6 +206,12 @@ DECISIONS.md          — 014 (kivuli single-instance) and 015 (std.fs size) def
 
 ---
 
+## SESSION 6 — 2026-10-17 — Build PRP-001: the shell — open
+
+Branch: prp-001-shell
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 6 first. If the owner approved PRP-001, build it on branch `prp-001-shell`, test-first, following the PRP exactly; merge once every VALIDATION command passes; then tell the owner exactly what to run to see the window. If they asked for changes, update the PRP and present it again.

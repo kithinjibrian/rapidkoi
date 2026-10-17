@@ -1,3 +1,5 @@
+**Status:** approved by the owner, 2026-10-17 (session 6)
+
 ## FEATURE: The shell: load one local WebAssembly app and run it under UI contract v1
 
 ## OBJECTIVE
