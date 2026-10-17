@@ -947,6 +947,12 @@ CLAUDE.md (rule 3, commands, tree, known issues), CHANGELOG.md
 
 ---
 
+## SESSION 24 — 2026-10-18 — Split window.la (308 lines) into window and navigate — open
+
+Branch: split-window
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 24 on a new branch. PRP-004 (local development) is on `main`. Next, at the owner's choice:
