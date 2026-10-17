@@ -1,3 +1,5 @@
+**Status:** approved by the owner, 2026-10-17 (session 9)
+
 ## FEATURE: Rapidkoi's frame and tabs: the bar, the tab rail, home, and the app info panel
 
 ## OBJECTIVE

@@ -335,6 +335,12 @@ PRPs/prp-002-frame_and_tabs.md — for approval
 
 ---
 
+## SESSION 9 — 2026-10-17 — Build PRP-002: frame and tabs — open
+
+Branch: prp-002-frame
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 9 on `prp-002-frame`. If the owner approved PRP-002, build it test-first, exactly, with its placeholders. Move start/step/show/halt from shell.la into tabs.la first, keeping PRP-001's tests green, then the rest. Merge once every VALIDATION command passes. Then PRP-003 (remembering).
