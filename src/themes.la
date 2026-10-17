@@ -1,10 +1,10 @@
 /**
  * Rapidkoi's themes: the colours of its own parts as kivuli typed looks.
- * The frame (around the page, with the rail on it) is one colour, and the
- * page sits in it as a rounded card, as in the owner's inspiration. The
- * header bar keeps the system's colour until kivuli can style it
- * (DECISION-020). Apps never get colours; their content follows the GTK
- * theme. Dark is first and the default; others come later, with settings.
+ * The frame (the header bar, the rail and the gaps around the page) is one
+ * flat colour, with no shadow, and the page sits in it as a rounded card, as
+ * in the owner's inspiration. Apps never get colours; their content follows
+ * the GTK theme. Dark is first and the default; others come later, with
+ * settings.
  *
  * Depends on: kivuli, theme
  * Used by: window, shell
@@ -59,6 +59,7 @@ public fun kivuli_theme(t: Theme): Looks = looks(
  *     surface(DARK, Look.Page)
  */
 public fun surface(t: Theme, l: Look): Surface = match l {
-    Frame => Surface { background: Some(hex(t.frame)), ..Surface.theme() },
+    // Flat: no theme shadow or edge line, so the header bar, rail and gaps are one surface.
+    Frame => Surface { background: Some(hex(t.frame)), flat: Some(true), ..Surface.theme() },
     Page => Surface { background: Some(hex(t.page)), radius: Some(PAGE_RADIUS), ..Surface.theme() },
 };

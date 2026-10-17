@@ -522,6 +522,42 @@ docs/source/meetings/2026-10-17-ui/screenshot-3-after-amendment-2.png, inspirati
 
 ---
 
+## SESSION 13 — 2026-10-17 — The header bar takes the frame look (kivuli 0.3) — closed
+
+Branch: header-look → merged into main
+
+### WHAT WAS DONE
+
+kivuli 0.3.0 shipped `.header_style([…])` and `Surface.flat`. Rapidkoi now depends on kivuli 0.3, gives the header bar `Look.Frame`, and makes the frame flat. The top row and the rail are one `#242424` surface, with no shadow (the owner's session 12 request).
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml, lugha.lock — kivuli 0.3 (0.3.0, by lughac update)
+src/themes.la — Frame is flat; doc comment
+src/shell.la  — .header_style([Look.Frame])
+test/views.la — the frame is flat, the page isn't
+CLAUDE.md, DECISIONS.md (020: item done, renumbered), docs/DESIGN.md, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- views: Frame flat, Page not.
+
+### DECISIONS MADE
+
+- None new.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check.
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 12 on a new branch. PRP-002 with Amendments 1 and 2 is on `main`. Wait for the owner's style feedback before restyling. Next is PRP-003 (remembering: an on-device store for history and pins, loose search, `banner`/`private`, generated art, DECISION-019), discussed in chat first. As kivuli ships the rest of DECISION-020, swap each placeholder out.

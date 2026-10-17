@@ -151,4 +151,7 @@ fun the_dark_theme() {
     // Only backgrounds and the card's corners: text and borders stay the GTK theme's.
     assert_eq(surface(DARK, Look.Page).text, None);
     assert_eq(surface(DARK, Look.Frame).radius, None);
+    // The frame is flat: no theme shadow under the header bar.
+    assert_eq(surface(DARK, Look.Frame).flat, Some(true));
+    assert_eq(surface(DARK, Look.Page).flat, None);
 }

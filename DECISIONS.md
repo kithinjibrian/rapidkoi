@@ -139,13 +139,13 @@ Rules:
   - typed looks and themes (`.style`, `.theme`), which replaced the stylesheet idea
   - `.maximized()`
   - `.header(start, title, end)`: the bar lives in the title bar
+  - kivuli 0.3.0: `.header_style([…])` and `Surface.flat`. The header bar takes the flat frame look, with no shadow (session 13)
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
 - **Still to come:**
-  1. **The header bar's own look, and no shadow.** Today it is the system's `#272727`, with a 2 px dark shadow under it (measured in the owner's screenshot, session 12). The owner wants it the frame's `#242424`, with no shadow, so the top and the rail read as one surface.
-  2. a file dialog
-  3. an overlay, for the panel over the app
-  4. context menus, for tab actions
-  5. a wrapping grid, for home's tiles
+  1. a file dialog
+  2. an overlay, for the panel over the app
+  3. context menus, for tab actions
+  4. a wrapping grid, for home's tiles
 
 ---
 
