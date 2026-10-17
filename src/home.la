@@ -6,10 +6,10 @@
  * Depends on: kivuli, actions, tabs, frame, theme
  * Used by: shell
  */
-import kivuli { View, ButtonStyle, button, column, row, spacer, text };
+import kivuli { View, Image, ButtonStyle, button, column, row, spacer, text };
 import actions { Msg };
 import tabs { Tab, Pin };
-import frame { initial };
+import frame { initial, icon_of };
 import theme {
     SPACE_XS,
     SPACE_MD,
@@ -17,6 +17,7 @@ import theme {
     TEXT_TITLE,
     TEXT_HEADING,
     TILE_SIZE,
+    TILE_ICON,
     TILES_PER_ROW,
     BANNER_HEIGHT,
 };
@@ -29,6 +30,8 @@ public struct Card {
     public title: Option<string>,
     /** `Select(id)` for an open tab, `Continue` for a closed app. */
     public msg: Msg,
+    /** The app's icon, keyed, if it has one. */
+    public icon: Option<Image>,
 }
 
 /**
@@ -56,7 +59,13 @@ public fun view(draft: string, pinned: Pin[], card: Option<Card>, open: Tab[]): 
         }
         if pinned.len > 0 {
             parts.push(text("Pinned").size(TEXT_HEADING).bold());
-            parts.push(grid(pinned.map(fun(p: Pin) = tile(p.name, Msg.OpenPinned(p.path)))));
+            parts.push(
+                grid(
+                    pinned.map(
+                        fun(p: Pin) = tile(p.name, Msg.OpenPinned(p.path), icon_of(p.path, p.icon)),
+                    ),
+                ),
+            );
         }
         if card.is_none() && pinned.len == 0 {
             parts.push(
@@ -95,18 +104,18 @@ fun results(query: string, pinned: Pin[], card: Option<Card>, open: Tab[]): View
     let mut found: View<Msg>[] = [];
     for t of open {
         if matches(query, t.page.name, t.page.title) {
-            found.push(tile(t.page.name, Msg.Select(t.id)));
+            found.push(tile(t.page.name, Msg.Select(t.id), icon_of(t.page.path, t.page.icon)));
         }
     }
     for p of pinned {
         if matches(query, p.name, None) {
-            found.push(tile(p.name, Msg.OpenPinned(p.path)));
+            found.push(tile(p.name, Msg.OpenPinned(p.path), icon_of(p.path, p.icon)));
         }
     }
     // An open tab is already among the tabs above; only a closed app adds a tile.
     if let Some(c) = card {
         if c.msg == Msg.Continue && matches(query, c.name, c.title) {
-            found.push(tile(c.name, Msg.Continue));
+            found.push(tile(c.name, Msg.Continue, c.icon));
         }
     }
     found
@@ -125,11 +134,16 @@ fun left_off(c: Card): View<Msg> {
     ]).padding(SPACE_LG).height(BANNER_HEIGHT)
 }
 
-/** One big tile: the app's initial (its art until PRP-003), and its name below. */
-fun tile(name: string, msg: Msg): View<Msg> = column([
-    button(initial(name), msg).width(TILE_SIZE).height(TILE_SIZE).tooltip("Open {name}"),
-    text(name),
-]).spacing(SPACE_XS);
+/** One big tile: the app's icon (or its initial without one), and its name below. */
+fun tile(name: string, msg: Msg, icon: Option<Image>): View<Msg> {
+    let face = match icon {
+        Some(img) => button("", msg).image(img).size(TILE_ICON),
+        None => button(initial(name), msg),
+    };
+    column([face.width(TILE_SIZE).height(TILE_SIZE).tooltip("Open {name}"), text(name)]).spacing(
+        SPACE_XS,
+    )
+}
 
 /** Rows of `TILES_PER_ROW` tiles: a wrapping grid until kivuli has one (DECISION-018). */
 fun grid(tiles: View<Msg>[]): View<Msg> {

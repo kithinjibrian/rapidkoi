@@ -37,6 +37,10 @@ public const WINDOW_HEIGHT: i64 = 700;
 public const FRAME_THICKNESS: i64 = 50;
 /** One tab button in the rail, square: the header bar's icon-button size. */
 public const TAB_SIZE: i64 = 34;
+/** An app icon on a rail tab, in pixels. */
+public const TAB_ICON: i64 = 22;
+/** An app icon on a home tile, in pixels. */
+public const TILE_ICON: i64 = 64;
 /** The rail's own width: the frame's thickness less its padding on both sides. */
 public const RAIL_WIDTH: i64 = FRAME_THICKNESS - 2 * SPACE_SM;
 /** A Pinned tile on home, in pixels (square). */

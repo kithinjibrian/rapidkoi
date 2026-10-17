@@ -35,6 +35,8 @@ public struct AppPage {
     public name: string,
     /** The bundle's manifest; `None` for a bare `.wasm`. */
     public manifest: Option<Manifest>,
+    /** The app's icon as PNG bytes, from its bundle. */
+    public icon: Option<u8[]>,
     /** The file it came from, as the person gave it. */
     public path: string,
     /** The current screen's title, if the app gives one. */
@@ -66,6 +68,8 @@ public struct Pin {
     public name: string,
     /** Its file. */
     public path: string,
+    /** Its icon, if it has one. */
+    public icon: Option<u8[]>,
 }
 
 /** The app page the person last left, for "Where you left off". */
@@ -81,6 +85,8 @@ public struct LeftOff {
     /** The version of that state's shape (1 for a bare `.wasm`). */
     public state_version: i64,
     manifest: Option<Manifest>,
+    /** Its icon, if it had one. */
+    public icon: Option<u8[]>,
     program: Option<Program>,
 }
 
@@ -96,7 +102,11 @@ public struct LeftOff {
  *     open_path(engine, "counter.wasm")
  */
 public fun open_path(engine: Engine, path: string): AppPage = match load(engine, path) {
-    Ok(l) => AppPage { manifest: l.manifest, ..open_module(l.name, path, engine, l.module) },
+    Ok(l) => AppPage {
+        manifest: l.manifest,
+        icon: l.icon,
+        ..open_module(l.name, path, engine, l.module),
+    },
     Err((name, why)) => failed(name, path, why),
 };
 
@@ -117,6 +127,7 @@ public fun open_module(name: string, path: string, engine: Engine, module: Modul
     titled(AppPage {
         name: name,
         manifest: None,
+        icon: None,
         path: path,
         title: None,
         program: Some(program),
@@ -179,6 +190,7 @@ public fun leave(p: AppPage): LeftOff {
         state: state_of(p),
         state_version: p.manifest.map(fun(m: Manifest) = m.state_version).unwrap_or(1),
         manifest: p.manifest,
+        icon: p.icon,
         program: p.program,
     };
     close_page(p);
@@ -199,6 +211,7 @@ public fun resume(l: LeftOff): AppPage = match l.program {
     Some(prog) => titled(AppPage {
         name: l.name,
         manifest: l.manifest,
+        icon: l.icon,
         path: l.path,
         title: l.title,
         program: Some(prog),
@@ -223,6 +236,7 @@ public fun state_of(p: AppPage): Option<u8[]> = match p.screen {
 fun failed(name: string, path: string, why: string): AppPage = AppPage {
     name: name,
     manifest: None,
+    icon: None,
     path: path,
     title: None,
     program: None,

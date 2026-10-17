@@ -56,6 +56,8 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the
 | `FRAME_THICKNESS` | 50 | the rail's whole width, equal to the header bar's height: the frame is an even L (session 15) |
 | `RAIL_WIDTH` | 34 | the rail's column (`FRAME_THICKNESS` less `SPACE_SM` padding each side) |
 | `TAB_SIZE` | 34 | one tab button in the rail: the header's icon-button size |
+| `TAB_ICON` | 22 | an app's icon on its rail tab |
+| `TILE_ICON` | 64 | an app's icon on its home tile |
 | `TILE_SIZE` | 120 | a Pinned tile on home (square) |
 | `TILES_PER_ROW` | 4 | until kivuli has a wrapping grid (DECISION-018) |
 | `BANNER_HEIGHT` | 180 | "Where you left off" |

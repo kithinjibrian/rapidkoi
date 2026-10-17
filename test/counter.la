@@ -97,6 +97,9 @@ fun the_counter_packed_as_a_bundle_runs_the_same() {
     ]);
     assert_eq(packed.is_ok(), true);
     let (opened, _) = boot(["./main", out]);
+    // Its tab shows the bundle's icon, not the letter.
+    assert_eq(click(view(opened), "C").is_err(), true);
+    assert_eq(click(view(opened), "Counter · Counter").is_ok(), true);
     let mut m = opened;
     m = step(m, click(view(m), "Add").unwrap());
     assert_eq(shown(m)[1], "Count: 1");

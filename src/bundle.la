@@ -8,7 +8,14 @@
  * Used by: pack, tabs, panel
  */
 import cbor { Value, Entry, Limits, decode, encode };
-import limits { MAX_BUNDLE, MAX_MODULE, MAX_ASSETS };
+import limits {
+    MAX_BUNDLE,
+    MAX_MODULE,
+    MAX_ASSETS,
+    MAX_ICON_PX,
+    MAX_BANNER_WIDTH,
+    MAX_BANNER_HEIGHT,
+};
 public import rules { BundleError, reason };
 
 /** The format this Rapidkoi reads and writes. */
@@ -166,14 +173,12 @@ fun check(b: Bundle): Result<(), BundleError> {
         rules.check_asset(a.0, a.1)?;
     }
     if let Some(i) = m.icon {
-        if asset(b, i).is_none() {
-            return Err(BundleError.MissingAsset("icon", i));
-        }
+        let bytes = asset(b, i).ok_or(BundleError.MissingAsset("icon", i))?;
+        rules.check_role("icon", bytes, MAX_ICON_PX, MAX_ICON_PX)?;
     }
     for banner of m.banners {
-        if asset(b, banner.1).is_none() {
-            return Err(BundleError.MissingAsset("banners", banner.1));
-        }
+        let bytes = asset(b, banner.1).ok_or(BundleError.MissingAsset("banners", banner.1))?;
+        rules.check_role("banners", bytes, MAX_BANNER_WIDTH, MAX_BANNER_HEIGHT)?;
     }
     Ok(())
 }
