@@ -16,7 +16,10 @@ public fun kv(pairs: (string, Value)[]): Value = Value.Map(
 );
 
 /** A contract node without children. */
-public fun leaf(kind: string, props: (string, Value)[]): Value = kv([("kind", t(kind)), ("props", kv(props))]);
+public fun leaf(kind: string, props: (string, Value)[]): Value = kv([
+    ("kind", t(kind)),
+    ("props", kv(props)),
+]);
 
 /** A contract container node. */
 public fun parent(kind: string, props: (string, Value)[], children: Value[]): Value = kv([
@@ -44,7 +47,7 @@ public fun deep(depth: i64): Value {
 }
 
 /** One hex digit. */
-fun hex(n: u8): string = "0123456789abcdef".slice(n as i64, (n as i64) + 1);
+fun hex(n: u8): string = "0123456789abcdef".slice(n as i64, n as i64 + 1);
 
 /** The bytes as a WebAssembly text data string: every byte escaped as `\hh`. */
 public fun wat_bytes(bytes: u8[]): string {
@@ -56,7 +59,7 @@ public fun wat_bytes(bytes: u8[]): string {
 }
 
 /** A (pointer, length) packed the contract's way: pointer high, length low. */
-public fun pack(ptr: i64, len: i64): i64 = (ptr << 32) | len;
+public fun pack(ptr: i64, len: i64): i64 = ptr << 32 | len;
 
 /**
  * A guest answering every call with fixed bytes: `init` returns `state`,
@@ -68,27 +71,33 @@ public fun fixed(version: i32, state: u8[], tree: u8[], result: u8[]): string {
     let s = 1024;
     let v = s + state.len;
     let r = v + tree.len;
-    "(module (memory (export \"memory\") 4)"
-        + " (global $next (mut i32) (i32.const 65536))"
-        + " (data (i32.const {s}) \"{wat_bytes(state)}\")"
-        + " (data (i32.const {v}) \"{wat_bytes(tree)}\")"
-        + " (data (i32.const {r}) \"{wat_bytes(result)}\")"
-        + " (func (export \"rapidkoi_version\") (result i32) (i32.const {version}))"
-        + " (func (export \"alloc\") (param $n i32) (result i32) (local $p i32)"
-        + " (local.set $p (global.get $next))"
-        + " (global.set $next (i32.add (global.get $next) (local.get $n)))"
-        + " (local.get $p))"
-        + " (func $reset (global.set $next (i32.const 65536)))"
-        + " (func (export \"init\") (result i64) (call $reset) (i64.const {pack(s, state.len)}))"
-        + " (func (export \"view\") (param i32 i32) (result i64) (call $reset) (i64.const {pack(v, tree.len)}))"
-        + " (func (export \"update\") (param i32 i32 i32 i32) (result i64) (call $reset) (i64.const {pack(r, result.len)})))"
+    [
+        "(module (memory (export \"memory\") 4)",
+        "(global $next (mut i32) (i32.const 65536))",
+        "(data (i32.const {s}) \"{wat_bytes(state)}\")",
+        "(data (i32.const {v}) \"{wat_bytes(tree)}\")",
+        "(data (i32.const {r}) \"{wat_bytes(result)}\")",
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const {version}))",
+        "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
+        "  (local.set $p (global.get $next))",
+        "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
+        "  (local.get $p))",
+        "(func $reset (global.set $next (i32.const 65536)))",
+        "(func (export \"init\") (result i64) (call $reset) (i64.const {pack(s, state.len)}))",
+        "(func (export \"view\") (param i32 i32) (result i64) (call $reset) (i64.const {pack(v, tree.len)}))",
+        "(func (export \"update\") (param i32 i32 i32 i32) (result i64) (call $reset) (i64.const {pack(r, result.len)})))",
+    ].join("\n")
 }
 
 /** A tree: a column holding a text and a button sending "add". */
-public fun counter_tree(label: string): u8[] = encode(parent("column", [], [
-    leaf("text", [("text", t(label))]),
-    leaf("button", [("label", t("Add")), ("on_press", t("add"))]),
-]));
+public fun counter_tree(label: string): u8[] = encode(
+    parent("column", [], [
+        leaf("text", [("text", t(label))]),
+        leaf("button", [("label", t("Add")), ("on_press", t("add"))]),
+    ]),
+);
 
 /** An update result holding `state`. */
-public fun result_of(state: u8[]): u8[] = encode(kv([("state", Value.Bytes(state)), ("effects", Value.Array([]))]));
+public fun result_of(state: u8[]): u8[] = encode(
+    kv([("state", Value.Bytes(state)), ("effects", Value.Array([]))]),
+);
