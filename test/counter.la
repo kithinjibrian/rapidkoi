@@ -5,6 +5,7 @@ import rapidkoi.shell { Model, boot, update, view, title_of };
 import rapidkoi.actions { Msg };
 import kivuli.testing { click, is_disabled, type_into, texts };
 import std.fs;
+import rapidkoi.pack { make };
 
 const COUNTER: string = "guest/rust/target/wasm32-unknown-unknown/release/counter.wasm";
 
@@ -22,7 +23,9 @@ fun step(m: Model, msg: Msg): Model {
 }
 
 /** The app's texts: the window's, without the frame's. */
-fun shown(m: Model): string[] = texts(view(m)).filter(fun(s: string) = !s.starts_with("📄"));
+fun shown(m: Model): string[] = texts(view(m)).filter(
+    fun(s: string) = !s.starts_with("📄") && !s.starts_with("📦"),
+);
 
 @test
 fun the_counter_starts_at_zero_with_reset_disabled() {
@@ -70,4 +73,35 @@ fun a_pinned_counter_opens_from_home() {
     m = step(m, Msg.NewTab);
     m = step(m, click(view(m), "Open counter").unwrap());
     assert_eq(shown(m)[1], "Count: 0");
+}
+
+@test
+fun the_counter_packed_as_a_bundle_runs_the_same() {
+    if !fs.is_file(COUNTER) {
+        skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
+    }
+    let out = "test/tmp/counter.rkb";
+    let packed = make([
+        COUNTER,
+        "--name",
+        "Counter",
+        "--version",
+        "0.1.0",
+        "--description",
+        "Counts, and says hello",
+        "--icon",
+        "guest/rust/counter/icon.png",
+        "-o",
+        out,
+        "--force",
+    ]);
+    assert_eq(packed.is_ok(), true);
+    let (opened, _) = boot(["./main", out]);
+    let mut m = opened;
+    m = step(m, click(view(m), "Add").unwrap());
+    assert_eq(shown(m)[1], "Count: 1");
+    m = step(m, Msg.TogglePanel);
+    assert_eq(texts(view(m)).any(fun(s: string) = s == "Version 0.1.0"), true);
+    assert_eq(texts(view(m)).any(fun(s: string) = s == "Counts, and says hello"), true);
+    fs.remove_file(out).unwrap();
 }

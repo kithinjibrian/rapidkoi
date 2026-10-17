@@ -4,12 +4,14 @@
  * a page with its state so Continue can resume it. Calls guests (bounded by
  * fuel); never draws.
  *
- * Depends on: cbor, wasmtime, guest, contract, render
+ * Depends on: cbor, wasmtime, guest, bundle, loader, contract, render
  * Used by: actions, frame, home, panel, shell
  */
 import cbor { Value };
 import wasmtime { Engine, Module };
-import guest { Guest, compile, open, reason };
+import guest { Guest, open, reason };
+import bundle { Manifest };
+import loader { load };
 import contract { Described, ContractError, read_tree, read_update, envelope };
 import render { Msg };
 
@@ -29,8 +31,10 @@ public struct Program {
 
 /** One app in a tab. */
 public struct AppPage {
-    /** The file's name without `.wasm`: what Rapidkoi calls the app. */
+    /** The manifest's name, or the file's name without `.wasm`: what Rapidkoi calls the app. */
     public name: string,
+    /** The bundle's manifest; `None` for a bare `.wasm`. */
+    public manifest: Option<Manifest>,
     /** The file it came from, as the person gave it. */
     public path: string,
     /** The current screen's title, if the app gives one. */
@@ -74,11 +78,14 @@ public struct LeftOff {
     public title: Option<string>,
     /** Its state when left; `None` when it had stopped. */
     public state: Option<u8[]>,
+    /** The version of that state's shape (1 for a bare `.wasm`). */
+    public state_version: i64,
+    manifest: Option<Manifest>,
     program: Option<Program>,
 }
 
 /**
- * Opens the app in a local file the person chose.
+ * Opens the app in a local file the person chose: a `.rkb` bundle or a `.wasm`.
  *
  * @param engine the program's engine
  * @param path the file
@@ -88,19 +95,10 @@ public struct LeftOff {
  * Example:
  *     open_path(engine, "counter.wasm")
  */
-public fun open_path(engine: Engine, path: string): AppPage {
-    let name = name_of(path);
-    let bytes = match read_bytes(path) {
-        Ok(b) => b,
-        Err(e) => {
-            return failed(name, path, "Couldn't read {path}: {e}");
-        }
-    };
-    match compile(engine, bytes) {
-        Ok(module) => open_module(name, path, engine, module),
-        Err(e) => failed(name, path, reason(e)),
-    }
-}
+public fun open_path(engine: Engine, path: string): AppPage = match load(engine, path) {
+    Ok(l) => AppPage { manifest: l.manifest, ..open_module(l.name, path, engine, l.module) },
+    Err((name, why)) => failed(name, path, why),
+};
 
 /**
  * Starts a compiled app as a page.
@@ -118,6 +116,7 @@ public fun open_module(name: string, path: string, engine: Engine, module: Modul
     let program = Program { engine: engine, module: module };
     titled(AppPage {
         name: name,
+        manifest: None,
         path: path,
         title: None,
         program: Some(program),
@@ -178,6 +177,8 @@ public fun leave(p: AppPage): LeftOff {
         path: p.path,
         title: p.title,
         state: state_of(p),
+        state_version: p.manifest.map(fun(m: Manifest) = m.state_version).unwrap_or(1),
+        manifest: p.manifest,
         program: p.program,
     };
     close_page(p);
@@ -197,6 +198,7 @@ public fun leave(p: AppPage): LeftOff {
 public fun resume(l: LeftOff): AppPage = match l.program {
     Some(prog) => titled(AppPage {
         name: l.name,
+        manifest: l.manifest,
         path: l.path,
         title: l.title,
         program: Some(prog),
@@ -218,15 +220,9 @@ public fun state_of(p: AppPage): Option<u8[]> = match p.screen {
     Stopped(_, _) => None,
 };
 
-/** A file path's last part, without `.wasm`. */
-fun name_of(path: string): string {
-    let parts = path.split("/");
-    let file = parts[parts.len - 1];
-    if file.ends_with(".wasm") && file.len > 5 { file.slice(0, file.len - 5) } else { file }
-}
-
 fun failed(name: string, path: string, why: string): AppPage = AppPage {
     name: name,
+    manifest: None,
     path: path,
     title: None,
     program: None,

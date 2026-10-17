@@ -54,7 +54,7 @@ public fun bar(page: Page, draft: string, editing: bool): Bar {
             title: if editing {
                 box.expand()
             } else {
-                button("📄 {file_of(p.path)} · local file", Msg.EditAddress).button_style(ButtonStyle.Subtle).tooltip("Search or type a path (Ctrl+K)").shortcut("Ctrl+K").expand()
+                button(marker(p, file_of(p.path)), Msg.EditAddress).button_style(ButtonStyle.Subtle).tooltip("Search or type a path (Ctrl+K)").shortcut("Ctrl+K").expand()
             },
             end: [icon_button("dialog-information-symbolic", "App info", Some(Msg.TogglePanel)), share],
         },
@@ -130,6 +130,19 @@ fun tab_button(t: Tab, current: Option<i64>): View<Msg> {
         label(t.page),
     ).button_style(look).width(TAB_SIZE).height(TAB_SIZE)
 }
+
+/**
+ * Returns how Rapidkoi names where an app came from: `📦 file · local
+ * bundle` for a `.rkb`, `📄 file · local file` for a bare module. Drawn
+ * only by Rapidkoi, never by an app.
+ *
+ * Example:
+ *     marker(page, "counter.rkb")
+ */
+public fun marker(p: AppPage, shown: string): string = match p.manifest {
+    Some(_) => "📦 {shown} · local bundle",
+    None => "📄 {shown} · local file",
+};
 
 fun file_of(path: string): string {
     let parts = path.split("/");

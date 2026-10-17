@@ -10,7 +10,8 @@ import kivuli { View, ButtonStyle, button, column, row, text };
 import render;
 import actions { Msg };
 import tabs { AppPage };
-import frame { icon_button };
+import frame { icon_button, marker };
+import bundle { Manifest };
 import theme { SPACE_SM, SPACE_MD, TEXT_TITLE, PANEL_WIDTH };
 
 /**
@@ -19,7 +20,7 @@ import theme { SPACE_SM, SPACE_MD, TEXT_TITLE, PANEL_WIDTH };
  * @param id the page's tab
  * @param p the page
  * @param pinned whether the app is pinned
- * @returns the panel: name, title, file, contract, permissions, Restart, Pin/Unpin, Close tab
+ * @returns the panel: name, title, version and description (bundles), where it came from, contract and state version, permissions, Restart, Pin/Unpin, Close tab
  *
  * Example:
  *     panel.view(tab.id, page, false)
@@ -34,8 +35,15 @@ public fun view(id: i64, p: AppPage, pinned: bool): View<Msg> {
     if let Some(t) = p.title {
         parts.push(text(t));
     }
-    parts.push(text("📄 {p.path} · local file").dim().wrap());
-    parts.push(text("Contract v1").dim());
+    if let Some(m) = p.manifest {
+        parts.push(text("Version {m.version}").dim());
+        if let Some(d) = m.description {
+            parts.push(text(d).wrap());
+        }
+    }
+    parts.push(text(marker(p, p.path)).dim().wrap());
+    let state = p.manifest.map(fun(m: Manifest) = m.state_version).unwrap_or(1);
+    parts.push(text("Contract v1 · state v{state}").dim());
     parts.push(text("Permissions: none. This app can't reach anything outside itself.").wrap());
     parts.push(button("Restart", Msg.Tab(id, render.Msg.Restart)));
     parts.push(if pinned { button("Unpin", Msg.Unpin(p.path)) } else { button("Pin", Msg.Pin) });

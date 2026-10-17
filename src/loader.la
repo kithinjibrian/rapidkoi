@@ -1,0 +1,60 @@
+/**
+ * Loading an app from a local file the person chose: a `.rkb` bundle (its
+ * manifest checked, its module compiled) or a bare `.wasm`. Never runs it;
+ * `tabs` starts the guest.
+ *
+ * Depends on: wasmtime, guest, bundle
+ * Used by: tabs
+ */
+import wasmtime { Engine, Module };
+import guest { compile, reason };
+import bundle { Manifest, read, reason as bundle_reason };
+
+/** An app ready to start: what to call it, its manifest if it has one, and its compiled module. */
+public struct Loaded {
+    /** The manifest's name, or the file's name without `.wasm`. */
+    public name: string,
+    /** The bundle's manifest; `None` for a bare `.wasm`. */
+    public manifest: Option<Manifest>,
+    /** The compiled module. */
+    public module: Module,
+}
+
+/**
+ * Loads the app in a local file.
+ *
+ * @param engine the program's engine
+ * @param path a `.rkb` bundle or a `.wasm` module
+ * @returns the app; or the file's name and a plain reason (unreadable, not a
+ *     bundle, a contract this Rapidkoi doesn't speak, not a module)
+ *
+ * Example:
+ *     load(engine, "counter.rkb")
+ */
+public fun load(engine: Engine, path: string): Result<Loaded, (string, string)> {
+    let file = name_of(path);
+    let bytes = read_bytes(path).map_err(fun(e: string) = (file, "Couldn't read {path}: {e}"))?;
+    if !path.ends_with(".rkb") {
+        let module = compile(engine, bytes).map_err(fun(e) = (file, reason(e)))?;
+        return Ok(Loaded { name: file, manifest: None, module: module });
+    }
+    let b = read(bytes).map_err(fun(e) = (file, bundle_reason(e)))?;
+    let m = b.manifest;
+    if m.contract != 1 {
+        return Err((m.name, "This app needs a newer version of Rapidkoi"));
+    }
+    let module = compile(engine, b.module).map_err(fun(e) = (m.name, reason(e)))?;
+    Ok(Loaded { name: m.name, manifest: Some(m), module: module })
+}
+
+/**
+ * Returns a file path's last part, without `.wasm`.
+ *
+ * Example:
+ *     name_of("apps/counter.wasm")
+ */
+public fun name_of(path: string): string {
+    let parts = path.split("/");
+    let file = parts[parts.len - 1];
+    if file.ends_with(".wasm") && file.len > 5 { file.slice(0, file.len - 5) } else { file }
+}

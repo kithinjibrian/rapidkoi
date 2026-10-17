@@ -153,10 +153,11 @@ Rules:
   - kivuli 0.4.1: button content centered (a bug found in session 17). Tabs and tiles center their letter (session 18)
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
 - **Still to come:**
-  1. a file dialog
-  2. an overlay, for the panel over the app
-  3. context menus, for tab actions
-  4. a wrapping grid, for home's tiles
+  1. **An image from bytes** (GdkTexture from a GBytes), so a bundle's icon and banners show without writing them to disk (PRP-003)
+  2. a file dialog
+  3. an overlay, for the panel over the app
+  4. context menus, for tab actions
+  5. a wrapping grid, for home's tiles
 
 ---
 

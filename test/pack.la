@@ -1,0 +1,130 @@
+// The pack command: flags in, a `.rkb` out, or a clear error. Writes only
+// under test/tmp/ (gitignored) and cleans up.
+import rapidkoi.pack { make };
+import rapidkoi.bundle { read, asset };
+import std.fs;
+
+const DIR: string = "test/tmp";
+
+/** A fresh scratch path for one test. */
+fun path(name: string): string {
+    let p = "{DIR}/{name}";
+    if fs.exists(p) {
+        fs.remove_file(p).unwrap();
+    }
+    p
+}
+
+/** Writes `bytes` to a scratch file and gives its path. */
+fun file(name: string, bytes: u8[]): string {
+    let p = path(name);
+    write_bytes(p, bytes).unwrap();
+    p
+}
+
+fun png(): u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7];
+
+/** A module file of one test's own: tests run in parallel, so none share a path. */
+fun module(tag: string): string = file("{tag}.wasm", [0, 97, 115, 109, 1, 0, 0, 0]);
+
+@test
+fun packing_with_every_flag() {
+    let out = path("full.rkb");
+    let icon = file("full-icon.png", png());
+    let banner = file("full-banner.png", png());
+    let extra = file("full-extra.png", png());
+    let done = make([
+        module("full"),
+        "--name",
+        "Counter",
+        "--version",
+        "1.2.3",
+        "--description",
+        "Counts",
+        "--state-version",
+        "3",
+        "--icon",
+        icon,
+        "--banner",
+        "home={banner}",
+        "--asset",
+        "img/extra.png={extra}",
+        "-o",
+        out,
+    ]);
+    assert_eq(done, Ok("packed {out}: Counter 1.2.3, 0 KB module, 3 assets"));
+    let b = read(read_bytes(out).unwrap()).unwrap();
+    assert_eq(b.manifest.name, "Counter");
+    assert_eq(b.manifest.version, "1.2.3");
+    assert_eq(b.manifest.description, Some("Counts"));
+    assert_eq(b.manifest.state_version, 3);
+    assert_eq(b.manifest.icon, Some("icon.png"));
+    assert_eq(b.manifest.banners, [("home", "banner/home.png")]);
+    assert_eq(asset(b, "img/extra.png"), Some(png()));
+    assert_eq(b.module, [0, 97, 115, 109, 1, 0, 0, 0]);
+    fs.remove_file(out).unwrap();
+}
+
+@test
+fun the_simplest_pack() {
+    let out = path("min.rkb");
+    assert_eq(make([module("min"), "--name", "M", "--version", "0.1.0", "-o", out]).is_ok(), true);
+    let b = read(read_bytes(out).unwrap()).unwrap();
+    assert_eq(b.manifest.state_version, 1);
+    assert_eq(b.assets.len, 0);
+    fs.remove_file(out).unwrap();
+}
+
+@test
+fun pack_errors_are_plain() {
+    let m = module("errors");
+    let out = path("e.rkb");
+    assert_eq(
+        make(["--name", "M", "--version", "0.1.0", "-o", out]),
+        Err("no module given: rapidkoi pack MODULE --name N --version V -o OUT.rkb"),
+    );
+    assert_eq(make([m, "--version", "0.1.0", "-o", out]), Err("--name is required"));
+    assert_eq(make([m, "--name", "M", "-o", out]), Err("--version is required"));
+    assert_eq(make([m, "--name", "M", "--version", "0.1.0"]), Err("-o is required"));
+    assert_eq(
+        make([m, "--name", "M", "--version", "1.0", "-o", out]),
+        Err("This bundle's \"version\" must be MAJOR.MINOR.PATCH, like 1.4.0"),
+    );
+    assert_eq(
+        make([m, "--name", "M", "--version", "0.1.0", "--colour", "red", "-o", out]),
+        Err("unknown flag --colour"),
+    );
+    assert_eq(make([m, "--name"]), Err("--name needs a value"));
+    assert_eq(
+        make([m, "--name", "M", "--version", "0.1.0", "--icon", "no/such.png", "-o", out]).map_err(
+            fun(e: string) = e.starts_with("can't read no/such.png"),
+        ),
+        Err(true),
+    );
+    let text = file("errors-not.png", [1, 2, 3]);
+    assert_eq(
+        make([m, "--name", "M", "--version", "0.1.0", "--icon", text, "-o", out]),
+        Err("This bundle's asset \"icon.png\" isn't a PNG image"),
+    );
+    assert_eq(
+        make([m, "--name", "M", "--version", "0.1.0", "--banner", "home", "-o", out]),
+        Err("--banner takes PAGE=FILE"),
+    );
+    assert_eq(
+        make([m, "--name", "M", "--version", "0.1.0", "--state-version", "x", "-o", out]),
+        Err("--state-version takes a whole number"),
+    );
+    assert_eq(fs.exists(out), false);
+}
+
+@test
+fun pack_never_overwrites_without_force() {
+    let m = module("force");
+    let out = file("there.rkb", [1]);
+    assert_eq(
+        make([m, "--name", "M", "--version", "0.1.0", "-o", out]),
+        Err("{out} exists; add --force to replace it"),
+    );
+    assert_eq(make([m, "--name", "M", "--version", "0.1.0", "-o", out, "--force"]).is_ok(), true);
+    fs.remove_file(out).unwrap();
+}
