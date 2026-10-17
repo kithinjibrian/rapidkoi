@@ -695,9 +695,36 @@ DECISIONS.md (020 item 0), CLAUDE.md (known issue)
 
 ---
 
-## SESSION 18 — 2026-10-17 — kivuli 0.4.1: centered button content — open
+## SESSION 18 — 2026-10-17 — kivuli 0.4.1: centered button content — closed
 
-Branch: kivuli-0.4.1
+Branch: kivuli-0.4.1 → merged into main
+
+### WHAT WAS DONE
+
+kivuli 0.4.1 (button content centered) was tagged and pushed. `lughac update` locked it. The tab squares and home's tiles now center their letter. The known issue and DECISION-020 item 0 are gone. The rail keeps its centered items.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.lock — kivuli 0.4.1
+DECISIONS.md (020), CLAUDE.md (known issue removed)
+```
+
+### TESTS WRITTEN
+
+- None (all 74 pass).
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- DECISION-020: a file dialog, an overlay, context menus, a wrapping grid.
 
 ---
 

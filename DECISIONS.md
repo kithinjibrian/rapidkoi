@@ -141,9 +141,9 @@ Rules:
   - `.header(start, title, end)`: the bar lives in the title bar
   - kivuli 0.3.0: `.header_style([…])` and `Surface.flat`. The header bar takes the flat frame look, with no shadow (session 13)
   - kivuli 0.4.0: per-corner radius. The page curves only at its top right (session 16)
+  - kivuli 0.4.1: button content centered (a bug found in session 17). Tabs and tiles center their letter (session 18)
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
 - **Still to come:**
-  0. **A bug: button content sits at the button's start.** kivuli's button holds its icon and label in a GtkBox with the default (fill) alignment (`src/build.la`, the button), so a button wider than its content shows it at the left: stretched rail buttons, fixed-size tabs, home's tiles. GTK's own buttons center it. The rail centers its items meanwhile (session 17)
   1. a file dialog
   2. an overlay, for the panel over the app
   3. context menus, for tab actions

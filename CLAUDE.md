@@ -297,4 +297,3 @@ Update this tree when modules are added.
   - Tiles and tabs show the app's initial; there's no art or banners yet.
   - Pins, "where you left off" and search are in memory only.
   - Back, forward, share, settings and more are shown disabled.
-  - A fixed-size button (the tab squares, home's tiles) shows its letter at its left, not its center: a kivuli bug (DECISION-020 item 0). The rail centers its items meanwhile.
