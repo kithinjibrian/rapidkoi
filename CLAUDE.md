@@ -168,7 +168,14 @@ lughac fmt --check src test           # formatting; drop --check to rewrite
 lughac update src/main.la             # re-resolve git packages, rewrite lugha.lock
 lughac explain E0312                  # what an error code means
 lughac spec                           # the full Lugha language reference: check it before assuming a feature exists
+
+# The Rust guest (guest/rust/): cargo, never lughac
+cargo test --manifest-path guest/rust/Cargo.toml
+cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown
+./main guest/rust/target/wasm32-unknown-unknown/release/counter.wasm   # opens a window: the user's
 ```
+
+`test/counter.la` drives the built counter end to end; it skips itself until the guest is built.
 
 A task is done only when `fmt --check` is clean, `lughac test test/` passes (skips allowed only for `no display`), and `lughac build src/main.la -o main` succeeds.
 
@@ -240,8 +247,13 @@ public fun load_settings(path: string): Settings { … }
 ├── .llmignore         — protected paths
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
-├── src/               — main.la (entry: a placeholder hello-world today)
-├── test/              — @test files mirroring src/ (created with the first PRP)
+├── src/               — main.la (entry: wiring only), shell.la (the kivuli app: Running | Stopped, calls the guest),
+│                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1),
+│                        render.la (pure: Node → kivuli View; the error screen), theme.la (DESIGN.md tokens), limits.la (every limit)
+│                        Imports run one way: limits, theme ← contract ← render ← shell → guest ← limits; main → shell
+├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text),
+│                        counter.la (end to end with the Rust counter; skips until it's built)
+├── guest/rust/        — Cargo workspace: rapidkoi (contract v1 for Rust: View builder, App trait, export!), counter (the demo)
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)
 ├── docs/
 │   ├── CODE_STYLE.md  — documentation rules for .la code
@@ -271,4 +283,6 @@ Update this tree when modules are added.
 
 ## KNOWN ISSUES — DO NOT FIX
 
-- **`src/main.la` imports `kivuli` but doesn't use it.** It is the `lughac init` placeholder, kept until the first PRP replaces it.
+- **A missing `update`, `alloc` or `view` export is only found on its first call**, not at load: lugha-wasmtime can't list exports yet (DECISION-017). The error screen still shows.
+- **An `input` without `on_change` is refused as a contract error**, not shown disabled: kivuli has no read-only text field yet (DECISION-016).
+- **A second `./main other.wasm` raises the first window** instead of opening the app: kivuli makes GTK single-instance (DECISION-014).
