@@ -947,6 +947,38 @@ CLAUDE.md (rule 3, commands, tree, known issues), CHANGELOG.md
 
 ---
 
+## SESSION 24 — 2026-10-18 — Split window.la (308 lines) into window and navigate — closed
+
+Branch: split-window → merged into main
+
+### WHAT WAS DONE
+
+`src/window.la` reached 308 lines in PRP-004 and was merged that way, a miss caught after the merge and reported to the owner. With the owner's approval, the four functions that open something (`go`, `open_file`, `reopen`, `reload`) moved, unchanged, into a new `src/navigate.la` (85 lines); `window.la` is 234. Callers: shell.la (`navigate.…`) and test/loader.la.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/navigate.la (new), src/window.la, src/shell.la, test/loader.la, CLAUDE.md (tree)
+```
+
+### TESTS WRITTEN
+
+- None (a move; all 115 pass).
+
+### DECISIONS MADE
+
+- Before every merge, check `wc -l` on every changed file, not just the largest few.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Nothing new.
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 24 on a new branch. PRP-004 (local development) is on `main`. Next, at the owner's choice:

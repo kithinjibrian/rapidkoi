@@ -6,7 +6,7 @@ import rapidkoi.address { parse };
 import rapidkoi.serve { handle };
 import rapidkoi.bundle { Bundle, Manifest, write };
 import rapidkoi.shell { Model, with_pages, update, view };
-import rapidkoi.window { reload };
+import rapidkoi.navigate { reload };
 import rapidkoi.actions { Msg };
 import rapidkoi.tabs { AppPage, open_path };
 import kivuli.testing { texts };

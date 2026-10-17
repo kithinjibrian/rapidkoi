@@ -1,0 +1,85 @@
+/**
+ * Opening things in the window: what the address box says (a local file or
+ * a local development address), a pinned app, Continue, and Reload. Each
+ * returns the next model; the state itself lives in `window.la`. Reads
+ * local files and fetches from localhost (CLAUDE.md rule 3).
+ *
+ * Depends on: std.fs, tabs, window, address
+ * Used by: shell
+ */
+import std.fs;
+import tabs { AppPage, open_path, close_page, leave, resume };
+import window { Model, page_of, with_tab, add_tab, app };
+import address { is_address, parse };
+
+/**
+ * Opens what the address box says: a local file or development address,
+ * or a notice why not.
+ *
+ * Example:
+ *     go(m)
+ */
+public fun go(m: Model): Model {
+    let wanted = m.draft.trim();
+    if wanted == "" {
+        return m;
+    }
+    if is_address(wanted) {
+        // Local development addresses open; any other gets the reason why not yet.
+        return match parse(wanted) {
+            Ok(_) => open_file(m, wanted),
+            Err(e) => Model { notice: Some(address.reason(e)), ..m },
+        };
+    }
+    if fs.is_file(wanted) {
+        return open_file(m, wanted);
+    }
+    Model { notice: Some("No app or file called “{wanted}”"), ..m }
+}
+
+/**
+ * Opens a local app file: in a new tab from home, or in place of the
+ * current tab's app (which becomes "where you left off").
+ *
+ * Example:
+ *     open_file(m, "counter.wasm")
+ */
+public fun open_file(m: Model, path: string): Model {
+    let page = open_path(m.engine, path);
+    let opened = match m.current {
+        Some(id) if app(m, id).is_some() => {
+            let left = Model { left_off: app(m, id).map(leave), ..m };
+            with_tab(left, id, fun(_: AppPage) = page)
+        }
+        _ => add_tab(m, page),
+    };
+    Model { draft: "", editing: false, notice: None, ..opened }
+}
+
+/**
+ * Reopens the last app closed, with its saved state, in a new tab.
+ *
+ * Example:
+ *     reopen(m)
+ */
+public fun reopen(m: Model): Model = match m.left_off {
+    Some(l) => Model { left_off: None, ..add_tab(m, resume(l)) },
+    None => m,
+};
+
+/**
+ * Fetches or reads the current app again and starts it fresh: a new build
+ * from a development server after a repack. Its state starts over (a new
+ * build may have a new state shape; DECISION-019 handles state across
+ * builds later).
+ *
+ * Example:
+ *     reload(m)
+ */
+public fun reload(m: Model): Model = match (m.current, page_of(m)) {
+    (Some(id), App(a)) => {
+        close_page(a);
+        with_tab(m, id, fun(_: AppPage) = open_path(m.engine, a.path))
+    }
+    _ => m,
+};
