@@ -24,7 +24,7 @@ The values below are a starting scale. Revisit them once DECISION-001 says what 
 
 | Field | Dark | Look |
 |-------|------|------|
-| `frame` | `#242424` | `Look.Frame`: the window around the page, the rail on it (and the header bar, once kivuli can style it: DECISION-020) |
+| `frame` | `#242424`, flat (no shadow or edge line) | `Look.Frame`: the header bar (`.header_style`), the window around the page, and the rail on it |
 | `page` | `#161616` | `Look.Page`: the page card, corner radius `PAGE_RADIUS` (12 px) |
 
 Only backgrounds and the card's corners are set; text and borders stay the GTK theme's. Light and other themes come later, with settings. Hex values live only in `src/themes.la`.

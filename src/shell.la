@@ -103,7 +103,9 @@ public fun view(m: Model): View<Msg> {
         title_of(m),
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-    ).maximized().theme(kivuli_theme(m.theme)).header(b.start, b.title, b.end)
+    ).maximized().theme(kivuli_theme(m.theme)).header(b.start, b.title, b.end).header_style([
+        Look.Frame,
+    ])
 }
 
 /**
