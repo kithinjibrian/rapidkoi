@@ -2055,12 +2055,48 @@ PRPs/prp-011-identity.md — for approval (security review before merge)
 
 ---
 
-## SESSION 56 — 2026-10-18 — Build PRP-011: identity — open
+## SESSION 56 — 2026-10-18 — Build PRP-011: identity — closed
 
 Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+Built PRP-011 test-first. identity.la (the master secret, 32 random bytes, 0600, never replaced if broken; per-app Ed25519 seeds by hkdf_sha256 over host, origin and generation; host-bound sign-in messages; labels from the key's first four hex digits). people.la (per-app generation, auto, signed out, name overrides; your name for every app). Identity.origin and Trust.origin (an app's first key, kept through rotations; a separate publisher or a not-confirmed key is its own); trust format 3. Contract v2: guests speak 1 or 2; v2 init returns {state, effects}; read_update_v2 (identity, sign; at most 8; challenges 1–1024 bytes); answer {msg, value bytes|null}; a bundle's contract must match its module's. placeholders.la (fill, one pass, text and button labels only; titles left alone). effects.la (answer_all: signed apps you're signed in to; at most 32 answers in a row). The Account page (account.la). The Rust library (Ask, start/step/answer, FIRST_NAME/LAST_NAME) and the counter (asks who you are; "Hello, {FIRST_NAME}!"; "You are User xxxx"). A project's contract (default 2) for pack (--contract) and publish. Split (approved): running.la from tabs.la.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/identity.la, src/people.la, src/effects.la, src/account.la, src/placeholders.la, src/running.la — new
+src/verify.la, src/remembered.la, src/nodes.la, src/contract.la, src/limits.la, src/guest.la, src/tabs.la, src/loader.la, src/render.la, src/window.la, src/saving.la, src/shell.la, src/panel.la, src/actions.la, src/project.la, src/pack.la, src/publish.la
+test/identity.la, test/people.la, test/effects.la, test/account.la, test/placeholders.la — new; test/contract.la, test/verify.la, test/remembered.la, test/views.la, test/panel.la, test/guest.la, test/tabs.la, test/counter.la, test/pack.la, test/project.la, test/support.la (echo_v2)
+guest/rust/rapidkoi (v2), guest/rust/counter
+CLAUDE.md, MEMORY.md (10, 17), DECISIONS.md (025 resolved, 022 updated), the contract doc's v2 appendix, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 274 Lugha tests pass (identity 5, people 4, effects 5, account 5, placeholders 4, contract +3, verify +1, project +1, pack +1, and updated ones); Rust: library 8, counter 3.
+
+### DECISIONS MADE
+
+- v2 init returns {state, effects} (otherwise an app couldn't ask until a click).
+- Screen titles aren't filled (window titles are visible outside Rapidkoi).
+- "Sign in automatically" off: the app starts each run signed out (Sign in on the Account page).
+- Start over as someone new restarts the app, so its init asks for the new key.
+- The user label is the key's own first four hex digits (no hash library in apps).
+- A broken identity file is refused and left alone (replacing it would make you a stranger everywhere).
+- An unsigned app's Account row reads "No account".
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- **The owner's security review before merge** (authentication, secrets, a contract change), and the on-screen checks.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-011 (`PRPs/prp-011-identity.md`) awaits approval. If approved: branch `prp-011-identity` from main, open session 56, build test-first (identity, people, origin, contract v2 effects and placeholders, answers, the Account page, the Rust library and counter). Stop before merge for the owner's security review.
+PRP-011 is built on `prp-011-identity`, not merged. Wait for the owner's security review (identity.la, effects.la, people.la, contract v2) and on-screen checks (rebuild the counter, publish, open: "You are User xxxx"; set a name; Start over). Then full suite (Lugha and cargo), merge. Links (the vision's step 2) still aren't built.

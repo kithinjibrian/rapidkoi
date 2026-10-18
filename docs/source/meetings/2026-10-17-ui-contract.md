@@ -59,3 +59,16 @@ We first checked that `../lugha-wasmtime` covers everything the shell needs: its
 ## Impact on the Project
 
 This is contract v1, the platform's core API (DECISION-012). The step 1 PRP implements it exactly, with nothing more. `lugha-cbor` comes first, because the shell can't read a guest without it (DECISION-013).
+
+
+## Contract v2 (PRP-011, 2026-10-18)
+
+v1 is unchanged and still spoken. A v2 module's `rapidkoi_version()` returns 2, and its bundle's manifest says `contract: 2` (they must match).
+
+- **`init`** returns `{state, effects}`, like `update`.
+- **Effects** (at most 8 per result; anything else stops the app with a plain reason):
+  - `{kind: "identity", msg}`: the app's own public key for the person (32 bytes)
+  - `{kind: "sign", msg, challenge: bytes 1–1024}`: an Ed25519 signature (64 bytes) over the CBOR `{kind: "rapidkoi sign-in", host, challenge}`, where `host` is the one Rapidkoi verified
+- **Answers** go back through `update(state, {msg, value})`. `value` is the bytes, or `null` when there's nothing to give: an unsigned app, or the person signed out. At most 32 answers in a row, or the app is stopped.
+- **Placeholders:** `{FIRST_NAME}` and `{LAST_NAME}` in text nodes' text and button labels are replaced while drawing, with the name for that app (its own, else the one for every app, else nothing). They're never replaced in text fields or screen titles, and never in anything sent back to the app.
+- Keys: each app's Ed25519 seed is `hkdf_sha256(master, "", CBOR ["rapidkoi identity v1", host, origin, generation], 32)`, where `origin` is the key first trusted for the app (kept through rotations) and `generation` counts "Start over as someone new".
