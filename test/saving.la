@@ -16,7 +16,7 @@ import std.http { Request };
 import std.env;
 import std.fs;
 import std.task { sleep };
-import support { png };
+import support { png, settle };
 
 const COUNTER: string = "guest/rust/target/wasm32-unknown-unknown/release/counter.wasm";
 
@@ -37,14 +37,16 @@ fun folder(name: string): Store {
     store_at(dir)
 }
 
+/** A window on `s`, with any background load run to its end. */
 fun started(s: Store, argv: string[]): Model {
-    let (m, _) = start(argv, Some(s));
-    m
+    let (m, cmd) = start(argv, Some(s));
+    settle(m, cmd, update)
 }
 
+/** One message, and any background load it started, run to its end. */
 fun step(m: Model, msg: Msg): Model {
-    let (next, _) = update(m, msg);
-    next
+    let (next, cmd) = update(m, msg);
+    settle(next, cmd, update)
 }
 
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);

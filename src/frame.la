@@ -21,7 +21,7 @@ import kivuli {
 };
 import actions { Msg };
 import address { parse };
-import tabs { Page, Tab, AppPage };
+import tabs { Page, Tab, AppPage, is_loading };
 import verify { Change, Standing };
 import keys { fingerprint };
 import theme { SPACE_SM, TEXT_TITLE, RAIL_WIDTH, TAB_SIZE, TAB_ICON };
@@ -173,12 +173,15 @@ fun tab_button(t: Tab, current: Option<i64>): View<Msg> {
  * whose key is trusted, `⚠ host · not confirmed` for one whose isn't,
  * `🛠 localhost:8000 · development` from an unsigned development server,
  * `📦 file · local bundle` for a `.rkb`, `📄 file · local file` for a bare
- * module. Drawn only by Rapidkoi, never by an app.
+ * module, and `localhost:8000 · loading…` while it loads. Drawn only by
+ * Rapidkoi, never by an app.
  *
  * Example:
  *     marker(page, "counter.rkb")
  */
 public fun marker(p: AppPage, shown: string): string = match p.trust {
+    // Nothing claims ✓ or ⚠ before every check has passed.
+    None if is_loading(p) => "{p.name} · loading…",
     Some(t) => {
         let separate = if t.separate { " · new publisher" } else { "" };
         match t.standing {

@@ -8,8 +8,8 @@
  *
  * Depends on: kivuli, shell, actions, pack, publish, serve
  */
-import kivuli { App, Sub, application };
-import shell { Model, boot, update, view };
+import kivuli { App, application };
+import shell { Model, boot, update, view, subscriptions };
 import actions { Msg };
 import pack;
 import serve;
@@ -31,6 +31,6 @@ fun main(): i32 {
         init: boot(argv),
         update: update,
         view: view,
-        subscriptions: fun(_: Model) = Sub.none(),
+        subscriptions: subscriptions,
     })
 }

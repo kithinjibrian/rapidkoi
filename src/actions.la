@@ -3,10 +3,11 @@
  * address box, home, the info panel and its pages, and each tab's own
  * screen.
  *
- * Depends on: render
+ * Depends on: render, fetching
  * Used by: frame, home, panel, shell
  */
 import render;
+import fetching { Fetched };
 
 /** A message to the shell. */
 public enum Msg {
@@ -54,6 +55,10 @@ public enum Msg {
     KeepMine,
     /** On a changed key: trust the new key as a separate app, this session. */
     SeparateApp,
+    /** A background load's result, for this tab and load number (PRP-008). */
+    Fetched(i64, i64, Fetched),
+    /** The loading tick: the time, while some tab is loading. */
+    Tick(i64),
 }
 
 /** The info panel's pages. */

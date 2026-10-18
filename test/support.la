@@ -1,11 +1,33 @@
 /**
  * Helpers shared by the tests: short CBOR value builders for contract v1
- * trees, and WebAssembly text for fixture guests. Holds no tests itself.
+ * trees, WebAssembly text for fixture guests, and `settle`, which runs a
+ * command's background tasks in place. Holds no tests itself.
  *
- * Depends on: cbor
- * Used by: contract, render, guest, shell
+ * Depends on: cbor, kivuli
+ * Used by: contract, render, guest, shell, loading, opening, saving
  */
 import cbor { Value, Entry, encode };
+import kivuli { Cmd };
+
+/**
+ * Runs a command's tasks now, in order, sending each result through
+ * `update` and settling what that returns, as kivuli would in the
+ * background. Other commands (focus, after, quit) are dropped.
+ */
+public fun settle<M, Msg>(m: M, c: Cmd<Msg>, update: fun(M, Msg): (M, Cmd<Msg>)): M = match c {
+    Task(job) => {
+        let (next, more) = update(m, job());
+        settle(next, more, update)
+    }
+    Batch(cmds) => {
+        let mut at = m;
+        for one of cmds {
+            at = settle(at, one, update);
+        }
+        at
+    }
+    _ => m,
+};
 
 /** A text value. */
 public fun t(s: string): Value = Value.Text(s);

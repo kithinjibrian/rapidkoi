@@ -47,6 +47,10 @@ public struct Model {
     public notice: Option<string>,
     /** Rapidkoi's own colours. */
     public theme: Theme,
+    /** The last loading tick, in milliseconds since 1970: how long a load has taken. */
+    public now: i64,
+    /** The last load number given out (PRP-008). */
+    loads: i64,
 }
 
 /**
@@ -80,6 +84,8 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         left_off: None,
         notice: None,
         theme: DARK,
+        now: 0,
+        loads: 0,
     }
 }
 

@@ -4,14 +4,15 @@
  * a page that was left (`leftoff.la` keeps what's left). Calls guests (bounded by
  * fuel); never draws.
  *
- * Depends on: cbor, wasmtime, guest, bundle, loader, verify, contract, render, leftoff
+ * Depends on: cbor, wasmtime, guest, bundle, loader, verify, address, contract, render, leftoff
  * Used by: actions, frame, home, panel, shell
  */
 import cbor { Value };
 import wasmtime { Engine, Module };
 import guest { Guest, open, reason };
 import bundle { Manifest };
-import loader { Refusal, load, why };
+import loader { Loaded, Refusal, load, why };
+import address;
 import verify { Trust, Change, Keyring };
 import contract { Described, ContractError, read_tree, read_update, envelope };
 import render { Msg };
@@ -30,6 +31,20 @@ public enum Screen {
      * page that was open before (when reloading), kept until the person decides.
      */
     Unapproved(Change, AppPage[]),
+    /** Loading in the background (PRP-008): when it started, and what to do when it arrives. */
+    Loading(Pending),
+}
+
+/** A load in progress: what the page needs when its result arrives. */
+public struct Pending {
+    /** When it started, in milliseconds since 1970. */
+    public started: i64,
+    /** Whether this is the one retry after a changed snapshot. */
+    public again: bool,
+    /** The state to continue with (⟳ on a running page), and its version. */
+    public saved: Option<(u8[], i64)>,
+    /** The page this replaces (⟳), kept running until the new one is ready or refused. */
+    public kept: AppPage[],
 }
 
 /** A compiled app, kept so Restart and Continue can start it again. */
@@ -53,6 +68,8 @@ public struct AppPage {
     /** Who signed it and how far that's trusted; `None` when unsigned. */
     public trust: Option<Trust>,
     program: Option<Program>,
+    /** Which load this page is waiting for (0 when none): a result for another is stale. */
+    public load: i64,
     /** What's on screen. */
     public screen: Screen,
 }
@@ -111,6 +128,61 @@ public fun open_path(engine: Engine, ring: Keyring, path: string): AppPage = mat
 };
 
 /**
+ * Says whether a page is loading in the background.
+ *
+ * Example:
+ *     is_loading(page)
+ */
+public fun is_loading(p: AppPage): bool = match p.screen {
+    Loading(_) => true,
+    _ => false,
+};
+
+/**
+ * A stopped page with a reason and no Restart, named after its file or
+ * address (⟳ tries again).
+ *
+ * Example:
+ *     failed_page("rapidkoi://localhost:8000", "Trust for localhost:8000 changed while it loaded; try again")
+ */
+public fun failed_page(path: string, why: string): AppPage = failed(
+    address.parse(path).map(fun(a) = address.shown(a)).unwrap_or(path),
+    path,
+    why,
+);
+
+/**
+ * A page loading in the background: its address as its name until the
+ * app arrives.
+ *
+ * @param path the address
+ * @param number this load's number (`AppPage.load`)
+ * @param pending when it started, and what to do on arrival
+ *
+ * Example:
+ *     loading("rapidkoi://localhost:8000", 3, Pending { started: now, again: false, saved: None, kept: [] })
+ */
+public fun loading(path: string, number: i64, pending: Pending): AppPage = AppPage {
+    name: address.parse(path).map(fun(a) = address.shown(a)).unwrap_or(path),
+    load: number,
+    screen: Screen.Loading(pending),
+    ..failed(path, path, ""),
+};
+
+/**
+ * The page for an app that arrived: started fresh, as `open_path` starts one.
+ *
+ * Example:
+ *     from_loaded(engine, loaded, "rapidkoi://localhost:8000")
+ */
+public fun from_loaded(engine: Engine, l: Loaded, path: string): AppPage = AppPage {
+    manifest: l.manifest,
+    icon: l.icon,
+    trust: l.trust,
+    ..open_module(l.name, path, engine, l.module),
+};
+
+/**
  * Starts a compiled app as a page.
  *
  * @param name what to call it
@@ -132,6 +204,7 @@ public fun open_module(name: string, path: string, engine: Engine, module: Modul
         title: None,
         trust: None,
         program: Some(program),
+        load: 0,
         screen: start(program, None),
     })
 }
@@ -176,6 +249,11 @@ public fun close_page(p: AppPage) {
                 close_page(k);
             }
         }
+        Loading(pending) => {
+            for k of pending.kept {
+                close_page(k);
+            }
+        }
         _ => {}
     }
 }
@@ -199,6 +277,7 @@ public fun resume(l: LeftOff): AppPage = match l.program {
         title: l.title,
         trust: l.trust,
         program: Some(prog),
+        load: 0,
         screen: start(prog, l.state),
     }),
     None => failed(l.name, l.path, "This app couldn't be reopened"),
@@ -304,11 +383,17 @@ fun failed(name: string, path: string, why: string): AppPage = AppPage {
     title: None,
     trust: None,
     program: None,
+    load: 0,
     screen: Screen.Stopped(why, false),
 };
 
-/** A page for an app that wasn't loaded: stopped, refused, or asking about its key. */
-fun refused(r: Refusal, path: string): AppPage = match r {
+/**
+ * A page for an app that wasn't loaded: stopped, refused, or asking about its key.
+ *
+ * Example:
+ *     refused(r, "rapidkoi://localhost:8000")
+ */
+public fun refused(r: Refusal, path: string): AppPage = match r {
     Failed(name, w) => failed(name, path, w),
     Unverified(host, _) => AppPage { screen: Screen.Refused(why(r)), ..failed(host, path, "") },
     Unapproved(host, c) => AppPage { screen: Screen.Unapproved(c, []), ..failed(host, path, "") },
