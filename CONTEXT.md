@@ -1345,12 +1345,45 @@ CLAUDE.md (commands, tree), docs/DESIGN.md (markers and pages), CHANGELOG.md
 
 ---
 
-## SESSION 35 — 2026-10-18 — Keys at 0600, and designing PRP-007: remembering — open
+## SESSION 35 — 2026-10-18 — Keys at 0600, and designing PRP-007: remembering — closed
 
 Branch: prp-007-remembering
+
+### WHAT WAS DONE
+
+Lugha m115 (`fs.rename`, `fs.set_mode`, `flush`, `std.time`) and m116 (`fs.sync`) landed; kivuli 0.6.0 brought `Cmd.task` and `Sub.receive` (unblocks DECISION-021). keygen now writes the secret key at 0600 through a temporary file made owner-only before the secret goes in, synced and renamed into place (the PRP-006 follow-up it promised); the chmod reminder is gone. Designed PRP-007 in chat, one topic at a time (all four settled), and wrote it.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/keys.la, src/publish.la — keygen at 0600, safe write; message
+test/keys.la — keygen leaves only the key; an unwritable folder is reported
+DECISIONS.md — DECISION-023 (std.fs can't read a mode back), deferred
+docs/source/meetings/2026-10-18-remembering.md — the design talk
+PRPs/prp-007-remembering.md — for approval
+CLAUDE.md (keygen command), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- keys: 2 new (8 pass). The 0600 itself was checked by hand (`stat`: 600): no Lugha test can read a mode.
+
+### DECISIONS MADE
+
+- PRP-007 remembers trust, pins and left-off; tabs come next in their own PRP; app copies come with remote hosts.
+- `~/.local/share/rapidkoi/` (XDG), three CBOR files with format numbers, safe writes; saved on every change on the window's thread (a new rule 3 exception, written in the PRP); broken files set aside with a notice; newer files left untouched.
+- Proposed in the PRP, for approval: Forget keeps the app's trusted key.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-023 (deferred).
+
+### STILL OPEN AT CLOSE
+
+- PRP-007 awaits approval. Then: background loading (kivuli 0.6, DECISION-021) after the tabs PRP.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-006 is merged to main. Next: PRP-007 (remembering trust, pins and left-off on disk; needs std.fs.rename and set_mode from Lugha), or another milestone the owner picks. Open the session on a new branch.
+PRP-007 (`PRPs/prp-007-remembering.md`) awaits the owner's approval, on branch `prp-007-remembering`. If approved, open session 36 there and build it test-first: store.la, remembered.la, the keyring's entries and change count, LeftOff reopening from disk, then boot and saving in shell. Stop before merge for the owner's security review (the trust store).
