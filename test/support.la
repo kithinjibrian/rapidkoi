@@ -128,7 +128,20 @@ public fun result_of(state: u8[]): u8[] = encode(
  * A guest whose `update` answers `{ "state": <the event bytes>, "effects": [] }`,
  * built in memory each call, and whose `view` shows a button sending "add".
  */
-public fun echo(): string {
+public fun echo(): string = echoing(1, "(func (export \"init\") (result i64) (i64.const 0))");
+
+/**
+ * `echo` speaking contract v2: `init` returns `init` (a `{state, effects}`
+ * result, so it can ask for effects), and `update` answers with the event
+ * or answer it got as its new state, asking for nothing more.
+ */
+public fun echo_v2(init: u8[]): string = echoing(
+    2,
+    "(data (i32.const 5000) \"{wat_bytes(init)}\")\n(func (export \"init\") (result i64) (i64.const {(5000 << 32) | init.len}))",
+);
+
+/** The echoing guest: speaking `version`, with `init_func` as its init. */
+fun echoing(version: i32, init_func: string): string {
     let tree = counter_tree("echo");
     let head: u8[] = [0xa2, 0x65, 115, 116, 97, 116, 101, 0x59];
     let tail: u8[] = [0x67, 101, 102, 102, 101, 99, 116, 115, 0x80];
@@ -138,12 +151,12 @@ public fun echo(): string {
         "(data (i32.const 1024) \"{wat_bytes(tree)}\")",
         "(data (i32.const 3000) \"{wat_bytes(head)}\")",
         "(data (i32.const 3100) \"{wat_bytes(tail)}\")",
-        "(func (export \"rapidkoi_version\") (result i32) (i32.const 1))",
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const {version}))",
         "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
         "  (local.set $p (global.get $next))",
         "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
         "  (local.get $p))",
-        "(func (export \"init\") (result i64) (i64.const 0))",
+        init_func,
         "(func (export \"view\") (param i32 i32) (result i64) (global.set $next (i32.const 8192)) (i64.const {(1024 << 32) | tree.len}))",
         "(func (export \"update\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
         "  (memory.copy (i32.const 4096) (i32.const 3000) (i32.const 8))",

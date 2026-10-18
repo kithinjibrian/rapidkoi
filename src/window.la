@@ -4,13 +4,15 @@
  * pins, "where you left off" and the theme. Opening files and addresses is
  * `navigate.la`. Never draws.
  *
- * Depends on: wasmtime, verify, store, fetching, actions, tabs, leftoff, home, frame, themes
+ * Depends on: wasmtime, verify, store, fetching, people, identity, actions, tabs, leftoff, home, frame, themes
  * Used by: navigate, shell
  */
 import wasmtime { Engine };
 import verify { Keyring, keyring };
 import store { Store };
 import fetching { Network };
+import people { People, nobody };
+import identity { Master };
 import actions { Msg, PanelPage, Confirm };
 import tabs { Page, Tab, Pin, AppPage, state_of };
 import leftoff { LeftOff, leave, snapshot };
@@ -54,6 +56,10 @@ public struct Model {
     loads: i64,
     /** How loads reach the network: the system's roots alone, except in tests (PRP-009). */
     network: Network,
+    /** Your sign-in settings and name, per app (PRP-011). */
+    public people: People,
+    /** This computer's master secret, once read or made: never shown. */
+    master: Option<Master>,
 }
 
 /**
@@ -90,6 +96,8 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         now: 0,
         loads: 0,
         network: Network { ca_file: None },
+        people: nobody(),
+        master: None,
     }
 }
 

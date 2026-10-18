@@ -5,7 +5,7 @@
  * current theme, maximized. The state and what
  * changes it live in `window.la`; `view` never calls a guest.
  *
- * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, render, frame, home, panel, theme, themes
+ * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, effects, placeholders, people, render, frame, home, panel, theme, themes
  * Used by: main
  */
 import kivuli { View, Cmd, Sub, Align, button, column, overlay, row, scroll, text };
@@ -13,6 +13,9 @@ import wasmtime { Engine };
 import actions { Msg, PanelPage, Confirm, TabAction, PinAction };
 import tabs { AppPage, Tab, Pin, handle, is_loading };
 import loads;
+import effects { answer_all };
+import placeholders { fill };
+import people { name_in };
 public import window { Model, with_pages, title_of };
 import navigate;
 import saving { session_store, restore, persist, mark, forgotten };
@@ -61,7 +64,7 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     }
     let at = mark(remembered);
     let (placed, cmd) = navigate.open_file(remembered, argv[1]);
-    let opened = persist(remembered, placed, at);
+    let opened = persist(remembered, answer_all(placed), at);
     // Opening clears the notice line; what restoring said still shows.
     let notice = match (remembered.notice, opened.notice) {
         (Some(a), Some(b)) => Some("{a} · {b}"),
@@ -95,7 +98,8 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     // The keyring is shared by every copy of the model: mark it first.
     let at = mark(m);
     let (next, cmd) = handle_msg(m, msg);
-    (persist(m, next, at), cmd)
+    // What a v2 app asked for is answered before anything is drawn or saved.
+    (persist(m, answer_all(next), at), cmd)
 }
 
 /**
@@ -206,7 +210,7 @@ public fun view(m: Model): View<Msg> {
         // The panel sits over the app, which keeps its width. A dim layer
         // between them keeps the app from being clicked meanwhile; it isn't a
         // button, so a stray click never closes the panel (Close, Escape, ⓘ do).
-        App(a) => overlay(card(app_view(id, a, m.now)), match m.panel {
+        App(a) => overlay(card(app_view(id, a, m)), match m.panel {
             Some(p) => [
                 column([]).style([Look.Scrim]),
                 // Under ⓘ at the top right, as tall as its content. The dark
@@ -250,8 +254,18 @@ public fun view(m: Model): View<Msg> {
 fun card(v: View<Msg>): View<Msg> = scroll(v.padding(SPACE_LG)).style([Look.Page]);
 
 /** A tab's app, its messages tagged with the tab, so they reach only it. */
-fun app_view(id: i64, a: AppPage, now: i64): View<Msg> {
+fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
+    let now = m.now;
     let shown = match a.screen {
+        // A v2 app's {FIRST_NAME} and {LAST_NAME} are filled while drawing:
+        // the app can show your name, never know it (PRP-011).
+        Running(g, _, d) if g.version >= 2 => {
+            let (first, last) = match a.trust {
+                Some(t) => name_in(m.people, t.host, t.origin),
+                None => (m.people.first, m.people.last),
+            };
+            screen(fill(d.root, first, last))
+        }
         Running(_, _, d) => screen(d.root),
         Stopped(why, can_restart) => stopped(why, can_restart),
         Refused(why) => refused(why),

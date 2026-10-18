@@ -1,0 +1,151 @@
+/**
+ * Answering what contract v2 apps ask for (PRP-011): their public key, and
+ * sign-in signatures over their verified host. Only signed apps get them,
+ * by their host and origin key, and only while you're signed in to them;
+ * everything else is answered with nothing. Each answer goes back through
+ * the app's `update`, which may ask again, up to `MAX_ANSWERS` in a row.
+ *
+ * Depends on: identity, people, tabs, window, contract, render, store
+ * Used by: shell
+ */
+import identity { Master, master, public_key, sign_in, reason as identity_reason };
+import people { person };
+import tabs { AppPage, Tab, Screen, handle };
+import window { Model, with_tab };
+import contract { Effect };
+import render;
+
+/** The most answers in a row for one app before it's stopped: an app that keeps asking. */
+public const MAX_ANSWERS: i64 = 32;
+
+/**
+ * Answers every tab's waiting effects.
+ *
+ * @returns the model with each page past its answers; the master secret
+ *     made or read on first need (a failure shows as the notice, and the
+ *     app gets nothing)
+ *
+ * Example:
+ *     answer_all(next)
+ */
+public fun answer_all(m: Model): Model {
+    let mut at = m;
+    for t of m.tabs {
+        if t.page.asks.len > 0 {
+            at = answer_tab(at, t.id);
+        }
+    }
+    at
+}
+
+/** One tab's effects, in order, and whatever the answers ask for after them. */
+fun answer_tab(m: Model, id: i64): Model {
+    let mut at = m;
+    let mut answered = 0;
+    while true {
+        let p = match find(at, id) {
+            Some(p) => p,
+            None => {
+                return at;
+            }
+        };
+        if p.asks.len == 0 {
+            return at;
+        }
+        if answered >= MAX_ANSWERS {
+            // It keeps asking: stop it, like any app that won't settle.
+            return with_tab(
+                at,
+                id,
+                fun(page: AppPage) = AppPage {
+                    screen: Screen.Stopped(
+                        "This app asked Rapidkoi for too many things at once",
+                        true,
+                    ),
+                    asks: [],
+                    ..page,
+                },
+            );
+        }
+        let ask = p.asks[0];
+        let rest: Effect[] = [];
+        let mut later = rest;
+        for i in 1..p.asks.len {
+            later.push(p.asks[i]);
+        }
+        let (got, value) = respond(at, p, ask);
+        let msg = match ask {
+            Identity(msg) => msg,
+            Sign(msg, _) => msg,
+        };
+        // The answer may ask again: those come after the ones still waiting.
+        at = with_tab(got, id, fun(page: AppPage) {
+            let next = handle(AppPage { asks: [], ..page }, render.Msg.Answer(msg, value));
+            let mut queue = later;
+            for a of next.asks {
+                queue.push(a);
+            }
+            AppPage { asks: queue, ..next }
+        });
+        answered += 1;
+    }
+    at
+}
+
+/**
+ * What to answer one effect with: the key or a signature for a signed app
+ * you're signed in to; nothing otherwise.
+ */
+fun respond(m: Model, p: AppPage, ask: Effect): (Model, Option<u8[]>) {
+    let t = match p.trust {
+        Some(t) => t,
+        None => {
+            return (m, None);
+        }
+    };
+    let x = person(m.people, t.host, t.origin);
+    if x.signed_out {
+        return (m, None);
+    }
+    let (held, secret) = secret(m);
+    let mm = match secret {
+        Some(mm) => mm,
+        None => {
+            return (held, None);
+        }
+    };
+    let made = match ask {
+        Identity(_) => public_key(mm, t.host, t.origin, x.generation),
+        Sign(_, challenge) => sign_in(mm, t.host, t.origin, x.generation, challenge),
+    };
+    match made {
+        Ok(bytes) => (held, Some(bytes)),
+        Err(e) => (Model { notice: Some(identity_reason(e)), ..held }, None),
+    }
+}
+
+/** The master secret: cached in the model, else read or made in the store (none without one). */
+fun secret(m: Model): (Model, Option<Master>) {
+    if let Some(mm) = m.master {
+        return (m, Some(mm));
+    }
+    let s = match m.store {
+        Some(s) => s,
+        None => {
+            return (m, None);
+        }
+    };
+    match master(s) {
+        Ok(mm) => (Model { master: Some(mm), ..m }, Some(mm)),
+        Err(e) => (Model { notice: Some(identity_reason(e)), ..m }, None),
+    }
+}
+
+fun find(m: Model, id: i64): Option<AppPage> {
+    for t of m.tabs {
+        if t.id == id {
+            return Some(t.page);
+        }
+    }
+    None
+}
