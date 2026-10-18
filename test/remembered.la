@@ -26,6 +26,7 @@ fun id(host: string, n: u8): Identity = Identity {
     sequence: 3,
     separate: false,
     since: 1_760_000_000_000,
+    origin: [n; 32],
 };
 
 fun entry(k: string, v: Value): Entry = Entry { key: Value.Text(k), value: v };
@@ -207,7 +208,7 @@ fun trust_format_1_still_reads_with_no_date() {
     // Written back as format 2, the date travels.
     assert_eq(read_trust(trust_file([id("a.example", 1)])).unwrap()[0].since, 1_760_000_000_000);
     let three = encode(
-        Value.Map([entry("format", Value.int(3)), entry("kind", Value.Text("rapidkoi trust"))]),
+        Value.Map([entry("format", Value.int(4)), entry("kind", Value.Text("rapidkoi trust"))]),
     );
-    assert_eq(broken(read_trust(three)), "newer 3");
+    assert_eq(broken(read_trust(three)), "newer 4");
 }

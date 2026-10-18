@@ -44,6 +44,8 @@ public struct Trust {
     public separate: bool,
     /** When its key was first trusted, in ms since 1970; 0 when not recorded or not trusted. */
     public since: i64,
+    /** The key first trusted for this app, kept through signed rotations: who the app is (PRP-011). */
+    public origin: u8[],
 }
 
 /** A key change no signed trail explains: what the person is asked about. */
@@ -98,6 +100,8 @@ public struct Identity {
     public separate: bool,
     /** When it was first trusted, in milliseconds since 1970; 0 when not recorded (format 1). */
     public since: i64,
+    /** The key first trusted for this app, kept through signed rotations: who the app is (PRP-011). */
+    public origin: u8[],
 }
 
 /** The keys trusted this session, shared by every copy (it's a box). */
@@ -294,6 +298,8 @@ public fun check_site(
             sequence: ix.sequence,
             separate: separate,
             since: from.map(fun(k: Identity) = k.since).unwrap_or(time.now_ms()),
+            // A rotation keeps who the app is; a first use starts it here.
+            origin: from.map(fun(k: Identity) = k.origin).unwrap_or(key),
         },
     };
     Ok(
@@ -307,6 +313,7 @@ public fun check_site(
                     build: s.hash,
                     separate: separate,
                     since: r.now.since,
+                    origin: r.now.origin,
                 },
             },
             r,
@@ -330,6 +337,7 @@ public fun separate(ring: Keyring, c: Change) {
             sequence: 0,
             separate: true,
             since: time.now_ms(),
+            origin: c.new,
         });
         next
     });
@@ -352,6 +360,8 @@ public fun standing_of(ring: Keyring, s: Signed): Trust {
         build: s.hash,
         separate: found.map(fun(k: Identity) = k.separate).unwrap_or(false),
         since: found.map(fun(k: Identity) = k.since).unwrap_or(0),
+        // A key Rapidkoi hasn't met is its own app: never a trusted publisher's.
+        origin: found.map(fun(k: Identity) = k.origin).unwrap_or(s.key),
     }
 }
 

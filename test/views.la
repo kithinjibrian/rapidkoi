@@ -188,6 +188,7 @@ fun signed_page(path: string, host: string, standing: Standing, since: i64): App
         build: [1; 32],
         separate: false,
         since: since,
+        origin: [7; 32],
     }),
     ..counter(),
 };

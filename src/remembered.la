@@ -20,8 +20,8 @@ import limits { MAX_ICON_PX };
 /** The format the pins, left-off and state files are written in. */
 public const FORMAT: i64 = 1;
 
-/** The trust file's format: 2 added when each key was first trusted (PRP-009). */
-public const TRUST_FORMAT: i64 = 2;
+/** The trust file's format: 2 added when each key was first trusted (PRP-009), 3 each app's origin key (PRP-011). */
+public const TRUST_FORMAT: i64 = 3;
 
 /** The most identities the trust file holds. */
 public const MAX_IDENTITIES: i64 = 10_000;
@@ -112,6 +112,7 @@ public fun trust_file(ids: Identity[]): u8[] = file(
                 entry("sequence", Value.int(i.sequence)),
                 entry("separate", Value.Bool(i.separate)),
                 entry("since", Value.int(i.since)),
+                entry("origin", Value.Bytes(i.origin)),
             ]),
         ),
     ),
@@ -159,12 +160,21 @@ public fun read_trust(bytes: u8[]): Result<Identity[], Unreadable> {
         if since < 0 {
             return Err(Unreadable.Broken("an entry's first use isn't a time"));
         }
+        // Formats 1 and 2 didn't record it: the key is the origin (no rotation was kept yet).
+        let origin = match v.get("origin") {
+            Some(Bytes(b)) if b.len == 32 => b,
+            None => key,
+            _ => {
+                return Err(Unreadable.Broken("an entry's origin key isn't 32 bytes"));
+            }
+        };
         ids.push(Identity {
             host: host,
             key: key,
             sequence: sequence,
             separate: separate,
             since: since,
+            origin: origin,
         });
     }
     Ok(ids)
