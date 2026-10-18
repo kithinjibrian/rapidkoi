@@ -84,30 +84,62 @@ public fun wat_bytes(bytes: u8[]): string {
 public fun pack(ptr: i64, len: i64): i64 = ptr << 32 | len;
 
 /**
- * A guest answering every call with fixed bytes: `init` returns `state`,
- * `view` returns `tree`, `update` returns `result`. `alloc` bumps from
- * 65536, past the blobs, and resets after each export.
+ * A guest answering with fixed bytes, as one contract `update` sees events:
+ * the init event gets `{state: state}`, the opened event keeps the state it
+ * was given, and any other event gets `result`; `view` returns `tree`.
+ * `alloc` bumps from 65536, past the blobs, and resets after each export.
  * `rapidkoi_version` returns `version`.
  */
 public fun fixed(version: i32, state: u8[], tree: u8[], result: u8[]): string {
+    let first = result_of(state);
     let s = 1024;
-    let v = s + state.len;
+    let v = s + first.len;
     let r = v + tree.len;
     [
         "(module (memory (export \"memory\") 4)",
         "(global $next (mut i32) (i32.const 65536))",
-        "(data (i32.const {s}) \"{wat_bytes(state)}\")",
+        "(data (i32.const {s}) \"{wat_bytes(first)}\")",
         "(data (i32.const {v}) \"{wat_bytes(tree)}\")",
         "(data (i32.const {r}) \"{wat_bytes(result)}\")",
+        wrapping(60000),
         "(func (export \"rapidkoi_version\") (result i32) (i32.const {version}))",
         "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
         "  (local.set $p (global.get $next))",
         "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
         "  (local.get $p))",
         "(func $reset (global.set $next (i32.const 65536)))",
-        "(func (export \"init\") (result i64) (call $reset) (i64.const {pack(s, state.len)}))",
         "(func (export \"view\") (param i32 i32) (result i64) (call $reset) (i64.const {pack(v, tree.len)}))",
-        "(func (export \"update\") (param i32 i32 i32 i32) (result i64) (call $reset) (i64.const {pack(r, result.len)})))",
+        "(func (export \"handle\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
+        "  (if (i32.eq (local.get $el) (i32.const {INIT_LEN})) (then (call $reset) (return (i64.const {pack(s, first.len)}))))",
+        "  (if (i32.eq (local.get $el) (i32.const {OPENED_LEN})) (then (return (call $wrap (local.get $sp) (local.get $sl)))))",
+        "  (call $reset) (i64.const {pack(r, result.len)})))",
+    ].join("\n")
+}
+
+/** The length of the CBOR `{event: "init"}`: how a fixture tells it apart. */
+const INIT_LEN: i64 = 12;
+
+/** The length of the CBOR `{event: "opened"}`. */
+const OPENED_LEN: i64 = 14;
+
+/**
+ * A WebAssembly function `$wrap(ptr, len)` writing `{state: <those bytes>,
+ * effects: []}` at `at` and returning it packed, plus the bytes it needs.
+ */
+fun wrapping(at: i64): string {
+    let head: u8[] = [0xa2, 0x65, 115, 116, 97, 116, 101, 0x59];
+    let tail: u8[] = [0x67, 101, 102, 102, 101, 99, 116, 115, 0x80];
+    let out = at + 32;
+    [
+        "(data (i32.const {at}) \"{wat_bytes(head)}\")",
+        "(data (i32.const {at + 16}) \"{wat_bytes(tail)}\")",
+        "(func $wrap (param $p i32) (param $l i32) (result i64)",
+        "  (memory.copy (i32.const {out}) (i32.const {at}) (i32.const 8))",
+        "  (i32.store8 (i32.const {out + 8}) (i32.shr_u (local.get $l) (i32.const 8)))",
+        "  (i32.store8 (i32.const {out + 9}) (local.get $l))",
+        "  (memory.copy (i32.const {out + 10}) (local.get $p) (local.get $l))",
+        "  (memory.copy (i32.add (i32.const {out + 10}) (local.get $l)) (i32.const {at + 16}) (i32.const 9))",
+        "  (i64.or (i64.const {out << 32}) (i64.extend_i32_u (i32.add (local.get $l) (i32.const 19)))))",
     ].join("\n")
 }
 
@@ -125,47 +157,68 @@ public fun result_of(state: u8[]): u8[] = encode(
 );
 
 /**
- * A guest whose `update` answers `{ "state": <the event bytes>, "effects": [] }`,
- * built in memory each call, and whose `view` shows a button sending "add".
+ * A guest whose `update` answers each message or answer with the event's
+ * own bytes as its new state, starts with an empty state, and keeps it when
+ * opened; its `view` shows a button sending "add".
  */
-public fun echo(): string {
+public fun echo(): string = echoing(result_of([]), None);
+
+/**
+ * `echo` asking for things: the init event gets `init` (a `{state,
+ * effects}` result), and the opened event gets `opened` when given.
+ */
+public fun echo_v2(init: u8[]): string = echoing(init, None);
+
+/** `echo` that asks for things every time it's opened (`opened`, a result). */
+public fun echo_opening(opened: u8[]): string = echoing(result_of([]), Some(opened));
+
+/** The echoing guest. */
+fun echoing(init: u8[], opened: Option<u8[]>): string {
     let tree = counter_tree("echo");
-    let head: u8[] = [0xa2, 0x65, 115, 116, 97, 116, 101, 0x59];
-    let tail: u8[] = [0x67, 101, 102, 102, 101, 99, 116, 115, 0x80];
+    let open = opened.unwrap_or([]);
+    let on_open = match opened {
+        Some(_) => "(return (i64.const {(5600 << 32) | open.len}))",
+        None => "(return (call $wrap (local.get $sp) (local.get $sl)))",
+    };
     [
         "(module (memory (export \"memory\") 1)",
         "(global $next (mut i32) (i32.const 8192))",
         "(data (i32.const 1024) \"{wat_bytes(tree)}\")",
-        "(data (i32.const 3000) \"{wat_bytes(head)}\")",
-        "(data (i32.const 3100) \"{wat_bytes(tail)}\")",
-        "(func (export \"rapidkoi_version\") (result i32) (i32.const 1))",
+        "(data (i32.const 5000) \"{wat_bytes(init)}\")",
+        "(data (i32.const 5600) \"{wat_bytes(open)}\")",
+        wrapping(3000),
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const 2))",
         "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
         "  (local.set $p (global.get $next))",
         "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
         "  (local.get $p))",
-        "(func (export \"init\") (result i64) (i64.const 0))",
         "(func (export \"view\") (param i32 i32) (result i64) (global.set $next (i32.const 8192)) (i64.const {(1024 << 32) | tree.len}))",
-        "(func (export \"update\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
-        "  (memory.copy (i32.const 4096) (i32.const 3000) (i32.const 8))",
-        "  (i32.store8 (i32.const 4104) (i32.shr_u (local.get $el) (i32.const 8)))",
-        "  (i32.store8 (i32.const 4105) (local.get $el))",
-        "  (memory.copy (i32.const 4106) (local.get $ep) (local.get $el))",
-        "  (memory.copy (i32.add (i32.const 4106) (local.get $el)) (i32.const 3100) (i32.const 9))",
-        "  (i64.or (i64.const {4096 << 32}) (i64.extend_i32_u (i32.add (local.get $el) (i32.const 19)))))",
+        "(func (export \"handle\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
+        "  (if (i32.eq (local.get $el) (i32.const {INIT_LEN})) (then (return (i64.const {(5000 << 32) | init.len}))))",
+        "  (if (i32.eq (local.get $el) (i32.const {OPENED_LEN})) (then {on_open}))",
+        "  (call $wrap (local.get $ep) (local.get $el)))",
         ")",
     ].join("\n")
 }
 
-/** A guest whose `view` shows a counter tree and whose `update` traps. */
-public fun crashing(): string = [
-    "(module (memory (export \"memory\") 1)",
-    "(data (i32.const 1024) \"{wat_bytes(counter_tree("x"))}\")",
-    "(func (export \"rapidkoi_version\") (result i32) (i32.const 1))",
-    "(func (export \"alloc\") (param i32) (result i32) (i32.const 8192))",
-    "(func (export \"init\") (result i64) (i64.const 0))",
-    "(func (export \"view\") (param i32 i32) (result i64) (i64.const {(1024 << 32) | counter_tree("x").len}))",
-    "(func (export \"update\") (param i32 i32 i32 i32) (result i64) unreachable))",
-].join("\n");
+/**
+ * A guest whose `view` shows a counter tree and whose `update` traps on any
+ * message (it starts and opens fine).
+ */
+public fun crashing(): string {
+    let first = result_of([]);
+    [
+        "(module (memory (export \"memory\") 1)",
+        "(data (i32.const 1024) \"{wat_bytes(counter_tree("x"))}\")",
+        "(data (i32.const 2048) \"{wat_bytes(first)}\")",
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const 2))",
+        "(func (export \"alloc\") (param i32) (result i32) (i32.const 8192))",
+        "(func (export \"view\") (param i32 i32) (result i64) (i64.const {(1024 << 32) | counter_tree("x").len}))",
+        "(func (export \"handle\") (param i32 i32 i32) (param $el i32) (result i64)",
+        "  (if (i32.le_u (local.get $el) (i32.const {OPENED_LEN})) (then (return (i64.const {(2048 << 32) | first.len}))))",
+        "  unreachable))",
+    ].join("\n")
+}
 
 /** A counter tree whose root carries `title`. */
 public fun titled_tree(label: string, title: string): u8[] = encode(

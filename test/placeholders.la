@@ -1,0 +1,42 @@
+// {FIRST_NAME} and {LAST_NAME} (PRP-011), pure: filled in display text
+// only, never in text fields; anything else in braces stays as it is.
+import rapidkoi.placeholders { fill };
+import rapidkoi.nodes { Node, TextStyle, ButtonLook, Space };
+import cbor { Value };
+
+fun body(s: string): Node = Node.Text(s, TextStyle.Body);
+
+@test
+fun names_fill_text_and_button_labels() {
+    let tree = Node.Column(Space.Md, Space.Zero, [
+        body("Hello, {{FIRST_NAME}} {{LAST_NAME}}!"),
+        Node.Button("Hi {{FIRST_NAME}}", ButtonLook.Primary, Some(Value.Text("hi"))),
+    ]);
+    assert_eq(
+        fill(tree, "Brian", "Kithinji"),
+        Node.Column(Space.Md, Space.Zero, [
+            body("Hello, Brian Kithinji!"),
+            Node.Button("Hi Brian", ButtonLook.Primary, Some(Value.Text("hi"))),
+        ]),
+    );
+}
+
+@test
+fun an_empty_name_fills_nothing_and_other_braces_stay() {
+    assert_eq(fill(body("Hello, {{FIRST_NAME}}!"), "", ""), body("Hello, !"));
+    assert_eq(
+        fill(body("{{NAME}} {{first_name}} {{{{FIRST_NAME}}}}"), "B", ""),
+        body("{{NAME}} {{first_name}} {{B}}"),
+    );
+}
+
+@test
+fun text_fields_are_never_filled() {
+    let field = Node.Input("{{FIRST_NAME}}", "{{LAST_NAME}}", Some(Value.Text("typed")));
+    assert_eq(fill(field, "Brian", "K"), field);
+}
+
+@test
+fun a_name_that_looks_like_a_placeholder_isn_t_filled_again() {
+    assert_eq(fill(body("{{FIRST_NAME}}"), "{{LAST_NAME}}", "x"), body("{{LAST_NAME}}"));
+}

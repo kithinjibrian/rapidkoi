@@ -105,6 +105,8 @@ Read this at the start of every session before writing any code.
 
 **Rules out:** Pixel or colour props; the shell interpreting app messages; guest-held state; failing a whole screen over an unknown kind; changing v1 without bumping the version.
 
+**Contract 2 (PRP-011, 2026-10-18), replacing v1:** one entry point, `handle(state, event)`, for every event (`init`, `opened`, `message`, `answer`; more later), plus `view`. Any result can carry effects (`identity`, `sign`). `{FIRST_NAME}`/`{LAST_NAME}` are filled in display text while drawing.
+
 ---
 
 ### 11. lugha-cbor (DECISION-013)
@@ -189,6 +191,16 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 **Why:** The owner, who found the old panel ugly (`2026-10-17-ui/sketch-3-info-panel.png`).
 
 **Rules out:** A flat list of lines and buttons; destructive actions without a confirm.
+
+---
+
+### 17. Identity (PRP-011)
+
+**Decision:** Each signed app gets its own Ed25519 key pair for the person, derived from one master secret on the device (HKDF over the host, the app's origin key and a generation). Apps get only the public key; sign-ins are host-bound signatures. Auto sign-in is on by default; the Account page signs out, starts over as someone new, and holds a name that apps show through placeholders but never learn. Recovery (12 words, sync) later.
+
+**Why:** No passwords, no cross-app tracking, no data apps don't need. Detail: `docs/source/meetings/2026-10-18-identity.md`.
+
+**Rules out:** Rapidkoi accounts or servers in the middle; names, emails or phones sent to apps by Rapidkoi; keys for unsigned apps.
 
 ---
 

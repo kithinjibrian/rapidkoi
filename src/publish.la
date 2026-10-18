@@ -36,6 +36,7 @@ import index {
     read_key_file,
     reason as index_reason,
 };
+import limits { CONTRACT_VERSION };
 import bundle { Bundle, Manifest, write, reason as bundle_reason };
 
 /** Where a site keeps Rapidkoi's files, under its root. */
@@ -225,7 +226,7 @@ public fun bundle_of(p: Project): Result<Bundle, string> {
     }
     Ok(Bundle {
         manifest: Manifest {
-            contract: 1,
+            contract: CONTRACT_VERSION as i64,
             name: p.name,
             version: p.version,
             description: p.description,

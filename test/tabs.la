@@ -22,7 +22,7 @@ fun reason_of(p: AppPage): string = match p.screen {
 
 @test
 fun a_page_starts_and_keeps_its_title() {
-    let p = page(fixed(1, [5], titled_tree("Count: 0", "Counter"), result_of([6])));
+    let p = page(fixed(2, [5], titled_tree("Count: 0", "Counter"), result_of([6])));
     assert_eq(state_of(p), Some([5]));
     assert_eq(p.title, Some("Counter"));
     assert_eq(p.name, "fixture");
@@ -105,7 +105,7 @@ fun rkb(tag: string, speaks: i64): string {
 
 @test
 fun opening_a_bundle_uses_its_manifest() {
-    let p = open_path(Engine.new(), keyring(), rkb("opening", 1));
+    let p = open_path(Engine.new(), keyring(), rkb("opening", 2));
     assert_eq(p.name, "Bundled");
     assert_eq(p.manifest.map(fun(m: Manifest) = m.version), Some("2.0.1"));
     // The module compiled; the empty module has no memory, so it stops with Restart offered.
@@ -115,7 +115,7 @@ fun opening_a_bundle_uses_its_manifest() {
 
 @test
 fun a_bundle_for_a_newer_contract_says_so() {
-    let p = open_path(Engine.new(), keyring(), rkb("newer", 2));
+    let p = open_path(Engine.new(), keyring(), rkb("newer", 3));
     assert_eq(reason_of(p), "This app needs a newer version of Rapidkoi");
     assert_eq(p.name, "Bundled");
 }

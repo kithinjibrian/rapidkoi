@@ -1,0 +1,72 @@
+/**
+ * Your name in an app's screen (PRP-011), pure: `{FIRST_NAME}` and
+ * `{LAST_NAME}` in a contract v2 app's text and button labels become your
+ * name while Rapidkoi draws it. The app never receives the result, so it
+ * can show your name but never know it. Text fields are never filled
+ * (editing one would send the name back), nor are screen titles (the
+ * window title is visible outside Rapidkoi). Anything else in braces is
+ * left as it is.
+ *
+ * Depends on: nodes
+ * Used by: shell
+ */
+import nodes { Node };
+
+/**
+ * Fills the placeholders in a screen's display text.
+ *
+ * @param first your first name for this app ("" for none)
+ * @param last your last name for this app ("" for none)
+ *
+ * Example:
+ *     fill(described.root, "Brian", "Kithinji")
+ */
+public fun fill(n: Node, first: string, last: string): Node = match n {
+    Text(s, style) => Node.Text(substitute(s, first, last), style),
+    Button(label, look, msg) => Node.Button(substitute(label, first, last), look, msg),
+    Column(spacing, padding, kids) => Node.Column(
+        spacing,
+        padding,
+        kids.map(fun(k: Node) = fill(k, first, last)),
+    ),
+    Row(spacing, padding, kids) => Node.Row(
+        spacing,
+        padding,
+        kids.map(fun(k: Node) = fill(k, first, last)),
+    ),
+    // Text fields and anything else: as the app gave them.
+    _ => n,
+};
+
+/**
+ * One pass over the text: each placeholder is replaced once, so a name
+ * that itself looks like a placeholder is shown as typed, not filled again.
+ */
+fun substitute(s: string, first: string, last: string): string {
+    let tokens = [("{{FIRST_NAME}}", first), ("{{LAST_NAME}}", last)];
+    let mut out = "";
+    let mut i = 0;
+    while i < s.len {
+        let mut matched = false;
+        for (token, name) of tokens {
+            if !matched && i + token.len <= s.len && s.slice(i, i + token.len) == token {
+                out = out + name;
+                i += token.len;
+                matched = true;
+            }
+        }
+        if !matched {
+            // One character on, by its UTF-8 length (s.len and slice count bytes).
+            let step = width(s, i);
+            out = out + s.slice(i, i + step);
+            i += step;
+        }
+    }
+    out
+}
+
+/** The byte length of the UTF-8 character starting at byte `i`. */
+fun width(s: string, i: i64): i64 {
+    let b = s.to_bytes()[i];
+    if b < 0x80 { 1 } else if b < 0xE0 { 2 } else if b < 0xF0 { 3 } else { 4 }
+}

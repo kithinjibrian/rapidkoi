@@ -1,0 +1,216 @@
+// Answering a contract v2 app's effects (PRP-011): its public key and
+// sign-in signatures, for signed apps only, as you've chosen in the Account
+// page. An echo guest's state becomes the answer it got, so each test reads
+// exactly what Rapidkoi sent. Writes only under test/tmp/.
+import rapidkoi.shell { Model, with_pages, view };
+import rapidkoi.effects { answer_all };
+import rapidkoi.saving { restore };
+import rapidkoi.tabs { AppPage, open_module, state_of, with_saved };
+import rapidkoi.verify { Trust, Standing };
+import rapidkoi.identity { master, public_key, sign_in_message };
+import rapidkoi.people { People, Person, person, with_person };
+import rapidkoi.contract { answer };
+import rapidkoi.store { Store, store_at };
+import cbor { Value, Entry, encode, decode, Limits };
+import std.crypto { ed25519_verify };
+import std.fs;
+import wasmtime { Engine, Module };
+import support { echo_v2, echo_opening, t, kv, fixed, counter_tree, result_of };
+import kivuli.testing { texts };
+
+const HOST: string = "notes.acme.com";
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun folder(name: string): Store {
+    let dir = "test/tmp/effects-{name}";
+    clean(dir);
+    store_at(dir)
+}
+
+/** An init result asking for `effects`. */
+fun asking(wanted: Value[]): u8[] = encode(
+    Value.Map([
+        Entry { key: t("state"), value: Value.Bytes([]) },
+        Entry { key: t("effects"), value: Value.Array(wanted) },
+    ]),
+);
+
+/** A v2 echo page asking at init; signed by `HOST` when `signed`. */
+fun page(wanted: Value[], signed: bool): AppPage {
+    let engine = Engine.new();
+    let p = open_module(
+        "notes",
+        "rapidkoi://notes.acme.com",
+        engine,
+        Module.from_text(engine, echo_v2(asking(wanted))).unwrap(),
+    );
+    if !signed {
+        return p;
+    }
+    AppPage {
+        trust: Some(Trust {
+            host: HOST,
+            key: [3; 32],
+            standing: Standing.Verified,
+            build: [0; 32],
+            separate: false,
+            since: 0,
+            origin: [3; 32],
+        }),
+        ..p,
+    }
+}
+
+/** A window on `s` showing `p`, its effects answered. */
+fun answered(s: Store, p: AppPage): Model {
+    let engine = Engine.new();
+    answer_all(restore(with_pages(engine, [p]), s))
+}
+
+fun got(m: Model): u8[] = state_of(m.tabs[0].page).unwrap_or([]);
+
+@test
+fun a_signed_app_gets_its_own_public_key() {
+    let s = folder("key");
+    let m = answered(s, page([kv([("kind", t("identity")), ("msg", t("me"))])], true));
+    let pk = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
+    assert_eq(got(m), answer(t("me"), Some(pk)));
+    assert_eq(m.tabs[0].page.asks.len, 0);
+    clean(s.dir);
+}
+
+@test
+fun a_sign_in_signature_checks_with_that_key_over_the_host() {
+    let s = folder("sign");
+    let m = answered(
+        s,
+        page(
+            [
+                kv([
+                    ("kind", t("sign")),
+                    ("msg", t("signed")),
+                    ("challenge", Value.Bytes([5, 6, 7])),
+                ]),
+            ],
+            true,
+        ),
+    );
+    let pk = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
+    let reply = decode(got(m), Limits.default()).unwrap();
+    let sig = reply.get("value").unwrap().as_bytes().unwrap();
+    assert_eq(ed25519_verify(pk, sign_in_message(HOST, [5, 6, 7]), sig), true);
+    clean(s.dir);
+}
+
+@test
+fun an_unsigned_app_gets_nothing() {
+    let s = folder("unsigned");
+    let m = answered(s, page([kv([("kind", t("identity")), ("msg", t("me"))])], false));
+    assert_eq(got(m), answer(t("me"), None));
+    // Nothing was made for it: no master secret.
+    assert_eq(fs.exists("{s.dir}/identity"), false);
+    clean(s.dir);
+}
+
+@test
+fun signed_out_gets_nothing_and_starting_over_gives_a_new_key() {
+    let s = folder("choices");
+    let engine = Engine.new();
+    let base = restore(
+        with_pages(engine, [page([kv([("kind", t("identity")), ("msg", t("me"))])], true)]),
+        s,
+    );
+    let out = Model {
+        people: with_person(base.people, Person {
+            signed_out: true,
+            ..person(base.people, HOST, [3; 32]),
+        }),
+        ..base,
+    };
+    assert_eq(got(answer_all(out)), answer(t("me"), None));
+    let again = restore(
+        with_pages(engine, [page([kv([("kind", t("identity")), ("msg", t("me"))])], true)]),
+        s,
+    );
+    let over = Model {
+        people: with_person(again.people, Person {
+            generation: 1,
+            ..person(again.people, HOST, [3; 32]),
+        }),
+        ..again,
+    };
+    let first = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
+    assert_eq(got(answer_all(over)) != answer(t("me"), Some(first)), true);
+    clean(s.dir);
+}
+
+/** A page whose screen says hello by name. */
+fun greeting(): AppPage {
+    let engine = Engine.new();
+    let tree = counter_tree("Hello, {{FIRST_NAME}} {{LAST_NAME}}!");
+    open_module(
+        "hi",
+        "hi.wasm",
+        engine,
+        Module.from_text(engine, fixed(2, [], tree, result_of([]))).unwrap(),
+    )
+}
+
+@test
+fun an_app_shows_your_name_without_knowing_it() {
+    let engine = Engine.new();
+    let m = with_pages(engine, [greeting()]);
+    let named = Model { people: People { first: "Brian", last: "Kithinji", apps: [] }, ..m };
+    assert_eq(texts(view(named)).any(fun(x: string) = x == "Hello, Brian Kithinji!"), true);
+    // No name set: nothing in its place.
+    assert_eq(texts(view(m)).any(fun(x: string) = x == "Hello,  !"), true);
+}
+
+@test
+fun a_resumed_app_asks_again_when_opened() {
+    let s = folder("resumed");
+    let ask = encode(
+        Value.Map([
+            Entry { key: t("state"), value: Value.Bytes([]) },
+            Entry {
+                key: t("effects"),
+                value: Value.Array([kv([("kind", t("identity")), ("msg", t("me"))])]),
+            },
+        ]),
+    );
+    let engine = Engine.new();
+    let p = AppPage {
+        trust: Some(Trust {
+            host: HOST,
+            key: [3; 32],
+            standing: Standing.Verified,
+            build: [0; 32],
+            separate: false,
+            since: 0,
+            origin: [3; 32],
+        }),
+        ..open_module(
+            "notes",
+            "rapidkoi://notes.acme.com",
+            engine,
+            Module.from_text(engine, echo_opening(ask)).unwrap(),
+        ),
+    };
+    // Resumed from a saved state (no init): opened still runs, so it asks.
+    let (resumed, _) = with_saved(p, [], 1);
+    assert_eq(resumed.asks.len, 1);
+    let m = answer_all(restore(with_pages(engine, [resumed]), s));
+    let pk = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
+    assert_eq(got(m), answer(t("me"), Some(pk)));
+    clean(s.dir);
+}

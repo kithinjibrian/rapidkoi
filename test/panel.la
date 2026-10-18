@@ -55,7 +55,7 @@ fun the_main_page() {
         "No version",
         "Your settings",
         "Account",
-        "Not signed in",
+        "No account",
         "Notifications",
         "Off",
         "Access",
@@ -78,7 +78,7 @@ fun the_main_page() {
 fun each_page_opens_and_comes_back() {
     let m = step(one(), Msg.TogglePanel);
     let pages = [
-        ("Account", PanelPage.Account, "Not signed in"),
+        ("Account", PanelPage.Account, "notes isn't signed, so it can't have an account."),
         ("Notifications", PanelPage.Notifications, "notes hasn't asked to send notifications."),
         ("Access", PanelPage.Access, "None: notes can't reach anything outside itself."),
         ("Where you left off", PanelPage.State, "Start over"),
@@ -175,6 +175,6 @@ fun the_panel_opens_over_the_app_and_only_closes_on_purpose() {
 fun a_whole_row_is_one_click_target() {
     let m = step(one(), Msg.TogglePanel);
     // Its summary is part of the same button as its label and arrow.
-    assert_eq(click(view(m), "Not signed in"), Ok(Msg.PanelGo(PanelPage.Account)));
+    assert_eq(click(view(m), "No account"), Ok(Msg.PanelGo(PanelPage.Account)));
     assert_eq(click(view(m), "Off"), Ok(Msg.PanelGo(PanelPage.Notifications)));
 }

@@ -7,7 +7,7 @@
  * arrow. Destructive actions ask first. Shown beside the app until kivuli
  * has an overlay (DECISION-018).
  *
- * Depends on: kivuli, actions, tabs, frame, bundle, address, verify, keys, theme, themes
+ * Depends on: kivuli, actions, tabs, frame, account, bundle, address, verify, keys, theme, themes
  * Used by: shell
  */
 import kivuli {
@@ -26,6 +26,7 @@ import kivuli {
 import actions { Msg, PanelPage, Confirm };
 import tabs { AppPage, state_of, state_version_of };
 import frame { icon_button, icon_of, initial, marker, marker_icon };
+import account { Account, page, summary };
 import bundle { Manifest };
 import address { parse };
 import verify { Standing };
@@ -48,21 +49,16 @@ const MARKER_CHARS: i64 = 18;
  * @param p the app's page
  * @param at which of the panel's pages to show
  * @param confirm a destructive action waiting for "yes", if any
+ * @param acc who you are to this app (`account.account_of`)
  * @returns the panel
  *
  * Example:
- *     panel.view(page, PanelPage.Main, None)
+ *     panel.view(page, PanelPage.Main, None, account_of(m, page))
  */
-public fun view(p: AppPage, at: PanelPage, confirm: Option<Confirm>): View<Msg> {
+public fun view(p: AppPage, at: PanelPage, confirm: Option<Confirm>, acc: Account): View<Msg> {
     let body = match at {
-        Main => front(p, confirm),
-        Account => sub("Account", [
-            text("How {p.name} knows you").dim(),
-            text("Not signed in"),
-            text(
-                "Sign-in comes in a later step: each app will get its own ID for you, and the name you choose.",
-            ).dim().wrap_at(PANEL_CHARS),
-        ]),
+        Main => front(p, confirm, summary(acc)),
+        Account => sub("Account", page(acc, confirm)),
         Notifications => sub("Notifications", [
             text("{p.name} hasn't asked to send notifications.").wrap_at(PANEL_CHARS),
         ]),
@@ -101,7 +97,7 @@ public fun size(n: i64): string {
     "{tenths / 10}.{tenths % 10} MB"
 }
 
-fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
+fun front(p: AppPage, confirm: Option<Confirm>, account_line: string): View<Msg> {
     let face: View<Msg> = match icon_of(p.path, p.icon) {
         Some(img) => image(img).size(HEADER_ICON),
         None => text(initial(p.name)).size(TEXT_TITLE).bold(),
@@ -131,7 +127,7 @@ fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
     parts.push(heading("Your settings"));
     parts.push(
         section([
-            line("Account", "Not signed in", PanelPage.Account),
+            line("Account", account_line, PanelPage.Account),
             line("Notifications", "Off", PanelPage.Notifications),
             line("Access", "None", PanelPage.Access),
         ]),

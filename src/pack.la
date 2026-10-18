@@ -10,6 +10,7 @@
  */
 import std.fs;
 import bundle { Bundle, Manifest, write, reason };
+import limits { CONTRACT_VERSION };
 import std.env;
 import publish { pack_project };
 
@@ -91,7 +92,7 @@ public fun make(args: string[]): Result<string, string> {
         assets.push((a.0, load(a.1)?));
     }
     let manifest = Manifest {
-        contract: 1,
+        contract: CONTRACT_VERSION as i64,
         name: r.name,
         version: r.version,
         description: r.description,

@@ -84,3 +84,19 @@ public enum ContractError {
 
 /** A contract error at `path`. */
 fun invalid(path: string, problem: string): ContractError = ContractError.Invalid(path, problem);
+
+/** Something a contract v2 app asks Rapidkoi for, in its result's `effects` (PRP-011). */
+public enum Effect {
+    /** Your public key for this app; answered with `msg`. */
+    Identity(Value),
+    /** A sign-in signature over this challenge (1 to 1024 bytes); answered with `msg`. */
+    Sign(Value, u8[]),
+}
+
+/** What a contract v2 `init` or `update` returned: the new state and what it asks for. */
+public struct Update {
+    /** The new state. */
+    public state: u8[],
+    /** What it asks for, in order (at most `MAX_EFFECTS`). */
+    public effects: Effect[],
+}

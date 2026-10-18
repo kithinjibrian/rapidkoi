@@ -2022,6 +2022,245 @@ CONTEXT.md
 
 ---
 
+## SESSION 55 — 2026-10-18 — Design talk: identity — closed
+
+Branch: design-identity
+
+### WHAT WAS DONE
+
+Talked identity through with the owner, slowly and with ASCII pictures: per-app key pairs (the public key to the app, the private key kept), host-bound challenges, a new key for a changed owner, only the public key given to apps, name placeholders filled while drawing (the owner's idea), email and phone typed into apps (relays later), no 2FA needed, auto sign-in on by default, recovery through one master secret (later). Lugha added `hkdf_sha256` (m120) at Claude's request. Wrote PRP-011 (keys + placeholders). No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-identity.md
+PRPs/prp-011-identity.md — for approval (security review before merge)
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- Recorded in the meeting notes; contract v2 is decided in PRP-011.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-011 approved ("approved"). Note: links (the vision's step 2) still aren't built.
+
+---
+
+## SESSION 56 — 2026-10-18 — Build PRP-011: identity — closed
+
+Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+Built PRP-011 test-first. identity.la (the master secret, 32 random bytes, 0600, never replaced if broken; per-app Ed25519 seeds by hkdf_sha256 over host, origin and generation; host-bound sign-in messages; labels from the key's first four hex digits). people.la (per-app generation, auto, signed out, name overrides; your name for every app). Identity.origin and Trust.origin (an app's first key, kept through rotations; a separate publisher or a not-confirmed key is its own); trust format 3. Contract v2: guests speak 1 or 2; v2 init returns {state, effects}; read_update_v2 (identity, sign; at most 8; challenges 1–1024 bytes); answer {msg, value bytes|null}; a bundle's contract must match its module's. placeholders.la (fill, one pass, text and button labels only; titles left alone). effects.la (answer_all: signed apps you're signed in to; at most 32 answers in a row). The Account page (account.la). The Rust library (Ask, start/step/answer, FIRST_NAME/LAST_NAME) and the counter (asks who you are; "Hello, {FIRST_NAME}!"; "You are User xxxx"). A project's contract (default 2) for pack (--contract) and publish. Split (approved): running.la from tabs.la.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/identity.la, src/people.la, src/effects.la, src/account.la, src/placeholders.la, src/running.la — new
+src/verify.la, src/remembered.la, src/nodes.la, src/contract.la, src/limits.la, src/guest.la, src/tabs.la, src/loader.la, src/render.la, src/window.la, src/saving.la, src/shell.la, src/panel.la, src/actions.la, src/project.la, src/pack.la, src/publish.la
+test/identity.la, test/people.la, test/effects.la, test/account.la, test/placeholders.la — new; test/contract.la, test/verify.la, test/remembered.la, test/views.la, test/panel.la, test/guest.la, test/tabs.la, test/counter.la, test/pack.la, test/project.la, test/support.la (echo_v2)
+guest/rust/rapidkoi (v2), guest/rust/counter
+CLAUDE.md, MEMORY.md (10, 17), DECISIONS.md (025 resolved, 022 updated), the contract doc's v2 appendix, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 274 Lugha tests pass (identity 5, people 4, effects 5, account 5, placeholders 4, contract +3, verify +1, project +1, pack +1, and updated ones); Rust: library 8, counter 3.
+
+### DECISIONS MADE
+
+- v2 init returns {state, effects} (otherwise an app couldn't ask until a click).
+- Screen titles aren't filled (window titles are visible outside Rapidkoi).
+- "Sign in automatically" off: the app starts each run signed out (Sign in on the Account page).
+- Start over as someone new restarts the app, so its init asks for the new key.
+- The user label is the key's own first four hex digits (no hash library in apps).
+- A broken identity file is refused and left alone (replacing it would make you a stranger everywhere).
+- An unsigned app's Account row reads "No account".
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- **The owner's security review before merge** (authentication, secrets, a contract change), and the on-screen checks.
+
+---
+
+## SESSION 57 — 2026-10-18 — Account page: only this app's name — closed
+
+Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+The owner: "remove first name & last name those are rapidkoi settings. leave first name in app because that panel is for app settings". The Account page keeps only this app's name ("First name", "Last name", saved per app); the name for every app stays in the people file for Rapidkoi's settings later, with no field yet. Also found (screenshot 23): auto sign-in looked broken because a v2 app resumed from its saved state skips `init`, its only place to ask; proposed a `resumed` message (option A), awaiting the owner.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/account.la, test/account.la
+```
+
+### TESTS WRITTEN
+
+- account: the name fields set this app's name. 274 pass.
+
+### DECISIONS MADE
+
+- A name for every app is a Rapidkoi setting (the owner); the panel holds only the app's own.
+
+### PENDING DECISIONS OPENED
+
+- The `resumed` message for v2 apps resumed from saved state (option A), awaiting the owner.
+
+### STILL OPEN AT CLOSE
+
+- Option A; the owner's security review and on-screen checks.
+
+---
+
+## SESSION 58 — 2026-10-18 — The Account page knows you after a restart — closed
+
+Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+The owner's screenshots 26–27: signed in, then after closing and reopening Rapidkoi the Account row said "Not signed in yet" though the counter (resumed with its key in its state) still showed "You are User 5189". The master secret was only read when an app asked; `saving.restore` now reads it if the file exists (`identity.existing`, never makes one), so the page names you at once.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/identity.la, src/saving.la, test/account.la
+```
+
+### TESTS WRITTEN
+
+- account: after a restart the page shows the same label; no master secret is made until an app asks. 276 pass.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None (option A, the `resumed` message, still awaits the owner).
+
+### STILL OPEN AT CLOSE
+
+- Option A; the owner's security review and on-screen checks.
+
+---
+
+## SESSION 59 — 2026-10-18 — PRP-011 amendment 1: one entry point, events for everything — closed
+
+Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+With the owner: a resumed app never asked again (init was its only place); the owner asked for one entry point taking events ("why don't we just have event and then pass things like on_load, on_init, on_click etc"), the name `handle` (also in the Rust library: "the user will split if they want on their own"), and allowed breaking changes ("nothing has shipped"). Contract 2 now: exports `rapidkoi_version`, `alloc`, `handle(state, event)`, `view`; events `init` (fresh, empty state), `opened` (every open), `message`, `answer`; any result's effects answered. v1 removed (guest only speaks 2; manifests must say 2; the contract setting in pack and rapidkoi.toml removed again; placeholders always filled). running.la: fresh = init then opened, resumed = opened; resumed pages keep their asks (the bug). The Rust library: `App::handle(self, Event)` and `view`, a non-exhaustive `Event`, `Default` state for init. The counter asks on every Opened. Fixtures rebuilt (they tell init and opened apart by their 12- and 14-byte encodings).
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-011-identity.md — amendment 1
+src/guest.la, src/contract.la, src/running.la, src/tabs.la, src/loader.la, src/shell.la, src/limits.la, src/project.la, src/pack.la, src/publish.la
+guest/rust/rapidkoi, guest/rust/counter
+test/support.la (fixed, echo, echo_opening, crashing), test/guest.la, test/contract.la, test/effects.la, test/tabs.la, test/project.la, test/pack.la; manifests in tests to contract 2
+docs/source/meetings/2026-10-17-ui-contract.md (contract 2), MEMORY.md, DECISIONS.md, CLAUDE.md, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 276 Lugha pass (new: events_say_what_happened; a resumed app asks again when opened; version 1 and 3 refused); Rust: library 7, counter 3 (it asks on every open).
+
+### DECISIONS MADE
+
+- One entry point `handle`, in the contract and the Rust library (the owner). v1 removed (the owner). `Event` is non-exhaustive (closing and others later).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's security review and on-screen checks of PRP-011.
+
+---
+
+## SESSION 60 — 2026-10-18 — Account page: name fields span the panel — closed
+
+Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+The owner's screenshot 28 ("make this span the panel width"): the panel aligns each part at the start, so the name fields kept their natural width. They now take the panel's inner width (PANEL_WIDTH less SPACE_MD on each side).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/account.la
+```
+
+### TESTS WRITTEN
+
+- None (layout); account tests pass.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's security review and on-screen checks of PRP-011.
+
+---
+
+## SESSION 61 — 2026-10-19 — Merge PRP-011 — closed
+
+Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+The owner: "merge prp-011 then let's talk apps reaching the network" (taken as the security review done; screenshots 26–28 on screen). 276 Lugha tests, cargo 3 + 7, fmt clean, build ok, no file over 500 lines. Merged prp-011-identity (with design-identity's notes) into main.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- None.
+
+---
+
 ## NEXT SESSION START POINT
 
-PRP-010 is merged. Next: design the tabs PRP (restore open tabs on launch) in chat, then write it. The file dialog waits on kivuli.
+PRP-011 is merged. Next: design apps reaching the network (a capability for untrusted code; permissions) in chat, then write PRP-012. Links (the vision's step 2) after.

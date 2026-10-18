@@ -206,7 +206,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 - **lugha-gtk** comes in through kivuli. rapidkoi does not import `gtk` directly.
 - **GTK 4** + GLib, through kivuli.
 - **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` (`wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }`; source in `../lugha-wasmtime`). rapidkoi never declares a wasmtime `extern` itself.
-- **CBOR** through the package `cbor` (`cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1" }`; source in `../lugha-cbor`). The guest↔shell contract is v1 (MEMORY.md decision 10): implement it exactly; any change is a DECISIONS.md entry and a version bump.
+- **CBOR** through the package `cbor` (`cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1" }`; source in `../lugha-cbor`). The guest↔shell contract is version 2 (MEMORY.md decision 10; PRP-011): exports `rapidkoi_version`, `alloc`, `handle(state, event)` and `view`, events for everything. Implement it exactly; any change is a DECISIONS.md entry and a version bump.
 - **Guests:** Rust (`wasm32-unknown-unknown`) under `guest/rust/`, built with cargo, never by `lughac`. The shell's tests use hand-written `.wat` fixtures and never need Rust.
 - **SQLite** for app data, from build path step 3 or 4 (MEMORY.md decision 5). Not before.
 
@@ -269,7 +269,8 @@ public fun load_settings(path: string): Settings { … }
 │                        signing.la (format 2: signed bundles, read either format), keys.la (secret keys: keygen, read, fingerprints), index.la (the signed index and the public key file, rotations),
 │                        project.la (rapidkoi.toml), publish.la (the `keygen` and `publish` commands, pack from rapidkoi.toml), verify.la (opening a signed site: every check, the keyring),
 │                        store.la (the data folder: safe writes, bounded reads, set aside), remembered.la (the trust, pins and left-off files), states.la (each signed app's state, by host and key),
-│                        saving.la (restore at start, save on every change), fetching.la (a background load's work: fetch and check against a snapshot), loads.la (begin a load, take its result),
+│                        identity.la (the master secret, per-app keys, sign-ins), people.la (sign-in settings and your name), effects.la (answering what apps ask for), account.la (the Account page), placeholders.la (pure: {FIRST_NAME}),
+│                        running.la (a guest's init and opened events, messages, answers and view), saving.la (restore at start, save on every change), fetching.la (a background load's work: fetch and check against a snapshot), loads.la (begin a load, take its result),
 │                        pack.la (the `./main pack` command), serve.la (the `./main serve` development server: a bundle or a site), address.la (pure: local development addresses),
 │                        tabs.la (Page, Tab, Pin; an app page's life: open, events, restart, resume), leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), actions.la (the shell's Msg),
 │                        frame.la (pure: the bar and the tab rail), home.la (pure: home and search), panel.la (pure: app info),
@@ -316,5 +317,5 @@ Update this tree when modules are added.
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
   - Search is in memory only. Open tabs aren't restored on launch yet (the next PRP). Unsigned apps' state lasts only for the session (PRP-007 amendment 2).
   - Back, forward, share, settings and more are shown disabled.
-  - Account, Notifications, Access and Data are placeholder pages until accounts (DECISION-022), notifications, permissions and app data exist.
+  - Notifications, Access and Data are placeholder pages until notifications, permissions and app data exist; apps can't reach their own server yet, so keys and signatures are only shown (DECISION-022).
   - Remote apps open by host name over HTTPS only, signed only, with no redirects followed (PRP-009); plain http and unsigned bundles are for this machine's development servers. Loads run in the background (PRP-008), but a DNS lookup, a TLS handshake and compiling a module still briefly hold the window (kivuli's note). Reload is manual; there's no live reload yet.

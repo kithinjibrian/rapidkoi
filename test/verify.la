@@ -37,7 +37,7 @@ fun key(host: string): SecretKey {
 
 fun app(version: string): Bundle = Bundle {
     manifest: Manifest {
-        contract: 1,
+        contract: 2,
         name: "Notes",
         version: version,
         description: None,
@@ -292,6 +292,7 @@ fun a_keyring_goes_out_and_back_in() {
             sequence: 1,
             separate: false,
             since: ids[0].since,
+            origin: k.public_key,
         },
     ]);
     // A keyring made from them trusts the same key: a swapped one asks.
@@ -391,4 +392,23 @@ fun first_use_dates_the_trust_and_later_changes_keep_it() {
     verify_site(ring, HOST, getter(s)).unwrap();
     let after = identities(ring);
     assert_eq((after.len, after[0].key, after[0].since), (1, new.public_key, since));
+}
+
+@test
+fun an_app_s_origin_is_its_first_key_kept_through_rotations() {
+    let ring = keyring();
+    let old = key(HOST);
+    let s = fresh(old, "1.0.0");
+    let first = verify_site(ring, HOST, getter(s)).unwrap();
+    assert_eq((first.trust.origin, identities(ring)[0].origin), (old.public_key, old.public_key));
+    let new = key(HOST);
+    publish_to(s, new, new, "1.1.0", 2, [rotate(old, new.public_key).unwrap()]);
+    let after = verify_site(ring, HOST, getter(s)).unwrap();
+    // The key moved on; who the app is, didn't.
+    assert_eq((after.trust.key, after.trust.origin), (new.public_key, old.public_key));
+    // A separate publisher is its own app: its own origin.
+    let other = key(HOST);
+    separate(ring, Change { host: HOST, old: new.public_key, new: other.public_key });
+    let them = verify_site(ring, HOST, getter(fresh(other, "1.0.0"))).unwrap();
+    assert_eq(them.trust.origin, other.public_key);
 }

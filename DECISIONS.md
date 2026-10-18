@@ -162,7 +162,7 @@ Rules:
 
 ### DECISION-022 — Accounts: per-app identity and sign-in
 
-**Status:** deferred
+**Status:** deferred (keys, auto sign-in and names built in PRP-011; recovery, sync and apps reaching their server still to come)
 **Raised:** 2026-10-18 — Session 26
 **Revisit when:** The owner wants sign-in (the vision's passkeys held by Rapidkoi).
 
@@ -185,6 +185,20 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-025 — UI contract 2: one entry point, effects and name placeholders
+
+**Status:** resolved
+**Raised:** 2026-10-18 — Session 55 (designing identity)
+**Resolved:** 2026-10-18 — Session 56 (PRP-011, the owner approved)
+
+**Question:** How does an app ask Rapidkoi for things (its key, a sign-in signature), and show the person's name without learning it, without host functions?
+
+**Outcome:** Contract 2, replacing v1 (amendment 1: the owner, "you can do breaking changes nothing has shipped"): one export `handle(state, event)` for every event (`init`, `opened`, `message`, `answer`) and `view`; the `identity` and `sign` effects from any result, answered as answer events; `{FIRST_NAME}`/`{LAST_NAME}` filled while drawing. Detail: the contract 2 appendix of `docs/source/meetings/2026-10-17-ui-contract.md`.
+
+**Copied to MEMORY.md:** yes (decisions 10 and 17)
+
+---
 
 ### DECISION-024 — One HTTPS request with both limits and an extra CA (std.http)
 
