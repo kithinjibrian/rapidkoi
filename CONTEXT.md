@@ -1791,7 +1791,13 @@ PRPs/prp-010-kivuli_placeholders.md — for approval
 
 ### STILL OPEN AT CLOSE
 
-- PRP-010 awaits approval.
+- PRP-010 approved ("build").
+
+---
+
+## SESSION 48 — 2026-10-18 — Build PRP-010: retiring four placeholders — open
+
+Branch: prp-010-kivuli_placeholders
 
 ---
 
