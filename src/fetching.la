@@ -93,7 +93,11 @@ public fun fetch_app(a: Address, known: Identity[], net: Network, timeout_ms: i6
  */
 fun get(target: string, net: Network, timeout_ms: i64): Result<(i64, u8[]), string> {
     let bounds = Limits { body: MAX_BUNDLE, timeout_ms: timeout_ms, ..http.limits() };
-    let opts = tls.Options { ca_file: net.ca_file.unwrap_or(""), timeout_ms: timeout_ms };
+    let opts = tls.Options {
+        ca_file: net.ca_file.unwrap_or(""),
+        timeout_ms: timeout_ms,
+        ..tls.options(),
+    };
     let r = http.request_tls_with("GET", target, #{}, [], bounds, opts)?;
     if r.status >= 300 && r.status < 400 {
         return Err("redirect {r.status}");
