@@ -1762,12 +1762,39 @@ CONTEXT.md
 
 ---
 
-## SESSION 47 — 2026-10-18 — Design PRP-010: retiring four placeholders with kivuli 0.10 — open
+## SESSION 47 — 2026-10-18 — Design PRP-010: retiring four placeholders with kivuli 0.10 — closed
 
 Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+kivuli reached 0.10 (wrap, overlay, context menus, button_with; still no file dialog). Designed with the owner, four topics, each "yes": the panel as an overlay with a dim scrim (click or Escape closes; the app keeps its width and can't be clicked meanwhile); a tab's right-click menu (Reload, Pin/Unpin, About, Close, Forget… via the panel's question), selecting the tab first; home tiles' menu (Open, Unpin, Forget…, corrected in chat); a wrapping, equal-width home grid; panel rows as one Subtle button_with. Wrote PRP-010. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-kivuli-placeholders.md
+PRPs/prp-010-kivuli_placeholders.md — for approval
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None beyond the design.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-010 awaits approval.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-009 is merged. Next: design PRP-010 (kivuli 0.10: a wrapping home grid, the panel as an overlay, tab context menus, clickable panel rows) in chat, then write it. Then the tabs PRP.
+PRP-010 (`PRPs/prp-010-kivuli_placeholders.md`) awaits approval on `prp-010-kivuli_placeholders`. If approved: open session 48, bump kivuli to 0.10, then the four changes as separate commits, test-first. Then the tabs PRP.
