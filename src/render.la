@@ -6,7 +6,7 @@
  * Depends on: kivuli, cbor, contract, theme
  * Used by: shell
  */
-import kivuli { View, ButtonStyle, button, column, input, row, text };
+import kivuli { View, Align, ButtonStyle, button, column, input, row, text };
 import cbor { Value };
 import contract { Node, TextStyle, ButtonLook };
 import theme { SPACE_SM, TEXT_TITLE, TEXT_HEADING, pixels };
@@ -46,7 +46,7 @@ public fun screen(n: Node): View<Msg> = match n {
     Row(spacing, padding, kids) => row(kids.map(screen)).spacing(pixels(spacing)).padding(
         pixels(padding),
     ),
-    Unsupported(kind) => text("Unsupported component: {kind}").dim(),
+    Unsupported(kind) => text("Unsupported component: {kind}").dim().align(Align.Start),
 };
 
 /**
@@ -61,8 +61,8 @@ public fun screen(n: Node): View<Msg> = match n {
  */
 public fun stopped(reason: string, can_restart: bool): View<Msg> {
     let mut kids: View<Msg>[] = [
-        text("This app stopped working").size(TEXT_TITLE).bold(),
-        text(reason).dim(),
+        text("This app stopped working").size(TEXT_TITLE).bold().align(Align.Start),
+        text(reason).dim().align(Align.Start),
     ];
     if can_restart {
         kids.push(button("Restart", Msg.Restart).button_style(ButtonStyle.Primary));
@@ -70,12 +70,16 @@ public fun stopped(reason: string, can_restart: bool): View<Msg> {
     column(kids).spacing(SPACE_SM)
 }
 
-fun styled_text(s: string, style: TextStyle): View<Msg> = match style {
-    Body => text(s),
-    Title => text(s).size(TEXT_TITLE).bold(),
-    Heading => text(s).size(TEXT_HEADING).bold(),
-    Dim => text(s).dim(),
-};
+/** An app's text, at the start of its line: kivuli centers text unless told. */
+fun styled_text(s: string, style: TextStyle): View<Msg> {
+    let shown: View<Msg> = match style {
+        Body => text(s),
+        Title => text(s).size(TEXT_TITLE).bold(),
+        Heading => text(s).size(TEXT_HEADING).bold(),
+        Dim => text(s).dim(),
+    };
+    shown.align(Align.Start)
+}
 
 fun button_of(label: string, look: ButtonLook, msg: Option<Value>): View<Msg> {
     let style = match look {

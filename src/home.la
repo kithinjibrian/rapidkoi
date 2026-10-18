@@ -6,7 +6,7 @@
  * Depends on: kivuli, actions, tabs, frame, theme
  * Used by: shell
  */
-import kivuli { View, Image, ButtonStyle, button, column, row, spacer, text };
+import kivuli { View, Align, Image, ButtonStyle, button, column, row, spacer, text };
 import actions { Msg };
 import tabs { Tab, Pin };
 import frame { initial, icon_of };
@@ -58,7 +58,7 @@ public fun view(draft: string, pinned: Pin[], card: Option<Card>, open: Tab[]): 
             parts.push(left_off(c));
         }
         if pinned.len > 0 {
-            parts.push(text("Pinned").size(TEXT_HEADING).bold());
+            parts.push(text("Pinned").size(TEXT_HEADING).bold().align(Align.Start));
             parts.push(
                 grid(
                     pinned.map(
@@ -75,7 +75,7 @@ public fun view(draft: string, pinned: Pin[], card: Option<Card>, open: Tab[]): 
     } else {
         let found = results(query, pinned, card, open);
         if found.len == 0 {
-            parts.push(text("Nothing matches “{query}”").dim());
+            parts.push(text("Nothing matches “{query}”").dim().align(Align.Start));
         } else {
             parts.push(grid(found));
         }
@@ -128,9 +128,9 @@ fun left_off(c: Card): View<Msg> {
         None => c.name,
     };
     column([
-        text("Where you left off").size(TEXT_HEADING).bold(),
+        text("Where you left off").size(TEXT_HEADING).bold().align(Align.Start),
         spacer(),
-        row([text(place).expand(), button("Continue", c.msg).button_style(ButtonStyle.Primary)]),
+        row([text(place), spacer(), button("Continue", c.msg).button_style(ButtonStyle.Primary)]),
     ]).padding(SPACE_LG).height(BANNER_HEIGHT)
 }
 
