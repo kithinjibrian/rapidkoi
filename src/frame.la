@@ -11,7 +11,10 @@ import kivuli {
     Image,
     Align,
     ButtonStyle,
+    MenuEntry,
     button,
+    item,
+    menu_separator,
     column,
     input,
     row,
@@ -19,7 +22,7 @@ import kivuli {
     spacer,
     text,
 };
-import actions { Msg };
+import actions { Msg, TabAction };
 import address { parse };
 import tabs { Page, Tab, AppPage, is_loading };
 import verify { Change, Standing };
@@ -103,10 +106,12 @@ public fun bar(page: Page, draft: string, editing: bool, pinned: bool): Bar {
  * @returns the rail: one button per app, +, then settings and more (disabled)
  *
  * Example:
- *     rail(m.tabs, m.current)
+ *     rail(m.tabs, m.current, pinned_paths)
  */
-public fun rail(open: Tab[], current: Option<i64>): View<Msg> {
-    let mut items = open.map(fun(t: Tab) = tab_button(t, current));
+public fun rail(open: Tab[], current: Option<i64>, pinned: string[]): View<Msg> {
+    let mut items = open.map(
+        fun(t: Tab) = tab_button(t, current, pinned.any(fun(p: string) = p == t.page.path)),
+    );
     items.push(icon_button("list-add-symbolic", "New tab", Some(Msg.NewTab)));
     items.push(separator().width(RAIL_WIDTH));
     items.push(spacer());
@@ -158,14 +163,33 @@ fun icon_button(icon: string, tip: string, msg: Option<Msg>): View<Msg> = match 
     ),
 };
 
-fun tab_button(t: Tab, current: Option<i64>): View<Msg> {
+fun tab_button(t: Tab, current: Option<i64>, pinned: bool): View<Msg> {
     let look = if current == Some(t.id) { ButtonStyle.Primary } else { ButtonStyle.Subtle };
     let face = match icon_of(t.page.path, t.page.icon) {
         Some(img) => button("", Msg.Select(t.id)).image(img).size(TAB_ICON),
         None => button(initial(t.page.title.unwrap_or(t.page.name)), Msg.Select(t.id)),
     };
-    face.tooltip(label(t.page)).button_style(look).width(TAB_SIZE).height(TAB_SIZE)
+    face.tooltip(label(t.page)).button_style(look).width(TAB_SIZE).height(TAB_SIZE).menu(
+        tab_menu(t, pinned),
+    )
 }
+
+/**
+ * A tab's right-click menu: what the bar and panel do, for that tab (it's
+ * selected first). Reload waits while the tab loads; Forget asks in the panel.
+ */
+fun tab_menu(t: Tab, pinned: bool): MenuEntry<Msg>[] = [
+    if is_loading(t.page) {
+        item("Reload", Msg.OnTab(t.id, TabAction.Reload)).disabled(true)
+    } else {
+        item("Reload", Msg.OnTab(t.id, TabAction.Reload))
+    },
+    item(if pinned { "Unpin" } else { "Pin to home" }, Msg.OnTab(t.id, TabAction.TogglePin)),
+    item("About this app", Msg.OnTab(t.id, TabAction.About)),
+    menu_separator(),
+    item("Close tab", Msg.OnTab(t.id, TabAction.Close)),
+    item("Forget this app…", Msg.OnTab(t.id, TabAction.Forget)),
+];
 
 /**
  * Returns how Rapidkoi names where an app came from: `✓ localhost:8000 ·

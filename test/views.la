@@ -67,11 +67,11 @@ fun the_bar_on_an_app_page() {
 @test
 fun the_rail() {
     let open = [Tab { id: 2, page: counter() }];
-    let v = rail(open, Some(2));
+    let v = rail(open, Some(2), []);
     // Home isn't a tab: the rail lists apps only.
     assert_eq(click(v, "Home tab"), Err(Lookup.NotFound("button \"Home tab\"")));
     assert_eq(click(v, "counter · Counter"), Ok(Msg.Select(2)));
-    assert_eq(click(rail(open, None), "counter · Counter"), Ok(Msg.Select(2)));
+    assert_eq(click(rail(open, None, []), "counter · Counter"), Ok(Msg.Select(2)));
     assert_eq(click(v, "New tab"), Ok(Msg.NewTab));
     assert_eq(is_disabled(v, "Settings (coming soon)"), Ok(true));
     assert_eq(is_disabled(v, "More (coming soon)"), Ok(true));
@@ -96,7 +96,13 @@ fun an_empty_home_explains_how_to_start() {
 
 @test
 fun home_shows_where_you_left_off_and_pinned() {
-    let c = Card { name: "counter", title: Some("Counter"), msg: Msg.Select(3), icon: None };
+    let c = Card {
+        name: "counter",
+        title: Some("Counter"),
+        msg: Msg.Select(3),
+        path: "counter.wasm",
+        icon: None,
+    };
     let v = home.view("", pins(5), Some(c), []);
     assert_eq(texts(v)[2], "Where you left off");
     assert_eq(texts(v)[3], "counter · Counter");
@@ -111,7 +117,13 @@ fun searching_filters_home() {
     let v = home.view("COUNT", pins(3), None, open);
     assert_eq(click(v, "Open counter"), Ok(Msg.Select(7)));
     assert_eq(click(v, "Open app1"), Err(Lookup.NotFound("button \"Open app1\"")));
-    let closed = Card { name: "counter", title: Some("Counter"), msg: Msg.Continue, icon: None };
+    let closed = Card {
+        name: "counter",
+        title: Some("Counter"),
+        msg: Msg.Continue,
+        path: "counter.wasm",
+        icon: None,
+    };
     let by_title = home.view("counter", [], Some(closed), []);
     assert_eq(click(by_title, "Open counter"), Ok(Msg.Continue));
     assert_eq(texts(home.view("zzz", pins(3), None, [])), [
@@ -147,7 +159,7 @@ fun the_dark_theme() {
 @test
 fun an_app_with_an_icon_shows_it_on_its_tab_and_tile() {
     let page = AppPage { icon: Some(png(64, 64)), ..counter() };
-    let v = rail([Tab { id: 2, page: page }], Some(2));
+    let v = rail([Tab { id: 2, page: page }], Some(2), []);
     // Found by its tooltip; there's no letter on it any more.
     assert_eq(click(v, "counter · Counter"), Ok(Msg.Select(2)));
     assert_eq(click(v, "C"), Err(Lookup.NotFound("button \"C\"")));

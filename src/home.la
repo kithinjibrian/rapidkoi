@@ -6,8 +6,22 @@
  * Depends on: kivuli, actions, tabs, frame, theme
  * Used by: shell
  */
-import kivuli { View, Align, Image, ButtonStyle, button, column, row, spacer, text, wrap };
-import actions { Msg };
+import kivuli {
+    View,
+    Align,
+    Image,
+    ButtonStyle,
+    MenuEntry,
+    button,
+    column,
+    item,
+    menu_separator,
+    row,
+    spacer,
+    text,
+    wrap,
+};
+import actions { Msg, TabAction, PinAction };
 import tabs { Tab, Pin };
 import frame { initial, icon_of };
 import theme {
@@ -29,6 +43,8 @@ public struct Card {
     public title: Option<string>,
     /** `Select(id)` for an open tab, `Continue` for a closed app. */
     public msg: Msg,
+    /** The app's file or address, for its menu's Forget. */
+    public path: string,
     /** The app's icon, keyed, if it has one. */
     public icon: Option<Image>,
 }
@@ -61,7 +77,12 @@ public fun view(draft: string, pinned: Pin[], card: Option<Card>, open: Tab[]): 
             parts.push(
                 grid(
                     pinned.map(
-                        fun(p: Pin) = tile(p.name, Msg.OpenPinned(p.path), icon_of(p.path, p.icon)),
+                        fun(p: Pin) = tile(
+                            p.name,
+                            Msg.OpenPinned(p.path),
+                            icon_of(p.path, p.icon),
+                            pin_menu(p.path),
+                        ),
                     ),
                 ),
             );
@@ -103,18 +124,20 @@ fun results(query: string, pinned: Pin[], card: Option<Card>, open: Tab[]): View
     let mut found: View<Msg>[] = [];
     for t of open {
         if matches(query, t.page.name, t.page.title) {
-            found.push(tile(t.page.name, Msg.Select(t.id), icon_of(t.page.path, t.page.icon)));
+            found.push(tile(t.page.name, Msg.Select(t.id), icon_of(t.page.path, t.page.icon), []));
         }
     }
     for p of pinned {
         if matches(query, p.name, None) {
-            found.push(tile(p.name, Msg.OpenPinned(p.path), icon_of(p.path, p.icon)));
+            found.push(
+                tile(p.name, Msg.OpenPinned(p.path), icon_of(p.path, p.icon), pin_menu(p.path)),
+            );
         }
     }
     // An open tab is already among the tabs above; only a closed app adds a tile.
     if let Some(c) = card {
         if c.msg == Msg.Continue && matches(query, c.name, c.title) {
-            found.push(tile(c.name, Msg.Continue, c.icon));
+            found.push(tile(c.name, Msg.Continue, c.icon, []));
         }
     }
     found
@@ -129,20 +152,41 @@ fun left_off(c: Card): View<Msg> {
     column([
         text("Where you left off").size(TEXT_HEADING).bold().align(Align.Start),
         spacer(),
-        row([text(place), spacer(), button("Continue", c.msg).button_style(ButtonStyle.Primary)]),
+        row([
+            text(place),
+            spacer(),
+            button("Continue", c.msg).button_style(ButtonStyle.Primary).menu([
+                item("Open", c.msg),
+                menu_separator(),
+                // An open tab forgets through its own menu's path; a closed app is opened first.
+                item("Forget this app…", match c.msg {
+                    Select(id) => Msg.OnTab(id, TabAction.Forget),
+                    _ => Msg.OnPin(c.path, PinAction.Forget),
+                }),
+            ]),
+        ]),
     ]).padding(SPACE_LG).height(BANNER_HEIGHT)
 }
 
 /** One big tile: the app's icon (or its initial without one), and its name below. */
-fun tile(name: string, msg: Msg, icon: Option<Image>): View<Msg> {
+fun tile(name: string, msg: Msg, icon: Option<Image>, menu: MenuEntry<Msg>[]): View<Msg> {
     let face = match icon {
         Some(img) => button("", msg).image(img).size(TILE_ICON),
         None => button(initial(name), msg),
     };
-    column([face.width(TILE_SIZE).height(TILE_SIZE).tooltip("Open {name}"), text(name)]).spacing(
-        SPACE_XS,
-    )
+    column([
+        face.width(TILE_SIZE).height(TILE_SIZE).tooltip("Open {name}").menu(menu),
+        text(name),
+    ]).spacing(SPACE_XS)
 }
+
+/** A pinned tile's right-click menu: Open, Unpin, and Forget (which asks, in the panel). */
+fun pin_menu(path: string): MenuEntry<Msg>[] = [
+    item("Open", Msg.OnPin(path, PinAction.Open)),
+    item("Unpin", Msg.OnPin(path, PinAction.Unpin)),
+    menu_separator(),
+    item("Forget this app…", Msg.OnPin(path, PinAction.Forget)),
+];
 
 /** The tiles in a grid that re-flows with the window's width, every tile one width (kivuli's `wrap`). */
 fun grid(tiles: View<Msg>[]): View<Msg> = wrap(tiles).equal().spacing(SPACE_MD);

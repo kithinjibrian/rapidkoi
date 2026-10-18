@@ -153,11 +153,9 @@ Rules:
   - kivuli 0.4.1: button content centered (a bug found in session 17). Tabs and tiles center their letter (session 18)
   - kivuli 0.5.0: images from bytes. A bundle's icon shows on its tab and home tile (session 21)
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
+  - kivuli 0.7–0.10: a wrapping grid, an overlay, context menus and `button_with`. Home's grid, the panel over the app, tab and tile menus, and clickable panel rows (PRP-010, session 48)
 - **Still to come:**
-  0. **Clickable rows:** a button that holds a whole row (label, summary, arrow), for the info panel's rows (PRP-005)
   1. a file dialog
-  2. an overlay, for the panel over the app
-  3. context menus, for tab actions
   4. a wrapping grid, for home's tiles
 
 ---

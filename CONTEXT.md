@@ -1795,12 +1795,41 @@ PRPs/prp-010-kivuli_placeholders.md — for approval
 
 ---
 
-## SESSION 48 — 2026-10-18 — Build PRP-010: retiring four placeholders — open
+## SESSION 48 — 2026-10-18 — Build PRP-010: retiring four placeholders — closed
 
 Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+Built PRP-010 ("build"), one commit each after the kivuli 0.10 bump: the info panel over the app (`overlay`, a `Look.Scrim` button "Click to close the panel" with Escape; the panel placed End/Fill; the app keeps its width); panel rows as one Subtle `button_with`; home's grid as `wrap(...).equal()` (TILES_PER_ROW removed); right-click menus: tabs (Reload greyed while loading, Pin/Unpin, About, Close, Forget… via the panel's question), pinned tiles (Open, Unpin, Forget…), the left-off card (Open, Forget…), with `Msg.OnTab(id, TabAction)` and `Msg.OnPin(path, PinAction)` reusing existing actions; `Card.path`; `rail` takes the pinned paths.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml, lugha.lock (kivuli 0.10)
+src/shell.la, src/themes.la, src/panel.la, src/home.la, src/theme.la, src/frame.la, src/actions.la, src/window.la
+test/menus.la — new; test/panel.la (+2), test/views.la (rail, Card)
+CLAUDE.md (stack, known issues), DECISIONS.md (020), docs/DESIGN.md, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 245 pass: menus 5 (each item's message; Unpin when pinned; Reload greyed while loading; select-then-act for each; a gone tab; tile Open/Unpin/Forget; the card's menu); panel +2 (the dim layer closes by click and Escape, absent when closed; a whole row is one click target, found by its summary). The grid's layout is visual (the owner's resize check).
+
+### DECISIONS MADE
+
+- The scrim's tooltip is "Click to close the panel" (the panel's own Close already says "Close the panel").
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen checks, then merge.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-010 (`PRPs/prp-010-kivuli_placeholders.md`) awaits approval on `prp-010-kivuli_placeholders`. If approved: open session 48, bump kivuli to 0.10, then the four changes as separate commits, test-first. Then the tabs PRP.
+PRP-010 is built on `prp-010-kivuli_placeholders`, not merged: the owner checks it on screen (the overlay, menus, grid resize, rows), then full suite and merge. Next: the tabs PRP (restore open tabs on launch). The file dialog still waits on kivuli.
