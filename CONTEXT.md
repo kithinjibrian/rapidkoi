@@ -1990,12 +1990,38 @@ src/frame.la, src/panel.la, test/views.la, test/loading.la, test/opening.la, tes
 
 ---
 
-## SESSION 54 — 2026-10-18 — Merge PRP-010 — open
+## SESSION 54 — 2026-10-18 — Merge PRP-010 — closed
 
 Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner: "merge" (the on-screen checks done through screenshots 19–22 and the tweaks of sessions 49–53). Full suite 245/245, fmt clean, build ok, no file over 500 lines. Merged prp-010-kivuli_placeholders into main.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- None.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-010 is built on `prp-010-kivuli_placeholders`, not merged: the owner checks it on screen (the overlay, menus, grid resize, rows), then full suite and merge. Next: the tabs PRP (restore open tabs on launch). The file dialog still waits on kivuli.
+PRP-010 is merged. Next: design the tabs PRP (restore open tabs on launch) in chat, then write it. The file dialog waits on kivuli.
