@@ -2400,8 +2400,49 @@ CLAUDE.md, CONTEXT.md
 
 ---
 
+## SESSION 65 — 2026-10-19 — Deploy the quote demo to the VM — closed
+
+Branch: deploy-quote-demo
+
+### WHAT WAS DONE
+
+The owner: "deploy the demo to the vm".
+- **Built:** the quote app with `QUOTE_SERVER=https://quote.dafifi.net` into `~/rapidkoi-sites/quote.dafifi.net/target`, so the local demo is unchanged.
+- **Signed:** `rapidkoi.toml` there (host `quote.dafifi.net`), a new key `~/.config/rapidkoi/keys/quote.dafifi.net.key` (fingerprint ce26-d7e9-f80c-c7d6), published.
+- **On the VM, `/opt/rapidkoi/`:**
+  - `quote/` holds the Dockerfile and the `quote-server` binary; `sites/quote.dafifi.net/` holds the site.
+  - the image `rapidkoi-quote` was trial-run on loopback
+  - a `quote` service was added to `docker-compose.yml` (backup `docker-compose.yml.bak-before-quote`), and only it was started; the counter and the other apps were untouched
+- **Checked live with Rapidkoi's own code:**
+  - the site verified as quote.dafifi.net, Quote 0.1.0
+  - a sign-in got 200, and its replay 401
+  - `/quote` with the token said `User 4996`
+  - counter.dafifi.net still answers
+
+### FILES CREATED OR MODIFIED
+
+```
+examples/quote/Dockerfile (new), CLAUDE.md (tree), CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a throwaway live check under test/tmp/, deleted).
+
+### DECISIONS MADE
+
+- The image's base is `ubuntu:26.04`, matching the machine the binary is linked on (libgc, OpenSSL 3).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner opens `rapidkoi://quote.dafifi.net`: the quote and "Signed in as User xxxx", then switching quote.dafifi.net off on the Access page.
+
+---
+
 ## NEXT SESSION START POINT
 
-PRP-012 is merged into main. Next, either:
-- **Deploy the quote demo to the VM** (ask first): a container at `quote.dafifi.net` running `examples/quote/server.la` behind Traefik, with the app rebuilt using `QUOTE_SERVER=https://quote.dafifi.net` and republished with that host. Never touch the VM's other apps.
-- **Or the next arc:** links (the vision's step 2), tab restore, or DECISION-026's std addition.
+PRP-012 is merged and its demo runs at `rapidkoi://quote.dafifi.net` (the VM, memory note `test-vm-rapidkoi-sites`). Next arc, the owner's choice: links (the vision's step 2), tab restore, or DECISION-026's std addition.
