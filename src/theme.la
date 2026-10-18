@@ -45,8 +45,6 @@ public const TILE_ICON: i64 = 64;
 public const RAIL_WIDTH: i64 = FRAME_THICKNESS - 2 * SPACE_SM;
 /** A Pinned tile on home, in pixels (square). */
 public const TILE_SIZE: i64 = 120;
-/** Tiles in one row, until kivuli has a wrapping grid (DECISION-018). */
-public const TILES_PER_ROW: i64 = 4;
 /** "Where you left off", in pixels. */
 public const BANNER_HEIGHT: i64 = 180;
 /** The page's top-right curve, in pixels. */

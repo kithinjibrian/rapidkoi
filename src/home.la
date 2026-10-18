@@ -6,7 +6,7 @@
  * Depends on: kivuli, actions, tabs, frame, theme
  * Used by: shell
  */
-import kivuli { View, Align, Image, ButtonStyle, button, column, row, spacer, text };
+import kivuli { View, Align, Image, ButtonStyle, button, column, row, spacer, text, wrap };
 import actions { Msg };
 import tabs { Tab, Pin };
 import frame { initial, icon_of };
@@ -18,7 +18,6 @@ import theme {
     TEXT_HEADING,
     TILE_SIZE,
     TILE_ICON,
-    TILES_PER_ROW,
     BANNER_HEIGHT,
 };
 
@@ -145,22 +144,8 @@ fun tile(name: string, msg: Msg, icon: Option<Image>): View<Msg> {
     )
 }
 
-/** Rows of `TILES_PER_ROW` tiles: a wrapping grid until kivuli has one (DECISION-018). */
-fun grid(tiles: View<Msg>[]): View<Msg> {
-    let mut rows: View<Msg>[] = [];
-    let mut current: View<Msg>[] = [];
-    for t of tiles {
-        current.push(t);
-        if current.len == TILES_PER_ROW {
-            rows.push(row(current).spacing(SPACE_MD));
-            current = [];
-        }
-    }
-    if current.len > 0 {
-        rows.push(row(current).spacing(SPACE_MD));
-    }
-    column(rows).spacing(SPACE_MD)
-}
+/** The tiles in a grid that re-flows with the window's width, every tile one width (kivuli's `wrap`). */
+fun grid(tiles: View<Msg>[]): View<Msg> = wrap(tiles).equal().spacing(SPACE_MD);
 
 /** ASCII and Latin-1 lower case (what `char.to_lower` covers). */
 fun lower(s: string): string {

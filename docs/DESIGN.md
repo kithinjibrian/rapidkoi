@@ -59,7 +59,6 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the
 | `TAB_ICON` | 22 | an app's icon on its rail tab |
 | `TILE_ICON` | 64 | an app's icon on its home tile |
 | `TILE_SIZE` | 120 | a Pinned tile on home (square) |
-| `TILES_PER_ROW` | 4 | until kivuli has a wrapping grid (DECISION-018) |
 | `BANNER_HEIGHT` | 180 | "Where you left off" |
 | `PANEL_WIDTH` | 360 | the app info panel, fixed: its text never widens it (session 31) |
 | `PANEL_CHARS` | 30 | the most characters a wrapped panel line asks for (`.wrap_at`), kept well under the width so the panel never shifts between pages; the name wraps at 14, the header's file name is cut at 18, paths are cut with … and shown whole on hover |
