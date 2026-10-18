@@ -1,3 +1,5 @@
+**Status:** approved by the owner, 2026-10-18 (session 34); the security review comes before merge
+
 ## FEATURE: Signed apps, published locally: `rapidkoi.toml`, keygen, signed bundles, `publish` to a site, and verified opening
 
 ## OBJECTIVE

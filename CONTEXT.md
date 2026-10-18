@@ -1301,6 +1301,12 @@ PRPs/prp-006-signed_apps.md — for approval (crypto: the owner's security revie
 
 ---
 
+## SESSION 34 — 2026-10-18 — Build PRP-006: signed apps, published locally — open
+
+Branch: prp-006-signing
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 34 on `prp-006-signing`. If approved, build PRP-006 test-first, in this order: project.la (toml), keys.la, signing.la (format 2), index.la, publish.la (keygen and publish), serve site/, verify.la (live sockets), then the markers and About. Stop before merge for the owner's security review.
