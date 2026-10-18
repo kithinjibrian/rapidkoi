@@ -87,7 +87,7 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
   - the description
   - the panel on the frame's colour at `PANEL_WIDTH` (the owner preferred it to a page-coloured panel, session 29)
   - **Your settings** and **On this device**, each a small dim heading over a `Look.Section` card (the frame's `#242424`, `PAGE_RADIUS` corners) of rows: the label, a dim summary, and a › arrow
-  - **Forget this app** (danger), then **Close** at the very bottom
+  - **Forget this app** (danger) and **Close**, side by side in the bottom row
 - Rows open pages with a ‹ Back arrow. **Start over** and **Forget** always ask first, in place, with [Cancel] and the danger action.
 
 ## In code
