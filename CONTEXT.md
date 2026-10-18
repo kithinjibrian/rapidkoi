@@ -2361,19 +2361,47 @@ CLAUDE.md, MEMORY.md (decision 18), DECISIONS.md (026), CHANGELOG.md, CONTEXT.md
 
 ---
 
-## SESSION 64 — 2026-10-19 — Merge PRP-012 — open
+## SESSION 64 — 2026-10-19 — Merge PRP-012 — closed
 
 Branch: prp-012-network
+
+### WHAT WAS DONE
+
+The owner: "approved" (the PRP-012 security review). The checks, by exit status:
+- `fmt --check`: clean
+- `lughac test test/`: 304 passed
+- the example's tests: 2 passed
+- cargo: 3 + 2 + 9 passed
+- the build: ok; no file over 500 lines
+
+Fixed CLAUDE.md's stale known issue (Access is real now; DECISION-026 listed). Merged prp-012-network into main. The demo is not on the VM: that waits for the owner's go.
+
+### FILES CREATED OR MODIFIED
+
+```
+CLAUDE.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Deploying the quote demo to the VM (`quote.dafifi.net`), when the owner says go.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-012 is built on `prp-012-network` and waits for the owner's security review and the demo (`examples/quote/`, CLAUDE.md commands). The review list:
-- the allowed list and its checks (`src/network.la`, `src/requests.la`)
-- no localhost from the internet
-- the header filter, the caps and the switches
-- DECISION-026
-- a signed file that isn't confirmed yet can reach the host it claims (no credentials ride along)
-
-After approval: deploy the demo to the VM (ask first: a new `quote.dafifi.net` container), run the full suite, and merge into main.
+PRP-012 is merged into main. Next, either:
+- **Deploy the quote demo to the VM** (ask first): a container at `quote.dafifi.net` running `examples/quote/server.la` behind Traefik, with the app rebuilt using `QUOTE_SERVER=https://quote.dafifi.net` and republished with that host. Never touch the VM's other apps.
+- **Or the next arc:** links (the vision's step 2), tab restore, or DECISION-026's std addition.
