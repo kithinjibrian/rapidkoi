@@ -2261,12 +2261,39 @@ CONTEXT.md
 
 ---
 
-## SESSION 62 — 2026-10-19 — Design talk: apps reaching the network — open
+## SESSION 62 — 2026-10-19 — Design talk: apps reaching the network — closed
 
 Branch: design-network
+
+### WHAT WAS DONE
+
+Designed apps reaching the network with the owner, four topics, each "yes", building on the 2026-10-18 rule (declaration-only, no prompt, listed and switchable): servers declared in rapidkoi.toml and signed into the manifest, the own host implied, HTTPS names only, localhost only for apps from this machine; a `fetch` effect (methods, headers, body; no cookies, no redirects followed; 30 s, 1 MB up, 8 MB down, 4 in flight); signing in to the app's server through fetch + sign (a Rust helper, a server document); new servers in updates announced once and marked new; per-server switches. Wrote PRP-012. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-19-network.md
+PRPs/prp-012-network.md — for approval (security review before merge)
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- Only apps from this machine may reach localhost (Claude, from the owner's rules; stated in the PRP).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-012 awaits approval.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-011 is merged. Next: design apps reaching the network (a capability for untrusted code; permissions) in chat, then write PRP-012. Links (the vision's step 2) after.
+PRP-012 (`PRPs/prp-012-network.md`) awaits approval on `design-network`. If approved: branch `prp-012-network`, open session 63, build test-first. Stop before merge for the owner's security review.
