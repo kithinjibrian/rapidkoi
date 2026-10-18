@@ -248,6 +248,32 @@ public fun resume(l: LeftOff): AppPage = match l.program {
 };
 
 /**
+ * A "where you left off" read back from disk: no compiled program, so
+ * Continue loads it again from its path.
+ *
+ * Example:
+ *     recalled("Counter", "counter.rkb", Some("Count: 3"), Some(state), 1, None)
+ */
+public fun recalled(
+    name: string,
+    path: string,
+    title: Option<string>,
+    state: Option<u8[]>,
+    state_version: i64,
+    icon: Option<u8[]>,
+): LeftOff = LeftOff {
+    name: name,
+    path: path,
+    title: title,
+    state: state,
+    state_version: state_version,
+    manifest: None,
+    icon: icon,
+    trust: None,
+    program: None,
+};
+
+/**
  * Loads an app again from where it came from (its file, or its development
  * server) and starts it with `saved` state when the new build's state
  * version matches; otherwise fresh. ⟳ Reload uses it.
