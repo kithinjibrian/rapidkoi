@@ -1456,6 +1456,12 @@ test/saving.la — 3 new
 
 ---
 
+## SESSION 38 — 2026-10-18 — PRP-007 amendment 2: state belongs to signed apps — open
+
+Branch: prp-007-remembering
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-007 (with amendment 1) is built on `prp-007-remembering`, not merged. First: the UI regression the owner reported (ask for a screenshot; no view code changed in PRP-007, so compare with PRP-006's frame/panel/render changes). Then the owner's security review and on-screen checks, the full suite, merge. Next: the tabs PRP, then background loading (DECISION-021).

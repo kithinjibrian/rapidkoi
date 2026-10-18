@@ -215,3 +215,35 @@ A failure at any step leaves the old file as it was, and `update` shows a notice
 - quitting with the app open keeps its state (the counter: Add twice, start again, Continue shows Count: 2)
 - the app used last is the one remembered, across two tabs
 - Forget still removes it
+
+## AMENDMENT 2 — 2026-10-18 (session 38, the owner: "if we have host and key we can preserve state the rest just loose everything")
+
+**What happened:** after amendment 1, the owner's counter state was still lost. Opening the app by its address (not Continue) started it fresh, and that fresh state became "the app used last", overwriting the saved one. The owner: an app's identity is its host and key (the signing design), so state belongs to that identity, whatever route opens it.
+
+**Change:**
+- **Signed apps keep their state across restarts, by identity: host + key.**
+  - The same app opened from its site, as its signed `.rkb`, by pin or by Continue resumes the same state.
+  - A separate publisher (another key) has its own state. A ⚠ not-confirmed file has its own key's state, so it can never reach a trusted publisher's.
+  - **Rotation:** a key change signed by the old key moves the state to the new key, so a rotation doesn't lose it.
+- **Unsigned apps** (a bare `.wasm`, an unsigned development server, a format 1 bundle) keep state only within a session, as before. After a restart they start fresh, and they're not offered by Continue. Their pins stay.
+- **On disk:** `states/` holds one file per signed app, named by the SHA-256 of its host and key.
+  - Each file is `{format: 1, kind: "rapidkoi state", host, key, state_version, state, used}`, where `used` is milliseconds since 1970 (`std.time.now_ms`).
+  - It's checked like the others, and its host and key must be the identity asked for.
+  - Each is written safely. At most 256 apps: past that, the one used longest ago is removed.
+- **`left-off`** now says which app was used last (name, path, title, icon, and host and key for a signed app) and holds no state. It's only written for a signed app. Continue opens its path, which resumes from `states/`.
+- **Opening a signed app by any route resumes its saved state** when the state version matches. Otherwise it starts over with the usual notice.
+- **Saving:**
+  - after every message, the app used last's state is saved when it changed, if it's signed
+  - Start over saves the fresh state
+  - Forget removes its state file
+- **Rule 3:** the exception covers reading a signed app's state file when it opens (≤ `MAX_STATE` + 64 KB).
+
+**Tests added:**
+- a signed app resumes when opened by its address after a restart, and by Continue
+- an unsigned app starts fresh after a restart and isn't offered by Continue
+- a separate publisher doesn't get the first publisher's state
+- a rotation keeps the state
+- Forget removes the state file
+- a changed state version starts over
+- the cap removes the app used longest ago
+- a state file whose host or key isn't the one asked for is broken
