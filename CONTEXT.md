@@ -2022,6 +2022,12 @@ CONTEXT.md
 
 ---
 
+## SESSION 55 — 2026-10-18 — Design talk: identity — open
+
+Branch: design-identity
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-010 is merged. Next: design the tabs PRP (restore open tabs on launch) in chat, then write it. The file dialog waits on kivuli.
