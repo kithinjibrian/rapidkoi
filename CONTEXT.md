@@ -2582,6 +2582,12 @@ test/fixtures/tls/README.md, CLAUDE.md, MEMORY.md, DECISIONS.md, CHANGELOG.md, P
 
 ---
 
+## SESSION 69 — 2026-10-19 — Merge PRP-013 — open
+
+Branch: prp-013-local_addresses
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-013 is built on `prp-013-local_addresses` and waits for the owner's security review. After approval: run the full suite and merge into main. Then the next arc: links (the vision's step 2) or tab restore.
