@@ -1494,6 +1494,12 @@ CLAUDE.md (rule 3, tree, known issues), CHANGELOG.md
 
 ---
 
+## SESSION 39 — 2026-10-18 — Merge PRP-007 — open
+
+Branch: prp-007-remembering
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-007 (amendments 1 and 2) is built on `prp-007-remembering`, not merged. First: the owner's UI regression (ask for a screenshot). Then the security review, on-screen checks, full suite, merge. Next: the tabs PRP (start by splitting src/tabs.la, 481 lines), then background loading (DECISION-021).
