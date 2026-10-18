@@ -1,0 +1,173 @@
+// The panel's Access page (PRP-012): what an app can reach, a switch for
+// each server, "new" after an update adds one, and the one-time notice.
+// Writes only under test/tmp/.
+import rapidkoi.shell { Model, with_pages, update, view };
+import rapidkoi.saving { restore };
+import rapidkoi.actions { Msg, PanelPage };
+import rapidkoi.tabs { AppPage, Tab, open_module };
+import rapidkoi.bundle { Manifest };
+import rapidkoi.verify { Trust, Standing };
+import rapidkoi.people { person };
+import rapidkoi.store { Store, store_at };
+import kivuli.testing { click, texts, toggle };
+import std.fs;
+import wasmtime { Engine, Module };
+import support { echo };
+
+const HOST: string = "notes.acme.com";
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun folder(name: string): Store {
+    let dir = "test/tmp/access-{name}";
+    clean(dir);
+    store_at(dir)
+}
+
+fun manifest(servers: string[]): Manifest = Manifest {
+    contract: 2,
+    name: "Notes",
+    version: "1.0.0",
+    description: None,
+    state_version: 1,
+    icon: None,
+    banners: [],
+    servers: servers,
+};
+
+/** Notes declaring `servers`, signed by HOST when `signed`, from `path`. */
+fun notes(path: string, servers: string[], signed: bool): AppPage {
+    let engine = Engine.new();
+    let p = AppPage {
+        manifest: Some(manifest(servers)),
+        ..open_module("Notes", path, engine, Module.from_text(engine, echo()).unwrap()),
+    };
+    if !signed {
+        return p;
+    }
+    AppPage {
+        trust: Some(Trust {
+            host: HOST,
+            key: [3; 32],
+            standing: Standing.Verified,
+            build: [0; 32],
+            separate: false,
+            since: 0,
+            origin: [3; 32],
+        }),
+        ..p,
+    }
+}
+
+/** A window on `s` showing `p`, its panel open. */
+fun window(s: Store, p: AppPage): Model = step(
+    restore(with_pages(Engine.new(), [p]), s),
+    Msg.TogglePanel,
+);
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+fun signed(s: Store, servers: string[]): Model = window(
+    s,
+    notes("rapidkoi://notes.acme.com", servers, true),
+);
+
+@test
+fun it_lists_the_own_host_then_the_declared_servers() {
+    let s = folder("list");
+    let m = signed(s, ["api.acme.com", "files.acme.com"]);
+    assert_eq(shows(m, "3 servers"), true);
+    let at = step(m, Msg.PanelGo(PanelPage.Access));
+    // A signed app's servers are switches, named by the server.
+    assert_eq(toggle(view(at), HOST), Ok(Msg.ToggleServer(HOST)));
+    assert_eq(shows(at, "Its own server"), true);
+    assert_eq(toggle(view(at), "api.acme.com").is_ok(), true);
+    assert_eq(toggle(view(at), "files.acme.com").is_ok(), true);
+    clean(s.dir);
+}
+
+@test
+fun a_switch_turns_a_server_off_and_on() {
+    let s = folder("switch");
+    let at = step(signed(s, ["api.acme.com"]), Msg.PanelGo(PanelPage.Access));
+    assert_eq(toggle(view(at), "api.acme.com"), Ok(Msg.ToggleServer("api.acme.com")));
+    let off = step(at, Msg.ToggleServer("api.acme.com"));
+    assert_eq(person(off.people, HOST, [3; 32]).off, ["api.acme.com"]);
+    assert_eq(shows(step(off, Msg.PanelGo(PanelPage.Main)), "2 servers, 1 off"), true);
+    let on = step(off, Msg.ToggleServer("api.acme.com"));
+    assert_eq(person(on.people, HOST, [3; 32]).off.len, 0);
+    clean(s.dir);
+}
+
+@test
+fun an_update_that_adds_a_server_tells_you_once_and_marks_it_new() {
+    let s = folder("news");
+    let first = signed(s, ["api.acme.com"]);
+    // The first open sees everything silently: nothing changed.
+    assert_eq(first.notice, None);
+    assert_eq(person(first.people, HOST, [3; 32]).seen, ["api.acme.com"]);
+    let updated = Model {
+        tabs: first.tabs.map(
+            fun(t: Tab) = Tab {
+                page: AppPage {
+                    manifest: Some(manifest(["api.acme.com", "files.acme.com"])),
+                    ..t.page,
+                },
+                ..t,
+            },
+        ),
+        ..first,
+    };
+    let told = step(updated, Msg.PanelGo(PanelPage.Main));
+    assert_eq(told.notice, Some("Notes can now also reach files.acme.com"));
+    // Once: the next message doesn't say it again.
+    assert_eq(step(Model { notice: None, ..told }, Msg.PanelGo(PanelPage.Main)).notice, None);
+    let at = step(told, Msg.PanelGo(PanelPage.Access));
+    assert_eq(shows(at, "New"), true);
+    // Looked at: leaving the page clears the mark.
+    let left = step(at, Msg.PanelGo(PanelPage.Main));
+    assert_eq(person(left.people, HOST, [3; 32]).fresh.len, 0);
+    assert_eq(shows(step(left, Msg.PanelGo(PanelPage.Access)), "New"), false);
+    clean(s.dir);
+}
+
+@test
+fun forget_clears_the_switches() {
+    let s = folder("forget");
+    let off = step(
+        step(signed(s, ["api.acme.com"]), Msg.PanelGo(PanelPage.Access)),
+        Msg.ToggleServer(HOST),
+    );
+    assert_eq(person(off.people, HOST, [3; 32]).off, [HOST]);
+    let gone = step(off, Msg.Forget);
+    assert_eq(person(gone.people, HOST, [3; 32]).off.len, 0);
+    clean(s.dir);
+}
+
+@test
+fun an_unsigned_app_reaches_only_this_computer() {
+    let s = folder("unsigned");
+    let m = window(s, notes("notes.rkb", ["api.acme.com", "localhost:9000"], false));
+    assert_eq(shows(m, "1 server"), true);
+    let at = step(m, Msg.PanelGo(PanelPage.Access));
+    assert_eq(shows(at, "localhost:9000"), true);
+    assert_eq(shows(at, "api.acme.com"), false);
+    assert_eq(toggle(view(at), "localhost:9000").is_err(), true);
+    let none = window(s, notes("notes.rkb", [], false));
+    assert_eq(shows(none, "None"), true);
+    clean(s.dir);
+}

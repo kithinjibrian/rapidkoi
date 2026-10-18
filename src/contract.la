@@ -18,7 +18,10 @@ import limits {
     MAX_STATE,
     MAX_EFFECTS,
     MAX_CHALLENGE,
+    MAX_URL,
+    MAX_HEADERS,
 };
+import network { Request, Reply };
 import props { text, optional_text, maybe_text, text_style, button_look, space };
 public import nodes {
     TextStyle,
@@ -134,6 +137,8 @@ public fun read_update(bytes: u8[]): Result<Update, ContractError> {
         let kind = e.get("kind").map(fun(k: Value) = k.as_text().unwrap_or("")).unwrap_or("");
         if kind == "identity" {
             effects.push(Effect.Identity(msg));
+        } else if kind == "fetch" {
+            effects.push(Effect.Fetch(msg, fetch_of(e)?));
         } else if kind == "sign" {
             match e.get("challenge") {
                 Some(Bytes(c)) if c.len >= 1 && c.len <= MAX_CHALLENGE => effects.push(
@@ -156,22 +161,86 @@ public fun read_update(bytes: u8[]): Result<Update, ContractError> {
 }
 
 /**
- * Encodes Rapidkoi's answer to an effect, sent to the guest's `handle`:
- * `{event: "answer", msg, value}`, the value bytes (a key, a signature)
- * or null (not signed in, an unsigned app).
+ * Reads a fetch effect's shape: a method and a URL as text, headers as a
+ * text→text map, a body as bytes; bounded so a hostile one can't grow.
+ * Whether it may be sent is `network.check_request`'s question.
+ */
+fun fetch_of(e: Value): Result<Request, ContractError> {
+    let shape = fun(p: string) = nodes.invalid("update", p);
+    let (method, url) = match (e.get("method"), e.get("url")) {
+        (Some(Text(m)), Some(Text(u))) => (m, u),
+        _ => {
+            return Err(shape("a fetch needs a method and a url"));
+        }
+    };
+    if url.len > MAX_URL {
+        return Err(shape("a fetch's url is at most {MAX_URL} bytes"));
+    }
+    let mut headers: (string, string)[] = [];
+    if let Some(given) = e.get("headers") {
+        let entries = given.as_map().ok_or(shape("a fetch's headers must map text to text"))?;
+        for h of entries {
+            match (h.key, h.value) {
+                (Text(name), Text(value)) => headers.push((name, value)),
+                _ => {
+                    return Err(shape("a fetch's headers must map text to text"));
+                }
+            }
+        }
+    }
+    let wide = headers.any(fun(h: (string, string)) = h.0.len > MAX_URL || h.1.len > MAX_URL);
+    if headers.len > MAX_HEADERS || wide {
+        return Err(
+            shape("a fetch has at most {MAX_HEADERS} headers, each at most {MAX_URL} bytes"),
+        );
+    }
+    let body = match e.get("body") {
+        Some(Bytes(b)) => b,
+        Some(_) => {
+            return Err(shape("a fetch's body must be bytes"));
+        }
+        None => [],
+    };
+    Ok(Request { method: method, url: url, headers: headers, body: body })
+}
+
+/**
+ * Returns a fetch's answer value: `{status, headers, body}` from the
+ * server, or `{error}` with the sentence when it wasn't sent or failed.
  *
  * Example:
- *     answer(msg, Some(public_key))
+ *     answer(msg, reply(Reply.Failed("You turned off api.acme.com for Notes")))
  */
-public fun answer(msg: Value, value: Option<u8[]>): u8[] = encode(Value.Map([Entry {
-    key: Value.Text("event"),
-    value: Value.Text("answer"),
-}, Entry { key: Value.Text("msg"), value: msg }, Entry { key: Value.Text(
-    "value",
-), value: match value {
-    Some(b) => Value.Bytes(b),
-    None => Value.Null,
-} }]));
+public fun reply(r: Reply): Value = match r {
+    Got(status, headers, body) => {
+        let mut named: Entry[] = [];
+        for (k, v) of headers {
+            named.push(Entry { key: Value.Text(k), value: Value.Text(v) });
+        }
+        Value.Map([
+            Entry { key: Value.Text("status"), value: Value.int(status) },
+            Entry { key: Value.Text("headers"), value: Value.Map(named) },
+            Entry { key: Value.Text("body"), value: Value.Bytes(body) },
+        ])
+    }
+    Failed(why) => Value.Map([Entry { key: Value.Text("error"), value: Value.Text(why) }]),
+};
+
+/**
+ * Encodes Rapidkoi's answer to an effect, sent to the guest's `handle`:
+ * `{event: "answer", msg, value}`. The value is bytes (a key, a
+ * signature), null (not signed in, an unsigned app), or a fetch's `reply`.
+ *
+ * Example:
+ *     answer(msg, Value.Bytes(public_key))
+ */
+public fun answer(msg: Value, value: Value): u8[] = encode(
+    Value.Map([
+        Entry { key: Value.Text("event"), value: Value.Text("answer") },
+        Entry { key: Value.Text("msg"), value: msg },
+        Entry { key: Value.Text("value"), value: value },
+    ]),
+);
 
 /**
  * Encodes one of the app's own moments, sent to `handle`: `{event:

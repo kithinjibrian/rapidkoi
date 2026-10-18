@@ -11,11 +11,13 @@ import rapidkoi.contract {
     read_update,
     lifecycle,
     answer,
+    reply,
     Effect,
     Update,
     envelope,
 };
 import cbor { Value, Entry, encode, decode, Limits };
+import rapidkoi.network { Request, Reply };
 import support { t, kv, leaf, parent, wide, deep };
 
 fun tree(v: Value): Result<Node, ContractError> = read_tree(encode(v)).map(
@@ -334,9 +336,89 @@ fun v2_effects_are_checked() {
 }
 
 @test
+fun a_fetch_effect_decodes() {
+    let get = ask("fetch", [("method", t("GET")), ("url", t("https://api.acme.com/q"))]);
+    assert_eq(read_update(v2([get])).unwrap().effects, [
+        Effect.Fetch(t("got"), Request {
+            method: "GET",
+            url: "https://api.acme.com/q",
+            headers: [],
+            body: [],
+        }),
+    ]);
+    let post = ask("fetch", [
+        ("method", t("POST")),
+        ("url", t("https://api.acme.com/notes")),
+        ("headers", kv([("content-type", t("application/json"))])),
+        ("body", Value.Bytes([123, 125])),
+    ]);
+    assert_eq(read_update(v2([post])).unwrap().effects, [
+        Effect.Fetch(t("got"), Request {
+            method: "POST",
+            url: "https://api.acme.com/notes",
+            headers: [("content-type", "application/json")],
+            body: [123, 125],
+        }),
+    ]);
+}
+
+@test
+fun a_fetch_effects_shape_is_checked() {
+    let url = ("url", t("https://a.example/"));
+    let method = ("method", t("GET"));
+    assert_eq(v2_why(v2([ask("fetch", [url])])), "a fetch needs a method and a url");
+    assert_eq(v2_why(v2([ask("fetch", [method])])), "a fetch needs a method and a url");
+    assert_eq(
+        v2_why(v2([ask("fetch", [method, url, ("headers", t("x"))])])),
+        "a fetch's headers must map text to text",
+    );
+    assert_eq(
+        v2_why(v2([ask("fetch", [method, url, ("headers", kv([("a", Value.int(1))]))])])),
+        "a fetch's headers must map text to text",
+    );
+    assert_eq(
+        v2_why(v2([ask("fetch", [method, url, ("body", t("x"))])])),
+        "a fetch's body must be bytes",
+    );
+    let long = string_from_utf8([97; 8193]).unwrap();
+    assert_eq(
+        v2_why(v2([ask("fetch", [method, ("url", t("https://a.example/{long}"))])])),
+        "a fetch's url is at most 8192 bytes",
+    );
+    let mut many: (string, Value)[] = [];
+    for i in 0..65 {
+        many.push(("x-{i}", t("v")));
+    }
+    assert_eq(
+        v2_why(v2([ask("fetch", [method, url, ("headers", kv(many))])])),
+        "a fetch has at most 64 headers, each at most 8192 bytes",
+    );
+    assert_eq(
+        v2_why(v2([ask("fetch", [method, url, ("headers", kv([("a", t(long))]))])])),
+        "a fetch has at most 64 headers, each at most 8192 bytes",
+    );
+}
+
+@test
+fun a_reply_is_a_response_or_an_error() {
+    let got = reply(Reply.Got(200, #{"content-type": "text/plain"}, [104, 105]));
+    assert_eq(
+        encode(got),
+        encode(
+            kv([
+                ("status", Value.int(200)),
+                ("headers", kv([("content-type", t("text/plain"))])),
+                ("body", Value.Bytes([104, 105])),
+            ]),
+        ),
+    );
+    assert_eq(encode(reply(Reply.Failed("no"))), encode(kv([("error", t("no"))])));
+}
+
+@test
 fun an_answer_carries_bytes_or_null() {
     assert_eq(
-        answer(t("got"), Some([1, 2])),
+        answer(t("got"), Value.Bytes([1, 2])),
         encode(
             Value.Map([
                 Entry { key: t("event"), value: t("answer") },
@@ -346,7 +428,7 @@ fun an_answer_carries_bytes_or_null() {
         ),
     );
     assert_eq(
-        answer(t("got"), None),
+        answer(t("got"), Value.Null),
         encode(
             Value.Map([
                 Entry { key: t("event"), value: t("answer") },

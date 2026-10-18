@@ -4,7 +4,7 @@
  * writes bytes, checking every rule in `rules.la` both ways. Unsigned and
  * local; hashes and signatures come with format 2 (DECISION-009).
  *
- * Depends on: cbor, limits, rules
+ * Depends on: cbor, limits, rules, network
  * Used by: pack, tabs, panel
  */
 import cbor { Value, Entry, Limits, decode, encode };
@@ -15,8 +15,10 @@ import limits {
     MAX_ICON_PX,
     MAX_BANNER_WIDTH,
     MAX_BANNER_HEIGHT,
+    MAX_SERVERS,
 };
 public import rules { BundleError, reason };
+import network { check_server };
 
 /** The format this Rapidkoi reads and writes. */
 public const FORMAT: i64 = 1;
@@ -37,6 +39,8 @@ public struct Manifest {
     public icon: Option<string>,
     /** Page → asset name, for banners. */
     public banners: (string, string)[],
+    /** The servers it may reach besides its own host (PRP-012); signed in format 2. */
+    public servers: string[],
 }
 
 /** An app, unpacked. */
@@ -131,6 +135,7 @@ fun manifest_fields(m: Manifest): Entry[] {
             "banners",
             Value.Map(m.banners.map(fun(p: (string, string)) = entry(p.0, Value.Text(p.1)))),
         ),
+        entry("servers", Value.Array(m.servers.map(fun(n: string) = Value.Text(n)))),
         entry("permissions", Value.Array([])),
         entry("prerendered", Value.Array([])),
     ];
@@ -174,6 +179,16 @@ fun check(b: Bundle): Result<(), BundleError> {
     if let Some(d) = m.description {
         rules.check_description(d)?;
     }
+    if m.servers.len > MAX_SERVERS {
+        return Err(
+            BundleError.Wrong("servers", "lists too many ({m.servers.len}; at most {MAX_SERVERS})"),
+        );
+    }
+    for name of m.servers {
+        if check_server(name).is_err() {
+            return Err(BundleError.Wrong("servers", "lists \"{name}\", which isn't a server name"));
+        }
+    }
     rules.check_sizes(b.module.len, b.assets.len)?;
     for a of b.assets {
         rules.check_asset(a.0, a.1)?;
@@ -202,6 +217,30 @@ fun manifest_of(m: Value): Result<Manifest, BundleError> {
             }
         }
     }
+    // Missing in bundles from before PRP-012: nothing beyond the own host.
+    let mut servers: string[] = [];
+    if let Some(given) = m.get("servers") {
+        let names = match given {
+            Array(xs) => xs,
+            _ => {
+                return Err(BundleError.Wrong("servers", "must be a list of names"));
+            }
+        };
+        // Counted before anything is copied out.
+        if names.len > MAX_SERVERS {
+            return Err(
+                BundleError.Wrong("servers", "lists too many ({names.len}; at most {MAX_SERVERS})"),
+            );
+        }
+        for n of names {
+            match n {
+                Text(name) => servers.push(name),
+                _ => {
+                    return Err(BundleError.Wrong("servers", "must be a list of names"));
+                }
+            }
+        }
+    }
     empty(m, "permissions")?;
     empty(m, "prerendered")?;
     Ok(Manifest {
@@ -212,6 +251,7 @@ fun manifest_of(m: Value): Result<Manifest, BundleError> {
         state_version: whole(m, "state_version")?,
         icon: maybe_text(m, "icon")?,
         banners: banners,
+        servers: servers,
     })
 }
 

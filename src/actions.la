@@ -8,6 +8,8 @@
  */
 import render;
 import fetching { Fetched };
+import network { Reply };
+import cbor { Value };
 
 /** A message to the shell. */
 public enum Msg {
@@ -57,6 +59,10 @@ public enum Msg {
     SeparateApp,
     /** A background load's result, for this tab and load number (PRP-008). */
     Fetched(i64, i64, Fetched),
+    /** A request's result, for this tab and load, answering the app's `msg` (PRP-012). */
+    Responded(i64, i64, Value, Reply),
+    /** The Access page's switch for one of this app's servers (PRP-012). */
+    ToggleServer(string),
     /** The loading tick: the time, while some tab is loading. */
     Tick(i64),
     /** A tab's right-click menu: select that tab, then act (PRP-010). */

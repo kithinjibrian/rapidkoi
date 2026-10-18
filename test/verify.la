@@ -44,6 +44,7 @@ fun app(version: string): Bundle = Bundle {
         state_version: 1,
         icon: None,
         banners: [],
+        servers: [],
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [],

@@ -122,7 +122,7 @@ fun starting_over_asks_then_gives_a_new_key() {
     let over = step(asked, Msg.StartOverIdentity);
     assert_eq(person(over.people, HOST, [3; 32]).generation, 1);
     // The app starts again and asks again: it now gets the new key.
-    assert_eq(state_of(over.tabs[0].page), Some(answer(t("me"), Some(key(s, 1)))));
+    assert_eq(state_of(over.tabs[0].page), Some(answer(t("me"), Value.Bytes(key(s, 1)))));
     clean(s.dir);
 }
 

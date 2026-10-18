@@ -1,0 +1,247 @@
+// Apps' requests (PRP-012): sending one (live, on local ports), and the
+// window's rules around it: refusals answered at once, at most 4 in flight,
+// results for closed tabs dropped, the switches. An echo guest's state
+// becomes the answer it got, so each test reads exactly what Rapidkoi sent.
+// Writes only under test/tmp/.
+import rapidkoi.requests { send, arrive };
+import rapidkoi.network { Request, Reply };
+import rapidkoi.fetching { Network };
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.effects { answer_all };
+import rapidkoi.tabs { AppPage, open_module, state_of };
+import rapidkoi.verify { Trust, Standing };
+import rapidkoi.people { Person, person, with_person };
+import rapidkoi.contract { answer, reply };
+import cbor { Value, Entry, encode, decode, Limits };
+import std.http { Request as Incoming, Response };
+import std.task { sleep };
+import wasmtime { Engine, Module };
+import support { echo_v2, t, kv, settle };
+
+const TLS: string = "test/fixtures/tls";
+
+/** A test server: `/echo` answers with the method and body, `/moved` redirects, `/slow` waits, `/big` is 2000 bytes. */
+fun serving(r: Incoming): Response {
+    if r.path == "/moved" {
+        return Response { headers: #{"location": "/echo"}, ..http.text(301, "") };
+    }
+    if r.path == "/slow" {
+        sleep(1500);
+    }
+    if r.path == "/big" {
+        return http.bytes(200, [120; 2000]);
+    }
+    let note = r.header("x-note").unwrap_or("");
+    Response {
+        headers: #{"x-got": note, "content-type": "text/plain"},
+        ..http.text(200, "{r.method} {r.text().unwrap_or("")}"),
+    }
+}
+
+fun server(port: i64) {
+    spawn http.serve("127.0.0.1:{port}", serving);
+    sleep(100);
+}
+
+fun req(method: string, url: string): Request = Request {
+    method: method,
+    url: url,
+    headers: [],
+    body: [],
+};
+
+fun plain(): Network = Network { ca_file: None };
+
+fun failed(r: Reply): string = match r {
+    Failed(why) => why,
+    Got(status, _, _) => "got {status}",
+};
+
+@test
+fun a_get_and_a_post_come_back_whole() {
+    server(18901);
+    match send(req("GET", "http://localhost:18901/echo"), plain(), 5000, 1000) {
+        Got(status, headers, body) => {
+            assert_eq(status, 200);
+            assert_eq(headers.get("content-type"), Some("text/plain"));
+            assert_eq(body, "GET ".to_bytes());
+        }
+        Failed(why) => panic(why),
+    }
+    let post = Request {
+        headers: [("x-note", "hi")],
+        body: "a body".to_bytes(),
+        ..req("POST", "http://localhost:18901/echo"),
+    };
+    match send(post, plain(), 5000, 1000) {
+        Got(status, headers, body) => {
+            assert_eq((status, headers.get("x-got")), (200, Some("hi")));
+            assert_eq(body, "POST a body".to_bytes());
+        }
+        Failed(why) => panic(why),
+    }
+}
+
+@test
+fun a_redirect_comes_back_not_followed() {
+    server(18902);
+    match send(req("GET", "http://localhost:18902/moved"), plain(), 5000, 1000) {
+        Got(status, headers, _) => assert_eq(
+            (status, headers.get("location")),
+            (301, Some("/echo")),
+        ),
+        Failed(why) => panic(why),
+    }
+}
+
+@test
+fun slow_large_and_absent_servers_are_sentences() {
+    server(18903);
+    assert_eq(
+        failed(send(req("GET", "http://localhost:18903/slow"), plain(), 1000, 1000)),
+        "localhost:18903 didn't answer in 1 second",
+    );
+    assert_eq(
+        failed(send(req("GET", "http://localhost:18903/big"), plain(), 5000, 1000)),
+        "The response from localhost:18903 was larger than 8 MB",
+    );
+    assert_eq(
+        failed(send(req("GET", "http://localhost:18909/"), plain(), 5000, 1000)).starts_with(
+            "Couldn't reach localhost:18909",
+        ),
+        true,
+    );
+}
+
+@test
+fun https_is_checked_against_the_trusted_roots() {
+    spawn http.serve_tls("127.0.0.1:18904", "{TLS}/localhost.pem", "{TLS}/localhost.key", serving);
+    sleep(150);
+    let trusting = Network { ca_file: Some("{TLS}/ca.pem") };
+    match send(req("GET", "https://localhost:18904/echo"), trusting, 5000, 1000) {
+        Got(status, _, _) => assert_eq(status, 200),
+        Failed(why) => panic(why),
+    }
+    assert_eq(
+        failed(send(req("GET", "https://localhost:18904/echo"), plain(), 5000, 1000)).starts_with(
+            "localhost:18904's certificate couldn't be verified",
+        ),
+        true,
+    );
+}
+
+// The window's side: an echo page asking for fetches when it starts.
+
+/** An init result asking for `wanted`. */
+fun asking(wanted: Value[]): u8[] = encode(
+    Value.Map([
+        Entry { key: t("state"), value: Value.Bytes([]) },
+        Entry { key: t("effects"), value: Value.Array(wanted) },
+    ]),
+);
+
+fun fetch(url: string): Value = kv([
+    ("kind", t("fetch")),
+    ("msg", t("got")),
+    ("method", t("GET")),
+    ("url", t(url)),
+]);
+
+/** An echo page from `path` asking for `wanted`; signed by `host` when given. */
+fun page(path: string, wanted: Value[], host: Option<string>): AppPage {
+    let engine = Engine.new();
+    let p = open_module(
+        "notes",
+        path,
+        engine,
+        Module.from_text(engine, echo_v2(asking(wanted))).unwrap(),
+    );
+    match host {
+        Some(h) => AppPage {
+            trust: Some(Trust {
+                host: h,
+                key: [3; 32],
+                standing: Standing.Verified,
+                build: [0; 32],
+                separate: false,
+                since: 0,
+                origin: [3; 32],
+            }),
+            ..p,
+        },
+        None => p,
+    }
+}
+
+fun got(m: Model): u8[] = state_of(m.tabs[0].page).unwrap_or([]);
+
+/** The answer's value the echo page holds. */
+fun value(m: Model): Value = decode(got(m), Limits.default()).unwrap().get("value").unwrap_or(
+    Value.Null,
+);
+
+fun error(m: Model): string = match value(m).get("error") {
+    Some(Text(s)) => s,
+    _ => "no error",
+};
+
+@test
+fun a_refused_fetch_is_answered_at_once() {
+    // A file's app has no host: nothing remote.
+    let (m, _) = answer_all(
+        with_pages(Engine.new(), [page("notes.rkb", [fetch("https://api.acme.com/")], None)]),
+    );
+    assert_eq(error(m), "api.acme.com isn't one of notes's servers");
+    assert_eq(m.tabs[0].page.in_flight, 0);
+}
+
+@test
+fun at_most_four_are_in_flight() {
+    let five = [0, 1, 2, 3, 4].map(fun(_: i64) = fetch("http://localhost:18905/echo"));
+    let (m, _) = answer_all(
+        with_pages(Engine.new(), [page("rapidkoi://localhost:18905", five, None)]),
+    );
+    assert_eq(m.tabs[0].page.in_flight, 4);
+    assert_eq(error(m), "Too many requests at once; try again");
+}
+
+@test
+fun a_fetch_comes_back_through_handle() {
+    server(18906);
+    let p = page("rapidkoi://localhost:18906", [fetch("http://localhost:18906/echo")], None);
+    let (m, cmd) = answer_all(with_pages(Engine.new(), [p]));
+    assert_eq(m.tabs[0].page.in_flight, 1);
+    let done = settle(m, cmd, update);
+    assert_eq(value(done).get("status").and_then(fun(s: Value) = s.as_i64()), Some(200));
+    assert_eq(value(done).get("body"), Some(Value.Bytes("GET ".to_bytes())));
+    assert_eq(done.tabs[0].page.in_flight, 0);
+}
+
+@test
+fun a_result_for_a_closed_tab_or_an_old_load_is_dropped() {
+    let (m, _) = answer_all(with_pages(Engine.new(), [page("notes.rkb", [], None)]));
+    let before = got(m);
+    let id = m.tabs[0].id;
+    assert_eq(got(arrive(m, id + 1, 0, t("got"), Reply.Failed("x"))), before);
+    assert_eq(got(arrive(m, id, 7, t("got"), Reply.Failed("x"))), before);
+    assert_eq(
+        got(arrive(m, id, 0, t("got"), Reply.Failed("x"))),
+        answer(t("got"), reply(Reply.Failed("x"))),
+    );
+}
+
+@test
+fun a_switched_off_server_is_refused_for_that_app() {
+    let host = "notes.acme.com";
+    let p = page("rapidkoi://notes.acme.com", [fetch("https://notes.acme.com/q")], Some(host));
+    let base = with_pages(Engine.new(), [p]);
+    let off = Model {
+        people: with_person(base.people, Person {
+            off: [host],
+            ..person(base.people, host, [3; 32]),
+        }),
+        ..base,
+    };
+    let (m, _) = answer_all(off);
+    assert_eq(error(m), "You turned off notes.acme.com for notes");
+}

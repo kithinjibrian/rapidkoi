@@ -73,6 +73,8 @@ public struct AppPage {
     public asks: Effect[],
     /** Which load this page is waiting for (0 when none): a result for another is stale. */
     public load: i64,
+    /** Its requests sent and not yet answered (PRP-012), at most `MAX_IN_FLIGHT`. */
+    public in_flight: i64,
     /** What's on screen. */
     public screen: Screen,
 }
@@ -217,6 +219,7 @@ fun open_program(name: string, path: string, program: Program): AppPage {
         program: Some(program),
         asks: asks,
         load: 0,
+        in_flight: 0,
         screen: screen,
     })
 }
@@ -303,6 +306,7 @@ public fun resume(l: LeftOff): AppPage = match l.program {
             program: Some(prog),
             asks: asks,
             load: 0,
+            in_flight: 0,
             screen: screen,
         })
     }
@@ -416,6 +420,7 @@ fun failed(name: string, path: string, why: string): AppPage = AppPage {
     program: None,
     asks: [],
     load: 0,
+    in_flight: 0,
     screen: Screen.Stopped(why, false),
 };
 

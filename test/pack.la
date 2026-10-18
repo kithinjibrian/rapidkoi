@@ -50,6 +50,10 @@ fun packing_with_every_flag() {
         "home={banner}",
         "--asset",
         "img/extra.png={extra}",
+        "--server",
+        "api.acme.com",
+        "--server",
+        "localhost:9000",
         "-o",
         out,
     ]);
@@ -62,6 +66,7 @@ fun packing_with_every_flag() {
     assert_eq(b.manifest.icon, Some("icon.png"));
     assert_eq(b.manifest.banners, [("home", "banner/home.png")]);
     assert_eq(asset(b, "img/extra.png"), Some(png()));
+    assert_eq(b.manifest.servers, ["api.acme.com", "localhost:9000"]);
     assert_eq(b.module, [0, 97, 115, 109, 1, 0, 0, 0]);
     fs.remove_file(out).unwrap();
 }
@@ -114,6 +119,10 @@ fun pack_errors_are_plain() {
     assert_eq(
         make([m, "--name", "M", "--version", "0.1.0", "--state-version", "x", "-o", out]),
         Err("--state-version takes a whole number"),
+    );
+    assert_eq(
+        make([m, "--name", "M", "--version", "0.1.0", "--server", "10.0.0.1", "-o", out]),
+        Err("This bundle's \"servers\" lists \"10.0.0.1\", which isn't a server name"),
     );
     assert_eq(fs.exists(out), false);
 }

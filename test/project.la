@@ -9,7 +9,7 @@ fun why(text: string): string = match parse_project(text, "/work/notes", Some("/
     Ok(_) => "ok",
 };
 
-const FULL: string = "[app]\nname = \"Notes\"\nversion = \"2.4.1\"\ndescription = \"Notes that sync\"\nhost = \"notes.acme.com\"\nstate_version = 3\nmodule = \"target/notes.wasm\"\nicon = \"assets/icon.png\"\n\n[banners]\nhome = \"assets/home.png\"\n\n[assets]\n\"img/logo.png\" = \"assets/logo.png\"\n\n[publish]\nkey = \"~/.config/rapidkoi/keys/notes.key\"\nsite = \"public\"\nkeep = 5\n";
+const FULL: string = "[app]\nname = \"Notes\"\nversion = \"2.4.1\"\ndescription = \"Notes that sync\"\nhost = \"notes.acme.com\"\nstate_version = 3\nmodule = \"target/notes.wasm\"\nicon = \"assets/icon.png\"\n\n[banners]\nhome = \"assets/home.png\"\n\n[assets]\n\"img/logo.png\" = \"assets/logo.png\"\n\n[publish]\nkey = \"~/.config/rapidkoi/keys/notes.key\"\nsite = \"public\"\nkeep = 5\n\n[network]\nservers = [\"api.notes.acme.com\", \"localhost:9000\"]\n";
 
 @test
 fun a_full_project() {
@@ -23,6 +23,7 @@ fun a_full_project() {
     assert_eq(p.assets, [("img/logo.png", "/work/notes/assets/logo.png")]);
     assert_eq(p.key, Some("/home/me/.config/rapidkoi/keys/notes.key"));
     assert_eq((p.site, p.keep), ("/work/notes/public", 5));
+    assert_eq(p.servers, ["api.notes.acme.com", "localhost:9000"]);
 }
 
 @test
@@ -31,6 +32,21 @@ fun defaults() {
     assert_eq((p.state_version, p.keep, p.site), (1, 3, "/work/notes/site"));
     assert_eq((p.host, p.key, p.icon, p.description), (None, None, None, None));
     assert_eq(p.module, "/abs/n.wasm");
+    assert_eq(p.servers.len, 0);
+}
+
+@test
+fun network_servers_are_a_list_of_names() {
+    let app = "[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m\"\n";
+    assert_eq(
+        why(app + "[network]\nservers = \"api.acme.com\"\n"),
+        "rapidkoi.toml: [network] servers must be a list of server names",
+    );
+    assert_eq(
+        why(app + "[network]\nservers = [1]\n"),
+        "rapidkoi.toml: [network] servers must be a list of server names",
+    );
+    assert_eq(why(app + "[network]\nserver = []\n"), "rapidkoi.toml: unknown key [network] server");
 }
 
 @test

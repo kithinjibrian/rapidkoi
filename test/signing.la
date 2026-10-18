@@ -21,6 +21,7 @@ fun sample(): Bundle = Bundle {
         state_version: 1,
         icon: Some("icon.png"),
         banners: [],
+        servers: ["api.acme.com"],
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [("icon.png", png(32, 32))],

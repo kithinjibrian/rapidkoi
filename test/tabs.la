@@ -92,6 +92,7 @@ fun rkb(tag: string, speaks: i64): string {
         state_version: 4,
         icon: None,
         banners: [],
+        servers: [],
     };
     // An empty module: it compiles, then stops for want of `memory`.
     let bytes = write(Bundle {

@@ -233,6 +233,7 @@ public fun bundle_of(p: Project): Result<Bundle, string> {
             state_version: p.state_version,
             icon: icon,
             banners: banners,
+            servers: p.servers,
         },
         module: load(p.module)?,
         assets: assets,

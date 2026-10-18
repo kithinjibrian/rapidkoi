@@ -3,3 +3,5 @@
 /src/main
 /*.rkb
 /site
+/examples/quote/site
+/quote-server

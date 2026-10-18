@@ -189,6 +189,13 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
 ./main publish --withdraw VERSION --reason TEXT
 ./main pack            # one .rkb from rapidkoi.toml, signed when it has a host and a key
 ./main serve site/     # serves the site; ./main rapidkoi://localhost:8000 opens it verified
+
+# The network demo (PRP-012): the quote app and its Lugha server, in examples/quote/
+cd examples/quote && ../../main keygen && ../../main publish && cd ../..
+lughac test examples/quote/server.la                                   # the server's own tests
+lughac build examples/quote/server.la -o quote-server
+./quote-server --site examples/quote/site --host localhost:8000 --port 8000
+./main rapidkoi://localhost:8000                                       # opens a window: the user's
 ```
 
 `test/counter.la` drives the built counter end to end; it skips itself until the guest is built.
@@ -216,7 +223,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 
 1. **The app is one kivuli program: a `Model`, a `Msg` enum, a pure `update`, and a pure `view`.** *Why:* that is kivuli's contract; state changed anywhere else is invisible to the diff and won't render.
 2. **Never touch a GTK widget or import `gtk` from rapidkoi.** *Why:* kivuli owns the widgets; reaching past it breaks its diff and pinned-closure bookkeeping.
-3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/limits.la`), it opens local app files the person chose (≤ 32 MB, PRP-002), and it reads and saves Rapidkoi's own small files in its data folder (`src/saving.la`, `src/states.la`: trust ≤ 1 MB, pins ≤ 32 MB, left-off ≤ 8 MB, each signed app's state ≤ `MAX_STATE` + 64 KB, written safely, PRP-007; it moves to `Cmd.task` when std's file I/O stops blocking the thread). Fetching an address is never done in `update`: it describes a `Cmd.task` (`src/loads.la`, `src/fetching.la`, PRP-008), and trust is recorded and the module compiled only when its result arrives. *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
+3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/limits.la`), it opens local app files the person chose (≤ 32 MB, PRP-002), and it reads and saves Rapidkoi's own small files in its data folder (`src/saving.la`, `src/states.la`: trust ≤ 1 MB, pins ≤ 32 MB, left-off ≤ 8 MB, each signed app's state ≤ `MAX_STATE` + 64 KB, written safely, PRP-007; it moves to `Cmd.task` when std's file I/O stops blocking the thread). Fetching an address is never done in `update`: it describes a `Cmd.task` (`src/loads.la`, `src/fetching.la`, PRP-008), and trust is recorded and the module compiled only when its result arrives. An app's requests are the same: each is checked (`src/network.la`) and sent in a `Cmd.task` (`src/requests.la`, PRP-012), never in `update`, and answered when its result arrives. *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
 4. **Keep `src/main.la` to wiring:** `main` calls kivuli with the initial model, `update` and `view` imported from their modules. *Why:* `main.la` can't be tested on its own; everything worth testing lives in a module.
 
 5. **Follow the vision's build path in order** (shell → links → a real app → storage and sync → live sessions → history). Never build part of a later step early. *Why:* each step shapes the next; a speculative later piece locks in guesses.
@@ -270,6 +277,7 @@ public fun load_settings(path: string): Settings { … }
 │                        project.la (rapidkoi.toml), publish.la (the `keygen` and `publish` commands, pack from rapidkoi.toml), verify.la (opening a signed site: every check, the keyring),
 │                        store.la (the data folder: safe writes, bounded reads, set aside), remembered.la (the trust, pins and left-off files), states.la (each signed app's state, by host and key),
 │                        identity.la (the master secret, per-app keys, sign-ins), people.la (sign-in settings and your name), effects.la (answering what apps ask for), account.la (the Account page), placeholders.la (pure: {FIRST_NAME}),
+│                        network.la (pure: which requests an app may make), requests.la (apps' requests: sent in tasks, answered on arrival), access.la (the Access page: servers, switches, the notice),
 │                        running.la (a guest's init and opened events, messages, answers and view), saving.la (restore at start, save on every change), fetching.la (a background load's work: fetch and check against a snapshot), loads.la (begin a load, take its result),
 │                        pack.la (the `./main pack` command), serve.la (the `./main serve` development server: a bundle or a site), address.la (pure: local development addresses),
 │                        tabs.la (Page, Tab, Pin; an app page's life: open, events, restart, resume), leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), actions.la (the shell's Msg),
@@ -280,11 +288,13 @@ public fun load_settings(path: string): Settings { … }
 │                        Imports run one way: nodes ← props ← contract ← theme ← render ← tabs ← actions ← frame ← home, panel ← window ← shell ← main; limits ← contract, guest ← tabs; themes ← window
 ├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
-├── guest/rust/        — Cargo workspace: rapidkoi (contract v1 for Rust: View builder, App trait, export!), counter (the demo)
+├── guest/rust/        — Cargo workspace: rapidkoi (contract 2 for Rust: View builder, App trait, export!, Request, SignIn), counter (the demo), quote (the network demo)
+├── examples/quote/    — the network demo's rapidkoi.toml and its server (server.la: the signed site, sign-in, /quote)
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)
 ├── docs/
 │   ├── CODE_STYLE.md  — documentation rules for .la code
 │   ├── DESIGN.md      — spacing/text tokens, kivuli styles
+│   ├── server-sign-in.md — what an app's server checks to sign a person in (PRP-012)
 │   ├── setup.md       — the context-system guide this setup follows
 │   ├── source/        — meetings/, research/, stakeholder/, constraints/: read on demand
 │   └── specs/ decisions/ incidents/ status/
@@ -317,5 +327,5 @@ Update this tree when modules are added.
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
   - Search is in memory only. Open tabs aren't restored on launch yet (the next PRP). Unsigned apps' state lasts only for the session (PRP-007 amendment 2).
   - Back, forward, share, settings and more are shown disabled.
-  - Notifications, Access and Data are placeholder pages until notifications, permissions and app data exist; apps can't reach their own server yet, so keys and signatures are only shown (DECISION-022).
+  - Notifications and Data are placeholder pages until notifications and app data exist. A declared server name that resolves to this computer or the local network is guarded only by the certificate check (DECISION-026).
   - Remote apps open by host name over HTTPS only, signed only, with no redirects followed (PRP-009); plain http and unsigned bundles are for this machine's development servers. Loads run in the background (PRP-008), but a DNS lookup, a TLS handshake and compiling a module still briefly hold the window (kivuli's note). Reload is manual; there's no live reload yet.

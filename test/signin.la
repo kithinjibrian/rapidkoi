@@ -1,0 +1,133 @@
+// Signing in to an app's own server, end to end (PRP-012): a local test
+// server does exactly what `docs/server-sign-in.md` asks (a fresh,
+// single-use challenge; the signature checked with the key over the
+// server's own host), and Rapidkoi's real signing answers it. Writes only
+// under test/tmp/.
+import rapidkoi.requests { send };
+import rapidkoi.network { Request, Reply };
+import rapidkoi.fetching { Network };
+import rapidkoi.identity { master, public_key, sign_in, sign_in_message };
+import rapidkoi.store { Store, store_at };
+import cbor { Value, Entry, Limits, decode, encode };
+import std.crypto { ed25519_verify, random_bytes, equal };
+import std.http { Request as Incoming, Response };
+import std.fs;
+import std.task { sleep };
+
+/** The server's own host, as the app's address shows it. */
+const HOST: string = "localhost:18921";
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+/** What the doc asks of a server: issue challenges, then check one proof per challenge. */
+fun server(r: Incoming, issued: Ref<u8[][]>): Response {
+    if r.method == "GET" && r.path == "/rapidkoi/challenge" {
+        let c = random_bytes(32).unwrap();
+        issued.update(fun(xs: u8[][]) {
+            let mut more = xs;
+            more.push(c);
+            more
+        });
+        return http.bytes(200, c);
+    }
+    if r.method == "POST" && r.path == "/rapidkoi/sign-in" {
+        let proof = match decode(r.body, Limits.default()) {
+            Ok(v) => v,
+            Err(_) => {
+                return http.text(400, "not CBOR");
+            }
+        };
+        let (key, challenge, signature) = match (
+            proof.get("key"),
+            proof.get("challenge"),
+            proof.get("signature"),
+        ) {
+            (Some(Bytes(k)), Some(Bytes(c)), Some(Bytes(s))) if k.len == 32 && s.len == 64 => (
+                k,
+                c,
+                s,
+            ),
+            _ => {
+                return http.text(400, "needs key, challenge and signature");
+            }
+        };
+        // Fresh and single-use: only one this server issued, and only once.
+        let known = issued.get().any(fun(x: u8[]) = equal(x, challenge));
+        if !known {
+            return http.text(401, "unknown or used challenge");
+        }
+        issued.update(fun(xs: u8[][]) = xs.filter(fun(x: u8[]) = !equal(x, challenge)));
+        // Over the server's own host: a signature made for another site fails here.
+        if !ed25519_verify(key, sign_in_message(HOST, challenge), signature) {
+            return http.text(401, "bad signature");
+        }
+        return http.text(200, "token for {key.len}-byte key");
+    }
+    http.text(404, "")
+}
+
+fun plain(): Network = Network { ca_file: None };
+
+fun challenge(): u8[] = match send(
+    Request { method: "GET", url: "http://{HOST}/rapidkoi/challenge", headers: [], body: [] },
+    plain(),
+    5000,
+    1024,
+) {
+    Got(200, _, body) => body,
+    _ => panic("no challenge"),
+};
+
+fun post(key: u8[], c: u8[], signature: u8[]): i64 {
+    let body = encode(
+        Value.Map([
+            Entry { key: Value.Text("key"), value: Value.Bytes(key) },
+            Entry { key: Value.Text("challenge"), value: Value.Bytes(c) },
+            Entry { key: Value.Text("signature"), value: Value.Bytes(signature) },
+        ]),
+    );
+    let r = Request {
+        method: "POST",
+        url: "http://{HOST}/rapidkoi/sign-in",
+        headers: [("content-type", "application/cbor")],
+        body: body,
+    };
+    match send(r, plain(), 5000, 1024) {
+        Got(status, _, _) => status,
+        Failed(why) => panic(why),
+    }
+}
+
+@test
+fun a_server_checks_a_sign_in_as_the_doc_says() {
+    let issued: Ref<u8[][]> = Ref.new([]);
+    spawn http.serve("127.0.0.1:18921", fun(r: Incoming) = server(r, issued));
+    sleep(100);
+    let dir = "test/tmp/signin";
+    clean(dir);
+    let mm = master(store_at(dir)).unwrap();
+    let origin: u8[] = [3; 32];
+    let key = public_key(mm, HOST, origin, 0).unwrap();
+    // The three steps: a challenge, Rapidkoi's signature, the proof.
+    let c = challenge();
+    let signature = sign_in(mm, HOST, origin, 0, c).unwrap();
+    assert_eq(post(key, c, signature), 200);
+    // Single-use: the same proof again is refused.
+    assert_eq(post(key, c, signature), 401);
+    // Signed for another site: refused.
+    let other = challenge();
+    assert_eq(post(key, other, sign_in(mm, "notes.acme.com", origin, 0, other).unwrap()), 401);
+    // A challenge the server never issued: refused.
+    let made_up: u8[] = [7; 32];
+    assert_eq(post(key, made_up, sign_in(mm, HOST, origin, 0, made_up).unwrap()), 401);
+    clean(dir);
+}

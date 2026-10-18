@@ -1,0 +1,20 @@
+# The network demo (PRP-012): the day's quote from its own server, signed in.
+# Paths are relative to this file. Locally:
+#   cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown
+#   cd examples/quote && ../../main keygen && ../../main publish
+#   lughac build examples/quote/server.la -o quote-server   (from the repo)
+#   ./quote-server --site examples/quote/site --host localhost:8000 --port 8000
+#   ./main rapidkoi://localhost:8000
+[app]
+name = "Quote"
+version = "0.1.0"
+description = "The day's quote, from its own server"
+# Development: the host is the address it's served at.
+host = "localhost:8000"
+module = "../../guest/rust/target/wasm32-unknown-unknown/release/quote.wasm"
+
+[publish]
+# Never inside this folder: keygen refuses.
+key = "~/.config/rapidkoi/keys/quote.key"
+site = "site"
+keep = 3

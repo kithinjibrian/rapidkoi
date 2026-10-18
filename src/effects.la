@@ -1,11 +1,12 @@
 /**
- * Answering what contract v2 apps ask for (PRP-011): their public key, and
- * sign-in signatures over their verified host. Only signed apps get them,
+ * Answering what contract v2 apps ask for (PRP-011): their public key,
+ * sign-in signatures over their verified host, and requests (PRP-012,
+ * through `requests`). Only signed apps get them,
  * by their host and origin key, and only while you're signed in to them;
  * everything else is answered with nothing. Each answer goes back through
  * the app's `update`, which may ask again, up to `MAX_ANSWERS` in a row.
  *
- * Depends on: identity, people, tabs, window, contract, render, store
+ * Depends on: kivuli, identity, people, tabs, window, contract, render, requests, actions
  * Used by: shell
  */
 import identity { Master, master, public_key, sign_in, reason as identity_reason };
@@ -13,48 +14,59 @@ import people { person };
 import tabs { AppPage, Tab, Screen, handle };
 import window { Model, with_tab };
 import contract { Effect };
+import cbor { Value };
+import kivuli { Cmd };
+import actions { Msg };
+import requests;
 import render;
 
 /** The most answers in a row for one app before it's stopped: an app that keeps asking. */
 public const MAX_ANSWERS: i64 = 32;
 
 /**
- * Answers every tab's waiting effects.
+ * Answers every tab's waiting effects. A fetch is answered later, when its
+ * task's result arrives (`requests.arrive`), unless it's refused at once.
  *
- * @returns the model with each page past its answers; the master secret
- *     made or read on first need (a failure shows as the notice, and the
- *     app gets nothing)
+ * @returns the model with each page past its answers (the master secret
+ *     made or read on first need: a failure shows as the notice, and the
+ *     app gets nothing), and the requests to send
  *
  * Example:
  *     answer_all(next)
  */
-public fun answer_all(m: Model): Model {
+public fun answer_all(m: Model): (Model, Cmd<Msg>) {
     let mut at = m;
+    let mut sends: Cmd<Msg>[] = [];
     for t of m.tabs {
         if t.page.asks.len > 0 {
-            at = answer_tab(at, t.id);
+            let (next, cmds) = answer_tab(at, t.id);
+            at = next;
+            for c of cmds {
+                sends.push(c);
+            }
         }
     }
-    at
+    (at, if sends.len == 0 { Cmd.none() } else { Cmd.batch(sends) })
 }
 
 /** One tab's effects, in order, and whatever the answers ask for after them. */
-fun answer_tab(m: Model, id: i64): Model {
+fun answer_tab(m: Model, id: i64): (Model, Cmd<Msg>[]) {
     let mut at = m;
+    let mut sends: Cmd<Msg>[] = [];
     let mut answered = 0;
     while true {
         let p = match find(at, id) {
             Some(p) => p,
             None => {
-                return at;
+                return (at, sends);
             }
         };
         if p.asks.len == 0 {
-            return at;
+            return (at, sends);
         }
         if answered >= MAX_ANSWERS {
             // It keeps asking: stop it, like any app that won't settle.
-            return with_tab(
+            let stopped = with_tab(
                 at,
                 id,
                 fun(page: AppPage) = AppPage {
@@ -66,6 +78,7 @@ fun answer_tab(m: Model, id: i64): Model {
                     ..page,
                 },
             );
+            return (stopped, sends);
         }
         let ask = p.asks[0];
         let rest: Effect[] = [];
@@ -73,54 +86,71 @@ fun answer_tab(m: Model, id: i64): Model {
         for i in 1..p.asks.len {
             later.push(p.asks[i]);
         }
-        let (got, value) = respond(at, p, ask);
-        let msg = match ask {
-            Identity(msg) => msg,
-            Sign(msg, _) => msg,
-        };
-        // The answer may ask again: those come after the ones still waiting.
-        at = with_tab(got, id, fun(page: AppPage) {
-            let next = handle(AppPage { asks: [], ..page }, render.Msg.Answer(msg, value));
-            let mut queue = later;
-            for a of next.asks {
-                queue.push(a);
+        let (got, value, msg) = match ask {
+            Fetch(msg, r) => {
+                let (held, now, send) = requests.ask(at, id, msg, r);
+                sends.push(send);
+                (held, now, msg)
             }
-            AppPage { asks: queue, ..next }
-        });
+            Identity(msg) => {
+                let (held, v) = respond(at, p, ask);
+                (held, Some(v), msg)
+            }
+            Sign(msg, _) => {
+                let (held, v) = respond(at, p, ask);
+                (held, Some(v), msg)
+            }
+        };
+        at = match value {
+            // The answer may ask again: those come after the ones still waiting.
+            Some(v) => with_tab(got, id, fun(page: AppPage) {
+                let next = handle(AppPage { asks: [], ..page }, render.Msg.Answer(msg, v));
+                let mut queue = later;
+                for a of next.asks {
+                    queue.push(a);
+                }
+                AppPage { asks: queue, ..next }
+            }),
+            // Sent: its answer comes when the result arrives.
+            None => with_tab(got, id, fun(page: AppPage) = AppPage { asks: later, ..page }),
+        };
         answered += 1;
     }
-    at
+    (at, sends)
 }
 
 /**
  * What to answer one effect with: the key or a signature for a signed app
  * you're signed in to; nothing otherwise.
  */
-fun respond(m: Model, p: AppPage, ask: Effect): (Model, Option<u8[]>) {
+fun respond(m: Model, p: AppPage, ask: Effect): (Model, Value) {
     let t = match p.trust {
         Some(t) => t,
         None => {
-            return (m, None);
+            return (m, Value.Null);
         }
     };
     let x = person(m.people, t.host, t.origin);
     if x.signed_out {
-        return (m, None);
+        return (m, Value.Null);
     }
     let (held, secret) = secret(m);
     let mm = match secret {
         Some(mm) => mm,
         None => {
-            return (held, None);
+            return (held, Value.Null);
         }
     };
     let made = match ask {
         Identity(_) => public_key(mm, t.host, t.origin, x.generation),
         Sign(_, challenge) => sign_in(mm, t.host, t.origin, x.generation, challenge),
+        Fetch(_, _) => {
+            return (held, Value.Null);
+        }
     };
     match made {
-        Ok(bytes) => (held, Some(bytes)),
-        Err(e) => (Model { notice: Some(identity_reason(e)), ..held }, None),
+        Ok(bytes) => (held, Value.Bytes(bytes)),
+        Err(e) => (Model { notice: Some(identity_reason(e)), ..held }, Value.Null),
     }
 }
 
