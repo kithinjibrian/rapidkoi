@@ -63,6 +63,32 @@ public enum Msg {
     OnTab(i64, TabAction),
     /** A home tile's right-click menu, for the app at this path (PRP-010). */
     OnPin(string, PinAction),
+    /** A name typed on the Account page: for every app or this one, first or last (PRP-011). */
+    SetName(NameScope, NamePart, string),
+    /** The Account page's "Sign in automatically". */
+    ToggleAutoSignIn,
+    /** Stop answering this app with your key. */
+    SignOut,
+    /** Answer it again. */
+    SignIn,
+    /** Become someone new to this app (confirmed): a new key, and the app starts again. */
+    StartOverIdentity,
+}
+
+/** Which name a field sets. */
+public enum NameScope {
+    /** The one every app shows. */
+    Everywhere,
+    /** This app's own, over the one for every app. */
+    ThisApp,
+}
+
+/** Which part of a name. */
+public enum NamePart {
+    /** {FIRST_NAME} */
+    First,
+    /** {LAST_NAME} */
+    Last,
 }
 
 /** What a tab's menu can do: what the bar and panel already do. */
@@ -113,4 +139,6 @@ public enum Confirm {
     StartOver,
     /** Forget the app entirely. */
     Forget,
+    /** Become someone new to the app. */
+    StartOverIdentity,
 }

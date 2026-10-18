@@ -1,0 +1,158 @@
+// The panel's Account page (PRP-011): who you are to this app, signing in
+// and out, starting over as someone new, and your name. Writes only under
+// test/tmp/.
+import rapidkoi.shell { Model, with_pages, update, view };
+import rapidkoi.saving { restore };
+import rapidkoi.actions { Msg, PanelPage, Confirm, NameScope, NamePart };
+import rapidkoi.tabs { AppPage, open_module, state_of };
+import rapidkoi.verify { Trust, Standing };
+import rapidkoi.people { person };
+import rapidkoi.identity { master, public_key, user_label };
+import rapidkoi.contract { answer };
+import rapidkoi.store { Store, store_at };
+import kivuli.testing { click, texts, toggle, type_into };
+import cbor { Value, Entry, encode };
+import std.fs;
+import wasmtime { Engine, Module };
+import support { echo_v2, t, kv, echo };
+
+const HOST: string = "notes.acme.com";
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun folder(name: string): Store {
+    let dir = "test/tmp/account-{name}";
+    clean(dir);
+    store_at(dir)
+}
+
+fun asking(): u8[] = encode(
+    Value.Map([
+        Entry { key: t("state"), value: Value.Bytes([]) },
+        Entry {
+            key: t("effects"),
+            value: Value.Array([kv([("kind", t("identity")), ("msg", t("me"))])]),
+        },
+    ]),
+);
+
+fun trust(): Trust = Trust {
+    host: HOST,
+    key: [3; 32],
+    standing: Standing.Verified,
+    build: [0; 32],
+    separate: false,
+    since: 0,
+    origin: [3; 32],
+};
+
+/** Notes, signed and asking for its key at init, in a window on `s`, its Account page open. */
+fun notes(s: Store): Model {
+    let engine = Engine.new();
+    let p = AppPage {
+        trust: Some(trust()),
+        ..open_module(
+            "Notes",
+            "rapidkoi://notes.acme.com",
+            engine,
+            Module.from_text(engine, echo_v2(asking())).unwrap(),
+        ),
+    };
+    let (m, _) = update(restore(with_pages(engine, [p]), s), Msg.TogglePanel);
+    step(m, Msg.PanelGo(PanelPage.Account))
+}
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+fun key(s: Store, generation: i64): u8[] = public_key(
+    master(s).unwrap(),
+    HOST,
+    [3; 32],
+    generation,
+).unwrap();
+
+@test
+fun it_says_who_you_are_to_this_app() {
+    let s = folder("who");
+    // A message lets the app's init ask; then the page shows the key's label.
+    let m = step(notes(s), Msg.PanelGo(PanelPage.Account));
+    assert_eq(shows(m, "Signed in as {user_label(key(s, 0))}"), true);
+    assert_eq(shows(m, "Apps can show your name; they never see it."), true);
+    clean(s.dir);
+}
+
+@test
+fun signing_out_and_in_and_the_automatic_switch() {
+    let s = folder("out");
+    let m = notes(s);
+    assert_eq(click(view(m), "Sign out"), Ok(Msg.SignOut));
+    let out = step(m, Msg.SignOut);
+    assert_eq(
+        (person(out.people, HOST, [3; 32]).signed_out, shows(out, "Signed out")),
+        (true, true),
+    );
+    assert_eq(click(view(out), "Sign in"), Ok(Msg.SignIn));
+    assert_eq(person(step(out, Msg.SignIn).people, HOST, [3; 32]).signed_out, false);
+    assert_eq(toggle(view(m), "Sign in automatically"), Ok(Msg.ToggleAutoSignIn));
+    assert_eq(person(step(m, Msg.ToggleAutoSignIn).people, HOST, [3; 32]).auto, false);
+    clean(s.dir);
+}
+
+@test
+fun starting_over_asks_then_gives_a_new_key() {
+    let s = folder("over");
+    let m = notes(s);
+    assert_eq(click(view(m), "Start over as someone new"), Ok(Msg.Ask(Confirm.StartOverIdentity)));
+    let asked = step(m, Msg.Ask(Confirm.StartOverIdentity));
+    assert_eq(click(view(asked), "Start over"), Ok(Msg.StartOverIdentity));
+    let over = step(asked, Msg.StartOverIdentity);
+    assert_eq(person(over.people, HOST, [3; 32]).generation, 1);
+    // The app starts again and asks again: it now gets the new key.
+    assert_eq(state_of(over.tabs[0].page), Some(answer(t("me"), Some(key(s, 1)))));
+    clean(s.dir);
+}
+
+@test
+fun your_name_for_every_app_and_for_this_one() {
+    let s = folder("name");
+    let m = notes(s);
+    assert_eq(
+        type_into(view(m), "First name", "Brian"),
+        Ok(Msg.SetName(NameScope.Everywhere, NamePart.First, "Brian")),
+    );
+    let named = step(
+        step(m, Msg.SetName(NameScope.Everywhere, NamePart.First, "Brian")),
+        Msg.SetName(NameScope.ThisApp, NamePart.Last, "K"),
+    );
+    assert_eq((named.people.first, person(named.people, HOST, [3; 32]).last), ("Brian", "K"));
+    assert_eq(
+        type_into(view(m), "Last name in Notes only", "K"),
+        Ok(Msg.SetName(NameScope.ThisApp, NamePart.Last, "K")),
+    );
+    // Forgetting the app forgets its own name too; the one for every app stays.
+    let forgot = step(step(named, Msg.Ask(Confirm.Forget)), Msg.Forget);
+    assert_eq((forgot.people.first, forgot.people.apps.len), ("Brian", 0));
+    clean(s.dir);
+}
+
+@test
+fun an_unsigned_app_can_t_have_an_account() {
+    let engine = Engine.new();
+    let p = open_module("Plain", "plain.wasm", engine, Module.from_text(engine, echo()).unwrap());
+    let m = step(step(with_pages(engine, [p]), Msg.TogglePanel), Msg.PanelGo(PanelPage.Account));
+    assert_eq(shows(m, "Plain isn't signed, so it can't have an account."), true);
+}
