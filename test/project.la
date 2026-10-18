@@ -1,0 +1,107 @@
+// rapidkoi.toml, pure: what a project describes, its defaults, and the
+// plain reason when it's wrong.
+import rapidkoi.project { Project, parse_project, reason };
+
+fun ok(text: string): Project = parse_project(text, "/work/notes", Some("/home/me")).unwrap();
+
+fun why(text: string): string = match parse_project(text, "/work/notes", Some("/home/me")) {
+    Err(e) => reason(e),
+    Ok(_) => "ok",
+};
+
+const FULL: string = "[app]\nname = \"Notes\"\nversion = \"2.4.1\"\ndescription = \"Notes that sync\"\nhost = \"notes.acme.com\"\nstate_version = 3\nmodule = \"target/notes.wasm\"\nicon = \"assets/icon.png\"\n\n[banners]\nhome = \"assets/home.png\"\n\n[assets]\n\"img/logo.png\" = \"assets/logo.png\"\n\n[publish]\nkey = \"~/.config/rapidkoi/keys/notes.key\"\nsite = \"public\"\nkeep = 5\n";
+
+@test
+fun a_full_project() {
+    let p = ok(FULL);
+    assert_eq((p.name, p.version, p.state_version), ("Notes", "2.4.1", 3));
+    assert_eq(p.description, Some("Notes that sync"));
+    assert_eq(p.host, Some("notes.acme.com"));
+    assert_eq(p.module, "/work/notes/target/notes.wasm");
+    assert_eq(p.icon, Some("/work/notes/assets/icon.png"));
+    assert_eq(p.banners, [("home", "/work/notes/assets/home.png")]);
+    assert_eq(p.assets, [("img/logo.png", "/work/notes/assets/logo.png")]);
+    assert_eq(p.key, Some("/home/me/.config/rapidkoi/keys/notes.key"));
+    assert_eq((p.site, p.keep), ("/work/notes/public", 5));
+}
+
+@test
+fun defaults() {
+    let p = ok("[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"/abs/n.wasm\"\n");
+    assert_eq((p.state_version, p.keep, p.site), (1, 3, "/work/notes/site"));
+    assert_eq((p.host, p.key, p.icon, p.description), (None, None, None, None));
+    assert_eq(p.module, "/abs/n.wasm");
+}
+
+@test
+fun missing_and_wrong_fields() {
+    assert_eq(
+        why("[app]\nversion = \"0.1.0\"\nmodule = \"m.wasm\"\n"),
+        "rapidkoi.toml: [app] needs name",
+    );
+    assert_eq(
+        why("[app]\nname = \"N\"\nmodule = \"m.wasm\"\n"),
+        "rapidkoi.toml: [app] needs version",
+    );
+    assert_eq(
+        why("[app]\nname = \"N\"\nversion = \"0.1.0\"\n"),
+        "rapidkoi.toml: [app] needs module",
+    );
+    assert_eq(why("name = \"N\"\n"), "rapidkoi.toml: unknown key name (did you mean [app] name?)");
+    assert_eq(
+        why("[app]\nname = 3\nversion = \"0.1.0\"\nmodule = \"m\"\n"),
+        "rapidkoi.toml: [app] name must be text",
+    );
+    assert_eq(
+        why("[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m\"\nstate_version = \"1\"\n"),
+        "rapidkoi.toml: [app] state_version must be a whole number",
+    );
+    assert_eq(
+        why("[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m\"\n[publish]\nkeep = 0\n"),
+        "rapidkoi.toml: [publish] keep must be at least 1",
+    );
+}
+
+@test
+fun typos_are_refused() {
+    assert_eq(
+        why("[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m\"\nhots = \"x\"\n"),
+        "rapidkoi.toml: unknown key [app] hots",
+    );
+    assert_eq(
+        why("[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m\"\n[pubilsh]\nkey = \"k\"\n"),
+        "rapidkoi.toml: unknown table [pubilsh]",
+    );
+    assert_eq(
+        why("[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m\"\n[banners]\nhome = 3\n"),
+        "rapidkoi.toml: [banners] home must be a file path",
+    );
+}
+
+@test
+fun toml_errors_say_where() {
+    assert_eq(why("[app]\nname = \"N\nversion = 1\n").starts_with("rapidkoi.toml: "), true);
+    assert_eq(
+        why("[app]\nname = \"N\"\nname = \"M\"\n"),
+        "rapidkoi.toml: a key defined twice: app.name (line 3, column 1)",
+    );
+}
+
+@test
+fun a_key_needs_a_home_for_tilde() {
+    let r = parse_project(
+        "[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m\"\n[publish]\nkey = \"~/k\"\n",
+        "/w",
+        None,
+    );
+    assert_eq(
+        r.map_err(reason),
+        Err("rapidkoi.toml: [publish] key starts with ~/ but $HOME isn't set"),
+    );
+}
+
+@test
+fun huge_files_are_refused() {
+    let big: u8[] = [35; 70000];
+    assert_eq(why(string_from_utf8(big).unwrap()).starts_with("rapidkoi.toml: "), true);
+}

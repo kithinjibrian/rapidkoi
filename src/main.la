@@ -1,22 +1,27 @@
 /**
  * Rapidkoi's entry: `./main` opens home; `./main path/to/app.rkb` (or a
  * `.wasm`, or `rapidkoi://localhost:PORT`) opens that app; `./main pack …`
- * packs a bundle and `./main serve …` serves one for development, both
- * without a window. Wiring only; the work lives in `shell`, `pack` and
- * `serve`.
+ * packs a bundle, `./main keygen` and `./main publish` sign and publish
+ * one to a site folder, and `./main serve …` serves a bundle or a site for
+ * development, all without a window. Wiring only; the work lives in
+ * `shell`, `pack`, `publish` and `serve`.
  *
- * Depends on: kivuli, shell, actions, pack, serve
+ * Depends on: kivuli, shell, actions, pack, publish, serve
  */
 import kivuli { App, Sub, application };
 import shell { Model, boot, update, view };
 import actions { Msg };
 import pack;
 import serve;
+import publish;
 
 fun main(): i32 {
     let argv = args();
     if argv.len >= 2 && argv[1] == "pack" {
         return pack.run(argv);
+    }
+    if argv.len >= 2 && (argv[1] == "keygen" || argv[1] == "publish") {
+        return publish.run(argv);
     }
     if argv.len >= 2 && argv[1] == "serve" {
         return serve.run(argv);

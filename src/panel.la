@@ -7,7 +7,7 @@
  * arrow. Destructive actions ask first. Shown beside the app until kivuli
  * has an overlay (DECISION-018).
  *
- * Depends on: kivuli, actions, tabs, frame, bundle, address, theme, themes
+ * Depends on: kivuli, actions, tabs, frame, bundle, address, verify, keys, theme, themes
  * Used by: shell
  */
 import kivuli { View, Align, ButtonStyle, button, column, image, row, spacer, text };
@@ -16,6 +16,8 @@ import tabs { AppPage, state_of, state_version_of };
 import frame { icon_button, icon_of, initial, marker };
 import bundle { Manifest };
 import address { parse };
+import verify { Standing };
+import keys { fingerprint, hex };
 import theme { SPACE_XS, SPACE_SM, SPACE_MD, TEXT_TITLE, TEXT_HEADING, PANEL_WIDTH, PANEL_CHARS };
 import themes { Look };
 
@@ -163,12 +165,36 @@ fun state_page(p: AppPage, confirm: Option<Confirm>): View<Msg>[] {
 }
 
 fun about(p: AppPage): View<Msg>[] {
+    let version = p.manifest.map(fun(m: Manifest) = m.version).unwrap_or("none");
+    if let Some(t) = p.trust {
+        let standing = match t.standing {
+            Verified => "Verified (development) this session",
+            Trusted => "Its key is trusted this session",
+            NotConfirmed => "Not confirmed: Rapidkoi hasn't met this key",
+        };
+        let build = hex(t.build);
+        return [
+            pair("Publisher", "{t.host} · key {fingerprint(t.key)}"),
+            pair(
+                "Trust",
+                if t.separate {
+                    "{standing} · a new publisher, opened separately"
+                } else {
+                    standing
+                },
+            ),
+            pair("From", p.path),
+            pair("Version", version),
+            pair("Contract", "v1 · state v{state_version_of(p)}"),
+            hover_pair("Build", "sha256 {build.slice(0, 16)}…", "sha256 {build}"),
+            pair("Format", "Bundle format 2 (signed)"),
+        ];
+    }
     let publisher = match (parse(p.path), p.manifest) {
         (Ok(_), _) => "Development server, unsigned",
         (Err(_), Some(_)) => "Not signed: a local bundle",
         (Err(_), None) => "Not signed: a bare module",
     };
-    let version = p.manifest.map(fun(m: Manifest) = m.version).unwrap_or("none");
     let format = match p.manifest {
         Some(_) => "Bundle format 1 (unsigned)",
         None => "A bare WebAssembly module",
@@ -219,10 +245,13 @@ fun line(label: string, summary: string, opens: PanelPage): View<Msg> = row([
 ]).spacing(SPACE_SM);
 
 /** A label and its value, for About. */
-fun pair(label: string, value: string): View<Msg> = column([
+fun pair(label: string, value: string): View<Msg> = hover_pair(label, value, value);
+
+/** A label and its value, with `hover` in full on hover. */
+fun hover_pair(label: string, value: string, hover: string): View<Msg> = column([
     text(label).dim(),
     // A path has no spaces to break at: cut with …, the whole of it on hover.
-    text(value).wrap_at(PANEL_CHARS).ellipsize().tooltip(value),
+    text(value).wrap_at(PANEL_CHARS).ellipsize().tooltip(hover),
 ]).spacing(SPACE_XS);
 
 /** The question before a destructive action, with Cancel and the action. */

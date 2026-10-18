@@ -1269,10 +1269,82 @@ src/theme.la, src/panel.la (NAME_CHARS, MARKER_CHARS, shorten), docs/DESIGN.md
 
 ---
 
+## SESSION 33 — 2026-10-18 — Propose PRP-006: signed apps, published locally — closed
+
+Branch: prp-006-signing
+
+### WHAT WAS DONE
+
+Lugha landed `std.crypto` (m113, reviewed) and `std.toml` (m114). Wrote PRP-006: rapidkoi.toml, keygen, format 2 signed bundles, publish to site/ (key, signed index, builds/<sha256>.rkb), serve site/, and verified opening of `rapidkoi://localhost` sites (in-session trust; no bypass; an unapproved key change becomes a separate app). Prompts were given to the owner for `std.fs.rename`/`set_mode`, `flush`, a clock (lugha) and background tasks (kivuli, DECISION-021). No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-006-signed_apps.md — for approval (crypto: the owner's security review before merge)
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- Trust is in-session until the on-disk store (PRP-007, needs std.fs.rename). Remote hosts stay off until DECISION-021. No `rotate` command yet; rotations are verified.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-006 awaits approval.
+
+---
+
+## SESSION 34 — 2026-10-18 — Build PRP-006: signed apps, published locally — closed
+
+Branch: prp-006-signing
+
+### WHAT WAS DONE
+
+Built PRP-006 test-first, in the planned order. `rapidkoi.toml` (std.toml, unknown keys refused), secret keys (keygen outside the project, never overwriting), format 2 signed bundles (the manifest's exact bytes signed; module and asset hashes both ways), the signed index and the public key file (sequence, withdrawn, prune, rotations signed by the old key), `./main keygen` / `publish` / `publish --withdraw` / `pack` from the toml, `./main serve SITE/` (key, index, builds by 64 lowercase hex only), and verified opening: key → index → build, failing closed, trust recorded only after every check passes, in a session keyring in the Model. The ✓ / ⚠ markers, the refused page (no Restart), the changed-key page (Keep using my version / Open as a separate app), and About's signed lines. Smoke-tested the commands with the real counter in the scratchpad, and probed the site server with raw `..` paths (all 404).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/project.la, keys.la, signing.la, index.la, publish.la, verify.la — new
+src/bundle.la, rules.la — format 2 support, new BundleError variants, check_host
+src/loader.la — Refusal (Failed / Unverified / Unapproved), verify_site for rapidkoi:// sites, read_any for files
+src/tabs.la — AppPage.trust; Screen.Refused, Screen.Unapproved(change, kept page)
+src/window.la — the Model's keyring; navigate.la — reload keeps the open page on a key change, keep_mine, separate_app
+src/actions.la — KeepMine, SeparateApp; shell.la — wiring; render.la — refused; frame.la — markers, unapproved; panel.la — About
+src/pack.la — no arguments packs rapidkoi.toml; serve.la — site folders; main.la — keygen, publish
+test/project.la, keys.la, signing.la, index.la, publish.la, verify.la, opening.la — new; serve, loader, tabs — updated
+rapidkoi.toml — the counter's (host localhost:8000, key in ~/.config/rapidkoi/keys); .gitignore — /site
+CLAUDE.md (commands, tree), docs/DESIGN.md (markers and pages), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 170 tests pass (was 136 + new): project 7, keys 6, signing 6, index 7, publish 8, serve +2, verify 9 (in-memory sites, real signatures), opening 4 (live sockets: verified, a changed byte refused with no Restart, a changed key asks, a signed file ⚠ then ✓).
+
+### DECISIONS MADE
+
+- On the changed-key page, when nothing was open before, the keep button reads "Don't open it" (it closes the tab) rather than "Keep using my version". For the owner to confirm.
+- The repo's `rapidkoi.toml` uses `host = "localhost:8000"`: in development, the key file's host must be the address's host.
+- A site already holding another key is refused by `publish` (it would look like an unapproved change to everyone).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner reviewed and checked it on screen: "Done it..it's fine". Merged to main, with "Don't open it" kept.
+- keygen can't set 0600 itself until std.fs.set_mode; it prints the chmod reminder.
+
+---
+
 ## NEXT SESSION START POINT
 
-Open session 28 on a new branch. PRP-005 (the info panel and bar) is on `main`. Next, at the owner's choice:
-- PRP-006, remembering: the on-disk store (needs `fs.rename` for safe saves and `fs.set_mode`), migrate
-- signing (when `std.crypto` and `std.toml` land)
-- links
-- kivuli items (DECISION-020)
+PRP-006 is merged to main. Next: PRP-007 (remembering trust, pins and left-off on disk; needs std.fs.rename and set_mode from Lugha), or another milestone the owner picks. Open the session on a new branch.

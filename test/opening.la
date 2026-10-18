@@ -1,0 +1,144 @@
+// Opening signed apps end to end, over real local sockets: publish a site
+// to test/tmp, serve it on a green thread, open it in a window. Each test
+// has its own port. Writes only under test/tmp/.
+import rapidkoi.publish { make_key, publish_site, pack_project };
+import rapidkoi.serve { handle };
+import rapidkoi.shell { Model, with_pages, update, view };
+import rapidkoi.navigate { open_file, reload };
+import rapidkoi.actions { Msg, PanelPage };
+import kivuli.testing { texts, click, Lookup };
+import std.http { Request };
+import std.env;
+import std.fs;
+import std.task { sleep };
+import wasmtime { Engine };
+import support { png };
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+/** A project for `localhost:PORT` in test/tmp/open-PORT, its key beside it; published once. */
+fun published(port: i64): string {
+    let dir = "{env.current_dir().unwrap()}/test/tmp/open-{port}";
+    clean(dir);
+    clean("{dir}.key");
+    fs.make_dirs(dir).unwrap();
+    write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    write_bytes("{dir}/icon.png", png(32, 32)).unwrap();
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}.key\"\n",
+    ).unwrap();
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+    dir
+}
+
+fun serving(dir: string, port: i64) {
+    spawn http.serve("127.0.0.1:{port}", fun(r: Request) = handle("{dir}/site", port, r));
+    sleep(100);
+}
+
+fun opened(port: i64): Model = open_file(
+    with_pages(Engine.new(), []),
+    "rapidkoi://localhost:{port}",
+);
+
+/** The bar's marker is a button (it turns back into the address box). */
+fun marks(m: Model, s: string): bool = click(view(m), s) == Ok(Msg.EditAddress);
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun builds(dir: string): string = "{dir}/site/.well-known/rapidkoi/builds";
+
+@test
+fun a_published_site_opens_verified() {
+    let dir = published(18741);
+    serving(dir, 18741);
+    let m = opened(18741);
+    assert_eq(marks(m, "✓ localhost:18741 · verified (development)"), true);
+    let about = step(step(m, Msg.TogglePanel), Msg.PanelGo(PanelPage.About));
+    assert_eq(shows(about, "Verified (development) this session"), true);
+    assert_eq(shows(about, "Bundle format 2 (signed)"), true);
+    clean(dir);
+    clean("{dir}.key");
+}
+
+@test
+fun a_changed_byte_is_refused_with_no_way_past() {
+    let dir = published(18742);
+    serving(dir, 18742);
+    let m = opened(18742);
+    let name = fs.list_dir(builds(dir)).unwrap()[0];
+    let mut b = read_bytes("{builds(dir)}/{name}").unwrap();
+    b[b.len / 2] = b[b.len / 2] ^ 1;
+    write_bytes("{builds(dir)}/{name}", b).unwrap();
+    let after = reload(m);
+    assert_eq(shows(after, "Rapidkoi didn't run this app"), true);
+    assert_eq(
+        shows(
+            after,
+            "This app couldn't be verified, so Rapidkoi didn't run it: The app's build doesn't match its index's hash",
+        ),
+        true,
+    );
+    assert_eq(click(view(after), "Restart"), Err(Lookup.NotFound("button \"Restart\"")));
+    clean(dir);
+    clean("{dir}.key");
+}
+
+@test
+fun a_new_key_without_a_trail_asks_first() {
+    let dir = published(18743);
+    serving(dir, 18743);
+    let m = opened(18743);
+    // The site starts over with another key, no rotation.
+    clean("{dir}/site");
+    clean("{dir}.key");
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+    let asked = reload(m);
+    assert_eq(shows(asked, "localhost:18743 is now signed by a different key"), true);
+    assert_eq(click(view(asked), "Keep using my version"), Ok(Msg.KeepMine));
+    let kept = step(asked, Msg.KeepMine);
+    assert_eq(marks(kept, "✓ localhost:18743 · verified (development)"), true);
+    // Opened in a new tab (nothing open to keep), keeping closes that tab.
+    let new_tab = open_file(step(kept, Msg.Home), "rapidkoi://localhost:18743");
+    assert_eq((new_tab.tabs.len, click(view(new_tab), "Don't open it")), (2, Ok(Msg.KeepMine)));
+    assert_eq(step(new_tab, Msg.KeepMine).tabs.len, 1);
+    // Asked again; this time, a separate app.
+    let again = reload(kept);
+    assert_eq(click(view(again), "Open as a separate app"), Ok(Msg.SeparateApp));
+    let other = step(again, Msg.SeparateApp);
+    assert_eq(marks(other, "✓ localhost:18743 · verified (development) · new publisher"), true);
+    clean(dir);
+    clean("{dir}.key");
+}
+
+@test
+fun a_signed_file_is_not_confirmed_until_its_key_is_trusted() {
+    let dir = published(18744);
+    serving(dir, 18744);
+    pack_project(dir, false).unwrap();
+    let file = "{dir}/Notes-1.0.0.rkb";
+    let alone = open_file(with_pages(Engine.new(), []), file);
+    assert_eq(marks(alone, "⚠ localhost:18744 · not confirmed"), true);
+    // The same window, after opening the site: its key is trusted now.
+    let both = open_file(opened(18744), file);
+    assert_eq(marks(both, "✓ localhost:18744"), true);
+    clean(dir);
+    clean("{dir}.key");
+}

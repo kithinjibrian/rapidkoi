@@ -1,0 +1,288 @@
+/**
+ * Opening a signed site: fetch its key file, its index and the current
+ * build, and check each before the next, failing closed: the key (first
+ * use, or a rotation trail signed by the key trusted before), the index
+ * (signature, host, a sequence never lower than one seen, a current version
+ * that isn't withdrawn), then the build (size, hash, signature, key, host).
+ * Nothing here runs an app, and there is no way past a failed check.
+ *
+ * Trust lasts for this session (PRP-007 keeps it on disk): host → key and
+ * the highest sequence seen, kept in a `Keyring` the window holds.
+ *
+ * Depends on: std.crypto, index, signing, keys, rules
+ * Used by: loader, tabs, frame, panel
+ */
+import std.crypto { sha256, equal };
+import index { Version, IndexError, read_index, read_key_file, follow, reason as index_reason };
+import signing { Opened, Signed, read_any };
+import keys { fingerprint, hex };
+import rules { BundleError };
+import bundle { reason as bundle_reason };
+
+/** How far Rapidkoi trusts where an app came from. */
+public enum Standing {
+    /** Its site's key, index and build all checked out (development: this machine). */
+    Verified,
+    /** A signed file whose key is trusted for its host this session. */
+    Trusted,
+    /** A signed file whose key Rapidkoi hasn't met: it runs as a stranger. */
+    NotConfirmed,
+}
+
+/** What Rapidkoi knows about a signed app's publisher, for the marker and About. */
+public struct Trust {
+    /** The app's host. */
+    public host: string,
+    /** The publisher's public key. */
+    public key: u8[],
+    /** How it was trusted. */
+    public standing: Standing,
+    /** The SHA-256 of the `.rkb` that's running. */
+    public build: u8[],
+    /** Whether this is a second publisher for the host, opened as a separate app. */
+    public separate: bool,
+}
+
+/** A key change no signed trail explains: what the person is asked about. */
+public struct Change {
+    /** The host. */
+    public host: string,
+    /** The key trusted before. */
+    public old: u8[],
+    /** The key the site has now. */
+    public new: u8[],
+}
+
+/** Why a site couldn't be verified. */
+public enum VerifyError {
+    /** No key file (a 404): an unsigned development server. */
+    Unsigned,
+    /** A file couldn't be fetched: which, why. */
+    Fetch(string, string),
+    /** The key file or index was refused. */
+    Index(IndexError),
+    /** The key file is for another host: found, wanted. */
+    WrongHost(string, string),
+    /** The key changed without approval. */
+    Unapproved(Change),
+    /** An older index than one already seen: got, seen. */
+    Older(i64, i64),
+    /** The index's current version isn't listed. */
+    NoCurrent(string),
+    /** The current version was withdrawn: version, the publisher's reason. */
+    Withdrawn(string, string),
+    /** The build's size differs from the index's. */
+    Size,
+    /** The build's hash differs from the index's. */
+    Hash,
+    /** The build itself was refused. */
+    Build(BundleError),
+    /** The build isn't signed, or not by the site's key. */
+    BuildKey,
+    /** The build names another host. */
+    BuildHost(string),
+}
+
+/** One identity Rapidkoi trusts this session. */
+struct Known {
+    host: string,
+    key: u8[],
+    sequence: i64,
+    separate: bool,
+}
+
+/** The keys trusted this session, shared by every copy (it's a box). */
+public struct Keyring {
+    known: Ref<Known[]>,
+}
+
+/** A verified site's current build. */
+public struct Verified {
+    /** The build's checked contents. */
+    public opened: Opened,
+    /** Who signed it. */
+    public trust: Trust,
+}
+
+/** Where a site keeps Rapidkoi's files. */
+public const SITE: string = "/.well-known/rapidkoi";
+
+/**
+ * An empty keyring, for a new session.
+ *
+ * Example:
+ *     let ring = keyring();
+ */
+public fun keyring(): Keyring = Keyring { known: Ref.new([]) };
+
+/**
+ * Verifies a site and returns its current build, checked. Trust is
+ * recorded only once everything passed.
+ *
+ * @param ring this session's keyring
+ * @param host the address's host, `localhost:8000` in development
+ * @param get fetches a path on the site, as (status, body)
+ * @returns the build and its trust; or the first check that failed
+ *
+ * Example:
+ *     verify_site(ring, "localhost:8000", fetcher)?
+ */
+public fun verify_site(
+    ring: Keyring,
+    host: string,
+    get: fun(string): Result<(i64, u8[]), string>,
+): Result<Verified, VerifyError> {
+    // 1. The key.
+    let fetched = get("{SITE}/key");
+    let kf_bytes = match fetched {
+        Ok((404, _)) => {
+            return Err(VerifyError.Unsigned);
+        }
+        _ => body("key file", fetched)?,
+    };
+    let kf = read_key_file(kf_bytes).map_err(VerifyError.Index)?;
+    if kf.host != host {
+        return Err(VerifyError.WrongHost(kf.host, host));
+    }
+    let known = ring.known.get().filter(fun(k: Known) = k.host == host);
+    // The identity this site is checked as: the known key it matches or a
+    // signed trail leads from; none on first use.
+    let from = match first(known, fun(k: Known) = equal(k.key, kf.key)) {
+        Some(k) => Some(k),
+        None => first(known, fun(k: Known) = follow(k.key, kf).is_ok()),
+    };
+    if known.len > 0 && from.is_none() {
+        return Err(VerifyError.Unapproved(Change { host: host, old: known[0].key, new: kf.key }));
+    }
+    let key = kf.key;
+    let seen = from.map(fun(k: Known) = k.sequence).unwrap_or(0);
+    let separate = from.map(fun(k: Known) = k.separate).unwrap_or(false);
+    // 2. The index, signed by that key.
+    let ix = read_index(body("index", get("{SITE}/index"))?, key, host).map_err(VerifyError.Index)?;
+    if ix.sequence < seen {
+        return Err(VerifyError.Older(ix.sequence, seen));
+    }
+    let v = first(ix.versions, fun(v: Version) = v.version == ix.current).ok_or(
+        VerifyError.NoCurrent(ix.current),
+    )?;
+    if let Some(why) = v.withdrawn {
+        return Err(VerifyError.Withdrawn(v.version, why));
+    }
+    // 3. The build that index names.
+    let bytes = body("build", get("{SITE}/builds/{hex(v.sha256)}.rkb"))?;
+    if bytes.len != v.size {
+        return Err(VerifyError.Size);
+    }
+    if !equal(sha256(bytes), v.sha256) {
+        return Err(VerifyError.Hash);
+    }
+    let opened = read_any(bytes).map_err(VerifyError.Build)?;
+    let s = opened.signed.ok_or(VerifyError.BuildKey)?;
+    if !equal(s.key, key) {
+        return Err(VerifyError.BuildKey);
+    }
+    if s.host != host {
+        return Err(VerifyError.BuildHost(s.host));
+    }
+    // Everything passed: remember the key and how far the sequence got.
+    remember(ring, from, Known { host: host, key: key, sequence: ix.sequence, separate: separate });
+    Ok(Verified {
+        opened: opened,
+        trust: Trust {
+            host: host,
+            key: key,
+            standing: Standing.Verified,
+            build: s.hash,
+            separate: separate,
+        },
+    })
+}
+
+/**
+ * Trusts a site's new key as a separate app for this session ("Open as a
+ * separate app"): the old key stays trusted too.
+ *
+ * Example:
+ *     separate(ring, change)
+ */
+public fun separate(ring: Keyring, c: Change) {
+    ring.known.update(fun(all: Known[]) {
+        let mut next = all;
+        next.push(Known { host: c.host, key: c.new, sequence: 0, separate: true });
+        next
+    });
+}
+
+/**
+ * Says how far a signed file is trusted: `Trusted` when its key is trusted
+ * for its host this session, `NotConfirmed` otherwise. It never adds trust.
+ *
+ * Example:
+ *     standing_of(ring, opened.signed?)
+ */
+public fun standing_of(ring: Keyring, s: Signed): Trust {
+    let found = first(ring.known.get(), fun(k: Known) = k.host == s.host && equal(k.key, s.key));
+    Trust {
+        host: s.host,
+        key: s.key,
+        standing: if found.is_some() { Standing.Trusted } else { Standing.NotConfirmed },
+        build: s.hash,
+        separate: found.map(fun(k: Known) = k.separate).unwrap_or(false),
+    }
+}
+
+/**
+ * Returns a plain sentence for a verify error.
+ *
+ * Example:
+ *     reason(e)
+ */
+public fun reason(e: VerifyError): string = match e {
+    Unsigned => "The site has no key: it isn't signed",
+    Fetch(what, why) => "The app's {what} couldn't be fetched ({why})",
+    Index(i) => index_reason(i),
+    WrongHost(found, wanted) => "The app's key file is for {found}, not {wanted}",
+    Unapproved(c) => "{c.host} is now signed by a different key",
+    Older(got, seen) => "The site sent an older index than one already seen (sequence {got}, after {seen})",
+    NoCurrent(v) => "The app's index names {v} as current but doesn't list it",
+    Withdrawn(v, why) => "Version {v} was withdrawn by its publisher: {why}",
+    Size => "The app's build isn't the size its index says",
+    Hash => "The app's build doesn't match its index's hash",
+    Build(b) => bundle_reason(b),
+    BuildKey => "The app's build isn't signed by its site's key",
+    BuildHost(h) => "The app's build is for {h}, not this site",
+};
+
+/** Records an identity, in place of the one it was checked as (after a rotation, its old key). */
+fun remember(ring: Keyring, from: Option<Known>, now: Known) {
+    ring.known.update(fun(all: Known[]) {
+        let mut next: Known[] = [];
+        for k of all {
+            let replaced = match from {
+                Some(f) => k.host == f.host && equal(k.key, f.key) && k.separate == f.separate,
+                None => false,
+            };
+            if !replaced {
+                next.push(k);
+            }
+        }
+        next.push(now);
+        next
+    });
+}
+
+/** A 200 response's body, or why not. */
+fun body(what: string, r: Result<(i64, u8[]), string>): Result<u8[], VerifyError> = match r {
+    Ok((200, b)) => Ok(b),
+    Ok((status, _)) => Err(VerifyError.Fetch(what, "the server answered {status}")),
+    Err(why) => Err(VerifyError.Fetch(what, why)),
+};
+
+fun first<T>(xs: T[], f: fun(T): bool): Option<T> {
+    for x of xs {
+        if f(x) {
+            return Some(x);
+        }
+    }
+    None
+}

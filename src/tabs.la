@@ -4,14 +4,15 @@
  * a page with its state so Continue can resume it. Calls guests (bounded by
  * fuel); never draws.
  *
- * Depends on: cbor, wasmtime, guest, bundle, loader, contract, render
+ * Depends on: cbor, wasmtime, guest, bundle, loader, verify, contract, render
  * Used by: actions, frame, home, panel, shell
  */
 import cbor { Value };
 import wasmtime { Engine, Module };
 import guest { Guest, open, reason };
 import bundle { Manifest };
-import loader { load };
+import loader { Refusal, load, why };
+import verify { Trust, Change, Keyring };
 import contract { Described, ContractError, read_tree, read_update, envelope };
 import render { Msg };
 
@@ -21,6 +22,13 @@ public enum Screen {
     Running(Guest, u8[], Described),
     /** Why the app isn't running, and whether Restart can help. */
     Stopped(string, bool),
+    /** A signed site failed a check, so it never ran: why. Only ⟳ tries again. */
+    Refused(string),
+    /**
+     * A signed site's key changed without approval: the change, and the
+     * page that was open before (when reloading), kept until the person decides.
+     */
+    Unapproved(Change, AppPage[]),
 }
 
 /** A compiled app, kept so Restart and Continue can start it again. */
@@ -41,6 +49,8 @@ public struct AppPage {
     public path: string,
     /** The current screen's title, if the app gives one. */
     public title: Option<string>,
+    /** Who signed it and how far that's trusted; `None` when unsigned. */
+    public trust: Option<Trust>,
     program: Option<Program>,
     /** What's on screen. */
     public screen: Screen,
@@ -87,6 +97,7 @@ public struct LeftOff {
     manifest: Option<Manifest>,
     /** Its icon, if it had one. */
     public icon: Option<u8[]>,
+    trust: Option<Trust>,
     program: Option<Program>,
 }
 
@@ -94,20 +105,27 @@ public struct LeftOff {
  * Opens the app in a local file the person chose: a `.rkb` bundle or a `.wasm`.
  *
  * @param engine the program's engine
- * @param path the file
+ * @param ring this session's trusted keys
+ * @param path the file or address
  * @returns the page: running, or stopped with the reason (no Restart when
- *     the file couldn't be read or compiled)
+ *     the file couldn't be read or compiled), refused, or asking about a
+ *     changed key
  *
  * Example:
- *     open_path(engine, "counter.wasm")
+ *     open_path(engine, ring, "counter.wasm")
  */
-public fun open_path(engine: Engine, path: string): AppPage = match load(engine, path) {
+public fun open_path(engine: Engine, ring: Keyring, path: string): AppPage = match load(
+    engine,
+    ring,
+    path,
+) {
     Ok(l) => AppPage {
         manifest: l.manifest,
         icon: l.icon,
+        trust: l.trust,
         ..open_module(l.name, path, engine, l.module),
     },
-    Err((name, why)) => failed(name, path, why),
+    Err(r) => refused(r, path),
 };
 
 /**
@@ -130,6 +148,7 @@ public fun open_module(name: string, path: string, engine: Engine, module: Modul
         icon: None,
         path: path,
         title: None,
+        trust: None,
         program: Some(program),
         screen: start(program, None),
     })
@@ -150,8 +169,8 @@ public fun handle(p: AppPage, msg: Msg): AppPage = match (p.screen, msg) {
         screen: step(g, state, value, text),
         ..p,
     }),
-    // Events only come from a running screen; once stopped, ignore them.
-    (Stopped(_, _), Event(_, _)) => p,
+    // Events only come from a running screen; otherwise, ignore them.
+    (_, Event(_, _)) => p,
     (_, Restart) => {
         close_page(p);
         match p.program {
@@ -168,8 +187,14 @@ public fun handle(p: AppPage, msg: Msg): AppPage = match (p.screen, msg) {
  *     close_page(page)
  */
 public fun close_page(p: AppPage) {
-    if let Running(g, _, _) = p.screen {
-        g.close();
+    match p.screen {
+        Running(g, _, _) => g.close(),
+        Unapproved(_, kept) => {
+            for k of kept {
+                close_page(k);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -191,6 +216,7 @@ public fun leave(p: AppPage): LeftOff {
         state_version: state_version_of(p),
         manifest: p.manifest,
         icon: p.icon,
+        trust: p.trust,
         program: p.program,
     };
     close_page(p);
@@ -214,6 +240,7 @@ public fun resume(l: LeftOff): AppPage = match l.program {
         icon: l.icon,
         path: l.path,
         title: l.title,
+        trust: l.trust,
         program: Some(prog),
         screen: start(prog, l.state),
     }),
@@ -226,24 +253,27 @@ public fun resume(l: LeftOff): AppPage = match l.program {
  * version matches; otherwise fresh. ⟳ Reload uses it.
  *
  * @param engine the program's engine
+ * @param ring this session's trusted keys
  * @param path the page's file or address
  * @param saved the running page's state and state version, if it had one
  * @returns the page, and whether a saved state had to be dropped because
  *     its shape changed (`migrate` comes with PRP-006)
  *
  * Example:
- *     load_again(engine, page.path, Some((state, 1)))
+ *     load_again(engine, ring, page.path, Some((state, 1)))
  */
 public fun load_again(
     engine: Engine,
+    ring: Keyring,
     path: string,
     saved: Option<(u8[], i64)>,
-): (AppPage, bool) = match load(engine, path) {
-    Err((name, why)) => (failed(name, path, why), false),
+): (AppPage, bool) = match load(engine, ring, path) {
+    Err(r) => (refused(r, path), false),
     Ok(l) => {
         let fresh = AppPage {
             manifest: l.manifest,
             icon: l.icon,
+            trust: l.trust,
             ..open_module(l.name, path, engine, l.module),
         };
         let now = state_version_of(fresh);
@@ -287,7 +317,7 @@ public fun state_version_of(p: AppPage): i64 = p.manifest.map(
  */
 public fun state_of(p: AppPage): Option<u8[]> = match p.screen {
     Running(_, state, _) => Some(state),
-    Stopped(_, _) => None,
+    _ => None,
 };
 
 fun failed(name: string, path: string, why: string): AppPage = AppPage {
@@ -296,14 +326,22 @@ fun failed(name: string, path: string, why: string): AppPage = AppPage {
     icon: None,
     path: path,
     title: None,
+    trust: None,
     program: None,
     screen: Screen.Stopped(why, false),
+};
+
+/** A page for an app that wasn't loaded: stopped, refused, or asking about its key. */
+fun refused(r: Refusal, path: string): AppPage = match r {
+    Failed(name, w) => failed(name, path, w),
+    Unverified(host, _) => AppPage { screen: Screen.Refused(why(r)), ..failed(host, path, "") },
+    Unapproved(host, c) => AppPage { screen: Screen.Unapproved(c, []), ..failed(host, path, "") },
 };
 
 /** Copies the running screen's title onto the page; a stopped page keeps its last one. */
 fun titled(p: AppPage): AppPage = match p.screen {
     Running(_, _, d) => AppPage { title: d.title, ..p },
-    Stopped(_, _) => p,
+    _ => p,
 };
 
 /** Opens the guest in a fresh store, then `init` (unless resuming `saved`) and `view`. */

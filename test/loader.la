@@ -1,7 +1,8 @@
 // Loading from a development server, over a real local socket: a server
 // on a spawned green thread, a client in the test. Each test has its own
 // port (tests run in parallel processes). Writes only under test/tmp/.
-import rapidkoi.loader { load, fetch };
+import rapidkoi.loader { load, fetch, why };
+import rapidkoi.verify { keyring };
 import rapidkoi.address { parse };
 import rapidkoi.serve { handle };
 import rapidkoi.bundle { Bundle, Manifest, write };
@@ -51,10 +52,10 @@ fun version_of(m: Model): string {
 @test
 fun a_bundle_loads_from_a_development_server() {
     serving(bundle_file("loader-ok", "1.0.0"), 18731);
-    let loaded = load(Engine.new(), "rapidkoi://localhost:18731/some/route");
+    let loaded = load(Engine.new(), keyring(), "rapidkoi://localhost:18731/some/route");
     match loaded {
         Ok(l) => assert_eq(l.name, "Served"),
-        Err((_, why)) => panic("expected a bundle, got: {why}"),
+        Err(r) => panic("expected a bundle, got: {why(r)}"),
     }
 }
 
@@ -62,7 +63,11 @@ fun a_bundle_loads_from_a_development_server() {
 fun an_http_address_to_the_bundle_loads_too() {
     serving(bundle_file("loader-http", "1.0.0"), 18732);
     assert_eq(
-        load(Engine.new(), "http://127.0.0.1:18732/.well-known/rapidkoi/app.rkb").is_ok(),
+        load(
+            Engine.new(),
+            keyring(),
+            "http://127.0.0.1:18732/.well-known/rapidkoi/app.rkb",
+        ).is_ok(),
         true,
     );
 }
@@ -80,9 +85,9 @@ fun failures_are_plain() {
         gone.map_err(fun(e: string) = e.starts_with("Couldn't reach rapidkoi://localhost:18739")),
         Err(true),
     );
-    match load(Engine.new(), "rapidkoi://example.com:80") {
-        Err((_, why)) => assert_eq(
-            why,
+    match load(Engine.new(), keyring(), "rapidkoi://example.com:80") {
+        Err(r) => assert_eq(
+            why(r),
             "Only local development addresses (localhost) can be opened yet",
         ),
         Ok(_) => panic("expected a refusal"),
@@ -108,7 +113,7 @@ fun reload_fetches_the_new_build() {
     let file = bundle_file("loader-reload", "1.0.0");
     serving(file, 18735);
     let engine = Engine.new();
-    let m = with_pages(engine, [open_path(engine, "rapidkoi://localhost:18735")]);
+    let m = with_pages(engine, [open_path(engine, keyring(), "rapidkoi://localhost:18735")]);
     assert_eq(version_of(m), "1.0.0");
     bundle_file("loader-reload", "1.1.0");
     assert_eq(version_of(reload(m)), "1.1.0");
@@ -118,7 +123,7 @@ fun reload_fetches_the_new_build() {
 fun the_panel_says_where_it_came_from() {
     serving(bundle_file("loader-panel", "1.0.0"), 18736);
     let engine = Engine.new();
-    let m = with_pages(engine, [open_path(engine, "rapidkoi://localhost:18736")]);
+    let m = with_pages(engine, [open_path(engine, keyring(), "rapidkoi://localhost:18736")]);
     let (open, _) = update(m, Msg.TogglePanel);
     let (about, _) = update(open, Msg.PanelGo(PanelPage.About));
     let lines = texts(view(about));

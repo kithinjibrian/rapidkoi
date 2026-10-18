@@ -4,10 +4,11 @@
  * pins, "where you left off" and the theme. Opening files and addresses is
  * `navigate.la`. Never draws.
  *
- * Depends on: wasmtime, actions, tabs, home, frame, themes
+ * Depends on: wasmtime, verify, actions, tabs, home, frame, themes
  * Used by: navigate, shell
  */
 import wasmtime { Engine };
+import verify { Keyring, keyring };
 import actions { Msg, PanelPage, Confirm };
 import tabs { Page, Tab, Pin, LeftOff, AppPage, leave };
 import home { Card };
@@ -17,6 +18,8 @@ import themes { Theme, DARK };
 /** The window's state. */
 public struct Model {
     engine: Engine,
+    /** The keys trusted this session (PRP-007 keeps them). */
+    ring: Keyring,
     /** The open apps, in rail order. */
     public tabs: Tab[],
     /** The current tab's id; `None` while home shows. */
@@ -59,6 +62,7 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
     }
     Model {
         engine: engine,
+        ring: keyring(),
         tabs: made,
         current: if made.len > 0 { Some(0) } else { None },
         next: made.len,

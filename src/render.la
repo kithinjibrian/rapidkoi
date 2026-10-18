@@ -70,6 +70,18 @@ public fun stopped(reason: string, can_restart: bool): View<Msg> {
     column(kids).spacing(SPACE_SM)
 }
 
+/**
+ * The page for a signed app that failed a check: why, and no way past it.
+ * ⟳ in the bar tries again.
+ *
+ * Example:
+ *     refused("This app couldn't be verified, so Rapidkoi didn't run it: …")
+ */
+public fun refused(reason: string): View<Msg> = column([
+    text("Rapidkoi didn't run this app").size(TEXT_TITLE).bold().align(Align.Start),
+    text(reason).dim().align(Align.Start),
+]).spacing(SPACE_SM);
+
 /** An app's text, at the start of its line: kivuli centers text unless told. */
 fun styled_text(s: string, style: TextStyle): View<Msg> {
     let shown: View<Msg> = match style {
