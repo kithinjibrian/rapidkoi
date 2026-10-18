@@ -1,15 +1,19 @@
 /**
- * Development addresses, pure: `rapidkoi://HOST:PORT[/route]` and
- * `http://HOST:PORT/…`, for local hosts only (localhost, 127.0.0.1, [::1]).
- * Other hosts wait for HTTPS and signing (DECISION-009); fetching them
- * waits for loading in the background (DECISION-021).
+ * Addresses, pure. Local development addresses (localhost, 127.0.0.1,
+ * [::1]): `rapidkoi://HOST:PORT[/route]`, `http://HOST:PORT/…` (a bundle's
+ * own URL) and `https://HOST:PORT` (a site over TLS). Remote hosts, by
+ * name and over HTTPS only (PRP-009): `rapidkoi://HOST[:PORT][/route]` or
+ * `https://HOST[:PORT]…`, port 443 by default. Never a remote IP address.
  *
- * Used by: loader, window, frame, panel
+ * Depends on: rules
+ * Used by: loader, fetching, loads, navigate, tabs, frame, panel
  */
 
-/** A parsed local address. */
+import rules { check_host };
+
+/** A parsed address. */
 public struct Address {
-    /** `localhost`, `127.0.0.1` or `[::1]`. */
+    /** `localhost`, `127.0.0.1`, `[::1]`, or a remote host name. */
     public host: string,
     /** From 1 to 65535. */
     public port: i64,
@@ -17,15 +21,19 @@ public struct Address {
     public route: string,
     /** Whether it was an `http://` address (the bundle's own URL) rather than `rapidkoi://`. */
     public http: bool,
+    /** Whether the host is another machine: then it's always HTTPS, and must be signed. */
+    public remote: bool,
+    /** Whether it's fetched over HTTPS. */
+    public secure: bool,
 }
 
 /** Why an address can't open. */
 public enum AddressError {
-    /** A host that isn't this machine. */
-    NotLocal(string),
-    /** `https://`: needs TLS, and signing. */
-    NotYet,
-    /** Not `rapidkoi://` or `http://`. */
+    /** Plain `http://` to another machine: remote apps are HTTPS only. */
+    NotSecure(string),
+    /** A remote IP address: apps are opened by host name. */
+    IpAddress(string),
+    /** Not `rapidkoi://`, `http://` or `https://`. */
     NotAnAddress,
     /** No host, or a malformed one. */
     NoHost,
@@ -46,42 +54,77 @@ public fun is_address(text: string): bool = text.starts_with("rapidkoi://") || t
 ) || text.starts_with("https://");
 
 /**
- * Parses a local development address.
+ * Parses an address: a local development one, or a remote host over HTTPS.
  *
  * @param text what the person typed or passed
- * @returns the address; `Err(NotLocal)` for another host, `Err(NotYet)` for
- *     https, `Err(NoHost)`, `Err(NoPort)`, `Err(BadPort)` or `Err(NotAnAddress)`
+ * @returns the address; `Err(NotSecure)` for remote plain http,
+ *     `Err(IpAddress)` for a remote IP, `Err(NoHost)`, `Err(NoPort)`,
+ *     `Err(BadPort)` or `Err(NotAnAddress)`
  *
  * Example:
  *     parse("rapidkoi://localhost:8000/folder/42")?
  */
 public fun parse(text: string): Result<Address, AddressError> {
-    if text.starts_with("https://") {
-        return Err(AddressError.NotYet);
-    }
-    let http = text.starts_with("http://");
-    let rest = if http {
-        text.slice(7, text.len)
+    let scheme = if text.starts_with("https://") {
+        "https"
+    } else if text.starts_with("http://") {
+        "http"
     } else if text.starts_with("rapidkoi://") {
-        text.slice(11, text.len)
+        "rapidkoi"
     } else {
         return Err(AddressError.NotAnAddress);
     };
+    let rest = text.slice(scheme.len + 3, text.len);
     // host[:port][/route]; an IPv6 host is bracketed, so its colons aren't the port's.
     let slash = find(rest, "/");
     let authority = if slash < 0 { rest } else { rest.slice(0, slash) };
     let route = if slash < 0 { "/" } else { rest.slice(slash, rest.len) };
     let (host, port_text) = split_authority(authority)?;
-    if host != "localhost" && host != "127.0.0.1" && host != "[::1]" {
-        return Err(AddressError.NotLocal(host));
+    let local = host == "localhost" || host == "127.0.0.1" || host == "[::1]";
+    if !local && is_ip(host) {
+        return Err(AddressError.IpAddress(host));
     }
-    let port_part = port_text.ok_or(AddressError.NoPort)?;
-    let port = parse_i64(port_part).ok_or(AddressError.BadPort)?;
+    // A remote name: what a site signs for, lowercase, with at least one dot.
+    if !local && (check_host(host).is_err() || !host.contains(".") || host.contains(":")) {
+        return Err(AddressError.NoHost);
+    }
+    if !local && scheme == "http" {
+        return Err(AddressError.NotSecure(host));
+    }
+    let secure = scheme == "https" || !local;
+    let port = match port_text {
+        Some(p) => parse_i64(p).ok_or(AddressError.BadPort)?,
+        // A local development server has no usual port; HTTPS has 443.
+        None => if secure {
+            443
+        } else {
+            return Err(AddressError.NoPort);
+        },
+    };
     if port < 1 || port > 65535 {
         return Err(AddressError.BadPort);
     }
-    Ok(Address { host: host, port: port, route: route, http: http })
+    Ok(Address {
+        host: host,
+        port: port,
+        route: route,
+        http: scheme == "http",
+        remote: !local,
+        secure: secure,
+    })
 }
+
+/**
+ * Returns the URL of a file on an address's site: `https://` or `http://`,
+ * the host, the port unless it's HTTPS's own 443, then `path`.
+ *
+ * Example:
+ *     site_url(a, "/.well-known/rapidkoi/key")
+ */
+public fun site_url(
+    a: Address,
+    path: string,
+): string = "{if a.secure { "https" } else { "http" }}://{authority(a)}{path}";
 
 /**
  * Returns the URL a bundle is fetched from: the well-known bundle path for
@@ -93,16 +136,33 @@ public fun parse(text: string): Result<Address, AddressError> {
 public fun url(a: Address): string = if a.http {
     "http://{a.host}:{a.port}{a.route}"
 } else {
-    "http://{a.host}:{a.port}/.well-known/rapidkoi/app.rkb"
+    site_url(a, "/.well-known/rapidkoi/app.rkb")
 };
 
 /**
- * Returns the address as the bar shows it: host and port.
+ * Returns the address as the bar shows it: host and port (the host alone
+ * for HTTPS on 443): also the host a site signs for.
  *
  * Example:
  *     shown(a)
  */
-public fun shown(a: Address): string = "{a.host}:{a.port}";
+public fun shown(a: Address): string = authority(a);
+
+/** host:port, or the host alone on HTTPS's own port. */
+fun authority(a: Address): string = if a.secure && a.port == 443 {
+    a.host
+} else {
+    "{a.host}:{a.port}"
+};
+
+/** A dotted IPv4 address, or a bracketed IPv6 one. */
+fun is_ip(host: string): bool {
+    if host.starts_with("[") {
+        return true;
+    }
+    let parts = host.split(".");
+    parts.len == 4 && parts.all(fun(p: string) = p.len > 0 && parse_i64(p).is_some())
+}
 
 /**
  * Returns a plain sentence for an address error.
@@ -111,9 +171,9 @@ public fun shown(a: Address): string = "{a.host}:{a.port}";
  *     reason(AddressError.NotYet)
  */
 public fun reason(e: AddressError): string = match e {
-    NotLocal(_) => "Only local development addresses (localhost) can be opened yet",
-    NotYet => "HTTPS comes with signing, in a later step",
-    NotAnAddress => "This isn't a rapidkoi:// or http:// address",
+    NotSecure(host) => "Remote apps open over HTTPS only: rapidkoi://{host}",
+    IpAddress(_) => "Open apps by their host name, not an IP address",
+    NotAnAddress => "This isn't a rapidkoi://, https:// or http:// address",
     NoHost => "This address has no host",
     NoPort => "This address needs a port, like rapidkoi://localhost:8000",
     BadPort => "The port must be a number from 1 to 65535",

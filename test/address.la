@@ -1,6 +1,6 @@
-// Development addresses, pure: what opens (localhost only, for now), what
-// each one fetches, and the plain reason when one can't open.
-import rapidkoi.address { Address, AddressError, parse, url, shown, is_address, reason };
+// Addresses, pure: local development addresses and remote HTTPS hosts,
+// what each one fetches, and the plain reason when one can't open.
+import rapidkoi.address { Address, AddressError, parse, url, site_url, shown, is_address, reason };
 
 fun ok(text: string): Address = parse(text).unwrap();
 
@@ -35,20 +35,45 @@ fun what_each_one_fetches() {
 }
 
 @test
-fun only_local_hosts_for_now() {
+fun remote_hosts_open_over_https() {
+    let a = ok("rapidkoi://counter.dafifi.net");
     assert_eq(
-        why("rapidkoi://example.com:8000"),
-        "Only local development addresses (localhost) can be opened yet",
+        (a.host, a.port, a.remote, a.secure, a.http),
+        ("counter.dafifi.net", 443, true, true, false),
     );
+    assert_eq(shown(a), "counter.dafifi.net");
     assert_eq(
-        why("rapidkoi://notes.acme.com"),
-        "Only local development addresses (localhost) can be opened yet",
+        site_url(a, "/.well-known/rapidkoi/key"),
+        "https://counter.dafifi.net/.well-known/rapidkoi/key",
     );
+    // https:// opens the same app; a port other than 443 is kept.
+    assert_eq(shown(ok("https://counter.dafifi.net")), "counter.dafifi.net");
+    let b = ok("rapidkoi://notes.acme.com:8443/a/b");
+    assert_eq((shown(b), b.route), ("notes.acme.com:8443", "/a/b"));
+    assert_eq(site_url(b, "/x"), "https://notes.acme.com:8443/x");
+}
+
+@test
+fun local_addresses_are_unchanged_and_https_is_allowed_locally() {
+    let a = ok("rapidkoi://localhost:8000");
+    assert_eq((a.remote, a.secure), (false, false));
+    assert_eq(site_url(a, "/x"), "http://localhost:8000/x");
+    let t = ok("https://localhost:8443");
+    assert_eq((t.remote, t.secure, t.http, shown(t)), (false, true, false, "localhost:8443"));
+    assert_eq(site_url(t, "/x"), "https://localhost:8443/x");
+}
+
+@test
+fun remote_hosts_refuse_plain_http_and_ip_addresses() {
     assert_eq(
-        why("http://192.168.1.4:8000/a.rkb"),
-        "Only local development addresses (localhost) can be opened yet",
+        why("http://counter.dafifi.net/a.rkb"),
+        "Remote apps open over HTTPS only: rapidkoi://counter.dafifi.net",
     );
-    assert_eq(why("https://localhost:8000/a.rkb"), "HTTPS comes with signing, in a later step");
+    assert_eq(why("rapidkoi://174.138.43.152"), "Open apps by their host name, not an IP address");
+    assert_eq(why("https://192.168.1.4:8000"), "Open apps by their host name, not an IP address");
+    assert_eq(why("rapidkoi://[2001:db8::1]"), "Open apps by their host name, not an IP address");
+    assert_eq(why("rapidkoi://Notes.Acme.com"), "This address has no host");
+    assert_eq(why("rapidkoi://intranet"), "This address has no host");
 }
 
 @test

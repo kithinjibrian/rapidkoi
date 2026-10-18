@@ -25,6 +25,7 @@ fun id(host: string, n: u8): Identity = Identity {
     key: [n; 32],
     sequence: 3,
     separate: false,
+    since: 1_760_000_000_000,
 };
 
 fun entry(k: string, v: Value): Entry = Entry { key: Value.Text(k), value: v };
@@ -190,4 +191,23 @@ fun recalling_each_outcome() {
     }
     assert_eq(read_bytes("{s.dir}/pins").unwrap(), newer);
     done(s);
+}
+
+@test
+fun trust_format_1_still_reads_with_no_date() {
+    let old = encode(
+        Value.Map([
+            entry("format", Value.int(1)),
+            entry("kind", Value.Text("rapidkoi trust")),
+            entry("entries", Value.Array([one("localhost:8000", [1; 32])])),
+        ]),
+    );
+    let ids = read_trust(old).unwrap();
+    assert_eq((ids.len, ids[0].since), (1, 0));
+    // Written back as format 2, the date travels.
+    assert_eq(read_trust(trust_file([id("a.example", 1)])).unwrap()[0].since, 1_760_000_000_000);
+    let three = encode(
+        Value.Map([entry("format", Value.int(3)), entry("kind", Value.Text("rapidkoi trust"))]),
+    );
+    assert_eq(broken(read_trust(three)), "newer 3");
 }

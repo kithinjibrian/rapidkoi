@@ -26,7 +26,7 @@ import tabs {
 };
 import leftoff { LeftOff };
 import window { Model, with_tab, app };
-import fetching { Fetched, fetch_app };
+import fetching { Fetched, Network, fetch_app };
 import loader { Refusal, from_fetched, current };
 import verify { known_for, moves };
 import states { saved_state, move_state };
@@ -76,8 +76,11 @@ public fun begin(
         kept: kept,
     });
     let known = known_for(m.ring, shown(a));
+    // Plain data for the task: the window's network is always the system's
+    // roots alone, except in tests (`window.with_network`).
+    let net = m.network;
     let task = Cmd.task(
-        fun(): Fetched = fetch_app(a, known, FETCH_TIMEOUT_MS),
+        fun(): Fetched = fetch_app(a, known, net, FETCH_TIMEOUT_MS),
         fun(f: Fetched) = Msg.Fetched(id, number, f),
     );
     (Model { loads: number, now: now, ..with_tab(m, id, fun(_: AppPage) = page) }, task)

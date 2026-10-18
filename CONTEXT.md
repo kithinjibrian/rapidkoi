@@ -1629,6 +1629,139 @@ CONTEXT.md
 
 ---
 
+## SESSION 43 — 2026-10-18 — Design remote apps over HTTPS (PRP-009) — closed
+
+Branch: prp-009-remote_apps
+
+### WHAT WAS DONE
+
+Designed remote apps in chat, three topics, each "yes": rapidkoi:// and https:// remote hosts over HTTPS only, names not IPs, signed only, no redirects, std's certificate checks; quiet first-use trust (remembered), "✓ HOST · verified" for remote, About's "Trusted since DATE" (trust file format 2); tests with a throwaway test CA through a test-only `Network` parameter, the owner's counter.dafifi.net on screen. Wrote PRP-009. Found a std gap (request_tls has no limits): DECISION-024, open; a Lugha prompt given to the owner. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-remote-apps.md
+PRPs/prp-009-remote_apps.md — for approval
+DECISIONS.md — DECISION-024 (open)
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None beyond the design.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-024 (std.http: one request with limits and an extra CA).
+
+### STILL OPEN AT CLOSE
+
+- PRP-009 approved ("approved"); DECISION-024 resolved by Lugha m119 (`request_tls_with`).
+
+---
+
+## SESSION 44 — 2026-10-18 — Build PRP-009: remote apps over HTTPS — closed
+
+Branch: prp-009-remote_apps
+
+### WHAT WAS DONE
+
+DECISION-024 resolved (Lugha m119 `request_tls_with`). Made the TLS fixtures (test/fixtures/tls: a throwaway CA, its key deleted after signing; localhost, wrong-host and expired certificates; make.sh, README). Built PRP-009 test-first: address.la (remote hosts by name over HTTPS, port 443 default, `remote`/`secure`, `site_url`; NotSecure, IpAddress; https://localhost allowed for TLS tests); fetching.la (one `request_tls_with` call for everything; `Network { ca_file }`, tests only; no key over HTTPS → "can't be verified"; a 3xx refused, never followed; "HOST's certificate couldn't be verified: …"); window.Model.network (always none) and `with_network` (tests only; no caller in src); verify `Identity.since`/`Trust.since` (first use dates, rotation and sequence keep it); trust file format 2 (format 1 reads with 0; the kind is checked before the format); the marker `✓ HOST · verified` for remote; About's "Since" line (`first_trusted`, a civil-date function, UTC). A one-off live check (not committed) fetched counter.dafifi.net: Cloudflare's certificate, the signed key, index and build all checked, Counter 0.2.0.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/address.la, src/fetching.la, src/loads.la, src/loader.la, src/window.la, src/verify.la, src/remembered.la, src/frame.la, src/panel.la
+test/fixtures/tls/* — new; test/remote.la — new; test/address.la, test/fetching.la (+4 TLS), test/verify.la (+1), test/remembered.la (+1), test/views.la (+2), test/opening.la, test/loader.la, test/shell.la
+CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, DECISIONS.md
+```
+
+### TESTS WRITTEN
+
+- 238 pass. TLS: opens; an untrusted CA, a wrong host and an expired certificate refused; no key over HTTPS refused; a 301 refused; end to end a first use saved with its date; the window with no test CA refuses the test server (the app passes no CA). Two old tests that expected remote hosts refused now use offline refusals (remote http, an IP), so no test touches the internet.
+
+### DECISIONS MADE
+
+- The unsigned fallback is for plain-HTTP development servers only (any HTTPS address must be signed), which also makes the rule testable offline.
+- About's wording drops "this session" (trust has been remembered since PRP-007).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's security review and on-screen checks (counter.dafifi.net; a republished 0.2.1) before merge.
+
+---
+
+## SESSION 45 — 2026-10-18 — About's labels and values at the left — closed
+
+Branch: prp-009-remote_apps
+
+### WHAT WAS DONE
+
+The owner's screenshot 18 ("left align text"): About's dim labels were centred, and short values sat in from the edge. `panel.hover_pair` now aligns both to the start (kivuli centres text unless told). Alignment isn't visible to kivuli.testing; the owner checks it on screen.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/panel.la
+```
+
+### TESTS WRITTEN
+
+- None (visual); panel, views and opening still pass.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check, then PRP-009's merge.
+
+---
+
+## SESSION 46 — 2026-10-18 — Merge PRP-009 — closed
+
+Branch: prp-009-remote_apps
+
+### WHAT WAS DONE
+
+The owner: "yes" (merge PRP-009, then design PRP-010; taken as the security review done, screenshot 18 showing counter.dafifi.net verified). Full suite 238/238, fmt clean, build ok. Merged prp-009-remote_apps into main.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- None.
+
+---
+
 ## NEXT SESSION START POINT
 
-PRP-008 is merged. Next: design remote apps over HTTPS in chat (first target: rapidkoi://counter.dafifi.net on the owner's VM, see memory), then write PRP-009. Then the tabs PRP.
+PRP-009 is merged. Next: design PRP-010 (kivuli 0.10: a wrapping home grid, the panel as an overlay, tab context menus, clickable panel rows) in chat, then write it. Then the tabs PRP.

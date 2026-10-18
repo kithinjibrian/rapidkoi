@@ -1,6 +1,8 @@
 // The frame, home and the info panel, pure: what each shows and sends,
 // checked through kivuli.testing with no display.
-import rapidkoi.frame { Bar, bar, rail, label, initial, icon_of };
+import rapidkoi.frame { Bar, bar, rail, label, initial, icon_of, marker };
+import rapidkoi.panel { first_trusted };
+import rapidkoi.verify { Trust, Standing };
 import rapidkoi.home { Card, matches };
 import rapidkoi.tabs { Page, Tab, Pin, AppPage, open_module };
 import rapidkoi.bundle { Manifest };
@@ -162,4 +164,39 @@ fun icons_are_keyed_by_file() {
         Some(Image.Bytes("apps/counter.rkb#icon", [1])),
     );
     assert_eq(icon_of("apps/counter.rkb", None), None);
+}
+
+/** A page from `path` signed by a key trusted `standing`, first trusted at `since`. */
+fun signed_page(path: string, host: string, standing: Standing, since: i64): AppPage = AppPage {
+    path: path,
+    trust: Some(Trust {
+        host: host,
+        key: [7; 32],
+        standing: standing,
+        build: [1; 32],
+        separate: false,
+        since: since,
+    }),
+    ..counter(),
+};
+
+@test
+fun the_marker_says_development_only_for_this_machine() {
+    let remote = signed_page(
+        "rapidkoi://counter.dafifi.net",
+        "counter.dafifi.net",
+        Standing.Verified,
+        0,
+    );
+    assert_eq(marker(remote, "x"), "✓ counter.dafifi.net · verified");
+    let local = signed_page("rapidkoi://localhost:8000", "localhost:8000", Standing.Verified, 0);
+    assert_eq(marker(local, "x"), "✓ localhost:8000 · verified (development)");
+}
+
+@test
+fun about_says_when_a_key_was_first_trusted() {
+    // 18 October 2026, 09:00 UTC.
+    assert_eq(first_trusted(1_792_314_000_000), "Trusted since 18 Oct 2026, first use");
+    assert_eq(first_trusted(0), "Trusted on first use (date not recorded)");
+    assert_eq(first_trusted(951_782_400_000), "Trusted since 29 Feb 2000, first use");
 }

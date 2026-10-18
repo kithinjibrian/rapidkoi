@@ -94,14 +94,15 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 ## Where an app came from (PRP-006)
 
 - **Markers**, drawn by Rapidkoi only, in the bar and the panel's header:
-  - `✓ localhost:8000 · verified (development)`: a signed site, every check passed
+  - `✓ counter.dafifi.net · verified`: a remote signed site over HTTPS, every check passed (PRP-009)
+  - `✓ localhost:8000 · verified (development)`: the same, from this machine
   - `✓ host`: a signed file whose key is trusted this session
   - `⚠ host · not confirmed`: a signed file whose key Rapidkoi hasn't met (it runs, as a stranger)
   - `· new publisher` after a ✓ when a changed key was opened as a separate app
   - `🛠 localhost:8000 · development`, `📦 file · local bundle`, `📄 file · local file` as before
 - **A failed check:** "Rapidkoi didn't run this app" (title style) over the reason (dim). No Restart and no run-anyway; ⟳ tries again.
 - **A changed key:** "HOST is now signed by a different key" (title style), "This can mean the site changed owners." and both fingerprints (dim), then **Keep using my version** (primary; "Don't open it" when nothing was open) and **Open as a separate app**.
-- **About** for a signed app: Publisher `host · key xxxx-xxxx-xxxx-xxxx`, Trust, From, Version, Contract, Build `sha256` + 16 hex digits (all 64 on hover), Format.
+- **About** for a signed app: Publisher `host · key xxxx-xxxx-xxxx-xxxx`, Trust, Since ("Trusted since 18 Oct 2026, first use"), From, Version, Contract, Build `sha256` + 16 hex digits (all 64 on hover), Format.
 
 ## In code
 

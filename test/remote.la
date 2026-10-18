@@ -1,0 +1,94 @@
+// Opening over HTTPS end to end, offline: a signed site served with TLS on
+// 127.0.0.1 as https://localhost:PORT (test/fixtures/tls). Remote host
+// names can't be reached offline; localhost over TLS runs the same HTTPS
+// path. Writes only under test/tmp/.
+import rapidkoi.shell { Model, start, update, view };
+import rapidkoi.window { with_network };
+import rapidkoi.fetching { Network };
+import rapidkoi.actions { Msg };
+import rapidkoi.store { store_at };
+import rapidkoi.remembered { read_trust };
+import rapidkoi.publish { make_key, publish_site };
+import rapidkoi.serve { handle };
+import kivuli.testing { click, texts };
+import std.http { Request };
+import std.env;
+import std.fs;
+import std.task { sleep };
+import std.time;
+import support { settle };
+
+const TLS: string = "test/fixtures/tls";
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun tls_site(port: i64): string {
+    let dir = "{env.current_dir().unwrap()}/test/tmp/remote-{port}";
+    clean(dir);
+    clean("{dir}.key");
+    fs.make_dirs(dir).unwrap();
+    write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+    ).unwrap();
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+    spawn http.serve_tls(
+        "127.0.0.1:{port}",
+        "{TLS}/localhost.pem",
+        "{TLS}/localhost.key",
+        fun(r: Request) = handle("{dir}/site", port, r),
+    );
+    sleep(150);
+    dir
+}
+
+/** Types an address and presses Go, running the load to its end. */
+fun go(m: Model, address: string): Model {
+    let (next, cmd) = update(Model { draft: address, ..m }, Msg.Go);
+    settle(next, cmd, update)
+}
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(
+    fun(x: string) = x == s || x.starts_with(s),
+);
+
+@test
+fun a_tls_site_opens_verified_and_its_first_use_is_saved() {
+    let dir = tls_site(18791);
+    let s = store_at("test/tmp/remote-store");
+    clean(s.dir);
+    let before = time.now_ms();
+    let (home, _) = start(["./main"], Some(s));
+    let m = go(
+        with_network(home, Network { ca_file: Some("{TLS}/ca.pem") }),
+        "https://localhost:18791",
+    );
+    assert_eq(click(view(m), "✓ localhost:18791 · verified (development)"), Ok(Msg.EditAddress));
+    let saved = read_trust(read_bytes("{s.dir}/trust").unwrap()).unwrap();
+    assert_eq((saved.len, saved[0].host, saved[0].since >= before), (1, "localhost:18791", true));
+    clean(dir);
+    clean("{dir}.key");
+    clean(s.dir);
+}
+
+@test
+fun the_window_itself_trusts_no_extra_ca() {
+    let dir = tls_site(18792);
+    // No with_network: what Rapidkoi always runs with.
+    let (home, _) = start(["./main"], None);
+    let m = go(home, "https://localhost:18792");
+    assert_eq(shows(m, "localhost:18792's certificate couldn't be verified: "), true);
+    clean(dir);
+    clean("{dir}.key");
+}
