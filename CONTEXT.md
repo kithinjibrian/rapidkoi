@@ -1730,12 +1730,38 @@ src/panel.la
 
 ---
 
-## SESSION 46 — 2026-10-18 — Merge PRP-009 — open
+## SESSION 46 — 2026-10-18 — Merge PRP-009 — closed
 
 Branch: prp-009-remote_apps
+
+### WHAT WAS DONE
+
+The owner: "yes" (merge PRP-009, then design PRP-010; taken as the security review done, screenshot 18 showing counter.dafifi.net verified). Full suite 238/238, fmt clean, build ok. Merged prp-009-remote_apps into main.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- None.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-009 is built on `prp-009-remote_apps`, not merged. Wait for the owner's security review and on-screen checks (rapidkoi://counter.dafifi.net; republish 0.2.1 and ⟳), full suite, merge. Next: the tabs PRP (restore open tabs on launch).
+PRP-009 is merged. Next: design PRP-010 (kivuli 0.10: a wrapping home grid, the panel as an overlay, tab context menus, clickable panel rows) in chat, then write it. Then the tabs PRP.
