@@ -2290,7 +2290,13 @@ PRPs/prp-012-network.md — for approval (security review before merge)
 
 ### STILL OPEN AT CLOSE
 
-- PRP-012 awaits approval.
+- PRP-012 approved ("approved").
+
+---
+
+## SESSION 63 — 2026-10-19 — Build PRP-012: apps reaching the network — open
+
+Branch: prp-012-network
 
 ---
 
