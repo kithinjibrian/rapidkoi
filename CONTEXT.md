@@ -2524,12 +2524,64 @@ src/fetching.la, src/requests.la, lugha.lock, CONTEXT.md
 
 ---
 
-## SESSION 68 — 2026-10-19 — Build PRP-013: refusing names that point to the local network — open
+## SESSION 68 — 2026-10-19 — Build PRP-013: refusing names that point to the local network — closed
 
 Branch: prp-013-local_addresses
+
+### WHAT WAS DONE
+
+The owner: "approved" (PRP-013). Built test-first:
+1. **`network.la`:** `local_address` (IPv4/IPv6 text, every range, IPv4 inside IPv6 as IPv4, garbage refused) and `check_addresses` (all public, else refused whole). Three new variants, `PointsLocal`, `NoAddress` and `Lookup`, each with a sentence.
+2. **`dialing.la` (new):**
+   - `dial`: look up with `net.resolve` or the test names, check, then `try_each` over `send_to`, pinned with `tls.Options.address`
+   - development addresses are never looked up
+   - `Network` moved here, with a test-only `hosts`
+3. **Wiring:** `requests.send` and `fetching.get` go through `dial`. A refusal sends nothing. A load shows the sentence via a "refused: " prefix, as with redirects. `fetching.network` is renamed `failure`.
+
+Checks:
+- fmt: clean
+- `lughac test test/`: 316 passed (12 new)
+- the example's tests: 2 passed
+- the build: ok; no file over 500 lines
+
+Live: quote.dafifi.net resolved to 4 Cloudflare addresses, opened verified, and a fetch got 200. Not merged: it waits for the owner's security review.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/dialing.la, test/dialing.la (new)
+src/network.la, src/fetching.la, src/requests.la, src/loader.la, src/loads.la, src/window.la
+test/network.la, test/requests.la, test/fetching.la, and every Network literal (hosts: [])
+test/fixtures/tls/README.md, CLAUDE.md, MEMORY.md, DECISIONS.md, CHANGELOG.md, PRPs/prp-013-local_addresses.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- **network:** IPv4 range edges, IPv6 and embedded IPv4, garbage, `check_addresses`.
+- **dialing:**
+  - lookup
+  - refusals with nothing sent
+  - a failed lookup
+  - the pinned connection, name verified, and a wrong name failing its certificate
+  - addresses tried in order within one deadline
+  - development addresses never looked up
+- **requests and fetching:** a name pointing to the local network is refused.
+
+### DECISIONS MADE
+
+- `Network` lives in `dialing.la`, imported from there, not re-exported.
+- Final failures that don't move to the next address: a timeout, a certificate, a response too large or malformed.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's security review, then merge.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-013 (`PRPs/prp-013-local_addresses.md`) waits for the owner's approval. std has `net.resolve` and `tls.Options.address` (m121). Once approved: branch `prp-013-local_addresses` from main, build test-first, and stop before merge for the owner's security review.
+PRP-013 is built on `prp-013-local_addresses` and waits for the owner's security review. After approval: run the full suite and merge into main. Then the next arc: links (the vision's step 2) or tab restore.

@@ -26,7 +26,8 @@ import tabs {
 };
 import leftoff { LeftOff };
 import window { Model, with_tab, app };
-import fetching { Fetched, Network, fetch_app };
+import fetching { Fetched, fetch_app };
+import dialing { Network };
 import loader { Refusal, from_fetched, current };
 import verify { known_for, moves };
 import states { saved_state, move_state };

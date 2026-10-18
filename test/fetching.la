@@ -2,7 +2,8 @@
 // key, index and build checked against a snapshot; an unsigned server's
 // bundle; a server that never answers; a tampered build. One port per test.
 // Writes only under test/tmp/.
-import rapidkoi.fetching { Fetched, Network, fetch_app };
+import rapidkoi.fetching { Fetched, fetch_app };
+import rapidkoi.dialing { Network };
 import rapidkoi.loader { why };
 import rapidkoi.address { Address, parse };
 import rapidkoi.verify { Identity };
@@ -59,7 +60,7 @@ fun refusal(f: Fetched): string = match f {
 fun a_signed_site_comes_back_checked_with_what_to_record() {
     let dir = site(18761);
     let snapshot: Identity[] = [];
-    let f = fetch_app(at(18761), snapshot, Network { ca_file: None }, 5000);
+    let f = fetch_app(at(18761), snapshot, Network { ca_file: None, hosts: [] }, 5000);
     match f {
         Signed(v, _, known) => {
             assert_eq(v.opened.bundle.manifest.name, "Notes");
@@ -90,7 +91,7 @@ fun an_unsigned_server_gives_its_bundle() {
     ).unwrap();
     spawn http.serve("127.0.0.1:18762", fun(r: Request) = handle(file, 18762, r));
     sleep(100);
-    let f = fetch_app(at(18762), [], Network { ca_file: None }, 5000);
+    let f = fetch_app(at(18762), [], Network { ca_file: None, hosts: [] }, 5000);
     match f {
         Unsigned(name, bytes) => assert_eq(
             (name, bytes),
@@ -109,7 +110,7 @@ fun a_server_that_never_answers_times_out() {
     });
     sleep(100);
     assert_eq(
-        refusal(fetch_app(at(18763), [], Network { ca_file: None }, 1000)),
+        refusal(fetch_app(at(18763), [], Network { ca_file: None, hosts: [] }, 1000)),
         "localhost:18763 didn't answer in 1 second",
     );
 }
@@ -117,7 +118,7 @@ fun a_server_that_never_answers_times_out() {
 @test
 fun nobody_listening_is_plain() {
     assert_eq(
-        refusal(fetch_app(at(18769), [], Network { ca_file: None }, 1000)).starts_with(
+        refusal(fetch_app(at(18769), [], Network { ca_file: None, hosts: [] }, 1000)).starts_with(
             "Couldn't reach rapidkoi://localhost:18769",
         ),
         true,
@@ -133,7 +134,7 @@ fun a_tampered_build_is_refused_as_before() {
     b[b.len / 2] = b[b.len / 2] ^ 1;
     write_bytes("{builds}/{name}", b).unwrap();
     assert_eq(
-        refusal(fetch_app(at(18764), [], Network { ca_file: None }, 5000)),
+        refusal(fetch_app(at(18764), [], Network { ca_file: None, hosts: [] }, 5000)),
         "This app couldn't be verified, so Rapidkoi didn't run it: The app's build doesn't match its index's hash",
     );
     done(dir);
@@ -144,7 +145,7 @@ fun a_tampered_build_is_refused_as_before() {
 
 const TLS: string = "test/fixtures/tls";
 
-fun trusting(): Network = Network { ca_file: Some("{TLS}/ca.pem") };
+fun trusting(): Network = Network { ca_file: Some("{TLS}/ca.pem"), hosts: [] };
 
 fun secure(port: i64): Address = parse("https://localhost:{port}").unwrap();
 
@@ -186,7 +187,9 @@ fun a_signed_site_over_tls_opens() {
 fun certificates_are_always_checked() {
     let dir = tls_site(18782, "localhost");
     // The system's roots alone don't know the test CA.
-    let untrusted = refusal(fetch_app(secure(18782), [], Network { ca_file: None }, 5000));
+    let untrusted = refusal(
+        fetch_app(secure(18782), [], Network { ca_file: None, hosts: [] }, 5000),
+    );
     assert_eq(untrusted.starts_with("localhost:18782's certificate couldn't be verified: "), true);
     done(dir);
     let wrong = tls_site(18783, "wrong-host");
@@ -241,5 +244,15 @@ fun redirects_are_refused_never_followed() {
     assert_eq(
         refusal(fetch_app(secure(18786), [], trusting(), 5000)),
         "localhost:18786 answered with a redirect (301); Rapidkoi doesn't follow redirects",
+    );
+}
+
+@test
+fun opening_a_name_pointing_to_the_local_network_is_refused() {
+    let net = Network { ca_file: None, hosts: [("x.example", ["192.168.1.1"])] };
+    let none: Identity[] = [];
+    assert_eq(
+        refusal(fetch_app(parse("rapidkoi://x.example").unwrap(), none, net, 5000)),
+        "x.example points to this computer or your local network, so Rapidkoi won't connect to it",
     );
 }

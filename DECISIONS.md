@@ -200,7 +200,7 @@ Rules:
 - **Where:** app fetches and opening apps at an address.
 - **Until std has it:** the certificate check stays the only guard (CLAUDE.md known issues).
 
-**Copied to MEMORY.md:** at PRP-013's merge
+**Copied to MEMORY.md:** yes (decision 18)
 
 ---
 

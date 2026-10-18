@@ -22,7 +22,8 @@ import verify {
     standing_of,
     reason as verify_reason,
 };
-import fetching { Fetched, Network, fetch_app };
+import fetching { Fetched, fetch_app };
+import dialing { Network };
 import address { Address, is_address, parse, url, shown };
 import limits { MAX_BUNDLE, FETCH_TIMEOUT_MS, CONTRACT_VERSION };
 import std.http { Limits };
@@ -70,7 +71,7 @@ public fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Ref
         let f = fetch_app(
             a,
             known_for(ring, shown(a)),
-            Network { ca_file: None },
+            Network { ca_file: None, hosts: [] },
             FETCH_TIMEOUT_MS,
         );
         return from_fetched(engine, ring, f);
