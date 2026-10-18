@@ -2229,12 +2229,38 @@ src/account.la
 
 ---
 
-## SESSION 61 — 2026-10-19 — Merge PRP-011 — open
+## SESSION 61 — 2026-10-19 — Merge PRP-011 — closed
 
 Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+The owner: "merge prp-011 then let's talk apps reaching the network" (taken as the security review done; screenshots 26–28 on screen). 276 Lugha tests, cargo 3 + 7, fmt clean, build ok, no file over 500 lines. Merged prp-011-identity (with design-identity's notes) into main.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- None.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-011 (amendment 1: contract 2, one `handle` entry point) is built on `prp-011-identity`, not merged. Wait for the owner's security review and on-screen checks (rebuild the counter — done in session 59 — republish with `./main publish`, open, close and reopen Rapidkoi: still signed in). Then full suite (Lugha and cargo) and merge.
+PRP-011 is merged. Next: design apps reaching the network (a capability for untrusted code; permissions) in chat, then write PRP-012. Links (the vision's step 2) after.
