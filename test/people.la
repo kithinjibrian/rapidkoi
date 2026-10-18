@@ -1,0 +1,85 @@
+// The people file (PRP-011): each app's sign-in settings and your name,
+// read as hostile input. Pure.
+import rapidkoi.people {
+    People,
+    Person,
+    nobody,
+    person,
+    with_person,
+    forget_person,
+    name_in,
+    people_file,
+    read_people,
+};
+import rapidkoi.remembered { Unreadable };
+import cbor { Value, Entry, encode };
+
+const HOST: string = "notes.acme.com";
+
+fun broken(r: Result<People, Unreadable>): string = match r {
+    Err(Broken(w)) => w,
+    Err(Newer(n)) => "newer {n}",
+    Ok(_) => "ok",
+};
+
+fun entry(k: string, v: Value): Entry = Entry { key: Value.Text(k), value: v };
+
+@test
+fun an_app_never_seen_has_the_defaults() {
+    let p = person(nobody(), HOST, [1; 32]);
+    assert_eq((p.generation, p.auto, p.signed_out, p.first, p.last), (0, true, false, "", ""));
+}
+
+@test
+fun settings_round_trip_and_forgetting_removes_one_app() {
+    let mut ps = People { first: "Brian", last: "Kithinji", apps: [] };
+    ps = with_person(ps, Person {
+        generation: 2,
+        auto: false,
+        first: "B",
+        ..person(ps, HOST, [1; 32]),
+    });
+    ps = with_person(ps, Person { signed_out: true, ..person(ps, "chat.example", [2; 32]) });
+    let back = read_people(people_file(ps)).unwrap();
+    assert_eq(back == ps, true);
+    assert_eq(person(back, HOST, [1; 32]).generation, 2);
+    let forgot = forget_person(back, HOST, [1; 32]);
+    assert_eq((forgot.apps.len, person(forgot, HOST, [1; 32]).generation), (1, 0));
+}
+
+@test
+fun an_app_s_own_name_wins_else_the_one_for_every_app() {
+    let mut ps = People { first: "Brian", last: "Kithinji", apps: [] };
+    assert_eq(name_in(ps, HOST, [1; 32]), ("Brian", "Kithinji"));
+    ps = with_person(ps, Person { first: "Bee", ..person(ps, HOST, [1; 32]) });
+    // Only the first name is overridden here: the last stays the one for every app.
+    assert_eq(name_in(ps, HOST, [1; 32]), ("Bee", "Kithinji"));
+    assert_eq(name_in(ps, "chat.example", [2; 32]), ("Brian", "Kithinji"));
+}
+
+@test
+fun bad_files_are_broken_naming_the_field() {
+    assert_eq(broken(read_people([1, 2])).starts_with("not CBOR"), true);
+    let long = encode(
+        Value.Map([
+            entry("format", Value.int(1)),
+            entry("kind", Value.Text("rapidkoi people")),
+            entry("first", Value.Text(many(65))),
+            entry("last", Value.Text("")),
+            entry("apps", Value.Array([])),
+        ]),
+    );
+    assert_eq(broken(read_people(long)), "a name is longer than 64 characters");
+    let newer = encode(
+        Value.Map([entry("format", Value.int(2)), entry("kind", Value.Text("rapidkoi people"))]),
+    );
+    assert_eq(broken(read_people(newer)), "newer 2");
+}
+
+fun many(n: i64): string {
+    let mut s = "";
+    for _ in 0..n {
+        s = s + "x";
+    }
+    s
+}
