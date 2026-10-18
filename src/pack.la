@@ -20,6 +20,7 @@ struct Request {
     version: string,
     description: Option<string>,
     state_version: i64,
+    contract: i64,
     icon: Option<string>,
     banners: (string, string)[],
     assets: (string, string)[],
@@ -91,7 +92,7 @@ public fun make(args: string[]): Result<string, string> {
         assets.push((a.0, load(a.1)?));
     }
     let manifest = Manifest {
-        contract: 1,
+        contract: r.contract,
         name: r.name,
         version: r.version,
         description: r.description,
@@ -117,6 +118,8 @@ fun parse(args: string[]): Result<Request, string> {
     let mut version: Option<string> = None;
     let mut description: Option<string> = None;
     let mut state_version = 1;
+    // The UI contract the module speaks: 2 unless told (the Rust library's, PRP-011).
+    let mut contract = 2;
     let mut icon: Option<string> = None;
     let mut banners: (string, string)[] = [];
     let mut assets: (string, string)[] = [];
@@ -148,6 +151,11 @@ fun parse(args: string[]): Result<Request, string> {
             version = Some(v);
         } else if a == "--description" {
             description = Some(v);
+        } else if a == "--contract" {
+            contract = parse_i64(v).ok_or("--contract takes 1 or 2")?;
+            if contract < 1 || contract > 2 {
+                return Err("--contract takes 1 or 2");
+            }
         } else if a == "--state-version" {
             state_version = parse_i64(v).ok_or("--state-version takes a whole number")?;
         } else if a == "--icon" {
@@ -171,6 +179,7 @@ fun parse(args: string[]): Result<Request, string> {
         version: version.ok_or("--version is required")?,
         description: description,
         state_version: state_version,
+        contract: contract,
         icon: icon,
         banners: banners,
         assets: assets,

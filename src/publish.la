@@ -225,7 +225,7 @@ public fun bundle_of(p: Project): Result<Bundle, string> {
     }
     Ok(Bundle {
         manifest: Manifest {
-            contract: 1,
+            contract: p.contract,
             name: p.name,
             version: p.version,
             description: p.description,

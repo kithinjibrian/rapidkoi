@@ -129,3 +129,29 @@ fun pack_never_overwrites_without_force() {
     assert_eq(make([m, "--name", "M", "--version", "0.1.0", "-o", out, "--force"]).is_ok(), true);
     fs.remove_file(out).unwrap();
 }
+
+@test
+fun the_contract_defaults_to_2_and_can_be_set() {
+    let m = module("contract");
+    let out = path("contract.rkb");
+    make([m, "--name", "M", "--version", "0.1.0", "-o", out, "--force"]).unwrap();
+    assert_eq(read(read_bytes(out).unwrap()).unwrap().manifest.contract, 2);
+    make([
+        m,
+        "--name",
+        "M",
+        "--version",
+        "0.1.0",
+        "--contract",
+        "1",
+        "-o",
+        out,
+        "--force",
+    ]).unwrap();
+    assert_eq(read(read_bytes(out).unwrap()).unwrap().manifest.contract, 1);
+    assert_eq(
+        make([m, "--name", "M", "--version", "0.1.0", "--contract", "3", "-o", out]),
+        Err("--contract takes 1 or 2"),
+    );
+    fs.remove_file(out).unwrap();
+}

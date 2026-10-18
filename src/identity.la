@@ -9,7 +9,7 @@
  * Depends on: std.crypto, cbor, store, keys
  * Used by: effects, account, saving
  */
-import std.crypto { random_bytes, hkdf_sha256, ed25519_public, ed25519_sign, sha256 };
+import std.crypto { random_bytes, hkdf_sha256, ed25519_public, ed25519_sign };
 import cbor { Value, Entry, Limits, decode, encode };
 import store { Store, StoreError, load, save, reason as store_reason };
 import keys { hex };
@@ -118,13 +118,14 @@ public fun sign_in_message(host: string, challenge: u8[]): u8[] = encode(
 );
 
 /**
- * Returns how a key is named on screen: "User " and the first four hex
- * digits of its fingerprint.
+ * Returns how a key is named on screen: "User " and the key's first four
+ * hex digits. The key is public, so the app can show the same label
+ * without a hash library; it's a nickname, never proof of anything.
  *
  * Example:
  *     user_label(public_key)
  */
-public fun user_label(key: u8[]): string = "User {hex(sha256(key)).slice(0, 4)}";
+public fun user_label(key: u8[]): string = "User {hex(key).slice(0, 4)}";
 
 /**
  * Returns a plain sentence for an identity error.

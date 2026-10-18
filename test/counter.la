@@ -30,7 +30,9 @@ fun shown(m: Model): string[] = texts(view(m)).filter(
 @test
 fun the_counter_starts_at_zero_with_reset_disabled() {
     let m = started();
-    assert_eq(shown(m), ["Counter", "Count: 0", "What's your name?"]);
+    // A v2 app: the greeting's {FIRST_NAME} is filled (empty here: no name
+    // set), and with no data folder it can't be signed in.
+    assert_eq(shown(m), ["Counter", "Count: 0", "Hello, !", "Not signed in"]);
     assert_eq(is_disabled(view(m), "Reset"), Ok(true));
     assert_eq(title_of(m), "Rapidkoi — Counter");
 }
