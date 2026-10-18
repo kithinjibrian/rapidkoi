@@ -15,7 +15,7 @@ import window { Model, with_tab, page_of };
 import people { Person, MAX_NAME, person, with_person, forget_person };
 import identity { public_key, user_label };
 import render;
-import theme { SPACE_XS, SPACE_SM, PANEL_CHARS };
+import theme { SPACE_XS, SPACE_SM, SPACE_MD, PANEL_WIDTH, PANEL_CHARS };
 
 /** What the Account page shows for one app. */
 public struct Account {
@@ -200,11 +200,11 @@ public fun forget_account(before: Model, after: Model): Model = match page_of(be
     _ => after,
 };
 
-/** A name field: what it holds, its hint, and what typing sends. */
+/** A name field: what it holds, its hint, and what typing sends; as wide as the panel's inside. */
 fun field(hint: string, value: string, scope: NameScope, part: NamePart): View<Msg> = input(
     value,
     fun(s: string) = Msg.SetName(scope, part, s),
-).placeholder(hint);
+).placeholder(hint).width(PANEL_WIDTH - 2 * SPACE_MD);
 
 /** At most `MAX_NAME` characters. */
 fun clip(s: string): string {

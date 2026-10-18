@@ -2197,6 +2197,38 @@ docs/source/meetings/2026-10-17-ui-contract.md (contract 2), MEMORY.md, DECISION
 
 ---
 
+## SESSION 60 — 2026-10-18 — Account page: name fields span the panel — closed
+
+Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+The owner's screenshot 28 ("make this span the panel width"): the panel aligns each part at the start, so the name fields kept their natural width. They now take the panel's inner width (PANEL_WIDTH less SPACE_MD on each side).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/account.la
+```
+
+### TESTS WRITTEN
+
+- None (layout); account tests pass.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's security review and on-screen checks of PRP-011.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-011 (amendment 1: contract 2, one `handle` entry point) is built on `prp-011-identity`, not merged. Wait for the owner's security review and on-screen checks (rebuild the counter — done in session 59 — republish with `./main publish`, open, close and reopen Rapidkoi: still signed in). Then full suite (Lugha and cargo) and merge.
