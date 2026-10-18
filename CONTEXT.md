@@ -1301,7 +1301,7 @@ PRPs/prp-006-signed_apps.md — for approval (crypto: the owner's security revie
 
 ---
 
-## SESSION 34 — 2026-10-18 — Build PRP-006: signed apps, published locally — built, awaiting the security review
+## SESSION 34 — 2026-10-18 — Build PRP-006: signed apps, published locally — closed
 
 Branch: prp-006-signing
 
@@ -1340,11 +1340,11 @@ CLAUDE.md (commands, tree), docs/DESIGN.md (markers and pages), CHANGELOG.md
 
 ### STILL OPEN AT CLOSE
 
-- **The owner's security review before merge** (crypto). Then the owner's on-screen checks: keygen → publish → serve site/ → open, marked ✓; one byte changed in a build is refused.
+- The owner reviewed and checked it on screen: "Done it..it's fine". Merged to main, with "Don't open it" kept.
 - keygen can't set 0600 itself until std.fs.set_mode; it prints the chmod reminder.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-006 is built on `prp-006-signing`, not merged. Wait for the owner's security review and on-screen checks, fix what they find, then merge. After that: PRP-007 (remembering, on disk; needs std.fs.rename/set_mode).
+PRP-006 is merged to main. Next: PRP-007 (remembering trust, pins and left-off on disk; needs std.fs.rename and set_mode from Lugha), or another milestone the owner picks. Open the session on a new branch.
