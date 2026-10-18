@@ -39,6 +39,16 @@ public enum BundleError {
     AssetNotBytes(string),
     /** An image larger than its role allows: what, its width and height, the most allowed. */
     ImageTooLarge(string, i64, i64, i64, i64),
+    /** Format 2: the signature doesn't match the manifest's bytes. */
+    BadSignature,
+    /** Format 2: a part doesn't match its signed hash: which. */
+    HashMismatch(string),
+    /** Format 2: an asset the signed manifest doesn't list. */
+    UnsignedAsset(string),
+    /** Format 2: an asset the signed manifest lists but the bundle lacks. */
+    AbsentAsset(string),
+    /** Format 2: the manifest's host isn't a host. */
+    BadHost(string),
     /** A field naming an asset the bundle doesn't have: the field, the name. */
     MissingAsset(string, string),
     /** More assets than allowed. */
@@ -70,6 +80,11 @@ public fun reason(e: BundleError): string = match e {
     BadName(name) => "This bundle has an asset with a bad name: \"{name}\"",
     NotPng(name) => "This bundle's asset \"{name}\" isn't a PNG image",
     AssetNotBytes(name) => "This bundle's asset \"{name}\" must be bytes",
+    BadSignature => "This bundle's signature doesn't match its contents",
+    HashMismatch(what) => "This bundle's {what} doesn't match its signed hash",
+    UnsignedAsset(name) => "This bundle has an asset its signature doesn't cover: \"{name}\"",
+    AbsentAsset(name) => "This bundle is missing a signed asset: \"{name}\"",
+    BadHost(h) => "This bundle's host isn't a host name: \"{h}\"",
     ImageTooLarge(what, w, h, mw, mh) => "This bundle's {what} image is too large ({w} × {h} px; at most {mw} × {mh})",
     MissingAsset(field, name) => "This bundle's \"{field}\" names an asset it doesn't have: \"{name}\"",
     TooManyAssets(n) => "This bundle has too many assets ({n}; at most {MAX_ASSETS})",
@@ -223,6 +238,27 @@ fun big_endian(
     b: u8[],
     at: i64,
 ): i64 = (b[at] as i64) << 24 | (b[at + 1] as i64) << 16 | (b[at + 2] as i64) << 8 | b[at + 3] as i64;
+
+/**
+ * Checks a host name: 1 to 253 bytes of `a–z 0–9 . -`, with an optional
+ * `:port` (development hosts are `localhost:8000`).
+ *
+ * Example:
+ *     check_host("notes.acme.com")?
+ */
+public fun check_host(host: string): Result<(), BundleError> {
+    let bad = BundleError.BadHost(host);
+    if host.len < 1 || host.len > 253 || host.starts_with(".") || host.starts_with("-") {
+        return Err(bad);
+    }
+    for b of host {
+        let ok = b >= 97 && b <= 122 || b >= 48 && b <= 57 || b == 46 || b == 45 || b == 58;
+        if !ok {
+            return Err(bad);
+        }
+    }
+    Ok(())
+}
 
 /**
  * Checks the counts and sizes of a whole bundle's parts.

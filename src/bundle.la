@@ -108,7 +108,20 @@ public fun read(bytes: u8[]): Result<Bundle, BundleError> {
  */
 public fun write(b: Bundle): Result<u8[], BundleError> {
     check(b)?;
-    let m = b.manifest;
+    Ok(
+        encode(
+            Value.Map([
+                entry("format", Value.int(FORMAT)),
+                entry("manifest", Value.Map(manifest_fields(b.manifest))),
+                entry("module", Value.Bytes(b.module)),
+                entry("assets", assets_value(b.assets)),
+            ]),
+        ),
+    )
+}
+
+/** A manifest's fields, as format 1 writes them (format 2 adds its own). */
+fun manifest_fields(m: Manifest): Entry[] {
     let mut fields = [
         entry("contract", Value.int(m.contract)),
         entry("name", Value.Text(m.name)),
@@ -127,20 +140,13 @@ public fun write(b: Bundle): Result<u8[], BundleError> {
     if let Some(i) = m.icon {
         fields.push(entry("icon", Value.Text(i)));
     }
-    Ok(
-        encode(
-            Value.Map([
-                entry("format", Value.int(FORMAT)),
-                entry("manifest", Value.Map(fields)),
-                entry("module", Value.Bytes(b.module)),
-                entry(
-                    "assets",
-                    Value.Map(b.assets.map(fun(p: (string, u8[])) = entry(p.0, Value.Bytes(p.1)))),
-                ),
-            ]),
-        ),
-    )
+    fields
 }
+
+/** Assets as a CBOR map of name → bytes. */
+fun assets_value(assets: (string, u8[])[]): Value = Value.Map(
+    assets.map(fun(p: (string, u8[])) = entry(p.0, Value.Bytes(p.1))),
+);
 
 /**
  * Returns an asset's bytes by name.

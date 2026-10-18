@@ -1,0 +1,135 @@
+// Signed bundles (format 2), pure apart from std.crypto: signing, reading
+// back, and every way a signed bundle can be wrong.
+import rapidkoi.signing { Opened, write_signed, read_any };
+import rapidkoi.bundle { Bundle, Manifest, write, reason };
+import rapidkoi.keys { SecretKey };
+import std.crypto { ed25519_keypair, sha256 };
+import cbor { Value, Entry, Limits, decode, encode };
+import support { png };
+
+fun key(host: string): SecretKey {
+    let (secret, pk) = ed25519_keypair().unwrap();
+    SecretKey { host: host, secret: secret, public_key: pk }
+}
+
+fun sample(): Bundle = Bundle {
+    manifest: Manifest {
+        contract: 1,
+        name: "Notes",
+        version: "1.0.0",
+        description: None,
+        state_version: 1,
+        icon: Some("icon.png"),
+        banners: [],
+    },
+    module: [0, 97, 115, 109, 1, 0, 0, 0],
+    assets: [("icon.png", png(32, 32))],
+};
+
+fun why(bytes: u8[]): string = match read_any(bytes) {
+    Err(e) => reason(e),
+    Ok(_) => "ok",
+};
+
+/** The signed bundle's CBOR map with one top-level field replaced. */
+fun with(bytes: u8[], field: string, v: Value): u8[] {
+    let root = decode(bytes, Limits.default()).unwrap();
+    let entries = root.as_map().unwrap().map(
+        fun(e: Entry) = if e.key == Value.Text(field) { Entry { key: e.key, value: v } } else { e },
+    );
+    encode(Value.Map(entries))
+}
+
+fun field(bytes: u8[], name: string): Value = decode(bytes, Limits.default()).unwrap().get(
+    name,
+).unwrap();
+
+@test
+fun a_signed_bundle_round_trips() {
+    let k = key("notes.acme.com");
+    let bytes = write_signed(sample(), k).unwrap();
+    let o = read_any(bytes).unwrap();
+    assert_eq(o.bundle.manifest == sample().manifest, true);
+    assert_eq(o.bundle.module, sample().module);
+    match o.signed {
+        Some(s) => {
+            assert_eq(s.host, "notes.acme.com");
+            assert_eq(s.key, k.public_key);
+            assert_eq(s.hash, sha256(bytes));
+        }
+        None => panic("expected a signed bundle"),
+    }
+}
+
+@test
+fun format_1_still_reads_unsigned() {
+    let o = read_any(write(sample()).unwrap()).unwrap();
+    assert_eq(o.signed.is_none(), true);
+}
+
+@test
+fun a_changed_byte_anywhere_is_refused() {
+    let bytes = write_signed(sample(), key("a.example")).unwrap();
+    // The signed manifest changed: its signature no longer matches.
+    let mut m = field(bytes, "manifest").as_bytes().unwrap();
+    m[m.len - 1] = m[m.len - 1] ^ 1;
+    assert_eq(
+        why(with(bytes, "manifest", Value.Bytes(m))),
+        "This bundle's signature doesn't match its contents",
+    );
+    let mut sig = field(bytes, "signature").as_bytes().unwrap();
+    sig[0] = sig[0] ^ 1;
+    assert_eq(
+        why(with(bytes, "signature", Value.Bytes(sig))),
+        "This bundle's signature doesn't match its contents",
+    );
+    let mut module = field(bytes, "module").as_bytes().unwrap();
+    module[7] = 9;
+    assert_eq(
+        why(with(bytes, "module", Value.Bytes(module))),
+        "This bundle's module doesn't match its signed hash",
+    );
+    let mut icon = png(32, 32);
+    icon[20] = 1;
+    let assets = Value.Map([Entry { key: Value.Text("icon.png"), value: Value.Bytes(icon) }]);
+    assert_eq(
+        why(with(bytes, "assets", assets)),
+        "This bundle's asset \"icon.png\" doesn't match its signed hash",
+    );
+}
+
+@test
+fun assets_must_match_the_signed_list() {
+    let bytes = write_signed(sample(), key("a.example")).unwrap();
+    let extra = Value.Map([
+        Entry { key: Value.Text("icon.png"), value: Value.Bytes(png(32, 32)) },
+        Entry { key: Value.Text("x.png"), value: Value.Bytes(png(8, 8)) },
+    ]);
+    assert_eq(
+        why(with(bytes, "assets", extra)),
+        "This bundle has an asset its signature doesn't cover: \"x.png\"",
+    );
+    assert_eq(
+        why(with(bytes, "assets", Value.Map([]))),
+        "This bundle is missing a signed asset: \"icon.png\"",
+    );
+}
+
+@test
+fun another_key_than_the_signer_is_refused() {
+    let bytes = write_signed(sample(), key("a.example")).unwrap();
+    let other = key("a.example");
+    assert_eq(
+        why(with(bytes, "key", Value.Bytes(other.public_key))),
+        "This bundle's signature doesn't match its contents",
+    );
+}
+
+@test
+fun hosts_are_checked() {
+    assert_eq(
+        write_signed(sample(), key("Bad Host")).map_err(reason),
+        Err("This bundle's host isn't a host name: \"Bad Host\""),
+    );
+    assert_eq(write_signed(sample(), key("localhost:8000")).is_ok(), true);
+}
