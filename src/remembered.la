@@ -17,8 +17,11 @@ import leftoff { LeftOff, recalled, signer_of };
 import rules { check_host, check_asset, check_role };
 import limits { MAX_ICON_PX };
 
-/** The format these files are written in. */
+/** The format the pins, left-off and state files are written in. */
 public const FORMAT: i64 = 1;
+
+/** The trust file's format: 2 added when each key was first trusted (PRP-009). */
+public const TRUST_FORMAT: i64 = 2;
 
 /** The most identities the trust file holds. */
 public const MAX_IDENTITIES: i64 = 10_000;
@@ -108,13 +111,15 @@ public fun trust_file(ids: Identity[]): u8[] = file(
                 entry("key", Value.Bytes(i.key)),
                 entry("sequence", Value.int(i.sequence)),
                 entry("separate", Value.Bool(i.separate)),
+                entry("since", Value.int(i.since)),
             ]),
         ),
     ),
 );
 
 /**
- * Reads the trust file: every host a host name, every key 32 bytes.
+ * Reads the trust file (format 1 or 2): every host a host name, every key
+ * 32 bytes; format 1's entries have no first-use date (0).
  *
  * Example:
  *     read_trust(bytes)?
@@ -149,7 +154,18 @@ public fun read_trust(bytes: u8[]): Result<Identity[], Unreadable> {
                 return Err(Unreadable.Broken("an entry's separate isn't true or false"));
             }
         };
-        ids.push(Identity { host: host, key: key, sequence: sequence, separate: separate });
+        // Format 1 didn't record it: 0, "date not recorded".
+        let since = v.get("since").map(fun(n: Value) = n.as_i64().unwrap_or(-1)).unwrap_or(0);
+        if since < 0 {
+            return Err(Unreadable.Broken("an entry's first use isn't a time"));
+        }
+        ids.push(Identity {
+            host: host,
+            key: key,
+            sequence: sequence,
+            separate: separate,
+            since: since,
+        });
     }
     Ok(ids)
 }
@@ -248,11 +264,14 @@ fun aside<T>(s: Store, name: string, why: string): Recalled<T> = match set_aside
 /** A file's map: `{format, kind: "rapidkoi KIND", FIELD: value}`. */
 fun file(kind: string, field: string, value: Value): u8[] = encode(
     Value.Map([
-        entry("format", Value.int(FORMAT)),
+        entry("format", Value.int(newest(kind))),
         entry("kind", Value.Text("rapidkoi {kind}")),
         entry(field, value),
     ]),
 );
+
+/** The newest format of a kind of file, the one this Rapidkoi writes. */
+fun newest(kind: string): i64 = if kind == "trust" { TRUST_FORMAT } else { FORMAT };
 
 /** The decoded map, after its format and kind are checked. */
 fun root(bytes: u8[], kind: string, depth: i64, items: i64, size: i64): Result<Value, Unreadable> {
@@ -262,11 +281,12 @@ fun root(bytes: u8[], kind: string, depth: i64, items: i64, size: i64): Result<V
         return Err(Unreadable.Broken("not CBOR (not a map)"));
     }
     let format = v.get("format").map(fun(n: Value) = n.as_i64().unwrap_or(-1)).unwrap_or(-1);
-    if format > FORMAT {
-        return Err(Unreadable.Newer(format));
-    }
-    if format != FORMAT || text(v, "kind") != Some("rapidkoi {kind}") {
+    // The kind first: another kind of file is broken here, whatever its format.
+    if format < 1 || text(v, "kind") != Some("rapidkoi {kind}") {
         return Err(Unreadable.Broken("it isn't Rapidkoi's {kind} file"));
+    }
+    if format > newest(kind) {
+        return Err(Unreadable.Newer(format));
     }
     Ok(v)
 }

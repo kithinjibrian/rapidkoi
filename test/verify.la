@@ -25,6 +25,7 @@ import rapidkoi.signing { write_signed, read_any };
 import rapidkoi.keys { SecretKey, hex };
 import rapidkoi.bundle { Bundle, Manifest };
 import std.crypto { ed25519_keypair, sha256 };
+import std.time;
 
 const HOST: string = "localhost:8000";
 const SITE: string = "/.well-known/rapidkoi";
@@ -284,7 +285,15 @@ fun a_keyring_goes_out_and_back_in() {
     let k = key(HOST);
     verify_site(ring, HOST, getter(fresh(k, "1.0.0"))).unwrap();
     let ids = identities(ring);
-    assert_eq(ids, [Identity { host: HOST, key: k.public_key, sequence: 1, separate: false }]);
+    assert_eq(ids, [
+        Identity {
+            host: HOST,
+            key: k.public_key,
+            sequence: 1,
+            separate: false,
+            since: ids[0].since,
+        },
+    ]);
     // A keyring made from them trusts the same key: a swapped one asks.
     let again = keyring_of(ids);
     assert_eq(why(again, fresh(k, "1.0.0")), "ok");
@@ -363,4 +372,23 @@ fun a_snapshot_is_checked_like_the_keyring() {
     let (_, r) = check_site(known_for(ring, HOST), HOST, getter(s)).unwrap();
     record(ring, r);
     assert_eq(moves(ring), [(HOST, old.public_key, new.public_key)]);
+}
+
+@test
+fun first_use_dates_the_trust_and_later_changes_keep_it() {
+    let ring = keyring();
+    let before = time.now_ms();
+    let old = key(HOST);
+    let s = fresh(old, "1.0.0");
+    verify_site(ring, HOST, getter(s)).unwrap();
+    let since = identities(ring)[0].since;
+    assert_eq(since >= before && since <= time.now_ms(), true);
+    // A higher sequence, then a rotation: the same date.
+    publish_to(s, old, old, "1.1.0", 2, []);
+    verify_site(ring, HOST, getter(s)).unwrap();
+    let new = key(HOST);
+    publish_to(s, new, new, "1.2.0", 3, [rotate(old, new.public_key).unwrap()]);
+    verify_site(ring, HOST, getter(s)).unwrap();
+    let after = identities(ring);
+    assert_eq((after.len, after[0].key, after[0].since), (1, new.public_key, since));
 }

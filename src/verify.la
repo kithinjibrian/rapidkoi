@@ -9,10 +9,11 @@
  * Trust is host → key and the highest sequence seen, kept in a `Keyring`
  * the window holds; `saving` keeps it on disk across restarts (PRP-007).
  *
- * Depends on: std.crypto, index, signing, keys, rules
+ * Depends on: std.crypto, std.time, index, signing, keys, rules
  * Used by: loader, tabs, frame, panel
  */
 import std.crypto { sha256, equal };
+import std.time;
 import index { Version, IndexError, read_index, read_key_file, follow, reason as index_reason };
 import signing { Opened, Signed, read_any };
 import keys { fingerprint, hex };
@@ -93,6 +94,8 @@ public struct Identity {
     public sequence: i64,
     /** Whether it's a second publisher for the host, opened as a separate app. */
     public separate: bool,
+    /** When it was first trusted, in milliseconds since 1970; 0 when not recorded (format 1). */
+    public since: i64,
 }
 
 /** The keys trusted this session, shared by every copy (it's a box). */
@@ -282,7 +285,14 @@ public fun check_site(
     // Everything passed: what to remember is the key and how far the sequence got.
     let r = Record {
         from: from,
-        now: Identity { host: host, key: key, sequence: ix.sequence, separate: separate },
+        // A rotation or a higher sequence keeps the first use's date.
+        now: Identity {
+            host: host,
+            key: key,
+            sequence: ix.sequence,
+            separate: separate,
+            since: from.map(fun(k: Identity) = k.since).unwrap_or(time.now_ms()),
+        },
     };
     Ok(
         (
@@ -311,7 +321,13 @@ public fun check_site(
 public fun separate(ring: Keyring, c: Change) {
     ring.known.update(fun(all: Identity[]) {
         let mut next = all;
-        next.push(Identity { host: c.host, key: c.new, sequence: 0, separate: true });
+        next.push(Identity {
+            host: c.host,
+            key: c.new,
+            sequence: 0,
+            separate: true,
+            since: time.now_ms(),
+        });
         next
     });
     ring.count.update(fun(n: i64) = n + 1);
