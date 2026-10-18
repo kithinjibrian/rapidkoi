@@ -9,9 +9,27 @@
  * Used by: render, theme, shell
  */
 import cbor { Value, Entry, Limits, decode, encode };
-import limits { MAX_VIEW, MAX_UPDATE, MAX_NODES, MAX_NODE_DEPTH, MAX_STRING, MAX_STATE };
+import limits {
+    MAX_VIEW,
+    MAX_UPDATE,
+    MAX_NODES,
+    MAX_NODE_DEPTH,
+    MAX_STRING,
+    MAX_STATE,
+    MAX_EFFECTS,
+    MAX_CHALLENGE,
+};
 import props { text, optional_text, maybe_text, text_style, button_look, space };
-public import nodes { TextStyle, ButtonLook, Space, Node, Described, ContractError };
+public import nodes {
+    TextStyle,
+    ButtonLook,
+    Space,
+    Node,
+    Described,
+    ContractError,
+    Effect,
+    Update,
+};
 
 /**
  * Decodes a screen description into a tree and its title.
@@ -93,6 +111,73 @@ public fun read_update(bytes: u8[]): Result<u8[], ContractError> {
         None => Err(nodes.invalid("update", "\"effects\" is missing")),
     }
 }
+
+/**
+ * Reads a contract v2 `init` or `update` result: the state and what it
+ * asks for, checked (at most `MAX_EFFECTS`; `identity` and `sign` only; a
+ * challenge of 1 to `MAX_CHALLENGE` bytes; every one with a `msg`).
+ *
+ * Example:
+ *     read_update_v2(bytes)?
+ */
+public fun read_update_v2(bytes: u8[]): Result<Update, ContractError> {
+    let state = read_update(bytes)?;
+    let bounds = Limits {
+        max_depth: 32,
+        max_items: 10_000,
+        max_bytes: MAX_UPDATE,
+        max_string: MAX_STATE,
+    };
+    let value = decode(bytes, bounds).map_err(ContractError.Decode)?;
+    let items = match value.get("effects") {
+        Some(Array(xs)) => xs,
+        _ => [],
+    };
+    if items.len > MAX_EFFECTS {
+        return Err(nodes.invalid("update", "at most 8 effects at once"));
+    }
+    let mut effects: Effect[] = [];
+    for e of items {
+        let msg = e.get("msg").ok_or(nodes.invalid("update", "an effect needs a msg"))?;
+        let kind = e.get("kind").map(fun(k: Value) = k.as_text().unwrap_or("")).unwrap_or("");
+        if kind == "identity" {
+            effects.push(Effect.Identity(msg));
+        } else if kind == "sign" {
+            match e.get("challenge") {
+                Some(Bytes(c)) if c.len >= 1 && c.len <= MAX_CHALLENGE => effects.push(
+                    Effect.Sign(msg, c),
+                ),
+                _ => {
+                    return Err(
+                        nodes.invalid(
+                            "update",
+                            "a sign effect needs a challenge of 1 to 1024 bytes",
+                        ),
+                    );
+                }
+            }
+        } else {
+            return Err(nodes.invalid("update", "unknown effect \"{kind}\""));
+        }
+    }
+    Ok(Update { state: state, effects: effects })
+}
+
+/**
+ * Encodes Rapidkoi's answer to an effect, sent to the guest's `update`
+ * like an event: `{msg, value}`, the value bytes (a key, a signature) or
+ * null (not signed in).
+ *
+ * Example:
+ *     answer(msg, Some(public_key))
+ */
+public fun answer(msg: Value, value: Option<u8[]>): u8[] = encode(Value.Map([Entry {
+    key: Value.Text("msg"),
+    value: msg,
+}, Entry { key: Value.Text("value"), value: match value {
+    Some(b) => Value.Bytes(b),
+    None => Value.Null,
+} }]));
 
 /**
  * Encodes the event envelope sent to the guest's `update`.

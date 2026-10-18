@@ -78,3 +78,9 @@ public const MAX_BANNER_WIDTH: i64 = 2048;
 
 /** The largest banner, in pixels: height. */
 public const MAX_BANNER_HEIGHT: i64 = 1024;
+
+/** The most effects one `init` or `update` may ask for (contract v2, PRP-011). */
+public const MAX_EFFECTS: i64 = 8;
+
+/** The longest sign-in challenge an app may ask Rapidkoi to sign, in bytes. */
+public const MAX_CHALLENGE: i64 = 1024;

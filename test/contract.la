@@ -9,9 +9,12 @@ import rapidkoi.contract {
     Described,
     read_tree,
     read_update,
+    read_update_v2,
+    answer,
+    Effect,
     envelope,
 };
-import cbor { Value, encode, decode, Limits };
+import cbor { Value, Entry, encode, decode, Limits };
 import support { t, kv, leaf, parent, wide, deep };
 
 fun tree(v: Value): Result<Node, ContractError> = read_tree(encode(v)).map(
@@ -270,4 +273,83 @@ fun a_title_must_be_text_and_only_counts_on_the_root() {
         encode(parent("column", [], [leaf("text", [("text", t("a")), ("title", t("ignored"))])])),
     );
     assert_eq(nested.map(fun(d: Described) = d.title), Ok(None));
+}
+
+// Contract v2 (PRP-011): what an app may ask for in its result's effects.
+
+fun v2(effects: Value[]): u8[] = encode(
+    Value.Map([
+        Entry { key: t("state"), value: Value.Bytes([1]) },
+        Entry { key: t("effects"), value: Value.Array(effects) },
+    ]),
+);
+
+fun ask(kind: string, extra: (string, Value)[]): Value {
+    let mut fields = [("kind", t(kind)), ("msg", t("got"))];
+    for e of extra {
+        fields.push(e);
+    }
+    kv(fields)
+}
+
+fun v2_why(bytes: u8[]): string = match read_update_v2(bytes) {
+    Err(Invalid(_, problem)) => problem,
+    Err(e) => "{e}",
+    Ok(_) => "ok",
+};
+
+@test
+fun v2_effects_decode() {
+    let u = read_update_v2(
+        v2([ask("identity", []), ask("sign", [("challenge", Value.Bytes([7, 7]))])]),
+    ).unwrap();
+    assert_eq(u.state, [1]);
+    assert_eq(u.effects, [Effect.Identity(t("got")), Effect.Sign(t("got"), [7, 7])]);
+    assert_eq(read_update_v2(v2([])).unwrap().effects, []);
+}
+
+@test
+fun v2_effects_are_checked() {
+    assert_eq(v2_why(v2([ask("email", [])])).contains("unknown effect \"email\""), true);
+    assert_eq(v2_why(v2([ask("sign", [])])).contains("a challenge of 1 to 1024 bytes"), true);
+    assert_eq(
+        v2_why(v2([ask("sign", [("challenge", Value.Bytes([]))])])).contains(
+            "a challenge of 1 to 1024 bytes",
+        ),
+        true,
+    );
+    assert_eq(
+        v2_why(v2([ask("sign", [("challenge", Value.Bytes([0; 1025]))])])).contains(
+            "a challenge of 1 to 1024 bytes",
+        ),
+        true,
+    );
+    let mut nine: Value[] = [];
+    for _ in 0..9 {
+        nine.push(ask("identity", []));
+    }
+    assert_eq(v2_why(v2(nine)).contains("at most 8 effects"), true);
+    assert_eq(v2_why(v2([kv([("kind", t("identity"))])])).contains("needs a msg"), true);
+}
+
+@test
+fun an_answer_carries_bytes_or_null() {
+    assert_eq(
+        answer(t("got"), Some([1, 2])),
+        encode(
+            Value.Map([
+                Entry { key: t("msg"), value: t("got") },
+                Entry { key: t("value"), value: Value.Bytes([1, 2]) },
+            ]),
+        ),
+    );
+    assert_eq(
+        answer(t("got"), None),
+        encode(
+            Value.Map([
+                Entry { key: t("msg"), value: t("got") },
+                Entry { key: t("value"), value: Value.Null },
+            ]),
+        ),
+    );
 }
