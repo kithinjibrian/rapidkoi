@@ -1421,6 +1421,12 @@ CLAUDE.md (rule 3 exception, tree, known issues), CHANGELOG.md
 
 ---
 
+## SESSION 37 — 2026-10-18 — PRP-007 amendment 1: where you left off includes the open app — open
+
+Branch: prp-007-remembering
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-007 is built on `prp-007-remembering`, not merged. Wait for the owner's security review and on-screen checks; fix what they find, run the full suite, merge. Next: the tabs PRP (restore open tabs on launch), then background loading (kivuli 0.6, DECISION-021).
