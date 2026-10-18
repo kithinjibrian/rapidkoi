@@ -979,6 +979,38 @@ src/navigate.la (new), src/window.la, src/shell.la, test/loader.la, CLAUDE.md (t
 
 ---
 
+## SESSION 25 — 2026-10-18 — File size limit to 500 lines — closed
+
+Branch: file-size-500 → merged into main
+
+### WHAT WAS DONE
+
+The owner raised the file size limit from 300 to 500 lines. Changed in CLAUDE.md (FILE SIZE RULE) and PRPs/TEMPLATE.md. Older PRPs keep their "300" as written: they were approved under it.
+
+### FILES CREATED OR MODIFIED
+
+```
+CLAUDE.md, PRPs/TEMPLATE.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- The limit is 500 lines per file, tests included.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Nothing new.
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 24 on a new branch. PRP-004 (local development) is on `main`. Next, at the owner's choice:

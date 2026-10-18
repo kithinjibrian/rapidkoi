@@ -59,7 +59,7 @@ If this feature needs to be abandoned mid-implementation:
 - [ ] `lughac build src/main.la -o main` succeeds
 - [ ] `lughac fmt --check src test` is clean
 - [ ] Every `public` item has a `/** … */` doc comment
-- [ ] No file over 300 lines
+- [ ] No file over 500 lines
 - [ ] CHANGELOG.md updated
 
 ## VALIDATION

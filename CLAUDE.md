@@ -138,7 +138,7 @@ Never make an architectural choice silently.
 
 ## FILE SIZE RULE
 
-No file exceeds 300 lines, tests included.
+No file exceeds 500 lines, tests included (raised from 300 by the owner, session 25).
 
 When a file reaches the limit: stop, propose a specific split (new file names and what moves where), wait for approval, split, then continue.
 
