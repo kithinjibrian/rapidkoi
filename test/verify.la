@@ -15,6 +15,9 @@ import rapidkoi.verify {
     keyring_of,
     changes,
     moves,
+    check_site,
+    record,
+    known_for,
     reason,
 };
 import rapidkoi.index { Index, KeyFile, Rotation, sign_index, add, withdraw, key_file, rotate };
@@ -324,5 +327,40 @@ fun a_rotation_is_recorded_as_a_move() {
     let new = key(HOST);
     publish_to(s, new, new, "1.1.0", 2, [rotate(old, new.public_key).unwrap()]);
     verify_site(ring, HOST, getter(s)).unwrap();
+    assert_eq(moves(ring), [(HOST, old.public_key, new.public_key)]);
+}
+
+@test
+fun checking_over_a_snapshot_records_nothing_until_told() {
+    let ring = keyring();
+    let k = key(HOST);
+    let s = fresh(k, "1.0.0");
+    let (v, r) = check_site(known_for(ring, HOST), HOST, getter(s)).unwrap();
+    assert_eq(v.trust.key, k.public_key);
+    // Nothing recorded yet: the keyring is as it was.
+    assert_eq((identities(ring).len, changes(ring)), (0, 0));
+    record(ring, r);
+    assert_eq((identities(ring).len, changes(ring)), (1, 1));
+    // A snapshot taken before is stale now: it still says first use.
+    assert_eq(known_for(ring, HOST).len, 1);
+    assert_eq(known_for(ring, "localhost:9").len, 0);
+}
+
+@test
+fun a_snapshot_is_checked_like_the_keyring() {
+    let ring = keyring();
+    let old = key(HOST);
+    verify_site(ring, HOST, getter(fresh(old, "1.0.0"))).unwrap();
+    // A swapped key over a snapshot: the same unapproved change.
+    match check_site(known_for(ring, HOST), HOST, getter(fresh(key(HOST), "1.0.0"))) {
+        Err(Unapproved(_)) => {}
+        _ => panic("expected an unapproved change"),
+    }
+    // A rotation over a snapshot, recorded: the move is recorded too.
+    let s = fresh(old, "1.0.0");
+    let new = key(HOST);
+    publish_to(s, new, new, "1.1.0", 2, [rotate(old, new.public_key).unwrap()]);
+    let (_, r) = check_site(known_for(ring, HOST), HOST, getter(s)).unwrap();
+    record(ring, r);
     assert_eq(moves(ring), [(HOST, old.public_key, new.public_key)]);
 }
