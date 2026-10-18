@@ -4,7 +4,7 @@
 // path. Writes only under test/tmp/.
 import rapidkoi.shell { Model, start, update, view };
 import rapidkoi.window { with_network };
-import rapidkoi.fetching { Network };
+import rapidkoi.dialing { Network };
 import rapidkoi.actions { Msg };
 import rapidkoi.store { store_at };
 import rapidkoi.remembered { read_trust };
@@ -71,7 +71,7 @@ fun a_tls_site_opens_verified_and_its_first_use_is_saved() {
     let before = time.now_ms();
     let (home, _) = start(["./main"], Some(s));
     let m = go(
-        with_network(home, Network { ca_file: Some("{TLS}/ca.pem") }),
+        with_network(home, Network { ca_file: Some("{TLS}/ca.pem"), hosts: [] }),
         "https://localhost:18791",
     );
     assert_eq(

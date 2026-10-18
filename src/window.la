@@ -10,7 +10,7 @@
 import wasmtime { Engine };
 import verify { Keyring, keyring };
 import store { Store };
-import fetching { Network };
+import dialing { Network };
 import people { People, nobody };
 import identity { Master };
 import actions { Msg, PanelPage, Confirm };
@@ -95,7 +95,7 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         theme: DARK,
         now: 0,
         loads: 0,
-        network: Network { ca_file: None },
+        network: Network { ca_file: None, hosts: [] },
         people: nobody(),
         master: None,
     }
@@ -107,7 +107,7 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
  * system's roots alone (PRP-009).
  *
  * Example:
- *     with_network(m, Network { ca_file: Some("test/fixtures/tls/ca.pem") })
+ *     with_network(m, Network { ca_file: Some("test/fixtures/tls/ca.pem"), hosts: [] })
  */
 public fun with_network(m: Model, net: Network): Model = Model { network: net, ..m };
 

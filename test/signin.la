@@ -5,7 +5,7 @@
 // under test/tmp/.
 import rapidkoi.requests { send };
 import rapidkoi.network { Request, Reply };
-import rapidkoi.fetching { Network };
+import rapidkoi.dialing { Network };
 import rapidkoi.identity { master, public_key, sign_in, sign_in_message };
 import rapidkoi.store { Store, store_at };
 import cbor { Value, Entry, Limits, decode, encode };
@@ -75,7 +75,7 @@ fun server(r: Incoming, issued: Ref<u8[][]>): Response {
     http.text(404, "")
 }
 
-fun plain(): Network = Network { ca_file: None };
+fun plain(): Network = Network { ca_file: None, hosts: [] };
 
 fun challenge(): u8[] = match send(
     Request { method: "GET", url: "http://{HOST}/rapidkoi/challenge", headers: [], body: [] },

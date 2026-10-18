@@ -5,7 +5,7 @@
 // Writes only under test/tmp/.
 import rapidkoi.requests { send, arrive };
 import rapidkoi.network { Request, Reply };
-import rapidkoi.fetching { Network };
+import rapidkoi.dialing { Network };
 import rapidkoi.shell { Model, with_pages, update };
 import rapidkoi.effects { answer_all };
 import rapidkoi.tabs { AppPage, open_module, state_of };
@@ -50,7 +50,7 @@ fun req(method: string, url: string): Request = Request {
     body: [],
 };
 
-fun plain(): Network = Network { ca_file: None };
+fun plain(): Network = Network { ca_file: None, hosts: [] };
 
 fun failed(r: Reply): string = match r {
     Failed(why) => why,
@@ -117,7 +117,7 @@ fun slow_large_and_absent_servers_are_sentences() {
 fun https_is_checked_against_the_trusted_roots() {
     spawn http.serve_tls("127.0.0.1:18904", "{TLS}/localhost.pem", "{TLS}/localhost.key", serving);
     sleep(150);
-    let trusting = Network { ca_file: Some("{TLS}/ca.pem") };
+    let trusting = Network { ca_file: Some("{TLS}/ca.pem"), hosts: [] };
     match send(req("GET", "https://localhost:18904/echo"), trusting, 5000, 1000) {
         Got(status, _, _) => assert_eq(status, 200),
         Failed(why) => panic(why),
@@ -244,4 +244,13 @@ fun a_switched_off_server_is_refused_for_that_app() {
     };
     let (m, _) = answer_all(off);
     assert_eq(error(m), "You turned off notes.acme.com for notes");
+}
+
+@test
+fun a_fetch_to_a_name_pointing_here_is_refused() {
+    let net = Network { ca_file: None, hosts: [("api.test", ["192.168.1.1"])] };
+    assert_eq(
+        failed(send(req("GET", "https://api.test/notes"), net, 5000, 1000)),
+        "api.test points to this computer or your local network, so Rapidkoi won't connect to it",
+    );
 }

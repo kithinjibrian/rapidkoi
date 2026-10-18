@@ -1,0 +1,146 @@
+// Connecting to a named server (PRP-013): looked up by Rapidkoi, every
+// address checked, then connected to one of exactly those addresses. Live
+// sockets on local ports; names are pointed where a test wants through the
+// test-only `Network.hosts`.
+import rapidkoi.dialing { Network, Dialed, dial, lookup, send_to, try_each };
+import rapidkoi.network { reason };
+import rapidkoi.address { parse };
+import std.http { Request, Response, Limits };
+import std.task { sleep };
+
+const TLS: string = "test/fixtures/tls";
+
+fun bounds(): Limits = Limits { body: 1024, timeout_ms: 3000, ..http.limits() };
+
+fun pointing(name: string, addresses: string[]): Network = Network {
+    ca_file: None,
+    hosts: [(name, addresses)],
+};
+
+/** What a dial refused with, as the app would read it; or what came back. */
+fun outcome(r: Result<Response, Dialed>): string = match r {
+    Ok(got) => "got {got.status}",
+    Err(Refused(e)) => reason(e, "Notes"),
+    Err(Failed(why)) => "failed: {why}",
+};
+
+@test
+fun a_lookup_uses_the_test_names_else_the_system() {
+    assert_eq(lookup("api.test", pointing("api.test", ["93.184.215.14"])), Ok(["93.184.215.14"]));
+    let system = lookup("localhost", Network { ca_file: None, hosts: [] }).unwrap();
+    assert_eq(system.any(fun(a: string) = a == "127.0.0.1" || a == "::1"), true);
+}
+
+@test
+fun a_name_pointing_here_is_refused_and_nothing_is_sent() {
+    let hits: Ref<i64> = Ref.new(0);
+    spawn http.serve("127.0.0.1:18941", fun(_: Request) {
+        hits.update(fun(n: i64) = n + 1);
+        http.text(200, "should never be reached")
+    });
+    sleep(100);
+    let at = parse("https://api.test:18941").unwrap();
+    let go = fun(net: Network) = outcome(
+        dial(at, "GET", "https://api.test:18941/", #{}, [], bounds(), net),
+    );
+    assert_eq(
+        go(pointing("api.test", ["127.0.0.1"])),
+        "api.test:18941 points to this computer or your local network, so Rapidkoi won't connect to it",
+    );
+    assert_eq(
+        go(pointing("api.test", ["93.184.215.14", "10.0.0.1"])),
+        "api.test:18941 points to this computer or your local network, so Rapidkoi won't connect to it",
+    );
+    assert_eq(
+        go(pointing("api.test", ["::ffff:127.0.0.1"])),
+        "api.test:18941 points to this computer or your local network, so Rapidkoi won't connect to it",
+    );
+    assert_eq(go(pointing("api.test", [])), "api.test:18941 has no address");
+    assert_eq(hits.get(), 0);
+}
+
+@test
+fun a_failed_lookup_is_a_sentence() {
+    let at = parse("https://nothing.invalid").unwrap();
+    let r = outcome(
+        dial(at, "GET", "https://nothing.invalid/", #{}, [], bounds(), Network {
+            ca_file: None,
+            hosts: [],
+        }),
+    );
+    assert_eq(r.starts_with("Couldn't look up nothing.invalid: "), true);
+}
+
+@test
+fun the_connection_goes_to_the_checked_address_with_the_name_verified() {
+    spawn http.serve_tls(
+        "127.0.0.1:18942",
+        "{TLS}/localhost.pem",
+        "{TLS}/localhost.key",
+        fun(r: Request) = http.text(200, r.header("host").unwrap_or("")),
+    );
+    sleep(150);
+    let net = Network { ca_file: Some("{TLS}/ca.pem"), hosts: [] };
+    match send_to("127.0.0.1", "GET", "https://localhost:18942/", #{}, [], bounds(), net) {
+        Ok(got) => assert_eq((got.status, got.text().unwrap()), (200, "localhost:18942")),
+        Err(why) => panic(why),
+    }
+    // Pinned to the same place under another name: the certificate doesn't name it.
+    let wrong = send_to("127.0.0.1", "GET", "https://wrong.example:18942/", #{}, [], bounds(), net);
+    assert_eq(wrong.map_err(fun(w: string) = w.contains("certificate verify failed")), Err(true));
+}
+
+@test
+fun addresses_are_tried_in_order_within_one_deadline() {
+    let tried: Ref<string[]> = Ref.new([]);
+    let note = fun(a: string) = tried.update(fun(xs: string[]) {
+        let mut more = xs;
+        more.push(a);
+        more
+    });
+    let refused_first = fun(a: string, _: i64): Result<Response, string> {
+        note(a);
+        if a == "1.1.1.1" { Err("Connection refused") } else { Ok(http.text(200, a)) }
+    };
+    let got = try_each(["1.1.1.1", "8.8.8.8"], 3000, refused_first).map(
+        fun(r: Response) = r.text().unwrap(),
+    );
+    assert_eq((got, tried.get()), (Ok("8.8.8.8"), ["1.1.1.1", "8.8.8.8"]));
+    // A certificate that fails is the server's answer: not tried elsewhere.
+    tried.set([]);
+    let bad_cert = fun(a: string, _: i64): Result<Response, string> {
+        note(a);
+        Err("certificate verify failed: hostname mismatch")
+    };
+    assert_eq(try_each(["1.1.1.1", "8.8.8.8"], 3000, bad_cert).is_err(), true);
+    assert_eq(tried.get(), ["1.1.1.1"]);
+    // No time left: nothing is tried.
+    tried.set([]);
+    assert_eq(
+        try_each(["1.1.1.1"], 0, refused_first).map_err(fun(w: string) = w),
+        Err("timed out"),
+    );
+    assert_eq(tried.get().len, 0);
+}
+
+@test
+fun development_addresses_are_never_looked_up() {
+    spawn http.serve("127.0.0.1:18943", fun(_: Request) = http.text(200, "dev"));
+    sleep(100);
+    let at = parse("rapidkoi://localhost:18943").unwrap();
+    // A test name for localhost would be refused if it were looked up: it isn't.
+    assert_eq(
+        outcome(
+            dial(
+                at,
+                "GET",
+                "http://localhost:18943/",
+                #{},
+                [],
+                bounds(),
+                pointing("localhost", ["10.0.0.1"]),
+            ),
+        ),
+        "got 200",
+    );
+}

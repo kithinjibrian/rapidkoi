@@ -210,7 +210,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Why:** No prompts, and nothing an app can reach that its publisher didn't sign. Detail: `docs/source/meetings/2026-10-19-network.md`.
 
-**Rules out:** Sockets, WebSockets (later), raw IPs, ambient credentials, a remote app reaching this computer. A name resolving to a private address is guarded only by the certificate check (DECISION-026).
+**Rules out:** Sockets, WebSockets (later), raw IPs, ambient credentials, a remote app reaching this computer. Since PRP-013 (DECISION-026), Rapidkoi looks every name up itself, for fetches and for opening apps: a name with any address on this computer or the local network is refused whole, and connections go only to the addresses it checked.
 
 ---
 

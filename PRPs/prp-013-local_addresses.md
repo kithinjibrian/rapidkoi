@@ -67,10 +67,10 @@ Designed in chat, session 66: `docs/source/meetings/2026-10-19-local-addresses.m
 - Development addresses are unaffected, and only apps from this computer reach them (PRP-012).
 
 ## TESTS TO WRITE
-- [ ] **network** (pure): `local_address` at each range's edges (172.15.255.255 public, 172.16.0.0 and 172.31.255.255 local, 172.32.0.0 public; 100.63.255.255 / 100.64.0.0 / 100.127.255.255 / 100.128.0.0; 169.254.169.254; 0.0.0.0; 255.255.255.255; 224.0.0.1; 240.0.0.1), IPv6 (::1, ::, fe80::1, fc00::1, fd12::1, ff02::1, 2001:db8::1, 2606:4700::1 public), mapped (`::ffff:10.0.0.1`, `::ffff:8.8.8.8`, `64:ff9b::7f00:1`), garbage refused; `check_addresses`: all public, mixed, none.
-- [ ] **requests:** with `Network.hosts`, a name pointing at 127.0.0.1 and one at [93.184.215.14, 10.0.0.1] are refused with the sentence, and the local test server receives nothing; the pinned connect: the TLS fixture on 127.0.0.1 reached as `localhost` through the pin option succeeds, and as `wrong.example` fails its certificate.
-- [ ] **fetching:** opening `rapidkoi://x.example` with `hosts` pointing at 192.168.1.1 is refused before any request.
-- [ ] **dialing:** the first address that refuses connection falls through to the next; one deadline across attempts.
+- [x] **network** (pure): `local_address` at each range's edges (172.15.255.255 public, 172.16.0.0 and 172.31.255.255 local, 172.32.0.0 public; 100.63.255.255 / 100.64.0.0 / 100.127.255.255 / 100.128.0.0; 169.254.169.254; 0.0.0.0; 255.255.255.255; 224.0.0.1; 240.0.0.1), IPv6 (::1, ::, fe80::1, fc00::1, fd12::1, ff02::1, 2001:db8::1, 2606:4700::1 public), mapped (`::ffff:10.0.0.1`, `::ffff:8.8.8.8`, `64:ff9b::7f00:1`), garbage refused; `check_addresses`: all public, mixed, none.
+- [x] **requests:** with `Network.hosts`, a name pointing at 127.0.0.1 and one at [93.184.215.14, 10.0.0.1] are refused with the sentence, and the local test server receives nothing; the pinned connect: the TLS fixture on 127.0.0.1 reached as `localhost` through the pin option succeeds, and as `wrong.example` fails its certificate.
+- [x] **fetching:** opening `rapidkoi://x.example` with `hosts` pointing at 192.168.1.1 is refused before any request.
+- [x] **dialing:** the first address that refuses connection falls through to the next; one deadline across attempts.
 
 ## ROLLBACK PLAN
 - Branch `prp-013-local_addresses`, from main once `lughac` has the std addition.

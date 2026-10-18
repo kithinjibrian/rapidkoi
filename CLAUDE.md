@@ -277,7 +277,7 @@ public fun load_settings(path: string): Settings { … }
 │                        project.la (rapidkoi.toml), publish.la (the `keygen` and `publish` commands, pack from rapidkoi.toml), verify.la (opening a signed site: every check, the keyring),
 │                        store.la (the data folder: safe writes, bounded reads, set aside), remembered.la (the trust, pins and left-off files), states.la (each signed app's state, by host and key),
 │                        identity.la (the master secret, per-app keys, sign-ins), people.la (sign-in settings and your name), effects.la (answering what apps ask for), account.la (the Account page), placeholders.la (pure: {FIRST_NAME}),
-│                        network.la (pure: which requests an app may make), requests.la (apps' requests: sent in tasks, answered on arrival), access.la (the Access page: servers, switches, the notice),
+│                        network.la (pure: which requests an app may make), requests.la (apps' requests: sent in tasks, answered on arrival), dialing.la (looking a name up, refusing local addresses, connecting to exactly the checked ones; Network), access.la (the Access page: servers, switches, the notice),
 │                        running.la (a guest's init and opened events, messages, answers and view), saving.la (restore at start, save on every change), fetching.la (a background load's work: fetch and check against a snapshot), loads.la (begin a load, take its result),
 │                        pack.la (the `./main pack` command), serve.la (the `./main serve` development server: a bundle or a site), address.la (pure: local development addresses),
 │                        tabs.la (Page, Tab, Pin; an app page's life: open, events, restart, resume), leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), actions.la (the shell's Msg),
@@ -327,5 +327,5 @@ Update this tree when modules are added.
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
   - Search is in memory only. Open tabs aren't restored on launch yet (the next PRP). Unsigned apps' state lasts only for the session (PRP-007 amendment 2).
   - Back, forward, share, settings and more are shown disabled.
-  - Notifications and Data are placeholder pages until notifications and app data exist. A declared server name that resolves to this computer or the local network is guarded only by the certificate check (DECISION-026).
+  - Notifications and Data are placeholder pages until notifications and app data exist.
   - Remote apps open by host name over HTTPS only, signed only, with no redirects followed (PRP-009); plain http and unsigned bundles are for this machine's development servers. Loads run in the background (PRP-008), but a DNS lookup, a TLS handshake and compiling a module still briefly hold the window (kivuli's note). Reload is manual; there's no live reload yet.
