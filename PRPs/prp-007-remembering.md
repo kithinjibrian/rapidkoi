@@ -199,3 +199,19 @@ A failure at any step leaves the old file as it was, and `update` shows a notice
   1. `./main`: pin an app, open `rapidkoi://localhost:8000` (served signed), and leave an app mid-count.
   2. Quit and run `./main` again: the pin is there, Continue resumes the count, and the site opens ✓.
   3. Then write junk into `~/.local/share/rapidkoi/pins` and start again: the notice shows, and `pins.broken` is there.
+
+## AMENDMENT 1 — 2026-10-18 (session 37, the owner after trying it: "go with A")
+
+**What happened:** the owner quit with the counter open in its tab, mid-count. The pin survived but the state didn't. `left-off` was only saved when an app left its tab (closed, or replaced), and quitting leaves nothing: kivuli has no quit hook.
+
+**Change:** what's remembered as "where you left off" is what home's card means: the app you used last.
+- That's the current tab's app, else the last visited tab if it's still open, else the last app closed.
+- It's saved whenever it changes, its state included, so quitting at any moment keeps it.
+- After a restart, Continue reopens it with that state, as before.
+
+**Cost, accepted:** a small save after each event in that app (the counter's state is a few bytes). Coalescing saves for apps with large states is a later refinement if it's ever noticeable.
+
+**Tests added:**
+- quitting with the app open keeps its state (the counter: Add twice, start again, Continue shows Count: 2)
+- the app used last is the one remembered, across two tabs
+- Forget still removes it
