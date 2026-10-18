@@ -1494,12 +1494,38 @@ CLAUDE.md (rule 3, tree, known issues), CHANGELOG.md
 
 ---
 
-## SESSION 39 — 2026-10-18 — Merge PRP-007 — open
+## SESSION 39 — 2026-10-18 — Merge PRP-007 — closed
 
 Branch: prp-007-remembering
+
+### WHAT WAS DONE
+
+The owner: "merge prp-007 then start background loading" (taken as the security review done). Full suite 211/211, fmt clean, build ok, no file over 500 lines (tabs.la 481). Merged prp-007-remembering into main. Also, at the owner's request (outside the repo): a static HTTPS site for the counter at counter.dafifi.net on the owner's VM (/opt/rapidkoi, nginx behind Traefik), published from ~/rapidkoi-sites/counter.dafifi.net with its own key.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md, lugha.lock (lughac's)
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The dots beside Reset (screenshot 17): not diagnosed; compare old builds when the owner wants.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-007 (amendments 1 and 2) is built on `prp-007-remembering`, not merged. First: the owner's UI regression (ask for a screenshot). Then the security review, on-screen checks, full suite, merge. Next: the tabs PRP (start by splitting src/tabs.la, 481 lines), then background loading (DECISION-021).
+PRP-007 is merged. Next: design background loading (DECISION-021, kivuli 0.6's Cmd.task) in chat, one question at a time, then write PRP-008. After it: remote apps over HTTPS (first target: rapidkoi://counter.dafifi.net on the owner's VM), and the tabs PRP (split src/tabs.la first).
