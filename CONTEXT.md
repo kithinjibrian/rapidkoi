@@ -1345,6 +1345,12 @@ CLAUDE.md (commands, tree), docs/DESIGN.md (markers and pages), CHANGELOG.md
 
 ---
 
+## SESSION 35 — 2026-10-18 — Keys at 0600, and designing PRP-007: remembering — open
+
+Branch: prp-007-remembering
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-006 is merged to main. Next: PRP-007 (remembering trust, pins and left-off on disk; needs std.fs.rename and set_mode from Lugha), or another milestone the owner picks. Open the session on a new branch.
