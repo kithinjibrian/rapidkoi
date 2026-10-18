@@ -1097,6 +1097,12 @@ docs/DESIGN.md, CLAUDE.md, DECISIONS.md (020 item 0: clickable rows), CHANGELOG.
 
 ---
 
+## SESSION 28 — 2026-10-18 — Text aligned left; the panel on the page colour — open
+
+Branch: align-left
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 28 on a new branch. PRP-005 (the info panel and bar) is on `main`. Next, at the owner's choice:
