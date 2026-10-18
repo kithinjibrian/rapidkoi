@@ -86,11 +86,9 @@ fun failures_are_plain() {
         gone.map_err(fun(e: string) = e.starts_with("Couldn't reach rapidkoi://localhost:18739")),
         Err(true),
     );
-    match load(Engine.new(), keyring(), "rapidkoi://example.com:80") {
-        Err(r) => assert_eq(
-            why(r),
-            "Only local development addresses (localhost) can be opened yet",
-        ),
+    // Refused before any connection: remote apps are HTTPS only.
+    match load(Engine.new(), keyring(), "http://example.com/a.rkb") {
+        Err(r) => assert_eq(why(r), "Remote apps open over HTTPS only: rapidkoi://example.com"),
         Ok(_) => panic("expected a refusal"),
     }
 }

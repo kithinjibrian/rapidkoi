@@ -134,11 +134,8 @@ fun closing_tabs_picks_a_neighbour_then_home() {
 @test
 fun the_address_box() {
     let (m, _) = start(["./main"], None);
-    let typed = step(m, type_into(view(m), "address", "rapidkoi://notes.acme.com").unwrap());
-    assert_eq(
-        step(typed, Msg.Go).notice,
-        Some("Only local development addresses (localhost) can be opened yet"),
-    );
+    let typed = step(m, type_into(view(m), "address", "rapidkoi://10.0.0.7").unwrap());
+    assert_eq(step(typed, Msg.Go).notice, Some("Open apps by their host name, not an IP address"));
     assert_eq(
         step(step(m, Msg.Draft("no/such/app.wasm")), Msg.Go).notice,
         Some("No app or file called “no/such/app.wasm”"),
