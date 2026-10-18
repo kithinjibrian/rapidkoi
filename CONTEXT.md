@@ -1555,7 +1555,13 @@ PRPs/prp-008-background_loading.md — for approval
 
 ### STILL OPEN AT CLOSE
 
-- PRP-008 awaits approval (and with it, the tabs.la split).
+- PRP-008 approved ("approved"), with the tabs.la split.
+
+---
+
+## SESSION 41 — 2026-10-18 — Build PRP-008: background loading — open
+
+Branch: prp-008-background_loading
 
 ---
 
