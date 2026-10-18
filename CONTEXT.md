@@ -2161,12 +2161,42 @@ src/identity.la, src/saving.la, test/account.la
 
 ---
 
-## SESSION 59 — 2026-10-18 — PRP-011 amendment 1: one entry point, events for everything — open
+## SESSION 59 — 2026-10-18 — PRP-011 amendment 1: one entry point, events for everything — closed
 
 Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+With the owner: a resumed app never asked again (init was its only place); the owner asked for one entry point taking events ("why don't we just have event and then pass things like on_load, on_init, on_click etc"), the name `handle` (also in the Rust library: "the user will split if they want on their own"), and allowed breaking changes ("nothing has shipped"). Contract 2 now: exports `rapidkoi_version`, `alloc`, `handle(state, event)`, `view`; events `init` (fresh, empty state), `opened` (every open), `message`, `answer`; any result's effects answered. v1 removed (guest only speaks 2; manifests must say 2; the contract setting in pack and rapidkoi.toml removed again; placeholders always filled). running.la: fresh = init then opened, resumed = opened; resumed pages keep their asks (the bug). The Rust library: `App::handle(self, Event)` and `view`, a non-exhaustive `Event`, `Default` state for init. The counter asks on every Opened. Fixtures rebuilt (they tell init and opened apart by their 12- and 14-byte encodings).
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-011-identity.md — amendment 1
+src/guest.la, src/contract.la, src/running.la, src/tabs.la, src/loader.la, src/shell.la, src/limits.la, src/project.la, src/pack.la, src/publish.la
+guest/rust/rapidkoi, guest/rust/counter
+test/support.la (fixed, echo, echo_opening, crashing), test/guest.la, test/contract.la, test/effects.la, test/tabs.la, test/project.la, test/pack.la; manifests in tests to contract 2
+docs/source/meetings/2026-10-17-ui-contract.md (contract 2), MEMORY.md, DECISIONS.md, CLAUDE.md, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 276 Lugha pass (new: events_say_what_happened; a resumed app asks again when opened; version 1 and 3 refused); Rust: library 7, counter 3 (it asks on every open).
+
+### DECISIONS MADE
+
+- One entry point `handle`, in the contract and the Rust library (the owner). v1 removed (the owner). `Event` is non-exhaustive (closing and others later).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's security review and on-screen checks of PRP-011.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-011 is built on `prp-011-identity`, not merged. Wait for the owner's security review (identity.la, effects.la, people.la, contract v2) and on-screen checks (rebuild the counter, publish, open: "You are User xxxx"; set a name; Start over). Then full suite (Lugha and cargo), merge. Links (the vision's step 2) still aren't built.
+PRP-011 (amendment 1: contract 2, one `handle` entry point) is built on `prp-011-identity`, not merged. Wait for the owner's security review and on-screen checks (rebuild the counter — done in session 59 — republish with `./main publish`, open, close and reopen Rapidkoi: still signed in). Then full suite (Lugha and cargo) and merge.

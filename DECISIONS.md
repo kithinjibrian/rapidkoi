@@ -186,7 +186,7 @@ Rules:
 
 ## RESOLVED
 
-### DECISION-025 — UI contract v2: effects and name placeholders
+### DECISION-025 — UI contract 2: one entry point, effects and name placeholders
 
 **Status:** resolved
 **Raised:** 2026-10-18 — Session 55 (designing identity)
@@ -194,7 +194,7 @@ Rules:
 
 **Question:** How does an app ask Rapidkoi for things (its key, a sign-in signature), and show the person's name without learning it, without host functions?
 
-**Outcome:** Contract v2: `init` returns `{state, effects}`; the `identity` and `sign` effects, answered through `update` as `{msg, value}`; `{FIRST_NAME}`/`{LAST_NAME}` filled while drawing. v1 stays. Detail: the v2 appendix of `docs/source/meetings/2026-10-17-ui-contract.md`.
+**Outcome:** Contract 2, replacing v1 (amendment 1: the owner, "you can do breaking changes nothing has shipped"): one export `handle(state, event)` for every event (`init`, `opened`, `message`, `answer`) and `view`; the `identity` and `sign` effects from any result, answered as answer events; `{FIRST_NAME}`/`{LAST_NAME}` filled while drawing. Detail: the contract 2 appendix of `docs/source/meetings/2026-10-17-ui-contract.md`.
 
 **Copied to MEMORY.md:** yes (decisions 10 and 17)
 

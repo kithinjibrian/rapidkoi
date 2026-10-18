@@ -262,16 +262,15 @@ fun card(v: View<Msg>): View<Msg> = scroll(v.padding(SPACE_LG)).style([Look.Page
 fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
     let now = m.now;
     let shown = match a.screen {
-        // A v2 app's {FIRST_NAME} and {LAST_NAME} are filled while drawing:
-        // the app can show your name, never know it (PRP-011).
-        Running(g, _, d) if g.version >= 2 => {
+        // {FIRST_NAME} and {LAST_NAME} are filled while drawing: the app
+        // can show your name, never know it (PRP-011).
+        Running(_, _, d) => {
             let (first, last) = match a.trust {
                 Some(t) => name_in(m.people, t.host, t.origin),
                 None => (m.people.first, m.people.last),
             };
             screen(fill(d.root, first, last))
         }
-        Running(_, _, d) => screen(d.root),
         Stopped(why, can_restart) => stopped(why, can_restart),
         Refused(why) => refused(why),
         Loading(p) => loading(a.name, if now > p.started { now - p.started } else { 0 }),

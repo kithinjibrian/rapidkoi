@@ -105,7 +105,7 @@ Read this at the start of every session before writing any code.
 
 **Rules out:** Pixel or colour props; the shell interpreting app messages; guest-held state; failing a whole screen over an unknown kind; changing v1 without bumping the version.
 
-**v2 (PRP-011, 2026-10-18):** `init` returns `{state, effects}`; effects `identity` and `sign` (answered as `{msg, value}`, bytes or null); `{FIRST_NAME}`/`{LAST_NAME}` filled in display text while drawing. v1 still spoken.
+**Contract 2 (PRP-011, 2026-10-18), replacing v1:** one entry point, `handle(state, event)`, for every event (`init`, `opened`, `message`, `answer`; more later), plus `view`. Any result can carry effects (`identity`, `sign`). `{FIRST_NAME}`/`{LAST_NAME}` are filled in display text while drawing.
 
 ---
 

@@ -24,8 +24,6 @@ public struct Project {
     public host: Option<string>,
     /** [app] state_version, default 1. */
     public state_version: i64,
-    /** [app] contract: the UI contract the module speaks, 1 or 2 (the default, PRP-011). */
-    public contract: i64,
     /** [app] module: the .wasm. */
     public module: string,
     /** [app] icon, if any. */
@@ -111,7 +109,6 @@ public fun parse_project(
         "description",
         "host",
         "state_version",
-        "contract",
         "module",
         "icon",
     ])?;
@@ -125,13 +122,8 @@ public fun parse_project(
         Some(k) => Some(expand(k, home, "publish", "key")?),
         None => None,
     };
-    let contract = whole(app, "app", "contract")?.unwrap_or(2);
-    if contract < 1 || contract > 2 {
-        return Err(ProjectError.Wrong("app", "contract", "1 or 2"));
-    }
     Ok(Project {
         dir: dir,
-        contract: contract,
         name: required(app, "app", "name")?,
         version: required(app, "app", "version")?,
         description: words(app, "app", "description")?,

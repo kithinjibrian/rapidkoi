@@ -9,9 +9,10 @@ import rapidkoi.contract {
     Described,
     read_tree,
     read_update,
-    read_update_v2,
+    lifecycle,
     answer,
     Effect,
+    Update,
     envelope,
 };
 import cbor { Value, Entry, encode, decode, Limits };
@@ -221,7 +222,7 @@ fun string_and_size_limits() {
 @test
 fun an_update_result_gives_its_state() {
     let ok = encode(kv([("state", Value.Bytes([1, 2, 3])), ("effects", Value.Array([]))]));
-    assert_eq(read_update(ok), Ok([1, 2, 3]));
+    assert_eq(read_update(ok).map(fun(u: Update) = u.state), Ok([1, 2, 3]));
 }
 
 @test
@@ -248,10 +249,10 @@ fun bad_update_results_are_contract_errors() {
 fun envelopes_carry_the_message_and_value() {
     let msg = kv([("delete", Value.int(41))]);
     let decoded = fun(bytes: u8[]): Value = decode(bytes, Limits.default()).unwrap();
-    assert_eq(decoded(envelope(msg, None)), kv([("msg", msg)]));
+    assert_eq(decoded(envelope(msg, None)), kv([("event", t("message")), ("msg", msg)]));
     assert_eq(
         decoded(envelope(t("name"), Some("Amina K"))),
-        kv([("msg", t("name")), ("value", t("Amina K"))]),
+        kv([("event", t("message")), ("msg", t("name")), ("value", t("Amina K"))]),
     );
 }
 
@@ -292,7 +293,7 @@ fun ask(kind: string, extra: (string, Value)[]): Value {
     kv(fields)
 }
 
-fun v2_why(bytes: u8[]): string = match read_update_v2(bytes) {
+fun v2_why(bytes: u8[]): string = match read_update(bytes) {
     Err(Invalid(_, problem)) => problem,
     Err(e) => "{e}",
     Ok(_) => "ok",
@@ -300,12 +301,12 @@ fun v2_why(bytes: u8[]): string = match read_update_v2(bytes) {
 
 @test
 fun v2_effects_decode() {
-    let u = read_update_v2(
+    let u = read_update(
         v2([ask("identity", []), ask("sign", [("challenge", Value.Bytes([7, 7]))])]),
     ).unwrap();
     assert_eq(u.state, [1]);
     assert_eq(u.effects, [Effect.Identity(t("got")), Effect.Sign(t("got"), [7, 7])]);
-    assert_eq(read_update_v2(v2([])).unwrap().effects, []);
+    assert_eq(read_update(v2([])).unwrap().effects, []);
 }
 
 @test
@@ -338,6 +339,7 @@ fun an_answer_carries_bytes_or_null() {
         answer(t("got"), Some([1, 2])),
         encode(
             Value.Map([
+                Entry { key: t("event"), value: t("answer") },
                 Entry { key: t("msg"), value: t("got") },
                 Entry { key: t("value"), value: Value.Bytes([1, 2]) },
             ]),
@@ -347,9 +349,21 @@ fun an_answer_carries_bytes_or_null() {
         answer(t("got"), None),
         encode(
             Value.Map([
+                Entry { key: t("event"), value: t("answer") },
                 Entry { key: t("msg"), value: t("got") },
                 Entry { key: t("value"), value: Value.Null },
             ]),
         ),
+    );
+}
+
+@test
+fun events_say_what_happened() {
+    assert_eq(lifecycle("init"), encode(kv([("event", t("init"))])));
+    assert_eq(lifecycle("opened"), encode(kv([("event", t("opened"))])));
+    assert_eq(envelope(t("add"), None), encode(kv([("event", t("message")), ("msg", t("add"))])));
+    assert_eq(
+        envelope(t("name"), Some("Amina")),
+        encode(kv([("event", t("message")), ("msg", t("name")), ("value", t("Amina"))])),
     );
 }

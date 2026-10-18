@@ -105,18 +105,3 @@ fun huge_files_are_refused() {
     let big: u8[] = [35; 70000];
     assert_eq(why(string_from_utf8(big).unwrap()).starts_with("rapidkoi.toml: "), true);
 }
-
-@test
-fun the_contract_defaults_to_2_and_can_be_1() {
-    assert_eq(ok("[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m.wasm\"\n").contract, 2);
-    assert_eq(
-        ok(
-            "[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m.wasm\"\ncontract = 1\n",
-        ).contract,
-        1,
-    );
-    assert_eq(
-        why("[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m.wasm\"\ncontract = 3\n"),
-        "rapidkoi.toml: [app] contract must be 1 or 2",
-    );
-}

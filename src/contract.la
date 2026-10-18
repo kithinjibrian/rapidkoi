@@ -69,18 +69,8 @@ public fun read_tree(bytes: u8[]): Result<Described, ContractError> {
     Ok(Described { root: root, title: title })
 }
 
-/**
- * Reads the state out of what the guest's `update` returned.
- *
- * @param bytes the encoded `{ "state": bytes, "effects": [] }`
- * @returns the new state; `Err(TooLong)`, `Err(Decode)`, or `Err(Invalid)`
- *     when it isn't a map holding byte-string `state` and array `effects`
- *     (effects are reserved and ignored in v1)
- *
- * Example:
- *     read_update(bytes)?
- */
-public fun read_update(bytes: u8[]): Result<u8[], ContractError> {
+/** The state out of a `handle` result, checking its shape: a map with byte-string `state` and array `effects`. */
+fun read_state(bytes: u8[]): Result<u8[], ContractError> {
     if bytes.len > MAX_UPDATE {
         return Err(ContractError.TooLong("the update result", bytes.len));
     }
@@ -113,15 +103,17 @@ public fun read_update(bytes: u8[]): Result<u8[], ContractError> {
 }
 
 /**
- * Reads a contract v2 `init` or `update` result: the state and what it
- * asks for, checked (at most `MAX_EFFECTS`; `identity` and `sign` only; a
+ * Reads what the guest's `handle` returned: the state and what it asks
+ * for, checked (at most `MAX_EFFECTS`; `identity` and `sign` only; a
  * challenge of 1 to `MAX_CHALLENGE` bytes; every one with a `msg`).
  *
+ * @returns the update; `Err(TooLong)`, `Err(Decode)`, or `Err(Invalid)`
+ *
  * Example:
- *     read_update_v2(bytes)?
+ *     read_update(bytes)?
  */
-public fun read_update_v2(bytes: u8[]): Result<Update, ContractError> {
-    let state = read_update(bytes)?;
+public fun read_update(bytes: u8[]): Result<Update, ContractError> {
+    let state = read_state(bytes)?;
     let bounds = Limits {
         max_depth: 32,
         max_items: 10_000,
@@ -164,33 +156,50 @@ public fun read_update_v2(bytes: u8[]): Result<Update, ContractError> {
 }
 
 /**
- * Encodes Rapidkoi's answer to an effect, sent to the guest's `update`
- * like an event: `{msg, value}`, the value bytes (a key, a signature) or
- * null (not signed in).
+ * Encodes Rapidkoi's answer to an effect, sent to the guest's `handle`:
+ * `{event: "answer", msg, value}`, the value bytes (a key, a signature)
+ * or null (not signed in, an unsigned app).
  *
  * Example:
  *     answer(msg, Some(public_key))
  */
 public fun answer(msg: Value, value: Option<u8[]>): u8[] = encode(Value.Map([Entry {
-    key: Value.Text("msg"),
-    value: msg,
-}, Entry { key: Value.Text("value"), value: match value {
+    key: Value.Text("event"),
+    value: Value.Text("answer"),
+}, Entry { key: Value.Text("msg"), value: msg }, Entry { key: Value.Text(
+    "value",
+), value: match value {
     Some(b) => Value.Bytes(b),
     None => Value.Null,
 } }]));
 
 /**
- * Encodes the event envelope sent to the guest's `update`.
+ * Encodes one of the app's own moments, sent to `handle`: `{event:
+ * "init"}` (make a first state) or `{event: "opened"}` (every open).
+ *
+ * Example:
+ *     lifecycle("opened")
+ */
+public fun lifecycle(name: string): u8[] = encode(
+    Value.Map([Entry { key: Value.Text("event"), value: Value.Text(name) }]),
+);
+
+/**
+ * Encodes a message event sent to the guest's `handle`: a node's message
+ * (a click, typing).
  *
  * @param msg the message the node carried, exactly as decoded
  * @param value the event's data: an input's new text, or `None`
- * @returns the CBOR bytes of `{ "msg": msg }` or `{ "msg": msg, "value": text }`
+ * @returns the CBOR of `{event: "message", msg}` or `{event: "message", msg, value: text}`
  *
  * Example:
  *     envelope(msg, Some("Amina"))
  */
 public fun envelope(msg: Value, value: Option<string>): u8[] {
-    let mut entries = [Entry { key: Value.Text("msg"), value: msg }];
+    let mut entries = [
+        Entry { key: Value.Text("event"), value: Value.Text("message") },
+        Entry { key: Value.Text("msg"), value: msg },
+    ];
     if let Some(text) = value {
         entries.push(Entry { key: Value.Text("value"), value: Value.Text(text) });
     }

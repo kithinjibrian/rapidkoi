@@ -5,7 +5,7 @@
 import rapidkoi.shell { Model, with_pages, view };
 import rapidkoi.effects { answer_all };
 import rapidkoi.saving { restore };
-import rapidkoi.tabs { AppPage, open_module, state_of };
+import rapidkoi.tabs { AppPage, open_module, state_of, with_saved };
 import rapidkoi.verify { Trust, Standing };
 import rapidkoi.identity { master, public_key, sign_in_message };
 import rapidkoi.people { People, Person, person, with_person };
@@ -15,7 +15,7 @@ import cbor { Value, Entry, encode, decode, Limits };
 import std.crypto { ed25519_verify };
 import std.fs;
 import wasmtime { Engine, Module };
-import support { echo_v2, t, kv, fixed, counter_tree, result_of };
+import support { echo_v2, echo_opening, t, kv, fixed, counter_tree, result_of };
 import kivuli.testing { texts };
 
 const HOST: string = "notes.acme.com";
@@ -154,34 +154,63 @@ fun signed_out_gets_nothing_and_starting_over_gives_a_new_key() {
     clean(s.dir);
 }
 
-/** A page whose screen says hello by name, speaking `version`. */
-fun greeting(version: i32): AppPage {
+/** A page whose screen says hello by name. */
+fun greeting(): AppPage {
     let engine = Engine.new();
     let tree = counter_tree("Hello, {{FIRST_NAME}} {{LAST_NAME}}!");
-    let init = if version >= 2 { asking([]) } else { [] };
     open_module(
         "hi",
         "hi.wasm",
         engine,
-        Module.from_text(engine, fixed(version, init, tree, result_of([]))).unwrap(),
+        Module.from_text(engine, fixed(2, [], tree, result_of([]))).unwrap(),
     )
 }
 
 @test
-fun a_v2_app_shows_your_name_and_a_v1_app_doesn_t() {
+fun an_app_shows_your_name_without_knowing_it() {
     let engine = Engine.new();
-    let m = with_pages(engine, [greeting(2)]);
+    let m = with_pages(engine, [greeting()]);
     let named = Model { people: People { first: "Brian", last: "Kithinji", apps: [] }, ..m };
     assert_eq(texts(view(named)).any(fun(x: string) = x == "Hello, Brian Kithinji!"), true);
     // No name set: nothing in its place.
     assert_eq(texts(view(m)).any(fun(x: string) = x == "Hello,  !"), true);
-    // v1 trees are never rewritten.
-    let old = Model {
-        people: People { first: "Brian", last: "K", apps: [] },
-        ..with_pages(engine, [greeting(1)]),
-    };
-    assert_eq(
-        texts(view(old)).any(fun(x: string) = x == "Hello, {{FIRST_NAME}} {{LAST_NAME}}!"),
-        true,
+}
+
+@test
+fun a_resumed_app_asks_again_when_opened() {
+    let s = folder("resumed");
+    let ask = encode(
+        Value.Map([
+            Entry { key: t("state"), value: Value.Bytes([]) },
+            Entry {
+                key: t("effects"),
+                value: Value.Array([kv([("kind", t("identity")), ("msg", t("me"))])]),
+            },
+        ]),
     );
+    let engine = Engine.new();
+    let p = AppPage {
+        trust: Some(Trust {
+            host: HOST,
+            key: [3; 32],
+            standing: Standing.Verified,
+            build: [0; 32],
+            separate: false,
+            since: 0,
+            origin: [3; 32],
+        }),
+        ..open_module(
+            "notes",
+            "rapidkoi://notes.acme.com",
+            engine,
+            Module.from_text(engine, echo_opening(ask)).unwrap(),
+        ),
+    };
+    // Resumed from a saved state (no init): opened still runs, so it asks.
+    let (resumed, _) = with_saved(p, [], 1);
+    assert_eq(resumed.asks.len, 1);
+    let m = answer_all(restore(with_pages(engine, [resumed]), s));
+    let pk = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
+    assert_eq(got(m), answer(t("me"), Some(pk)));
+    clean(s.dir);
 }

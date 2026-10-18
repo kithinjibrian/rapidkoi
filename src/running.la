@@ -1,78 +1,82 @@
 /**
  * Running a guest (moved from `tabs.la`, PRP-011): opening it in a fresh
- * store, checking it speaks the contract its bundle declares, `init`,
- * `update` for events and Rapidkoi's answers, reading v1 and v2 results
- * (v2's effects included), and `view`. Calls guests (bounded by fuel);
+ * store, the init event (fresh starts) and the opened event (every open),
+ * messages and Rapidkoi's answers through `handle`, reading each result
+ * (its effects included), and `view`. Calls guests (bounded by fuel);
  * never draws.
  *
  * Depends on: cbor, guest, contract, tabs
  * Used by: tabs
  */
 import guest { Guest, open, reason };
-import contract { Described, ContractError, Effect, read_tree, read_update, read_update_v2 };
+import contract { Described, ContractError, Effect, Update, read_tree, read_update, lifecycle };
 import tabs { Screen, Program };
 
 /**
- * Opens the guest in a fresh store, then `init` (unless resuming `saved`)
- * and `view`. A bundle's module must speak the contract its manifest
- * declares. Returns the screen and what a v2 `init` asked for.
+ * Opens the guest in a fresh store and brings it up: on a fresh start the
+ * init event (from an empty state), then on every open the opened event,
+ * then `view`. Returns the screen and everything both events asked for.
  */
 fun start(p: Program, saved: Option<u8[]>): (Screen, Effect[]) = match open(p.engine, p.module) {
     Err(e) => (Screen.Stopped(reason(e), true), []),
     Ok(g) => {
-        if p.contract != 0 && g.version != p.contract {
-            g.close();
-            return (
-                Screen.Stopped(
-                    "This app's bundle says it speaks contract {p.contract}, but its module speaks {g.version}",
-                    false,
-                ),
-                [],
-            );
-        }
-        match saved {
-            Some(state) => (show(g, state), []),
-            None => match g.init() {
-                Err(e) => (halt(g, reason(e)), []),
-                Ok(bytes) => after(g, bytes, "init result"),
+        let (state, first) = match saved {
+            Some(state) => (state, []),
+            None => match settle(g, [], lifecycle("init"), "init") {
+                Ok(u) => (u.state, u.effects),
+                Err(why) => {
+                    return (Screen.Stopped(why, true), []);
+                }
             },
-        }
-    }
-};
-
-/** Sends one event (or answer) to the guest's `update`, then renders the new state. */
-fun step(g: Guest, state: u8[], event: u8[]): (Screen, Effect[]) = match g.update(state, event) {
-    Err(e) => (halt(g, reason(e)), []),
-    Ok(bytes) => after(g, bytes, "update result"),
-};
-
-/**
- * Reads an `init` or `update` result by the guest's contract (v1: the state
- * alone; v2: the state and its effects), then renders. A stopped screen
- * drops what it asked for.
- */
-fun after(g: Guest, bytes: u8[], what: string): (Screen, Effect[]) {
-    if g.version < 2 {
-        // v1's init returns the state itself; its update a result map.
-        let state: Result<u8[], ContractError> = if what == "init result" {
-            Ok(bytes)
-        } else {
-            read_update(bytes)
         };
-        return match state {
-            Err(e) => (halt(g, broken(what, e)), []),
-            Ok(next) => (show(g, next), []),
-        };
-    }
-    match read_update_v2(bytes) {
-        Err(e) => (halt(g, broken(what, e)), []),
-        Ok(u) => {
-            let screen = show(g, u.state);
-            match screen {
-                Running(_, _, _) => (screen, u.effects),
-                _ => (screen, []),
+        match settle(g, state, lifecycle("opened"), "opened") {
+            Err(why) => (Screen.Stopped(why, true), []),
+            Ok(u) => {
+                let mut asks = first;
+                for e of u.effects {
+                    asks.push(e);
+                }
+                shown(g, u.state, asks)
             }
         }
+    }
+};
+
+/** Sends one event (a message or an answer) to the guest's `handle`, then renders the new state. */
+fun step(g: Guest, state: u8[], event: u8[]): (Screen, Effect[]) = match settle(
+    g,
+    state,
+    event,
+    "update",
+) {
+    Err(why) => (Screen.Stopped(why, true), []),
+    Ok(u) => shown(g, u.state, u.effects),
+};
+
+/** One `handle` call, read; on any failure the guest is closed and the reason kept. */
+fun settle(g: Guest, state: u8[], event: u8[], what: string): Result<Update, string> {
+    let bytes = match g.handle(state, event) {
+        Ok(b) => b,
+        Err(e) => {
+            g.close();
+            return Err(reason(e));
+        }
+    };
+    match read_update(bytes) {
+        Ok(u) => Ok(u),
+        Err(e) => {
+            g.close();
+            Err(broken("{what} result", e))
+        }
+    }
+}
+
+/** Renders a state; a screen that stops drops what was asked for. */
+fun shown(g: Guest, state: u8[], asks: Effect[]): (Screen, Effect[]) {
+    let screen = show(g, state);
+    match screen {
+        Running(_, _, _) => (screen, asks),
+        _ => (screen, []),
     }
 }
 

@@ -16,7 +16,7 @@ import support { png, fixed, titled_tree, result_of };
 
 fun counter(): AppPage {
     let engine = Engine.new();
-    let wat = fixed(1, [1], titled_tree("Count: 0", "Counter"), result_of([2]));
+    let wat = fixed(2, [1], titled_tree("Count: 0", "Counter"), result_of([2]));
     open_module("counter", "apps/counter.wasm", engine, Module.from_text(engine, wat).unwrap())
 }
 

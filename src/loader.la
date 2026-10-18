@@ -24,7 +24,7 @@ import verify {
 };
 import fetching { Fetched, Network, fetch_app };
 import address { Address, is_address, parse, url, shown };
-import limits { MAX_BUNDLE, FETCH_TIMEOUT_MS, NEWEST_CONTRACT };
+import limits { MAX_BUNDLE, FETCH_TIMEOUT_MS, CONTRACT_VERSION };
 import std.http { Limits };
 
 /** An app ready to start: what to call it, its manifest if it has one, and its compiled module. */
@@ -173,7 +173,7 @@ fun from_opened(
 ): Result<Loaded, Refusal> {
     let b = o.bundle;
     let m = b.manifest;
-    if m.contract < 1 || m.contract > NEWEST_CONTRACT as i64 {
+    if m.contract != CONTRACT_VERSION as i64 {
         return Err(Refusal.Failed(m.name, "This app needs a newer version of Rapidkoi"));
     }
     let module = compile(engine, b.module).map_err(fun(e) = Refusal.Failed(m.name, reason(e)))?;

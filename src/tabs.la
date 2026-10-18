@@ -14,16 +14,7 @@ import bundle { Manifest };
 import loader { Loaded, Refusal, load, why };
 import address;
 import verify { Trust, Change, Keyring };
-import contract {
-    Described,
-    ContractError,
-    Effect,
-    read_tree,
-    read_update,
-    read_update_v2,
-    envelope,
-    answer,
-};
+import contract { Described, ContractError, Effect, read_tree, envelope, answer };
 import render { Msg };
 import leftoff { LeftOff };
 import running { start, step };
@@ -61,8 +52,6 @@ public struct Pending {
 public struct Program {
     engine: Engine,
     module: Module,
-    /** The contract its bundle declares (0: no bundle, a bare module): the module must speak it. */
-    contract: i32,
 }
 
 /** One app in a tab. */
@@ -193,11 +182,7 @@ public fun from_loaded(engine: Engine, l: Loaded, path: string): AppPage = AppPa
     manifest: l.manifest,
     icon: l.icon,
     trust: l.trust,
-    ..open_program(l.name, path, Program {
-        engine: engine,
-        module: l.module,
-        contract: contract_of(l.manifest),
-    }),
+    ..open_program(l.name, path, Program { engine: engine, module: l.module }),
 };
 
 /**
@@ -217,7 +202,7 @@ public fun open_module(
     path: string,
     engine: Engine,
     module: Module,
-): AppPage = open_program(name, path, Program { engine: engine, module: module, contract: 0 });
+): AppPage = open_program(name, path, Program { engine: engine, module: module });
 
 /** A page running `program`, fresh, with whatever its `init` asked for. */
 fun open_program(name: string, path: string, program: Program): AppPage {
@@ -235,11 +220,6 @@ fun open_program(name: string, path: string, program: Program): AppPage {
         screen: screen,
     })
 }
-
-/** The contract a bundle declares, or 0 for a bare module. */
-fun contract_of(m: Option<Manifest>): i32 = m.map(fun(x: Manifest) = x.contract as i32).unwrap_or(
-    0,
-);
 
 /**
  * Handles a message from the page's own screen.
@@ -310,19 +290,22 @@ public fun close_page(p: AppPage) {
  *     resume(left)
  */
 public fun resume(l: LeftOff): AppPage = match l.program {
-    Some(prog) => titled(AppPage {
-        name: l.name,
-        manifest: l.manifest,
-        icon: l.icon,
-        path: l.path,
-        title: l.title,
-        trust: l.trust,
-        program: Some(prog),
-        // Resumed from its state: no init, so nothing asked yet.
-        asks: [],
-        load: 0,
-        screen: start(prog, l.state).0,
-    }),
+    Some(prog) => {
+        // Resumed from its state: no init, but it's opened, so it may ask.
+        let (screen, asks) = start(prog, l.state);
+        titled(AppPage {
+            name: l.name,
+            manifest: l.manifest,
+            icon: l.icon,
+            path: l.path,
+            title: l.title,
+            trust: l.trust,
+            program: Some(prog),
+            asks: asks,
+            load: 0,
+            screen: screen,
+        })
+    }
     None => failed(l.name, l.path, "This app couldn't be reopened"),
 };
 
@@ -339,7 +322,8 @@ public fun resume(l: LeftOff): AppPage = match l.program {
 public fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = match p.program {
     Some(prog) if state_version_of(p) == version => {
         close_page(p);
-        (titled(AppPage { screen: start(prog, Some(state)).0, asks: [], ..p }), false)
+        let (screen, asks) = start(prog, Some(state));
+        (titled(AppPage { screen: screen, asks: asks, ..p }), false)
     }
     Some(_) => (p, true),
     None => (p, false),
@@ -372,28 +356,23 @@ public fun load_again(
             manifest: l.manifest,
             icon: l.icon,
             trust: l.trust,
-            ..open_program(l.name, path, Program {
-                engine: engine,
-                module: l.module,
-                contract: contract_of(l.manifest),
-            }),
+            ..open_program(l.name, path, Program { engine: engine, module: l.module }),
         };
         let now = state_version_of(fresh);
         match saved {
             Some((state, version)) if version == now => {
                 close_page(fresh);
-                let program = Program {
-                    engine: engine,
-                    module: l.module,
-                    contract: contract_of(l.manifest),
-                };
+                let program = Program { engine: engine, module: l.module };
                 (
-                    titled(AppPage {
-                        program: Some(program),
-                        screen: start(program, Some(state)).0,
-                        asks: [],
-                        ..fresh,
-                    }),
+                    {
+                        let (screen, asks) = start(program, Some(state));
+                        titled(AppPage {
+                            program: Some(program),
+                            screen: screen,
+                            asks: asks,
+                            ..fresh,
+                        })
+                    },
                     false,
                 )
             }

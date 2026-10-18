@@ -1,8 +1,7 @@
 /**
  * A running guest app: compiles and opens a module in its own store (fuel
  * and memory limits, no host functions), checks its contract version, and
- * calls `init`, `update` and `view` through contract v1's calling
- * convention. Every pointer and length a guest hands back is checked. Knows
+ * calls `handle` and `view` through the contract's calling convention. Every pointer and length a guest hands back is checked. Knows
  * nothing about what the bytes mean (that is `contract.la`).
  *
  * Depends on: wasmtime, limits
@@ -23,7 +22,6 @@ import wasmtime {
 };
 import limits {
     CONTRACT_VERSION,
-    NEWEST_CONTRACT,
     MAX_MODULE,
     MEMORY_BYTES,
     MAX_STATE,
@@ -85,13 +83,13 @@ public fun compile(engine: Engine, bytes: u8[]): Result<Module, GuestError> {
 }
 
 /**
- * Starts a guest in a fresh store and checks it speaks contract v1.
+ * Starts a guest in a fresh store and checks it speaks this contract (2).
  *
  * @param engine the engine the module was compiled with
  * @param module the compiled module
  * @returns the guest; `Err(Link)`, `Err(Trap)` or `Err(OutOfFuel)` from its
  *     start function, `Err(MissingExport)` for `memory` or
- *     `rapidkoi_version`, `Err(Version)` for a version other than 1 or 2
+ *     `rapidkoi_version`, `Err(Version)` for any version but 2
  *
  * Example:
  *     let g = open(engine, module)?;
@@ -129,7 +127,7 @@ fun start(engine: Engine, store: Store, module: Module): Result<Guest, GuestErro
     };
     let g = Guest { store: store, instance: instance, memory: memory, version: 0 };
     match g.call("rapidkoi_version", [])? {
-        I32(v) if v >= CONTRACT_VERSION && v <= NEWEST_CONTRACT => Ok(Guest { version: v, ..g }),
+        I32(v) if v == CONTRACT_VERSION => Ok(Guest { version: v, ..g }),
         I32(v) => Err(GuestError.Version(v)),
         I64(_) => Err(GuestError.WrongExport("rapidkoi_version")),
     }
@@ -137,37 +135,21 @@ fun start(engine: Engine, store: Store, module: Module): Result<Guest, GuestErro
 
 impl Guest {
     /**
-     * Calls the guest's `init`.
+     * Calls the guest's `handle` with the state and an event: everything
+     * that happens (init, opened, a message, an answer) comes this way.
      *
-     * @returns the first state; any `GuestError` from the call or its result
-     *
-     * Example:
-     *     let state = g.init()?;
-     */
-    public fun init(self): Result<u8[], GuestError> {
-        let r = self.packed("init", [])?;
-        // v2's init returns `{state, effects}`, an update result.
-        if self.version >= 2 {
-            return self.take(r, "the init result", MAX_UPDATE);
-        }
-        self.take(r, "the state", MAX_STATE)
-    }
-
-    /**
-     * Calls the guest's `update` with the state and an event envelope.
-     *
-     * @param state the current state bytes
-     * @param event the encoded envelope (`contract.envelope`)
-     * @returns the update result's bytes, unread; any `GuestError`
+     * @param state the current state bytes (empty for the init event)
+     * @param event the encoded event (`contract.lifecycle`, `envelope`, `answer`)
+     * @returns the result's bytes, unread; any `GuestError`
      *
      * Example:
-     *     let result = g.update(state, envelope(msg, None))?;
+     *     let result = g.handle(state, envelope(msg, None))?;
      */
-    public fun update(self, state: u8[], event: u8[]): Result<u8[], GuestError> {
+    public fun handle(self, state: u8[], event: u8[]): Result<u8[], GuestError> {
         let (sp, sl) = self.give(state)?;
         let (ep, el) = self.give(event)?;
-        let r = self.packed("update", [sp, sl, ep, el])?;
-        self.take(r, "the update result", MAX_UPDATE)
+        let r = self.packed("handle", [sp, sl, ep, el])?;
+        self.take(r, "the result", MAX_UPDATE)
     }
 
     /**

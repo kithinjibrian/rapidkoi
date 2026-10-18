@@ -61,14 +61,23 @@ We first checked that `../lugha-wasmtime` covers everything the shell needs: its
 This is contract v1, the platform's core API (DECISION-012). The step 1 PRP implements it exactly, with nothing more. `lugha-cbor` comes first, because the shell can't read a guest without it (DECISION-013).
 
 
-## Contract v2 (PRP-011, 2026-10-18)
+## Contract 2 (PRP-011, 2026-10-18): one entry point, events for everything
 
-v1 is unchanged and still spoken. A v2 module's `rapidkoi_version()` returns 2, and its bundle's manifest says `contract: 2` (they must match).
+Replaces v1 outright (nothing had shipped). A module's `rapidkoi_version()` returns 2, and a bundle's manifest says `contract: 2`; anything else is refused ("This app needs a newer version of Rapidkoi").
 
-- **`init`** returns `{state, effects}`, like `update`.
-- **Effects** (at most 8 per result; anything else stops the app with a plain reason):
+- **Exports:** `rapidkoi_version`, `alloc`, `handle(state, event) → {state, effects}`, `view(state) → tree`. There's no `init` or `update` export.
+- **Events,** CBOR maps with an `event` field (an app ignores kinds it doesn't know; new ones, like closing, come later as new kinds):
+  - `{event: "init"}`: a fresh start, with an empty state; make the first one
+  - `{event: "opened"}`: every open, right after init on a fresh start, or straight away when resumed from a saved state; the place to ask for things
+  - `{event: "message", msg, value?}`: the app's own messages (a click; typing, with the text as `value`)
+  - `{event: "answer", msg, value}`: Rapidkoi's reply to an effect; `value` is bytes, or null
+- **The order:**
+  - fresh: `handle([], init)`, `handle(state, opened)`, `view`
+  - resumed: `handle(saved, opened)`, `view`
+  - then `handle` and `view` for each message or answer
+- **Effects,** from any event's result (at most 8; anything else stops the app with a plain reason):
   - `{kind: "identity", msg}`: the app's own public key for the person (32 bytes)
   - `{kind: "sign", msg, challenge: bytes 1–1024}`: an Ed25519 signature (64 bytes) over the CBOR `{kind: "rapidkoi sign-in", host, challenge}`, where `host` is the one Rapidkoi verified
-- **Answers** go back through `update(state, {msg, value})`. `value` is the bytes, or `null` when there's nothing to give: an unsigned app, or the person signed out. At most 32 answers in a row, or the app is stopped.
-- **Placeholders:** `{FIRST_NAME}` and `{LAST_NAME}` in text nodes' text and button labels are replaced while drawing, with the name for that app (its own, else the one for every app, else nothing). They're never replaced in text fields or screen titles, and never in anything sent back to the app.
-- Keys: each app's Ed25519 seed is `hkdf_sha256(master, "", CBOR ["rapidkoi identity v1", host, origin, generation], 32)`, where `origin` is the key first trusted for the app (kept through rotations) and `generation` counts "Start over as someone new".
+  - each is answered by an answer event, at most 32 in a row, or the app is stopped
+- **Placeholders:** `{FIRST_NAME}` and `{LAST_NAME}` in text nodes' text and button labels are filled while drawing with the app's name for the person (or nothing). Never in text fields or screen titles, never in anything sent back.
+- **Keys:** each app's Ed25519 seed is `hkdf_sha256(master, "", CBOR ["rapidkoi identity v1", host, origin, generation], 32)`. `origin` is the key first trusted for the app (kept through rotations); `generation` counts "Start over as someone new".
