@@ -2022,12 +2022,39 @@ CONTEXT.md
 
 ---
 
-## SESSION 55 — 2026-10-18 — Design talk: identity — open
+## SESSION 55 — 2026-10-18 — Design talk: identity — closed
 
 Branch: design-identity
+
+### WHAT WAS DONE
+
+Talked identity through with the owner, slowly and with ASCII pictures: per-app key pairs (the public key to the app, the private key kept), host-bound challenges, a new key for a changed owner, only the public key given to apps, name placeholders filled while drawing (the owner's idea), email and phone typed into apps (relays later), no 2FA needed, auto sign-in on by default, recovery through one master secret (later). Lugha added `hkdf_sha256` (m120) at Claude's request. Wrote PRP-011 (keys + placeholders). No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-identity.md
+PRPs/prp-011-identity.md — for approval (security review before merge)
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- Recorded in the meeting notes; contract v2 is decided in PRP-011.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-011 awaits approval. Note: links (the vision's step 2) still aren't built.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-010 is merged. Next: design the tabs PRP (restore open tabs on launch) in chat, then write it. The file dialog waits on kivuli.
+PRP-011 (`PRPs/prp-011-identity.md`) awaits approval. If approved: branch `prp-011-identity` from main, open session 56, build test-first (identity, people, origin, contract v2 effects and placeholders, answers, the Account page, the Rust library and counter). Stop before merge for the owner's security review.
