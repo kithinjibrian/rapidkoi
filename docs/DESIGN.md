@@ -101,6 +101,7 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 - **A pinned tile's menu:** Open, Unpin, separator, Forget this app…. The "where you left off" card's Continue: Open, separator, Forget this app….
 - **Home's pinned tiles** wrap, all one width (`wrap(...).equal()`, `SPACE_MD`).
 - **Panel rows** are one `Subtle` button each (`button_with`): label, spacer, dim summary, ›.
+- **The Access page (PRP-012):** a dim "What Notes can reach", then each server: the own host first ("Its own server" dim beneath), then the declared ones in the manifest's order. On a signed app each is a `checkbox` named by the server (checked = on); an unsigned app's are plain text, with a dim line saying it can only reach this computer. "New" (bold) under a server an update added, until the page is left. The main page's summary: "None", "1 server", "3 servers, 1 off". An update adding servers says once, in the notice line, "Notes can now also reach X, Y".
 
 ## Where an app came from (PRP-006)
 

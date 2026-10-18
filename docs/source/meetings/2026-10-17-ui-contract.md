@@ -81,3 +81,25 @@ Replaces v1 outright (nothing had shipped). A module's `rapidkoi_version()` retu
   - each is answered by an answer event, at most 32 in a row, or the app is stopped
 - **Placeholders:** `{FIRST_NAME}` and `{LAST_NAME}` in text nodes' text and button labels are filled while drawing with the app's name for the person (or nothing). Never in text fields or screen titles, never in anything sent back.
 - **Keys:** each app's Ed25519 seed is `hkdf_sha256(master, "", CBOR ["rapidkoi identity v1", host, origin, generation], 32)`. `origin` is the key first trusted for the app (kept through rotations); `generation` counts "Start over as someone new".
+
+### Contract 2's fetch effect (PRP-012, 2026-10-19)
+
+Added to contract 2 without a version bump (nothing had shipped); an app that never asks for it is unchanged.
+
+- **The effect:** `{kind: "fetch", msg, method, url, headers?: {text: text}, body?: bytes}`.
+  - Its shape is checked when the result is read: method and url are text, the url at most 8192 bytes, at most 64 headers each at most 8192 bytes, and the body is bytes. A wrong shape stops the app, like any bad effect.
+  - Whether it may be sent is checked next (`src/network.la`). A refusal is answered at once and nothing leaves the computer.
+- **What it may reach:**
+  - a signed app: its own host and the manifest's `servers` (signed with it), minus those switched off on the Access page
+  - HTTPS by name only: plain `http://` only to this computer, and only for an app from this computer; never an IP address
+  - an unsigned app: only `localhost` servers it declares, and its own development server
+- **The request:**
+  - GET, POST, PUT, PATCH, DELETE
+  - no `host`, `cookie`, `content-length`, `connection`, `transfer-encoding` or `upgrade` headers; header names are tokens, values have no control characters
+  - a body of at most 1 MB
+- **Sending:** in the background, at most 4 at once per app. No redirects are followed, no cookies are kept, and Rapidkoi adds no credentials. Each request has 30 s, and the response body is at most 8 MB.
+- **The answer:** `{event: "answer", msg, value}`, where `value` is:
+  - `{status, headers: {text: text}, body: bytes}` from the server, any status: a redirect comes back with its `location`; header names are in lower case, and repeated headers are joined with ", "
+  - or `{error: text}`, Rapidkoi's sentence ("api.acme.com isn't one of Notes's servers", "You turned off api.acme.com for Notes", "Too many requests at once; try again", "api.acme.com didn't answer in 30 seconds", …)
+  - a result for a closed tab, or for a page loaded again since, is dropped
+- **Signing in to the app's server:** `docs/server-sign-in.md`.
