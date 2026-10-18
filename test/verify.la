@@ -1,0 +1,271 @@
+// Verifying a signed site, without a network: sites are built in memory
+// with real keys and signatures, and fetched through a fake `get`. Every
+// check has a case that fails it, and trust is recorded only on success.
+import rapidkoi.verify {
+    Standing,
+    Change,
+    Keyring,
+    VerifyError,
+    keyring,
+    verify_site,
+    separate,
+    standing_of,
+    reason,
+};
+import rapidkoi.index { Index, KeyFile, Rotation, sign_index, add, withdraw, key_file, rotate };
+import rapidkoi.signing { write_signed, read_any };
+import rapidkoi.keys { SecretKey, hex };
+import rapidkoi.bundle { Bundle, Manifest };
+import std.crypto { ed25519_keypair, sha256 };
+
+const HOST: string = "localhost:8000";
+const SITE: string = "/.well-known/rapidkoi";
+
+fun key(host: string): SecretKey {
+    let (secret, pk) = ed25519_keypair().unwrap();
+    SecretKey { host: host, secret: secret, public_key: pk }
+}
+
+fun app(version: string): Bundle = Bundle {
+    manifest: Manifest {
+        contract: 1,
+        name: "Notes",
+        version: version,
+        description: None,
+        state_version: 1,
+        icon: None,
+        banners: [],
+    },
+    module: [0, 97, 115, 109, 1, 0, 0, 0],
+    assets: [],
+};
+
+/** A site's files by path. */
+struct Site {
+    files: Ref<(string, u8[])[]>,
+}
+
+fun put(s: Site, path: string, bytes: u8[]) {
+    s.files.update(fun(all: (string, u8[])[]) {
+        let mut next = all.filter(fun(f: (string, u8[])) = f.0 != path);
+        next.push((path, bytes));
+        next
+    });
+}
+
+fun file(s: Site, path: string): u8[] {
+    for f of s.files.get() {
+        if f.0 == path {
+            return f.1;
+        }
+    }
+    panic("no {path}")
+}
+
+/** The fake fetch: 200 with a file's bytes, 404 without one. */
+fun getter(s: Site): fun(string): Result<(i64, u8[]), string> = fun(path: string) {
+    for f of s.files.get() {
+        if f.0 == path {
+            return Ok((200, f.1));
+        }
+    }
+    Ok((404, []))
+};
+
+/**
+ * Publishes `version` signed by `k` (the build signed by `build_key`),
+ * with `sequence`, and `rotations` in the key file.
+ */
+fun publish_to(
+    s: Site,
+    k: SecretKey,
+    build_key: SecretKey,
+    version: string,
+    sequence: i64,
+    rotations: Rotation[],
+): Index {
+    let bytes = write_signed(app(version), build_key).unwrap();
+    let ix = Index {
+        sequence: sequence,
+        ..add(
+            Index { host: HOST, sequence: 0, current: "", versions: [] },
+            version,
+            sha256(bytes),
+            bytes.len,
+        ).unwrap(),
+    };
+    put(s, "{SITE}/builds/{hex(sha256(bytes))}.rkb", bytes);
+    put(s, "{SITE}/index", sign_index(ix, k).unwrap());
+    put(s, "{SITE}/key", key_file(KeyFile { host: HOST, key: k.public_key, rotations: rotations }));
+    ix
+}
+
+fun fresh(k: SecretKey, version: string): Site {
+    let s = Site { files: Ref.new([]) };
+    publish_to(s, k, k, version, 1, []);
+    s
+}
+
+fun why(ring: Keyring, s: Site): string = match verify_site(ring, HOST, getter(s)) {
+    Err(e) => reason(e),
+    Ok(_) => "ok",
+};
+
+@test
+fun a_site_opens_verified() {
+    let k = key(HOST);
+    let ring = keyring();
+    let v = verify_site(ring, HOST, getter(fresh(k, "1.0.0"))).unwrap();
+    assert_eq(v.opened.bundle.manifest.version, "1.0.0");
+    assert_eq(
+        (v.trust.host, v.trust.key, v.trust.standing, v.trust.separate),
+        (HOST, k.public_key, Standing.Verified, false),
+    );
+    // Its key is now trusted for a signed file from the same host.
+    let signed = read_any(write_signed(app("1.0.0"), k).unwrap()).unwrap().signed.unwrap();
+    assert_eq(standing_of(ring, signed).standing, Standing.Trusted);
+    let stranger = read_any(
+        write_signed(app("1.0.0"), key(HOST)).unwrap(),
+    ).unwrap().signed.unwrap();
+    assert_eq(standing_of(ring, stranger).standing, Standing.NotConfirmed);
+}
+
+@test
+fun a_tampered_build_or_index_is_refused() {
+    let k = key(HOST);
+    let s = fresh(k, "1.0.0");
+    let builds = s.files.get().filter(fun(f: (string, u8[])) = f.0.contains("/builds/"));
+    let mut b = builds[0].1;
+    b[b.len - 1] = b[b.len - 1] ^ 1;
+    put(s, builds[0].0, b);
+    assert_eq(why(keyring(), s), "The app's build doesn't match its index's hash");
+    put(s, builds[0].0, [1, 2, 3]);
+    assert_eq(why(keyring(), s), "The app's build isn't the size its index says");
+    let t = fresh(k, "1.0.0");
+    let mut ix = file(t, "{SITE}/index");
+    ix[ix.len - 70] = ix[ix.len - 70] ^ 1;
+    put(t, "{SITE}/index", ix);
+    assert_eq(why(keyring(), t).starts_with("The app's index"), true);
+}
+
+@test
+fun trust_is_only_recorded_when_everything_passes() {
+    let ring = keyring();
+    let s = fresh(key(HOST), "1.0.0");
+    put(s, "{SITE}/index", [0]);
+    assert_eq(why(ring, s) != "ok", true);
+    // The failed key wasn't trusted, so another key is a first use, not a change.
+    assert_eq(why(ring, fresh(key(HOST), "1.0.0")), "ok");
+}
+
+@test
+fun a_swapped_key_without_a_trail_is_an_unapproved_change() {
+    let ring = keyring();
+    let old = key(HOST);
+    verify_site(ring, HOST, getter(fresh(old, "1.0.0"))).unwrap();
+    let new = key(HOST);
+    let s = fresh(new, "1.0.0");
+    match verify_site(ring, HOST, getter(s)) {
+        Err(Unapproved(c)) => {
+            assert_eq((c.host, c.old, c.new), (HOST, old.public_key, new.public_key));
+            assert_eq(
+                reason(VerifyError.Unapproved(c)),
+                "localhost:8000 is now signed by a different key",
+            );
+            // "Open as a separate app": the new key opens, marked separate.
+            separate(ring, c);
+            let v = verify_site(ring, HOST, getter(s)).unwrap();
+            assert_eq(v.trust.separate, true);
+        }
+        _ => panic("expected an unapproved change"),
+    }
+    // The old publisher's site still opens as before.
+    assert_eq(verify_site(ring, HOST, getter(fresh(old, "1.0.0"))).unwrap().trust.separate, false);
+}
+
+@test
+fun a_rotation_signed_by_the_old_key_is_accepted() {
+    let ring = keyring();
+    let old = key(HOST);
+    let s = fresh(old, "1.0.0");
+    verify_site(ring, HOST, getter(s)).unwrap();
+    let new = key(HOST);
+    publish_to(s, new, new, "1.1.0", 2, [rotate(old, new.public_key).unwrap()]);
+    let v = verify_site(ring, HOST, getter(s)).unwrap();
+    assert_eq((v.trust.key, v.trust.separate), (new.public_key, false));
+    // The old key is no longer the one trusted: going back is a change.
+    match verify_site(ring, HOST, getter(fresh(old, "1.0.0"))) {
+        Err(Unapproved(_)) => {}
+        _ => panic("expected an unapproved change"),
+    }
+}
+
+@test
+fun the_index_never_goes_back() {
+    let ring = keyring();
+    let k = key(HOST);
+    let s = Site { files: Ref.new([]) };
+    publish_to(s, k, k, "1.1.0", 5, []);
+    verify_site(ring, HOST, getter(s)).unwrap();
+    publish_to(s, k, k, "1.0.0", 3, []);
+    assert_eq(
+        why(ring, s),
+        "The site sent an older index than one already seen (sequence 3, after 5)",
+    );
+    publish_to(s, k, k, "1.0.0", 5, []);
+    assert_eq(why(ring, s), "ok");
+}
+
+@test
+fun a_withdrawn_current_version_is_refused() {
+    let k = key(HOST);
+    let s = Site { files: Ref.new([]) };
+    let ix = publish_to(s, k, k, "1.0.0", 1, []);
+    put(
+        s,
+        "{SITE}/index",
+        sign_index(withdraw(ix, "1.0.0", "Security fix in 1.0.1").unwrap(), k).unwrap(),
+    );
+    assert_eq(
+        why(keyring(), s),
+        "Version 1.0.0 was withdrawn by its publisher: Security fix in 1.0.1",
+    );
+}
+
+@test
+fun a_build_for_another_host_or_key_is_refused() {
+    let k = key(HOST);
+    let s = Site { files: Ref.new([]) };
+    publish_to(s, k, SecretKey { host: "localhost:9000", ..k }, "1.0.0", 1, []);
+    assert_eq(why(keyring(), s), "The app's build is for localhost:9000, not this site");
+    publish_to(s, k, key(HOST), "1.0.0", 1, []);
+    assert_eq(why(keyring(), s), "The app's build isn't signed by its site's key");
+}
+
+@test
+fun keys_and_files_that_are_missing_or_foreign() {
+    let s = Site { files: Ref.new([]) };
+    match verify_site(keyring(), HOST, getter(s)) {
+        Err(Unsigned) => {}
+        _ => panic("expected an unsigned site"),
+    }
+    let k = key(HOST);
+    let t = fresh(k, "1.0.0");
+    put(
+        t,
+        "{SITE}/key",
+        key_file(KeyFile { host: "localhost:9000", key: k.public_key, rotations: [] }),
+    );
+    assert_eq(why(keyring(), t), "The app's key file is for localhost:9000, not localhost:8000");
+    let u = fresh(k, "1.0.0");
+    put(u, "{SITE}/key", [0]);
+    assert_eq(why(keyring(), u).starts_with("The app's key file can't be read"), true);
+    let failing = fun(_: string): Result<(i64, u8[]), string> = Err("Connection refused");
+    assert_eq(
+        match verify_site(keyring(), HOST, failing) {
+            Err(e) => reason(e),
+            Ok(_) => "ok",
+        },
+        "The app's key file couldn't be fetched (Connection refused)",
+    );
+}
