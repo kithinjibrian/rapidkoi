@@ -14,6 +14,7 @@ import tabs {
     close_page,
     leave,
     resume,
+    compiled,
     load_again,
     state_of,
     state_version_of,
@@ -73,7 +74,18 @@ public fun open_file(m: Model, path: string): Model {
  *     reopen(m)
  */
 public fun reopen(m: Model): Model = match m.left_off {
-    Some(l) => Model { left_off: None, ..add_tab(m, resume(l)) },
+    Some(l) if compiled(l) => Model { left_off: None, ..add_tab(m, resume(l)) },
+    // Remembered from an earlier run: load it again, as Reload does.
+    Some(l) => {
+        let saved = l.state.map(fun(st: u8[]) = (st, l.state_version));
+        let (page, over) = load_again(m.engine, m.ring, l.path, saved);
+        let notice: Option<string> = if over {
+            Some("{page.name}'s saved state changed shape, so it started over")
+        } else {
+            None
+        };
+        Model { left_off: None, notice: notice, ..add_tab(m, page) }
+    }
     None => m,
 };
 

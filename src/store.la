@@ -107,6 +107,23 @@ public fun save(s: Store, name: string, bytes: u8[]): Result<(), StoreError> {
 }
 
 /**
+ * Removes a file, when there's nothing left to remember in it. A missing
+ * file or a skipped one is left as it is.
+ *
+ * Example:
+ *     remove(s, "left-off")?
+ */
+public fun remove(s: Store, name: string): Result<(), StoreError> {
+    let file = "{s.dir}/{name}";
+    if s.skip.any(fun(n: string) = n == name) || !fs.exists(file) {
+        return Ok(());
+    }
+    fs.remove_file(file).map_err(fun(e: string) = StoreError.Io(file, e))?;
+    fs.sync(s.dir).map_err(fun(e: string) = StoreError.Io(s.dir, e))?;
+    Ok(())
+}
+
+/**
  * Reads a file, refusing one over `max` bytes.
  *
  * @returns its bytes; `None` when there's no such file; or why not

@@ -248,6 +248,16 @@ public fun resume(l: LeftOff): AppPage = match l.program {
 };
 
 /**
+ * Says whether a left-off still holds its compiled app (left this
+ * session), so `resume` can start it; one read from disk must be loaded
+ * again.
+ *
+ * Example:
+ *     if compiled(l) { resume(l) } else { … }
+ */
+public fun compiled(l: LeftOff): bool = l.program.is_some();
+
+/**
  * A "where you left off" read back from disk: no compiled program, so
  * Continue loads it again from its path.
  *

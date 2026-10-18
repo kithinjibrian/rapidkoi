@@ -9,6 +9,7 @@ import rapidkoi.store {
     load,
     set_aside,
     skipping,
+    remove,
     reason,
 };
 import std.fs;
@@ -104,5 +105,21 @@ fun a_skipped_file_is_never_written() {
     let held = skipping(s, "trust");
     assert_eq(save(held, "trust", [2]), Ok(()));
     assert_eq(load(held, "trust", 10), Ok(Some([1])));
+    done(s);
+}
+
+@test
+fun removing_a_file_and_a_missing_one() {
+    let s = fresh("remove");
+    save(s, "left-off", [1]).unwrap();
+    assert_eq(remove(s, "left-off"), Ok(()));
+    assert_eq(load(s, "left-off", 10), Ok(None));
+    // Already gone, or the folder never made: nothing to do.
+    assert_eq(remove(s, "left-off"), Ok(()));
+    assert_eq(remove(store_at("test/tmp/store-never"), "pins"), Ok(()));
+    // A skipped file stays.
+    save(s, "pins", [2]).unwrap();
+    assert_eq(remove(skipping(s, "pins"), "pins"), Ok(()));
+    assert_eq(load(s, "pins", 10), Ok(Some([2])));
     done(s);
 }

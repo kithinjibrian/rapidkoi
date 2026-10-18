@@ -1384,12 +1384,43 @@ CLAUDE.md (keygen command), CHANGELOG.md
 
 ---
 
-## SESSION 36 — 2026-10-18 — Build PRP-007: remembering — open
+## SESSION 36 — 2026-10-18 — Build PRP-007: remembering — closed
 
 Branch: prp-007-remembering
+
+### WHAT WAS DONE
+
+Built PRP-007 test-first. `store.la`: the data folder (XDG, then HOME), safe writes (0600 temp file, sync, rename, folder sync; the folder 0700), capped reads, set aside as `.broken`, skipping a newer file's name, remove. `remembered.la`: the trust, pins and left-off formats (format 1, a kind each), read as hostile input with every field checked; `recall` gives Fresh / Read / Broken (set aside) / Newer / Failed. `verify.la`: public `Identity`, `identities`, `keyring_of`, and a change count that moves only when trust is recorded. `tabs.la`: `recalled` and `compiled`; `navigate.reopen` loads a remembered left-off again from its path, with its state. `saving.la`: `restore` at start (notices joined), `persist` after every message (only what changed). `shell.la`: `boot` uses the real folder; `start(argv, store)` for tests; `update` saves after each message.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/store.la, src/remembered.la, src/saving.la — new
+src/verify.la, src/tabs.la, src/navigate.la, src/window.la, src/shell.la
+test/store.la, test/remembered.la, test/saving.la — new; test/verify.la (+2); test/shell.la, test/counter.la (start(…, None))
+CLAUDE.md (rule 3 exception, tree, known issues), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 197 pass: store 8, remembered 6, verify +2, saving 9 (restarts over live sockets: trust, a swap asks, separate stays separate; a known site writes nothing, checked with a read-only folder and a mutation of the no-change rule; pins and left-off; the counter resumes Count: 1; Forget keeps trust; broken and newer notices; a failed save; no store). The test run never touched ~/.local/share/rapidkoi.
+
+### DECISIONS MADE
+
+- The left-off file also keeps the app's icon (not in the PRP's field list), so home's card shows it after a restart.
+- A file that can't even be read (Failed: e.g. permissions) is never written this session either, like a newer one: nothing unread is overwritten.
+- Tests reach the window through `start(argv, None)`; only `boot` (main) uses the person's folder.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- **The owner's security review before merge** (the trust store), and the on-screen checks in the PRP's VALIDATION.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-007 (`PRPs/prp-007-remembering.md`) awaits the owner's approval, on branch `prp-007-remembering`. If approved, open session 36 there and build it test-first: store.la, remembered.la, the keyring's entries and change count, LeftOff reopening from disk, then boot and saving in shell. Stop before merge for the owner's security review (the trust store).
+PRP-007 is built on `prp-007-remembering`, not merged. Wait for the owner's security review and on-screen checks; fix what they find, run the full suite, merge. Next: the tabs PRP (restore open tabs on launch), then background loading (kivuli 0.6, DECISION-021).

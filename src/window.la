@@ -4,11 +4,12 @@
  * pins, "where you left off" and the theme. Opening files and addresses is
  * `navigate.la`. Never draws.
  *
- * Depends on: wasmtime, verify, actions, tabs, home, frame, themes
+ * Depends on: wasmtime, verify, store, actions, tabs, home, frame, themes
  * Used by: navigate, shell
  */
 import wasmtime { Engine };
 import verify { Keyring, keyring };
+import store { Store };
 import actions { Msg, PanelPage, Confirm };
 import tabs { Page, Tab, Pin, LeftOff, AppPage, leave };
 import home { Card };
@@ -18,8 +19,10 @@ import themes { Theme, DARK };
 /** The window's state. */
 public struct Model {
     engine: Engine,
-    /** The keys trusted this session (PRP-007 keeps them). */
+    /** The keys trusted, remembered across restarts by `saving`. */
     ring: Keyring,
+    /** Where the window remembers things; `None` (tests, no home) saves nothing. */
+    store: Option<Store>,
     /** The open apps, in rail order. */
     public tabs: Tab[],
     /** The current tab's id; `None` while home shows. */
@@ -33,7 +36,7 @@ public struct Model {
     public panel: Option<PanelPage>,
     /** A destructive action waiting for "yes". */
     public confirm: Option<Confirm>,
-    /** Pinned apps, in this session (PRP-003 keeps them). */
+    /** Pinned apps, remembered across restarts by `saving`. */
     public pinned: Pin[],
     /** The last app tab visited before home, if it's still open. */
     public last: Option<i64>,
@@ -63,6 +66,7 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
     Model {
         engine: engine,
         ring: keyring(),
+        store: None,
         tabs: made,
         current: if made.len > 0 { Some(0) } else { None },
         next: made.len,
@@ -206,8 +210,8 @@ public fun close(m: Model, id: i64): Model {
 /**
  * Forgets the current app: closes its tab without making it "where you left
  * off", unpins it, drops a "where you left off" from the same place, and
- * closes the panel. What's on disk goes too once there is a store
- * (PRP-006).
+ * closes the panel. `saving` then saves both; the app's trusted key stays,
+ * so a swapped key still asks first (PRP-007).
  *
  * Example:
  *     forget(m)

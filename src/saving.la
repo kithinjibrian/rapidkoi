@@ -1,0 +1,214 @@
+/**
+ * Remembering across restarts: `restore` reads trust, pins and where you
+ * left off into a new window's model; `persist` saves whichever of them a
+ * message changed, right away (PRP-007). Broken files are set aside and a
+ * newer Rapidkoi's are left alone, each with a notice; a failed save is a
+ * notice too, never a crash.
+ *
+ * Depends on: std.env, store, remembered, verify, window, tabs
+ * Used by: shell
+ */
+import std.env;
+import store {
+    Store,
+    StoreError,
+    data_dir,
+    store_at,
+    save,
+    remove,
+    skipping,
+    reason as store_reason,
+};
+import remembered {
+    Recalled,
+    MAX_TRUST_FILE,
+    MAX_PINS_FILE,
+    MAX_LEFT_FILE,
+    recall,
+    read_trust,
+    read_pins,
+    read_left,
+    trust_file,
+    pins_file,
+    left_file,
+};
+import verify { keyring, keyring_of, identities, changes };
+import window { Model };
+import tabs { LeftOff };
+
+/** How the notices name one remembered file. */
+struct Part {
+    file: string,
+    /** "your pins", as the middle of a sentence. */
+    noun: string,
+    /** "Your pins", to start one. */
+    title: string,
+    /** "were" or "was". */
+    verb: string,
+    /** "them" or "it". */
+    it: string,
+    /** What else the person should know when it's set aside. */
+    after: string,
+}
+
+const TRUST: Part = Part {
+    file: "trust",
+    noun: "your trusted keys",
+    title: "Your trusted keys",
+    verb: "were",
+    it: "them",
+    after: "; sites will be trusted on first use again",
+};
+
+const PINS: Part = Part {
+    file: "pins",
+    noun: "your pins",
+    title: "Your pins",
+    verb: "were",
+    it: "them",
+    after: "",
+};
+
+const LEFT: Part = Part {
+    file: "left-off",
+    noun: "where you left off",
+    title: "Where you left off",
+    verb: "was",
+    it: "it",
+    after: "",
+};
+
+/**
+ * This session's data folder, from `$XDG_DATA_HOME` and `$HOME`.
+ *
+ * Example:
+ *     session_store()?
+ */
+public fun session_store(): Result<Store, StoreError> = data_dir(
+    env.get("XDG_DATA_HOME"),
+    env.get("HOME"),
+).map(store_at);
+
+/**
+ * Reads what was remembered into a window: the keyring, the pins and where
+ * you left off. Each part that can't be read starts empty, with a notice.
+ *
+ * @param m a new window's model
+ * @param s the data folder
+ * @returns the model with its store; the notices joined with " · "
+ *
+ * Example:
+ *     restore(with_pages(engine, []), session_store()?)
+ */
+public fun restore(m: Model, s: Store): Model {
+    let notes: Ref<string[]> = Ref.new([]);
+    let held: Ref<Store> = Ref.new(s);
+    let ids = settle(
+        recall(s, TRUST.file, MAX_TRUST_FILE, read_trust),
+        TRUST,
+        notes,
+        held,
+    ).unwrap_or([]);
+    let pins = settle(recall(s, PINS.file, MAX_PINS_FILE, read_pins), PINS, notes, held).unwrap_or(
+        [],
+    );
+    let left = settle(recall(s, LEFT.file, MAX_LEFT_FILE, read_left), LEFT, notes, held);
+    let said = notes.get();
+    Model {
+        ring: if ids.len == 0 { keyring() } else { keyring_of(ids) },
+        pinned: pins,
+        left_off: left,
+        store: Some(held.get()),
+        notice: if said.len == 0 { m.notice } else { Some(said.join(" · ")) },
+        ..m,
+    }
+}
+
+/**
+ * Saves whatever a message changed: the pins, where you left off, or (when
+ * the keyring's change count moved) trust. A failed save becomes the notice.
+ *
+ * @param before the model before the message
+ * @param after the model after it
+ * @param count the keyring's change count before it (the keyring is shared, so `before` can't tell)
+ *
+ * Example:
+ *     persist(m, next, count)
+ */
+public fun persist(before: Model, after: Model, count: i64): Model {
+    let s = match after.store {
+        Some(s) => s,
+        None => {
+            return after;
+        }
+    };
+    let mut failed: string[] = [];
+    if after.pinned != before.pinned {
+        if let Some(e) = problem(save(s, PINS.file, pins_file(after.pinned)), PINS) {
+            failed.push(e);
+        }
+    }
+    if changes(after.ring) != count {
+        if let Some(e) = problem(save(s, TRUST.file, trust_file(identities(after.ring))), TRUST) {
+            failed.push(e);
+        }
+    }
+    if summary(after.left_off) != summary(before.left_off) {
+        let done = match after.left_off {
+            Some(l) => save(s, LEFT.file, left_file(l)),
+            None => remove(s, LEFT.file),
+        };
+        if let Some(e) = problem(done, LEFT) {
+            failed.push(e);
+        }
+    }
+    if failed.len == 0 { after } else { Model { notice: Some(failed.join(" · ")), ..after } }
+}
+
+/**
+ * One file's outcome: its value when read; otherwise a notice, and (when
+ * newer or unreadable) the file is never written this session.
+ */
+fun settle<T>(r: Recalled<T>, p: Part, notes: Ref<string[]>, held: Ref<Store>): Option<T> {
+    let say = fun(s: string) = notes.update(fun(all: string[]) {
+        let mut next = all;
+        next.push(s);
+        next
+    });
+    match r {
+        Read(v) => {
+            return Some(v);
+        }
+        Fresh => {}
+        Broken(aside, _) => say(
+            "Rapidkoi couldn't read {p.noun}, so it set {p.it} aside in {aside}{p.after}",
+        ),
+        Newer(_) => {
+            say("{p.title} {p.verb} saved by a newer Rapidkoi; changes this session won't be kept");
+            held.update(fun(s: Store) = skipping(s, p.file));
+        }
+        // Not even readable (permissions?): don't overwrite what couldn't be read.
+        Failed(why) => {
+            say("Rapidkoi couldn't read {p.noun} ({why}); changes this session won't be kept");
+            held.update(fun(s: Store) = skipping(s, p.file));
+        }
+    }
+    None
+}
+
+/** A failed save's notice, or nothing. */
+fun problem(r: Result<(), StoreError>, p: Part): Option<string> = match r {
+    Err(e) => Some("Rapidkoi couldn't save {p.noun}: {store_reason(e)}"),
+    Ok(()) => None,
+};
+
+/**
+ * What's saved of a left-off, to compare: a page left holds a compiled
+ * program, which isn't comparable. The state is compared by its bytes;
+ * it's at most `MAX_STATE`, and only when there is a left-off.
+ */
+fun summary(
+    l: Option<LeftOff>,
+): Option<(string, string, Option<string>, Option<u8[]>, i64)> = l.map(
+    fun(x: LeftOff) = (x.name, x.path, x.title, x.state, x.state_version),
+);
