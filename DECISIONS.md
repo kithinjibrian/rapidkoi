@@ -18,24 +18,6 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
-### DECISION-026 — A declared server name that resolves to this computer or the local network (std.http)
-
-**Status:** deferred (for the owner's PRP-012 security review)
-**Raised:** 2026-10-19 — Session 63 (building PRP-012)
-**Revisit when:** std.http can connect to an address it was given (resolve first, check, then connect with the name for TLS), or before apps reach the network beyond testing.
-
-**Question:** An app's requests go to names only, never IPs, and plain HTTP only to this computer for local apps. But the name is resolved by std when it connects, so a signed app whose developer declares `evil.example`, pointing at `127.0.0.1` or `192.168.1.1`, would have Rapidkoi connect there.
-
-**What stops it today:** the request is HTTPS and the certificate is always checked for that name. A service on this computer or the local network would need a publicly trusted certificate for the developer's name. Plain HTTP services can't answer a TLS handshake, and a router's self-signed certificate fails. What still happens is a TLS ClientHello reaching that address and port, and the connection fails.
-
-**Options:**
-- A) Accept for now: HTTPS with checked certificates is the guard, recorded for the review. Recommended until apps reach the network beyond testing.
-- B) A std addition (in `../lugha`): resolve a name, then connect to a chosen address with the name used for SNI and the certificate check. Rapidkoi would then refuse loopback, private, link-local and multicast addresses before connecting.
-
-**Notes:** Found while reading std.http's client (it connects to `host:port` as given). Not worked around in rapidkoi.
-
----
-
 ### DECISION-002 — Publishing
 
 **Status:** deferred
@@ -203,6 +185,24 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-026 — A declared server name that resolves to this computer or the local network (std.http)
+
+**Status:** resolved (the design; building it waits for std: PRP-013)
+**Raised:** 2026-10-19 — Session 63 (building PRP-012)
+**Resolved:** 2026-10-19 — Session 66 (the owner, in chat: `docs/source/meetings/2026-10-19-local-addresses.md`)
+
+**Question:** std looks a name up and connects wherever it points, so a signed app declaring `evil.example` pointed at `127.0.0.1` or a router had Rapidkoi connect there, guarded only by the certificate check.
+
+**Outcome:** Option B, as A of the session 66 talk:
+- **std gains** `net.resolve(name)` and an option to connect TLS/HTTP to one given address while the name is still used for `Host`, SNI and the certificate.
+- **Rapidkoi** resolves, refuses the name whole when any address is local (this computer, private, link-local, CGNAT, multicast, broadcast, reserved; IPv4 inside IPv6 as IPv4), and connects to exactly the addresses it checked.
+- **Where:** app fetches and opening apps at an address.
+- **Until std has it:** the certificate check stays the only guard (CLAUDE.md known issues).
+
+**Copied to MEMORY.md:** at PRP-013's merge
+
+---
 
 ### DECISION-025 — UI contract 2: one entry point, effects and name placeholders
 
