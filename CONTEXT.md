@@ -1380,7 +1380,13 @@ CLAUDE.md (keygen command), CHANGELOG.md
 
 ### STILL OPEN AT CLOSE
 
-- PRP-007 awaits approval. Then: background loading (kivuli 0.6, DECISION-021) after the tabs PRP.
+- PRP-007 approved ("approved"). Then: background loading (kivuli 0.6, DECISION-021) after the tabs PRP.
+
+---
+
+## SESSION 36 — 2026-10-18 — Build PRP-007: remembering — open
+
+Branch: prp-007-remembering
 
 ---
 
