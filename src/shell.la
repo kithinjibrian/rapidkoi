@@ -5,7 +5,7 @@
  * current theme, maximized. The state and what
  * changes it live in `window.la`; `view` never calls a guest.
  *
- * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, effects, requests, account, placeholders, people, render, frame, home, panel, theme, themes
+ * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, effects, requests, access, account, placeholders, people, render, frame, home, panel, theme, themes
  * Used by: main
  */
 import kivuli { View, Cmd, Sub, Align, button, column, overlay, row, scroll, text };
@@ -16,6 +16,7 @@ import loads;
 import effects { answer_all };
 import requests;
 import account { account_of, on_account, forget_account };
+import access { access_of, on_access, looked, news };
 import placeholders { fill };
 import people { name_in };
 public import window { Model, with_pages, title_of };
@@ -67,14 +68,14 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     let at = mark(remembered);
     let (placed, cmd) = navigate.open_file(remembered, argv[1]);
     let (answered, sends) = answer_all(placed);
-    let opened = persist(remembered, answered, at);
+    let opened = persist(remembered, news(answered), at);
     // Opening clears the notice line; what restoring said still shows.
     let notice = match (remembered.notice, opened.notice) {
         (Some(a), Some(b)) => Some("{a} · {b}"),
         (Some(a), None) => Some(a),
         (None, b) => b,
     };
-    (Model { notice: notice, ..opened }, Cmd.batch([cmd, sends]))
+    (Model { notice: notice, ..opened }, both(cmd, sends))
 }
 
 /**
@@ -103,8 +104,16 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     let (next, cmd) = handle_msg(m, msg);
     // What a v2 app asked for is answered before anything is drawn or saved.
     let (answered, sends) = answer_all(next);
-    (persist(m, answered, at), Cmd.batch([cmd, sends]))
+    // What each app declares, and "New" cleared once its Access page is left.
+    (persist(m, news(looked(m, answered)), at), both(cmd, sends))
 }
+
+/** Two commands as one; either alone when the other does nothing, so a lone task stays a task. */
+fun both(a: Cmd<Msg>, b: Cmd<Msg>): Cmd<Msg> = match (a, b) {
+    (_, Nothing) => a,
+    (Nothing, _) => b,
+    _ => Cmd.batch([a, b]),
+};
 
 /**
  * Handles one message from the window.
@@ -160,6 +169,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     SeparateApp => navigate.separate_app(m),
     Fetched(id, number, f) => loads.arrive(m, id, number, f),
     Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
+    ToggleServer(server) => (on_access(m, server), Cmd.none()),
     Tick(now) => (Model { now: now, ..m }, Cmd.none()),
     OnTab(id, action) => on_tab(m, id, action),
     OnPin(path, action) => on_pin(m, path, action),
@@ -227,7 +237,7 @@ public fun view(m: Model): View<Msg> {
                 // the outer padding insets it from the page's edges.
                 // One height for every page: shorter ones leave room below,
                 // and the main page keeps Forget and Close at the bottom.
-                column([column([panel.view(a, p, m.confirm, account_of(m, a)).expand()]).style([Look.Panel]).height(
+                column([column([panel.view(a, p, m.confirm, account_of(m, a), access_of(m, a)).expand()]).style([Look.Panel]).height(
                     PANEL_HEIGHT,
                 )]).padding(
                     SPACE_SM,

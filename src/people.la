@@ -3,8 +3,8 @@
  * times you started over, whether it signs you in automatically, whether
  * you signed out) and the name apps may show with `{FIRST_NAME}` and
  * `{LAST_NAME}`: one for every app, and optionally one per app. Format 2
- * (PRP-012) adds each app's switched-off servers and the servers you've
- * been shown. Read as hostile input; saved by `saving` as it changes.
+ * (PRP-012) adds each app's switched-off servers, the servers you've been
+ * told about, and those not yet looked at. Read as hostile input; saved by `saving` as it changes.
  *
  * Depends on: cbor, std.crypto, remembered, rules, network, limits
  * Used by: effects, account, saving, render
@@ -43,8 +43,10 @@ public struct Person {
     public last: string,
     /** The servers you switched off for it, its own host included (PRP-012). */
     public off: string[],
-    /** The servers it declared when you last saw its Access page, or first opened it. */
+    /** The servers it declared that you've been told about (the notice, or its first open). */
     public seen: string[],
+    /** Those told about since you last looked at its Access page: marked new there. */
+    public fresh: string[],
 }
 
 /** Everything in the people file. */
@@ -88,6 +90,7 @@ public fun person(p: People, host: string, origin: u8[]): Person {
         last: "",
         off: [],
         seen: [],
+        fresh: [],
     }
 }
 
@@ -163,6 +166,7 @@ public fun people_file(p: People): u8[] = encode(
                         entry("last", Value.Text(x.last)),
                         entry("off", names(x.off)),
                         entry("seen", names(x.seen)),
+                        entry("fresh", names(x.fresh)),
                     ]),
                 ),
             ),
@@ -234,6 +238,7 @@ public fun read_people(bytes: u8[]): Result<People, Unreadable> {
             last: name(x, "last")?,
             off: servers(x, "off", format)?,
             seen: servers(x, "seen", format)?,
+            fresh: servers(x, "fresh", format)?,
         });
     }
     Ok(People { first: first, last: last, apps: apps })
