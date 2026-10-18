@@ -18,7 +18,7 @@ import render { screen, stopped };
 import frame { bar, rail };
 import home;
 import panel;
-import theme { SPACE_SM, SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
+import theme { SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
 import themes { Look, kivuli_theme };
 
 /**
@@ -109,9 +109,7 @@ public fun view(m: Model): View<Msg> {
         Home => card(home.view(m.draft, m.pinned, window.card(m), m.tabs)),
         App(a) if m.panel.is_some() => row([
             card(app_view(id, a)).expand(),
-            // The panel on the page's colour, a strip of frame between it and the
-            // app, so its section cards (the frame's colour) stand out.
-            scroll(panel.view(a, m.panel.unwrap_or(PanelPage.Main), m.confirm)).style([Look.Page]).padding(SPACE_SM),
+            panel.view(a, m.panel.unwrap_or(PanelPage.Main), m.confirm),
         ]),
         App(a) => card(app_view(id, a)),
     };
