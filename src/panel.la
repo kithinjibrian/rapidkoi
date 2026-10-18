@@ -10,7 +10,19 @@
  * Depends on: kivuli, actions, tabs, frame, bundle, address, verify, keys, theme, themes
  * Used by: shell
  */
-import kivuli { View, Align, ButtonStyle, button, column, image, row, spacer, text };
+import kivuli {
+    View,
+    Align,
+    ButtonStyle,
+    button,
+    button_with,
+    column,
+    icon,
+    image,
+    row,
+    spacer,
+    text,
+};
 import actions { Msg, PanelPage, Confirm };
 import tabs { AppPage, state_of, state_version_of };
 import frame { icon_button, icon_of, initial, marker };
@@ -245,18 +257,20 @@ fun section(rows: View<Msg>[]): View<Msg> = column(rows).spacing(SPACE_XS).paddi
 ]);
 
 /**
- * One row: its name, a short summary, and the arrow that opens its page.
- * kivuli buttons can't hold a whole row yet, so the arrow is the click
- * target (DECISION-020).
+ * One row: its name, a short summary, and the arrow, all one quiet button
+ * that opens its page (kivuli 0.10's `button_with`; DECISION-020).
  */
-fun line(label: string, summary: string, opens: PanelPage): View<Msg> = row([
-    // The label at the start, the summary by the arrow; the spacer between
-    // takes the room (an expanded label would center its text).
-    text(label),
-    spacer(),
-    text(summary).dim(),
-    icon_button("go-next-symbolic", label, Some(Msg.PanelGo(opens))),
-]).spacing(SPACE_SM);
+fun line(label: string, summary: string, opens: PanelPage): View<Msg> = button_with(
+    row([
+        // The label at the start, the summary by the arrow; the spacer between
+        // takes the room (an expanded label would center its text).
+        text(label),
+        spacer(),
+        text(summary).dim(),
+        icon("go-next-symbolic"),
+    ]).spacing(SPACE_SM),
+    Msg.PanelGo(opens),
+).button_style(ButtonStyle.Subtle).tooltip(label);
 
 /** A label and its value, for About. */
 fun pair(label: string, value: string): View<Msg> = hover_pair(label, value, value);

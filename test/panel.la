@@ -168,3 +168,11 @@ fun the_panel_opens_over_the_app_and_closes_from_outside() {
     assert_eq(press(view(open), "Escape"), Ok(Msg.TogglePanel));
     assert_eq(step(open, Msg.TogglePanel).panel, None);
 }
+
+@test
+fun a_whole_row_is_one_click_target() {
+    let m = step(one(), Msg.TogglePanel);
+    // Its summary is part of the same button as its label and arrow.
+    assert_eq(click(view(m), "Not signed in"), Ok(Msg.PanelGo(PanelPage.Account)));
+    assert_eq(click(view(m), "Off"), Ok(Msg.PanelGo(PanelPage.Notifications)));
+}
