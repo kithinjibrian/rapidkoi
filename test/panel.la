@@ -6,7 +6,7 @@ import rapidkoi.actions { Msg, PanelPage, Confirm };
 import rapidkoi.tabs { AppPage, open_module, state_of };
 import rapidkoi.render;
 import rapidkoi.contract { envelope };
-import kivuli.testing { Lookup, click, texts };
+import kivuli.testing { Lookup, click, press, texts };
 import wasmtime { Engine, Module };
 import support { t, echo };
 
@@ -152,4 +152,29 @@ fun sizes_read_plainly() {
     assert_eq(size(900), "900 B");
     assert_eq(size(12 * 1024), "12 KB");
     assert_eq(size(3565158), "3.4 MB");
+}
+
+@test
+fun the_panel_opens_over_the_app_and_only_closes_on_purpose() {
+    let m = one();
+    let open = step(m, Msg.TogglePanel);
+    // The dim layer over the app isn't a button: a stray click closes nothing.
+    assert_eq(
+        click(view(open), "Click to close the panel"),
+        Err(Lookup.NotFound("button \"Click to close the panel\"")),
+    );
+    // Close, Escape and ⓘ do.
+    assert_eq(click(view(open), "Close the panel"), Ok(Msg.TogglePanel));
+    assert_eq(press(view(open), "Escape"), Ok(Msg.TogglePanel));
+    assert_eq(step(open, Msg.TogglePanel).panel, None);
+    // Closed: no Escape shortcut left behind.
+    assert_eq(press(view(m), "Escape").is_err(), true);
+}
+
+@test
+fun a_whole_row_is_one_click_target() {
+    let m = step(one(), Msg.TogglePanel);
+    // Its summary is part of the same button as its label and arrow.
+    assert_eq(click(view(m), "Not signed in"), Ok(Msg.PanelGo(PanelPage.Account)));
+    assert_eq(click(view(m), "Off"), Ok(Msg.PanelGo(PanelPage.Notifications)));
 }

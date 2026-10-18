@@ -202,7 +202,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 ## STACK
 
 - **Lugha** via `lughac` 0.1.0. Use only what `lughac spec` documents. **Never build or reinstall `lughac` yourself**: when rapidkoi needs a newer one, stop and ask the user.
-- **kivuli 0.6** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.6" }`): the UI. 0.6 added background tasks (`Cmd.task`, `Sub.receive`); 0.5 added images from bytes (`Image.Bytes(key, bytes)`, `.image(…)`); 0.4 added per-corner radius; 0.3 added `.header_style` and `Surface.flat`; 0.2 renamed `.style(ButtonStyle…)` to `.button_style(…)`; `.style([…])` takes looks. Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
+- **kivuli 0.10** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.10" }`): the UI. 0.10 added `button_with` (a whole row as one button); 0.9 context menus (`.menu`); 0.8 `overlay`; 0.7 `wrap`; 0.6 added background tasks (`Cmd.task`, `Sub.receive`); 0.5 added images from bytes (`Image.Bytes(key, bytes)`, `.image(…)`); 0.4 added per-corner radius; 0.3 added `.header_style` and `Surface.flat`; 0.2 renamed `.style(ButtonStyle…)` to `.button_style(…)`; `.style([…])` takes looks. Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
 - **lugha-gtk** comes in through kivuli. rapidkoi does not import `gtk` directly.
 - **GTK 4** + GLib, through kivuli.
 - **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` (`wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }`; source in `../lugha-wasmtime`). rapidkoi never declares a wasmtime `extern` itself.
@@ -313,11 +313,8 @@ Update this tree when modules are added.
 - **A second `./main other.wasm` raises the first window** instead of opening the app: kivuli makes GTK single-instance (DECISION-014).
 - **Placeholders until kivuli and PRP-003 catch up (DECISION-018), each to be replaced, never extended:**
   - Opening a file means typing its path into the box, since there's no file dialog.
-  - The info panel sits beside the app, not over it (no overlay).
-  - Tab actions are in the panel only (no right-click menu).
-  - Home tiles sit in fixed rows of 4 (no wrapping grid).
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
   - Search is in memory only. Open tabs aren't restored on launch yet (the next PRP). Unsigned apps' state lasts only for the session (PRP-007 amendment 2).
   - Back, forward, share, settings and more are shown disabled.
-  - Only a panel row's › arrow is clickable, not the whole row: kivuli buttons can't hold a row yet (DECISION-020). Account, Notifications, Access and Data are placeholder pages until accounts (DECISION-022), notifications, permissions and app data exist.
+  - Account, Notifications, Access and Data are placeholder pages until accounts (DECISION-022), notifications, permissions and app data exist.
   - Remote apps open by host name over HTTPS only, signed only, with no redirects followed (PRP-009); plain http and unsigned bundles are for this machine's development servers. Loads run in the background (PRP-008), but a DNS lookup, a TLS handshake and compiling a module still briefly hold the window (kivuli's note). Reload is manual; there's no live reload yet.

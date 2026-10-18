@@ -8,10 +8,10 @@
  * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, render, frame, home, panel, theme, themes
  * Used by: main
  */
-import kivuli { View, Cmd, Sub, column, row, scroll, text };
+import kivuli { View, Cmd, Sub, Align, button, column, overlay, row, scroll, text };
 import wasmtime { Engine };
-import actions { Msg, PanelPage };
-import tabs { AppPage, Tab, handle, is_loading };
+import actions { Msg, PanelPage, Confirm, TabAction, PinAction };
+import tabs { AppPage, Tab, Pin, handle, is_loading };
 import loads;
 public import window { Model, with_pages, title_of };
 import navigate;
@@ -21,7 +21,7 @@ import render { screen, stopped, refused, loading };
 import frame { bar, rail, unapproved };
 import home;
 import panel;
-import theme { SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
+import theme { SPACE_SM, SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT, PANEL_HEIGHT };
 import themes { Look, kivuli_theme };
 
 /**
@@ -152,6 +152,39 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     SeparateApp => navigate.separate_app(m),
     Fetched(id, number, f) => loads.arrive(m, id, number, f),
     Tick(now) => (Model { now: now, ..m }, Cmd.none()),
+    OnTab(id, action) => on_tab(m, id, action),
+    OnPin(path, action) => on_pin(m, path, action),
+};
+
+/**
+ * A tab's menu item: select that tab, then do what the bar or panel would.
+ * A tab that's gone does nothing. Forget opens the panel at its question.
+ */
+fun on_tab(m: Model, id: i64, action: TabAction): (Model, Cmd<Msg>) {
+    if !m.tabs.any(fun(t: Tab) = t.id == id) {
+        return (m, Cmd.none());
+    }
+    let at = window.show_tab(m, id);
+    match action {
+        Reload => navigate.reload(at),
+        TogglePin => (window.toggle_pin(at), Cmd.none()),
+        About => (Model { panel: Some(PanelPage.About), confirm: None, ..at }, Cmd.none()),
+        Close => (window.close(at, id), Cmd.none()),
+        Forget => (
+            Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget), ..at },
+            Cmd.none(),
+        ),
+    }
+}
+
+/** A home tile's menu item, for the app at `path`. Forget opens it, then the panel at its question. */
+fun on_pin(m: Model, path: string, action: PinAction): (Model, Cmd<Msg>) = match action {
+    Open => navigate.open_file(window.go_home(m), path),
+    Unpin => (Model { pinned: m.pinned.filter(fun(p: Pin) = p.path != path), ..m }, Cmd.none()),
+    Forget => {
+        let (opened, cmd) = navigate.open_file(window.go_home(m), path);
+        (Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget), ..opened }, cmd)
+    }
 };
 
 /**
@@ -170,17 +203,32 @@ public fun view(m: Model): View<Msg> {
     let id = m.current.unwrap_or(-1);
     let middle = match page {
         Home => card(home.view(m.draft, m.pinned, window.card(m), m.tabs)),
-        App(a) if m.panel.is_some() => row([
-            card(app_view(id, a, m.now)).expand(),
-            panel.view(a, m.panel.unwrap_or(PanelPage.Main), m.confirm),
-        ]),
-        App(a) => card(app_view(id, a, m.now)),
+        // The panel sits over the app, which keeps its width. A dim layer
+        // between them keeps the app from being clicked meanwhile; it isn't a
+        // button, so a stray click never closes the panel (Close, Escape, ⓘ do).
+        App(a) => overlay(card(app_view(id, a, m.now)), match m.panel {
+            Some(p) => [
+                column([]).style([Look.Scrim]),
+                // Under ⓘ at the top right, as tall as its content. The dark
+                // look is on a wrapper, so the panel's padding falls inside it;
+                // the outer padding insets it from the page's edges.
+                // One height for every page: shorter ones leave room below,
+                // and the main page keeps Forget and Close at the bottom.
+                column([column([panel.view(a, p, m.confirm).expand()]).style([Look.Panel]).height(
+                    PANEL_HEIGHT,
+                )]).padding(
+                    SPACE_SM,
+                ).place(Align.End, Align.Start),
+            ],
+            None => [],
+        }),
     };
     let mut parts: View<Msg>[] = [];
     if let Some(n) = m.notice {
         parts.push(text(n).dim().padding(SPACE_MD));
     }
-    parts.push(row([middle.expand(), rail(m.tabs, m.current)]).expand());
+    let pins = m.pinned.map(fun(p: Pin) = p.path);
+    parts.push(row([middle.expand(), rail(m.tabs, m.current, pins)]).expand());
     let pinned = match page {
         App(a) => window.is_pinned(m, a.path),
         Home => false,

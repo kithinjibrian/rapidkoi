@@ -59,6 +59,34 @@ public enum Msg {
     Fetched(i64, i64, Fetched),
     /** The loading tick: the time, while some tab is loading. */
     Tick(i64),
+    /** A tab's right-click menu: select that tab, then act (PRP-010). */
+    OnTab(i64, TabAction),
+    /** A home tile's right-click menu, for the app at this path (PRP-010). */
+    OnPin(string, PinAction),
+}
+
+/** What a tab's menu can do: what the bar and panel already do. */
+public enum TabAction {
+    /** ⟳ */
+    Reload,
+    /** Pin it to home, or unpin it. */
+    TogglePin,
+    /** The panel's About page. */
+    About,
+    /** Close the tab. */
+    Close,
+    /** The panel's "Forget this app?" question. */
+    Forget,
+}
+
+/** What a home tile's menu can do. */
+public enum PinAction {
+    /** Open it, as a click on the tile does. */
+    Open,
+    /** Take it off home. */
+    Unpin,
+    /** Open it, with the panel's "Forget this app?" question. */
+    Forget,
 }
 
 /** The info panel's pages. */

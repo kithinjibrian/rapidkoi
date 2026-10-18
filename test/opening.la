@@ -62,7 +62,11 @@ fun reloaded(m: Model): Model {
 }
 
 /** The bar's marker is a button (it turns back into the address box). */
-fun marks(m: Model, s: string): bool = click(view(m), s) == Ok(Msg.EditAddress);
+/** The bar's marker, found by what it means (its tooltip leads with that). */
+fun marks(m: Model, s: string): bool = click(
+    view(m),
+    "{s}. Click to search or type a path (Ctrl+K)",
+) == Ok(Msg.EditAddress);
 
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
@@ -78,7 +82,7 @@ fun a_published_site_opens_verified() {
     let dir = published(18741);
     serving(dir, 18741);
     let m = opened(18741);
-    assert_eq(marks(m, "✓ localhost:18741 · verified (development)"), true);
+    assert_eq(marks(m, "localhost:18741 · verified (development)"), true);
     let about = step(step(m, Msg.TogglePanel), Msg.PanelGo(PanelPage.About));
     assert_eq(shows(about, "Verified (development)"), true);
     assert_eq(texts(view(about)).any(fun(x: string) = x.starts_with("Trusted since ")), true);
@@ -124,7 +128,7 @@ fun a_new_key_without_a_trail_asks_first() {
     assert_eq(shows(asked, "localhost:18743 is now signed by a different key"), true);
     assert_eq(click(view(asked), "Keep using my version"), Ok(Msg.KeepMine));
     let kept = step(asked, Msg.KeepMine);
-    assert_eq(marks(kept, "✓ localhost:18743 · verified (development)"), true);
+    assert_eq(marks(kept, "localhost:18743 · verified (development)"), true);
     // Opened in a new tab (nothing open to keep), keeping closes that tab.
     let new_tab = opening(step(kept, Msg.Home), "rapidkoi://localhost:18743");
     assert_eq((new_tab.tabs.len, click(view(new_tab), "Don't open it")), (2, Ok(Msg.KeepMine)));
@@ -133,7 +137,7 @@ fun a_new_key_without_a_trail_asks_first() {
     let again = reloaded(kept);
     assert_eq(click(view(again), "Open as a separate app"), Ok(Msg.SeparateApp));
     let other = step(again, Msg.SeparateApp);
-    assert_eq(marks(other, "✓ localhost:18743 · verified (development) · new publisher"), true);
+    assert_eq(marks(other, "localhost:18743 · verified (development) · new publisher"), true);
     clean(dir);
     clean("{dir}.key");
 }
@@ -145,10 +149,10 @@ fun a_signed_file_is_not_confirmed_until_its_key_is_trusted() {
     pack_project(dir, false).unwrap();
     let file = "{dir}/Notes-1.0.0.rkb";
     let alone = opening(with_pages(Engine.new(), []), file);
-    assert_eq(marks(alone, "⚠ localhost:18744 · not confirmed"), true);
+    assert_eq(marks(alone, "localhost:18744 · not confirmed"), true);
     // The same window, after opening the site: its key is trusted now.
     let both = opening(opened(18744), file);
-    assert_eq(marks(both, "✓ localhost:18744"), true);
+    assert_eq(marks(both, "localhost:18744 · trusted"), true);
     clean(dir);
     clean("{dir}.key");
 }

@@ -142,6 +142,7 @@ public fun card(m: Model): Option<Card> {
                 name: a.name,
                 title: a.title,
                 msg: Msg.Select(id),
+                path: a.path,
                 icon: icon_of(a.path, a.icon),
             });
         }
@@ -151,6 +152,7 @@ public fun card(m: Model): Option<Card> {
             name: l.name,
             title: l.title,
             msg: Msg.Continue,
+            path: l.path,
             icon: icon_of(l.path, l.icon),
         },
     )

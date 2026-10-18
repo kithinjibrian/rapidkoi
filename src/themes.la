@@ -10,8 +10,8 @@
  * Used by: window, shell
  */
 // kivuli's Theme and theme() are imported under other names: this module has a Theme of its own.
-import kivuli { Surface, hex, Theme as Looks, theme as looks };
-import theme { PAGE_RADIUS };
+import kivuli { Surface, Border, hex, Theme as Looks, theme as looks };
+import theme { PAGE_RADIUS, EDGE_WIDTH };
 
 /** The parts of Rapidkoi's window a theme colours. */
 public enum Look {
@@ -21,6 +21,10 @@ public enum Look {
     Page,
     /** A rounded card of rows in the info panel: the frame's colour on the page's. */
     Section,
+    /** Over the app while the info panel is open: dims it, and a click on it closes the panel. */
+    Scrim,
+    /** The info panel over the app: the page's dark colour, a thin edge, every corner rounded. */
+    Panel,
 }
 
 /** One theme: a name, and a colour per part. Hex values live only here. */
@@ -31,10 +35,20 @@ public struct Theme {
     public frame: string,
     /** The page card. */
     public page: string,
+    /** The dim layer over the app while the panel is open: translucent (`#rrggbbaa`). */
+    public scrim: string,
+    /** A thin line around a part that floats over the page (the info panel). */
+    public edge: string,
 }
 
 /** The dark theme, the default (the owner's colours, 2026-10-17). */
-public const DARK: Theme = Theme { name: "dark", frame: "#242424", page: "#161616" };
+public const DARK: Theme = Theme {
+    name: "dark",
+    frame: "#242424",
+    page: "#161616",
+    scrim: "#00000060",
+    edge: "#3a3a3a",
+};
 
 /**
  * Builds the kivuli theme that paints Rapidkoi's looks in `t`.
@@ -46,7 +60,7 @@ public const DARK: Theme = Theme { name: "dark", frame: "#242424", page: "#16161
  *     view.theme(kivuli_theme(DARK))
  */
 public fun kivuli_theme(t: Theme): Looks = looks(
-    [Look.Frame, Look.Page, Look.Section],
+    [Look.Frame, Look.Page, Look.Section, Look.Scrim, Look.Panel],
     fun(l: Look) = surface(t, l),
 );
 
@@ -75,4 +89,16 @@ public fun surface(t: Theme, l: Look): Surface = match l {
         radius: Some(PAGE_RADIUS),
         ..Surface.theme(),
     },
+    // The panel floats over the dimmed app: the page's dark colour (its
+    // cards, in the frame's, stand out on it), a thin edge to set it apart,
+    // and rounded all round.
+    Panel => Surface {
+        background: Some(hex(t.page)),
+        border: Some(Border { width: EDGE_WIDTH, color: hex(t.edge) }),
+        radius: Some(PAGE_RADIUS),
+        flat: Some(true),
+        ..Surface.theme(),
+    },
+    // Flat: a plain dim layer, not a button that looks like one.
+    Scrim => Surface { background: Some(hex(t.scrim)), flat: Some(true), ..Surface.theme() },
 };

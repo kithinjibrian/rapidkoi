@@ -26,6 +26,8 @@ The values below are a starting scale. Revisit them once DECISION-001 says what 
 |-------|------|------|
 | `frame` | `#242424`, flat (no shadow or edge line) | `Look.Frame`: the header bar (`.header_style`), the window around the page, and the rail on it |
 | `page` | `#161616` | `Look.Page`: the page; only its top-right corner curves, `PAGE_RADIUS` (12 px) |
+| `scrim` | `#00000060` | `Look.Scrim`: the dim layer over the app while the panel is open |
+| `edge` | `#3a3a3a` | the thin line around `Look.Panel` (the page's colour, rounded) |
 
 Only backgrounds and the one corner are set; text and borders stay the GTK theme's. Light and other themes come later, with settings. Hex values live only in `src/themes.la`.
 
@@ -59,11 +61,12 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the
 | `TAB_ICON` | 22 | an app's icon on its rail tab |
 | `TILE_ICON` | 64 | an app's icon on its home tile |
 | `TILE_SIZE` | 120 | a Pinned tile on home (square) |
-| `TILES_PER_ROW` | 4 | until kivuli has a wrapping grid (DECISION-018) |
 | `BANNER_HEIGHT` | 180 | "Where you left off" |
 | `PANEL_WIDTH` | 360 | the app info panel, fixed: its text never widens it (session 31) |
+| `PANEL_HEIGHT` | 520 | the app info panel over the app, the same for every page (session 52) |
 | `PANEL_CHARS` | 30 | the most characters a wrapped panel line asks for (`.wrap_at`), kept well under the width so the panel never shifts between pages; the name wraps at 14, the header's file name is cut at 18, paths are cut with … and shown whole on hover |
 | `PAGE_RADIUS` | 12 | the page's top-right curve |
+| `EDGE_WIDTH` | 1 | the floating info panel's edge |
 | `WINDOW_WIDTH` × `WINDOW_HEIGHT` | 960 × 700 | the window's default size |
 
 - Toolbar buttons are icon-only (`button("", msg).icon(name)` with a `.tooltip`), using symbolic theme icons:
@@ -91,15 +94,22 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
   - **Forget this app** (danger) and **Close**, side by side in the bottom row
 - Rows open pages with a ‹ Back arrow. **Start over** and **Forget** always ask first, in place, with [Cancel] and the danger action.
 
+## The panel, menus and home's grid (PRP-010)
+
+- **The info panel sits over the app** at `PANEL_WIDTH`, at the top right just under ⓘ, `PANEL_HEIGHT` tall on every page, inset by `SPACE_SM` (sessions 49–51): `Look.Panel`: the page's dark colour, a thin `EDGE_WIDTH` (1 px) edge in the theme's `edge` (`#3a3a3a`), every corner at `PAGE_RADIUS` (the owner, sessions 49–50). Its cards, in the frame's colour, stand out on it. The app keeps its width. A dim `Look.Scrim` layer (the theme's `scrim`, `#00000060` in dark) covers the rest of the app and blocks clicks, but a click on it does nothing (no accidental closing, the owner, session 51); Close (Escape) and ⓘ close the panel. The header's marker is cut with … at `PANEL_CHARS` so it can't widen the panel.
+- **A tab's right-click menu:** Reload (greyed while loading), Pin to home / Unpin, About this app, separator, Close tab, Forget this app…. The tab is selected first. Forget opens the panel at its question.
+- **A pinned tile's menu:** Open, Unpin, separator, Forget this app…. The "where you left off" card's Continue: Open, separator, Forget this app….
+- **Home's pinned tiles** wrap, all one width (`wrap(...).equal()`, `SPACE_MD`).
+- **Panel rows** are one `Subtle` button each (`button_with`): label, spacer, dim summary, ›.
+
 ## Where an app came from (PRP-006)
 
-- **Markers**, drawn by Rapidkoi only, in the bar and the panel's header:
-  - `✓ counter.dafifi.net · verified`: a remote signed site over HTTPS, every check passed (PRP-009)
-  - `✓ localhost:8000 · verified (development)`: the same, from this machine
-  - `✓ host`: a signed file whose key is trusted this session
-  - `⚠ host · not confirmed`: a signed file whose key Rapidkoi hasn't met (it runs, as a stranger)
-  - `· new publisher` after a ✓ when a changed key was opened as a separate app
-  - `🛠 localhost:8000 · development`, `📦 file · local bundle`, `📄 file · local file` as before
+- **Markers**, drawn by Rapidkoi only, in the bar and the panel's header (an icon, not the word "verified", session 53):
+  - `[security-high-symbolic] HOST`: a signed site whose checks all passed, or a signed file whose key is trusted
+  - `[dialog-warning-symbolic] HOST · not confirmed`: a signed file whose key Rapidkoi hasn't met (it runs, as a stranger)
+  - `· new publisher` after the host when a changed key was opened as a separate app
+  - `🛠 localhost:8000 · development`, `📦 file · local bundle`, `📄 file · local file`, `HOST · loading…` in words, no icon
+  - The tooltip says it in words first: "HOST · verified" (remote), "HOST · verified (development)" (this machine), "HOST · trusted", then "Click to search or type a path (Ctrl+K)"
 - **A failed check:** "Rapidkoi didn't run this app" (title style) over the reason (dim). No Restart and no run-anyway; ⟳ tries again.
 - **A changed key:** "HOST is now signed by a different key" (title style), "This can mean the site changed owners." and both fingerprints (dim), then **Keep using my version** (primary; "Don't open it" when nothing was open) and **Open as a separate app**.
 - **About** for a signed app: Publisher `host · key xxxx-xxxx-xxxx-xxxx`, Trust, Since ("Trusted since 18 Oct 2026, first use"), From, Version, Contract, Build `sha256` + 16 hex digits (all 64 on hover), Format.

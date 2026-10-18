@@ -1762,6 +1762,266 @@ CONTEXT.md
 
 ---
 
+## SESSION 47 — 2026-10-18 — Design PRP-010: retiring four placeholders with kivuli 0.10 — closed
+
+Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+kivuli reached 0.10 (wrap, overlay, context menus, button_with; still no file dialog). Designed with the owner, four topics, each "yes": the panel as an overlay with a dim scrim (click or Escape closes; the app keeps its width and can't be clicked meanwhile); a tab's right-click menu (Reload, Pin/Unpin, About, Close, Forget… via the panel's question), selecting the tab first; home tiles' menu (Open, Unpin, Forget…, corrected in chat); a wrapping, equal-width home grid; panel rows as one Subtle button_with. Wrote PRP-010. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-kivuli-placeholders.md
+PRPs/prp-010-kivuli_placeholders.md — for approval
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None beyond the design.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-010 approved ("build").
+
+---
+
+## SESSION 48 — 2026-10-18 — Build PRP-010: retiring four placeholders — closed
+
+Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+Built PRP-010 ("build"), one commit each after the kivuli 0.10 bump: the info panel over the app (`overlay`, a `Look.Scrim` button "Click to close the panel" with Escape; the panel placed End/Fill; the app keeps its width); panel rows as one Subtle `button_with`; home's grid as `wrap(...).equal()` (TILES_PER_ROW removed); right-click menus: tabs (Reload greyed while loading, Pin/Unpin, About, Close, Forget… via the panel's question), pinned tiles (Open, Unpin, Forget…), the left-off card (Open, Forget…), with `Msg.OnTab(id, TabAction)` and `Msg.OnPin(path, PinAction)` reusing existing actions; `Card.path`; `rail` takes the pinned paths.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml, lugha.lock (kivuli 0.10)
+src/shell.la, src/themes.la, src/panel.la, src/home.la, src/theme.la, src/frame.la, src/actions.la, src/window.la
+test/menus.la — new; test/panel.la (+2), test/views.la (rail, Card)
+CLAUDE.md (stack, known issues), DECISIONS.md (020), docs/DESIGN.md, CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 245 pass: menus 5 (each item's message; Unpin when pinned; Reload greyed while loading; select-then-act for each; a gone tab; tile Open/Unpin/Forget; the card's menu); panel +2 (the dim layer closes by click and Escape, absent when closed; a whole row is one click target, found by its summary). The grid's layout is visual (the owner's resize check).
+
+### DECISIONS MADE
+
+- The scrim's tooltip is "Click to close the panel" (the panel's own Close already says "Close the panel").
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen checks, then merge.
+
+---
+
+## SESSION 49 — 2026-10-18 — The overlay panel: the lighter background and rounded corners — closed
+
+Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner: "give the panel the lighter bg and rounded corners". Over the app the panel had no background of its own (the dim page showed through). New `Look.Panel`: the frame's colour (#242424, lighter than the page), radius `PAGE_RADIUS` on every corner, flat; the panel is inset by `SPACE_SM` so the corners show. The cards inside keep their look (Section, the frame's colour) as when the panel sat on the frame.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/themes.la, src/shell.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- None (visual); panel, views and menus pass.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of PRP-010, then merge.
+
+---
+
+## SESSION 50 — 2026-10-18 — The overlay panel: the dark background and a thin border — closed
+
+Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner: "use the dark bg then a thin border". `Look.Panel` is now the page's colour (#161616) with a 1 px edge (`EDGE_WIDTH`, the theme's new `edge` #3a3a3a), still rounded on every corner and inset. Its cards (the frame's #242424) now stand out on it. DESIGN.md's theme table lists scrim and edge.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/themes.la, src/theme.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- None (visual); panel and views pass.
+
+### DECISIONS MADE
+
+- The edge colour #3a3a3a (a step above the frame), the owner to adjust on screen.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of PRP-010, then merge.
+
+---
+
+## SESSION 51 — 2026-10-18 — The overlay panel: padding, a fixed width, under ⓘ, no closing from outside — closed
+
+Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner's screenshots 19–20, four points. 1) Padding: the dark look was on the padded node itself (kivuli's padding falls outside a node's background), so content met the border; the look moved to a wrapper. 2) Width: `PANEL_WIDTH` is a GTK minimum and the header's long marker ("✓ localhost:8000 · verified (development)") widened the panel; the marker is now a `button_with` text with `wrap_at(PANEL_CHARS)` and `ellipsize` (at most two lines, then …). 3) The panel sits at the top right just under ⓘ, as tall as its content (`.place(End, Start)`), not stretched to the bottom. 4) The dim layer is no longer a button: it blocks clicks to the app but closes nothing; Escape moved to the panel's Close button.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/shell.la, src/panel.la, test/panel.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- The overlay test now checks a stray click can't close it (no scrim button), Close and Escape do, and no Escape is left when closed. 245 pass.
+
+### DECISIONS MADE
+
+- No closing from outside (the owner). Escape stays, on Close.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of PRP-010, then merge.
+
+---
+
+## SESSION 52 — 2026-10-18 — The overlay panel: one height for every page — closed
+
+Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner's screenshots 21–22: the width now holds, but the height followed each page's content. New token `PANEL_HEIGHT` (520, room for the main page, judged from screenshot 21 at about 1.4× scaling); the panel's dark wrapper takes it and the page inside expands, so Forget and Close stay at the bottom of the main page and shorter pages leave room below. (`.height` is a GTK minimum: a page taller than 520 would still grow.)
+
+### FILES CREATED OR MODIFIED
+
+```
+src/theme.la, src/shell.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- None (visual); panel, views and menus pass.
+
+### DECISIONS MADE
+
+- PANEL_HEIGHT 520, for the owner to adjust on screen.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of PRP-010, then merge.
+
+---
+
+## SESSION 53 — 2026-10-18 — The marker: an icon instead of "verified" — closed
+
+Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner: "instead of writing verified. just use a icon". The marker is now three parts in frame.la: `marker` (the short label: the host, "· new publisher" when separate, "HOST · not confirmed"; unsigned markers unchanged), `marker_icon` (security-high-symbolic for verified or trusted, dialog-warning-symbolic for not confirmed, none unsigned) and `marker_note` (the words: "HOST · verified", "(development)" on this machine, "HOST · trusted", "HOST · not confirmed"). The bar's marker button shows icon and host; its tooltip leads with the note, then "Click to search or type a path (Ctrl+K)". The panel header shows the same icon and host. Tests find the marker by that tooltip, so they still assert the exact standing.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/frame.la, src/panel.la, test/views.la, test/loading.la, test/opening.la, test/saving.la, test/remote.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- views: the marker's label, icon and note for remote verified, local verified, trusted, not confirmed and unsigned. 245 pass.
+
+### DECISIONS MADE
+
+- A trusted signed file's words are "HOST · trusted"; the icon is the same shield as verified.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of PRP-010, then merge.
+
+---
+
+## SESSION 54 — 2026-10-18 — Merge PRP-010 — closed
+
+Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner: "merge" (the on-screen checks done through screenshots 19–22 and the tweaks of sessions 49–53). Full suite 245/245, fmt clean, build ok, no file over 500 lines. Merged prp-010-kivuli_placeholders into main.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- None.
+
+---
+
 ## NEXT SESSION START POINT
 
-PRP-009 is merged. Next: design PRP-010 (kivuli 0.10: a wrapping home grid, the panel as an overlay, tab context menus, clickable panel rows) in chat, then write it. Then the tabs PRP.
+PRP-010 is merged. Next: design the tabs PRP (restore open tabs on launch) in chat, then write it. The file dialog waits on kivuli.
