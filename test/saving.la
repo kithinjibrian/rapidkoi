@@ -8,6 +8,7 @@ import rapidkoi.remembered { read_pins, read_trust, read_left, left_file, pins_f
 import rapidkoi.tabs { LeftOff, recalled };
 import rapidkoi.publish { make_key, publish_site };
 import rapidkoi.serve { handle };
+import rapidkoi.pack { make };
 import rapidkoi.navigate { open_file };
 import kivuli.testing { click, texts };
 import cbor { Value, Entry, encode };
@@ -283,5 +284,25 @@ fun a_continue_that_fails_keeps_what_was_remembered() {
     // The app didn't start (its file is gone): its saved state is still there.
     let after = read_left(read_bytes("{s.dir}/left-off").unwrap()).unwrap();
     assert_eq((after.path, after.state), ("test/tmp/saving-gone.rkb", Some([1, 2])));
+    clean(s.dir);
+}
+
+@test
+fun a_served_app_resumes_after_a_restart() {
+    if !fs.is_file(COUNTER) {
+        skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
+    }
+    let s = folder("served");
+    let out = "test/tmp/saving-served.rkb";
+    clean(out);
+    make([COUNTER, "--name", "Counter", "--version", "0.1.0", "-o", out]).unwrap();
+    spawn http.serve("127.0.0.1:18754", fun(r: Request) = handle(out, 18754, r));
+    sleep(100);
+    let mut m = started(s, ["./main", "rapidkoi://localhost:18754"]);
+    m = step(m, click(view(m), "Add").unwrap());
+    m = step(m, click(view(m), "Add").unwrap());
+    let again = step(started(s, ["./main"]), Msg.Continue);
+    assert_eq(shows(again, "Count: 2"), true);
+    assert_eq(m.tabs.len, 1);
     clean(s.dir);
 }
