@@ -4,7 +4,7 @@
  * returns the next model; the state itself lives in `window.la`. Reads
  * local files and fetches from localhost (CLAUDE.md rule 3).
  *
- * Depends on: std.fs, std.crypto, tabs, window, address, verify, states, remembered, store
+ * Depends on: std.fs, std.crypto, tabs, leftoff, window, address, verify, states, remembered, store
  * Used by: shell
  */
 import std.fs;
@@ -12,14 +12,13 @@ import tabs {
     AppPage,
     open_path,
     close_page,
-    leave,
     resume,
-    compiled,
     load_again,
     state_of,
     state_version_of,
     with_saved,
 };
+import leftoff { leave, compiled };
 import verify { separate, moves };
 import states { saved_state, move_state };
 import std.crypto { equal };

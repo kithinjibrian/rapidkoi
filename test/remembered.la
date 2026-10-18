@@ -13,7 +13,8 @@ import rapidkoi.remembered {
     recall,
 };
 import rapidkoi.verify { Identity };
-import rapidkoi.tabs { Pin, LeftOff, recalled, signer_of };
+import rapidkoi.tabs { Pin };
+import rapidkoi.leftoff { LeftOff, recalled, signer_of };
 import rapidkoi.store { Store, store_at, save };
 import cbor { Value, Entry, encode };
 import std.fs;

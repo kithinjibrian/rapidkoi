@@ -4,14 +4,15 @@
  * pins, "where you left off" and the theme. Opening files and addresses is
  * `navigate.la`. Never draws.
  *
- * Depends on: wasmtime, verify, store, actions, tabs, home, frame, themes
+ * Depends on: wasmtime, verify, store, actions, tabs, leftoff, home, frame, themes
  * Used by: navigate, shell
  */
 import wasmtime { Engine };
 import verify { Keyring, keyring };
 import store { Store };
 import actions { Msg, PanelPage, Confirm };
-import tabs { Page, Tab, Pin, LeftOff, AppPage, leave, snapshot, state_of };
+import tabs { Page, Tab, Pin, AppPage, state_of };
+import leftoff { LeftOff, leave, snapshot };
 import home { Card };
 import frame { icon_of };
 import themes { Theme, DARK };

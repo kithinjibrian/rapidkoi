@@ -1,10 +1,10 @@
 /**
  * Pages and tabs: what one tab holds, and the life of an app page. Starting
- * a guest from a file or a module, sending it events, Restart, and leaving
- * a page with its state so Continue can resume it. Calls guests (bounded by
+ * a guest from a file or a module, sending it events, Restart, and resuming
+ * a page that was left (`leftoff.la` keeps what's left). Calls guests (bounded by
  * fuel); never draws.
  *
- * Depends on: cbor, wasmtime, guest, bundle, loader, verify, contract, render
+ * Depends on: cbor, wasmtime, guest, bundle, loader, verify, contract, render, leftoff
  * Used by: actions, frame, home, panel, shell
  */
 import cbor { Value };
@@ -15,6 +15,7 @@ import loader { Refusal, load, why };
 import verify { Trust, Change, Keyring };
 import contract { Described, ContractError, read_tree, read_update, envelope };
 import render { Msg };
+import leftoff { LeftOff };
 
 /** What an app page shows. */
 public enum Screen {
@@ -80,27 +81,6 @@ public struct Pin {
     public path: string,
     /** Its icon, if it has one. */
     public icon: Option<u8[]>,
-}
-
-/** The app page the person last left, for "Where you left off". */
-public struct LeftOff {
-    /** The app's name. */
-    public name: string,
-    /** Its file. */
-    public path: string,
-    /** Its last screen title, if any. */
-    public title: Option<string>,
-    /** Its state when left; `None` when it had stopped. */
-    public state: Option<u8[]>,
-    /** The version of that state's shape (1 for a bare `.wasm`). */
-    public state_version: i64,
-    manifest: Option<Manifest>,
-    /** Its icon, if it had one. */
-    public icon: Option<u8[]>,
-    trust: Option<Trust>,
-    /** Which signed app it is, when read back from disk (no `trust` then). */
-    signer: Option<(string, u8[])>,
-    program: Option<Program>,
 }
 
 /**
@@ -201,32 +181,6 @@ public fun close_page(p: AppPage) {
 }
 
 /**
- * Closes a page and remembers it for "Where you left off".
- *
- * @param p the page
- * @returns what Continue needs: its name, title, state and compiled module
- *
- * Example:
- *     let left = leave(page);
- */
-public fun leave(p: AppPage): LeftOff {
-    let left = LeftOff {
-        name: p.name,
-        path: p.path,
-        title: p.title,
-        state: state_of(p),
-        state_version: state_version_of(p),
-        manifest: p.manifest,
-        icon: p.icon,
-        trust: p.trust,
-        signer: None,
-        program: p.program,
-    };
-    close_page(p);
-    left
-}
-
-/**
  * Reopens a page that was left, in a fresh store, with its saved state:
  * `view(state)` without calling `init`. A page left stopped starts afresh.
  *
@@ -251,26 +205,6 @@ public fun resume(l: LeftOff): AppPage = match l.program {
 };
 
 /**
- * What leaving a page would remember, without closing it: what's saved as
- * "where you left off" while the app is still open (PRP-007 amendment 1).
- *
- * Example:
- *     snapshot(page)
- */
-public fun snapshot(p: AppPage): LeftOff = LeftOff {
-    name: p.name,
-    path: p.path,
-    title: p.title,
-    state: state_of(p),
-    state_version: state_version_of(p),
-    manifest: p.manifest,
-    icon: p.icon,
-    trust: p.trust,
-    signer: None,
-    program: None,
-};
-
-/**
  * Starts a page again from a saved state, when the state's version is the
  * page's: how a signed app picks up where it was after a restart.
  *
@@ -287,55 +221,6 @@ public fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = 
     }
     Some(_) => (p, true),
     None => (p, false),
-};
-
-/**
- * Says whether a left-off still holds its compiled app (left this
- * session), so `resume` can start it; one read from disk must be loaded
- * again.
- *
- * Example:
- *     if compiled(l) { resume(l) } else { … }
- */
-public fun compiled(l: LeftOff): bool = l.program.is_some();
-
-/**
- * A "where you left off" read back from disk: no compiled program and no
- * state, so Continue opens its path again, and a signed app's state comes
- * back from `states/` (PRP-007 amendment 2).
- *
- * Example:
- *     recalled("Counter", "rapidkoi://localhost:8000", Some("Count: 3"), None, Some((host, key)))
- */
-public fun recalled(
-    name: string,
-    path: string,
-    title: Option<string>,
-    icon: Option<u8[]>,
-    signer: Option<(string, u8[])>,
-): LeftOff = LeftOff {
-    name: name,
-    path: path,
-    title: title,
-    state: None,
-    state_version: 1,
-    manifest: None,
-    icon: icon,
-    trust: None,
-    signer: signer,
-    program: None,
-};
-
-/**
- * Returns which signed app a left-off is (its host and key), or `None`
- * for an unsigned one: signed apps keep their state across restarts.
- *
- * Example:
- *     signer_of(left)
- */
-public fun signer_of(l: LeftOff): Option<(string, u8[])> = match l.trust {
-    Some(t) => Some((t.host, t.key)),
-    None => l.signer,
 };
 
 /**

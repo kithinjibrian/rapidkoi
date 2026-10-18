@@ -5,7 +5,7 @@ import rapidkoi.shell { Model, start, update, view };
 import rapidkoi.actions { Msg };
 import rapidkoi.store { Store, store_at, save };
 import rapidkoi.remembered { read_pins, read_trust, read_left, left_file, pins_file };
-import rapidkoi.tabs { LeftOff, recalled };
+import rapidkoi.leftoff { LeftOff, recalled };
 import rapidkoi.publish { make_key, publish_site };
 import rapidkoi.keys { read_secret };
 import rapidkoi.index { KeyFile, key_file, rotate };
