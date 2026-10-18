@@ -277,7 +277,7 @@ public fun load_settings(path: string): Settings { … }
 │                        nodes.la (the decoded types: Node, style words, ContractError), props.la (reading one node's props),
 │                        render.la (pure: Node → kivuli View; the error screen), theme.la (DESIGN.md tokens), limits.la (every limit)
 │                        Imports run one way: nodes ← props ← contract ← theme ← render ← tabs ← actions ← frame ← home, panel ← window ← shell ← main; limits ← contract, guest ← tabs; themes ← window
-├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text),
+├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
 ├── guest/rust/        — Cargo workspace: rapidkoi (contract v1 for Rust: View builder, App trait, export!), counter (the demo)
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)
@@ -320,4 +320,4 @@ Update this tree when modules are added.
   - Search is in memory only. Open tabs aren't restored on launch yet (the next PRP). Unsigned apps' state lasts only for the session (PRP-007 amendment 2).
   - Back, forward, share, settings and more are shown disabled.
   - Only a panel row's › arrow is clickable, not the whole row: kivuli buttons can't hold a row yet (DECISION-020). Account, Notifications, Access and Data are placeholder pages until accounts (DECISION-022), notifications, permissions and app data exist.
-  - Only local development addresses open (localhost, 127.0.0.1, [::1]); other hosts wait for HTTPS (the next PRP). Loads run in the background (PRP-008), but a DNS lookup, a TLS handshake and compiling a module still briefly hold the window (kivuli's note). Reload is manual; there's no live reload yet.
+  - Remote apps open by host name over HTTPS only, signed only, with no redirects followed (PRP-009); plain http and unsigned bundles are for this machine's development servers. Loads run in the background (PRP-008), but a DNS lookup, a TLS handshake and compiling a module still briefly hold the window (kivuli's note). Reload is manual; there's no live reload yet.

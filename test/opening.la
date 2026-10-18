@@ -80,7 +80,8 @@ fun a_published_site_opens_verified() {
     let m = opened(18741);
     assert_eq(marks(m, "✓ localhost:18741 · verified (development)"), true);
     let about = step(step(m, Msg.TogglePanel), Msg.PanelGo(PanelPage.About));
-    assert_eq(shows(about, "Verified (development) this session"), true);
+    assert_eq(shows(about, "Verified (development)"), true);
+    assert_eq(texts(view(about)).any(fun(x: string) = x.starts_with("Trusted since ")), true);
     assert_eq(shows(about, "Bundle format 2 (signed)"), true);
     clean(dir);
     clean("{dir}.key");

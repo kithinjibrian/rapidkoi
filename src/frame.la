@@ -185,7 +185,12 @@ public fun marker(p: AppPage, shown: string): string = match p.trust {
     Some(t) => {
         let separate = if t.separate { " · new publisher" } else { "" };
         match t.standing {
-            Verified => "✓ {t.host} · verified (development){separate}",
+            // "(development)" only for this machine: a remote host is the real thing.
+            Verified => if remote(p.path) {
+                "✓ {t.host} · verified{separate}"
+            } else {
+                "✓ {t.host} · verified (development){separate}"
+            },
             Trusted => "✓ {t.host}{separate}",
             NotConfirmed => "⚠ {t.host} · not confirmed",
         }
@@ -198,6 +203,9 @@ public fun marker(p: AppPage, shown: string): string = match p.trust {
         },
     },
 };
+
+/** Whether a page came from another machine's address. */
+fun remote(path: string): bool = parse(path).map(fun(a) = a.remote).unwrap_or(false);
 
 /**
  * The page asking about a key that changed without its old key's approval.

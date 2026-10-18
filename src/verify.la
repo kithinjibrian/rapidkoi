@@ -42,6 +42,8 @@ public struct Trust {
     public build: u8[],
     /** Whether this is a second publisher for the host, opened as a separate app. */
     public separate: bool,
+    /** When its key was first trusted, in ms since 1970; 0 when not recorded or not trusted. */
+    public since: i64,
 }
 
 /** A key change no signed trail explains: what the person is asked about. */
@@ -304,6 +306,7 @@ public fun check_site(
                     standing: Standing.Verified,
                     build: s.hash,
                     separate: separate,
+                    since: r.now.since,
                 },
             },
             r,
@@ -348,6 +351,7 @@ public fun standing_of(ring: Keyring, s: Signed): Trust {
         standing: if found.is_some() { Standing.Trusted } else { Standing.NotConfirmed },
         build: s.hash,
         separate: found.map(fun(k: Identity) = k.separate).unwrap_or(false),
+        since: found.map(fun(k: Identity) = k.since).unwrap_or(0),
     }
 }
 

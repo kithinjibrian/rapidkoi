@@ -1663,12 +1663,41 @@ DECISIONS.md — DECISION-024 (open)
 
 ---
 
-## SESSION 44 — 2026-10-18 — Build PRP-009: remote apps over HTTPS — open
+## SESSION 44 — 2026-10-18 — Build PRP-009: remote apps over HTTPS — closed
 
 Branch: prp-009-remote_apps
+
+### WHAT WAS DONE
+
+DECISION-024 resolved (Lugha m119 `request_tls_with`). Made the TLS fixtures (test/fixtures/tls: a throwaway CA, its key deleted after signing; localhost, wrong-host and expired certificates; make.sh, README). Built PRP-009 test-first: address.la (remote hosts by name over HTTPS, port 443 default, `remote`/`secure`, `site_url`; NotSecure, IpAddress; https://localhost allowed for TLS tests); fetching.la (one `request_tls_with` call for everything; `Network { ca_file }`, tests only; no key over HTTPS → "can't be verified"; a 3xx refused, never followed; "HOST's certificate couldn't be verified: …"); window.Model.network (always none) and `with_network` (tests only; no caller in src); verify `Identity.since`/`Trust.since` (first use dates, rotation and sequence keep it); trust file format 2 (format 1 reads with 0; the kind is checked before the format); the marker `✓ HOST · verified` for remote; About's "Since" line (`first_trusted`, a civil-date function, UTC). A one-off live check (not committed) fetched counter.dafifi.net: Cloudflare's certificate, the signed key, index and build all checked, Counter 0.2.0.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/address.la, src/fetching.la, src/loads.la, src/loader.la, src/window.la, src/verify.la, src/remembered.la, src/frame.la, src/panel.la
+test/fixtures/tls/* — new; test/remote.la — new; test/address.la, test/fetching.la (+4 TLS), test/verify.la (+1), test/remembered.la (+1), test/views.la (+2), test/opening.la, test/loader.la, test/shell.la
+CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, DECISIONS.md
+```
+
+### TESTS WRITTEN
+
+- 238 pass. TLS: opens; an untrusted CA, a wrong host and an expired certificate refused; no key over HTTPS refused; a 301 refused; end to end a first use saved with its date; the window with no test CA refuses the test server (the app passes no CA). Two old tests that expected remote hosts refused now use offline refusals (remote http, an IP), so no test touches the internet.
+
+### DECISIONS MADE
+
+- The unsigned fallback is for plain-HTTP development servers only (any HTTPS address must be signed), which also makes the rule testable offline.
+- About's wording drops "this session" (trust has been remembered since PRP-007).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's security review and on-screen checks (counter.dafifi.net; a republished 0.2.1) before merge.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-009 (`PRPs/prp-009-remote_apps.md`) awaits approval on `prp-009-remote_apps`, and DECISION-024 (std.http `request_tls_with`) awaits the Lugha addition or the owner's fallback. When both clear: open session 44, make the TLS fixtures, build test-first. Stop before merge for the owner's security review.
+PRP-009 is built on `prp-009-remote_apps`, not merged. Wait for the owner's security review and on-screen checks (rapidkoi://counter.dafifi.net; republish 0.2.1 and ⟳), full suite, merge. Next: the tabs PRP (restore open tabs on launch).

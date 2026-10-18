@@ -167,13 +167,18 @@ fun state_page(p: AppPage, confirm: Option<Confirm>): View<Msg>[] {
 fun about(p: AppPage): View<Msg>[] {
     let version = p.manifest.map(fun(m: Manifest) = m.version).unwrap_or("none");
     if let Some(t) = p.trust {
+        let local = !parse(p.path).map(fun(a) = a.remote).unwrap_or(false);
         let standing = match t.standing {
-            Verified => "Verified (development) this session",
-            Trusted => "Its key is trusted this session",
+            Verified => if local && parse(p.path).is_ok() {
+                "Verified (development)"
+            } else {
+                "Verified"
+            },
+            Trusted => "Its key is trusted",
             NotConfirmed => "Not confirmed: Rapidkoi hasn't met this key",
         };
         let build = hex(t.build);
-        return [
+        let mut lines = [
             pair("Publisher", "{t.host} · key {fingerprint(t.key)}"),
             pair(
                 "Trust",
@@ -183,12 +188,21 @@ fun about(p: AppPage): View<Msg>[] {
                     standing
                 },
             ),
+        ];
+        // A key Rapidkoi hasn't met has no first use to tell.
+        if t.standing != Standing.NotConfirmed {
+            lines.push(pair("Since", first_trusted(t.since)));
+        }
+        for more of [
             pair("From", p.path),
             pair("Version", version),
             pair("Contract", "v1 · state v{state_version_of(p)}"),
             hover_pair("Build", "sha256 {build.slice(0, 16)}…", "sha256 {build}"),
             pair("Format", "Bundle format 2 (signed)"),
-        ];
+        ] {
+            lines.push(more);
+        }
+        return lines;
     }
     let publisher = match (parse(p.path), p.manifest) {
         (Ok(_), _) => "Development server, unsigned",
@@ -284,4 +298,51 @@ fun shorten(s: string, n: i64): string {
         count += 1;
     }
     out
+}
+
+/**
+ * Says when a publisher's key was first trusted, as About shows it:
+ * "Trusted since 18 Oct 2026, first use" (the date in UTC), or that the
+ * date wasn't recorded (keys trusted before PRP-009).
+ *
+ * Example:
+ *     first_trusted(trust.since)
+ */
+public fun first_trusted(since: i64): string {
+    if since <= 0 {
+        return "Trusted on first use (date not recorded)";
+    }
+    let (y, m, d) = civil(since / 86_400_000);
+    let months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ];
+    "Trusted since {d} {months[m - 1]} {y}, first use"
+}
+
+/**
+ * Days since 1970-01-01 as (year, month, day) in the proleptic Gregorian
+ * calendar: Howard Hinnant's civil_from_days.
+ */
+fun civil(days: i64): (i64, i64, i64) {
+    let z = days + 719_468;
+    let era = (if z >= 0 { z } else { z - 146_096 }) / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + if m <= 2 { 1 } else { 0 };
+    (y, m, d)
 }
