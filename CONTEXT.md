@@ -2129,6 +2129,12 @@ src/account.la, test/account.la
 
 ---
 
+## SESSION 58 — 2026-10-18 — The Account page knows you after a restart — open
+
+Branch: prp-011-identity
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-011 is built on `prp-011-identity`, not merged. Wait for the owner's security review (identity.la, effects.la, people.la, contract v2) and on-screen checks (rebuild the counter, publish, open: "You are User xxxx"; set a name; Start over). Then full suite (Lugha and cargo), merge. Links (the vision's step 2) still aren't built.
