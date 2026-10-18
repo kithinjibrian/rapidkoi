@@ -1133,6 +1133,12 @@ docs/source/meetings/2026-10-17-ui/screenshot-5-panel.png
 
 ---
 
+## SESSION 29 — 2026-10-18 — The panel back on the frame; its close button at the bottom — open
+
+Branch: panel-back
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 28 on a new branch. PRP-005 (the info panel and bar) is on `main`. Next, at the owner's choice:
