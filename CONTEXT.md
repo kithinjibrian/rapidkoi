@@ -1862,9 +1862,35 @@ src/themes.la, src/shell.la, docs/DESIGN.md
 
 ---
 
-## SESSION 50 — 2026-10-18 — The overlay panel: the dark background and a thin border — open
+## SESSION 50 — 2026-10-18 — The overlay panel: the dark background and a thin border — closed
 
 Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner: "use the dark bg then a thin border". `Look.Panel` is now the page's colour (#161616) with a 1 px edge (`EDGE_WIDTH`, the theme's new `edge` #3a3a3a), still rounded on every corner and inset. Its cards (the frame's #242424) now stand out on it. DESIGN.md's theme table lists scrim and edge.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/themes.la, src/theme.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- None (visual); panel and views pass.
+
+### DECISIONS MADE
+
+- The edge colour #3a3a3a (a step above the frame), the owner to adjust on screen.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of PRP-010, then merge.
 
 ---
 

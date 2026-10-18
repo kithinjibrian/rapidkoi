@@ -47,6 +47,8 @@ public const RAIL_WIDTH: i64 = FRAME_THICKNESS - 2 * SPACE_SM;
 public const TILE_SIZE: i64 = 120;
 /** "Where you left off", in pixels. */
 public const BANNER_HEIGHT: i64 = 180;
+/** A thin edge's width (the floating info panel), in pixels. */
+public const EDGE_WIDTH: i64 = 1;
 /** The page's top-right curve, in pixels. */
 public const PAGE_RADIUS: i64 = 12;
 /** The app info panel, in pixels. */

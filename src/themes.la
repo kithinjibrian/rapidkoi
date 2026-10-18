@@ -10,8 +10,8 @@
  * Used by: window, shell
  */
 // kivuli's Theme and theme() are imported under other names: this module has a Theme of its own.
-import kivuli { Surface, hex, Theme as Looks, theme as looks };
-import theme { PAGE_RADIUS };
+import kivuli { Surface, Border, hex, Theme as Looks, theme as looks };
+import theme { PAGE_RADIUS, EDGE_WIDTH };
 
 /** The parts of Rapidkoi's window a theme colours. */
 public enum Look {
@@ -23,7 +23,7 @@ public enum Look {
     Section,
     /** Over the app while the info panel is open: dims it, and a click on it closes the panel. */
     Scrim,
-    /** The info panel over the app: the frame's lighter colour, every corner rounded. */
+    /** The info panel over the app: the page's dark colour, a thin edge, every corner rounded. */
     Panel,
 }
 
@@ -37,6 +37,8 @@ public struct Theme {
     public page: string,
     /** The dim layer over the app while the panel is open: translucent (`#rrggbbaa`). */
     public scrim: string,
+    /** A thin line around a part that floats over the page (the info panel). */
+    public edge: string,
 }
 
 /** The dark theme, the default (the owner's colours, 2026-10-17). */
@@ -45,6 +47,7 @@ public const DARK: Theme = Theme {
     frame: "#242424",
     page: "#161616",
     scrim: "#00000060",
+    edge: "#3a3a3a",
 };
 
 /**
@@ -86,10 +89,12 @@ public fun surface(t: Theme, l: Look): Surface = match l {
         radius: Some(PAGE_RADIUS),
         ..Surface.theme(),
     },
-    // The panel floats over the dimmed app: the frame's colour, as it had
-    // beside the app, and rounded all round now that it has edges of its own.
+    // The panel floats over the dimmed app: the page's dark colour (its
+    // cards, in the frame's, stand out on it), a thin edge to set it apart,
+    // and rounded all round.
     Panel => Surface {
-        background: Some(hex(t.frame)),
+        background: Some(hex(t.page)),
+        border: Some(Border { width: EDGE_WIDTH, color: hex(t.edge) }),
         radius: Some(PAGE_RADIUS),
         flat: Some(true),
         ..Surface.theme(),

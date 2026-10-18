@@ -26,6 +26,8 @@ The values below are a starting scale. Revisit them once DECISION-001 says what 
 |-------|------|------|
 | `frame` | `#242424`, flat (no shadow or edge line) | `Look.Frame`: the header bar (`.header_style`), the window around the page, and the rail on it |
 | `page` | `#161616` | `Look.Page`: the page; only its top-right corner curves, `PAGE_RADIUS` (12 px) |
+| `scrim` | `#00000060` | `Look.Scrim`: the dim layer over the app while the panel is open |
+| `edge` | `#3a3a3a` | the thin line around `Look.Panel` (the page's colour, rounded) |
 
 Only backgrounds and the one corner are set; text and borders stay the GTK theme's. Light and other themes come later, with settings. Hex values live only in `src/themes.la`.
 
@@ -63,6 +65,7 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the
 | `PANEL_WIDTH` | 360 | the app info panel, fixed: its text never widens it (session 31) |
 | `PANEL_CHARS` | 30 | the most characters a wrapped panel line asks for (`.wrap_at`), kept well under the width so the panel never shifts between pages; the name wraps at 14, the header's file name is cut at 18, paths are cut with … and shown whole on hover |
 | `PAGE_RADIUS` | 12 | the page's top-right curve |
+| `EDGE_WIDTH` | 1 | the floating info panel's edge |
 | `WINDOW_WIDTH` × `WINDOW_HEIGHT` | 960 × 700 | the window's default size |
 
 - Toolbar buttons are icon-only (`button("", msg).icon(name)` with a `.tooltip`), using symbolic theme icons:
@@ -92,7 +95,7 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 
 ## The panel, menus and home's grid (PRP-010)
 
-- **The info panel sits over the app** at `PANEL_WIDTH`, placed at the end and the full height, inset by `SPACE_SM`: `Look.Panel`, the frame's colour (lighter than the page) with every corner at `PAGE_RADIUS` (the owner, session 49). The app keeps its width. A dim `Look.Scrim` layer (the theme's `scrim`, `#00000060` in dark) covers the rest of the app; clicking it ("Click to close the panel") or Escape closes the panel.
+- **The info panel sits over the app** at `PANEL_WIDTH`, placed at the end and the full height, inset by `SPACE_SM`: `Look.Panel`: the page's dark colour, a thin `EDGE_WIDTH` (1 px) edge in the theme's `edge` (`#3a3a3a`), every corner at `PAGE_RADIUS` (the owner, sessions 49–50). Its cards, in the frame's colour, stand out on it. The app keeps its width. A dim `Look.Scrim` layer (the theme's `scrim`, `#00000060` in dark) covers the rest of the app; clicking it ("Click to close the panel") or Escape closes the panel.
 - **A tab's right-click menu:** Reload (greyed while loading), Pin to home / Unpin, About this app, separator, Close tab, Forget this app…. The tab is selected first. Forget opens the panel at its question.
 - **A pinned tile's menu:** Open, Unpin, separator, Forget this app…. The "where you left off" card's Continue: Open, separator, Forget this app….
 - **Home's pinned tiles** wrap, all one width (`wrap(...).equal()`, `SPACE_MD`).
