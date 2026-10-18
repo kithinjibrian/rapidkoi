@@ -1629,6 +1629,12 @@ CONTEXT.md
 
 ---
 
+## SESSION 43 — 2026-10-18 — Design remote apps over HTTPS (PRP-009) — open
+
+Branch: prp-009-remote_apps
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-008 is merged. Next: design remote apps over HTTPS in chat (first target: rapidkoi://counter.dafifi.net on the owner's VM, see memory), then write PRP-009. Then the tabs PRP.
