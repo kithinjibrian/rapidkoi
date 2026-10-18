@@ -2482,6 +2482,12 @@ docs/source/meetings/2026-10-19-local-addresses.md (new), PRPs/prp-013-local_add
 
 ---
 
+## SESSION 67 — 2026-10-19 — Fix tls.Options literals for m121 — open
+
+Branch: fix-tls-options
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-013 (`PRPs/prp-013-local_addresses.md`, on `design-private-addresses`) waits for approval, and for a `lughac` with `std.net.resolve` and `tls.Options.address`. Check `lughac spec` for both. If they're present and the PRP is approved: branch `prp-013-local_addresses` from main (merge the design branch first), build test-first, and stop before merge for the owner's security review. If they're missing, ask the owner; don't work around them.
