@@ -1165,6 +1165,38 @@ src/shell.la, src/panel.la, docs/DESIGN.md, CHANGELOG.md, docs/source/meetings/2
 
 ---
 
+## SESSION 30 — 2026-10-18 — Forget and Close in one row — closed
+
+Branch: panel-buttons-row → merged into main
+
+### WHAT WAS DONE
+
+The owner: "forget and close in one row". The panel's bottom is one row: Forget this app (danger) and Close, each taking half. While Forget asks for confirmation, its question with Cancel and Forget takes that place.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/panel.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- None (layout; all tests pass).
+
+### DECISIONS MADE
+
+- None new.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check.
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 28 on a new branch. PRP-005 (the info panel and bar) is on `main`. Next, at the owner's choice:
