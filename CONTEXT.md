@@ -2261,6 +2261,12 @@ CONTEXT.md
 
 ---
 
+## SESSION 62 — 2026-10-19 — Design talk: apps reaching the network — open
+
+Branch: design-network
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-011 is merged. Next: design apps reaching the network (a capability for untrusted code; permissions) in chat, then write PRP-012. Links (the vision's step 2) after.
