@@ -1011,6 +1011,12 @@ CLAUDE.md, PRPs/TEMPLATE.md
 
 ---
 
+## SESSION 26 — 2026-10-18 — Record signing, permissions and panel designs; propose PRP-005 (info panel) — open
+
+Branch: prp-005-panel
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 24 on a new branch. PRP-004 (local development) is on `main`. Next, at the owner's choice:
