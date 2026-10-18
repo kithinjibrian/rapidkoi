@@ -199,3 +199,34 @@ Designed in chat, session 55: `docs/source/meetings/2026-10-18-identity.md`. Aut
   2. Check that it shows "You are User xxxx".
   3. Set your name in the Account page; the greeting should change.
   4. Start over as someone new; the ID should change.
+
+## AMENDMENT 1 — 2026-10-18 (session 59, the owner: "why don't we just have event and then pass things like on_load, on_init, on_click etc" … "you can do breaking changes nothing has shipped")
+
+**What happened:**
+- On screen, an app resumed from its saved state never asked for its key again: `init`, the only place it asked, is skipped on resume.
+- The owner asked for a function run on every open, then for one entry point taking events.
+
+**Change: one contract, events for everything.** Breaking, since nothing has shipped; v1 is removed, not kept beside it.
+- **Exports:**
+  - `rapidkoi_version()` = 2, `alloc`
+  - `update(state, event) → {state, effects}`
+  - `view(state) → tree`
+  - There's no `init` export.
+- **Events,** as CBOR maps with an `event` field:
+  - `{event: "init"}`: on a fresh start; the state given is empty; make the first state
+  - `{event: "opened"}`: on every open, right after `init` on a fresh start, or straight away on resume; the place to ask for things
+  - `{event: "message", msg, value?}`: the app's own messages (a click, typing); `value` is the text
+  - `{event: "answer", msg, value}`: Rapidkoi's reply to an effect; `value` is bytes or null
+- **The order:**
+  - fresh: `update([], init)` → `update(state, opened)` → `view`
+  - resumed: `update(saved, opened)` → `view`
+  - then `update` → `view` for each message or answer
+- **Any event's result can carry effects** (at most 8 each). New moments later (closing, going to the background) are new events, not new exports. An app ignores events it doesn't know.
+- **Placeholders are always on** (no version check). A manifest's `contract` must be 2. The `contract` setting added to `pack` and `rapidkoi.toml` is removed again.
+- **The Rust library** keeps friendly methods: `init()`, `opened(self) -> (Self, Vec<Ask>)` (asks for nothing by default), `update`/`step`, and `answer`. The counter asks in `opened`.
+
+**Tests:**
+- fresh: the events come in order init → opened; resumed: only opened
+- effects from opened are answered; a resumed app asks again and gets its key
+- an old module (`rapidkoi_version` 1) is refused: "This app needs a newer version of Rapidkoi"
+- the existing tests move to the new events (fixtures rebuilt)

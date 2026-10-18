@@ -2161,6 +2161,12 @@ src/identity.la, src/saving.la, test/account.la
 
 ---
 
+## SESSION 59 — 2026-10-18 — PRP-011 amendment 1: one entry point, events for everything — open
+
+Branch: prp-011-identity
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-011 is built on `prp-011-identity`, not merged. Wait for the owner's security review (identity.la, effects.la, people.la, contract v2) and on-screen checks (rebuild the counter, publish, open: "You are User xxxx"; set a name; Start over). Then full suite (Lugha and cargo), merge. Links (the vision's step 2) still aren't built.
