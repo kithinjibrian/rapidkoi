@@ -7,7 +7,7 @@
  * Depends on: std.toml, std.env
  * Used by: pack, publish
  */
-import std.toml { Value, Limits, parse_with, as_text, as_i64, as_table };
+import std.toml { Value, Limits, parse_with, as_text, as_i64, as_table, as_array };
 import std.env;
 
 /** What a project describes. Paths are absolute. */
@@ -38,6 +38,8 @@ public struct Project {
     public site: string,
     /** [publish] keep, default 3: versions kept on the site. */
     public keep: i64,
+    /** [network] servers: what the app may reach besides its host (PRP-012). */
+    public servers: string[],
 }
 
 /** Why a project couldn't be read. */
@@ -94,7 +96,7 @@ public fun parse_project(
     let bounds = Limits { bytes: 64 * 1024, depth: 8, values: 10_000 };
     let doc = parse_with(text, bounds).map_err(fun(e) = ProjectError.Toml(e.message()))?;
     for (k, v) of doc {
-        let known = k == "app" || k == "banners" || k == "assets" || k == "publish";
+        let known = k == "app" || k == "banners" || k == "assets" || k == "publish" || k == "network";
         if !known {
             return Err(match as_table(v) {
                 Some(_) => ProjectError.UnknownTable(k),
@@ -118,6 +120,8 @@ public fun parse_project(
     if keep < 1 {
         return Err(ProjectError.Wrong("publish", "keep", "at least 1"));
     }
+    let network = table(doc, "network")?;
+    only(network, "network", ["servers"])?;
     let key = match words(publish, "publish", "key")? {
         Some(k) => Some(expand(k, home, "publish", "key")?),
         None => None,
@@ -136,6 +140,7 @@ public fun parse_project(
         key: key,
         site: at(dir, words(publish, "publish", "site")?.unwrap_or("site")),
         keep: keep,
+        servers: names(network, "network", "servers")?,
     })
 }
 
@@ -214,6 +219,20 @@ fun whole(
     },
     None => Ok(None),
 };
+
+/** A list of text, or none when absent; the names themselves are checked when packed. */
+fun names(t: Map<string, Value>, name: string, key: string): Result<string[], ProjectError> {
+    let wrong = ProjectError.Wrong(name, key, "a list of server names");
+    let items = match t.get(key) {
+        Some(v) => as_array(v).ok_or(wrong)?,
+        None => [],
+    };
+    let mut out: string[] = [];
+    for v of items {
+        out.push(as_text(v).ok_or(wrong)?);
+    }
+    Ok(out)
+}
 
 /** `name = "path"` pairs, paths made absolute, in the file's order. */
 fun files(

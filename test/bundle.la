@@ -15,6 +15,7 @@ fun manifest(): Manifest = Manifest {
     state_version: 1,
     icon: Some("icon.png"),
     banners: [("home", "banner/home.png")],
+    servers: ["api.acme.com", "localhost:9000"],
 };
 
 fun good(): Bundle = Bundle {
@@ -70,6 +71,36 @@ fun a_minimal_bundle_reads() {
     assert_eq(b.manifest.description, None);
     assert_eq(b.manifest.icon, None);
     assert_eq(b.manifest.banners.len, 0);
+    // Bundles from before PRP-012 reach nothing beyond their own host.
+    assert_eq(b.manifest.servers.len, 0);
+}
+
+@test
+fun servers_are_checked() {
+    let list = fun(names: string[]) = Value.Array(names.map(fun(n: string) = t(n)));
+    assert_eq(error_of(raw(with("servers", list(["api.acme.com"])), [])), "ok");
+    assert_eq(
+        error_of(raw(with("servers", list(["174.138.43.152"])), [])),
+        "This bundle's \"servers\" lists \"174.138.43.152\", which isn't a server name",
+    );
+    assert_eq(
+        error_of(raw(with("servers", t("api.acme.com")), [])),
+        "This bundle's \"servers\" must be a list of names",
+    );
+    assert_eq(
+        error_of(raw(with("servers", Value.Array([Value.int(1)])), [])),
+        "This bundle's \"servers\" must be a list of names",
+    );
+    let mut many: string[] = [];
+    for i of range(0, 33) {
+        many.push("s{i}.acme.com");
+    }
+    assert_eq(
+        error_of(raw(with("servers", list(many)), [])),
+        "This bundle's \"servers\" lists too many (33; at most 32)",
+    );
+    let bad = Bundle { manifest: Manifest { servers: ["intranet"], ..manifest() }, ..good() };
+    assert_eq(write(bad).is_err(), true);
 }
 
 @test
