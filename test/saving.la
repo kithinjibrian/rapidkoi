@@ -51,7 +51,11 @@ fun step(m: Model, msg: Msg): Model {
 
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
-fun marks(m: Model, s: string): bool = click(view(m), s) == Ok(Msg.EditAddress);
+/** The bar's marker, found by what it means (its tooltip leads with that). */
+fun marks(m: Model, s: string): bool = click(
+    view(m),
+    "{s}. Click to search or type a path (Ctrl+K)",
+) == Ok(Msg.EditAddress);
 
 /** A signed site for `localhost:PORT`, published and served. */
 fun site(port: i64): string = site_of(port, "", 1);
@@ -106,7 +110,7 @@ fun trust_survives_a_restart() {
     let s = folder("trust");
     let dir = site(18751);
     let first = started(s, ["./main", "rapidkoi://localhost:18751"]);
-    assert_eq(marks(first, "✓ localhost:18751 · verified (development)"), true);
+    assert_eq(marks(first, "localhost:18751 · verified (development)"), true);
     assert_eq(read_trust(read_bytes("{s.dir}/trust").unwrap()).unwrap().len, 1);
     // A new window on the same folder still knows the key: a swap asks.
     swap_key(dir);
@@ -115,7 +119,7 @@ fun trust_survives_a_restart() {
     // A separate app is remembered as separate.
     let other = step(again, Msg.SeparateApp);
     let third = started(s, ["./main", "rapidkoi://localhost:18751"]);
-    assert_eq(marks(third, "✓ localhost:18751 · verified (development) · new publisher"), true);
+    assert_eq(marks(third, "localhost:18751 · verified (development) · new publisher"), true);
     assert_eq(other.tabs.len, 1);
     clean(dir);
     clean("{dir}.key");
@@ -281,7 +285,7 @@ fun a_rotation_keeps_the_state() {
     ).unwrap();
     let after = started(s, ["./main", "rapidkoi://localhost:18757"]);
     assert_eq(
-        (marks(after, "✓ localhost:18757 · verified (development)"), shows(after, "Count: 1")),
+        (marks(after, "localhost:18757 · verified (development)"), shows(after, "Count: 1")),
         (true, true),
     );
     done(dir, s);

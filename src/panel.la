@@ -25,7 +25,7 @@ import kivuli {
 };
 import actions { Msg, PanelPage, Confirm };
 import tabs { AppPage, state_of, state_version_of };
-import frame { icon_button, icon_of, initial, marker };
+import frame { icon_button, icon_of, initial, marker, marker_icon };
 import bundle { Manifest };
 import address { parse };
 import verify { Standing };
@@ -118,7 +118,8 @@ fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
             // Drawn by Rapidkoi only; tapping it opens who published it. Cut
             // with "…" rather than widening the panel past PANEL_WIDTH (a
             // site's marker is long); the bar shows it whole.
-            left(button_with(text(marker(p, shorten(file_name(p.path), MARKER_CHARS))).wrap_at(PANEL_CHARS).ellipsize(), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app")),
+            left(button_with(marker_face(p), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app")),
+
         ]).spacing(SPACE_XS).expand(),
     ]).spacing(SPACE_MD);
     let mut parts = [header];
@@ -273,6 +274,17 @@ fun line(label: string, summary: string, opens: PanelPage): View<Msg> = button_w
     ]).spacing(SPACE_SM),
     Msg.PanelGo(opens),
 ).button_style(ButtonStyle.Subtle).tooltip(label);
+
+/** The header's marker: its icon and its words, cut with … at the panel's width. */
+fun marker_face(p: AppPage): View<Msg> {
+    let words: View<Msg> = text(marker(p, shorten(file_name(p.path), MARKER_CHARS))).wrap_at(
+        PANEL_CHARS,
+    ).ellipsize();
+    match marker_icon(p) {
+        Some(name) => row([icon(name), words]).spacing(SPACE_XS),
+        None => words,
+    }
+}
 
 /** A label and its value, for About. */
 fun pair(label: string, value: string): View<Msg> = hover_pair(label, value, value);

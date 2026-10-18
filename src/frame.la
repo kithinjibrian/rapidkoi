@@ -72,9 +72,16 @@ public fun bar(page: Page, draft: string, editing: bool, pinned: bool): Bar {
             let place = if editing {
                 box.expand()
             } else {
-                button(marker(p, file_of(p.path)), Msg.EditAddress).button_style(
-                    ButtonStyle.Subtle,
-                ).tooltip("Search or type a path (Ctrl+K)").shortcut("Ctrl+K").expand()
+                let shown = file_of(p.path);
+                let face = button(marker(p, shown), Msg.EditAddress);
+                let marked = match marker_icon(p) {
+                    Some(name) => face.icon(name),
+                    None => face,
+                };
+                // The marker's meaning in words, then what clicking it does.
+                marked.button_style(ButtonStyle.Subtle).tooltip(
+                    "{marker_note(p, shown)}. Click to search or type a path (Ctrl+K)",
+                ).shortcut("Ctrl+K").expand()
             };
             let star = if pinned {
                 icon_button("starred-symbolic", "Unpin", Some(Msg.TogglePin))
@@ -204,21 +211,13 @@ fun tab_menu(t: Tab, pinned: bool): MenuEntry<Msg>[] = [
  *     marker(page, "counter.rkb")
  */
 public fun marker(p: AppPage, shown: string): string = match p.trust {
-    // Nothing claims ✓ or ⚠ before every check has passed.
+    // Nothing claims verified or not confirmed before every check has passed.
     None if is_loading(p) => "{p.name} · loading…",
-    Some(t) => {
-        let separate = if t.separate { " · new publisher" } else { "" };
-        match t.standing {
-            // "(development)" only for this machine: a remote host is the real thing.
-            Verified => if remote(p.path) {
-                "✓ {t.host} · verified{separate}"
-            } else {
-                "✓ {t.host} · verified (development){separate}"
-            },
-            Trusted => "✓ {t.host}{separate}",
-            NotConfirmed => "⚠ {t.host} · not confirmed",
-        }
-    }
+    // A signed app: its host, after the icon (`marker_icon`); the words are in `marker_note`.
+    Some(t) => match t.standing {
+        NotConfirmed => "{t.host} · not confirmed",
+        _ => if t.separate { "{t.host} · new publisher" } else { t.host },
+    },
     None => match parse(p.path) {
         Ok(a) => "🛠 {address.shown(a)} · development",
         Err(_) => match p.manifest {
@@ -226,6 +225,47 @@ public fun marker(p: AppPage, shown: string): string = match p.trust {
             None => "📄 {shown} · local file",
         },
     },
+};
+
+/**
+ * Returns the icon before a signed app's marker: a shield when its
+ * publisher's key is verified or trusted, a warning when it isn't
+ * confirmed; none for anything unsigned (its marker says it in words).
+ *
+ * Example:
+ *     marker_icon(page)
+ */
+public fun marker_icon(p: AppPage): Option<string> = match p.trust {
+    Some(t) => match t.standing {
+        NotConfirmed => Some("dialog-warning-symbolic"),
+        _ => Some("security-high-symbolic"),
+    },
+    None => None,
+};
+
+/**
+ * Returns what the marker means, in words, for its tooltip: `HOST ·
+ * verified` (`(development)` on this machine), `HOST · trusted` for a
+ * signed file, `HOST · not confirmed`; the marker itself otherwise.
+ *
+ * Example:
+ *     marker_note(page, "counter.rkb")
+ */
+public fun marker_note(p: AppPage, shown: string): string = match p.trust {
+    Some(t) => {
+        let separate = if t.separate { " · new publisher" } else { "" };
+        match t.standing {
+            // "(development)" only for this machine: a remote host is the real thing.
+            Verified => if remote(p.path) {
+                "{t.host} · verified{separate}"
+            } else {
+                "{t.host} · verified (development){separate}"
+            },
+            Trusted => "{t.host} · trusted{separate}",
+            NotConfirmed => "{t.host} · not confirmed",
+        }
+    }
+    None => marker(p, shown),
 };
 
 /** Whether a page came from another machine's address. */

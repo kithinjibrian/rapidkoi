@@ -1,6 +1,6 @@
 // The frame, home and the info panel, pure: what each shows and sends,
 // checked through kivuli.testing with no display.
-import rapidkoi.frame { Bar, bar, rail, label, initial, icon_of, marker };
+import rapidkoi.frame { Bar, bar, rail, label, initial, icon_of, marker, marker_icon, marker_note };
 import rapidkoi.panel { first_trusted };
 import rapidkoi.verify { Trust, Standing };
 import rapidkoi.home { Card, matches };
@@ -193,16 +193,37 @@ fun signed_page(path: string, host: string, standing: Standing, since: i64): App
 };
 
 @test
-fun the_marker_says_development_only_for_this_machine() {
+fun the_marker_is_an_icon_and_the_host_with_the_words_on_hover() {
     let remote = signed_page(
         "rapidkoi://counter.dafifi.net",
         "counter.dafifi.net",
         Standing.Verified,
         0,
     );
-    assert_eq(marker(remote, "x"), "✓ counter.dafifi.net · verified");
+    assert_eq(
+        (marker(remote, "x"), marker_icon(remote), marker_note(remote, "x")),
+        ("counter.dafifi.net", Some("security-high-symbolic"), "counter.dafifi.net · verified"),
+    );
     let local = signed_page("rapidkoi://localhost:8000", "localhost:8000", Standing.Verified, 0);
-    assert_eq(marker(local, "x"), "✓ localhost:8000 · verified (development)");
+    assert_eq(
+        (marker(local, "x"), marker_note(local, "x")),
+        ("localhost:8000", "localhost:8000 · verified (development)"),
+    );
+    let file = signed_page("notes.rkb", "notes.acme.com", Standing.Trusted, 0);
+    assert_eq(
+        (marker(file, "x"), marker_icon(file)),
+        ("notes.acme.com", Some("security-high-symbolic")),
+    );
+    let stranger = signed_page("notes.rkb", "notes.acme.com", Standing.NotConfirmed, 0);
+    assert_eq(
+        (marker(stranger, "x"), marker_icon(stranger)),
+        ("notes.acme.com · not confirmed", Some("dialog-warning-symbolic")),
+    );
+    // Unsigned pages keep their words and no icon.
+    assert_eq(
+        (marker(counter(), "counter.wasm"), marker_icon(counter())),
+        ("📄 counter.wasm · local file", None),
+    );
 }
 
 @test

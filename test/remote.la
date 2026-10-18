@@ -74,7 +74,13 @@ fun a_tls_site_opens_verified_and_its_first_use_is_saved() {
         with_network(home, Network { ca_file: Some("{TLS}/ca.pem") }),
         "https://localhost:18791",
     );
-    assert_eq(click(view(m), "✓ localhost:18791 · verified (development)"), Ok(Msg.EditAddress));
+    assert_eq(
+        click(
+            view(m),
+            "localhost:18791 · verified (development). Click to search or type a path (Ctrl+K)",
+        ),
+        Ok(Msg.EditAddress),
+    );
     let saved = read_trust(read_bytes("{s.dir}/trust").unwrap()).unwrap();
     assert_eq((saved.len, saved[0].host, saved[0].since >= before), (1, "localhost:18791", true));
     clean(dir);

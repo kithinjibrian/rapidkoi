@@ -24,7 +24,11 @@ const ADDRESS: string = "rapidkoi://localhost:18771";
 
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
-fun marks(m: Model, s: string): bool = click(view(m), s) == Ok(Msg.EditAddress);
+/** The bar's marker, found by what it means (its tooltip leads with that). */
+fun marks(m: Model, s: string): bool = click(
+    view(m),
+    "{s}. Click to search or type a path (Ctrl+K)",
+) == Ok(Msg.EditAddress);
 
 /** Opens ADDRESS from home, without running its task. */
 fun opening(): (Model, Cmd<Msg>) {
@@ -235,7 +239,7 @@ fun a_changed_snapshot_loads_again_once_then_says_so() {
     assert_eq(shows(c, "Trust for localhost:18772 changed while it loaded; try again"), true);
     // The re-load itself, run, opens it verified.
     let settled = settle(b, again, update);
-    assert_eq(marks(settled, "✓ localhost:18772 · verified (development)"), true);
+    assert_eq(marks(settled, "localhost:18772 · verified (development)"), true);
     clean(dir);
     clean("{dir}.key");
 }
@@ -248,7 +252,7 @@ fun end_to_end_start_returns_the_task_and_trust_is_saved() {
     let (m, cmd) = start(["./main", "rapidkoi://localhost:18773"], Some(s));
     assert_eq((loading(m), is_task(cmd)), (true, true));
     let done = settle(m, cmd, update);
-    assert_eq(marks(done, "✓ localhost:18773 · verified (development)"), true);
+    assert_eq(marks(done, "localhost:18773 · verified (development)"), true);
     assert_eq(fs.is_file("{s.dir}/trust"), true);
     clean(dir);
     clean("{dir}.key");

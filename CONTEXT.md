@@ -1958,9 +1958,35 @@ src/theme.la, src/shell.la, docs/DESIGN.md
 
 ---
 
-## SESSION 53 — 2026-10-18 — The marker: an icon instead of "verified" — open
+## SESSION 53 — 2026-10-18 — The marker: an icon instead of "verified" — closed
 
 Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner: "instead of writing verified. just use a icon". The marker is now three parts in frame.la: `marker` (the short label: the host, "· new publisher" when separate, "HOST · not confirmed"; unsigned markers unchanged), `marker_icon` (security-high-symbolic for verified or trusted, dialog-warning-symbolic for not confirmed, none unsigned) and `marker_note` (the words: "HOST · verified", "(development)" on this machine, "HOST · trusted", "HOST · not confirmed"). The bar's marker button shows icon and host; its tooltip leads with the note, then "Click to search or type a path (Ctrl+K)". The panel header shows the same icon and host. Tests find the marker by that tooltip, so they still assert the exact standing.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/frame.la, src/panel.la, test/views.la, test/loading.la, test/opening.la, test/saving.la, test/remote.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- views: the marker's label, icon and note for remote verified, local verified, trusted, not confirmed and unsigned. 245 pass.
+
+### DECISIONS MADE
+
+- A trusted signed file's words are "HOST · trusted"; the icon is the same shield as verified.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of PRP-010, then merge.
 
 ---
 
