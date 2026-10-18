@@ -2443,6 +2443,45 @@ examples/quote/Dockerfile (new), CLAUDE.md (tree), CONTEXT.md
 
 ---
 
+## SESSION 66 — 2026-10-19 — Design: refusing server names that point to the local network — closed
+
+Branch: design-private-addresses
+
+### WHAT WAS DONE
+
+The owner: "refuse server names that point to local network" (DECISION-026). Four questions in chat, each answered:
+1. Block every local range: "yes, block all of those".
+2. Both fetches and opening apps: "both".
+3. std gains `net.resolve` and a connect-to-address option: "A".
+4. A mixed answer is refused whole: "A".
+
+Recorded the meeting notes, resolved DECISION-026, and wrote PRP-013. Gave the owner a prompt for the Lugha session that adds the std pieces. Nothing built: the PRP waits for the owner's approval and for the std addition.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-19-local-addresses.md (new), PRPs/prp-013-local_addresses.md (new), DECISIONS.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- DECISION-026 resolved (the design).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-013's approval.
+- The std addition (`net.resolve`, `tls.Options.address`) in `../lugha`, by its own session.
+
+---
+
 ## NEXT SESSION START POINT
 
-PRP-012 is merged and its demo runs at `rapidkoi://quote.dafifi.net` (the VM, memory note `test-vm-rapidkoi-sites`). Next arc, the owner's choice: links (the vision's step 2), tab restore, or DECISION-026's std addition.
+PRP-013 (`PRPs/prp-013-local_addresses.md`, on `design-private-addresses`) waits for approval, and for a `lughac` with `std.net.resolve` and `tls.Options.address`. Check `lughac spec` for both. If they're present and the PRP is approved: branch `prp-013-local_addresses` from main (merge the design branch first), build test-first, and stop before merge for the owner's security review. If they're missing, ask the owner; don't work around them.
