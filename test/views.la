@@ -2,7 +2,6 @@
 // checked through kivuli.testing with no display.
 import rapidkoi.frame { Bar, bar, rail, label, initial, icon_of };
 import rapidkoi.home { Card, matches };
-import rapidkoi.panel;
 import rapidkoi.tabs { Page, Tab, Pin, AppPage, open_module };
 import rapidkoi.bundle { Manifest };
 import rapidkoi.actions { Msg };
@@ -39,7 +38,7 @@ fun pins(n: i64): Pin[] {
 
 @test
 fun the_bar_on_home() {
-    let v = shown(bar(Page.Home, "", false));
+    let v = shown(bar(Page.Home, "", false, false));
     assert_eq(is_disabled(v, "Back (comes with links)"), Ok(true));
     assert_eq(is_disabled(v, "Forward (comes with links)"), Ok(true));
     assert_eq(is_disabled(v, "Share (comes with links)"), Ok(true));
@@ -51,14 +50,14 @@ fun the_bar_on_home() {
 
 @test
 fun the_bar_on_an_app_page() {
-    let v = shown(bar(Page.App(counter()), "", false));
+    let v = shown(bar(Page.App(counter()), "", false, false));
     assert_eq(click(v, "App info"), Ok(Msg.TogglePanel));
     assert_eq(click(v, "Home"), Ok(Msg.Home));
     assert_eq(click(v, "📄 counter.wasm · local file"), Ok(Msg.EditAddress));
     assert_eq(press(v, "Ctrl+K"), Ok(Msg.EditAddress));
     // Editing turns the address back into the box.
     assert_eq(
-        submit(shown(bar(Page.App(counter()), "apps/counter.wasm", true)), "address"),
+        submit(shown(bar(Page.App(counter()), "apps/counter.wasm", true, false)), "address"),
         Ok(Msg.Go),
     );
 }
@@ -128,23 +127,6 @@ fun matching_ignores_case_and_reads_titles() {
 }
 
 @test
-fun the_info_panel() {
-    let v = panel.view(4, counter(), false);
-    assert_eq(texts(v), [
-        "counter",
-        "Counter",
-        "📄 apps/counter.wasm · local file",
-        "Contract v1 · state v1",
-        "Permissions: none. This app can't reach anything outside itself.",
-    ]);
-    assert_eq(click(v, "Restart"), Ok(Msg.Tab(4, render.Msg.Restart)));
-    assert_eq(click(v, "Pin"), Ok(Msg.Pin));
-    assert_eq(click(v, "Close tab"), Ok(Msg.CloseTab(4)));
-    assert_eq(click(v, "Close the panel"), Ok(Msg.TogglePanel));
-    assert_eq(click(panel.view(4, counter(), true), "Unpin"), Ok(Msg.Unpin("apps/counter.wasm")));
-}
-
-@test
 fun the_dark_theme() {
     assert_eq(surface(DARK, Look.Frame).background, Some(hex("#242424")));
     assert_eq(surface(DARK, Look.Page).background, Some(hex("#161616")));
@@ -159,28 +141,6 @@ fun the_dark_theme() {
     assert_eq(surface(DARK, Look.Frame).flat, Some(true));
     assert_eq(surface(DARK, Look.Page).flat, None);
 }
-
-@test
-fun the_info_panel_for_a_bundle() {
-    let m = Manifest {
-        contract: 1,
-        name: "counter",
-        version: "0.3.0",
-        description: Some("Counts things"),
-        state_version: 2,
-        icon: None,
-        banners: [],
-    };
-    let page = AppPage { manifest: Some(m), path: "apps/counter.rkb", ..counter() };
-    let shown = texts(panel.view(4, page, false));
-    assert_eq(shown[2], "Version 0.3.0");
-    assert_eq(shown[3], "Counts things");
-    assert_eq(shown[4], "📦 apps/counter.rkb · local bundle");
-    assert_eq(shown[5], "Contract v1 · state v2");
-    assert_eq(click(shown_bar(page), "📦 counter.rkb · local bundle"), Ok(Msg.EditAddress));
-}
-
-fun shown_bar(page: AppPage): View<Msg> = shown(bar(Page.App(page), "", false));
 
 @test
 fun an_app_with_an_icon_shows_it_on_its_tab_and_tile() {

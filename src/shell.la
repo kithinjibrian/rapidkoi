@@ -10,8 +10,8 @@
  */
 import kivuli { View, Cmd, column, row, scroll, text };
 import wasmtime { Engine };
-import actions { Msg };
-import tabs { AppPage, Pin, open_path, handle };
+import actions { Msg, PanelPage };
+import tabs { AppPage, open_path, handle };
 public import window { Model, with_pages, title_of };
 import navigate;
 import render { screen, stopped };
@@ -63,12 +63,30 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     },
     OpenPinned(path) => (navigate.open_file(window.go_home(m), path), Cmd.none()),
     Continue => (navigate.reopen(m), Cmd.none()),
-    TogglePanel => (Model { showing_panel: !m.showing_panel, ..m }, Cmd.none()),
-    Pin => (window.pin(m), Cmd.none()),
-    Unpin(path) => (
-        Model { pinned: m.pinned.filter(fun(p: Pin) = p.path != path), ..m },
+    TogglePanel => (
+        Model {
+            panel: if m.panel.is_some() { None } else { Some(PanelPage.Main) },
+            confirm: None,
+            ..m,
+        },
         Cmd.none(),
     ),
+    TogglePin => (window.toggle_pin(m), Cmd.none()),
+    PanelGo(page) => (Model { panel: Some(page), confirm: None, ..m }, Cmd.none()),
+    PanelBack => (Model { panel: Some(PanelPage.Main), confirm: None, ..m }, Cmd.none()),
+    Ask(c) => (Model { confirm: Some(c), ..m }, Cmd.none()),
+    Cancel => (Model { confirm: None, ..m }, Cmd.none()),
+    StartOver => match m.current {
+        Some(id) => (
+            Model {
+                confirm: None,
+                ..window.with_tab(m, id, fun(a: AppPage) = handle(a, render.Msg.Restart)),
+            },
+            Cmd.none(),
+        ),
+        None => (m, Cmd.none()),
+    },
+    Forget => (window.forget(m), Cmd.none()),
     FocusSearch => (m, Cmd.focus("address")),
     Reload => (navigate.reload(m), Cmd.none()),
 };
@@ -89,9 +107,9 @@ public fun view(m: Model): View<Msg> {
     let id = m.current.unwrap_or(-1);
     let middle = match page {
         Home => card(home.view(m.draft, m.pinned, window.card(m), m.tabs)),
-        App(a) if m.showing_panel => row([
+        App(a) if m.panel.is_some() => row([
             card(app_view(id, a)).expand(),
-            panel.view(id, a, window.is_pinned(m, a.path)),
+            panel.view(a, m.panel.unwrap_or(PanelPage.Main), m.confirm),
         ]),
         App(a) => card(app_view(id, a)),
     };
@@ -100,7 +118,11 @@ public fun view(m: Model): View<Msg> {
         parts.push(text(n).dim().padding(SPACE_MD));
     }
     parts.push(row([middle.expand(), rail(m.tabs, m.current)]).expand());
-    let b = bar(page, m.draft, m.editing);
+    let pinned = match page {
+        App(a) => window.is_pinned(m, a.path),
+        Home => false,
+    };
+    let b = bar(page, m.draft, m.editing, pinned);
     column(parts).style([Look.Frame]).window(
         title_of(m),
         WINDOW_WIDTH,

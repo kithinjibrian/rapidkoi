@@ -69,7 +69,7 @@ fun home_and_continue_keep_the_count() {
 
 @test
 fun a_pinned_counter_opens_from_home() {
-    let mut m = step(started(), Msg.Pin);
+    let mut m = step(started(), Msg.TogglePin);
     m = step(m, Msg.NewTab);
     m = step(m, click(view(m), "Open counter").unwrap());
     assert_eq(shown(m)[1], "Count: 0");
@@ -105,6 +105,9 @@ fun the_counter_packed_as_a_bundle_runs_the_same() {
     assert_eq(shown(m)[1], "Count: 1");
     m = step(m, Msg.TogglePanel);
     assert_eq(texts(view(m)).any(fun(s: string) = s == "Version 0.1.0"), true);
+    // ⟳ keeps the count.
+    m = step(m, Msg.Reload);
+    assert_eq(shown(m)[1], "Count: 1");
     assert_eq(texts(view(m)).any(fun(s: string) = s == "Counts, and says hello"), true);
     fs.remove_file(out).unwrap();
 }

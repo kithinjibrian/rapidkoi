@@ -1011,11 +1011,96 @@ CLAUDE.md, PRPs/TEMPLATE.md
 
 ---
 
+## SESSION 26 — 2026-10-18 — Record signing, permissions and panel designs; propose PRP-005 (info panel) — closed
+
+Branch: prp-005-panel
+
+### WHAT WAS DONE
+
+Recorded the chat after session 25:
+- **The signing design:** key file and first use, signed manifest and index, static key/index/builds layout, rotations and unapproved changes, formats, OpenSSL `std.crypto`, `rapidkoi.toml` and `std.toml`, markers.
+- **Permissions at the point of use.**
+- **The info panel redesign** (the owner's sketch, agreed names) and ⟳ / ☆ in the bar.
+
+Prompts for `std.crypto` and `std.toml` were given to the owner. Wrote PRP-005. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-signing-and-panel.md, docs/source/meetings/2026-10-17-ui/sketch-3-info-panel.png
+DECISIONS.md — 009 design settled; 022 (accounts) deferred
+MEMORY.md    — decisions 14–16
+PRPs/prp-005-info_panel.md — for approval
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- See the meeting note. Remembering becomes PRP-006.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-022 (accounts).
+
+### STILL OPEN AT CLOSE
+
+- PRP-005 awaits approval. The lugha std work (crypto, toml) is the owner's.
+
+---
+
+## SESSION 27 — 2026-10-18 — Build PRP-005: the info panel and bar actions — closed
+
+Branch: prp-005-panel → merged into main
+
+### WHAT WAS DONE
+
+Built PRP-005:
+- **The bar:** ‹ ⌂ › ⟳ [address ☆] ⓘ ⤴.
+- **⟳ Reload keeps state:** `tabs.load_again` loads again from the file or server and resumes when state_version matches; otherwise it starts fresh with a notice.
+- **The panel as the owner sketched it:** a header with icon, name, version and marker (opens About); the description; Your settings and On this device as `Look.Section` cards of rows with summaries; pages with Back; Forget.
+- **Start over and Forget ask first**, in place.
+- **`window.forget`** removes the tab, the pin and a matching left-off, and keeps the previous left-off otherwise.
+
+121 Lugha tests; the counter e2e checks ⟳ keeps its count.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/panel.la (rewritten), src/actions.la (PanelPage, Confirm, new messages; TogglePin replaces Pin/Unpin)
+src/window.la (panel, confirm, forget, toggle_pin), src/navigate.la (reload keeps state), src/tabs.la (load_again, state_version_of)
+src/frame.la (⟳ ☆), src/themes.la (Look.Section), src/shell.la
+test/panel.la (new); test/views.la, test/shell.la, test/counter.la, test/loader.la
+docs/DESIGN.md, CLAUDE.md, DECISIONS.md (020 item 0: clickable rows), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- panel (8): bar ⟳ ☆, the main page, each page and Back, Start over asks, Forget asks and removes, a confirm dropped on tab change, reload from a non-file, sizes.
+- counter: ⟳ keeps the count.
+
+### DECISIONS MADE
+
+- `tabs.load_again`: navigate already had `reopen`, for Continue.
+- The panel's "main" function is `front` (`main` is reserved for the entry file).
+- Sizes round to the nearest tenth of a MB (a test caught truncation).
+
+### PENDING DECISIONS OPENED
+
+- DECISION-020 item 0: clickable rows in kivuli.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check.
+
+---
+
 ## NEXT SESSION START POINT
 
-Open session 24 on a new branch. PRP-004 (local development) is on `main`. Next, at the owner's choice:
-- PRP-005, remembering: an on-device store for history, pins and state across restarts, with `migrate` and starting over (DECISION-019)
-- live reload for `./main serve`
-- `lugha-toml`
-- background loading (DECISION-021)
-- signing and format 2 (DECISION-009), once lugha's TLS (its PRP-144) lands
+Open session 28 on a new branch. PRP-005 (the info panel and bar) is on `main`. Next, at the owner's choice:
+- PRP-006, remembering: the on-disk store (needs `fs.rename` for safe saves and `fs.set_mode`), migrate
+- signing (when `std.crypto` and `std.toml` land)
+- links
+- kivuli items (DECISION-020)

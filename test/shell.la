@@ -3,7 +3,7 @@
 // Fixture guests; no display.
 import rapidkoi.shell { Model, boot, with_pages, update, view, title_of };
 import rapidkoi.window { card };
-import rapidkoi.actions { Msg };
+import rapidkoi.actions { Msg, Confirm };
 import rapidkoi.tabs { AppPage, open_module, state_of };
 import rapidkoi.render;
 import rapidkoi.contract { envelope };
@@ -162,9 +162,8 @@ fun the_address_box_on_an_app_replaces_its_app() {
 
 @test
 fun pinning_and_opening_a_pin() {
-    let m = step(two(), Msg.Pin);
+    let m = step(two(), Msg.TogglePin);
     assert_eq(m.pinned.len, 1);
-    assert_eq(step(m, Msg.Pin).pinned.len, 1);
     // The pin's file doesn't exist here, so its new tab shows why.
     let opened = step(m, Msg.OpenPinned("a.wasm"));
     assert_eq(opened.tabs.len, 3);
@@ -172,15 +171,15 @@ fun pinning_and_opening_a_pin() {
         texts(view(opened)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
         true,
     );
-    assert_eq(step(m, Msg.Unpin("a.wasm")).pinned.len, 0);
+    assert_eq(step(m, Msg.TogglePin).pinned.len, 0);
 }
 
 @test
 fun the_info_panel_opens_beside_the_app() {
     let m = step(two(), Msg.TogglePanel);
-    assert_eq(shows(m, "Contract v1 · state v1"), true);
-    assert_eq(click(view(m), "Close tab"), Ok(Msg.CloseTab(0)));
-    assert_eq(shows(step(m, Msg.TogglePanel), "Contract v1 · state v1"), false);
+    assert_eq(shows(m, "Your settings"), true);
+    assert_eq(click(view(m), "Forget this app"), Ok(Msg.Ask(Confirm.Forget)));
+    assert_eq(shows(step(m, Msg.TogglePanel), "Your settings"), false);
 }
 
 @test

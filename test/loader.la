@@ -7,7 +7,7 @@ import rapidkoi.serve { handle };
 import rapidkoi.bundle { Bundle, Manifest, write };
 import rapidkoi.shell { Model, with_pages, update, view };
 import rapidkoi.navigate { reload };
-import rapidkoi.actions { Msg };
+import rapidkoi.actions { Msg, PanelPage };
 import rapidkoi.tabs { AppPage, open_path };
 import kivuli.testing { texts };
 import std.http { Request };
@@ -119,13 +119,9 @@ fun the_panel_says_where_it_came_from() {
     serving(bundle_file("loader-panel", "1.0.0"), 18736);
     let engine = Engine.new();
     let m = with_pages(engine, [open_path(engine, "rapidkoi://localhost:18736")]);
-    let (shown, _) = update(m, Msg.TogglePanel);
-    let lines = texts(view(shown));
-    assert_eq(
-        lines.any(
-            fun(s: string) = s == "Served from rapidkoi://localhost:18736 (development, unsigned)",
-        ),
-        true,
-    );
-    assert_eq(lines.any(fun(s: string) = s == "🛠 localhost:18736 · development"), true);
+    let (open, _) = update(m, Msg.TogglePanel);
+    let (about, _) = update(open, Msg.PanelGo(PanelPage.About));
+    let lines = texts(view(about));
+    assert_eq(lines.any(fun(s: string) = s == "Development server, unsigned"), true);
+    assert_eq(lines.any(fun(s: string) = s == "rapidkoi://localhost:18736"), true);
 }

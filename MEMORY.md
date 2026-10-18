@@ -150,6 +150,48 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
+### 14. Signing design (meeting 2026-10-18, signing-and-panel)
+
+**Decision:**
+- A key file over HTTPS, remembered on first use per host.
+- Signed manifests and a signed, rising-sequence index; the server holds `key`, `index` and `builds/<sha256>.rkb` only.
+- Signed rotations; an unapproved key change makes a separate app (identity = host + key).
+- Ed25519 and SHA-256 via OpenSSL as `std.crypto`; `rapidkoi.toml` via `std.toml`.
+- No bypass on a failed check; automatic updates with Undo.
+
+**Why:** The owner, step by step, choosing the simplest secure option at each point.
+
+**Rules out:** Loose pieces on servers; DNS or a log as requirements; libsodium; long pack flags for publishing.
+
+---
+
+### 15. Permissions at the point of use
+
+**Decision:**
+- Apps reach devices and files only through Rapidkoi's API, which asks the person when an app first asks (Allow once / Always / Don't).
+- A file picker is the consent.
+- The manifest declares a ceiling; network access is declaration-only.
+- Toggles in the panel; no permission screens at install or update.
+
+**Why:** The owner's direction, and the vision ("granted at the moment it's needed").
+
+**Rules out:** Up-front permission screens; apps asking for anything undeclared.
+
+---
+
+### 16. The info panel and bar actions
+
+**Decision:**
+- **The bar:** ⟳ Reload (keeps state) and ☆ Pin.
+- **The panel** (the owner's sketch): a header (icon, name, version, host); the description; Your settings (Account · Notifications · Access); On this device (Where you left off · Data); Forget this app.
+- Rows open pages with a back arrow. Start over lives on the state page.
+
+**Why:** The owner, who found the old panel ugly (`2026-10-17-ui/sketch-3-info-panel.png`).
+
+**Rules out:** A flat list of lines and buttons; destructive actions without a confirm.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working
@@ -160,6 +202,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - **Rapidkoi's frame and tabs (PRP-002 + Amendment 1), merged in session 10:** the bar, an app-only tab rail, home (Where you left off, Pinned, search), the info panel, the dark theme defined (placeholder). 73 Lugha tests.
 - **Bundles (PRP-003), merged in session 20:** `./main pack` makes a `.rkb` (format 1); `./main app.rkb` or typing its path opens it. 95 Lugha tests.
 - **Local development (PRP-004), merged in session 23:** `./main serve app.rkb` (127.0.0.1 only); `rapidkoi://localhost:PORT` opens it; Reload. 115 Lugha tests.
+- **The info panel and bar actions (PRP-005), merged in session 27:** the owner's panel sketch; ⟳ keeps state; ☆ pins. 121 Lugha tests.
 
 ### In Progress
 - Nothing.

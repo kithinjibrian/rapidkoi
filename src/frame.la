@@ -6,7 +6,7 @@
  * Depends on: kivuli, actions, tabs, theme
  * Used by: panel, shell
  */
-import kivuli { View, Image, Align, ButtonStyle, button, column, input, separator, spacer };
+import kivuli { View, Image, Align, ButtonStyle, button, column, input, row, separator, spacer };
 import actions { Msg };
 import address { parse };
 import tabs { Page, Tab, AppPage };
@@ -29,13 +29,14 @@ public struct Bar {
  * @param page what the window shows
  * @param draft the address box's text
  * @param editing whether an app page's address is being edited
+ * @param pinned whether the current app is pinned (☆ or ★)
  * @returns its parts; back, forward and share are disabled until links (DECISION-018)
  *
  * Example:
- *     let b = bar(Page.Home, "", false);
+ *     let b = bar(Page.Home, "", false, false);
  *     view.header(b.start, b.title, b.end)
  */
-public fun bar(page: Page, draft: string, editing: bool): Bar {
+public fun bar(page: Page, draft: string, editing: bool, pinned: bool): Bar {
     let back = icon_button("go-previous-symbolic", "Back (comes with links)", None);
     let forward = icon_button("go-next-symbolic", "Forward (comes with links)", None);
     let share = icon_button("emblem-shared-symbolic", "Share (comes with links)", None);
@@ -49,16 +50,34 @@ public fun bar(page: Page, draft: string, editing: bool): Bar {
             title: box.expand(),
             end: [share],
         },
-        App(p) => Bar {
-            start: [back, icon_button("go-home-symbolic", "Home", Some(Msg.Home)), forward],
+        App(p) => {
             // Drawn by Rapidkoi only: an app can never show this marker.
-            title: if editing {
+            let place = if editing {
                 box.expand()
             } else {
-                button(marker(p, file_of(p.path)), Msg.EditAddress).button_style(ButtonStyle.Subtle).tooltip("Search or type a path (Ctrl+K)").shortcut("Ctrl+K").expand()
-            },
-            end: [icon_button("dialog-information-symbolic", "App info", Some(Msg.TogglePanel)), share],
-        },
+                button(marker(p, file_of(p.path)), Msg.EditAddress).button_style(
+                    ButtonStyle.Subtle,
+                ).tooltip("Search or type a path (Ctrl+K)").shortcut("Ctrl+K").expand()
+            };
+            let star = if pinned {
+                icon_button("starred-symbolic", "Unpin", Some(Msg.TogglePin))
+            } else {
+                icon_button("non-starred-symbolic", "Pin", Some(Msg.TogglePin))
+            };
+            Bar {
+                start: [
+                    back,
+                    icon_button("go-home-symbolic", "Home", Some(Msg.Home)),
+                    forward,
+                    icon_button("view-refresh-symbolic", "Reload", Some(Msg.Reload)),
+                ],
+                title: row([place, star]).spacing(SPACE_SM).expand(),
+                end: [
+                    icon_button("dialog-information-symbolic", "App info", Some(Msg.TogglePanel)),
+                    share,
+                ],
+            }
+        }
     }
 }
 
