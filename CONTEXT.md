@@ -1762,6 +1762,12 @@ CONTEXT.md
 
 ---
 
+## SESSION 47 — 2026-10-18 — Design PRP-010: retiring four placeholders with kivuli 0.10 — open
+
+Branch: prp-010-kivuli_placeholders
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-009 is merged. Next: design PRP-010 (kivuli 0.10: a wrapping home grid, the panel as an overlay, tab context menus, clickable panel rows) in chat, then write it. Then the tabs PRP.
