@@ -2443,6 +2443,12 @@ examples/quote/Dockerfile (new), CLAUDE.md (tree), CONTEXT.md
 
 ---
 
+## SESSION 66 — 2026-10-19 — Design: refusing server names that point to the local network — open
+
+Branch: design-private-addresses
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-012 is merged and its demo runs at `rapidkoi://quote.dafifi.net` (the VM, memory note `test-vm-rapidkoi-sites`). Next arc, the owner's choice: links (the vision's step 2), tab restore, or DECISION-026's std addition.
