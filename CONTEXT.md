@@ -2129,9 +2129,35 @@ src/account.la, test/account.la
 
 ---
 
-## SESSION 58 — 2026-10-18 — The Account page knows you after a restart — open
+## SESSION 58 — 2026-10-18 — The Account page knows you after a restart — closed
 
 Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+The owner's screenshots 26–27: signed in, then after closing and reopening Rapidkoi the Account row said "Not signed in yet" though the counter (resumed with its key in its state) still showed "You are User 5189". The master secret was only read when an app asked; `saving.restore` now reads it if the file exists (`identity.existing`, never makes one), so the page names you at once.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/identity.la, src/saving.la, test/account.la
+```
+
+### TESTS WRITTEN
+
+- account: after a restart the page shows the same label; no master secret is made until an app asks. 276 pass.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None (option A, the `resumed` message, still awaits the owner).
+
+### STILL OPEN AT CLOSE
+
+- Option A; the owner's security review and on-screen checks.
 
 ---
 

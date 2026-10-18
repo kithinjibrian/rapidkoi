@@ -158,3 +158,27 @@ fun an_unsigned_app_can_t_have_an_account() {
     let m = step(step(with_pages(engine, [p]), Msg.TogglePanel), Msg.PanelGo(PanelPage.Account));
     assert_eq(shows(m, "Plain isn't signed, so it can't have an account."), true);
 }
+
+@test
+fun after_a_restart_the_page_still_knows_who_you_are() {
+    let s = folder("restart");
+    // The first run made the master secret when Notes asked.
+    notes(s);
+    // A new window on the same folder: Notes is resumed and doesn't ask,
+    // yet the page shows the same label.
+    let engine = Engine.new();
+    let p = AppPage { trust: Some(trust()), ..open_module("Notes", "rapidkoi://notes.acme.com", engine, Module.from_text(engine, echo()).unwrap()) };
+    let again = step(step(restore(with_pages(engine, [p]), s), Msg.TogglePanel), Msg.PanelGo(PanelPage.Account));
+    assert_eq(shows(again, "Signed in as {user_label(key(s, 0))}"), true);
+    clean(s.dir);
+}
+
+@test
+fun no_master_secret_is_made_until_an_app_asks() {
+    let s = folder("none");
+    let engine = Engine.new();
+    let p = AppPage { trust: Some(trust()), ..open_module("Notes", "rapidkoi://notes.acme.com", engine, Module.from_text(engine, echo()).unwrap()) };
+    let m = step(step(restore(with_pages(engine, [p]), s), Msg.TogglePanel), Msg.PanelGo(PanelPage.Account));
+    assert_eq((shows(m, "Signed in when Notes asks"), fs.exists("{s.dir}/identity")), (true, false));
+    clean(s.dir);
+}

@@ -5,13 +5,14 @@
  * newer Rapidkoi's are left alone, each with a notice; a failed save is a
  * notice too, never a crash.
  *
- * Depends on: std.env, std.time, store, states, people, remembered, verify, window, leftoff
+ * Depends on: std.env, std.time, store, states, people, identity, remembered, verify, window, leftoff
  * Used by: shell
  */
 import std.env;
 import std.time;
 import states { Saved, keep, drop_state, move_state };
 import people { People, Person, nobody, people_file, read_people, MAX_PEOPLE_FILE };
+import identity { existing, reason as identity_reason };
 import store {
     Store,
     StoreError,
@@ -147,12 +148,22 @@ public fun restore(m: Model, s: Store): Model {
         ),
         ..known,
     };
+    let secret = match existing(s) {
+        Ok(found) => found,
+        Err(e) => {
+            say_to(notes, identity_reason(e));
+            None
+        }
+    };
     let said = notes.get();
     Model {
         ring: if ids.len == 0 { keyring() } else { keyring_of(ids) },
         pinned: pins,
         left_off: left,
         people: folks,
+        // Read now if it exists (never made here), so the Account page can
+        // name you though no app has asked yet this run.
+        master: secret,
         store: Some(held.get()),
         notice: if said.len == 0 { m.notice } else { Some(said.join(" · ")) },
         ..m,
@@ -329,3 +340,9 @@ fun which(
 ): Option<(string, string, Option<string>, Option<(string, u8[])>)> = l.map(
     fun(x: LeftOff) = (x.name, x.path, x.title, signer_of(x)),
 );
+
+fun say_to(notes: Ref<string[]>, s: string) = notes.update(fun(all: string[]) {
+    let mut next = all;
+    next.push(s);
+    next
+});

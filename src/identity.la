@@ -64,6 +64,24 @@ public fun master(s: Store): Result<Master, IdentityError> {
 }
 
 /**
+ * Returns this computer's master secret if one was made before, without
+ * making one (at start-up, so the Account page can name you).
+ *
+ * @returns it; `None` before any app has asked; or why not (as `master`)
+ *
+ * Example:
+ *     existing(store)?
+ */
+public fun existing(s: Store): Result<Option<Master>, IdentityError> = match load(
+    s,
+    FILE,
+    4096,
+).map_err(IdentityError.Store)? {
+    Some(bytes) => Ok(Some(read(bytes)?)),
+    None => Ok(None),
+};
+
+/**
  * Returns your public key for one app.
  *
  * @param host the app's verified host
