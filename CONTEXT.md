@@ -1011,17 +1011,46 @@ CLAUDE.md, PRPs/TEMPLATE.md
 
 ---
 
-## SESSION 26 — 2026-10-18 — Record signing, permissions and panel designs; propose PRP-005 (info panel) — open
+## SESSION 26 — 2026-10-18 — Record signing, permissions and panel designs; propose PRP-005 (info panel) — closed
 
 Branch: prp-005-panel
+
+### WHAT WAS DONE
+
+Recorded the chat after session 25:
+- **The signing design:** key file and first use, signed manifest and index, static key/index/builds layout, rotations and unapproved changes, formats, OpenSSL `std.crypto`, `rapidkoi.toml` and `std.toml`, markers.
+- **Permissions at the point of use.**
+- **The info panel redesign** (the owner's sketch, agreed names) and ⟳ / ☆ in the bar.
+
+Prompts for `std.crypto` and `std.toml` were given to the owner. Wrote PRP-005. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-signing-and-panel.md, docs/source/meetings/2026-10-17-ui/sketch-3-info-panel.png
+DECISIONS.md — 009 design settled; 022 (accounts) deferred
+MEMORY.md    — decisions 14–16
+PRPs/prp-005-info_panel.md — for approval
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- See the meeting note. Remembering becomes PRP-006.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-022 (accounts).
+
+### STILL OPEN AT CLOSE
+
+- PRP-005 awaits approval. The lugha std work (crypto, toml) is the owner's.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 24 on a new branch. PRP-004 (local development) is on `main`. Next, at the owner's choice:
-- PRP-005, remembering: an on-device store for history, pins and state across restarts, with `migrate` and starting over (DECISION-019)
-- live reload for `./main serve`
-- `lugha-toml`
-- background loading (DECISION-021)
-- signing and format 2 (DECISION-009), once lugha's TLS (its PRP-144) lands
+Open session 27 on `prp-005-panel`. If the owner approved PRP-005, build it test-first: reload keeping state (tabs.reopen, navigate.reload), then the bar (⟳ ☆), then the panel's model (PanelPage, Confirm, forget), then the views. Keep every file under 500 lines.
