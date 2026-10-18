@@ -53,6 +53,8 @@ public const EDGE_WIDTH: i64 = 1;
 public const PAGE_RADIUS: i64 = 12;
 /** The app info panel, in pixels. */
 public const PANEL_WIDTH: i64 = 360;
+/** The app info panel's height, in pixels: the same for every page, room for the main one (session 52). */
+public const PANEL_HEIGHT: i64 = 520;
 /**
  * The most characters a wrapped line in the panel may ask for. Kept well
  * under `PANEL_WIDTH`, so the panel's own width always wins and it never

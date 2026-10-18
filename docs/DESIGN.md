@@ -63,6 +63,7 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the
 | `TILE_SIZE` | 120 | a Pinned tile on home (square) |
 | `BANNER_HEIGHT` | 180 | "Where you left off" |
 | `PANEL_WIDTH` | 360 | the app info panel, fixed: its text never widens it (session 31) |
+| `PANEL_HEIGHT` | 520 | the app info panel over the app, the same for every page (session 52) |
 | `PANEL_CHARS` | 30 | the most characters a wrapped panel line asks for (`.wrap_at`), kept well under the width so the panel never shifts between pages; the name wraps at 14, the header's file name is cut at 18, paths are cut with … and shown whole on hover |
 | `PAGE_RADIUS` | 12 | the page's top-right curve |
 | `EDGE_WIDTH` | 1 | the floating info panel's edge |
@@ -95,7 +96,7 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 
 ## The panel, menus and home's grid (PRP-010)
 
-- **The info panel sits over the app** at `PANEL_WIDTH`, at the top right just under ⓘ and as tall as its content, inset by `SPACE_SM` (sessions 49–51): `Look.Panel`: the page's dark colour, a thin `EDGE_WIDTH` (1 px) edge in the theme's `edge` (`#3a3a3a`), every corner at `PAGE_RADIUS` (the owner, sessions 49–50). Its cards, in the frame's colour, stand out on it. The app keeps its width. A dim `Look.Scrim` layer (the theme's `scrim`, `#00000060` in dark) covers the rest of the app and blocks clicks, but a click on it does nothing (no accidental closing, the owner, session 51); Close (Escape) and ⓘ close the panel. The header's marker is cut with … at `PANEL_CHARS` so it can't widen the panel.
+- **The info panel sits over the app** at `PANEL_WIDTH`, at the top right just under ⓘ, `PANEL_HEIGHT` tall on every page, inset by `SPACE_SM` (sessions 49–51): `Look.Panel`: the page's dark colour, a thin `EDGE_WIDTH` (1 px) edge in the theme's `edge` (`#3a3a3a`), every corner at `PAGE_RADIUS` (the owner, sessions 49–50). Its cards, in the frame's colour, stand out on it. The app keeps its width. A dim `Look.Scrim` layer (the theme's `scrim`, `#00000060` in dark) covers the rest of the app and blocks clicks, but a click on it does nothing (no accidental closing, the owner, session 51); Close (Escape) and ⓘ close the panel. The header's marker is cut with … at `PANEL_CHARS` so it can't widen the panel.
 - **A tab's right-click menu:** Reload (greyed while loading), Pin to home / Unpin, About this app, separator, Close tab, Forget this app…. The tab is selected first. Forget opens the panel at its question.
 - **A pinned tile's menu:** Open, Unpin, separator, Forget this app…. The "where you left off" card's Continue: Open, separator, Forget this app….
 - **Home's pinned tiles** wrap, all one width (`wrap(...).equal()`, `SPACE_MD`).

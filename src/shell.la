@@ -21,7 +21,7 @@ import render { screen, stopped, refused, loading };
 import frame { bar, rail, unapproved };
 import home;
 import panel;
-import theme { SPACE_SM, SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
+import theme { SPACE_SM, SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT, PANEL_HEIGHT };
 import themes { Look, kivuli_theme };
 
 /**
@@ -212,7 +212,11 @@ public fun view(m: Model): View<Msg> {
                 // Under ⓘ at the top right, as tall as its content. The dark
                 // look is on a wrapper, so the panel's padding falls inside it;
                 // the outer padding insets it from the page's edges.
-                column([column([panel.view(a, p, m.confirm)]).style([Look.Panel])]).padding(
+                // One height for every page: shorter ones leave room below,
+                // and the main page keeps Forget and Close at the bottom.
+                column([column([panel.view(a, p, m.confirm).expand()]).style([Look.Panel]).height(
+                    PANEL_HEIGHT,
+                )]).padding(
                     SPACE_SM,
                 ).place(Align.End, Align.Start),
             ],

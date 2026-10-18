@@ -1926,9 +1926,35 @@ src/shell.la, src/panel.la, test/panel.la, docs/DESIGN.md
 
 ---
 
-## SESSION 52 — 2026-10-18 — The overlay panel: one height for every page — open
+## SESSION 52 — 2026-10-18 — The overlay panel: one height for every page — closed
 
 Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner's screenshots 21–22: the width now holds, but the height followed each page's content. New token `PANEL_HEIGHT` (520, room for the main page, judged from screenshot 21 at about 1.4× scaling); the panel's dark wrapper takes it and the page inside expands, so Forget and Close stay at the bottom of the main page and shorter pages leave room below. (`.height` is a GTK minimum: a page taller than 520 would still grow.)
+
+### FILES CREATED OR MODIFIED
+
+```
+src/theme.la, src/shell.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- None (visual); panel, views and menus pass.
+
+### DECISIONS MADE
+
+- PANEL_HEIGHT 520, for the owner to adjust on screen.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of PRP-010, then merge.
 
 ---
 
