@@ -1526,6 +1526,12 @@ CONTEXT.md, lugha.lock (lughac's)
 
 ---
 
+## SESSION 40 — 2026-10-18 — Design background loading (PRP-008) — open
+
+Branch: prp-008-background_loading
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-007 is merged. Next: design background loading (DECISION-021, kivuli 0.6's Cmd.task) in chat, one question at a time, then write PRP-008. After it: remote apps over HTTPS (first target: rapidkoi://counter.dafifi.net on the owner's VM), and the tabs PRP (split src/tabs.la first).
