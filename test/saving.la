@@ -7,9 +7,9 @@ import rapidkoi.store { Store, store_at, save };
 import rapidkoi.remembered { read_pins, read_trust, read_left, left_file, pins_file };
 import rapidkoi.tabs { LeftOff, recalled };
 import rapidkoi.publish { make_key, publish_site };
+import rapidkoi.keys { read_secret };
+import rapidkoi.index { KeyFile, key_file, rotate };
 import rapidkoi.serve { handle };
-import rapidkoi.pack { make };
-import rapidkoi.navigate { open_file };
 import kivuli.testing { click, texts };
 import cbor { Value, Entry, encode };
 import std.http { Request };
@@ -52,21 +52,44 @@ fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == 
 fun marks(m: Model, s: string): bool = click(view(m), s) == Ok(Msg.EditAddress);
 
 /** A signed site for `localhost:PORT`, published and served. */
-fun site(port: i64): string {
+fun site(port: i64): string = site_of(port, "", 1);
+
+/** A signed site serving `module` (an empty module when ""), at state version `sv`. */
+fun site_of(port: i64, module: string, sv: i64): string {
     let dir = "{env.current_dir().unwrap()}/test/tmp/saving-site-{port}";
     clean(dir);
     clean("{dir}.key");
     fs.make_dirs(dir).unwrap();
     write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
-    write_file(
-        "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
-    ).unwrap();
+    write_toml(dir, port, if module == "" { "m.wasm" } else { module }, "1.0.0", sv);
     make_key(dir).unwrap();
     publish_site(dir).unwrap();
     spawn http.serve("127.0.0.1:{port}", fun(r: Request) = handle("{dir}/site", port, r));
     sleep(100);
     dir
+}
+
+fun write_toml(dir: string, port: i64, module: string, version: string, sv: i64) {
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Counter\"\nversion = \"{version}\"\nstate_version = {sv}\nhost = \"localhost:{port}\"\nmodule = \"{module}\"\n[publish]\nkey = \"{dir}.key\"\n",
+    ).unwrap();
+}
+
+/** The counter, absolute (a site's toml is read from its own folder). */
+fun counter(): string {
+    if !fs.is_file(COUNTER) {
+        skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
+    }
+    "{env.current_dir().unwrap()}/{COUNTER}"
+}
+
+fun add(m: Model): Model = step(m, click(view(m), "Add").unwrap());
+
+fun done(dir: string, s: Store) {
+    clean(dir);
+    clean("{dir}.key");
+    clean(s.dir);
 }
 
 fun swap_key(dir: string) {
@@ -115,55 +138,6 @@ fun reopening_a_known_site_writes_nothing() {
     let pinned = step(reopened, Msg.TogglePin);
     fs.set_mode(s.dir, 0b111_000_000).unwrap();
     assert_eq(pinned.notice.unwrap_or("").starts_with("Rapidkoi couldn't save your pins: "), true);
-    clean(dir);
-    clean("{dir}.key");
-    clean(s.dir);
-}
-
-@test
-fun pins_and_left_off_survive_a_restart() {
-    let s = folder("pins");
-    let m = started(s, ["./main", "lugha.toml"]);
-    let pinned = step(m, Msg.TogglePin);
-    assert_eq(read_pins(read_bytes("{s.dir}/pins").unwrap()).unwrap().len, 1);
-    let closed = step(pinned, Msg.CloseTab(0));
-    assert_eq(fs.is_file("{s.dir}/left-off"), true);
-    let again = started(s, ["./main"]);
-    assert_eq(again.pinned.len, 1);
-    assert_eq(again.pinned[0].path, "lugha.toml");
-    assert_eq(shows(again, "lugha.toml"), true);
-    // Continue loads it again from its path.
-    let resumed = step(again, Msg.Continue);
-    assert_eq((resumed.tabs.len, resumed.tabs[0].page.path), (1, "lugha.toml"));
-    assert_eq(closed.tabs.len, 0);
-    clean(s.dir);
-}
-
-@test
-fun continue_resumes_the_state_after_a_restart() {
-    if !fs.is_file(COUNTER) {
-        skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
-    }
-    let s = folder("counter");
-    let m = started(s, ["./main", COUNTER]);
-    let added = step(m, click(view(m), "Add").unwrap());
-    let counted = step(added, Msg.CloseTab(0));
-    let again = step(started(s, ["./main"]), Msg.Continue);
-    assert_eq(shows(again, "Count: 1"), true);
-    assert_eq(counted.tabs.len, 0);
-    clean(s.dir);
-}
-
-@test
-fun forget_drops_the_pin_and_left_off_and_keeps_trust() {
-    let s = folder("forget");
-    let dir = site(18753);
-    let m = step(started(s, ["./main", "rapidkoi://localhost:18753"]), Msg.TogglePin);
-    let gone = step(m, Msg.Forget);
-    let again = started(s, ["./main"]);
-    assert_eq((again.pinned.len, again.left_off.is_none()), (0, true));
-    assert_eq(read_trust(read_bytes("{s.dir}/trust").unwrap()).unwrap().len, 1);
-    assert_eq(gone.tabs.len, 0);
     clean(dir);
     clean("{dir}.key");
     clean(s.dir);
@@ -234,35 +208,121 @@ fun no_store_writes_nothing() {
 }
 
 @test
-fun quitting_with_the_app_open_keeps_its_state() {
-    if !fs.is_file(COUNTER) {
-        skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
-    }
-    let s = folder("open");
-    let mut m = started(s, ["./main", COUNTER]);
-    m = step(m, click(view(m), "Add").unwrap());
-    m = step(m, click(view(m), "Add").unwrap());
-    // No close: the window just goes away. A new one picks up the count.
+fun pins_survive_a_restart_for_every_app() {
+    let s = folder("pins");
+    let m = step(started(s, ["./main", "lugha.toml"]), Msg.TogglePin);
+    assert_eq(read_pins(read_bytes("{s.dir}/pins").unwrap()).unwrap().len, 1);
     let again = started(s, ["./main"]);
-    assert_eq(again.left_off.is_some(), true);
-    assert_eq(shows(step(again, Msg.Continue), "Count: 2"), true);
+    assert_eq((again.pinned.len, again.pinned[0].path), (1, "lugha.toml"));
     assert_eq(m.tabs.len, 1);
     clean(s.dir);
 }
 
 @test
-fun the_app_used_last_is_the_one_remembered() {
-    let s = folder("last");
-    let m = started(s, ["./main", "lugha.toml"]);
-    // A second tab, then back to the first: the first is the one used last.
-    let two = step(step(step(m, Msg.NewTab), Msg.Draft("CLAUDE.md")), Msg.Go);
-    assert_eq(left_path(s), Some("CLAUDE.md"));
-    let back = step(two, Msg.Select(0));
-    assert_eq(left_path(s), Some("lugha.toml"));
-    // Home keeps the last visited tab as the one to continue.
-    step(back, Msg.Home);
-    assert_eq(left_path(s), Some("lugha.toml"));
+fun a_signed_app_resumes_by_address_and_by_continue() {
+    let s = folder("signed");
+    let dir = site_of(18755, counter(), 1);
+    // Count to 2, then the window just goes away (no close).
+    let m = add(add(started(s, ["./main", "rapidkoi://localhost:18755"])));
+    assert_eq(shows(m, "Count: 2"), true);
+    // Opened by its address after a restart: the same state.
+    assert_eq(shows(started(s, ["./main", "rapidkoi://localhost:18755"]), "Count: 2"), true);
+    // By Continue too.
+    assert_eq(shows(step(started(s, ["./main"]), Msg.Continue), "Count: 2"), true);
+    done(dir, s);
+}
+
+@test
+fun an_unsigned_app_starts_fresh_after_a_restart() {
+    let s = folder("unsigned");
+    let m = add(started(s, ["./main", counter()]));
+    assert_eq(shows(m, "Count: 1"), true);
+    let again = started(s, ["./main"]);
+    // Not offered by Continue, and opening it starts at zero.
+    assert_eq(again.left_off.is_none(), true);
+    assert_eq(shows(started(s, ["./main", counter()]), "Count: 0"), true);
+    assert_eq(fs.exists("{s.dir}/states"), false);
     clean(s.dir);
+}
+
+@test
+fun a_separate_publisher_gets_its_own_state() {
+    let s = folder("separate");
+    let dir = site_of(18756, counter(), 1);
+    add(add(started(s, ["./main", "rapidkoi://localhost:18756"])));
+    swap_key(dir);
+    let other = step(started(s, ["./main", "rapidkoi://localhost:18756"]), Msg.SeparateApp);
+    assert_eq(shows(other, "Count: 0"), true);
+    done(dir, s);
+}
+
+@test
+fun a_rotation_keeps_the_state() {
+    let s = folder("rotation");
+    let dir = site_of(18757, counter(), 1);
+    add(started(s, ["./main", "rapidkoi://localhost:18757"]));
+    // The publisher moves to a new key, signed by the old one.
+    let old = read_secret("{dir}.key", "localhost:18757").unwrap();
+    clean("{dir}/site");
+    clean("{dir}.key");
+    make_key(dir).unwrap();
+    write_toml(dir, 18757, counter(), "1.0.1", 1);
+    publish_site(dir).unwrap();
+    let new = read_secret("{dir}.key", "localhost:18757").unwrap();
+    write_bytes(
+        "{dir}/site/.well-known/rapidkoi/key",
+        key_file(KeyFile {
+            host: "localhost:18757",
+            key: new.public_key,
+            rotations: [rotate(old, new.public_key).unwrap()],
+        }),
+    ).unwrap();
+    let after = started(s, ["./main", "rapidkoi://localhost:18757"]);
+    assert_eq(
+        (marks(after, "✓ localhost:18757 · verified (development)"), shows(after, "Count: 1")),
+        (true, true),
+    );
+    done(dir, s);
+}
+
+@test
+fun forget_drops_the_pin_left_off_and_state_and_keeps_trust() {
+    let s = folder("forget");
+    let dir = site_of(18753, counter(), 1);
+    let m = step(add(started(s, ["./main", "rapidkoi://localhost:18753"])), Msg.TogglePin);
+    assert_eq(fs.list_dir("{s.dir}/states").unwrap().len, 1);
+    step(m, Msg.Forget);
+    let again = started(s, ["./main"]);
+    assert_eq((again.pinned.len, again.left_off.is_none()), (0, true));
+    assert_eq(fs.list_dir("{s.dir}/states").unwrap().len, 0);
+    assert_eq(read_trust(read_bytes("{s.dir}/trust").unwrap()).unwrap().len, 1);
+    assert_eq(shows(started(s, ["./main", "rapidkoi://localhost:18753"]), "Count: 0"), true);
+    done(dir, s);
+}
+
+@test
+fun a_changed_state_version_starts_over() {
+    let s = folder("version");
+    let dir = site_of(18758, counter(), 1);
+    add(started(s, ["./main", "rapidkoi://localhost:18758"]));
+    write_toml(dir, 18758, counter(), "2.0.0", 2);
+    publish_site(dir).unwrap();
+    let after = started(s, ["./main", "rapidkoi://localhost:18758"]);
+    assert_eq(shows(after, "Count: 0"), true);
+    assert_eq(after.notice, Some("Counter's saved state changed shape, so it started over"));
+    done(dir, s);
+}
+
+@test
+fun the_signed_app_used_last_is_the_one_continued() {
+    let s = folder("last");
+    let dir = site_of(18759, counter(), 1);
+    let m = started(s, ["./main", "rapidkoi://localhost:18759"]);
+    // An unsigned app after it leaves the signed one as the one to continue.
+    let two = step(step(step(m, Msg.NewTab), Msg.Draft("lugha.toml")), Msg.Go);
+    assert_eq(left_path(s), Some("rapidkoi://localhost:18759"));
+    assert_eq(two.tabs.len, 2);
+    done(dir, s);
 }
 
 /** The path in the saved left-off file, if there is one. */
@@ -272,37 +332,23 @@ fun left_path(s: Store): Option<string> = match read_bytes("{s.dir}/left-off") {
 };
 
 @test
-fun a_continue_that_fails_keeps_what_was_remembered() {
+fun a_continue_that_fails_keeps_continue() {
     let s = folder("gone");
     save(
         s,
         "left-off",
-        left_file(recalled("Gone", "test/tmp/saving-gone.rkb", None, Some([1, 2]), 1, None)),
+        left_file(
+            recalled(
+                "Gone",
+                "test/tmp/saving-gone.rkb",
+                None,
+                None,
+                Some(("localhost:9", [3; 32])),
+            ),
+        ),
     ).unwrap();
     let tried = step(started(s, ["./main"]), Msg.Continue);
-    assert_eq(tried.tabs.len, 1);
-    // The app didn't start (its file is gone): its saved state is still there.
-    let after = read_left(read_bytes("{s.dir}/left-off").unwrap()).unwrap();
-    assert_eq((after.path, after.state), ("test/tmp/saving-gone.rkb", Some([1, 2])));
-    clean(s.dir);
-}
-
-@test
-fun a_served_app_resumes_after_a_restart() {
-    if !fs.is_file(COUNTER) {
-        skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
-    }
-    let s = folder("served");
-    let out = "test/tmp/saving-served.rkb";
-    clean(out);
-    make([COUNTER, "--name", "Counter", "--version", "0.1.0", "-o", out]).unwrap();
-    spawn http.serve("127.0.0.1:18754", fun(r: Request) = handle(out, 18754, r));
-    sleep(100);
-    let mut m = started(s, ["./main", "rapidkoi://localhost:18754"]);
-    m = step(m, click(view(m), "Add").unwrap());
-    m = step(m, click(view(m), "Add").unwrap());
-    let again = step(started(s, ["./main"]), Msg.Continue);
-    assert_eq(shows(again, "Count: 2"), true);
-    assert_eq(m.tabs.len, 1);
+    assert_eq((tried.tabs.len, tried.left_off.is_some()), (1, true));
+    assert_eq(left_path(s), Some("test/tmp/saving-gone.rkb"));
     clean(s.dir);
 }

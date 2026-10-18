@@ -5,10 +5,12 @@
  * newer Rapidkoi's are left alone, each with a notice; a failed save is a
  * notice too, never a crash.
  *
- * Depends on: std.env, store, remembered, verify, window, tabs
+ * Depends on: std.env, std.time, store, states, remembered, verify, window, tabs
  * Used by: shell
  */
 import std.env;
+import std.time;
+import states { Saved, keep, drop_state, move_state };
 import store {
     Store,
     StoreError,
@@ -32,9 +34,9 @@ import remembered {
     pins_file,
     left_file,
 };
-import verify { keyring, keyring_of, identities, changes };
+import verify { keyring, keyring_of, identities, changes, moves };
 import window { Model, used_last };
-import tabs { LeftOff };
+import tabs { LeftOff, signer_of };
 
 /** How the notices name one remembered file. */
 struct Part {
@@ -66,6 +68,15 @@ const PINS: Part = Part {
     title: "Your pins",
     verb: "were",
     it: "them",
+    after: "",
+};
+
+const STATE: Part = Part {
+    file: "states",
+    noun: "this app's state",
+    title: "This app's state",
+    verb: "was",
+    it: "it",
     after: "",
 };
 
@@ -124,18 +135,34 @@ public fun restore(m: Model, s: Store): Model {
     }
 }
 
+/** Where the shared keyring was before a message: `before` can't tell, since every copy shares it. */
+public struct Mark {
+    changes: i64,
+    moves: i64,
+}
+
 /**
- * Saves whatever a message changed: the pins, where you left off, or (when
- * the keyring's change count moved) trust. A failed save becomes the notice.
+ * Marks the keyring before a message, for `persist`.
+ *
+ * Example:
+ *     let at = mark(m);
+ */
+public fun mark(m: Model): Mark = Mark { changes: changes(m.ring), moves: moves(m.ring).len };
+
+/**
+ * Saves whatever a message changed: the pins; trust (when the keyring's
+ * change count moved), moving a signed app's state after a rotation; the
+ * app used last's state, when it's signed; and which app that was. A
+ * failed save becomes the notice.
  *
  * @param before the model before the message
  * @param after the model after it
- * @param count the keyring's change count before it (the keyring is shared, so `before` can't tell)
+ * @param at the keyring before it
  *
  * Example:
- *     persist(m, next, count)
+ *     persist(m, next, at)
  */
-public fun persist(before: Model, after: Model, count: i64): Model {
+public fun persist(before: Model, after: Model, at: Mark): Model {
     let s = match after.store {
         Some(s) => s,
         None => {
@@ -148,14 +175,42 @@ public fun persist(before: Model, after: Model, count: i64): Model {
             failed.push(e);
         }
     }
-    if changes(after.ring) != count {
+    if changes(after.ring) != at.changes {
         if let Some(e) = problem(save(s, TRUST.file, trust_file(identities(after.ring))), TRUST) {
+            failed.push(e);
+        }
+    }
+    // A rotation signed by the old key: the app's state follows its key.
+    let moved = moves(after.ring);
+    for i in at.moves..moved.len {
+        let (host, old, new) = moved[i];
+        if let Some(e) = problem(move_state(s, host, old, new), STATE) {
             failed.push(e);
         }
     }
     // The app used last, open or closed: quitting at any moment keeps it.
     let left = used_last(after);
-    if summary(left) != summary(used_last(before)) {
+    let was = used_last(before);
+    if let Some(l) = left {
+        if let (Some((host, key)), Some(state)) = (signer_of(l), l.state) {
+            if mine(left) != mine(was) {
+                let sv = Saved {
+                    host: host,
+                    key: key,
+                    state_version: l.state_version,
+                    state: state,
+                    used: time.now_ms(),
+                };
+                if let Some(e) = problem(keep(s, sv), STATE) {
+                    failed.push(e);
+                }
+            }
+        }
+    }
+    // Which app that was: only a signed one can be continued after a
+    // restart; an unsigned one leaves the file as it was.
+    let signed = left.map(fun(l: LeftOff) = signer_of(l).is_some()).unwrap_or(true);
+    if signed && which(left) != which(was) {
         let done = match left {
             Some(l) => save(s, LEFT.file, left_file(l)),
             None => remove(s, LEFT.file),
@@ -165,6 +220,32 @@ public fun persist(before: Model, after: Model, count: i64): Model {
         }
     }
     if failed.len == 0 { after } else { Model { notice: Some(failed.join(" · ")), ..after } }
+}
+
+/**
+ * Forget this app: removes a signed app's saved state too. Its trusted key
+ * stays (PRP-007), so a swapped key still asks first.
+ *
+ * @param before the model with the app still current
+ * @param after the model `window.forget` gave
+ *
+ * Example:
+ *     forgotten(m, window.forget(m))
+ */
+public fun forgotten(before: Model, after: Model): Model {
+    let (s, l) = match (after.store, used_last(before)) {
+        (Some(s), Some(l)) => (s, l),
+        _ => {
+            return after;
+        }
+    };
+    match signer_of(l) {
+        Some((host, key)) => match problem(drop_state(s, host, key), STATE) {
+            Some(e) => Model { notice: Some(e), ..after },
+            None => after,
+        },
+        None => after,
+    }
 }
 
 /**
@@ -209,8 +290,13 @@ fun problem(r: Result<(), StoreError>, p: Part): Option<string> = match r {
  * program, which isn't comparable. The state is compared by its bytes;
  * it's at most `MAX_STATE`, and only when there is a left-off.
  */
-fun summary(
+fun mine(l: Option<LeftOff>): Option<(Option<(string, u8[])>, Option<u8[]>, i64)> = l.map(
+    fun(x: LeftOff) = (signer_of(x), x.state, x.state_version),
+);
+
+/** Which app it is, as `left-off` records it. */
+fun which(
     l: Option<LeftOff>,
-): Option<(string, string, Option<string>, Option<u8[]>, i64)> = l.map(
-    fun(x: LeftOff) = (x.name, x.path, x.title, x.state, x.state_version),
+): Option<(string, string, Option<string>, Option<(string, u8[])>)> = l.map(
+    fun(x: LeftOff) = (x.name, x.path, x.title, signer_of(x)),
 );

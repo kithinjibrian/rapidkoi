@@ -1456,12 +1456,44 @@ test/saving.la — 3 new
 
 ---
 
-## SESSION 38 — 2026-10-18 — PRP-007 amendment 2: state belongs to signed apps — open
+## SESSION 38 — 2026-10-18 — PRP-007 amendment 2: state belongs to signed apps — closed
 
 Branch: prp-007-remembering
+
+### WHAT WAS DONE
+
+The owner: state still lost. Cause: opening the app by its address started it fresh, and the fresh state overwrote the saved one as "the app used last". The owner: identity is host + key, so state belongs to that; unsigned apps lose state across restarts. Wrote amendment 2 and built it test-first: `states.la` (one file per signed app under states/, named by the SHA-256 of [host, key], checked to hold that identity, at most 256 apps, the oldest removed; move after a rotation); the keyring records rotations; left-off holds which app (and host and key) but no state, written only for signed apps; every open of a signed app resumes its saved state (navigate.resumed); saving keeps the used-last signed app's state; Forget removes it. A rotation's state is moved as the app opens, before its state is read.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-007-remembering.md — amendment 2
+src/states.la, test/states.la — new
+src/store.la (ensure), src/verify.la (moves), src/tabs.la (signer, signer_of, recalled, with_saved), src/remembered.la (left-off format), src/navigate.la (resumed, arrived), src/saving.la (Mark, persist, forgotten), src/shell.la
+test/store.la, test/verify.la, test/remembered.la, test/saving.la (reworked)
+CLAUDE.md (rule 3, tree, known issues), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 211 pass: states 6; saving 15 (a signed counter resumes by address and by Continue; unsigned starts fresh; a separate publisher starts at 0; a rotation keeps Count: 1; Forget removes the state; a changed state version starts over; the signed app used last stays the one continued; a failed Continue keeps Continue).
+
+### DECISIONS MADE
+
+- The owner: only apps with a host and key keep state across restarts. Pins stay for every app (the owner said "everything", read as state; flagged in the summary).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The UI regression the owner reported: still not seen; needs a screenshot.
+- `src/tabs.la` is at 481 lines: the tabs PRP must start with a split.
+- The owner's security review and on-screen checks before merge.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-007 (with amendment 1) is built on `prp-007-remembering`, not merged. First: the UI regression the owner reported (ask for a screenshot; no view code changed in PRP-007, so compare with PRP-006's frame/panel/render changes). Then the owner's security review and on-screen checks, the full suite, merge. Next: the tabs PRP, then background loading (DECISION-021).
+PRP-007 (amendments 1 and 2) is built on `prp-007-remembering`, not merged. First: the owner's UI regression (ask for a screenshot). Then the security review, on-screen checks, full suite, merge. Next: the tabs PRP (start by splitting src/tabs.la, 481 lines), then background loading (DECISION-021).

@@ -2,7 +2,7 @@
  * The three files Rapidkoi remembers across restarts, as CBOR maps that
  * start with their format and kind: `trust` (identities: host, key,
  * sequence, separate), `pins` (name, path, icon) and `left-off` (the app
- * last left, with its state). Reading treats every file as hostile: CBOR
+ * used last; a signed app's state is in `states/`). Reading treats every file as hostile: CBOR
  * limits, then every field checked. `recall` adds the store: a missing file
  * is Fresh, a broken one is set aside, a newer one is left alone.
  *
@@ -12,9 +12,9 @@
 import cbor { Value, Entry, Limits, decode, encode };
 import store { Store, StoreError, load, set_aside, reason as store_reason };
 import verify { Identity };
-import tabs { Pin, LeftOff, recalled };
+import tabs { Pin, LeftOff, recalled, signer_of };
 import rules { check_host, check_asset, check_role };
-import limits { MAX_STATE, MAX_ICON_PX };
+import limits { MAX_ICON_PX };
 
 /** The format these files are written in. */
 public const FORMAT: i64 = 1;
@@ -31,8 +31,8 @@ public const MAX_TRUST_FILE: i64 = 1024 * 1024;
 /** The pins file's cap in bytes (icons are kept with their pins). */
 public const MAX_PINS_FILE: i64 = 32 * 1024 * 1024;
 
-/** The left-off file's cap in bytes: its state and a little more. */
-public const MAX_LEFT_FILE: i64 = MAX_STATE + 1024 * 1024;
+/** The left-off file's cap in bytes: a name, a path and an icon. */
+public const MAX_LEFT_FILE: i64 = 8 * 1024 * 1024;
 
 /** Why a file's bytes can't be used. */
 public enum Unreadable {
@@ -189,31 +189,29 @@ public fun read_pins(bytes: u8[]): Result<Pin[], Unreadable> {
 }
 
 /**
- * Encodes the left-off file.
+ * Encodes the left-off file: which app was used last, and (for a signed
+ * one) its host and key. Its state lives in `states/`.
  *
  * Example:
  *     save(s, "left-off", left_file(l))?
  */
 public fun left_file(l: LeftOff): u8[] {
-    let mut fields = [
-        entry("name", Value.Text(l.name)),
-        entry("path", Value.Text(l.path)),
-        entry("state_version", Value.int(l.state_version)),
-    ];
+    let mut fields = [entry("name", Value.Text(l.name)), entry("path", Value.Text(l.path))];
     if let Some(t) = l.title {
         fields.push(entry("title", Value.Text(t)));
     }
-    if let Some(st) = l.state {
-        fields.push(entry("state", Value.Bytes(st)));
-    }
     if let Some(i) = l.icon {
         fields.push(entry("icon", Value.Bytes(i)));
+    }
+    if let Some((host, key)) = signer_of(l) {
+        fields.push(entry("host", Value.Text(host)));
+        fields.push(entry("key", Value.Bytes(key)));
     }
     file("left-off", "app", Value.Map(fields))
 }
 
 /**
- * Reads the left-off file: an app to reopen by loading its path again.
+ * Reads the left-off file: an app to reopen by its path.
  *
  * Example:
  *     read_left(bytes)?
@@ -224,17 +222,20 @@ public fun read_left(bytes: u8[]): Result<LeftOff, Unreadable> {
     )?;
     let name = text(v, "name").ok_or(Unreadable.Broken("the app has no name"))?;
     let path = text(v, "path").ok_or(Unreadable.Broken("the app has no path"))?;
-    let state = blob(v, "state");
-    if state.map(fun(st: u8[]) = st.len > MAX_STATE).unwrap_or(false) {
-        return Err(Unreadable.Broken("the app's state is too large"));
-    }
-    let version = v.get("state_version").map(fun(n: Value) = n.as_i64().unwrap_or(-1)).unwrap_or(
-        -1,
-    );
-    if version < 1 {
-        return Err(Unreadable.Broken("the app's state version isn't a whole number from 1"));
-    }
-    Ok(recalled(name, path, text(v, "title"), state, version, icon(blob(v, "icon"))))
+    let signer = match text(v, "host") {
+        None => None,
+        Some(host) => {
+            if check_host(host).is_err() {
+                return Err(Unreadable.Broken("the app's host isn't a host name"));
+            }
+            let key = blob(v, "key").unwrap_or([]);
+            if key.len != 32 {
+                return Err(Unreadable.Broken("the app's key isn't 32 bytes"));
+            }
+            Some((host, key))
+        }
+    };
+    Ok(recalled(name, path, text(v, "title"), icon(blob(v, "icon")), signer))
 }
 
 /** A broken file set aside: Broken with where it went, or Failed when it couldn't be moved. */

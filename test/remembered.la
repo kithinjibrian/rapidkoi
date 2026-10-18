@@ -13,7 +13,7 @@ import rapidkoi.remembered {
     recall,
 };
 import rapidkoi.verify { Identity };
-import rapidkoi.tabs { Pin, LeftOff, recalled };
+import rapidkoi.tabs { Pin, LeftOff, recalled, signer_of };
 import rapidkoi.store { Store, store_at, save };
 import cbor { Value, Entry, encode };
 import std.fs;
@@ -107,22 +107,32 @@ fun pins_round_trip_and_a_bad_icon_drops_only_the_icon() {
 
 @test
 fun left_off_round_trips() {
+    // A signed app: which one it is, and no state (that's in states/).
     let l = recalled(
         "Counter",
         "rapidkoi://localhost:8000",
         Some("Count: 3"),
-        Some([1, 2]),
-        2,
         None,
+        Some(("localhost:8000", [7; 32])),
     );
     let back = read_left(left_file(l)).unwrap();
     assert_eq(
-        (back.name, back.path, back.title, back.state, back.state_version),
-        ("Counter", "rapidkoi://localhost:8000", Some("Count: 3"), Some([1, 2]), 2),
+        (back.name, back.path, back.title, back.state, signer_of(back)),
+        (
+            "Counter",
+            "rapidkoi://localhost:8000",
+            Some("Count: 3"),
+            None,
+            Some(("localhost:8000", [7; 32])),
+        ),
     );
-    let stopped = recalled("Counter", "c.wasm", None, None, 1, None);
-    assert_eq(read_left(left_file(stopped)).unwrap().state, None);
+    let unsigned = recalled("Counter", "c.wasm", None, None, None);
+    assert_eq(signer_of(read_left(left_file(unsigned)).unwrap()), None);
     assert_eq(broken(read_left(trust_file([]))), "it isn't Rapidkoi's left-off file");
+    let bad = recalled("Counter", "c.rkb", None, None, Some(("Bad Host", [7; 32])));
+    assert_eq(broken(read_left(left_file(bad))), "the app's host isn't a host name");
+    let short = recalled("Counter", "c.rkb", None, None, Some(("a.example", [7; 31])));
+    assert_eq(broken(read_left(left_file(short))), "the app's key isn't 32 bytes");
 }
 
 fun fresh(name: string): Store {

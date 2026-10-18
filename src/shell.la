@@ -5,7 +5,7 @@
  * current theme, maximized. The state and what
  * changes it live in `window.la`; `view` never calls a guest.
  *
- * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, verify, render, frame, home, panel, theme, themes
+ * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, render, frame, home, panel, theme, themes
  * Used by: main
  */
 import kivuli { View, Cmd, column, row, scroll, text };
@@ -14,9 +14,8 @@ import actions { Msg, PanelPage };
 import tabs { AppPage, handle };
 public import window { Model, with_pages, title_of };
 import navigate;
-import saving { session_store, restore, persist };
+import saving { session_store, restore, persist, mark, forgotten };
 import store { Store };
-import verify { changes };
 import render { screen, stopped, refused };
 import frame { bar, rail, unapproved };
 import home;
@@ -59,8 +58,8 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     if argv.len < 2 {
         return (remembered, Cmd.focus("address"));
     }
-    let count = changes(remembered.ring);
-    let opened = persist(remembered, navigate.open_file(remembered, argv[1]), count);
+    let at = mark(remembered);
+    let opened = persist(remembered, navigate.open_file(remembered, argv[1]), at);
     // Opening clears the notice line; what restoring said still shows.
     let notice = match (remembered.notice, opened.notice) {
         (Some(a), Some(b)) => Some("{a} · {b}"),
@@ -78,10 +77,10 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
  *     update(m, Msg.NewTab)
  */
 public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
-    // The keyring is shared by every copy of the model: read its count first.
-    let count = changes(m.ring);
+    // The keyring is shared by every copy of the model: mark it first.
+    let at = mark(m);
     let (next, cmd) = handle_msg(m, msg);
-    (persist(m, next, count), cmd)
+    (persist(m, next, at), cmd)
 }
 
 /**
@@ -131,7 +130,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         ),
         None => (m, Cmd.none()),
     },
-    Forget => (window.forget(m), Cmd.none()),
+    Forget => (forgotten(m, window.forget(m)), Cmd.none()),
     FocusSearch => (m, Cmd.focus("address")),
     Reload => (navigate.reload(m), Cmd.none()),
     KeepMine => (navigate.keep_mine(m), Cmd.none()),

@@ -100,6 +100,8 @@ public struct Keyring {
     known: Ref<Identity[]>,
     /** How many times trust was recorded: a save is due when it moves. */
     count: Ref<i64>,
+    /** Rotations followed (host, old key, new key), oldest first: state moves with them. */
+    moved: Ref<(string, u8[], u8[])[]>,
 }
 
 /** A verified site's current build. */
@@ -130,6 +132,7 @@ public fun keyring(): Keyring = keyring_of([]);
 public fun keyring_of(ids: Identity[]): Keyring = Keyring {
     known: Ref.new(ids),
     count: Ref.new(0),
+    moved: Ref.new([]),
 };
 
 /**
@@ -139,6 +142,15 @@ public fun keyring_of(ids: Identity[]): Keyring = Keyring {
  *     trust_file(identities(ring))
  */
 public fun identities(ring: Keyring): Identity[] = ring.known.get();
+
+/**
+ * Returns the rotations this keyring followed (host, old key, new key),
+ * oldest first: compare lengths to find the new ones.
+ *
+ * Example:
+ *     moves(ring)
+ */
+public fun moves(ring: Keyring): (string, u8[], u8[])[] = ring.moved.get();
 
 /**
  * Returns how many times trust was recorded in this keyring: compare two
@@ -305,6 +317,15 @@ fun remember(ring: Keyring, from: Option<Identity>, now: Identity) {
         }
     }
     ring.count.update(fun(n: i64) = n + 1);
+    if let Some(f) = from {
+        if !equal(f.key, now.key) {
+            ring.moved.update(fun(all: (string, u8[], u8[])[]) {
+                let mut next = all;
+                next.push((now.host, f.key, now.key));
+                next
+            });
+        }
+    }
     ring.known.update(fun(all: Identity[]) {
         let mut next: Identity[] = [];
         for k of all {

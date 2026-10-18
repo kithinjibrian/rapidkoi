@@ -14,6 +14,7 @@ import rapidkoi.verify {
     identities,
     keyring_of,
     changes,
+    moves,
     reason,
 };
 import rapidkoi.index { Index, KeyFile, Rotation, sign_index, add, withdraw, key_file, rotate };
@@ -311,4 +312,17 @@ fun the_change_count_moves_only_when_trust_does() {
     assert_eq(changes(ring), 2);
     separate(ring, Change { host: HOST, old: k.public_key, new: key(HOST).public_key });
     assert_eq(changes(ring), 3);
+}
+
+@test
+fun a_rotation_is_recorded_as_a_move() {
+    let ring = keyring();
+    let old = key(HOST);
+    let s = fresh(old, "1.0.0");
+    verify_site(ring, HOST, getter(s)).unwrap();
+    assert_eq(moves(ring).len, 0);
+    let new = key(HOST);
+    publish_to(s, new, new, "1.1.0", 2, [rotate(old, new.public_key).unwrap()]);
+    verify_site(ring, HOST, getter(s)).unwrap();
+    assert_eq(moves(ring), [(HOST, old.public_key, new.public_key)]);
 }
