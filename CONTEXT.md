@@ -2524,6 +2524,12 @@ src/fetching.la, src/requests.la, lugha.lock, CONTEXT.md
 
 ---
 
+## SESSION 68 — 2026-10-19 — Build PRP-013: refusing names that point to the local network — open
+
+Branch: prp-013-local_addresses
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-013 (`PRPs/prp-013-local_addresses.md`) waits for the owner's approval. std has `net.resolve` and `tls.Options.address` (m121). Once approved: branch `prp-013-local_addresses` from main, build test-first, and stop before merge for the owner's security review.
