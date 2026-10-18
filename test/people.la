@@ -10,6 +10,7 @@ import rapidkoi.people {
     name_in,
     people_file,
     read_people,
+    known,
 };
 import rapidkoi.remembered { Unreadable };
 import cbor { Value, Entry, encode };
@@ -28,6 +29,75 @@ fun entry(k: string, v: Value): Entry = Entry { key: Value.Text(k), value: v };
 fun an_app_never_seen_has_the_defaults() {
     let p = person(nobody(), HOST, [1; 32]);
     assert_eq((p.generation, p.auto, p.signed_out, p.first, p.last), (0, true, false, "", ""));
+    assert_eq((p.off.len, p.seen.len), (0, 0));
+    assert_eq(known(nobody(), HOST, [1; 32]), false);
+}
+
+@test
+fun switches_and_seen_servers_round_trip() {
+    let ps = with_person(nobody(), Person {
+        off: ["api.acme.com", HOST],
+        seen: ["api.acme.com", "localhost:9000"],
+        ..person(nobody(), HOST, [1; 32]),
+    });
+    assert_eq(known(ps, HOST, [1; 32]), true);
+    let back = read_people(people_file(ps)).unwrap();
+    assert_eq(back == ps, true);
+    assert_eq(person(back, HOST, [1; 32]).off, ["api.acme.com", HOST]);
+}
+
+/** A people file of `format` with one app whose extra fields are `extra`. */
+fun one_app(format: i64, extra: Entry[]): u8[] {
+    let mut fields = [
+        entry("host", Value.Text(HOST)),
+        entry("origin", Value.Bytes([1; 32])),
+        entry("generation", Value.int(0)),
+        entry("auto", Value.Bool(true)),
+        entry("signed_out", Value.Bool(false)),
+        entry("first", Value.Text("")),
+        entry("last", Value.Text("")),
+    ];
+    for e of extra {
+        fields.push(e);
+    }
+    encode(
+        Value.Map([
+            entry("format", Value.int(format)),
+            entry("kind", Value.Text("rapidkoi people")),
+            entry("first", Value.Text("")),
+            entry("last", Value.Text("")),
+            entry("apps", Value.Array([Value.Map(fields)])),
+        ]),
+    )
+}
+
+@test
+fun format_1_reads_with_nothing_switched_off() {
+    let back = read_people(one_app(1, [])).unwrap();
+    assert_eq((back.apps[0].off.len, back.apps[0].seen.len), (0, 0));
+}
+
+@test
+fun bad_server_lists_are_broken() {
+    let names = fun(xs: string[]) = Value.Array(xs.map(fun(x: string) = Value.Text(x)));
+    let seen = entry("seen", names([]));
+    assert_eq(broken(read_people(one_app(2, [entry("off", names(["api.acme.com"])), seen]))), "ok");
+    assert_eq(
+        broken(read_people(one_app(2, [entry("off", names(["10.0.0.1"])), seen]))),
+        "an app's servers aren't server names",
+    );
+    assert_eq(
+        broken(read_people(one_app(2, [entry("off", Value.Text("x")), seen]))),
+        "an app's servers aren't server names",
+    );
+    let mut lots: string[] = [];
+    for i in 0..34 {
+        lots.push("s{i}.acme.com");
+    }
+    assert_eq(
+        broken(read_people(one_app(2, [entry("off", names(lots)), seen]))),
+        "an app's servers aren't server names",
+    );
 }
 
 @test
@@ -71,9 +141,9 @@ fun bad_files_are_broken_naming_the_field() {
     );
     assert_eq(broken(read_people(long)), "a name is longer than 64 characters");
     let newer = encode(
-        Value.Map([entry("format", Value.int(2)), entry("kind", Value.Text("rapidkoi people"))]),
+        Value.Map([entry("format", Value.int(3)), entry("kind", Value.Text("rapidkoi people"))]),
     );
-    assert_eq(broken(read_people(newer)), "newer 2");
+    assert_eq(broken(read_people(newer)), "newer 3");
 }
 
 fun many(n: i64): string {

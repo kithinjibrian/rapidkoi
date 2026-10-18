@@ -2,16 +2,19 @@
  * The people file (PRP-011): how you sign in to each signed app (how many
  * times you started over, whether it signs you in automatically, whether
  * you signed out) and the name apps may show with `{FIRST_NAME}` and
- * `{LAST_NAME}`: one for every app, and optionally one per app. Read as
- * hostile input; saved by `saving` as it changes.
+ * `{LAST_NAME}`: one for every app, and optionally one per app. Format 2
+ * (PRP-012) adds each app's switched-off servers and the servers you've
+ * been shown. Read as hostile input; saved by `saving` as it changes.
  *
- * Depends on: cbor, std.crypto, remembered, rules
+ * Depends on: cbor, std.crypto, remembered, rules, network, limits
  * Used by: effects, account, saving, render
  */
 import cbor { Value, Entry, Limits, decode, encode };
 import std.crypto { equal };
 import remembered { Unreadable };
 import rules { check_host };
+import network { check_server };
+import limits { MAX_SERVERS };
 
 /** The longest name part, in characters. */
 public const MAX_NAME: i64 = 64;
@@ -38,6 +41,10 @@ public struct Person {
     public first: string,
     /** Your last name in this app only; "" uses the one for every app. */
     public last: string,
+    /** The servers you switched off for it, its own host included (PRP-012). */
+    public off: string[],
+    /** The servers it declared when you last saw its Access page, or first opened it. */
+    public seen: string[],
 }
 
 /** Everything in the people file. */
@@ -79,8 +86,21 @@ public fun person(p: People, host: string, origin: u8[]): Person {
         signed_out: false,
         first: "",
         last: "",
+        off: [],
+        seen: [],
     }
 }
+
+/**
+ * Says whether an app has settings saved: false until its first open,
+ * when what it declares is seen without a notice.
+ *
+ * Example:
+ *     known(people, host, origin)
+ */
+public fun known(p: People, host: string, origin: u8[]): bool = p.apps.any(
+    fun(x: Person) = x.host == host && equal(x.origin, origin),
+);
 
 /**
  * Saves one app's settings in place of its old ones.
@@ -125,7 +145,7 @@ public fun name_in(p: People, host: string, origin: u8[]): (string, string) {
  */
 public fun people_file(p: People): u8[] = encode(
     Value.Map([
-        entry("format", Value.int(1)),
+        entry("format", Value.int(2)),
         entry("kind", Value.Text("rapidkoi people")),
         entry("first", Value.Text(p.first)),
         entry("last", Value.Text(p.last)),
@@ -141,6 +161,8 @@ public fun people_file(p: People): u8[] = encode(
                         entry("signed_out", Value.Bool(x.signed_out)),
                         entry("first", Value.Text(x.first)),
                         entry("last", Value.Text(x.last)),
+                        entry("off", names(x.off)),
+                        entry("seen", names(x.seen)),
                     ]),
                 ),
             ),
@@ -158,7 +180,7 @@ public fun people_file(p: People): u8[] = encode(
 public fun read_people(bytes: u8[]): Result<People, Unreadable> {
     let bad = fun(why: string) = Unreadable.Broken(why);
     let v = decode(bytes, Limits {
-        max_depth: 4,
+        max_depth: 5,
         max_items: 16 * MAX_PEOPLE + 64,
         max_bytes: MAX_PEOPLE_FILE,
         max_string: 4096,
@@ -167,10 +189,10 @@ public fun read_people(bytes: u8[]): Result<People, Unreadable> {
         return Err(bad("it isn't Rapidkoi's people file"));
     }
     let format = whole(v, "format");
-    if format > 1 {
+    if format > 2 {
         return Err(Unreadable.Newer(format));
     }
-    if format != 1 {
+    if format < 1 {
         return Err(bad("it isn't Rapidkoi's people file"));
     }
     let first = name(v, "first")?;
@@ -210,10 +232,41 @@ public fun read_people(bytes: u8[]): Result<People, Unreadable> {
             )?,
             first: name(x, "first")?,
             last: name(x, "last")?,
+            off: servers(x, "off", format)?,
+            seen: servers(x, "seen", format)?,
         });
     }
     Ok(People { first: first, last: last, apps: apps })
 }
+
+/**
+ * A list of server names (format 2; none in format 1): at most one more
+ * than a manifest may declare, since the own host can be switched off too.
+ */
+fun servers(v: Value, field: string, format: i64): Result<string[], Unreadable> {
+    if format < 2 {
+        return Ok([]);
+    }
+    let bad = Unreadable.Broken("an app's servers aren't server names");
+    let items = match v.get(field) {
+        Some(Array(xs)) if xs.len <= MAX_SERVERS + 1 => xs,
+        _ => {
+            return Err(bad);
+        }
+    };
+    let mut out: string[] = [];
+    for item of items {
+        match item {
+            Text(s) if check_server(s).is_ok() => out.push(s),
+            _ => {
+                return Err(bad);
+            }
+        }
+    }
+    Ok(out)
+}
+
+fun names(xs: string[]): Value = Value.Array(xs.map(fun(x: string) = Value.Text(x)));
 
 /** A name part: text of at most `MAX_NAME` characters. */
 fun name(v: Value, field: string): Result<string, Unreadable> {
