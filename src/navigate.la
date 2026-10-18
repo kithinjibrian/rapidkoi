@@ -4,7 +4,7 @@
  * returns the next model; the state itself lives in `window.la`. Reads
  * local files and fetches from localhost (CLAUDE.md rule 3).
  *
- * Depends on: std.fs, tabs, window, address, verify
+ * Depends on: std.fs, std.crypto, tabs, window, address, verify, states, remembered, store
  * Used by: shell
  */
 import std.fs;
@@ -14,11 +14,17 @@ import tabs {
     close_page,
     leave,
     resume,
+    compiled,
     load_again,
     state_of,
     state_version_of,
+    with_saved,
 };
-import verify { separate };
+import verify { separate, moves };
+import states { saved_state, move_state };
+import std.crypto { equal };
+import remembered { Recalled };
+import store { Store };
 import window { Model, page_of, with_tab, add_tab, app };
 import address { is_address, parse };
 
@@ -55,7 +61,7 @@ public fun go(m: Model): Model {
  *     open_file(m, "counter.wasm")
  */
 public fun open_file(m: Model, path: string): Model {
-    let page = open_path(m.engine, m.ring, path);
+    let (page, said) = resumed(m, open_path(m.engine, m.ring, path));
     let opened = match m.current {
         Some(id) if app(m, id).is_some() => {
             let left = Model { left_off: app(m, id).map(leave), ..m };
@@ -63,8 +69,52 @@ public fun open_file(m: Model, path: string): Model {
         }
         _ => add_tab(m, page),
     };
-    Model { draft: "", editing: false, notice: None, ..opened }
+    Model { draft: "", editing: false, notice: said, ..opened }
 }
+
+/**
+ * The store, after moving a state that a rotation just carried to `key`
+ * (opening verified the rotation; `persist` would move it only after this
+ * open read the state). Moving twice does nothing.
+ */
+fun arrived(s: Store, m: Model, host: string, key: u8[]): Store {
+    for (h, old, new) of moves(m.ring) {
+        if h == host && equal(new, key) {
+            // A failed move leaves the old state in place: the app starts fresh, and nothing is lost.
+            move_state(s, h, old, new).unwrap_or(());
+        }
+    }
+    s
+}
+
+/**
+ * A signed app's page, started from its saved state when there is one:
+ * whatever route opened it, the same host and key pick up the same state
+ * (PRP-007 amendment 2). Unsigned pages are left as they are.
+ *
+ * @returns the page, and a notice (a changed state shape, a broken file)
+ */
+fun resumed(m: Model, page: AppPage): (AppPage, Option<string>) = match (m.store, page.trust) {
+    (Some(s), Some(t)) => match saved_state(arrived(s, m, t.host, t.key), t.host, t.key) {
+        Read(sv) => {
+            let (p, over) = with_saved(page, sv.state, sv.state_version);
+            (
+                p,
+                if over {
+                    Some("{p.name}'s saved state changed shape, so it started over")
+                } else {
+                    None
+                },
+            )
+        }
+        Broken(aside, _) => (
+            page,
+            Some("Rapidkoi couldn't read {page.name}'s saved state, so it set it aside in {aside}"),
+        ),
+        _ => (page, None),
+    },
+    _ => (page, None),
+};
 
 /**
  * Reopens the last app closed, with its saved state, in a new tab.
@@ -73,7 +123,15 @@ public fun open_file(m: Model, path: string): Model {
  *     reopen(m)
  */
 public fun reopen(m: Model): Model = match m.left_off {
-    Some(l) => Model { left_off: None, ..add_tab(m, resume(l)) },
+    Some(l) if compiled(l) => Model { left_off: None, ..add_tab(m, resume(l)) },
+    // Remembered from an earlier run: open its path again; a signed app's
+    // state comes back from states/.
+    Some(l) => {
+        let (page, notice) = resumed(m, open_path(m.engine, m.ring, l.path));
+        // Kept until it runs: a failed load leaves Continue in place.
+        let left = if state_of(page).is_some() { None } else { Some(l) };
+        Model { left_off: left, notice: notice, ..add_tab(m, page) }
+    }
     None => m,
 };
 

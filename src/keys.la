@@ -39,8 +39,12 @@ public enum KeyError {
 
 const KIND: string = "rapidkoi secret key";
 
+/** 0600: the owner reads and writes; nobody else does anything. */
+const OWNER_ONLY: i64 = 0b110_000_000;
+
 /**
- * Makes a key pair for `host` and writes it to `path`.
+ * Makes a key pair for `host` and writes it to `path`, readable by its
+ * owner only (0600).
  *
  * @param host the app's host
  * @param path where the secret key goes: never inside `project`
@@ -75,7 +79,15 @@ public fun keygen(host: string, path: string, project: string): Result<SecretKey
             entry("public", Value.Bytes(pk)),
         ]),
     );
-    write_bytes(path, file).map_err(fun(e: string) = KeyError.Io(path, e))?;
+    // Owner-only before the secret is in it, so it's never readable by
+    // others; then renamed into place, so the key file is whole or absent.
+    let tmp = "{path}.tmp";
+    let io = fun(e: string) = KeyError.Io(path, e);
+    write_bytes(tmp, []).map_err(io)?;
+    fs.set_mode(tmp, OWNER_ONLY).map_err(io)?;
+    write_bytes(tmp, file).map_err(io)?;
+    fs.sync(tmp).map_err(io)?;
+    fs.rename(tmp, path).map_err(io)?;
     Ok(SecretKey { host: host, secret: secret, public_key: pk })
 }
 

@@ -1,0 +1,135 @@
+// Rapidkoi's data folder: where it is, safe writes, bounded reads, and
+// setting a broken file aside. Writes only under test/tmp/.
+import rapidkoi.store {
+    Store,
+    StoreError,
+    data_dir,
+    store_at,
+    save,
+    load,
+    set_aside,
+    skipping,
+    remove,
+    ensure,
+    reason,
+};
+import std.fs;
+
+fun fresh(name: string): Store {
+    let dir = "test/tmp/store-{name}";
+    if fs.is_dir(dir) {
+        for f of fs.list_dir(dir).unwrap() {
+            fs.remove_file("{dir}/{f}").unwrap();
+        }
+        fs.remove_dir(dir).unwrap();
+    }
+    store_at(dir)
+}
+
+fun done(s: Store) {
+    for f of fs.list_dir(s.dir).unwrap() {
+        fs.remove_file("{s.dir}/{f}").unwrap();
+    }
+    fs.remove_dir(s.dir).unwrap();
+}
+
+@test
+fun the_folder_follows_xdg_then_home() {
+    assert_eq(data_dir(Some("/data"), Some("/home/me")), Ok("/data/rapidkoi"));
+    // XDG paths must be absolute; a relative one is ignored.
+    assert_eq(data_dir(Some("data"), Some("/home/me")), Ok("/home/me/.local/share/rapidkoi"));
+    assert_eq(data_dir(Some(""), Some("/home/me")), Ok("/home/me/.local/share/rapidkoi"));
+    assert_eq(data_dir(None, Some("/home/me")), Ok("/home/me/.local/share/rapidkoi"));
+    assert_eq(
+        data_dir(None, None).map_err(reason),
+        Err("There's no home folder, so nothing will be saved this session"),
+    );
+}
+
+@test
+fun a_save_reads_back_and_leaves_nothing_else() {
+    let s = fresh("round");
+    save(s, "pins", [1, 2, 3]).unwrap();
+    assert_eq(load(s, "pins", 100), Ok(Some([1, 2, 3])));
+    save(s, "pins", [4]).unwrap();
+    assert_eq(load(s, "pins", 100), Ok(Some([4])));
+    assert_eq(fs.list_dir(s.dir).unwrap(), ["pins"]);
+    done(s);
+}
+
+@test
+fun a_missing_file_is_none() {
+    let s = fresh("missing");
+    assert_eq(load(s, "trust", 100), Ok(None));
+}
+
+@test
+fun a_file_over_its_cap_is_refused() {
+    let s = fresh("large");
+    save(s, "pins", [0; 101]).unwrap();
+    assert_eq(
+        load(s, "pins", 100).map_err(reason),
+        Err("Rapidkoi's pins file is too large (101 bytes)"),
+    );
+    done(s);
+}
+
+@test
+fun a_failed_save_leaves_the_old_file() {
+    // The folder's place is taken by a file: nothing can be made there.
+    write_bytes("test/tmp/store-blocked", [0]).unwrap();
+    let s = store_at("test/tmp/store-blocked");
+    match save(s, "pins", [1]) {
+        Err(Io(path, _)) => assert_eq(path, "test/tmp/store-blocked"),
+        _ => panic("expected an Io error"),
+    }
+    assert_eq(read_bytes("test/tmp/store-blocked").unwrap(), [0]);
+    fs.remove_file("test/tmp/store-blocked").unwrap();
+}
+
+@test
+fun a_broken_file_is_set_aside_replacing_an_older_one() {
+    let s = fresh("aside");
+    save(s, "pins", [9]).unwrap();
+    assert_eq(set_aside(s, "pins"), Ok("{s.dir}/pins.broken"));
+    save(s, "pins", [8]).unwrap();
+    set_aside(s, "pins").unwrap();
+    assert_eq(read_bytes("{s.dir}/pins.broken").unwrap(), [8]);
+    assert_eq(fs.exists("{s.dir}/pins"), false);
+    done(s);
+}
+
+@test
+fun a_skipped_file_is_never_written() {
+    let s = fresh("skip");
+    save(s, "trust", [1]).unwrap();
+    let held = skipping(s, "trust");
+    assert_eq(save(held, "trust", [2]), Ok(()));
+    assert_eq(load(held, "trust", 10), Ok(Some([1])));
+    done(s);
+}
+
+@test
+fun removing_a_file_and_a_missing_one() {
+    let s = fresh("remove");
+    save(s, "left-off", [1]).unwrap();
+    assert_eq(remove(s, "left-off"), Ok(()));
+    assert_eq(load(s, "left-off", 10), Ok(None));
+    // Already gone, or the folder never made: nothing to do.
+    assert_eq(remove(s, "left-off"), Ok(()));
+    assert_eq(remove(store_at("test/tmp/store-never"), "pins"), Ok(()));
+    // A skipped file stays.
+    save(s, "pins", [2]).unwrap();
+    assert_eq(remove(skipping(s, "pins"), "pins"), Ok(()));
+    assert_eq(load(s, "pins", 10), Ok(Some([2])));
+    done(s);
+}
+
+@test
+fun ensure_makes_the_folder_once() {
+    let s = fresh("ensure");
+    assert_eq(ensure(s), Ok(()));
+    assert_eq(fs.is_dir(s.dir), true);
+    assert_eq(ensure(s), Ok(()));
+    fs.remove_dir(s.dir).unwrap();
+}

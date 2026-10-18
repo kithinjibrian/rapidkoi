@@ -190,6 +190,18 @@ Rules:
 
 ---
 
+### DECISION-023 — Reading a file's mode back (std.fs)
+
+**Status:** deferred
+**Raised:** 2026-10-18 — Session 35
+**Revisit when:** std.fs gains a way to read a mode (a `stat`), or a check of a key file's mode is needed at run time.
+
+**Question:** keygen now writes the secret key at 0600 (`fs.set_mode`, m115), but no Lugha test can read the mode back: std.fs has `set_mode` and no getter, and running `stat` would be process execution. Should std.fs get `mode(path)`, and should `publish` then refuse a key file that others can read (as ssh does)?
+
+**Notes:** Covered for now by lugha's own m115 test (it reads 0600 back) and by hand (`stat` showed 600, session 35). A small std addition when the owner wants it.
+
+---
+
 ## RESOLVED
 
 ### DECISION-018 — Placeholders while kivuli catches up

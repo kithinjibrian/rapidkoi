@@ -1,7 +1,7 @@
 // End to end: the Rust counter (guest/rust/counter) driven through the
 // window, with no display. Skipped unless the guest has been built (see
 // CLAUDE.md COMMANDS), so the suite never needs Rust.
-import rapidkoi.shell { Model, boot, update, view, title_of };
+import rapidkoi.shell { Model, start, update, view, title_of };
 import rapidkoi.actions { Msg };
 import kivuli.testing { click, is_disabled, type_into, texts };
 import std.fs;
@@ -13,7 +13,7 @@ fun started(): Model {
     if !fs.is_file(COUNTER) {
         skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
     }
-    let (m, _) = boot(["./main", COUNTER]);
+    let (m, _) = start(["./main", COUNTER], None);
     m
 }
 
@@ -96,7 +96,7 @@ fun the_counter_packed_as_a_bundle_runs_the_same() {
         "--force",
     ]);
     assert_eq(packed.is_ok(), true);
-    let (opened, _) = boot(["./main", out]);
+    let (opened, _) = start(["./main", out], None);
     // Its tab shows the bundle's icon, not the letter.
     assert_eq(click(view(opened), "C").is_err(), true);
     assert_eq(click(view(opened), "Counter · Counter").is_ok(), true);

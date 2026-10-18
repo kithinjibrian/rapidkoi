@@ -10,6 +10,11 @@ import rapidkoi.verify {
     verify_site,
     separate,
     standing_of,
+    Identity,
+    identities,
+    keyring_of,
+    changes,
+    moves,
     reason,
 };
 import rapidkoi.index { Index, KeyFile, Rotation, sign_index, add, withdraw, key_file, rotate };
@@ -268,4 +273,56 @@ fun keys_and_files_that_are_missing_or_foreign() {
         },
         "The app's key file couldn't be fetched (Connection refused)",
     );
+}
+
+@test
+fun a_keyring_goes_out_and_back_in() {
+    let ring = keyring();
+    let k = key(HOST);
+    verify_site(ring, HOST, getter(fresh(k, "1.0.0"))).unwrap();
+    let ids = identities(ring);
+    assert_eq(ids, [Identity { host: HOST, key: k.public_key, sequence: 1, separate: false }]);
+    // A keyring made from them trusts the same key: a swapped one asks.
+    let again = keyring_of(ids);
+    assert_eq(why(again, fresh(k, "1.0.0")), "ok");
+    match verify_site(again, HOST, getter(fresh(key(HOST), "1.0.0"))) {
+        Err(Unapproved(_)) => {}
+        _ => panic("expected an unapproved change"),
+    }
+}
+
+@test
+fun the_change_count_moves_only_when_trust_does() {
+    let ring = keyring();
+    let k = key(HOST);
+    let s = Site { files: Ref.new([]) };
+    publish_to(s, k, k, "1.0.0", 1, []);
+    assert_eq(changes(ring), 0);
+    verify_site(ring, HOST, getter(s)).unwrap();
+    assert_eq(changes(ring), 1);
+    // The same key and sequence again: nothing new to save.
+    verify_site(ring, HOST, getter(s)).unwrap();
+    assert_eq(changes(ring), 1);
+    publish_to(s, k, k, "1.1.0", 2, []);
+    verify_site(ring, HOST, getter(s)).unwrap();
+    assert_eq(changes(ring), 2);
+    // A failure records nothing.
+    put(s, "{SITE}/index", [0]);
+    assert_eq(why(ring, s) != "ok", true);
+    assert_eq(changes(ring), 2);
+    separate(ring, Change { host: HOST, old: k.public_key, new: key(HOST).public_key });
+    assert_eq(changes(ring), 3);
+}
+
+@test
+fun a_rotation_is_recorded_as_a_move() {
+    let ring = keyring();
+    let old = key(HOST);
+    let s = fresh(old, "1.0.0");
+    verify_site(ring, HOST, getter(s)).unwrap();
+    assert_eq(moves(ring).len, 0);
+    let new = key(HOST);
+    publish_to(s, new, new, "1.1.0", 2, [rotate(old, new.public_key).unwrap()]);
+    verify_site(ring, HOST, getter(s)).unwrap();
+    assert_eq(moves(ring), [(HOST, old.public_key, new.public_key)]);
 }

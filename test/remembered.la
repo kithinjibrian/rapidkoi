@@ -1,0 +1,192 @@
+// The three remembered files: each round trips, and every way one can be
+// wrong is Broken (naming the field) or Newer, never a panic. Writes only
+// under test/tmp/.
+import rapidkoi.remembered {
+    Unreadable,
+    Recalled,
+    trust_file,
+    read_trust,
+    pins_file,
+    read_pins,
+    left_file,
+    read_left,
+    recall,
+};
+import rapidkoi.verify { Identity };
+import rapidkoi.tabs { Pin, LeftOff, recalled, signer_of };
+import rapidkoi.store { Store, store_at, save };
+import cbor { Value, Entry, encode };
+import std.fs;
+import support { png };
+
+fun id(host: string, n: u8): Identity = Identity {
+    host: host,
+    key: [n; 32],
+    sequence: 3,
+    separate: false,
+};
+
+fun entry(k: string, v: Value): Entry = Entry { key: Value.Text(k), value: v };
+
+fun broken<T>(r: Result<T, Unreadable>): string = match r {
+    Err(Broken(why)) => why,
+    Err(Newer(n)) => "newer {n}",
+    Ok(_) => "ok",
+};
+
+fun trust_with(entries: Value[]): u8[] = encode(
+    Value.Map([
+        entry("format", Value.int(1)),
+        entry("kind", Value.Text("rapidkoi trust")),
+        entry("entries", Value.Array(entries)),
+    ]),
+);
+
+fun one(host: string, key: u8[]): Value = Value.Map([
+    entry("host", Value.Text(host)),
+    entry("key", Value.Bytes(key)),
+    entry("sequence", Value.int(1)),
+    entry("separate", Value.Bool(false)),
+]);
+
+@test
+fun trust_round_trips() {
+    let ids = [id("localhost:8000", 1), Identity { separate: true, ..id("localhost:8000", 2) }];
+    assert_eq(read_trust(trust_file(ids)), Ok(ids));
+    assert_eq(read_trust(trust_file([])), Ok([]));
+}
+
+@test
+fun bad_trust_is_broken_naming_the_field() {
+    assert_eq(broken(read_trust([1, 2, 3])).starts_with("not CBOR"), true);
+    assert_eq(
+        broken(read_trust(trust_with([one("Bad Host", [1; 32])]))),
+        "an entry's host isn't a host name",
+    );
+    assert_eq(
+        broken(read_trust(trust_with([one("a.example", [1; 31])]))),
+        "an entry's key isn't 32 bytes",
+    );
+    assert_eq(broken(read_trust(trust_with([Value.int(1)]))), "an entry isn't a map");
+    // Another kind of file in its place.
+    assert_eq(broken(read_trust(pins_file([]))), "it isn't Rapidkoi's trust file");
+    let mut many: Value[] = [];
+    for _ in 0..10_001 {
+        many.push(one("a.example", [1; 32]));
+    }
+    assert_eq(broken(read_trust(trust_with(many))), "it has more than 10,000 entries");
+}
+
+@test
+fun a_newer_format_is_newer() {
+    let newer = encode(
+        Value.Map([entry("format", Value.int(2)), entry("kind", Value.Text("rapidkoi pins"))]),
+    );
+    assert_eq(broken(read_pins(newer)), "newer 2");
+}
+
+@test
+fun pins_round_trip_and_a_bad_icon_drops_only_the_icon() {
+    let pins = [
+        Pin { name: "Notes", path: "/apps/notes.rkb", icon: Some(png(32, 32)) },
+        Pin { name: "Counter", path: "counter.wasm", icon: None },
+    ];
+    assert_eq(read_pins(pins_file(pins)), Ok(pins));
+    let bad = [
+        Pin { name: "Big", path: "big.rkb", icon: Some(png(5000, 5000)) },
+        Pin { name: "Junk", path: "junk.rkb", icon: Some([1, 2, 3]) },
+    ];
+    assert_eq(
+        read_pins(pins_file(bad)),
+        Ok([
+            Pin { name: "Big", path: "big.rkb", icon: None },
+            Pin { name: "Junk", path: "junk.rkb", icon: None },
+        ]),
+    );
+}
+
+@test
+fun left_off_round_trips() {
+    // A signed app: which one it is, and no state (that's in states/).
+    let l = recalled(
+        "Counter",
+        "rapidkoi://localhost:8000",
+        Some("Count: 3"),
+        None,
+        Some(("localhost:8000", [7; 32])),
+    );
+    let back = read_left(left_file(l)).unwrap();
+    assert_eq(
+        (back.name, back.path, back.title, back.state, signer_of(back)),
+        (
+            "Counter",
+            "rapidkoi://localhost:8000",
+            Some("Count: 3"),
+            None,
+            Some(("localhost:8000", [7; 32])),
+        ),
+    );
+    let unsigned = recalled("Counter", "c.wasm", None, None, None);
+    assert_eq(signer_of(read_left(left_file(unsigned)).unwrap()), None);
+    assert_eq(broken(read_left(trust_file([]))), "it isn't Rapidkoi's left-off file");
+    let bad = recalled("Counter", "c.rkb", None, None, Some(("Bad Host", [7; 32])));
+    assert_eq(broken(read_left(left_file(bad))), "the app's host isn't a host name");
+    let short = recalled("Counter", "c.rkb", None, None, Some(("a.example", [7; 31])));
+    assert_eq(broken(read_left(left_file(short))), "the app's key isn't 32 bytes");
+}
+
+fun fresh(name: string): Store {
+    let dir = "test/tmp/remembered-{name}";
+    if fs.is_dir(dir) {
+        for f of fs.list_dir(dir).unwrap() {
+            fs.remove_file("{dir}/{f}").unwrap();
+        }
+        fs.remove_dir(dir).unwrap();
+    }
+    store_at(dir)
+}
+
+fun done(s: Store) {
+    for f of fs.list_dir(s.dir).unwrap() {
+        fs.remove_file("{s.dir}/{f}").unwrap();
+    }
+    fs.remove_dir(s.dir).unwrap();
+}
+
+@test
+fun recalling_each_outcome() {
+    let s = fresh("recall");
+    match recall(s, "trust", 1024, read_trust) {
+        Fresh => {}
+        _ => panic("expected fresh"),
+    }
+    save(s, "trust", trust_file([id("a.example", 1)])).unwrap();
+    match recall(s, "trust", 1024 * 1024, read_trust) {
+        Read(ids) => assert_eq(ids.len, 1),
+        _ => panic("expected read"),
+    }
+    // Over its cap: set aside like any broken file.
+    match recall(s, "trust", 10, read_trust) {
+        Broken(aside, why) => {
+            assert_eq(aside, "{s.dir}/trust.broken");
+            assert_eq(why.contains("too large"), true);
+        }
+        _ => panic("expected broken"),
+    }
+    save(s, "pins", [7, 7]).unwrap();
+    match recall(s, "pins", 1024, read_pins) {
+        Broken(aside, _) => assert_eq(read_bytes(aside).unwrap(), [7, 7]),
+        _ => panic("expected broken"),
+    }
+    // Newer: left exactly where it is.
+    let newer = encode(
+        Value.Map([entry("format", Value.int(9)), entry("kind", Value.Text("rapidkoi pins"))]),
+    );
+    save(s, "pins", newer).unwrap();
+    match recall(s, "pins", 1024, read_pins) {
+        Newer(n) => assert_eq(n, 9),
+        _ => panic("expected newer"),
+    }
+    assert_eq(read_bytes("{s.dir}/pins").unwrap(), newer);
+    done(s);
+}

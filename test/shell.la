@@ -1,7 +1,7 @@
 // The window: tabs (apps only; home isn't a tab), the address box, pins,
 // "where you left off", the info panel, and failing safely per tab.
 // Fixture guests; no display.
-import rapidkoi.shell { Model, boot, with_pages, update, view, title_of };
+import rapidkoi.shell { Model, start, with_pages, update, view, title_of };
 import rapidkoi.window { card };
 import rapidkoi.actions { Msg, Confirm };
 import rapidkoi.tabs { AppPage, open_module, state_of };
@@ -44,7 +44,7 @@ fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == 
 
 @test
 fun booting_without_an_app_shows_home_with_no_tabs() {
-    let (m, _) = boot(["./main"]);
+    let (m, _) = start(["./main"], None);
     assert_eq(m.tabs.len, 0);
     assert_eq(m.current, None);
     assert_eq(shows(m, "Rapidkoi"), true);
@@ -53,7 +53,7 @@ fun booting_without_an_app_shows_home_with_no_tabs() {
 
 @test
 fun booting_a_bad_file_shows_why_in_its_tab() {
-    let (m, _) = boot(["./main", "lugha.toml"]);
+    let (m, _) = start(["./main", "lugha.toml"], None);
     assert_eq(m.tabs.len, 1);
     assert_eq(
         texts(view(m)).any(fun(s: string) = s.starts_with("This file isn't a WebAssembly app")),
@@ -133,7 +133,7 @@ fun closing_tabs_picks_a_neighbour_then_home() {
 
 @test
 fun the_address_box() {
-    let (m, _) = boot(["./main"]);
+    let (m, _) = start(["./main"], None);
     let typed = step(m, type_into(view(m), "address", "rapidkoi://notes.acme.com").unwrap());
     assert_eq(
         step(typed, Msg.Go).notice,

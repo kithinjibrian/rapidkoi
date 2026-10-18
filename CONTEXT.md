@@ -1345,6 +1345,187 @@ CLAUDE.md (commands, tree), docs/DESIGN.md (markers and pages), CHANGELOG.md
 
 ---
 
+## SESSION 35 — 2026-10-18 — Keys at 0600, and designing PRP-007: remembering — closed
+
+Branch: prp-007-remembering
+
+### WHAT WAS DONE
+
+Lugha m115 (`fs.rename`, `fs.set_mode`, `flush`, `std.time`) and m116 (`fs.sync`) landed; kivuli 0.6.0 brought `Cmd.task` and `Sub.receive` (unblocks DECISION-021). keygen now writes the secret key at 0600 through a temporary file made owner-only before the secret goes in, synced and renamed into place (the PRP-006 follow-up it promised); the chmod reminder is gone. Designed PRP-007 in chat, one topic at a time (all four settled), and wrote it.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/keys.la, src/publish.la — keygen at 0600, safe write; message
+test/keys.la — keygen leaves only the key; an unwritable folder is reported
+DECISIONS.md — DECISION-023 (std.fs can't read a mode back), deferred
+docs/source/meetings/2026-10-18-remembering.md — the design talk
+PRPs/prp-007-remembering.md — for approval
+CLAUDE.md (keygen command), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- keys: 2 new (8 pass). The 0600 itself was checked by hand (`stat`: 600): no Lugha test can read a mode.
+
+### DECISIONS MADE
+
+- PRP-007 remembers trust, pins and left-off; tabs come next in their own PRP; app copies come with remote hosts.
+- `~/.local/share/rapidkoi/` (XDG), three CBOR files with format numbers, safe writes; saved on every change on the window's thread (a new rule 3 exception, written in the PRP); broken files set aside with a notice; newer files left untouched.
+- Proposed in the PRP, for approval: Forget keeps the app's trusted key.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-023 (deferred).
+
+### STILL OPEN AT CLOSE
+
+- PRP-007 approved ("approved"). Then: background loading (kivuli 0.6, DECISION-021) after the tabs PRP.
+
+---
+
+## SESSION 36 — 2026-10-18 — Build PRP-007: remembering — closed
+
+Branch: prp-007-remembering
+
+### WHAT WAS DONE
+
+Built PRP-007 test-first. `store.la`: the data folder (XDG, then HOME), safe writes (0600 temp file, sync, rename, folder sync; the folder 0700), capped reads, set aside as `.broken`, skipping a newer file's name, remove. `remembered.la`: the trust, pins and left-off formats (format 1, a kind each), read as hostile input with every field checked; `recall` gives Fresh / Read / Broken (set aside) / Newer / Failed. `verify.la`: public `Identity`, `identities`, `keyring_of`, and a change count that moves only when trust is recorded. `tabs.la`: `recalled` and `compiled`; `navigate.reopen` loads a remembered left-off again from its path, with its state. `saving.la`: `restore` at start (notices joined), `persist` after every message (only what changed). `shell.la`: `boot` uses the real folder; `start(argv, store)` for tests; `update` saves after each message.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/store.la, src/remembered.la, src/saving.la — new
+src/verify.la, src/tabs.la, src/navigate.la, src/window.la, src/shell.la
+test/store.la, test/remembered.la, test/saving.la — new; test/verify.la (+2); test/shell.la, test/counter.la (start(…, None))
+CLAUDE.md (rule 3 exception, tree, known issues), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 197 pass: store 8, remembered 6, verify +2, saving 9 (restarts over live sockets: trust, a swap asks, separate stays separate; a known site writes nothing, checked with a read-only folder and a mutation of the no-change rule; pins and left-off; the counter resumes Count: 1; Forget keeps trust; broken and newer notices; a failed save; no store). The test run never touched ~/.local/share/rapidkoi.
+
+### DECISIONS MADE
+
+- The left-off file also keeps the app's icon (not in the PRP's field list), so home's card shows it after a restart.
+- A file that can't even be read (Failed: e.g. permissions) is never written this session either, like a newer one: nothing unread is overwritten.
+- Tests reach the window through `start(argv, None)`; only `boot` (main) uses the person's folder.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- **The owner's security review before merge** (the trust store), and the on-screen checks in the PRP's VALIDATION.
+
+---
+
+## SESSION 37 — 2026-10-18 — PRP-007 amendment 1: where you left off includes the open app — closed
+
+Branch: prp-007-remembering
+
+### WHAT WAS DONE
+
+The owner tried PRP-007: "the pin is there but state is lost and ui has regressed". The state: they quit with the counter open, and left-off was only saved when an app left its tab (kivuli has no quit hook). The owner chose option A: remember the app used last (the current tab's, else the last visited open tab's, else the last closed), saved as it changes. Wrote amendment 1 and built it test-first. Also found and fixed: Continue after a restart that fails to load (file gone, server down) would have overwritten the remembered state with nothing; a page that isn't running now never replaces a remembered app, and reopen keeps the left-off until the app runs.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-007-remembering.md — amendment 1
+src/tabs.la — snapshot; src/window.la — used_last; src/saving.la — saves used_last; src/navigate.la — reopen keeps left-off until it runs
+test/saving.la — 3 new
+```
+
+### TESTS WRITTEN
+
+- quitting with the counter open keeps Count: 2; the app used last across two tabs and home; a failed Continue keeps the saved state. 200 pass.
+
+### DECISIONS MADE
+
+- Option A (the owner). Coalescing saves for large states stays a later refinement.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- **The UI regression:** not reproduced; PRP-007 touched no view code. Waiting for the owner's screenshot or description.
+- The owner's security review and on-screen checks before merge.
+
+---
+
+## SESSION 38 — 2026-10-18 — PRP-007 amendment 2: state belongs to signed apps — closed
+
+Branch: prp-007-remembering
+
+### WHAT WAS DONE
+
+The owner: state still lost. Cause: opening the app by its address started it fresh, and the fresh state overwrote the saved one as "the app used last". The owner: identity is host + key, so state belongs to that; unsigned apps lose state across restarts. Wrote amendment 2 and built it test-first: `states.la` (one file per signed app under states/, named by the SHA-256 of [host, key], checked to hold that identity, at most 256 apps, the oldest removed; move after a rotation); the keyring records rotations; left-off holds which app (and host and key) but no state, written only for signed apps; every open of a signed app resumes its saved state (navigate.resumed); saving keeps the used-last signed app's state; Forget removes it. A rotation's state is moved as the app opens, before its state is read.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-007-remembering.md — amendment 2
+src/states.la, test/states.la — new
+src/store.la (ensure), src/verify.la (moves), src/tabs.la (signer, signer_of, recalled, with_saved), src/remembered.la (left-off format), src/navigate.la (resumed, arrived), src/saving.la (Mark, persist, forgotten), src/shell.la
+test/store.la, test/verify.la, test/remembered.la, test/saving.la (reworked)
+CLAUDE.md (rule 3, tree, known issues), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 211 pass: states 6; saving 15 (a signed counter resumes by address and by Continue; unsigned starts fresh; a separate publisher starts at 0; a rotation keeps Count: 1; Forget removes the state; a changed state version starts over; the signed app used last stays the one continued; a failed Continue keeps Continue).
+
+### DECISIONS MADE
+
+- The owner: only apps with a host and key keep state across restarts. Pins stay for every app (the owner said "everything", read as state; flagged in the summary).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The UI regression the owner reported: still not seen; needs a screenshot.
+- `src/tabs.la` is at 481 lines: the tabs PRP must start with a split.
+- The owner's security review and on-screen checks before merge.
+
+---
+
+## SESSION 39 — 2026-10-18 — Merge PRP-007 — closed
+
+Branch: prp-007-remembering
+
+### WHAT WAS DONE
+
+The owner: "merge prp-007 then start background loading" (taken as the security review done). Full suite 211/211, fmt clean, build ok, no file over 500 lines (tabs.la 481). Merged prp-007-remembering into main. Also, at the owner's request (outside the repo): a static HTTPS site for the counter at counter.dafifi.net on the owner's VM (/opt/rapidkoi, nginx behind Traefik), published from ~/rapidkoi-sites/counter.dafifi.net with its own key.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md, lugha.lock (lughac's)
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The dots beside Reset (screenshot 17): not diagnosed; compare old builds when the owner wants.
+
+---
+
 ## NEXT SESSION START POINT
 
-PRP-006 is merged to main. Next: PRP-007 (remembering trust, pins and left-off on disk; needs std.fs.rename and set_mode from Lugha), or another milestone the owner picks. Open the session on a new branch.
+PRP-007 is merged. Next: design background loading (DECISION-021, kivuli 0.6's Cmd.task) in chat, one question at a time, then write PRP-008. After it: remote apps over HTTPS (first target: rapidkoi://counter.dafifi.net on the owner's VM), and the tabs PRP (split src/tabs.la first).

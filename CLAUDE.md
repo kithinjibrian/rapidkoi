@@ -184,7 +184,7 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
 ./main rapidkoi://localhost:8000                                       # opens a window: the user's
 
 # Signed apps: rapidkoi.toml describes the app (the repo's own is the counter's)
-./main keygen          # once: the secret key at [publish].key, outside the project; then chmod 600 it
+./main keygen          # once: the secret key at [publish].key, outside the project, mode 0600
 ./main publish         # signs and writes site/.well-known/rapidkoi/{key, index, builds/<sha256>.rkb}
 ./main publish --withdraw VERSION --reason TEXT
 ./main pack            # one .rkb from rapidkoi.toml, signed when it has a host and a key
@@ -216,7 +216,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 
 1. **The app is one kivuli program: a `Model`, a `Msg` enum, a pure `update`, and a pure `view`.** *Why:* that is kivuli's contract; state changed anywhere else is invisible to the diff and won't render.
 2. **Never touch a GTK widget or import `gtk` from rapidkoi.** *Why:* kivuli owns the widgets; reaching past it breaks its diff and pinned-closure bookkeeping.
-3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/limits.la`), it opens local app files the person chose (≤ 32 MB, PRP-002), and it fetches a bundle from a local development address (localhost only, ≤ 32 MB, 3 s timeout, PRP-004; background loading is DECISION-021). *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
+3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/limits.la`), it opens local app files the person chose (≤ 32 MB, PRP-002), it fetches a bundle from a local development address (localhost only, ≤ 32 MB, 3 s timeout, PRP-004; background loading is DECISION-021), and it reads and saves Rapidkoi's own small files in its data folder (`src/saving.la`, `src/states.la`: trust ≤ 1 MB, pins ≤ 32 MB, left-off ≤ 8 MB, each signed app's state ≤ `MAX_STATE` + 64 KB, written safely, PRP-007; it moves to `Cmd.task` when std's file I/O stops blocking the thread). *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
 4. **Keep `src/main.la` to wiring:** `main` calls kivuli with the initial model, `update` and `view` imported from their modules. *Why:* `main.la` can't be tested on its own; everything worth testing lives in a module.
 
 5. **Follow the vision's build path in order** (shell → links → a real app → storage and sync → live sessions → history). Never build part of a later step early. *Why:* each step shapes the next; a speculative later piece locks in guesses.
@@ -267,7 +267,9 @@ public fun load_settings(path: string): Settings { … }
 │                        window.la (the Model, and changes that open nothing: tabs, home, pins, left off), navigate.la (opening: the address box, files, addresses, Continue, Reload), themes.la (Rapidkoi's colours as kivuli looks; dark first),
 │                        bundle.la (pure: bundle format 1, read/write), rules.la (pure: every bundle rule, BundleError), loader.la (a path or address → manifest + compiled module, verified when signed),
 │                        signing.la (format 2: signed bundles, read either format), keys.la (secret keys: keygen, read, fingerprints), index.la (the signed index and the public key file, rotations),
-│                        project.la (rapidkoi.toml), publish.la (the `keygen` and `publish` commands, pack from rapidkoi.toml), verify.la (opening a signed site: every check, the session keyring),
+│                        project.la (rapidkoi.toml), publish.la (the `keygen` and `publish` commands, pack from rapidkoi.toml), verify.la (opening a signed site: every check, the keyring),
+│                        store.la (the data folder: safe writes, bounded reads, set aside), remembered.la (the trust, pins and left-off files), states.la (each signed app's state, by host and key),
+│                        saving.la (restore at start, save on every change),
 │                        pack.la (the `./main pack` command), serve.la (the `./main serve` development server: a bundle or a site), address.la (pure: local development addresses),
 │                        tabs.la (Page, Tab, Pin, LeftOff; an app page's life: open, events, restart, leave, resume), actions.la (the shell's Msg),
 │                        frame.la (pure: the bar and the tab rail), home.la (pure: home and search), panel.la (pure: app info),
@@ -315,7 +317,7 @@ Update this tree when modules are added.
   - Tab actions are in the panel only (no right-click menu).
   - Home tiles sit in fixed rows of 4 (no wrapping grid).
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
-  - Pins, "where you left off" and search are in memory only.
+  - Search is in memory only. Open tabs aren't restored on launch yet (the next PRP). Unsigned apps' state lasts only for the session (PRP-007 amendment 2).
   - Back, forward, share, settings and more are shown disabled.
   - Only a panel row's › arrow is clickable, not the whole row: kivuli buttons can't hold a row yet (DECISION-020). Account, Notifications, Access and Data are placeholder pages until accounts (DECISION-022), notifications, permissions and app data exist.
   - Only local development addresses open (localhost, 127.0.0.1, [::1]); other hosts wait for HTTPS and signing (DECISION-009). A fetch waits on the window's thread, so the window pauses while it downloads (DECISION-021). Reload is manual; there's no live reload yet.

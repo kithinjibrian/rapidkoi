@@ -1,0 +1,209 @@
+/**
+ * Each signed app's state, kept across restarts by its identity: host and
+ * key (PRP-007 amendment 2). One file per app under `states/`, named by
+ * the SHA-256 of its identity, holding the state, its version and when it
+ * was last used. A file must hold the identity it's named for. At most
+ * `MAX_APPS`: past that, the one used longest ago is removed. Unsigned
+ * apps have no identity, so nothing here.
+ *
+ * Depends on: std.fs, std.crypto, cbor, store, remembered, keys, rules, limits
+ * Used by: navigate, saving
+ */
+import std.fs;
+import std.crypto { sha256, equal };
+import cbor { Value, Entry, Limits, decode, encode };
+import store { Store, StoreError, store_at, save, remove, ensure };
+import remembered { Unreadable, Recalled, recall, FORMAT };
+import keys { hex };
+import rules { check_host };
+import limits { MAX_STATE };
+
+/** One signed app's saved state. */
+public struct Saved {
+    /** The app's host. */
+    public host: string,
+    /** Its publisher's 32-byte key. */
+    public key: u8[],
+    /** The version of the state's shape. */
+    public state_version: i64,
+    /** The state. */
+    public state: u8[],
+    /** When it was last saved, in milliseconds since 1970. */
+    public used: i64,
+}
+
+/** The most apps whose state is kept. */
+public const MAX_APPS: i64 = 256;
+
+/** A state file's cap: the state and a little more. */
+const MAX_FILE: i64 = MAX_STATE + 64 * 1024;
+
+/**
+ * Returns the file name for an identity: the SHA-256 of `[host, key]` as
+ * CBOR, in hex. Exact bytes, so no two identities share a name.
+ *
+ * Example:
+ *     state_name("notes.acme.com", key)
+ */
+public fun state_name(host: string, key: u8[]): string = hex(
+    sha256(encode(Value.Array([Value.Text(host), Value.Bytes(key)]))),
+);
+
+/**
+ * Encodes a state file.
+ *
+ * Example:
+ *     state_file(saved)
+ */
+public fun state_file(sv: Saved): u8[] = encode(
+    Value.Map([
+        entry("format", Value.int(FORMAT)),
+        entry("kind", Value.Text("rapidkoi state")),
+        entry("host", Value.Text(sv.host)),
+        entry("key", Value.Bytes(sv.key)),
+        entry("state_version", Value.int(sv.state_version)),
+        entry("state", Value.Bytes(sv.state)),
+        entry("used", Value.int(sv.used)),
+    ]),
+);
+
+/**
+ * Reads a state file, which must be for `host` and `key`.
+ *
+ * Example:
+ *     read_state(bytes, "notes.acme.com", key)?
+ */
+public fun read_state(bytes: u8[], host: string, key: u8[]): Result<Saved, Unreadable> {
+    let bounds = Limits { max_depth: 2, max_items: 32, max_bytes: MAX_FILE, max_string: MAX_FILE };
+    let v = decode(bytes, bounds).map_err(fun(e) = Unreadable.Broken("not CBOR ({e})"))?;
+    let format = v.get("format").map(fun(n: Value) = n.as_i64().unwrap_or(-1)).unwrap_or(-1);
+    if format > FORMAT {
+        return Err(Unreadable.Newer(format));
+    }
+    if format != FORMAT || text(v, "kind") != Some("rapidkoi state") {
+        return Err(Unreadable.Broken("it isn't a Rapidkoi state file"));
+    }
+    let found_host = text(v, "host").unwrap_or("");
+    let found_key = blob(v, "key").unwrap_or([]);
+    // Named for one identity, holding another's: never hand it over.
+    if found_host != host || !equal(found_key, key) || check_host(found_host).is_err() {
+        return Err(Unreadable.Broken("it's another app's state"));
+    }
+    let state = blob(v, "state").ok_or(Unreadable.Broken("it has no state"))?;
+    if state.len > MAX_STATE {
+        return Err(Unreadable.Broken("its state is too large"));
+    }
+    let version = whole(v, "state_version");
+    if version < 1 {
+        return Err(Unreadable.Broken("its state version isn't a whole number from 1"));
+    }
+    Ok(Saved { host: host, key: key, state_version: version, state: state, used: whole(v, "used") })
+}
+
+/**
+ * Saves an app's state (safely, as every file), then keeps the folder to
+ * `MAX_APPS`, removing the app used longest ago.
+ *
+ * Example:
+ *     keep(s, Saved { …, used: time.now_ms() })?
+ */
+public fun keep(s: Store, sv: Saved): Result<(), StoreError> {
+    // The data folder first, so it's made owner-only before states/ inside it.
+    ensure(s)?;
+    let sub = folder(s);
+    save(sub, state_name(sv.host, sv.key), state_file(sv))?;
+    let names = files(sub);
+    if names.len <= MAX_APPS {
+        return Ok(());
+    }
+    let mut oldest = "";
+    let mut when = 0;
+    for n of names {
+        let used = match read_bytes("{sub.dir}/{n}") {
+            Ok(b) => match decode(b, Limits {
+                max_depth: 2,
+                max_items: 32,
+                max_bytes: MAX_FILE,
+                max_string: MAX_FILE,
+            }) {
+                Ok(v) => whole(v, "used"),
+                Err(_) => -1,
+            },
+            Err(_) => -1,
+        };
+        if oldest == "" || used < when {
+            oldest = n;
+            when = used;
+        }
+    }
+    remove(sub, oldest)
+}
+
+/**
+ * Reads an app's saved state: Fresh when there's none, Broken (set aside)
+ * when it can't be used.
+ *
+ * Example:
+ *     saved_state(s, trust.host, trust.key)
+ */
+public fun saved_state(s: Store, host: string, key: u8[]): Recalled<Saved> = recall(
+    folder(s),
+    state_name(host, key),
+    MAX_FILE,
+    fun(b: u8[]) = read_state(b, host, key),
+);
+
+/**
+ * Removes an app's saved state (Forget).
+ *
+ * Example:
+ *     drop_state(s, trust.host, trust.key)?
+ */
+public fun drop_state(s: Store, host: string, key: u8[]): Result<(), StoreError> = remove(
+    folder(s),
+    state_name(host, key),
+);
+
+/**
+ * Moves an app's state to its new key after a rotation its old key
+ * signed. Nothing saved: nothing to do.
+ *
+ * Example:
+ *     move_state(s, host, old, new)?
+ */
+public fun move_state(
+    s: Store,
+    host: string,
+    old: u8[],
+    new: u8[],
+): Result<(), StoreError> = match saved_state(s, host, old) {
+    Read(sv) => {
+        keep(s, Saved { key: new, ..sv })?;
+        drop_state(s, host, old)
+    }
+    _ => Ok(()),
+};
+
+fun folder(s: Store): Store = store_at("{s.dir}/states");
+
+/** The state files: names of 64 hex digits (no `.tmp`, no `.broken`). */
+fun files(sub: Store): string[] = match fs.list_dir(sub.dir) {
+    Ok(all) => all.filter(fun(n: string) = n.len == 64 && !n.contains(".")),
+    Err(_) => [],
+};
+
+fun whole(v: Value, field: string): i64 = v.get(field).map(
+    fun(n: Value) = n.as_i64().unwrap_or(-1),
+).unwrap_or(-1);
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };
+
+fun text(v: Value, field: string): Option<string> = match v.get(field) {
+    Some(Text(s)) => Some(s),
+    _ => None,
+};
+
+fun blob(v: Value, field: string): Option<u8[]> = match v.get(field) {
+    Some(Bytes(b)) => Some(b),
+    _ => None,
+};

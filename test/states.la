@@ -1,0 +1,147 @@
+// Each signed app's state, kept by host and key under states/: round
+// trips, the identity check, removal, moving after a rotation, and the cap.
+// Writes only under test/tmp/.
+import rapidkoi.states {
+    Saved,
+    MAX_APPS,
+    state_name,
+    state_file,
+    read_state,
+    keep,
+    saved_state,
+    drop_state,
+    move_state,
+};
+import rapidkoi.remembered { Unreadable, Recalled };
+import rapidkoi.store { Store, store_at, save };
+import std.fs;
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun folder(name: string): Store {
+    let dir = "test/tmp/states-{name}";
+    clean(dir);
+    store_at(dir)
+}
+
+fun saved(host: string, n: u8, used: i64): Saved = Saved {
+    host: host,
+    key: [n; 32],
+    state_version: 1,
+    state: [n, n],
+    used: used,
+};
+
+fun why(r: Result<Saved, Unreadable>): string = match r {
+    Err(Broken(w)) => w,
+    Err(Newer(n)) => "newer {n}",
+    Ok(_) => "ok",
+};
+
+@test
+fun a_state_round_trips_for_its_own_identity_only() {
+    let sv = saved("localhost:8000", 1, 5);
+    assert_eq(read_state(state_file(sv), "localhost:8000", [1; 32]), Ok(sv));
+    assert_eq(
+        why(read_state(state_file(sv), "localhost:9000", [1; 32])),
+        "it's another app's state",
+    );
+    assert_eq(
+        why(read_state(state_file(sv), "localhost:8000", [2; 32])),
+        "it's another app's state",
+    );
+    assert_eq(why(read_state([1, 2], "localhost:8000", [1; 32])).starts_with("not CBOR"), true);
+}
+
+@test
+fun names_are_the_identity_hashed() {
+    let a = state_name("localhost:8000", [1; 32]);
+    assert_eq(a.len, 64);
+    assert_eq(state_name("localhost:8000", [1; 32]), a);
+    assert_eq(state_name("localhost:8000", [2; 32]) != a, true);
+    assert_eq(state_name("localhost:8001", [1; 32]) != a, true);
+}
+
+@test
+fun keep_then_read_then_drop() {
+    let s = folder("keep");
+    match saved_state(s, "a.example", [1; 32]) {
+        Fresh => {}
+        _ => panic("expected fresh"),
+    }
+    keep(s, saved("a.example", 1, 5)).unwrap();
+    match saved_state(s, "a.example", [1; 32]) {
+        Read(sv) => assert_eq(sv.state, [1, 1]),
+        _ => panic("expected read"),
+    }
+    drop_state(s, "a.example", [1; 32]).unwrap();
+    match saved_state(s, "a.example", [1; 32]) {
+        Fresh => {}
+        _ => panic("expected fresh after drop"),
+    }
+    clean(s.dir);
+}
+
+@test
+fun a_misplaced_file_is_broken_and_set_aside() {
+    let s = folder("misplaced");
+    keep(s, saved("a.example", 1, 5)).unwrap();
+    // b's file holding a's state.
+    let theirs = read_bytes("{s.dir}/states/{state_name("a.example", [1; 32])}").unwrap();
+    save(store_at("{s.dir}/states"), state_name("b.example", [2; 32]), theirs).unwrap();
+    match saved_state(s, "b.example", [2; 32]) {
+        Broken(aside, why) => {
+            assert_eq(why, "it's another app's state");
+            assert_eq(fs.is_file(aside), true);
+        }
+        _ => panic("expected broken"),
+    }
+    clean(s.dir);
+}
+
+@test
+fun a_rotation_moves_the_state_to_the_new_key() {
+    let s = folder("move");
+    keep(s, saved("a.example", 1, 5)).unwrap();
+    move_state(s, "a.example", [1; 32], [2; 32]).unwrap();
+    match saved_state(s, "a.example", [2; 32]) {
+        Read(sv) => assert_eq((sv.key, sv.state), ([2; 32], [1, 1])),
+        _ => panic("expected the moved state"),
+    }
+    match saved_state(s, "a.example", [1; 32]) {
+        Fresh => {}
+        _ => panic("the old key's state should be gone"),
+    }
+    // Nothing to move: fine.
+    assert_eq(move_state(s, "b.example", [3; 32], [4; 32]), Ok(()));
+    clean(s.dir);
+}
+
+@test
+fun past_the_cap_the_app_used_longest_ago_goes() {
+    let s = folder("cap");
+    for i in 0..MAX_APPS {
+        keep(s, saved("a{i}.example", 1, 1000 + i)).unwrap();
+    }
+    // a0 is the oldest; one more pushes it out.
+    keep(s, saved("new.example", 1, 99_999)).unwrap();
+    assert_eq(fs.list_dir("{s.dir}/states").unwrap().len, MAX_APPS);
+    match saved_state(s, "a0.example", [1; 32]) {
+        Fresh => {}
+        _ => panic("expected the oldest to be removed"),
+    }
+    match saved_state(s, "a1.example", [1; 32]) {
+        Read(_) => {}
+        _ => panic("expected the next oldest kept"),
+    }
+    clean(s.dir);
+}
