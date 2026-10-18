@@ -1269,6 +1269,12 @@ src/theme.la, src/panel.la (NAME_CHARS, MARKER_CHARS, shorten), docs/DESIGN.md
 
 ---
 
+## SESSION 33 — 2026-10-18 — Propose PRP-006: signed apps, published locally — open
+
+Branch: prp-006-signing
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 28 on a new branch. PRP-005 (the info panel and bar) is on `main`. Next, at the owner's choice:
