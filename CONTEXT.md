@@ -1197,6 +1197,43 @@ src/panel.la, docs/DESIGN.md
 
 ---
 
+## SESSION 31 — 2026-10-18 — The panel at a fixed width — closed
+
+Branch: panel-fixed-width → merged into main
+
+### WHAT WAS DONE
+
+The owner (screenshots 12 and 13): "the panel should have a fixed width no matter what". Measured: about 510 px on the main page and 816 px on Account. `.width(n)` is GTK's minimum size, so long text widened it. Now:
+- PANEL_WIDTH is 360 (about the main page's look)
+- every wrapped panel line uses `.wrap_at(PANEL_CHARS)` (40), the app's name at 20
+- About's values (paths, addresses) are ellipsized with the whole value as a tooltip
+- the header's marker shows the file name only
+
+### FILES CREATED OR MODIFIED
+
+```
+src/theme.la (PANEL_WIDTH 360, PANEL_CHARS 40), src/panel.la, docs/DESIGN.md
+docs/source/meetings/2026-10-17-ui/screenshot-12-panel-width.png, screenshot-13-panel-width.png
+```
+
+### TESTS WRITTEN
+
+- None (layout; all 121 pass).
+
+### DECISIONS MADE
+
+- Text is capped, rather than the widget given a maximum: GTK has no maximum width.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of every page's width.
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 28 on a new branch. PRP-005 (the info panel and bar) is on `main`. Next, at the owner's choice:

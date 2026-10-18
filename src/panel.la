@@ -16,7 +16,7 @@ import tabs { AppPage, state_of, state_version_of };
 import frame { icon_button, icon_of, initial, marker };
 import bundle { Manifest };
 import address { parse };
-import theme { SPACE_XS, SPACE_SM, SPACE_MD, TEXT_TITLE, TEXT_HEADING, PANEL_WIDTH };
+import theme { SPACE_XS, SPACE_SM, SPACE_MD, TEXT_TITLE, TEXT_HEADING, PANEL_WIDTH, PANEL_CHARS };
 import themes { Look };
 
 /** The panel's icon, in pixels. */
@@ -41,18 +41,18 @@ public fun view(p: AppPage, at: PanelPage, confirm: Option<Confirm>): View<Msg> 
             text("Not signed in"),
             text(
                 "Sign-in comes in a later step: each app will get its own ID for you, and the name you choose.",
-            ).dim().wrap(),
+            ).dim().wrap_at(PANEL_CHARS),
         ]),
         Notifications => sub("Notifications", [
-            text("{p.name} hasn't asked to send notifications.").wrap(),
+            text("{p.name} hasn't asked to send notifications.").wrap_at(PANEL_CHARS),
         ]),
         Access => sub("Access", [
-            text("None: {p.name} can't reach anything outside itself.").wrap(),
+            text("None: {p.name} can't reach anything outside itself.").wrap_at(PANEL_CHARS),
         ]),
         State => sub("Where you left off", state_page(p, confirm)),
         Data => sub("Data", [
-            text("No data yet.").wrap(),
-            text("App databases come in a later step.").dim().wrap(),
+            text("No data yet.").wrap_at(PANEL_CHARS),
+            text("App databases come in a later step.").dim().wrap_at(PANEL_CHARS),
         ]),
         About => sub("About", about(p)),
     };
@@ -93,16 +93,16 @@ fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
     let header = row([
         face,
         column([
-            left(text(p.name).size(TEXT_TITLE).bold()),
+            left(text(p.name).size(TEXT_TITLE).bold().wrap_at(PANEL_CHARS / 2)),
             left(text(version).dim()),
             // Drawn by Rapidkoi only; tapping it opens who published it.
-            left(button(marker(p, p.path), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app")),
+            left(button(marker(p, file_name(p.path)), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app")),
         ]).spacing(SPACE_XS).expand(),
     ]).spacing(SPACE_MD);
     let mut parts = [header];
     if let Some(m) = p.manifest {
         if let Some(d) = m.description {
-            parts.push(left(text(d).wrap()));
+            parts.push(left(text(d).wrap_at(PANEL_CHARS)));
         }
     }
     parts.push(heading("Your settings"));
@@ -146,7 +146,7 @@ fun state_page(p: AppPage, confirm: Option<Confirm>): View<Msg>[] {
     let saved = state_of(p).map(fun(s: u8[]) = s.len).unwrap_or(0);
     [text("{size(saved)} · state v{state_version_of(p)}"), text(
         "What {p.name} keeps between visits. ⟳ Reload keeps it; Start over clears it.",
-    ).dim().wrap(), match confirm {
+    ).dim().wrap_at(PANEL_CHARS), match confirm {
         Some(StartOver) => asking(
             "Start {p.name} over? What it saved on this device will be cleared.",
             "Start over",
@@ -215,12 +215,13 @@ fun line(label: string, summary: string, opens: PanelPage): View<Msg> = row([
 /** A label and its value, for About. */
 fun pair(label: string, value: string): View<Msg> = column([
     text(label).dim(),
-    text(value).wrap(),
+    // A path has no spaces to break at: cut with …, the whole of it on hover.
+    text(value).wrap_at(PANEL_CHARS).ellipsize().tooltip(value),
 ]).spacing(SPACE_XS);
 
 /** The question before a destructive action, with Cancel and the action. */
 fun asking(question: string, action: string, msg: Msg): View<Msg> = column([
-    text(question).wrap(),
+    text(question).wrap_at(PANEL_CHARS),
     row([
         button("Cancel", Msg.Cancel),
         button(action, msg).button_style(ButtonStyle.Danger),
@@ -229,3 +230,9 @@ fun asking(question: string, action: string, msg: Msg): View<Msg> = column([
 
 /** At the start of its column: kivuli centers text unless told. */
 fun left(v: View<Msg>): View<Msg> = v.align(Align.Start);
+
+/** A path's last part: a file's name, or an address as typed. */
+fun file_name(path: string): string {
+    let parts = path.split("/");
+    if path.contains("://") { path } else { parts[parts.len - 1] }
+}

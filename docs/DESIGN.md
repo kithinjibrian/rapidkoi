@@ -61,7 +61,8 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the
 | `TILE_SIZE` | 120 | a Pinned tile on home (square) |
 | `TILES_PER_ROW` | 4 | until kivuli has a wrapping grid (DECISION-018) |
 | `BANNER_HEIGHT` | 180 | "Where you left off" |
-| `PANEL_WIDTH` | 280 | the app info panel |
+| `PANEL_WIDTH` | 360 | the app info panel, fixed: its text never widens it (session 31) |
+| `PANEL_CHARS` | 40 | the most characters a wrapped panel line asks for (`.wrap_at`); paths are cut with … and shown whole on hover |
 | `PAGE_RADIUS` | 12 | the page's top-right curve |
 | `WINDOW_WIDTH` × `WINDOW_HEIGHT` | 960 × 700 | the window's default size |
 
@@ -85,7 +86,7 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 - **The info panel** (the owner's sketch, `docs/source/meetings/2026-10-17-ui/sketch-3-info-panel.png`):
   - a header (a 48 px icon, the name in title style, `Version …` dim, and the marker as a subtle button opening About)
   - the description
-  - the panel on the frame's colour at `PANEL_WIDTH` (the owner preferred it to a page-coloured panel, session 29)
+  - the panel on the frame's colour at a fixed `PANEL_WIDTH` (the owner preferred it to a page-coloured panel, session 29; fixed whatever its text, session 31)
   - **Your settings** and **On this device**, each a small dim heading over a `Look.Section` card (the frame's `#242424`, `PAGE_RADIUS` corners) of rows: the label, a dim summary, and a › arrow
   - **Forget this app** (danger) and **Close**, side by side in the bottom row
 - Rows open pages with a ‹ Back arrow. **Start over** and **Forget** always ask first, in place, with [Cancel] and the danger action.

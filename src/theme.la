@@ -52,7 +52,13 @@ public const BANNER_HEIGHT: i64 = 180;
 /** The page's top-right curve, in pixels. */
 public const PAGE_RADIUS: i64 = 12;
 /** The app info panel, in pixels. */
-public const PANEL_WIDTH: i64 = 280;
+public const PANEL_WIDTH: i64 = 360;
+/**
+ * The most characters a wrapped line in the panel may ask for, so text can
+ * never widen it past `PANEL_WIDTH` (GTK sizes are minimums; this caps
+ * the text instead).
+ */
+public const PANEL_CHARS: i64 = 40;
 
 /**
  * Returns the pixels a contract spacing or padding word stands for.
