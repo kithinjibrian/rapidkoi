@@ -1051,6 +1051,12 @@ PRPs/prp-005-info_panel.md — for approval
 
 ---
 
+## SESSION 27 — 2026-10-18 — Build PRP-005: the info panel and bar actions — open
+
+Branch: prp-005-panel
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 27 on `prp-005-panel`. If the owner approved PRP-005, build it test-first: reload keeping state (tabs.reopen, navigate.reload), then the bar (⟳ ☆), then the panel's model (PanelPage, Confirm, forget), then the views. Keep every file under 500 lines.

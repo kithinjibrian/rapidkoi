@@ -1,3 +1,5 @@
+**Status:** approved by the owner, 2026-10-18 (session 27)
+
 ## FEATURE: The info panel redesigned (the owner's sketch), and ⟳ Reload and ☆ Pin in the bar
 
 ## OBJECTIVE
