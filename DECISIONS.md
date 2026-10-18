@@ -56,22 +56,22 @@ Rules:
 
 ### DECISION-009 — Manifest, bundle format and signing
 
-**Status:** deferred, partly settled (2026-10-18; see `docs/source/meetings/2026-10-18-packaging.md`)
+**Status:** deferred: design settled (2026-10-18), building waits on `std.crypto`, `std.toml` and DECISION-021
 **Raised:** 2026-10-17 — Session 2
-**Revisit when:** Opening apps by address (links), after PRP-003.
+**Revisit when:** `std.crypto` and `std.toml` land in Lugha, and background loading exists.
 
-**Question:** The manifest's format and location at a domain, the bundle's container format, content addressing, and how domain-tied keys are verified.
+**Question:** How bundles are published, found, verified and updated.
 
-**Settled:**
-- one module per app, room for prerendered screens
-- app = host, build, version, index
-- the publisher keeps what they want; the device keeps the previous build
-- versions can be withdrawn
-- everything Rapidkoi holds is stamped with its version (`state_version`, optional `migrate`, start over without one)
-- the static hosting layout under `/.well-known/rapidkoi/`
-- bundle format 1: a single CBOR `.rkb`, for local files (PRP-003)
+**Settled** (`docs/source/meetings/2026-10-18-packaging.md`, `docs/source/meetings/2026-10-18-signing-and-panel.md`):
+- one app per host; a key file over HTTPS, remembered on first use; fingerprints in shared links later
+- a signed manifest per build, and a signed index with a rising sequence
+- static files only: `key`, `index`, `builds/<sha256>.rkb`
+- signed rotations; an unapproved change makes a separate app (identity = host + key)
+- sign bytes, not shapes; Ed25519 and SHA-256 via OpenSSL (`std.crypto`)
+- `rapidkoi.toml` (`std.toml`) with keygen, pack, publish, serve and rotate
+- markers, refusal without bypass, automatic updates with Undo
 
-**Still open:** signing (where the key lives, rotation, loss, the crypto library), format 2 (hash-addressed pieces, signatures, lazy assets). Human review is required (SECURITY RULE).
+**Later:** index expiry (needs a clock), revocation, DNS as an optional extra.
 
 ---
 
@@ -174,6 +174,18 @@ Rules:
 - B) An integration between Lugha's scheduler and GLib's main loop, so green threads run while GTK waits.
 
 **Notes:** PRP-004 fetches synchronously from localhost only, bounded by `MAX_BUNDLE` and a 3-second timeout.
+
+---
+
+### DECISION-022 — Accounts: per-app identity and sign-in
+
+**Status:** deferred
+**Raised:** 2026-10-18 — Session 26
+**Revisit when:** The owner wants sign-in (the vision's passkeys held by Rapidkoi).
+
+**Question:** How Rapidkoi gives each app its own user ID for the person (so apps can't link them across apps), a name the person chooses per app, and sign-in and out. Where keys live, how IDs are derived, and what an app's server can verify.
+
+**Notes:** Authentication: a design talk of its own and the owner's security review (SECURITY RULE). Until then the panel's Account row says "Not signed in".
 
 ---
 
