@@ -75,6 +75,20 @@ public fun skipping(s: Store, name: string): Store {
 }
 
 /**
+ * Makes the folder, owner-only (0700), if it isn't there yet.
+ *
+ * Example:
+ *     ensure(s)?
+ */
+public fun ensure(s: Store): Result<(), StoreError> {
+    if !fs.is_dir(s.dir) {
+        fs.make_dirs(s.dir).map_err(fun(e: string) = StoreError.Io(s.dir, e))?;
+        fs.set_mode(s.dir, OWNER_DIR).map_err(fun(e: string) = StoreError.Io(s.dir, e))?;
+    }
+    Ok(())
+}
+
+/**
  * Saves a file safely: an owner-only temporary file, synced, renamed over
  * the old one, and the folder synced. Makes the folder (0700) if needed. A
  * skipped file is left as it is.
@@ -89,10 +103,7 @@ public fun save(s: Store, name: string, bytes: u8[]): Result<(), StoreError> {
         return Ok(());
     }
     let at = fun(path: string) = fun(e: string) = StoreError.Io(path, e);
-    if !fs.is_dir(s.dir) {
-        fs.make_dirs(s.dir).map_err(at(s.dir))?;
-        fs.set_mode(s.dir, OWNER_DIR).map_err(at(s.dir))?;
-    }
+    ensure(s)?;
     let file = "{s.dir}/{name}";
     let tmp = "{file}.tmp";
     // Owner-only before anything is in it; whole before it's renamed in.

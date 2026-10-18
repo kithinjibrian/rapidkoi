@@ -10,6 +10,7 @@ import rapidkoi.store {
     set_aside,
     skipping,
     remove,
+    ensure,
     reason,
 };
 import std.fs;
@@ -122,4 +123,13 @@ fun removing_a_file_and_a_missing_one() {
     assert_eq(remove(skipping(s, "pins"), "pins"), Ok(()));
     assert_eq(load(s, "pins", 10), Ok(Some([2])));
     done(s);
+}
+
+@test
+fun ensure_makes_the_folder_once() {
+    let s = fresh("ensure");
+    assert_eq(ensure(s), Ok(()));
+    assert_eq(fs.is_dir(s.dir), true);
+    assert_eq(ensure(s), Ok(()));
+    fs.remove_dir(s.dir).unwrap();
 }
