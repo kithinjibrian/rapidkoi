@@ -92,7 +92,7 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 
 ## The panel, menus and home's grid (PRP-010)
 
-- **The info panel sits over the app** at `PANEL_WIDTH`, placed at the end and the full height. The app keeps its width. A dim `Look.Scrim` layer (the theme's `scrim`, `#00000060` in dark) covers the rest of the app; clicking it ("Click to close the panel") or Escape closes the panel.
+- **The info panel sits over the app** at `PANEL_WIDTH`, placed at the end and the full height, inset by `SPACE_SM`: `Look.Panel`, the frame's colour (lighter than the page) with every corner at `PAGE_RADIUS` (the owner, session 49). The app keeps its width. A dim `Look.Scrim` layer (the theme's `scrim`, `#00000060` in dark) covers the rest of the app; clicking it ("Click to close the panel") or Escape closes the panel.
 - **A tab's right-click menu:** Reload (greyed while loading), Pin to home / Unpin, About this app, separator, Close tab, Forget this app…. The tab is selected first. Forget opens the panel at its question.
 - **A pinned tile's menu:** Open, Unpin, separator, Forget this app…. The "where you left off" card's Continue: Open, separator, Forget this app….
 - **Home's pinned tiles** wrap, all one width (`wrap(...).equal()`, `SPACE_MD`).

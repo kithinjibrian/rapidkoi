@@ -23,6 +23,8 @@ public enum Look {
     Section,
     /** Over the app while the info panel is open: dims it, and a click on it closes the panel. */
     Scrim,
+    /** The info panel over the app: the frame's lighter colour, every corner rounded. */
+    Panel,
 }
 
 /** One theme: a name, and a colour per part. Hex values live only here. */
@@ -55,7 +57,7 @@ public const DARK: Theme = Theme {
  *     view.theme(kivuli_theme(DARK))
  */
 public fun kivuli_theme(t: Theme): Looks = looks(
-    [Look.Frame, Look.Page, Look.Section, Look.Scrim],
+    [Look.Frame, Look.Page, Look.Section, Look.Scrim, Look.Panel],
     fun(l: Look) = surface(t, l),
 );
 
@@ -82,6 +84,14 @@ public fun surface(t: Theme, l: Look): Surface = match l {
     Section => Surface {
         background: Some(hex(t.frame)),
         radius: Some(PAGE_RADIUS),
+        ..Surface.theme(),
+    },
+    // The panel floats over the dimmed app: the frame's colour, as it had
+    // beside the app, and rounded all round now that it has edges of its own.
+    Panel => Surface {
+        background: Some(hex(t.frame)),
+        radius: Some(PAGE_RADIUS),
+        flat: Some(true),
         ..Surface.theme(),
     },
     // Flat: a plain dim layer, not a button that looks like one.

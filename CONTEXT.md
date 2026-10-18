@@ -1830,9 +1830,35 @@ CLAUDE.md (stack, known issues), DECISIONS.md (020), docs/DESIGN.md, CHANGELOG.m
 
 ---
 
-## SESSION 49 — 2026-10-18 — The overlay panel: the lighter background and rounded corners — open
+## SESSION 49 — 2026-10-18 — The overlay panel: the lighter background and rounded corners — closed
 
 Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner: "give the panel the lighter bg and rounded corners". Over the app the panel had no background of its own (the dim page showed through). New `Look.Panel`: the frame's colour (#242424, lighter than the page), radius `PAGE_RADIUS` on every corner, flat; the panel is inset by `SPACE_SM` so the corners show. The cards inside keep their look (Section, the frame's colour) as when the panel sat on the frame.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/themes.la, src/shell.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- None (visual); panel, views and menus pass.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of PRP-010, then merge.
 
 ---
 

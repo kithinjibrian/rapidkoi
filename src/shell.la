@@ -21,7 +21,7 @@ import render { screen, stopped, refused, loading };
 import frame { bar, rail, unapproved };
 import home;
 import panel;
-import theme { SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
+import theme { SPACE_SM, SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
 import themes { Look, kivuli_theme };
 
 /**
@@ -210,7 +210,10 @@ public fun view(m: Model): View<Msg> {
                 button("", Msg.TogglePanel).style([Look.Scrim]).tooltip(
                     "Click to close the panel",
                 ).shortcut("Escape"),
-                panel.view(a, p, m.confirm).place(Align.End, Align.Fill),
+                // Inset from the page's edges, so its rounded corners show.
+                column([panel.view(a, p, m.confirm).style([Look.Panel]).expand()]).padding(
+                    SPACE_SM,
+                ).place(Align.End, Align.Fill),
             ],
             None => [],
         }),
