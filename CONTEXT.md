@@ -2482,6 +2482,48 @@ docs/source/meetings/2026-10-19-local-addresses.md (new), PRPs/prp-013-local_add
 
 ---
 
+## SESSION 67 — 2026-10-19 — Fix tls.Options literals for m121 — closed
+
+Branch: fix-tls-options
+
+### WHAT WAS DONE
+
+The Lugha session merged `net.resolve` and `tls.Options.address` (m121, PR #83), and the installed lughac has them. The two `tls.Options` literals no longer compiled, since they listed every field. They now take the rest from `..tls.options()`:
+- `src/fetching.la:96`
+- `src/requests.la:124`
+
+Also merged `design-private-addresses` into main first. Checks:
+- fmt: clean
+- `lughac test test/`: 304 passed
+- the example's tests: 2 passed
+- `./main` and `quote-server` build
+
+lughac rewrote `lugha.lock` while building, and it was committed with the fix.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/fetching.la, src/requests.la, lugha.lock, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (no behaviour changed).
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-013's approval (std now has what it needs).
+
+---
+
 ## NEXT SESSION START POINT
 
-PRP-013 (`PRPs/prp-013-local_addresses.md`, on `design-private-addresses`) waits for approval, and for a `lughac` with `std.net.resolve` and `tls.Options.address`. Check `lughac spec` for both. If they're present and the PRP is approved: branch `prp-013-local_addresses` from main (merge the design branch first), build test-first, and stop before merge for the owner's security review. If they're missing, ask the owner; don't work around them.
+PRP-013 (`PRPs/prp-013-local_addresses.md`) waits for the owner's approval. std has `net.resolve` and `tls.Options.address` (m121). Once approved: branch `prp-013-local_addresses` from main, build test-first, and stop before merge for the owner's security review.
