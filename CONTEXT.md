@@ -1698,6 +1698,12 @@ CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, DECISIONS.md
 
 ---
 
+## SESSION 45 — 2026-10-18 — About's labels and values at the left — open
+
+Branch: prp-009-remote_apps
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-009 is built on `prp-009-remote_apps`, not merged. Wait for the owner's security review and on-screen checks (rapidkoi://counter.dafifi.net; republish 0.2.1 and ⟳), full suite, merge. Next: the tabs PRP (restore open tabs on launch).
