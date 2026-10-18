@@ -1629,12 +1629,40 @@ CONTEXT.md
 
 ---
 
-## SESSION 43 — 2026-10-18 — Design remote apps over HTTPS (PRP-009) — open
+## SESSION 43 — 2026-10-18 — Design remote apps over HTTPS (PRP-009) — closed
 
 Branch: prp-009-remote_apps
+
+### WHAT WAS DONE
+
+Designed remote apps in chat, three topics, each "yes": rapidkoi:// and https:// remote hosts over HTTPS only, names not IPs, signed only, no redirects, std's certificate checks; quiet first-use trust (remembered), "✓ HOST · verified" for remote, About's "Trusted since DATE" (trust file format 2); tests with a throwaway test CA through a test-only `Network` parameter, the owner's counter.dafifi.net on screen. Wrote PRP-009. Found a std gap (request_tls has no limits): DECISION-024, open; a Lugha prompt given to the owner. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-remote-apps.md
+PRPs/prp-009-remote_apps.md — for approval
+DECISIONS.md — DECISION-024 (open)
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None beyond the design.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-024 (std.http: one request with limits and an extra CA).
+
+### STILL OPEN AT CLOSE
+
+- PRP-009 approval; DECISION-024 (Lugha addition, or the owner's fallback B).
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-008 is merged. Next: design remote apps over HTTPS in chat (first target: rapidkoi://counter.dafifi.net on the owner's VM, see memory), then write PRP-009. Then the tabs PRP.
+PRP-009 (`PRPs/prp-009-remote_apps.md`) awaits approval on `prp-009-remote_apps`, and DECISION-024 (std.http `request_tls_with`) awaits the Lugha addition or the owner's fallback. When both clear: open session 44, make the TLS fixtures, build test-first. Stop before merge for the owner's security review.

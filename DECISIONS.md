@@ -18,6 +18,22 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-024 — One HTTPS request with both limits and an extra CA (std.http)
+
+**Status:** open
+**Raised:** 2026-10-18 — Session 43 (writing PRP-009)
+**Revisit when:** std.http gains it, or the owner picks the fallback.
+
+**Question:** Remote apps fetch with `std.http.request_with(…, limits)` (32 MB builds, 30 s, the system's roots). The tests must add a test CA, which only `request_tls(…, opts)` takes, and it has no `Limits` (a 16 MB default cap). The tests would then exercise a different call from the app's.
+
+**Options:**
+- A) A small std addition, `request_tls_with(method, url, headers, body, limits, opts)`: both through one call. Recommended; a prompt for the Lugha session was given to the owner.
+- B) Build PRP-009 with two calls (the app's `request_with`, the tests' `request_tls`), noting that the tests don't cover the app's exact call and that test bundles must stay under 16 MB.
+
+**Notes:** Not worked around: PRP-009 waits on A or the owner's B.
+
+---
+
 ### DECISION-002 — Publishing
 
 **Status:** deferred
