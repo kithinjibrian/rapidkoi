@@ -1597,12 +1597,38 @@ CLAUDE.md (rule 3, tree, known issues, stack), DECISIONS.md (021 resolved), CHAN
 
 ---
 
-## SESSION 42 — 2026-10-18 — Merge PRP-008 — open
+## SESSION 42 — 2026-10-18 — Merge PRP-008 — closed
 
 Branch: prp-008-background_loading
+
+### WHAT WAS DONE
+
+The owner: "merge" (taken as the review done). Full suite 226/226, fmt clean, build ok. Merged prp-008-background_loading into main.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The dots beside Reset (screenshot 17): not diagnosed.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-008 is built on `prp-008-background_loading`, not merged. Wait for the owner's review and on-screen checks, run the full suite, merge. Next: remote apps over HTTPS (first target: rapidkoi://counter.dafifi.net on the owner's VM; see memory), then the tabs PRP.
+PRP-008 is merged. Next: design remote apps over HTTPS in chat (first target: rapidkoi://counter.dafifi.net on the owner's VM, see memory), then write PRP-009. Then the tabs PRP.
