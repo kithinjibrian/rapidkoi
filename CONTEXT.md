@@ -1698,9 +1698,35 @@ CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, DECISIONS.md
 
 ---
 
-## SESSION 45 — 2026-10-18 — About's labels and values at the left — open
+## SESSION 45 — 2026-10-18 — About's labels and values at the left — closed
 
 Branch: prp-009-remote_apps
+
+### WHAT WAS DONE
+
+The owner's screenshot 18 ("left align text"): About's dim labels were centred, and short values sat in from the edge. `panel.hover_pair` now aligns both to the start (kivuli centres text unless told). Alignment isn't visible to kivuli.testing; the owner checks it on screen.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/panel.la
+```
+
+### TESTS WRITTEN
+
+- None (visual); panel, views and opening still pass.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check, then PRP-009's merge.
 
 ---
 

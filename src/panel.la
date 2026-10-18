@@ -263,9 +263,10 @@ fun pair(label: string, value: string): View<Msg> = hover_pair(label, value, val
 
 /** A label and its value, with `hover` in full on hover. */
 fun hover_pair(label: string, value: string, hover: string): View<Msg> = column([
-    text(label).dim(),
+    // Both at the start of their line: kivuli centres text unless told.
+    text(label).dim().align(Align.Start),
     // A path has no spaces to break at: cut with …, the whole of it on hover.
-    text(value).wrap_at(PANEL_CHARS).ellipsize().tooltip(hover),
+    text(value).wrap_at(PANEL_CHARS).ellipsize().tooltip(hover).align(Align.Start),
 ]).spacing(SPACE_XS);
 
 /** The question before a destructive action, with Cancel and the action. */
