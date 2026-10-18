@@ -22,7 +22,7 @@ import verify {
     standing_of,
     reason as verify_reason,
 };
-import fetching { Fetched, fetch_app };
+import fetching { Fetched, Network, fetch_app };
 import address { Address, is_address, parse, url, shown };
 import limits { MAX_BUNDLE, FETCH_TIMEOUT_MS };
 import std.http { Limits };
@@ -67,7 +67,12 @@ public fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Ref
     if is_address(path) {
         // The same work a background load does, waited for (tests, and `load_again`'s files).
         let a = parse(path).map_err(fun(e) = Refusal.Failed(path, address.reason(e)))?;
-        let f = fetch_app(a, known_for(ring, shown(a)), FETCH_TIMEOUT_MS);
+        let f = fetch_app(
+            a,
+            known_for(ring, shown(a)),
+            Network { ca_file: None },
+            FETCH_TIMEOUT_MS,
+        );
         return from_fetched(engine, ring, f);
     }
     let file = name_of(path);

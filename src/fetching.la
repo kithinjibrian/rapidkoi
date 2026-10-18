@@ -1,19 +1,34 @@
 /**
  * What a background load does (PRP-008): fetch an address's key file,
  * index and build, and check them against a snapshot of the identities
- * trusted for its host, recording nothing. Or, for a server with no key,
- * fetch its bundle. Runs in a kivuli task, so it holds only plain data
- * (the address, the snapshot) and returns plain data: the window records
- * trust and compiles when the result arrives (`loader.from_fetched`).
+ * trusted for its host, recording nothing. Or, for a plain-HTTP
+ * development server with no key, fetch its bundle. Remote and HTTPS
+ * sites must be signed; redirects are refused, never followed; every
+ * certificate is checked as std checks it (PRP-009). Runs in a kivuli
+ * task, so it holds only plain data (the address, the snapshot, the
+ * network) and returns plain data: the window records trust and compiles
+ * when the result arrives (`loader.from_fetched`).
  *
- * Depends on: std.http, verify, loader, address, limits
+ * Depends on: std.http, std.tls, verify, loader, address, limits
  * Used by: loader, navigate
  */
 import std.http { Limits };
+import std.tls;
 import verify { Verified, Record, Identity, VerifyError, check_site, reason as verify_reason };
 import loader { Refusal };
-import address { Address, url, shown };
+import address { Address, url, site_url, shown };
 import limits { MAX_BUNDLE };
+
+/**
+ * How a load reaches the network: the system's trusted roots, plus a CA
+ * file when one is given. **Only tests give one.** Rapidkoi itself always
+ * uses `Network { ca_file: None }` and never reads one from a file, the
+ * environment or a flag (PRP-009).
+ */
+public struct Network {
+    /** A PEM file of extra certificates to trust: tests only. */
+    public ca_file: Option<string>,
+}
 
 /** What a background load came back with. */
 public enum Fetched {
@@ -26,60 +41,76 @@ public enum Fetched {
 }
 
 /**
- * Fetches and checks the app at a local address. Safe to run in a task.
+ * Fetches and checks the app at an address. Safe to run in a task.
  *
  * @param a the address
  * @param known a snapshot of the identities trusted for its host (`verify.known_for`)
+ * @param net the system's roots (and, in tests only, an extra CA)
  * @param timeout_ms how long each request may take
- * @returns the checked build and what to record; an unsigned server's
- *     bundle; or why not (unreachable, timed out, a failed check, a changed key)
+ * @returns the checked build and what to record; a plain-HTTP development
+ *     server's bundle; or why not (unreachable, timed out, a certificate,
+ *     a redirect, no key over HTTPS, a failed check, a changed key)
  *
  * Example:
- *     Cmd.task(fun(): Fetched = fetch_app(a, known, FETCH_TIMEOUT_MS), done)
+ *     Cmd.task(fun(): Fetched = fetch_app(a, known, Network { ca_file: None }, FETCH_TIMEOUT_MS), done)
  */
-public fun fetch_app(a: Address, known: Identity[], timeout_ms: i64): Fetched {
+public fun fetch_app(a: Address, known: Identity[], net: Network, timeout_ms: i64): Fetched {
     let host = shown(a);
+    let fail = fun(why: string) = Fetched.Refused(Refusal.Failed(host, why));
     if !a.http {
-        // A site with a key is verified; one without is an unsigned development server.
-        match check_site(known, host, fun(p: string) = get(a, p, timeout_ms)) {
+        // A site with a key is verified; without one, only a plain-HTTP
+        // development server on this machine may serve an unsigned bundle.
+        match check_site(known, host, fun(p: string) = get(site_url(a, p), net, timeout_ms)) {
             Ok((v, r)) => {
                 return Fetched.Signed(v, r, known);
+            }
+            Err(Unsigned) if a.secure => {
+                return fail("{host} has no Rapidkoi key, so it can't be verified");
             }
             Err(Unsigned) => {}
             Err(Unapproved(c)) => {
                 return Fetched.Refused(Refusal.Unapproved(host, c));
             }
-            Err(Fetch(_, why)) if why == "timed out" => {
-                return Fetched.Refused(Refusal.Failed(host, late(host, timeout_ms)));
-            }
-            // Nothing answered at all: there's nothing to verify yet.
-            Err(Fetch("key file", why)) if !why.starts_with("the server answered") => {
-                return Fetched.Refused(
-                    Refusal.Failed(host, "Couldn't reach rapidkoi://{host}: {why}"),
-                );
+            // A status on the index or build: which file, as before.
+            Err(Fetch(_, why)) if !why.starts_with("the server answered") => {
+                return fail(network(host, why, timeout_ms));
             }
             Err(e) => {
                 return Fetched.Refused(Refusal.Unverified(host, verify_reason(e)));
             }
         }
     }
-    let bounds = Limits { body: MAX_BUNDLE, timeout_ms: timeout_ms, ..http.limits() };
-    match http.request_with("GET", url(a), #{}, [], bounds) {
-        Ok(r) if r.status == 200 => Fetched.Unsigned(host, r.body),
-        Ok(r) => Fetched.Refused(
-            Refusal.Failed(host, "The development server answered {r.status}"),
-        ),
-        Err(e) if e == "timed out" => Fetched.Refused(Refusal.Failed(host, late(host, timeout_ms))),
-        Err(e) => Fetched.Refused(Refusal.Failed(host, "Couldn't reach rapidkoi://{host}: {e}")),
+    match get(url(a), net, timeout_ms) {
+        Ok((200, body)) => Fetched.Unsigned(host, body),
+        Ok((status, _)) => fail("The development server answered {status}"),
+        Err(why) => fail(network(host, why, timeout_ms)),
     }
 }
 
-/** A site's file at `path`, as (status, body): at most `MAX_BUNDLE` bytes, within `timeout_ms`. */
-fun get(a: Address, path: string, timeout_ms: i64): Result<(i64, u8[]), string> {
+/**
+ * One GET, as (status, body): at most `MAX_BUNDLE` bytes, within
+ * `timeout_ms`. A redirect is an error here, so nothing ever follows one.
+ */
+fun get(target: string, net: Network, timeout_ms: i64): Result<(i64, u8[]), string> {
     let bounds = Limits { body: MAX_BUNDLE, timeout_ms: timeout_ms, ..http.limits() };
-    let r = http.request_with("GET", "http://{a.host}:{a.port}{path}", #{}, [], bounds)?;
+    let opts = tls.Options { ca_file: net.ca_file.unwrap_or(""), timeout_ms: timeout_ms };
+    let r = http.request_tls_with("GET", target, #{}, [], bounds, opts)?;
+    if r.status >= 300 && r.status < 400 {
+        return Err("redirect {r.status}");
+    }
     Ok((r.status, r.body))
 }
+
+/** A plain sentence for a network failure (or `get`'s redirect). */
+fun network(host: string, why: string, timeout_ms: i64): string = if why == "timed out" {
+    late(host, timeout_ms)
+} else if why.starts_with("redirect ") {
+    "{host} answered with a redirect ({why.slice(9, why.len)}); Rapidkoi doesn't follow redirects"
+} else if why.contains("certificate verify failed") {
+    "{host}'s certificate couldn't be verified: {why}"
+} else {
+    "Couldn't reach rapidkoi://{host}: {why}"
+};
 
 /** "HOST didn't answer in N seconds". */
 fun late(host: string, timeout_ms: i64): string {

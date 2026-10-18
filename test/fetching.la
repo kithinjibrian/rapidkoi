@@ -2,14 +2,14 @@
 // key, index and build checked against a snapshot; an unsigned server's
 // bundle; a server that never answers; a tampered build. One port per test.
 // Writes only under test/tmp/.
-import rapidkoi.fetching { Fetched, fetch_app };
+import rapidkoi.fetching { Fetched, Network, fetch_app };
 import rapidkoi.loader { why };
 import rapidkoi.address { Address, parse };
 import rapidkoi.verify { Identity };
 import rapidkoi.publish { make_key, publish_site };
 import rapidkoi.serve { handle };
 import rapidkoi.bundle { Bundle, Manifest, write };
-import std.http { Request };
+import std.http { Request, Response };
 import std.env;
 import std.fs;
 import std.task { sleep };
@@ -59,7 +59,7 @@ fun refusal(f: Fetched): string = match f {
 fun a_signed_site_comes_back_checked_with_what_to_record() {
     let dir = site(18761);
     let snapshot: Identity[] = [];
-    let f = fetch_app(at(18761), snapshot, 5000);
+    let f = fetch_app(at(18761), snapshot, Network { ca_file: None }, 5000);
     match f {
         Signed(v, _, known) => {
             assert_eq(v.opened.bundle.manifest.name, "Notes");
@@ -89,7 +89,7 @@ fun an_unsigned_server_gives_its_bundle() {
     ).unwrap();
     spawn http.serve("127.0.0.1:18762", fun(r: Request) = handle(file, 18762, r));
     sleep(100);
-    let f = fetch_app(at(18762), [], 5000);
+    let f = fetch_app(at(18762), [], Network { ca_file: None }, 5000);
     match f {
         Unsigned(name, bytes) => assert_eq(
             (name, bytes),
@@ -107,13 +107,16 @@ fun a_server_that_never_answers_times_out() {
         http.text(200, "late")
     });
     sleep(100);
-    assert_eq(refusal(fetch_app(at(18763), [], 1000)), "localhost:18763 didn't answer in 1 second");
+    assert_eq(
+        refusal(fetch_app(at(18763), [], Network { ca_file: None }, 1000)),
+        "localhost:18763 didn't answer in 1 second",
+    );
 }
 
 @test
 fun nobody_listening_is_plain() {
     assert_eq(
-        refusal(fetch_app(at(18769), [], 1000)).starts_with(
+        refusal(fetch_app(at(18769), [], Network { ca_file: None }, 1000)).starts_with(
             "Couldn't reach rapidkoi://localhost:18769",
         ),
         true,
@@ -129,8 +132,113 @@ fun a_tampered_build_is_refused_as_before() {
     b[b.len / 2] = b[b.len / 2] ^ 1;
     write_bytes("{builds}/{name}", b).unwrap();
     assert_eq(
-        refusal(fetch_app(at(18764), [], 5000)),
+        refusal(fetch_app(at(18764), [], Network { ca_file: None }, 5000)),
         "This app couldn't be verified, so Rapidkoi didn't run it: The app's build doesn't match its index's hash",
     );
     done(dir);
+}
+
+// Over TLS, with the test fixtures (test/fixtures/tls): served on
+// 127.0.0.1 as https://localhost:PORT, the test CA trusted through Network.
+
+const TLS: string = "test/fixtures/tls";
+
+fun trusting(): Network = Network { ca_file: Some("{TLS}/ca.pem") };
+
+fun secure(port: i64): Address = parse("https://localhost:{port}").unwrap();
+
+/** A signed site served over TLS with the fixture `cert` (localhost, wrong-host, expired). */
+fun tls_site(port: i64, cert: string): string {
+    let dir = "{env.current_dir().unwrap()}/test/tmp/fetching-tls-{port}";
+    clean(dir);
+    clean("{dir}.key");
+    fs.make_dirs(dir).unwrap();
+    write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+    ).unwrap();
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+    spawn http.serve_tls(
+        "127.0.0.1:{port}",
+        "{TLS}/{cert}.pem",
+        "{TLS}/{cert}.key",
+        fun(r: Request) = handle("{dir}/site", port, r),
+    );
+    sleep(150);
+    dir
+}
+
+@test
+fun a_signed_site_over_tls_opens() {
+    let dir = tls_site(18781, "localhost");
+    let f = fetch_app(secure(18781), [], trusting(), 5000);
+    match f {
+        Signed(v, _, _) => assert_eq(v.trust.host, "localhost:18781"),
+        _ => panic("expected a signed site, got {refusal(f)}"),
+    }
+    done(dir);
+}
+
+@test
+fun certificates_are_always_checked() {
+    let dir = tls_site(18782, "localhost");
+    // The system's roots alone don't know the test CA.
+    let untrusted = refusal(fetch_app(secure(18782), [], Network { ca_file: None }, 5000));
+    assert_eq(untrusted.starts_with("localhost:18782's certificate couldn't be verified: "), true);
+    done(dir);
+    let wrong = tls_site(18783, "wrong-host");
+    assert_eq(
+        refusal(fetch_app(secure(18783), [], trusting(), 5000)).starts_with(
+            "localhost:18783's certificate couldn't be verified: ",
+        ),
+        true,
+    );
+    done(wrong);
+    let expired = tls_site(18784, "expired");
+    let old = refusal(fetch_app(secure(18784), [], trusting(), 5000));
+    assert_eq(
+        (
+            old.starts_with("localhost:18784's certificate couldn't be verified: "),
+            old.contains("expired"),
+        ),
+        (true, true),
+    );
+    done(expired);
+}
+
+@test
+fun an_https_site_must_be_signed() {
+    // A TLS server with no key file: no unsigned fallback over HTTPS.
+    spawn http.serve_tls(
+        "127.0.0.1:18785",
+        "{TLS}/localhost.pem",
+        "{TLS}/localhost.key",
+        fun(_: Request) = http.text(404, "nothing"),
+    );
+    sleep(150);
+    assert_eq(
+        refusal(fetch_app(secure(18785), [], trusting(), 5000)),
+        "localhost:18785 has no Rapidkoi key, so it can't be verified",
+    );
+}
+
+@test
+fun redirects_are_refused_never_followed() {
+    spawn http.serve_tls(
+        "127.0.0.1:18786",
+        "{TLS}/localhost.pem",
+        "{TLS}/localhost.key",
+        fun(_: Request) = Response {
+            status: 301,
+            headers: #{"location": "https://elsewhere.example/"},
+            body: [],
+        },
+    );
+    sleep(150);
+    assert_eq(
+        refusal(fetch_app(secure(18786), [], trusting(), 5000)),
+        "localhost:18786 answered with a redirect (301); Rapidkoi doesn't follow redirects",
+    );
 }

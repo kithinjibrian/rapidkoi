@@ -4,12 +4,13 @@
  * pins, "where you left off" and the theme. Opening files and addresses is
  * `navigate.la`. Never draws.
  *
- * Depends on: wasmtime, verify, store, actions, tabs, leftoff, home, frame, themes
+ * Depends on: wasmtime, verify, store, fetching, actions, tabs, leftoff, home, frame, themes
  * Used by: navigate, shell
  */
 import wasmtime { Engine };
 import verify { Keyring, keyring };
 import store { Store };
+import fetching { Network };
 import actions { Msg, PanelPage, Confirm };
 import tabs { Page, Tab, Pin, AppPage, state_of };
 import leftoff { LeftOff, leave, snapshot };
@@ -51,6 +52,8 @@ public struct Model {
     public now: i64,
     /** The last load number given out (PRP-008). */
     loads: i64,
+    /** How loads reach the network: the system's roots alone, except in tests (PRP-009). */
+    network: Network,
 }
 
 /**
@@ -86,8 +89,19 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         theme: DARK,
         now: 0,
         loads: 0,
+        network: Network { ca_file: None },
     }
 }
+
+/**
+ * The same window, loading through `net`. **Tests only**: it's how a test
+ * trusts its own CA. Rapidkoi never calls it, so the app always uses the
+ * system's roots alone (PRP-009).
+ *
+ * Example:
+ *     with_network(m, Network { ca_file: Some("test/fixtures/tls/ca.pem") })
+ */
+public fun with_network(m: Model, net: Network): Model = Model { network: net, ..m };
 
 /**
  * Returns what the window shows: home, or the current tab's app.
