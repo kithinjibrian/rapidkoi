@@ -74,7 +74,7 @@ fun page(wanted: Value[], signed: bool): AppPage {
 /** A window on `s` showing `p`, its effects answered. */
 fun answered(s: Store, p: AppPage): Model {
     let engine = Engine.new();
-    answer_all(restore(with_pages(engine, [p]), s))
+    answer_all(restore(with_pages(engine, [p]), s)).0
 }
 
 fun got(m: Model): u8[] = state_of(m.tabs[0].page).unwrap_or([]);
@@ -137,7 +137,7 @@ fun signed_out_gets_nothing_and_starting_over_gives_a_new_key() {
         }),
         ..base,
     };
-    assert_eq(got(answer_all(out)), answer(t("me"), Value.Null));
+    assert_eq(got(answer_all(out).0), answer(t("me"), Value.Null));
     let again = restore(
         with_pages(engine, [page([kv([("kind", t("identity")), ("msg", t("me"))])], true)]),
         s,
@@ -150,7 +150,7 @@ fun signed_out_gets_nothing_and_starting_over_gives_a_new_key() {
         ..again,
     };
     let first = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
-    assert_eq(got(answer_all(over)) != answer(t("me"), Value.Bytes(first)), true);
+    assert_eq(got(answer_all(over).0) != answer(t("me"), Value.Bytes(first)), true);
     clean(s.dir);
 }
 
@@ -209,7 +209,7 @@ fun a_resumed_app_asks_again_when_opened() {
     // Resumed from a saved state (no init): opened still runs, so it asks.
     let (resumed, _) = with_saved(p, [], 1);
     assert_eq(resumed.asks.len, 1);
-    let m = answer_all(restore(with_pages(engine, [resumed]), s));
+    let m = answer_all(restore(with_pages(engine, [resumed]), s)).0;
     let pk = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
     assert_eq(got(m), answer(t("me"), Value.Bytes(pk)));
     clean(s.dir);

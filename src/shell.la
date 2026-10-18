@@ -5,7 +5,7 @@
  * current theme, maximized. The state and what
  * changes it live in `window.la`; `view` never calls a guest.
  *
- * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, effects, account, placeholders, people, render, frame, home, panel, theme, themes
+ * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, effects, requests, account, placeholders, people, render, frame, home, panel, theme, themes
  * Used by: main
  */
 import kivuli { View, Cmd, Sub, Align, button, column, overlay, row, scroll, text };
@@ -14,6 +14,7 @@ import actions { Msg, PanelPage, Confirm, TabAction, PinAction };
 import tabs { AppPage, Tab, Pin, handle, is_loading };
 import loads;
 import effects { answer_all };
+import requests;
 import account { account_of, on_account, forget_account };
 import placeholders { fill };
 import people { name_in };
@@ -65,14 +66,15 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     }
     let at = mark(remembered);
     let (placed, cmd) = navigate.open_file(remembered, argv[1]);
-    let opened = persist(remembered, answer_all(placed), at);
+    let (answered, sends) = answer_all(placed);
+    let opened = persist(remembered, answered, at);
     // Opening clears the notice line; what restoring said still shows.
     let notice = match (remembered.notice, opened.notice) {
         (Some(a), Some(b)) => Some("{a} · {b}"),
         (Some(a), None) => Some(a),
         (None, b) => b,
     };
-    (Model { notice: notice, ..opened }, cmd)
+    (Model { notice: notice, ..opened }, Cmd.batch([cmd, sends]))
 }
 
 /**
@@ -100,7 +102,8 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     let at = mark(m);
     let (next, cmd) = handle_msg(m, msg);
     // What a v2 app asked for is answered before anything is drawn or saved.
-    (persist(m, answer_all(next), at), cmd)
+    let (answered, sends) = answer_all(next);
+    (persist(m, answered, at), Cmd.batch([cmd, sends]))
 }
 
 /**
@@ -156,6 +159,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     KeepMine => (navigate.keep_mine(m), Cmd.none()),
     SeparateApp => navigate.separate_app(m),
     Fetched(id, number, f) => loads.arrive(m, id, number, f),
+    Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
     Tick(now) => (Model { now: now, ..m }, Cmd.none()),
     OnTab(id, action) => on_tab(m, id, action),
     OnPin(path, action) => on_pin(m, path, action),
