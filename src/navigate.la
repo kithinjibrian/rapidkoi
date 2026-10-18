@@ -84,7 +84,9 @@ public fun reopen(m: Model): Model = match m.left_off {
         } else {
             None
         };
-        Model { left_off: None, notice: notice, ..add_tab(m, page) }
+        // Kept until it runs: a failed load mustn't forget its state.
+        let left = if state_of(page).is_some() { None } else { Some(l) };
+        Model { left_off: left, notice: notice, ..add_tab(m, page) }
     }
     None => m,
 };

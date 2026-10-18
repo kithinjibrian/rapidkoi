@@ -1421,12 +1421,41 @@ CLAUDE.md (rule 3 exception, tree, known issues), CHANGELOG.md
 
 ---
 
-## SESSION 37 — 2026-10-18 — PRP-007 amendment 1: where you left off includes the open app — open
+## SESSION 37 — 2026-10-18 — PRP-007 amendment 1: where you left off includes the open app — closed
 
 Branch: prp-007-remembering
+
+### WHAT WAS DONE
+
+The owner tried PRP-007: "the pin is there but state is lost and ui has regressed". The state: they quit with the counter open, and left-off was only saved when an app left its tab (kivuli has no quit hook). The owner chose option A: remember the app used last (the current tab's, else the last visited open tab's, else the last closed), saved as it changes. Wrote amendment 1 and built it test-first. Also found and fixed: Continue after a restart that fails to load (file gone, server down) would have overwritten the remembered state with nothing; a page that isn't running now never replaces a remembered app, and reopen keeps the left-off until the app runs.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-007-remembering.md — amendment 1
+src/tabs.la — snapshot; src/window.la — used_last; src/saving.la — saves used_last; src/navigate.la — reopen keeps left-off until it runs
+test/saving.la — 3 new
+```
+
+### TESTS WRITTEN
+
+- quitting with the counter open keeps Count: 2; the app used last across two tabs and home; a failed Continue keeps the saved state. 200 pass.
+
+### DECISIONS MADE
+
+- Option A (the owner). Coalescing saves for large states stays a later refinement.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- **The UI regression:** not reproduced; PRP-007 touched no view code. Waiting for the owner's screenshot or description.
+- The owner's security review and on-screen checks before merge.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-007 is built on `prp-007-remembering`, not merged. Wait for the owner's security review and on-screen checks; fix what they find, run the full suite, merge. Next: the tabs PRP (restore open tabs on launch), then background loading (kivuli 0.6, DECISION-021).
+PRP-007 (with amendment 1) is built on `prp-007-remembering`, not merged. First: the UI regression the owner reported (ask for a screenshot; no view code changed in PRP-007, so compare with PRP-006's frame/panel/render changes). Then the owner's security review and on-screen checks, the full suite, merge. Next: the tabs PRP, then background loading (DECISION-021).

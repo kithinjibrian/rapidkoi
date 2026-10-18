@@ -248,6 +248,25 @@ public fun resume(l: LeftOff): AppPage = match l.program {
 };
 
 /**
+ * What leaving a page would remember, without closing it: what's saved as
+ * "where you left off" while the app is still open (PRP-007 amendment 1).
+ *
+ * Example:
+ *     snapshot(page)
+ */
+public fun snapshot(p: AppPage): LeftOff = LeftOff {
+    name: p.name,
+    path: p.path,
+    title: p.title,
+    state: state_of(p),
+    state_version: state_version_of(p),
+    manifest: p.manifest,
+    icon: p.icon,
+    trust: p.trust,
+    program: None,
+};
+
+/**
  * Says whether a left-off still holds its compiled app (left this
  * session), so `resume` can start it; one read from disk must be loaded
  * again.

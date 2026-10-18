@@ -11,7 +11,7 @@ import wasmtime { Engine };
 import verify { Keyring, keyring };
 import store { Store };
 import actions { Msg, PanelPage, Confirm };
-import tabs { Page, Tab, Pin, LeftOff, AppPage, leave };
+import tabs { Page, Tab, Pin, LeftOff, AppPage, leave, snapshot, state_of };
 import home { Card };
 import frame { icon_of };
 import themes { Theme, DARK };
@@ -133,6 +133,29 @@ public fun card(m: Model): Option<Card> {
             icon: icon_of(l.path, l.icon),
         },
     )
+}
+
+/**
+ * Returns what to remember as "where you left off": the app used last.
+ * That's the current tab's, else the last visited tab's while it's open,
+ * else the last app closed; an open page that isn't running doesn't
+ * replace a remembered one. Saved as it changes, so quitting at any moment
+ * keeps it (PRP-007 amendment 1).
+ *
+ * Example:
+ *     used_last(m)
+ */
+public fun used_last(m: Model): Option<LeftOff> {
+    let open = match m.current {
+        Some(id) => app(m, id),
+        None => m.last.and_then(fun(id: i64) = app(m, id)),
+    };
+    match open {
+        // A page that isn't running (its file gone, its server down) never
+        // replaces a remembered app's state with nothing.
+        Some(a) if state_of(a).is_some() || m.left_off.is_none() => Some(snapshot(a)),
+        _ => m.left_off,
+    }
 }
 
 /**

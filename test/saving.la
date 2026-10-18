@@ -4,7 +4,8 @@
 import rapidkoi.shell { Model, start, update, view };
 import rapidkoi.actions { Msg };
 import rapidkoi.store { Store, store_at, save };
-import rapidkoi.remembered { read_pins, read_trust, pins_file };
+import rapidkoi.remembered { read_pins, read_trust, read_left, left_file, pins_file };
+import rapidkoi.tabs { LeftOff, recalled };
 import rapidkoi.publish { make_key, publish_site };
 import rapidkoi.serve { handle };
 import rapidkoi.navigate { open_file };
@@ -229,4 +230,58 @@ fun no_store_writes_nothing() {
     let (m, _) = start(["./main", "lugha.toml"], None);
     let pinned = step(m, Msg.TogglePin);
     assert_eq((pinned.pinned.len, pinned.notice), (1, None));
+}
+
+@test
+fun quitting_with_the_app_open_keeps_its_state() {
+    if !fs.is_file(COUNTER) {
+        skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
+    }
+    let s = folder("open");
+    let mut m = started(s, ["./main", COUNTER]);
+    m = step(m, click(view(m), "Add").unwrap());
+    m = step(m, click(view(m), "Add").unwrap());
+    // No close: the window just goes away. A new one picks up the count.
+    let again = started(s, ["./main"]);
+    assert_eq(again.left_off.is_some(), true);
+    assert_eq(shows(step(again, Msg.Continue), "Count: 2"), true);
+    assert_eq(m.tabs.len, 1);
+    clean(s.dir);
+}
+
+@test
+fun the_app_used_last_is_the_one_remembered() {
+    let s = folder("last");
+    let m = started(s, ["./main", "lugha.toml"]);
+    // A second tab, then back to the first: the first is the one used last.
+    let two = step(step(step(m, Msg.NewTab), Msg.Draft("CLAUDE.md")), Msg.Go);
+    assert_eq(left_path(s), Some("CLAUDE.md"));
+    let back = step(two, Msg.Select(0));
+    assert_eq(left_path(s), Some("lugha.toml"));
+    // Home keeps the last visited tab as the one to continue.
+    step(back, Msg.Home);
+    assert_eq(left_path(s), Some("lugha.toml"));
+    clean(s.dir);
+}
+
+/** The path in the saved left-off file, if there is one. */
+fun left_path(s: Store): Option<string> = match read_bytes("{s.dir}/left-off") {
+    Ok(b) => read_left(b).map(fun(l: LeftOff) = l.path).ok(),
+    Err(_) => None,
+};
+
+@test
+fun a_continue_that_fails_keeps_what_was_remembered() {
+    let s = folder("gone");
+    save(
+        s,
+        "left-off",
+        left_file(recalled("Gone", "test/tmp/saving-gone.rkb", None, Some([1, 2]), 1, None)),
+    ).unwrap();
+    let tried = step(started(s, ["./main"]), Msg.Continue);
+    assert_eq(tried.tabs.len, 1);
+    // The app didn't start (its file is gone): its saved state is still there.
+    let after = read_left(read_bytes("{s.dir}/left-off").unwrap()).unwrap();
+    assert_eq((after.path, after.state), ("test/tmp/saving-gone.rkb", Some([1, 2])));
+    clean(s.dir);
 }

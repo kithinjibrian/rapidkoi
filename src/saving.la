@@ -1,6 +1,6 @@
 /**
  * Remembering across restarts: `restore` reads trust, pins and where you
- * left off into a new window's model; `persist` saves whichever of them a
+ * left off (the app used last, open or closed) into a new window's model; `persist` saves whichever of them a
  * message changed, right away (PRP-007). Broken files are set aside and a
  * newer Rapidkoi's are left alone, each with a notice; a failed save is a
  * notice too, never a crash.
@@ -33,7 +33,7 @@ import remembered {
     left_file,
 };
 import verify { keyring, keyring_of, identities, changes };
-import window { Model };
+import window { Model, used_last };
 import tabs { LeftOff };
 
 /** How the notices name one remembered file. */
@@ -153,8 +153,10 @@ public fun persist(before: Model, after: Model, count: i64): Model {
             failed.push(e);
         }
     }
-    if summary(after.left_off) != summary(before.left_off) {
-        let done = match after.left_off {
+    // The app used last, open or closed: quitting at any moment keeps it.
+    let left = used_last(after);
+    if summary(left) != summary(used_last(before)) {
+        let done = match left {
             Some(l) => save(s, LEFT.file, left_file(l)),
             None => remove(s, LEFT.file),
         };
