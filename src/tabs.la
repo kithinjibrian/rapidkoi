@@ -4,7 +4,7 @@
  * a page that was left (`leftoff.la` keeps what's left). Calls guests (bounded by
  * fuel); never draws.
  *
- * Depends on: cbor, wasmtime, guest, bundle, loader, verify, address, contract, render, leftoff
+ * Depends on: cbor, wasmtime, guest, bundle, loader, verify, address, contract, render, leftoff, running
  * Used by: actions, frame, home, panel, shell
  */
 import cbor { Value };
@@ -14,9 +14,19 @@ import bundle { Manifest };
 import loader { Loaded, Refusal, load, why };
 import address;
 import verify { Trust, Change, Keyring };
-import contract { Described, ContractError, read_tree, read_update, envelope };
+import contract {
+    Described,
+    ContractError,
+    Effect,
+    read_tree,
+    read_update,
+    read_update_v2,
+    envelope,
+    answer,
+};
 import render { Msg };
 import leftoff { LeftOff };
+import running { start, step };
 
 /** What an app page shows. */
 public enum Screen {
@@ -51,6 +61,8 @@ public struct Pending {
 public struct Program {
     engine: Engine,
     module: Module,
+    /** The contract its bundle declares (0: no bundle, a bare module): the module must speak it. */
+    contract: i32,
 }
 
 /** One app in a tab. */
@@ -68,6 +80,8 @@ public struct AppPage {
     /** Who signed it and how far that's trusted; `None` when unsigned. */
     public trust: Option<Trust>,
     program: Option<Program>,
+    /** What the app asked for and Rapidkoi hasn't answered yet (contract v2, PRP-011). */
+    public asks: Effect[],
     /** Which load this page is waiting for (0 when none): a result for another is stale. */
     public load: i64,
     /** What's on screen. */
@@ -179,7 +193,11 @@ public fun from_loaded(engine: Engine, l: Loaded, path: string): AppPage = AppPa
     manifest: l.manifest,
     icon: l.icon,
     trust: l.trust,
-    ..open_module(l.name, path, engine, l.module),
+    ..open_program(l.name, path, Program {
+        engine: engine,
+        module: l.module,
+        contract: contract_of(l.manifest),
+    }),
 };
 
 /**
@@ -194,8 +212,16 @@ public fun from_loaded(engine: Engine, l: Loaded, path: string): AppPage = AppPa
  * Example:
  *     open_module("counter", "counter.wasm", engine, module)
  */
-public fun open_module(name: string, path: string, engine: Engine, module: Module): AppPage {
-    let program = Program { engine: engine, module: module };
+public fun open_module(
+    name: string,
+    path: string,
+    engine: Engine,
+    module: Module,
+): AppPage = open_program(name, path, Program { engine: engine, module: module, contract: 0 });
+
+/** A page running `program`, fresh, with whatever its `init` asked for. */
+fun open_program(name: string, path: string, program: Program): AppPage {
+    let (screen, asks) = start(program, None);
     titled(AppPage {
         name: name,
         manifest: None,
@@ -204,10 +230,16 @@ public fun open_module(name: string, path: string, engine: Engine, module: Modul
         title: None,
         trust: None,
         program: Some(program),
+        asks: asks,
         load: 0,
-        screen: start(program, None),
+        screen: screen,
     })
 }
+
+/** The contract a bundle declares, or 0 for a bare module. */
+fun contract_of(m: Option<Manifest>): i32 = m.map(fun(x: Manifest) = x.contract as i32).unwrap_or(
+    0,
+);
 
 /**
  * Handles a message from the page's own screen.
@@ -220,16 +252,25 @@ public fun open_module(name: string, path: string, engine: Engine, module: Modul
  *     handle(page, Msg.Restart)
  */
 public fun handle(p: AppPage, msg: Msg): AppPage = match (p.screen, msg) {
-    (Running(g, state, _), Event(value, text)) => titled(AppPage {
-        screen: step(g, state, value, text),
-        ..p,
-    }),
-    // Events only come from a running screen; otherwise, ignore them.
+    (Running(g, state, _), Event(value, text)) => {
+        let (screen, asks) = step(g, state, envelope(value, text));
+        titled(AppPage { screen: screen, asks: asks, ..p })
+    },
+    // Rapidkoi's answer to an effect: sent to `update` like an event.
+    (Running(g, state, _), Answer(msg, value)) => {
+        let (screen, asks) = step(g, state, answer(msg, value));
+        titled(AppPage { screen: screen, asks: asks, ..p })
+    },
+    // Events and answers only reach a running screen; otherwise, ignore them.
     (_, Event(_, _)) => p,
+    (_, Answer(_, _)) => p,
     (_, Restart) => {
         close_page(p);
         match p.program {
-            Some(prog) => titled(AppPage { screen: start(prog, None), ..p }),
+            Some(prog) => {
+                let (screen, asks) = start(prog, None);
+                titled(AppPage { screen: screen, asks: asks, ..p })
+            }
             None => p,
         }
     }
@@ -277,8 +318,10 @@ public fun resume(l: LeftOff): AppPage = match l.program {
         title: l.title,
         trust: l.trust,
         program: Some(prog),
+        // Resumed from its state: no init, so nothing asked yet.
+        asks: [],
         load: 0,
-        screen: start(prog, l.state),
+        screen: start(prog, l.state).0,
     }),
     None => failed(l.name, l.path, "This app couldn't be reopened"),
 };
@@ -296,7 +339,7 @@ public fun resume(l: LeftOff): AppPage = match l.program {
 public fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = match p.program {
     Some(prog) if state_version_of(p) == version => {
         close_page(p);
-        (titled(AppPage { screen: start(prog, Some(state)), ..p }), false)
+        (titled(AppPage { screen: start(prog, Some(state)).0, asks: [], ..p }), false)
     }
     Some(_) => (p, true),
     None => (p, false),
@@ -329,17 +372,26 @@ public fun load_again(
             manifest: l.manifest,
             icon: l.icon,
             trust: l.trust,
-            ..open_module(l.name, path, engine, l.module),
+            ..open_program(l.name, path, Program {
+                engine: engine,
+                module: l.module,
+                contract: contract_of(l.manifest),
+            }),
         };
         let now = state_version_of(fresh);
         match saved {
             Some((state, version)) if version == now => {
                 close_page(fresh);
-                let program = Program { engine: engine, module: l.module };
+                let program = Program {
+                    engine: engine,
+                    module: l.module,
+                    contract: contract_of(l.manifest),
+                };
                 (
                     titled(AppPage {
                         program: Some(program),
-                        screen: start(program, Some(state)),
+                        screen: start(program, Some(state)).0,
+                        asks: [],
                         ..fresh,
                     }),
                     false,
@@ -383,6 +435,7 @@ fun failed(name: string, path: string, why: string): AppPage = AppPage {
     title: None,
     trust: None,
     program: None,
+    asks: [],
     load: 0,
     screen: Screen.Stopped(why, false),
 };
@@ -403,49 +456,4 @@ public fun refused(r: Refusal, path: string): AppPage = match r {
 fun titled(p: AppPage): AppPage = match p.screen {
     Running(_, _, d) => AppPage { title: d.title, ..p },
     _ => p,
-};
-
-/** Opens the guest in a fresh store, then `init` (unless resuming `saved`) and `view`. */
-fun start(p: Program, saved: Option<u8[]>): Screen = match open(p.engine, p.module) {
-    Err(e) => Screen.Stopped(reason(e), true),
-    Ok(g) => match saved {
-        Some(state) => show(g, state),
-        None => match g.init() {
-            Err(e) => halt(g, reason(e)),
-            Ok(state) => show(g, state),
-        },
-    },
-};
-
-/** Sends one event to the guest's `update`, then renders the new state. */
-fun step(g: Guest, state: u8[], msg: Value, text: Option<string>): Screen = match g.update(
-    state,
-    envelope(msg, text),
-) {
-    Err(e) => halt(g, reason(e)),
-    Ok(bytes) => match read_update(bytes) {
-        Err(e) => halt(g, broken("update result", e)),
-        Ok(next) => show(g, next),
-    },
-};
-
-/** Calls `view(state)` and decodes the screen. */
-fun show(g: Guest, state: u8[]): Screen = match g.view(state) {
-    Err(e) => halt(g, reason(e)),
-    Ok(bytes) => match read_tree(bytes) {
-        Err(e) => halt(g, broken("screen description", e)),
-        Ok(d) => Screen.Running(g, state, d),
-    },
-};
-
-/** Stops the guest: frees its store and keeps why. */
-fun halt(g: Guest, why: string): Screen {
-    g.close();
-    Screen.Stopped(why, true)
-}
-
-fun broken(what: string, e: ContractError): string = match e {
-    Invalid(path, problem) => "This app's {what} is broken ({path}: {problem})",
-    TooLong(_, n) => "This app's {what} is too large ({n} bytes)",
-    Decode(d) => "This app's {what} is broken (bad CBOR: {d})",
 };

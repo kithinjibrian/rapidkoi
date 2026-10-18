@@ -17,6 +17,8 @@ public enum Msg {
     Event(Value, Option<string>),
     /** Start the app again in a fresh store. */
     Restart,
+    /** Rapidkoi's answer to an app's effect: its msg, and the bytes or nothing (PRP-011). */
+    Answer(Value, Option<u8[]>),
 }
 
 /**

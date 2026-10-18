@@ -1,0 +1,98 @@
+/**
+ * Running a guest (moved from `tabs.la`, PRP-011): opening it in a fresh
+ * store, checking it speaks the contract its bundle declares, `init`,
+ * `update` for events and Rapidkoi's answers, reading v1 and v2 results
+ * (v2's effects included), and `view`. Calls guests (bounded by fuel);
+ * never draws.
+ *
+ * Depends on: cbor, guest, contract, tabs
+ * Used by: tabs
+ */
+import guest { Guest, open, reason };
+import contract { Described, ContractError, Effect, read_tree, read_update, read_update_v2 };
+import tabs { Screen, Program };
+
+/**
+ * Opens the guest in a fresh store, then `init` (unless resuming `saved`)
+ * and `view`. A bundle's module must speak the contract its manifest
+ * declares. Returns the screen and what a v2 `init` asked for.
+ */
+fun start(p: Program, saved: Option<u8[]>): (Screen, Effect[]) = match open(p.engine, p.module) {
+    Err(e) => (Screen.Stopped(reason(e), true), []),
+    Ok(g) => {
+        if p.contract != 0 && g.version != p.contract {
+            g.close();
+            return (
+                Screen.Stopped(
+                    "This app's bundle says it speaks contract {p.contract}, but its module speaks {g.version}",
+                    false,
+                ),
+                [],
+            );
+        }
+        match saved {
+            Some(state) => (show(g, state), []),
+            None => match g.init() {
+                Err(e) => (halt(g, reason(e)), []),
+                Ok(bytes) => after(g, bytes, "init result"),
+            },
+        }
+    }
+};
+
+/** Sends one event (or answer) to the guest's `update`, then renders the new state. */
+fun step(g: Guest, state: u8[], event: u8[]): (Screen, Effect[]) = match g.update(state, event) {
+    Err(e) => (halt(g, reason(e)), []),
+    Ok(bytes) => after(g, bytes, "update result"),
+};
+
+/**
+ * Reads an `init` or `update` result by the guest's contract (v1: the state
+ * alone; v2: the state and its effects), then renders. A stopped screen
+ * drops what it asked for.
+ */
+fun after(g: Guest, bytes: u8[], what: string): (Screen, Effect[]) {
+    if g.version < 2 {
+        // v1's init returns the state itself; its update a result map.
+        let state: Result<u8[], ContractError> = if what == "init result" {
+            Ok(bytes)
+        } else {
+            read_update(bytes)
+        };
+        return match state {
+            Err(e) => (halt(g, broken(what, e)), []),
+            Ok(next) => (show(g, next), []),
+        };
+    }
+    match read_update_v2(bytes) {
+        Err(e) => (halt(g, broken(what, e)), []),
+        Ok(u) => {
+            let screen = show(g, u.state);
+            match screen {
+                Running(_, _, _) => (screen, u.effects),
+                _ => (screen, []),
+            }
+        }
+    }
+}
+
+/** Calls `view(state)` and decodes the screen. */
+fun show(g: Guest, state: u8[]): Screen = match g.view(state) {
+    Err(e) => halt(g, reason(e)),
+    Ok(bytes) => match read_tree(bytes) {
+        Err(e) => halt(g, broken("screen description", e)),
+        Ok(d) => Screen.Running(g, state, d),
+    },
+};
+
+/** Stops the guest: frees its store and keeps why. */
+fun halt(g: Guest, why: string): Screen {
+    g.close();
+    Screen.Stopped(why, true)
+}
+
+fun broken(what: string, e: ContractError): string = match e {
+    Invalid(path, problem) => "This app's {what} is broken ({path}: {problem})",
+    TooLong(_, n) => "This app's {what} is too large ({n} bytes)",
+    Decode(d) => "This app's {what} is broken (bad CBOR: {d})",
+};

@@ -68,11 +68,12 @@ fun the_update_receives_the_bytes_written() {
 @test
 fun another_version_is_refused() {
     let tree = counter_tree("0");
-    match start(fixed(2, [], tree, [])) {
-        Err(Version(2)) => (),
-        _ => panic("expected Version(2)"),
+    // 1 and 2 are spoken (2 since PRP-011); 3 is newer than this Rapidkoi.
+    match start(fixed(3, [], tree, [])) {
+        Err(Version(3)) => (),
+        _ => panic("expected Version(3)"),
     }
-    assert_eq(reason(GuestError.Version(2)), "This app needs a newer version of Rapidkoi");
+    assert_eq(reason(GuestError.Version(3)), "This app needs a newer version of Rapidkoi");
     assert_eq(reason(GuestError.Version(0)), "This app isn't a Rapidkoi app");
 }
 

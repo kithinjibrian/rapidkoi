@@ -23,6 +23,7 @@ import wasmtime {
 };
 import limits {
     CONTRACT_VERSION,
+    NEWEST_CONTRACT,
     MAX_MODULE,
     MEMORY_BYTES,
     MAX_STATE,
@@ -62,6 +63,8 @@ public struct Guest {
     store: Store,
     instance: Instance,
     memory: Memory,
+    /** The contract it speaks: 1, or 2 (effects and placeholders, PRP-011). */
+    public version: i32,
 }
 
 /**
@@ -88,7 +91,7 @@ public fun compile(engine: Engine, bytes: u8[]): Result<Module, GuestError> {
  * @param module the compiled module
  * @returns the guest; `Err(Link)`, `Err(Trap)` or `Err(OutOfFuel)` from its
  *     start function, `Err(MissingExport)` for `memory` or
- *     `rapidkoi_version`, `Err(Version)` for any version but 1
+ *     `rapidkoi_version`, `Err(Version)` for a version other than 1 or 2
  *
  * Example:
  *     let g = open(engine, module)?;
@@ -124,9 +127,9 @@ fun start(engine: Engine, store: Store, module: Module): Result<Guest, GuestErro
             return Err(GuestError.MissingExport("memory"));
         }
     };
-    let g = Guest { store: store, instance: instance, memory: memory };
+    let g = Guest { store: store, instance: instance, memory: memory, version: 0 };
     match g.call("rapidkoi_version", [])? {
-        I32(v) if v == CONTRACT_VERSION => Ok(g),
+        I32(v) if v >= CONTRACT_VERSION && v <= NEWEST_CONTRACT => Ok(Guest { version: v, ..g }),
         I32(v) => Err(GuestError.Version(v)),
         I64(_) => Err(GuestError.WrongExport("rapidkoi_version")),
     }
@@ -143,6 +146,10 @@ impl Guest {
      */
     public fun init(self): Result<u8[], GuestError> {
         let r = self.packed("init", [])?;
+        // v2's init returns `{state, effects}`, an update result.
+        if self.version >= 2 {
+            return self.take(r, "the init result", MAX_UPDATE);
+        }
         self.take(r, "the state", MAX_STATE)
     }
 
