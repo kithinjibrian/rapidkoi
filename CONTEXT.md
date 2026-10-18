@@ -1894,6 +1894,12 @@ src/themes.la, src/theme.la, docs/DESIGN.md
 
 ---
 
+## SESSION 51 — 2026-10-18 — The overlay panel: padding, a fixed width, under ⓘ, no closing from outside — open
+
+Branch: prp-010-kivuli_placeholders
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-010 is built on `prp-010-kivuli_placeholders`, not merged: the owner checks it on screen (the overlay, menus, grid resize, rows), then full suite and merge. Next: the tabs PRP (restore open tabs on launch). The file dialog still waits on kivuli.
