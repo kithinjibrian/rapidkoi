@@ -2051,7 +2051,13 @@ PRPs/prp-011-identity.md — for approval (security review before merge)
 
 ### STILL OPEN AT CLOSE
 
-- PRP-011 awaits approval. Note: links (the vision's step 2) still aren't built.
+- PRP-011 approved ("approved"). Note: links (the vision's step 2) still aren't built.
+
+---
+
+## SESSION 56 — 2026-10-18 — Build PRP-011: identity — open
+
+Branch: prp-011-identity
 
 ---
 
