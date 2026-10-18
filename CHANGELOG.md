@@ -27,3 +27,7 @@ Never deleted. Older entries are never modified.
 - The info panel, redesigned: the app's icon, name, version and where it's from; Your settings (Account, Notifications, Access); On this device (Where you left off, Data); and Forget this app, each with its own page. Start over and Forget ask first.
 - ⟳ Reload and ☆ Pin in the bar. Reload keeps the app's state.
 - Text starts at the left, in apps and in Rapidkoi's own screens.
+- Signed apps, published locally: describe an app in `rapidkoi.toml`, make a key with `./main keygen`, and `./main publish` writes a static site of signed builds and a signed index. `./main serve site/` serves it, and Rapidkoi verifies the key, the index and the build before running anything, marked ✓ verified (development). A failed check is refused with its reason and no way past it.
+- A site whose key changes without its old key's approval asks first: keep using your version, or open it as a separate app. Key rotations signed by the old key are followed silently.
+- `./main publish --withdraw VERSION --reason TEXT` withdraws a version; Rapidkoi refuses a withdrawn build with the publisher's reason.
+- `./main pack` with no arguments packs from `rapidkoi.toml`, signed when it has a key. Signed `.rkb` files opened by path show ⚠ not confirmed until their key is trusted this session.

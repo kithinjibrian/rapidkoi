@@ -5,6 +5,7 @@ import rapidkoi.tabs { AppPage, open_module, open_path, handle, leave, resume, s
 import rapidkoi.render { Msg };
 import rapidkoi.contract { envelope };
 import wasmtime { Engine, Module };
+import rapidkoi.verify { keyring };
 import support { t, fixed, counter_tree, result_of, echo, titled_tree, crashing };
 
 fun page(wat: string): AppPage {
@@ -14,7 +15,8 @@ fun page(wat: string): AppPage {
 
 fun reason_of(p: AppPage): string = match p.screen {
     Stopped(r, _) => r,
-    Running(_, _, _) => "running",
+    Refused(r) => r,
+    _ => "running",
 };
 
 @test
@@ -63,18 +65,18 @@ fun leaving_a_stopped_page_resumes_fresh() {
 fun opening_paths() {
     let engine = Engine.new();
     assert_eq(
-        reason_of(open_path(engine, "no/such/app.wasm")).starts_with(
+        reason_of(open_path(engine, keyring(), "no/such/app.wasm")).starts_with(
             "Couldn't read no/such/app.wasm",
         ),
         true,
     );
-    let not_wasm = open_path(engine, "lugha.toml");
+    let not_wasm = open_path(engine, keyring(), "lugha.toml");
     assert_eq(reason_of(not_wasm).starts_with("This file isn't a WebAssembly app"), true);
     assert_eq(not_wasm.name, "lugha.toml");
     // Restart can't help when the module never loaded.
     match not_wasm.screen {
         Stopped(_, can_restart) => assert_eq(can_restart, false),
-        Running(_, _, _) => panic("expected a stopped page"),
+        _ => panic("expected a stopped page"),
     }
 }
 
@@ -102,7 +104,7 @@ fun rkb(tag: string, speaks: i64): string {
 
 @test
 fun opening_a_bundle_uses_its_manifest() {
-    let p = open_path(Engine.new(), rkb("opening", 1));
+    let p = open_path(Engine.new(), keyring(), rkb("opening", 1));
     assert_eq(p.name, "Bundled");
     assert_eq(p.manifest.map(fun(m: Manifest) = m.version), Some("2.0.1"));
     // The module compiled; the empty module has no memory, so it stops with Restart offered.
@@ -112,7 +114,7 @@ fun opening_a_bundle_uses_its_manifest() {
 
 @test
 fun a_bundle_for_a_newer_contract_says_so() {
-    let p = open_path(Engine.new(), rkb("newer", 2));
+    let p = open_path(Engine.new(), keyring(), rkb("newer", 2));
     assert_eq(reason_of(p), "This app needs a newer version of Rapidkoi");
     assert_eq(p.name, "Bundled");
 }
@@ -120,7 +122,7 @@ fun a_bundle_for_a_newer_contract_says_so() {
 @test
 fun a_broken_bundle_shows_why() {
     write_bytes("test/tmp/broken.rkb", [1, 2, 3]).unwrap();
-    let p = open_path(Engine.new(), "test/tmp/broken.rkb");
+    let p = open_path(Engine.new(), keyring(), "test/tmp/broken.rkb");
     assert_eq(reason_of(p).starts_with("This file isn't a Rapidkoi bundle"), true);
     assert_eq(p.name, "broken.rkb");
     assert_eq(p.manifest.is_none(), true);

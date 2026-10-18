@@ -50,6 +50,10 @@ public enum Msg {
     StartOver,
     /** Forget the current app: its tab, pin and saved state (confirmed). */
     Forget,
+    /** On a changed key: keep the page that was open (or close the tab). */
+    KeepMine,
+    /** On a changed key: trust the new key as a separate app, this session. */
+    SeparateApp,
 }
 
 /** The info panel's pages. */

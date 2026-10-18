@@ -250,6 +250,9 @@ fun signer(p: Project): Result<(string, string), string> {
 
 fun secret(p: Project): Result<SecretKey, string> {
     let (host, path) = signer(p)?;
+    if !fs.exists(path) {
+        return Err("there's no key at {path}: run rapidkoi keygen first");
+    }
     read_secret(path, host).map_err(key_reason)
 }
 

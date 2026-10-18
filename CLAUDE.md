@@ -182,6 +182,13 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
 # Local development: serve a bundle, open it at its address (Reload in ⓘ after a repack)
 ./main serve counter.rkb --port 8000                                   # 127.0.0.1 only; Ctrl+C to stop
 ./main rapidkoi://localhost:8000                                       # opens a window: the user's
+
+# Signed apps: rapidkoi.toml describes the app (the repo's own is the counter's)
+./main keygen          # once: the secret key at [publish].key, outside the project; then chmod 600 it
+./main publish         # signs and writes site/.well-known/rapidkoi/{key, index, builds/<sha256>.rkb}
+./main publish --withdraw VERSION --reason TEXT
+./main pack            # one .rkb from rapidkoi.toml, signed when it has a host and a key
+./main serve site/     # serves the site; ./main rapidkoi://localhost:8000 opens it verified
 ```
 
 `test/counter.la` drives the built counter end to end; it skips itself until the guest is built.
@@ -258,8 +265,10 @@ public fun load_settings(path: string): Settings { … }
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
 ├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only),
 │                        window.la (the Model, and changes that open nothing: tabs, home, pins, left off), navigate.la (opening: the address box, files, addresses, Continue, Reload), themes.la (Rapidkoi's colours as kivuli looks; dark first),
-│                        bundle.la (pure: bundle format 1, read/write), rules.la (pure: every bundle rule, BundleError), loader.la (a path → manifest + compiled module),
-│                        pack.la (the `./main pack` command), serve.la (the `./main serve` development server), address.la (pure: local development addresses),
+│                        bundle.la (pure: bundle format 1, read/write), rules.la (pure: every bundle rule, BundleError), loader.la (a path or address → manifest + compiled module, verified when signed),
+│                        signing.la (format 2: signed bundles, read either format), keys.la (secret keys: keygen, read, fingerprints), index.la (the signed index and the public key file, rotations),
+│                        project.la (rapidkoi.toml), publish.la (the `keygen` and `publish` commands, pack from rapidkoi.toml), verify.la (opening a signed site: every check, the session keyring),
+│                        pack.la (the `./main pack` command), serve.la (the `./main serve` development server: a bundle or a site), address.la (pure: local development addresses),
 │                        tabs.la (Page, Tab, Pin, LeftOff; an app page's life: open, events, restart, leave, resume), actions.la (the shell's Msg),
 │                        frame.la (pure: the bar and the tab rail), home.la (pure: home and search), panel.la (pure: app info),
 │                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1; re-exports nodes' types),

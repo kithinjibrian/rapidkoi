@@ -1,14 +1,26 @@
 /**
- * Loading an app from a local file the person chose: a `.rkb` bundle (its
- * manifest checked, its module compiled) or a bare `.wasm`. Never runs it;
+ * Loading an app: from a local file the person chose (a `.rkb` bundle,
+ * signed or not, or a bare `.wasm`) or a local development address. A
+ * signed site is verified first (`verify`), and a failed check never
+ * loads. A signed file says how far its key is trusted. Never runs it;
  * `tabs` starts the guest.
  *
- * Depends on: wasmtime, std.http, guest, bundle, address, limits
+ * Depends on: wasmtime, std.http, guest, bundle, signing, verify, address, limits
  * Used by: tabs
  */
 import wasmtime { Engine, Module };
 import guest { compile, reason };
-import bundle { Manifest, asset, read, reason as bundle_reason };
+import bundle { Manifest, asset, reason as bundle_reason };
+import signing { Opened, read_any };
+import verify {
+    Trust,
+    Change,
+    Keyring,
+    VerifyError,
+    verify_site,
+    standing_of,
+    reason as verify_reason,
+};
 import address { Address, is_address, parse, url, shown };
 import limits { MAX_BUNDLE, FETCH_TIMEOUT_MS };
 import std.http { Limits };
@@ -23,33 +35,76 @@ public struct Loaded {
     public icon: Option<u8[]>,
     /** The compiled module. */
     public module: Module,
+    /** Who signed it and how far that's trusted; `None` when unsigned. */
+    public trust: Option<Trust>,
+}
+
+/** Why an app wasn't loaded. */
+public enum Refusal {
+    /** It couldn't be loaded: what to call it, why. */
+    Failed(string, string),
+    /** A signed site failed a check: its host, why. No way past it. */
+    Unverified(string, string),
+    /** A signed site's key changed without approval: the person decides. */
+    Unapproved(string, Change),
 }
 
 /**
  * Loads the app in a local file.
  *
  * @param engine the program's engine
+ * @param ring this session's trusted keys
  * @param path a `.rkb` bundle, a `.wasm` module, or a local development address
- * @returns the app; or the file's name and a plain reason (unreadable, not a
- *     bundle, a contract this Rapidkoi doesn't speak, not a module)
+ * @returns the app; or why not (unreadable, not a bundle, a contract this
+ *     Rapidkoi doesn't speak, not a module, a failed check, a changed key)
  *
  * Example:
- *     load(engine, "counter.rkb")
+ *     load(engine, ring, "counter.rkb")
  */
-public fun load(engine: Engine, path: string): Result<Loaded, (string, string)> {
+public fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Refusal> {
     if is_address(path) {
-        let a = parse(path).map_err(fun(e) = (path, address.reason(e)))?;
-        let bytes = fetch(a).map_err(fun(why: string) = (shown(a), why))?;
-        return from_bundle(engine, shown(a), bytes);
+        let a = parse(path).map_err(fun(e) = Refusal.Failed(path, address.reason(e)))?;
+        let host = shown(a);
+        if !a.http {
+            // A site with a key is verified; one without is an unsigned development server.
+            match verify_site(ring, host, fun(p: string) = get(a, p)) {
+                Ok(v) => {
+                    return from_opened(engine, host, v.opened, Some(v.trust));
+                }
+                Err(Unapproved(c)) => {
+                    return Err(Refusal.Unapproved(host, c));
+                }
+                Err(Unsigned) => {}
+                Err(e) => {
+                    return Err(Refusal.Unverified(host, verify_reason(e)));
+                }
+            }
+        }
+        let bytes = fetch(a).map_err(fun(why: string) = Refusal.Failed(host, why))?;
+        return from_bundle(engine, ring, host, bytes);
     }
     let file = name_of(path);
-    let bytes = read_bytes(path).map_err(fun(e: string) = (file, "Couldn't read {path}: {e}"))?;
+    let bytes = read_bytes(path).map_err(
+        fun(e: string) = Refusal.Failed(file, "Couldn't read {path}: {e}"),
+    )?;
     if !path.ends_with(".rkb") {
-        let module = compile(engine, bytes).map_err(fun(e) = (file, reason(e)))?;
-        return Ok(Loaded { name: file, manifest: None, icon: None, module: module });
+        let module = compile(engine, bytes).map_err(fun(e) = Refusal.Failed(file, reason(e)))?;
+        return Ok(Loaded { name: file, manifest: None, icon: None, module: module, trust: None });
     }
-    from_bundle(engine, file, bytes)
+    from_bundle(engine, ring, file, bytes)
 }
+
+/**
+ * Returns a plain sentence for a refusal.
+ *
+ * Example:
+ *     why(r)
+ */
+public fun why(r: Refusal): string = match r {
+    Failed(_, w) => w,
+    Unverified(_, w) => "This app couldn't be verified, so Rapidkoi didn't run it: {w}",
+    Unapproved(_, c) => verify_reason(VerifyError.Unapproved(c)),
+};
 
 /**
  * Fetches a bundle from a local development server: at most `MAX_BUNDLE`
@@ -73,19 +128,41 @@ public fun fetch(a: Address): Result<u8[], string> {
     Ok(r.body)
 }
 
-/** A bundle's bytes, checked, then its module compiled. */
-fun from_bundle(engine: Engine, file: string, bytes: u8[]): Result<Loaded, (string, string)> {
-    let b = read(bytes).map_err(fun(e) = (file, bundle_reason(e)))?;
+/**
+ * A site's file at `path`, as (status, body): at most `MAX_BUNDLE` bytes,
+ * within `FETCH_TIMEOUT_MS`, on the window's thread (CLAUDE.md rule 3).
+ */
+fun get(a: Address, path: string): Result<(i64, u8[]), string> {
+    let bounds = Limits { body: MAX_BUNDLE, timeout_ms: FETCH_TIMEOUT_MS, ..http.limits() };
+    let r = http.request_with("GET", "http://{a.host}:{a.port}{path}", #{}, [], bounds)?;
+    Ok((r.status, r.body))
+}
+
+/** A bundle's bytes (either format), checked; a signed one says how far its key is trusted. */
+fun from_bundle(engine: Engine, ring: Keyring, file: string, bytes: u8[]): Result<Loaded, Refusal> {
+    let o = read_any(bytes).map_err(fun(e) = Refusal.Failed(file, bundle_reason(e)))?;
+    let trust = o.signed.map(fun(s) = standing_of(ring, s));
+    from_opened(engine, file, o, trust)
+}
+
+/** A checked bundle's module compiled. */
+fun from_opened(
+    engine: Engine,
+    file: string,
+    o: Opened,
+    trust: Option<Trust>,
+): Result<Loaded, Refusal> {
+    let b = o.bundle;
     let m = b.manifest;
     if m.contract != 1 {
-        return Err((m.name, "This app needs a newer version of Rapidkoi"));
+        return Err(Refusal.Failed(m.name, "This app needs a newer version of Rapidkoi"));
     }
-    let module = compile(engine, b.module).map_err(fun(e) = (m.name, reason(e)))?;
+    let module = compile(engine, b.module).map_err(fun(e) = Refusal.Failed(m.name, reason(e)))?;
     let icon = match m.icon {
         Some(name) => asset(b, name),
         None => None,
     };
-    Ok(Loaded { name: m.name, manifest: Some(m), icon: icon, module: module })
+    Ok(Loaded { name: m.name, manifest: Some(m), icon: icon, module: module, trust: trust })
 }
 
 /**

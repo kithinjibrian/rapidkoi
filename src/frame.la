@@ -3,14 +3,28 @@
  * info, share) for the window's header bar, and the tab rail down the right. Only Rapidkoi
  * draws these; an app's view lives between them and can't reach them.
  *
- * Depends on: kivuli, actions, tabs, theme
+ * Depends on: kivuli, actions, tabs, verify, keys, theme
  * Used by: panel, shell
  */
-import kivuli { View, Image, Align, ButtonStyle, button, column, input, row, separator, spacer };
+import kivuli {
+    View,
+    Image,
+    Align,
+    ButtonStyle,
+    button,
+    column,
+    input,
+    row,
+    separator,
+    spacer,
+    text,
+};
 import actions { Msg };
 import address { parse };
 import tabs { Page, Tab, AppPage };
-import theme { SPACE_SM, RAIL_WIDTH, TAB_SIZE, TAB_ICON };
+import verify { Change, Standing };
+import keys { fingerprint };
+import theme { SPACE_SM, TEXT_TITLE, RAIL_WIDTH, TAB_SIZE, TAB_ICON };
 
 /** The bar's parts in the window's header bar: start, title (it fills the row), end. */
 public struct Bar {
@@ -154,21 +168,59 @@ fun tab_button(t: Tab, current: Option<i64>): View<Msg> {
 }
 
 /**
- * Returns how Rapidkoi names where an app came from: `🛠 localhost:8000 ·
- * development` from a development server, `📦 file · local bundle` for a
- * `.rkb`, `📄 file · local file` for a bare module. Drawn only by Rapidkoi,
- * never by an app.
+ * Returns how Rapidkoi names where an app came from: `✓ localhost:8000 ·
+ * verified (development)` from a signed site, `✓ host` for a signed file
+ * whose key is trusted, `⚠ host · not confirmed` for one whose isn't,
+ * `🛠 localhost:8000 · development` from an unsigned development server,
+ * `📦 file · local bundle` for a `.rkb`, `📄 file · local file` for a bare
+ * module. Drawn only by Rapidkoi, never by an app.
  *
  * Example:
  *     marker(page, "counter.rkb")
  */
-public fun marker(p: AppPage, shown: string): string = match parse(p.path) {
-    Ok(a) => "🛠 {address.shown(a)} · development",
-    Err(_) => match p.manifest {
-        Some(_) => "📦 {shown} · local bundle",
-        None => "📄 {shown} · local file",
+public fun marker(p: AppPage, shown: string): string = match p.trust {
+    Some(t) => {
+        let separate = if t.separate { " · new publisher" } else { "" };
+        match t.standing {
+            Verified => "✓ {t.host} · verified (development){separate}",
+            Trusted => "✓ {t.host}{separate}",
+            NotConfirmed => "⚠ {t.host} · not confirmed",
+        }
+    }
+    None => match parse(p.path) {
+        Ok(a) => "🛠 {address.shown(a)} · development",
+        Err(_) => match p.manifest {
+            Some(_) => "📦 {shown} · local bundle",
+            None => "📄 {shown} · local file",
+        },
     },
 };
+
+/**
+ * The page asking about a key that changed without its old key's approval.
+ * There's no "run anyway": keep the version that was open, or open the new
+ * publisher as a separate app.
+ *
+ * @param c the change
+ * @param open whether a page was open before (otherwise keeping closes the tab)
+ *
+ * Example:
+ *     unapproved(change, true)
+ */
+public fun unapproved(c: Change, open: bool): View<Msg> = column([
+    text("{c.host} is now signed by a different key").size(TEXT_TITLE).bold().align(Align.Start),
+    text("This can mean the site changed owners.").dim().align(Align.Start),
+    text("Before: key {fingerprint(c.old)} · Now: key {fingerprint(c.new)}").dim().align(
+        Align.Start,
+    ),
+    row([
+        button(
+            if open { "Keep using my version" } else { "Don't open it" },
+            Msg.KeepMine,
+        ).button_style(ButtonStyle.Primary),
+        button("Open as a separate app", Msg.SeparateApp),
+    ]).spacing(SPACE_SM),
+]).spacing(SPACE_SM);
 
 /**
  * Returns an app's icon as a kivuli image, keyed by its file and role, so

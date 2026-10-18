@@ -11,11 +11,11 @@
 import kivuli { View, Cmd, column, row, scroll, text };
 import wasmtime { Engine };
 import actions { Msg, PanelPage };
-import tabs { AppPage, open_path, handle };
+import tabs { AppPage, handle };
 public import window { Model, with_pages, title_of };
 import navigate;
-import render { screen, stopped };
-import frame { bar, rail };
+import render { screen, stopped, refused };
+import frame { bar, rail, unapproved };
 import home;
 import panel;
 import theme { SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT };
@@ -33,10 +33,11 @@ import themes { Look, kivuli_theme };
  */
 public fun boot(argv: string[]): (Model, Cmd<Msg>) {
     let engine = Engine.new();
+    let empty = with_pages(engine, []);
     if argv.len < 2 {
-        return (with_pages(engine, []), Cmd.focus("address"));
+        return (empty, Cmd.focus("address"));
     }
-    (with_pages(engine, [open_path(engine, argv[1])]), Cmd.none())
+    (navigate.open_file(empty, argv[1]), Cmd.none())
 }
 
 /**
@@ -89,6 +90,8 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Forget => (window.forget(m), Cmd.none()),
     FocusSearch => (m, Cmd.focus("address")),
     Reload => (navigate.reload(m), Cmd.none()),
+    KeepMine => (navigate.keep_mine(m), Cmd.none()),
+    SeparateApp => (navigate.separate_app(m), Cmd.none()),
 };
 
 /**
@@ -143,6 +146,11 @@ fun app_view(id: i64, a: AppPage): View<Msg> {
     let shown = match a.screen {
         Running(_, _, d) => screen(d.root),
         Stopped(why, can_restart) => stopped(why, can_restart),
+        Refused(why) => refused(why),
+        // Rapidkoi's own question, not the app's: its buttons are the window's.
+        Unapproved(c, kept) => {
+            return unapproved(c, kept.len > 0);
+        }
     };
     shown.map(fun(inner: render.Msg) = Msg.Tab(id, inner))
 }

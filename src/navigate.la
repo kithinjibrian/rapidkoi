@@ -4,7 +4,7 @@
  * returns the next model; the state itself lives in `window.la`. Reads
  * local files and fetches from localhost (CLAUDE.md rule 3).
  *
- * Depends on: std.fs, tabs, window, address
+ * Depends on: std.fs, tabs, window, address, verify
  * Used by: shell
  */
 import std.fs;
@@ -18,6 +18,7 @@ import tabs {
     state_of,
     state_version_of,
 };
+import verify { separate };
 import window { Model, page_of, with_tab, add_tab, app };
 import address { is_address, parse };
 
@@ -54,7 +55,7 @@ public fun go(m: Model): Model {
  *     open_file(m, "counter.wasm")
  */
 public fun open_file(m: Model, path: string): Model {
-    let page = open_path(m.engine, path);
+    let page = open_path(m.engine, m.ring, path);
     let opened = match m.current {
         Some(id) if app(m, id).is_some() => {
             let left = Model { left_off: app(m, id).map(leave), ..m };
@@ -87,8 +88,16 @@ public fun reopen(m: Model): Model = match m.left_off {
 public fun reload(m: Model): Model = match (m.current, page_of(m)) {
     (Some(id), App(a)) => {
         let saved = state_of(a).map(fun(st: u8[]) = (st, state_version_of(a)));
-        close_page(a);
-        let (page, over) = load_again(m.engine, a.path, saved);
+        let (loaded, over) = load_again(m.engine, m.ring, a.path, saved);
+        // A changed key asks first: the open page waits, in case the
+        // person keeps using it.
+        let page = match loaded.screen {
+            Unapproved(c, _) => AppPage { screen: tabs.Screen.Unapproved(c, [a]), ..loaded },
+            _ => {
+                close_page(a);
+                loaded
+            }
+        };
         let notice: Option<string> = if over {
             Some("{page.name}'s saved state changed shape, so it started over")
         } else {
@@ -96,5 +105,40 @@ public fun reload(m: Model): Model = match (m.current, page_of(m)) {
         };
         Model { notice: notice, ..with_tab(m, id, fun(_: AppPage) = page) }
     }
+    _ => m,
+};
+
+/**
+ * "Keep using my version" on a changed key: back to the page that was
+ * open, or the tab closes when there wasn't one.
+ *
+ * Example:
+ *     keep_mine(m)
+ */
+public fun keep_mine(m: Model): Model = match (m.current, page_of(m)) {
+    (Some(id), App(a)) => match a.screen {
+        Unapproved(_, kept) if kept.len > 0 => with_tab(m, id, fun(_: AppPage) = kept[0]),
+        Unapproved(_, _) => window.close(m, id),
+        _ => m,
+    },
+    _ => m,
+};
+
+/**
+ * "Open as a separate app" on a changed key: trusts the new key as a
+ * second publisher for this session and opens it, marked so.
+ *
+ * Example:
+ *     separate_app(m)
+ */
+public fun separate_app(m: Model): Model = match (m.current, page_of(m)) {
+    (Some(id), App(a)) => match a.screen {
+        Unapproved(c, _) => {
+            separate(m.ring, c);
+            close_page(a);
+            with_tab(m, id, fun(_: AppPage) = open_path(m.engine, m.ring, a.path))
+        }
+        _ => m,
+    },
     _ => m,
 };
