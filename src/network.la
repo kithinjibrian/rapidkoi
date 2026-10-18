@@ -1,0 +1,194 @@
+/**
+ * Which requests an app may make (PRP-012), pure: its own host and the
+ * servers its signed manifest declares, by name over HTTPS; plain HTTP to
+ * this machine only for apps from this machine; never a switched-off
+ * server; and the request's own method, headers and size. Nothing is sent
+ * from here (`requests.la` sends).
+ *
+ * Depends on: address
+ * Used by: bundle, effects, requests
+ */
+import address { parse, shown, site_url };
+
+/** One request an app asks for. */
+public struct Request {
+    /** GET, POST, PUT, PATCH or DELETE. */
+    public method: string,
+    /** Where: `https://host[:port]/path?query` (or `http://localhost:PORT/…` from this machine). */
+    public url: string,
+    /** Its own headers, name and value. */
+    public headers: (string, string)[],
+    /** The body, at most `MAX_BODY_UP` bytes. */
+    public body: u8[],
+}
+
+/** What one app may reach. */
+public struct Allowed {
+    /** Its own host, as addresses show it (`counter.dafifi.net`, `localhost:8000`); none for a bare file. */
+    public own: Option<string>,
+    /** What its manifest declares. */
+    public servers: string[],
+    /** What the person switched off for it. */
+    public off: string[],
+    /** Whether the app itself came from this machine (a local file or address). */
+    public local: bool,
+}
+
+/** Why a request wasn't sent. */
+public enum NetworkError {
+    /** Not its own host and not declared. */
+    NotListed(string),
+    /** Switched off on the Access page. */
+    Off(string),
+    /** A remote app asking for this machine. */
+    Local,
+    /** Plain HTTP to another computer. */
+    NotHttps,
+    /** An IP address instead of a name. */
+    IpAddress,
+    /** Not an http(s) URL. */
+    BadUrl,
+    /** A method other than the five. */
+    BadMethod(string),
+    /** A header it can't set. */
+    BadHeader(string),
+    /** A body over the cap. */
+    TooLarge,
+    /** Too many in flight for this app. */
+    TooMany,
+}
+
+/** The largest request body, in bytes. */
+public const MAX_BODY_UP: i64 = 1024 * 1024;
+
+/** The largest response body, in bytes. */
+public const MAX_BODY_DOWN: i64 = 8 * 1024 * 1024;
+
+/** The most requests in flight for one app. */
+public const MAX_IN_FLIGHT: i64 = 4;
+
+/** The most servers a manifest may declare. */
+public const MAX_SERVERS: i64 = 32;
+
+/**
+ * Checks a server a manifest declares: a host name with a dot (an
+ * optional port), or `localhost:PORT` for development; never an IP.
+ *
+ * Example:
+ *     check_server("api.notes.acme.com")?
+ */
+public fun check_server(name: string): Result<(), string> = match parse("https://{name}") {
+    Ok(a) if shown(a) == name || "{shown(a)}:443" == name => Ok(()),
+    _ => Err("\"{name}\" isn't a server name (like api.example.com)"),
+};
+
+/**
+ * Checks one request against what the app may reach.
+ *
+ * @returns the request to send, its URL as Rapidkoi rebuilt it; or why not
+ *
+ * Example:
+ *     check_request(request, allowed)?
+ */
+public fun check_request(r: Request, a: Allowed): Result<Request, NetworkError> {
+    let methods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+    if !methods.any(fun(m: string) = m == r.method) {
+        return Err(NetworkError.BadMethod(r.method));
+    }
+    if !(r.url.starts_with("https://") || r.url.starts_with("http://")) {
+        return Err(NetworkError.BadUrl);
+    }
+    let at = match parse(r.url) {
+        Ok(at) => at,
+        Err(NotSecure(_)) => {
+            return Err(NetworkError.NotHttps);
+        }
+        Err(IpAddress(_)) => {
+            return Err(NetworkError.IpAddress);
+        }
+        Err(_) => {
+            return Err(NetworkError.BadUrl);
+        }
+    };
+    // This computer is reachable only by apps that came from it.
+    if !at.remote && !a.local {
+        return Err(NetworkError.Local);
+    }
+    let host = shown(at);
+    let listed = a.own == Some(host) || a.servers.any(fun(s: string) = s == host);
+    if !listed {
+        return Err(NetworkError.NotListed(host));
+    }
+    if a.off.any(fun(s: string) = s == host) {
+        return Err(NetworkError.Off(host));
+    }
+    for (name, value) of r.headers {
+        if !token(name) || forbidden(name) || !clean(value) {
+            return Err(NetworkError.BadHeader(name));
+        }
+    }
+    if r.body.len > MAX_BODY_UP {
+        return Err(NetworkError.TooLarge);
+    }
+    // Rebuilt from what was checked, so nothing unchecked rides along.
+    Ok(Request { url: site_url(at, at.route), ..r })
+}
+
+/**
+ * Returns a plain sentence for a refused request, naming the app.
+ *
+ * Example:
+ *     reason(e, "Counter")
+ */
+public fun reason(e: NetworkError, app: string): string = match e {
+    NotListed(h) => "{h} isn't one of {app}'s servers",
+    Off(h) => "You turned off {h} for {app}",
+    Local => "Apps from the internet can't reach this computer",
+    NotHttps => "Requests to other computers use HTTPS",
+    IpAddress => "Requests go to a server's name, not its IP address",
+    BadUrl => "That isn't a web address",
+    BadMethod(m) => "Requests can't use {m}",
+    BadHeader(h) => "Requests can't set {h}",
+    TooLarge => "A request's body is at most 1 MB",
+    TooMany => "Too many requests at once; try again",
+};
+
+/** Headers only Rapidkoi sets: the connection's own, and cookies (there's no cookie jar). */
+fun forbidden(name: string): bool {
+    let n = lower(name);
+    n == "host" || n == "cookie" || n == "content-length" || n == "connection" || n == "transfer-encoding" || n == "upgrade"
+}
+
+/** An HTTP token: letters, digits and !#$%&'*+-.^_`|~. */
+fun token(s: string): bool {
+    if s.len == 0 {
+        return false;
+    }
+    for c of s.chars() {
+        let ok = c.is_alphabetic() && (c as u32) < 128 || c.is_digit() || "!#$%&'*+-.^_`|~".contains(
+            "{c}",
+        );
+        if !ok {
+            return false;
+        }
+    }
+    true
+}
+
+/** No control characters (so no line breaks to smuggle a second header). */
+fun clean(s: string): bool {
+    for c of s.chars() {
+        if (c as u32) < 32 || c as u32 == 127 {
+            return false;
+        }
+    }
+    true
+}
+
+fun lower(s: string): string {
+    let mut out = "";
+    for c of s.chars() {
+        out = out + "{c.to_lower()}";
+    }
+    out
+}

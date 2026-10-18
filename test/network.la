@@ -1,0 +1,115 @@
+// Which requests an app may make (PRP-012), pure: its own host and the
+// servers its manifest declares, HTTPS by name, localhost only for apps
+// from this machine, the switches, and the request's own shape.
+import rapidkoi.network { Request, Allowed, NetworkError, check_server, check_request, reason };
+
+fun get(url: string): Request = Request { method: "GET", url: url, headers: [], body: [] };
+
+/** A signed app at counter.dafifi.net declaring api.acme.com. */
+fun remote(): Allowed = Allowed {
+    own: Some("counter.dafifi.net"),
+    servers: ["api.acme.com", "localhost:9000"],
+    off: [],
+    local: false,
+};
+
+fun why(r: Request, a: Allowed): string = match check_request(r, a) {
+    Err(e) => reason(e, "Counter"),
+    Ok(_) => "ok",
+};
+
+@test
+fun the_own_host_and_declared_servers_are_allowed() {
+    assert_eq(why(get("https://counter.dafifi.net/quote"), remote()), "ok");
+    assert_eq(why(get("https://api.acme.com/v1/notes?page=2"), remote()), "ok");
+    assert_eq(
+        why(get("https://other.example/x"), remote()),
+        "other.example isn't one of Counter's servers",
+    );
+    // The port is part of the name.
+    assert_eq(
+        why(get("https://api.acme.com:8443/x"), remote()),
+        "api.acme.com:8443 isn't one of Counter's servers",
+    );
+}
+
+@test
+fun a_switched_off_server_is_refused() {
+    let a = Allowed { off: ["api.acme.com"], ..remote() };
+    assert_eq(why(get("https://api.acme.com/x"), a), "You turned off api.acme.com for Counter");
+    let offline = Allowed { off: ["counter.dafifi.net"], ..remote() };
+    assert_eq(
+        why(get("https://counter.dafifi.net/"), offline),
+        "You turned off counter.dafifi.net for Counter",
+    );
+}
+
+@test
+fun https_by_name_and_localhost_only_from_this_machine() {
+    assert_eq(why(get("http://api.acme.com/x"), remote()), "Requests to other computers use HTTPS");
+    assert_eq(
+        why(get("https://174.138.43.152/x"), remote()),
+        "Requests go to a server's name, not its IP address",
+    );
+    // Declared, but a remote app can never reach this computer.
+    assert_eq(
+        why(get("http://localhost:9000/x"), remote()),
+        "Apps from the internet can't reach this computer",
+    );
+    let local = Allowed {
+        own: Some("localhost:8000"),
+        servers: ["localhost:9000"],
+        off: [],
+        local: true,
+    };
+    assert_eq(why(get("http://localhost:9000/x"), local), "ok");
+    assert_eq(why(get("http://localhost:8000/own"), local), "ok");
+    assert_eq(why(get("ftp://x/y"), remote()), "That isn't a web address");
+}
+
+@test
+fun the_request_itself_is_checked() {
+    assert_eq(
+        why(Request { method: "TRACE", ..get("https://api.acme.com/") }, remote()),
+        "Requests can't use TRACE",
+    );
+    for h of ["Host", "cookie", "Content-Length", "connection", "Transfer-Encoding", "upgrade"] {
+        assert_eq(
+            why(Request { headers: [(h, "x")], ..get("https://api.acme.com/") }, remote()),
+            "Requests can't set {h}",
+        );
+    }
+    assert_eq(
+        why(Request { headers: [("bad name", "x")], ..get("https://api.acme.com/") }, remote()),
+        "Requests can't set bad name",
+    );
+    assert_eq(
+        why(Request { headers: [("x-note", "a\nb")], ..get("https://api.acme.com/") }, remote()),
+        "Requests can't set x-note",
+    );
+    assert_eq(
+        why(
+            Request { method: "POST", body: [0; 1024 * 1024 + 1], ..get("https://api.acme.com/") },
+            remote(),
+        ),
+        "A request's body is at most 1 MB",
+    );
+    let ok = Request {
+        method: "POST",
+        headers: [("authorization", "Bearer t"), ("content-type", "application/json")],
+        body: [1, 2],
+        ..get("https://api.acme.com/"),
+    };
+    assert_eq(why(ok, remote()), "ok");
+}
+
+@test
+fun what_a_manifest_may_declare() {
+    assert_eq(check_server("api.acme.com"), Ok(()));
+    assert_eq(check_server("api.acme.com:8443"), Ok(()));
+    assert_eq(check_server("localhost:9000"), Ok(()));
+    assert_eq(check_server("174.138.43.152").is_err(), true);
+    assert_eq(check_server("intranet").is_err(), true);
+    assert_eq(check_server("Api.Acme.com").is_err(), true);
+    assert_eq(check_server("https://api.acme.com").is_err(), true);
+}
