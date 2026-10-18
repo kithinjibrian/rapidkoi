@@ -2229,6 +2229,12 @@ src/account.la
 
 ---
 
+## SESSION 61 — 2026-10-19 — Merge PRP-011 — open
+
+Branch: prp-011-identity
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-011 (amendment 1: contract 2, one `handle` entry point) is built on `prp-011-identity`, not merged. Wait for the owner's security review and on-screen checks (rebuild the counter — done in session 59 — republish with `./main publish`, open, close and reopen Rapidkoi: still signed in). Then full suite (Lugha and cargo) and merge.
