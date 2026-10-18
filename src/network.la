@@ -5,10 +5,11 @@
  * server; and the request's own method, headers and size. Nothing is sent
  * from here (`requests.la` sends).
  *
- * Depends on: address
- * Used by: bundle, effects, requests
+ * Depends on: address, limits
+ * Used by: bundle, nodes, contract, effects, requests
  */
 import address { parse, shown, site_url };
+import limits { MAX_BODY_UP };
 
 /** One request an app asks for. */
 public struct Request {
@@ -58,17 +59,13 @@ public enum NetworkError {
     TooMany,
 }
 
-/** The largest request body, in bytes. */
-public const MAX_BODY_UP: i64 = 1024 * 1024;
-
-/** The largest response body, in bytes. */
-public const MAX_BODY_DOWN: i64 = 8 * 1024 * 1024;
-
-/** The most requests in flight for one app. */
-public const MAX_IN_FLIGHT: i64 = 4;
-
-/** The most servers a manifest may declare. */
-public const MAX_SERVERS: i64 = 32;
+/** What came back for one request, answered to the app. */
+public enum Reply {
+    /** The server's answer: status, headers (names in lower case), body. */
+    Got(i64, Map<string, string>, u8[]),
+    /** It wasn't sent, or didn't come back: the sentence the app gets. */
+    Failed(string),
+}
 
 /**
  * Checks a server a manifest declares: a host name with a dot (an

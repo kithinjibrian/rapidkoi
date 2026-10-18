@@ -15,9 +15,10 @@ import limits {
     MAX_ICON_PX,
     MAX_BANNER_WIDTH,
     MAX_BANNER_HEIGHT,
+    MAX_SERVERS,
 };
 public import rules { BundleError, reason };
-import network { MAX_SERVERS, check_server };
+import network { check_server };
 
 /** The format this Rapidkoi reads and writes. */
 public const FORMAT: i64 = 1;

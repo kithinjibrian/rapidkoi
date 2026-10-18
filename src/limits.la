@@ -22,7 +22,7 @@ public const MAX_STATE: i64 = 16 * 1024 * 1024;
 public const MAX_VIEW: i64 = 4 * 1024 * 1024;
 
 /** The largest update result: the state plus room for its map and `effects`. */
-public const MAX_UPDATE: i64 = MAX_STATE + 4096;
+public const MAX_UPDATE: i64 = MAX_STATE + MAX_EFFECTS * (MAX_BODY_UP + 2 * MAX_URL) + 4096;
 
 /** The most nodes in one screen description. */
 public const MAX_NODES: i64 = 10_000;
@@ -84,3 +84,24 @@ public const MAX_EFFECTS: i64 = 8;
 
 /** The longest sign-in challenge an app may ask Rapidkoi to sign, in bytes. */
 public const MAX_CHALLENGE: i64 = 1024;
+
+/** The largest body an app's request may send, in bytes (PRP-012). */
+public const MAX_BODY_UP: i64 = 1024 * 1024;
+
+/** The largest response body an app's request may receive, in bytes. */
+public const MAX_BODY_DOWN: i64 = 8 * 1024 * 1024;
+
+/** The most requests in flight for one app. */
+public const MAX_IN_FLIGHT: i64 = 4;
+
+/** How long one request may take, in milliseconds. */
+public const REQUEST_TIMEOUT_MS: i64 = 30_000;
+
+/** The most servers a manifest may declare. */
+public const MAX_SERVERS: i64 = 32;
+
+/** The longest URL in a request, in bytes; also the longest header value. */
+public const MAX_URL: i64 = 8192;
+
+/** The most headers in one request. */
+public const MAX_HEADERS: i64 = 64;

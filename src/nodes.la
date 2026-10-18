@@ -7,6 +7,7 @@
  * Used by: contract, props (and, through contract's re-export, render, theme, shell)
  */
 import cbor { Value, DecodeError };
+import network { Request };
 
 /** How a text reads: the contract's `style` words. */
 public enum TextStyle {
@@ -91,6 +92,8 @@ public enum Effect {
     Identity(Value),
     /** A sign-in signature over this challenge (1 to 1024 bytes); answered with `msg`. */
     Sign(Value, u8[]),
+    /** A request to one of its servers (PRP-012), shaped but not yet allowed; answered with `msg`. */
+    Fetch(Value, Request),
 }
 
 /** What a contract v2 `init` or `update` returned: the new state and what it asks for. */

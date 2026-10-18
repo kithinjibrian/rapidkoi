@@ -12,7 +12,9 @@ import identity { Master, master, public_key, sign_in, reason as identity_reason
 import people { person };
 import tabs { AppPage, Tab, Screen, handle };
 import window { Model, with_tab };
-import contract { Effect };
+import contract { Effect, reply };
+import network { Reply };
+import cbor { Value };
 import render;
 
 /** The most answers in a row for one app before it's stopped: an app that keeps asking. */
@@ -77,6 +79,7 @@ fun answer_tab(m: Model, id: i64): Model {
         let msg = match ask {
             Identity(msg) => msg,
             Sign(msg, _) => msg,
+            Fetch(msg, _) => msg,
         };
         // The answer may ask again: those come after the ones still waiting.
         at = with_tab(got, id, fun(page: AppPage) {
@@ -96,31 +99,37 @@ fun answer_tab(m: Model, id: i64): Model {
  * What to answer one effect with: the key or a signature for a signed app
  * you're signed in to; nothing otherwise.
  */
-fun respond(m: Model, p: AppPage, ask: Effect): (Model, Option<u8[]>) {
+fun respond(m: Model, p: AppPage, ask: Effect): (Model, Value) {
+    if let Fetch(_, _) = ask {
+        return (m, reply(Reply.Failed("Requests aren't sent yet")));
+    }
     let t = match p.trust {
         Some(t) => t,
         None => {
-            return (m, None);
+            return (m, Value.Null);
         }
     };
     let x = person(m.people, t.host, t.origin);
     if x.signed_out {
-        return (m, None);
+        return (m, Value.Null);
     }
     let (held, secret) = secret(m);
     let mm = match secret {
         Some(mm) => mm,
         None => {
-            return (held, None);
+            return (held, Value.Null);
         }
     };
     let made = match ask {
         Identity(_) => public_key(mm, t.host, t.origin, x.generation),
         Sign(_, challenge) => sign_in(mm, t.host, t.origin, x.generation, challenge),
+        Fetch(_, _) => {
+            return (held, Value.Null);
+        }
     };
     match made {
-        Ok(bytes) => (held, Some(bytes)),
-        Err(e) => (Model { notice: Some(identity_reason(e)), ..held }, None),
+        Ok(bytes) => (held, Value.Bytes(bytes)),
+        Err(e) => (Model { notice: Some(identity_reason(e)), ..held }, Value.Null),
     }
 }
 
