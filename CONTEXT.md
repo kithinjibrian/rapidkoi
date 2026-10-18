@@ -1597,6 +1597,12 @@ CLAUDE.md (rule 3, tree, known issues, stack), DECISIONS.md (021 resolved), CHAN
 
 ---
 
+## SESSION 42 — 2026-10-18 — Merge PRP-008 — open
+
+Branch: prp-008-background_loading
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-008 is built on `prp-008-background_loading`, not merged. Wait for the owner's review and on-screen checks, run the full suite, merge. Next: remote apps over HTTPS (first target: rapidkoi://counter.dafifi.net on the owner's VM; see memory), then the tabs PRP.
