@@ -1659,7 +1659,13 @@ DECISIONS.md — DECISION-024 (open)
 
 ### STILL OPEN AT CLOSE
 
-- PRP-009 approval; DECISION-024 (Lugha addition, or the owner's fallback B).
+- PRP-009 approved ("approved"); DECISION-024 resolved by Lugha m119 (`request_tls_with`).
+
+---
+
+## SESSION 44 — 2026-10-18 — Build PRP-009: remote apps over HTTPS — open
+
+Branch: prp-009-remote_apps
 
 ---
 
