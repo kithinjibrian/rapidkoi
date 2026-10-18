@@ -1097,9 +1097,39 @@ docs/DESIGN.md, CLAUDE.md, DECISIONS.md (020 item 0: clickable rows), CHANGELOG.
 
 ---
 
-## SESSION 28 — 2026-10-18 — Text aligned left; the panel on the page colour — open
+## SESSION 28 — 2026-10-18 — Text aligned left; the panel on the page colour — closed
 
-Branch: align-left
+Branch: align-left → merged into main
+
+### WHAT WAS DONE
+
+The owner (screenshot 5): "text align left".
+- kivuli centers labels by default. Rapidkoi now aligns text to the start: contract text nodes (render), the error screen, home's headings, messages and card, and the whole info panel.
+- Rows lay out as label, spacer, summary, arrow; an expanded label centers its text.
+- The screenshot also showed the panel's section cards invisible: the panel sat on the frame (`#242424`, measured), the same colour as the cards. The panel now has `Look.Page` with a `SPACE_SM` strip of frame, as PRP-005 intended.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/render.la, src/panel.la (left()), src/home.la, src/shell.la, docs/DESIGN.md, CHANGELOG.md
+docs/source/meetings/2026-10-17-ui/screenshot-5-panel.png
+```
+
+### TESTS WRITTEN
+
+- None (layout; all 121 pass).
+
+### DECISIONS MADE
+
+- Start-aligned text everywhere Rapidkoi draws, and for apps' text by default.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check.
 
 ---
 

@@ -10,7 +10,7 @@
  * Depends on: kivuli, actions, tabs, frame, bundle, address, theme, themes
  * Used by: shell
  */
-import kivuli { View, ButtonStyle, button, column, image, row, spacer, text };
+import kivuli { View, Align, ButtonStyle, button, column, image, row, spacer, text };
 import actions { Msg, PanelPage, Confirm };
 import tabs { AppPage, state_of, state_version_of };
 import frame { icon_button, icon_of, initial, marker };
@@ -93,17 +93,17 @@ fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
     let header = row([
         face,
         column([
-            text(p.name).size(TEXT_TITLE).bold(),
-            text(version).dim(),
+            left(text(p.name).size(TEXT_TITLE).bold()),
+            left(text(version).dim()),
             // Drawn by Rapidkoi only; tapping it opens who published it.
-            button(marker(p, p.path), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app"),
+            left(button(marker(p, p.path), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app")),
         ]).spacing(SPACE_XS).expand(),
         icon_button("window-close-symbolic", "Close the panel", Some(Msg.TogglePanel)),
     ]).spacing(SPACE_MD);
     let mut parts = [header];
     if let Some(m) = p.manifest {
         if let Some(d) = m.description {
-            parts.push(text(d).wrap());
+            parts.push(left(text(d).wrap()));
         }
     }
     parts.push(heading("Your settings"));
@@ -177,13 +177,13 @@ fun sub(title: string, parts: View<Msg>[]): View<Msg> {
         ]).spacing(SPACE_SM),
     ];
     for v of parts {
-        all.push(v);
+        all.push(left(v));
     }
     column(all)
 }
 
 /** A small dim heading above a section. */
-fun heading(s: string): View<Msg> = text(s).dim();
+fun heading(s: string): View<Msg> = left(text(s).dim());
 
 /** A rounded card of rows. */
 fun section(rows: View<Msg>[]): View<Msg> = column(rows).spacing(SPACE_XS).padding(SPACE_SM).style([
@@ -196,7 +196,10 @@ fun section(rows: View<Msg>[]): View<Msg> = column(rows).spacing(SPACE_XS).paddi
  * target (DECISION-020).
  */
 fun line(label: string, summary: string, opens: PanelPage): View<Msg> = row([
-    text(label).expand(),
+    // The label at the start, the summary by the arrow; the spacer between
+    // takes the room (an expanded label would center its text).
+    text(label),
+    spacer(),
     text(summary).dim(),
     icon_button("go-next-symbolic", label, Some(Msg.PanelGo(opens))),
 ]).spacing(SPACE_SM);
@@ -215,3 +218,6 @@ fun asking(question: string, action: string, msg: Msg): View<Msg> = column([
         button(action, msg).button_style(ButtonStyle.Danger),
     ]).spacing(SPACE_SM),
 ]).spacing(SPACE_SM);
+
+/** At the start of its column: kivuli centers text unless told. */
+fun left(v: View<Msg>): View<Msg> = v.align(Align.Start);

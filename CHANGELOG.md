@@ -26,3 +26,4 @@ Never deleted. Older entries are never modified.
 - Local development: `./main serve app.rkb` serves a bundle on this machine, and `rapidkoi://localhost:8000` opens it, marked development; Reload picks up a repack.
 - The info panel, redesigned: the app's icon, name, version and where it's from; Your settings (Account, Notifications, Access); On this device (Where you left off, Data); and Forget this app, each with its own page. Start over and Forget ask first.
 - ⟳ Reload and ☆ Pin in the bar. Reload keeps the app's state.
+- Text starts at the left, in apps and in Rapidkoi's own screens; the info panel's cards stand out on the page colour.
