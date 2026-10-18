@@ -1,0 +1,85 @@
+// Secret keys: making one, reading it back, fingerprints, and keeping key
+// files out of the project. Writes only under test/tmp/.
+import rapidkoi.keys { SecretKey, KeyError, keygen, read_secret, fingerprint, hex, inside, reason };
+import std.crypto { ed25519_sign, ed25519_verify };
+import std.fs;
+
+fun fresh(name: string): string {
+    let p = "test/tmp/{name}";
+    if fs.exists(p) {
+        fs.remove_file(p).unwrap();
+    }
+    p
+}
+
+@test
+fun keygen_writes_a_key_that_signs() {
+    let path = fresh("keys-ok.key");
+    let k = keygen("notes.acme.com", path, "/somewhere/else").unwrap();
+    assert_eq((k.secret.len, k.public_key.len), (32, 32));
+    let back = read_secret(path, "notes.acme.com").unwrap();
+    assert_eq(back.public_key, k.public_key);
+    let sig = ed25519_sign(back.secret, [1, 2, 3]).unwrap();
+    assert_eq(ed25519_verify(k.public_key, [1, 2, 3], sig), true);
+    fs.remove_file(path).unwrap();
+}
+
+@test
+fun keygen_never_overwrites() {
+    let path = fresh("keys-twice.key");
+    keygen("a.example", path, "/elsewhere").unwrap();
+    assert_eq(
+        keygen("a.example", path, "/elsewhere").map_err(reason),
+        Err("{path} already exists: keygen never replaces a key"),
+    );
+    fs.remove_file(path).unwrap();
+}
+
+@test
+fun keys_stay_out_of_the_project() {
+    assert_eq(inside("/work/notes/keys/a.key", "/work/notes"), true);
+    assert_eq(inside("/work/notes/../notes/a.key", "/work/notes"), true);
+    assert_eq(inside("/work/notes-keys/a.key", "/work/notes"), false);
+    assert_eq(inside("/home/me/.config/rapidkoi/a.key", "/work/notes"), false);
+    assert_eq(
+        keygen("a.example", "/work/notes/a.key", "/work/notes").map_err(reason),
+        Err(
+            "/work/notes/a.key is inside the project: keep secret keys outside it, so they're never committed or published",
+        ),
+    );
+}
+
+@test
+fun a_key_is_for_one_host() {
+    let path = fresh("keys-host.key");
+    keygen("a.example", path, "/elsewhere").unwrap();
+    assert_eq(
+        read_secret(path, "b.example").map_err(reason),
+        Err("{path} is the key for a.example, not b.example"),
+    );
+    fs.remove_file(path).unwrap();
+}
+
+@test
+fun malformed_key_files_are_refused() {
+    let path = fresh("keys-bad.key");
+    write_bytes(path, [1, 2, 3]).unwrap();
+    assert_eq(
+        read_secret(path, "a.example").map_err(reason).map_err(
+            fun(e: string) = e.starts_with("{path} isn't a Rapidkoi secret key"),
+        ),
+        Err(true),
+    );
+    assert_eq(read_secret("test/tmp/none.key", "a.example").is_err(), true);
+    fs.remove_file(path).unwrap();
+}
+
+@test
+fun fingerprints_and_hex() {
+    assert_eq(hex([0, 15, 16, 255]), "000f10ff");
+    let f = fingerprint([1, 2, 3]);
+    assert_eq(f.len, 19);
+    assert_eq(f.split("-").len, 4);
+    assert_eq(fingerprint([1, 2, 3]), f);
+    assert_eq(fingerprint([1, 2, 4]) != f, true);
+}
