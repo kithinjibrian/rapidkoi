@@ -1990,6 +1990,12 @@ src/frame.la, src/panel.la, test/views.la, test/loading.la, test/opening.la, tes
 
 ---
 
+## SESSION 54 — 2026-10-18 — Merge PRP-010 — open
+
+Branch: prp-010-kivuli_placeholders
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-010 is built on `prp-010-kivuli_placeholders`, not merged: the owner checks it on screen (the overlay, menus, grid resize, rows), then full suite and merge. Next: the tabs PRP (restore open tabs on launch). The file dialog still waits on kivuli.
