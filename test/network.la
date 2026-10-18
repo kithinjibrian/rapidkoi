@@ -1,7 +1,16 @@
 // Which requests an app may make (PRP-012), pure: its own host and the
 // servers its manifest declares, HTTPS by name, localhost only for apps
 // from this machine, the switches, and the request's own shape.
-import rapidkoi.network { Request, Allowed, NetworkError, check_server, check_request, reason };
+import rapidkoi.network {
+    Request,
+    Allowed,
+    NetworkError,
+    check_server,
+    check_request,
+    reason,
+    local_address,
+    check_addresses,
+};
 
 fun get(url: string): Request = Request { method: "GET", url: url, headers: [], body: [] };
 
@@ -112,4 +121,122 @@ fun what_a_manifest_may_declare() {
     assert_eq(check_server("intranet").is_err(), true);
     assert_eq(check_server("Api.Acme.com").is_err(), true);
     assert_eq(check_server("https://api.acme.com").is_err(), true);
+}
+
+// PRP-013: what a name may point to.
+
+fun locals(ips: string[]): string[] = ips.filter(fun(ip: string) = !local_address(ip));
+
+@test
+fun ipv4_ranges_are_local_at_their_edges() {
+    let local = [
+        "0.0.0.0",
+        "10.0.0.1",
+        "10.255.255.255",
+        "100.64.0.0",
+        "100.127.255.255",
+        "127.0.0.1",
+        "127.255.255.255",
+        "169.254.169.254",
+        "172.16.0.0",
+        "172.31.255.255",
+        "192.0.0.1",
+        "192.0.2.1",
+        "192.168.1.1",
+        "198.18.0.1",
+        "198.19.255.255",
+        "198.51.100.7",
+        "203.0.113.9",
+        "224.0.0.1",
+        "239.255.255.255",
+        "240.0.0.1",
+        "255.255.255.255",
+    ];
+    // Every one of these is local: none is left over.
+    assert_eq(locals(local), []);
+    let outside = [
+        "1.1.1.1",
+        "8.8.8.8",
+        "9.255.255.255",
+        "11.0.0.0",
+        "100.63.255.255",
+        "100.128.0.0",
+        "172.15.255.255",
+        "172.32.0.0",
+        "192.169.0.0",
+        "198.17.255.255",
+        "198.20.0.0",
+        "93.184.215.14",
+        "223.255.255.255",
+    ];
+    assert_eq(outside.filter(fun(ip: string) = local_address(ip)), []);
+}
+
+@test
+fun ipv6_ranges_and_ipv4_inside_ipv6_are_local() {
+    let local = [
+        "::",
+        "::1",
+        "fe80::1",
+        "fe80::1%eth0",
+        "febf::1",
+        "fec0::1",
+        "fc00::1",
+        "fd12:3456::1",
+        "ff02::1",
+        "2001:db8::1",
+        "::ffff:10.0.0.1",
+        "::ffff:127.0.0.1",
+        "::ffff:7f00:1",
+        "::127.0.0.1",
+        "64:ff9b::7f00:1",
+        "64:ff9b::192.168.1.1",
+        "FE80::1",
+    ];
+    assert_eq(locals(local), []);
+    let outside = ["2606:4700::1", "2001:4860:4860::8888", "::ffff:8.8.8.8", "64:ff9b::808:808"];
+    assert_eq(outside.filter(fun(ip: string) = local_address(ip)), []);
+}
+
+@test
+fun anything_that_isnt_an_address_is_refused() {
+    let bad = [
+        "",
+        "1.2.3",
+        "1.2.3.4.5",
+        "256.1.1.1",
+        "1.2.3.-4",
+        "01.2.3.4x",
+        "a.b.c.d",
+        "1::2::3",
+        ":::",
+        "12345::1",
+        "g::1",
+        "1:2:3:4:5:6:7:8:9",
+        "localhost",
+    ];
+    assert_eq(locals(bad), []);
+}
+
+@test
+fun a_name_is_refused_whole_if_any_address_is_local() {
+    assert_eq(
+        check_addresses("api.acme.com", ["93.184.215.14", "2606:4700::1"]),
+        Ok(["93.184.215.14", "2606:4700::1"]),
+    );
+    let mixed = check_addresses("api.acme.com", ["93.184.215.14", "192.168.1.1"]);
+    assert_eq(
+        mixed.map_err(fun(e: NetworkError) = reason(e, "Notes")),
+        Err(
+            "api.acme.com points to this computer or your local network, so Rapidkoi won't connect to it",
+        ),
+    );
+    assert_eq(
+        check_addresses("api.acme.com", []).map_err(fun(e: NetworkError) = reason(e, "Notes")),
+        Err("api.acme.com has no address"),
+    );
+    assert_eq(
+        reason(NetworkError.Lookup("api.acme.com", "Name or service not known"), "Notes"),
+        "Couldn't look up api.acme.com: Name or service not known",
+    );
 }
