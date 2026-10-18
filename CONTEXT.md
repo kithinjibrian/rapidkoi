@@ -2582,12 +2582,45 @@ test/fixtures/tls/README.md, CLAUDE.md, MEMORY.md, DECISIONS.md, CHANGELOG.md, P
 
 ---
 
-## SESSION 69 — 2026-10-19 — Merge PRP-013 — open
+## SESSION 69 — 2026-10-19 — Merge PRP-013 — closed
 
 Branch: prp-013-local_addresses
+
+### WHAT WAS DONE
+
+The owner confirmed the demo works exactly as before, then said "merge" (taken as the security review). The checks, by exit status:
+- fmt: clean
+- `lughac test test/`: 316 passed
+- the example's tests: 2 passed
+- cargo: passed
+- the build: ok
+
+Merged prp-013-local_addresses into main.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- None.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-013 is built on `prp-013-local_addresses` and waits for the owner's security review. After approval: run the full suite and merge into main. Then the next arc: links (the vision's step 2) or tab restore.
+PRP-012 and PRP-013 are merged, and the quote demo runs at `rapidkoi://quote.dafifi.net`. Next arc, the owner's choice: links (the vision's step 2, starting with DECISION-016 and its discovery interview) or tab restore.
