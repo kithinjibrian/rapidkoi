@@ -2400,6 +2400,12 @@ CLAUDE.md, CONTEXT.md
 
 ---
 
+## SESSION 65 — 2026-10-19 — Deploy the quote demo to the VM — open
+
+Branch: deploy-quote-demo
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-012 is merged into main. Next, either:
