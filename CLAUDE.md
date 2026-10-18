@@ -189,6 +189,13 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
 ./main publish --withdraw VERSION --reason TEXT
 ./main pack            # one .rkb from rapidkoi.toml, signed when it has a host and a key
 ./main serve site/     # serves the site; ./main rapidkoi://localhost:8000 opens it verified
+
+# The network demo (PRP-012): the quote app and its Lugha server, in examples/quote/
+cd examples/quote && ../../main keygen && ../../main publish && cd ../..
+lughac test examples/quote/server.la                                   # the server's own tests
+lughac build examples/quote/server.la -o quote-server
+./quote-server --site examples/quote/site --host localhost:8000 --port 8000
+./main rapidkoi://localhost:8000                                       # opens a window: the user's
 ```
 
 `test/counter.la` drives the built counter end to end; it skips itself until the guest is built.
@@ -281,7 +288,8 @@ public fun load_settings(path: string): Settings { … }
 │                        Imports run one way: nodes ← props ← contract ← theme ← render ← tabs ← actions ← frame ← home, panel ← window ← shell ← main; limits ← contract, guest ← tabs; themes ← window
 ├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
-├── guest/rust/        — Cargo workspace: rapidkoi (contract v1 for Rust: View builder, App trait, export!), counter (the demo)
+├── guest/rust/        — Cargo workspace: rapidkoi (contract 2 for Rust: View builder, App trait, export!, Request, SignIn), counter (the demo), quote (the network demo)
+├── examples/quote/    — the network demo's rapidkoi.toml and its server (server.la: the signed site, sign-in, /quote)
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)
 ├── docs/
 │   ├── CODE_STYLE.md  — documentation rules for .la code

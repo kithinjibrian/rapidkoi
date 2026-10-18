@@ -2294,12 +2294,80 @@ PRPs/prp-012-network.md — for approval (security review before merge)
 
 ---
 
-## SESSION 63 — 2026-10-19 — Build PRP-012: apps reaching the network — open
+## SESSION 63 — 2026-10-19 — Build PRP-012: apps reaching the network — closed
 
 Branch: prp-012-network
+
+### WHAT WAS DONE
+
+Built PRP-012 test-first, in its order:
+1. The manifest's `servers` (formats 1 and 2), `[network] servers`, `pack --server`, and `publish`.
+2. `network.la`, the pure checks.
+3. The `fetch` effect in contract 2. Answers now carry a CBOR value, and the network limits are in `limits.la`.
+4. `requests.la`: a `Cmd.task` per request and `Msg.Responded`.
+5. `effects` routing fetches; `answer_all` returns the commands.
+6. People format 2 (`off`, `seen`, `fresh`).
+7. `access.la`: the Access page, its switches, the one-time notice and the New marks.
+8. Rust: `Request`, `Ask::fetch`, `Event::Response`/`Failed`, `SignIn`.
+9. `docs/server-sign-in.md`, checked by `test/signin.la`.
+10. The quote demo (`guest/rust/quote`, `examples/quote/`).
+11. The docs.
+
+The owner chose a Lugha demo server in this repo; it's in `examples/quote/` because lughac lets examples import the package. 304 Lugha tests plus the example's 2; cargo 3 + 2 + 9; fmt clean; build ok; no file over 500 lines. Not merged: it waits for the owner's security review and the demo on screen.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/network.la, src/requests.la, src/access.la (new)
+src/bundle.la, src/project.la, src/pack.la, src/publish.la, src/limits.la, src/nodes.la, src/contract.la,
+src/render.la, src/effects.la, src/actions.la, src/shell.la, src/panel.la, src/people.la, src/tabs.la
+test/network.la, test/requests.la, test/access.la, test/signin.la (new); test/bundle.la, project, pack,
+signing, contract, effects, account, people and the Manifest literals
+guest/rust/rapidkoi/src/{lib,abi,fetch,signin}.rs, guest/rust/quote/, guest/rust/Cargo.toml
+examples/quote/{rapidkoi.toml,server.la}, .gitignore
+docs/server-sign-in.md, docs/DESIGN.md, docs/source/meetings/2026-10-17-ui-contract.md (the fetch section)
+CLAUDE.md, MEMORY.md (decision 18), DECISIONS.md (026), CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- **network:** own host and declared servers; switched off; HTTPS, IPs and localhost; method, headers and body; manifest names.
+- **bundle, project, pack:** servers round-trip and are checked; `[network]`; `--server`.
+- **contract:** the fetch shape; replies.
+- **requests:**
+  - live: GET and POST, a 301 not followed, timeout, too large, absent, TLS with and without the CA
+  - in the window: a refusal answered at once, 4 in flight, through `handle`, closed tab and old load dropped, switched off
+- **people:** format 2 round trip and bad lists.
+- **access:** the listing, switches, the notice and New, Forget, unsigned apps.
+- **signin:** a server following the doc accepts once and refuses a replay, another host's signature and an unknown challenge.
+- **examples/quote/server.la:** its sign-in and quote.
+- **Rust:** encoding, decoding, `SignIn`'s steps and failures, and the quote app.
+
+### DECISIONS MADE
+
+- The answer value is a CBOR `Value`: bytes or null for `identity` and `sign`, a map for `fetch`.
+- `msg` travels in `Msg.Responded`, so the model needs no request numbers. `AppPage.in_flight` is the count.
+- `Person.fresh` is added beside `off`/`seen`, so the notice comes once while New lasts until the Access page is left.
+- Response headers are a text map (std's: lower case, repeated values joined with ", ").
+- The demo server reuses `rapidkoi.serve` and `rapidkoi.identity` from `examples/`.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-026 (deferred, for the security review): a declared name resolving to this computer or the local network; only the certificate check guards it.
+
+### STILL OPEN AT CLOSE
+
+- The owner's security review, and the demo on screen (locally first; deploying to the VM is asked before anything is touched there).
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-012 (`PRPs/prp-012-network.md`) awaits approval on `design-network`. If approved: branch `prp-012-network`, open session 63, build test-first. Stop before merge for the owner's security review.
+PRP-012 is built on `prp-012-network` and waits for the owner's security review and the demo (`examples/quote/`, CLAUDE.md commands). The review list:
+- the allowed list and its checks (`src/network.la`, `src/requests.la`)
+- no localhost from the internet
+- the header filter, the caps and the switches
+- DECISION-026
+- a signed file that isn't confirmed yet can reach the host it claims (no credentials ride along)
+
+After approval: deploy the demo to the VM (ask first: a new `quote.dafifi.net` container), run the full suite, and merge into main.
