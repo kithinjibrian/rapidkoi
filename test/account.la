@@ -91,7 +91,7 @@ fun it_says_who_you_are_to_this_app() {
     // A message lets the app's init ask; then the page shows the key's label.
     let m = step(notes(s), Msg.PanelGo(PanelPage.Account));
     assert_eq(shows(m, "Signed in as {user_label(key(s, 0))}"), true);
-    assert_eq(shows(m, "Apps can show your name; they never see it."), true);
+    assert_eq(shows(m, "Notes can show your name; it never sees it."), true);
     clean(s.dir);
 }
 
@@ -127,25 +127,27 @@ fun starting_over_asks_then_gives_a_new_key() {
 }
 
 @test
-fun your_name_for_every_app_and_for_this_one() {
+fun your_name_in_this_app() {
     let s = folder("name");
     let m = notes(s);
+    // This app's name only: a name for every app is a Rapidkoi setting, not this app's.
     assert_eq(
         type_into(view(m), "First name", "Brian"),
-        Ok(Msg.SetName(NameScope.Everywhere, NamePart.First, "Brian")),
+        Ok(Msg.SetName(NameScope.ThisApp, NamePart.First, "Brian")),
     );
-    let named = step(
-        step(m, Msg.SetName(NameScope.Everywhere, NamePart.First, "Brian")),
-        Msg.SetName(NameScope.ThisApp, NamePart.Last, "K"),
-    );
-    assert_eq((named.people.first, person(named.people, HOST, [3; 32]).last), ("Brian", "K"));
     assert_eq(
-        type_into(view(m), "Last name in Notes only", "K"),
+        type_into(view(m), "Last name", "K"),
         Ok(Msg.SetName(NameScope.ThisApp, NamePart.Last, "K")),
     );
-    // Forgetting the app forgets its own name too; the one for every app stays.
+    let named = step(
+        step(m, Msg.SetName(NameScope.ThisApp, NamePart.First, "Brian")),
+        Msg.SetName(NameScope.ThisApp, NamePart.Last, "K"),
+    );
+    let x = person(named.people, HOST, [3; 32]);
+    assert_eq((x.first, x.last, named.people.first), ("Brian", "K", ""));
+    // Forgetting the app forgets its name too.
     let forgot = step(step(named, Msg.Ask(Confirm.Forget)), Msg.Forget);
-    assert_eq((forgot.people.first, forgot.people.apps.len), ("Brian", 0));
+    assert_eq(forgot.people.apps.len, 0);
     clean(s.dir);
 }
 

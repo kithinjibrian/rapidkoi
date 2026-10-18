@@ -2097,9 +2097,35 @@ CLAUDE.md, MEMORY.md (10, 17), DECISIONS.md (025 resolved, 022 updated), the con
 
 ---
 
-## SESSION 57 — 2026-10-18 — Account page: only this app's name — open
+## SESSION 57 — 2026-10-18 — Account page: only this app's name — closed
 
 Branch: prp-011-identity
+
+### WHAT WAS DONE
+
+The owner: "remove first name & last name those are rapidkoi settings. leave first name in app because that panel is for app settings". The Account page keeps only this app's name ("First name", "Last name", saved per app); the name for every app stays in the people file for Rapidkoi's settings later, with no field yet. Also found (screenshot 23): auto sign-in looked broken because a v2 app resumed from its saved state skips `init`, its only place to ask; proposed a `resumed` message (option A), awaiting the owner.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/account.la, test/account.la
+```
+
+### TESTS WRITTEN
+
+- account: the name fields set this app's name. 274 pass.
+
+### DECISIONS MADE
+
+- A name for every app is a Rapidkoi setting (the owner); the panel holds only the app's own.
+
+### PENDING DECISIONS OPENED
+
+- The `resumed` message for v2 apps resumed from saved state (option A), awaiting the owner.
+
+### STILL OPEN AT CLOSE
+
+- Option A; the owner's security review and on-screen checks.
 
 ---
 

@@ -1,8 +1,8 @@
 /**
  * The info panel's Account page (PRP-011): who you are to this app ("User
  * 4f9a"), signing out and in, signing in automatically, starting over as
- * someone new, and the name apps may show with `{FIRST_NAME}` and
- * `{LAST_NAME}` (for every app, or this one). Pure view and model changes;
+ * someone new, and the name this app may show with `{FIRST_NAME}` and
+ * `{LAST_NAME}` (a name for every app is a Rapidkoi setting, not here). Pure view and model changes;
  * keys are worked out from the cached master secret, never read here.
  *
  * Depends on: kivuli, actions, tabs, window, people, identity, theme
@@ -25,8 +25,6 @@ public struct Account {
     public person: Option<Person>,
     /** "User 4f9a", once the app has asked and the key is known. */
     public label: Option<string>,
-    /** Your name for every app, first and last. */
-    public everywhere: (string, string),
 }
 
 /**
@@ -36,9 +34,8 @@ public struct Account {
  *     account_of(m, page)
  */
 public fun account_of(m: Model, p: AppPage): Account {
-    let everywhere = (m.people.first, m.people.last);
     match p.trust {
-        None => Account { app: p.name, person: None, label: None, everywhere: everywhere },
+        None => Account { app: p.name, person: None, label: None },
         Some(t) => {
             let x = person(m.people, t.host, t.origin);
             // The label needs the master secret, which is read only when an app asks.
@@ -46,7 +43,7 @@ public fun account_of(m: Model, p: AppPage): Account {
                 Some(mm) => public_key(mm, t.host, t.origin, x.generation).ok().map(user_label),
                 None => None,
             };
-            Account { app: p.name, person: Some(x), label: label, everywhere: everywhere }
+            Account { app: p.name, person: Some(x), label: label }
         }
     }
 }
@@ -89,7 +86,6 @@ public fun page(a: Account, confirm: Option<Confirm>): View<Msg>[] {
             None => "Signed in when {a.app} asks",
         }
     };
-    let (first, last) = a.everywhere;
     let mut parts = [
         left(text("How {a.app} knows you").dim()),
         left(text(who)),
@@ -101,12 +97,11 @@ public fun page(a: Account, confirm: Option<Confirm>): View<Msg>[] {
                 button("Sign out", Msg.SignOut)
             },
         ),
-        left(text("Your name").dim()),
-        left(text("Apps can show your name; they never see it.").dim().wrap_at(PANEL_CHARS)),
-        field("First name", first, NameScope.Everywhere, NamePart.First),
-        field("Last name", last, NameScope.Everywhere, NamePart.Last),
-        field("First name in {a.app} only", x.first, NameScope.ThisApp, NamePart.First),
-        field("Last name in {a.app} only", x.last, NameScope.ThisApp, NamePart.Last),
+        left(text("Your name in {a.app}").dim()),
+        left(text("{a.app} can show your name; it never sees it.").dim().wrap_at(PANEL_CHARS)),
+        // This app's name only: a name for every app belongs in Rapidkoi's own settings.
+        field("First name", x.first, NameScope.ThisApp, NamePart.First),
+        field("Last name", x.last, NameScope.ThisApp, NamePart.Last),
         left(
             text("Your key for {a.app} is kept on this computer only.").dim().wrap_at(PANEL_CHARS),
         ),
