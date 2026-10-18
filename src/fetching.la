@@ -1,0 +1,88 @@
+/**
+ * What a background load does (PRP-008): fetch an address's key file,
+ * index and build, and check them against a snapshot of the identities
+ * trusted for its host, recording nothing. Or, for a server with no key,
+ * fetch its bundle. Runs in a kivuli task, so it holds only plain data
+ * (the address, the snapshot) and returns plain data: the window records
+ * trust and compiles when the result arrives (`loader.from_fetched`).
+ *
+ * Depends on: std.http, verify, loader, address, limits
+ * Used by: loader, navigate
+ */
+import std.http { Limits };
+import verify { Verified, Record, Identity, VerifyError, check_site, reason as verify_reason };
+import loader { Refusal };
+import address { Address, url, shown };
+import limits { MAX_BUNDLE };
+
+/** What a background load came back with. */
+public enum Fetched {
+    /** A signed site, checked: the build, what to record, and the snapshot it was checked against. */
+    Signed(Verified, Record, Identity[]),
+    /** A bundle from a server with no key (or an `http://` address): what to call it, its bytes, unchecked. */
+    Unsigned(string, u8[]),
+    /** It couldn't be fetched or verified. */
+    Refused(Refusal),
+}
+
+/**
+ * Fetches and checks the app at a local address. Safe to run in a task.
+ *
+ * @param a the address
+ * @param known a snapshot of the identities trusted for its host (`verify.known_for`)
+ * @param timeout_ms how long each request may take
+ * @returns the checked build and what to record; an unsigned server's
+ *     bundle; or why not (unreachable, timed out, a failed check, a changed key)
+ *
+ * Example:
+ *     Cmd.task(fun(): Fetched = fetch_app(a, known, FETCH_TIMEOUT_MS), done)
+ */
+public fun fetch_app(a: Address, known: Identity[], timeout_ms: i64): Fetched {
+    let host = shown(a);
+    if !a.http {
+        // A site with a key is verified; one without is an unsigned development server.
+        match check_site(known, host, fun(p: string) = get(a, p, timeout_ms)) {
+            Ok((v, r)) => {
+                return Fetched.Signed(v, r, known);
+            }
+            Err(Unsigned) => {}
+            Err(Unapproved(c)) => {
+                return Fetched.Refused(Refusal.Unapproved(host, c));
+            }
+            Err(Fetch(_, why)) if why == "timed out" => {
+                return Fetched.Refused(Refusal.Failed(host, late(host, timeout_ms)));
+            }
+            // Nothing answered at all: there's nothing to verify yet.
+            Err(Fetch("key file", why)) if !why.starts_with("the server answered") => {
+                return Fetched.Refused(
+                    Refusal.Failed(host, "Couldn't reach rapidkoi://{host}: {why}"),
+                );
+            }
+            Err(e) => {
+                return Fetched.Refused(Refusal.Unverified(host, verify_reason(e)));
+            }
+        }
+    }
+    let bounds = Limits { body: MAX_BUNDLE, timeout_ms: timeout_ms, ..http.limits() };
+    match http.request_with("GET", url(a), #{}, [], bounds) {
+        Ok(r) if r.status == 200 => Fetched.Unsigned(host, r.body),
+        Ok(r) => Fetched.Refused(
+            Refusal.Failed(host, "The development server answered {r.status}"),
+        ),
+        Err(e) if e == "timed out" => Fetched.Refused(Refusal.Failed(host, late(host, timeout_ms))),
+        Err(e) => Fetched.Refused(Refusal.Failed(host, "Couldn't reach rapidkoi://{host}: {e}")),
+    }
+}
+
+/** A site's file at `path`, as (status, body): at most `MAX_BUNDLE` bytes, within `timeout_ms`. */
+fun get(a: Address, path: string, timeout_ms: i64): Result<(i64, u8[]), string> {
+    let bounds = Limits { body: MAX_BUNDLE, timeout_ms: timeout_ms, ..http.limits() };
+    let r = http.request_with("GET", "http://{a.host}:{a.port}{path}", #{}, [], bounds)?;
+    Ok((r.status, r.body))
+}
+
+/** "HOST didn't answer in N seconds". */
+fun late(host: string, timeout_ms: i64): string {
+    let n = timeout_ms / 1000;
+    "{host} didn't answer in {n} {if n == 1 { "second" } else { "seconds" }}"
+}

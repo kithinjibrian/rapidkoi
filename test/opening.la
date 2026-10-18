@@ -12,7 +12,7 @@ import std.env;
 import std.fs;
 import std.task { sleep };
 import wasmtime { Engine };
-import support { png };
+import support { png, settle };
 
 fun clean(path: string) {
     if fs.is_dir(path) {
@@ -47,10 +47,19 @@ fun serving(dir: string, port: i64) {
     sleep(100);
 }
 
-fun opened(port: i64): Model = open_file(
-    with_pages(Engine.new(), []),
-    "rapidkoi://localhost:{port}",
-);
+fun opened(port: i64): Model = opening(with_pages(Engine.new(), []), "rapidkoi://localhost:{port}");
+
+/** Opens a file or address, running a background load to its end. */
+fun opening(m: Model, path: string): Model {
+    let (next, cmd) = open_file(m, path);
+    settle(next, cmd, update)
+}
+
+/** ⟳, running the background load to its end. */
+fun reloaded(m: Model): Model {
+    let (next, cmd) = reload(m);
+    settle(next, cmd, update)
+}
 
 /** The bar's marker is a button (it turns back into the address box). */
 fun marks(m: Model, s: string): bool = click(view(m), s) == Ok(Msg.EditAddress);
@@ -58,8 +67,8 @@ fun marks(m: Model, s: string): bool = click(view(m), s) == Ok(Msg.EditAddress);
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
 fun step(m: Model, msg: Msg): Model {
-    let (next, _) = update(m, msg);
-    next
+    let (next, cmd) = update(m, msg);
+    settle(next, cmd, update)
 }
 
 fun builds(dir: string): string = "{dir}/site/.well-known/rapidkoi/builds";
@@ -86,7 +95,7 @@ fun a_changed_byte_is_refused_with_no_way_past() {
     let mut b = read_bytes("{builds(dir)}/{name}").unwrap();
     b[b.len / 2] = b[b.len / 2] ^ 1;
     write_bytes("{builds(dir)}/{name}", b).unwrap();
-    let after = reload(m);
+    let after = reloaded(m);
     assert_eq(shows(after, "Rapidkoi didn't run this app"), true);
     assert_eq(
         shows(
@@ -110,17 +119,17 @@ fun a_new_key_without_a_trail_asks_first() {
     clean("{dir}.key");
     make_key(dir).unwrap();
     publish_site(dir).unwrap();
-    let asked = reload(m);
+    let asked = reloaded(m);
     assert_eq(shows(asked, "localhost:18743 is now signed by a different key"), true);
     assert_eq(click(view(asked), "Keep using my version"), Ok(Msg.KeepMine));
     let kept = step(asked, Msg.KeepMine);
     assert_eq(marks(kept, "✓ localhost:18743 · verified (development)"), true);
     // Opened in a new tab (nothing open to keep), keeping closes that tab.
-    let new_tab = open_file(step(kept, Msg.Home), "rapidkoi://localhost:18743");
+    let new_tab = opening(step(kept, Msg.Home), "rapidkoi://localhost:18743");
     assert_eq((new_tab.tabs.len, click(view(new_tab), "Don't open it")), (2, Ok(Msg.KeepMine)));
     assert_eq(step(new_tab, Msg.KeepMine).tabs.len, 1);
     // Asked again; this time, a separate app.
-    let again = reload(kept);
+    let again = reloaded(kept);
     assert_eq(click(view(again), "Open as a separate app"), Ok(Msg.SeparateApp));
     let other = step(again, Msg.SeparateApp);
     assert_eq(marks(other, "✓ localhost:18743 · verified (development) · new publisher"), true);
@@ -134,10 +143,10 @@ fun a_signed_file_is_not_confirmed_until_its_key_is_trusted() {
     serving(dir, 18744);
     pack_project(dir, false).unwrap();
     let file = "{dir}/Notes-1.0.0.rkb";
-    let alone = open_file(with_pages(Engine.new(), []), file);
+    let alone = opening(with_pages(Engine.new(), []), file);
     assert_eq(marks(alone, "⚠ localhost:18744 · not confirmed"), true);
     // The same window, after opening the site: its key is trusted now.
-    let both = open_file(opened(18744), file);
+    let both = opening(opened(18744), file);
     assert_eq(marks(both, "✓ localhost:18744"), true);
     clean(dir);
     clean("{dir}.key");

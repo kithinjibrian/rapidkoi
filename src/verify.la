@@ -161,9 +161,17 @@ public fun moves(ring: Keyring): (string, u8[], u8[])[] = ring.moved.get();
  */
 public fun changes(ring: Keyring): i64 = ring.count.get();
 
+/** What a check found to trust: recorded with `record` when it's used. */
+public struct Record {
+    /** The identity it was checked as (the one it replaces); none on first use. */
+    from: Option<Identity>,
+    /** The identity to trust now: its key and the sequence reached. */
+    now: Identity,
+}
+
 /**
- * Verifies a site and returns its current build, checked. Trust is
- * recorded only once everything passed.
+ * Verifies a site and returns its current build, checked, recording trust
+ * once everything passed: `check_site` then `record`.
  *
  * @param ring this session's keyring
  * @param host the address's host, `localhost:8000` in development
@@ -178,6 +186,47 @@ public fun verify_site(
     host: string,
     get: fun(string): Result<(i64, u8[]), string>,
 ): Result<Verified, VerifyError> {
+    let (v, r) = check_site(known_for(ring, host), host, get)?;
+    record(ring, r);
+    Ok(v)
+}
+
+/**
+ * Returns the identities trusted for a host: a snapshot, plain data, to
+ * check a site against away from the keyring (in a background task).
+ *
+ * Example:
+ *     known_for(ring, "localhost:8000")
+ */
+public fun known_for(ring: Keyring, host: string): Identity[] = ring.known.get().filter(
+    fun(k: Identity) = k.host == host,
+);
+
+/**
+ * Records what a check found: a first use, a higher sequence or a
+ * rotation (moving the state with it). Nothing new records nothing.
+ *
+ * Example:
+ *     record(ring, r)
+ */
+public fun record(ring: Keyring, r: Record) = remember(ring, r.from, r.now);
+
+/**
+ * Verifies a site against a snapshot of the identities trusted for its
+ * host, recording nothing: the same checks, in the same order, as
+ * `verify_site`. Safe to run in a background task.
+ *
+ * @param known_all the identities trusted for `host` (`known_for`; others are ignored)
+ * @returns the build and its trust, and what to record; or the first check that failed
+ *
+ * Example:
+ *     check_site(known_for(ring, host), host, fetcher)?
+ */
+public fun check_site(
+    known_all: Identity[],
+    host: string,
+    get: fun(string): Result<(i64, u8[]), string>,
+): Result<(Verified, Record), VerifyError> {
     // 1. The key.
     let fetched = get("{SITE}/key");
     let kf_bytes = match fetched {
@@ -190,7 +239,7 @@ public fun verify_site(
     if kf.host != host {
         return Err(VerifyError.WrongHost(kf.host, host));
     }
-    let known = ring.known.get().filter(fun(k: Identity) = k.host == host);
+    let known = known_all.filter(fun(k: Identity) = k.host == host);
     // The identity this site is checked as: the known key it matches or a
     // signed trail leads from; none on first use.
     let from = match first(known, fun(k: Identity) = equal(k.key, kf.key)) {
@@ -230,23 +279,26 @@ public fun verify_site(
     if s.host != host {
         return Err(VerifyError.BuildHost(s.host));
     }
-    // Everything passed: remember the key and how far the sequence got.
-    remember(ring, from, Identity {
-        host: host,
-        key: key,
-        sequence: ix.sequence,
-        separate: separate,
-    });
-    Ok(Verified {
-        opened: opened,
-        trust: Trust {
-            host: host,
-            key: key,
-            standing: Standing.Verified,
-            build: s.hash,
-            separate: separate,
-        },
-    })
+    // Everything passed: what to remember is the key and how far the sequence got.
+    let r = Record {
+        from: from,
+        now: Identity { host: host, key: key, sequence: ix.sequence, separate: separate },
+    };
+    Ok(
+        (
+            Verified {
+                opened: opened,
+                trust: Trust {
+                    host: host,
+                    key: key,
+                    standing: Standing.Verified,
+                    build: s.hash,
+                    separate: separate,
+                },
+            },
+            r,
+        ),
+    )
 }
 
 /**

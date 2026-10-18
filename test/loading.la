@@ -1,0 +1,256 @@
+// Loading in the background (PRP-008), mostly pure: an address opens a
+// loading tab and a task; results are handed to `update` by hand, so
+// stale ones, a changed snapshot and refusals need no network. The end to
+// end case runs the task over a real local socket. Writes only under
+// test/tmp/.
+import rapidkoi.shell { Model, start, update, view, subscriptions };
+import rapidkoi.actions { Msg };
+import rapidkoi.fetching { Fetched };
+import rapidkoi.loader { Refusal };
+import rapidkoi.tabs { Screen };
+import rapidkoi.bundle { Bundle, Manifest, write };
+import rapidkoi.publish { make_key, publish_site };
+import rapidkoi.serve { handle };
+import rapidkoi.store { store_at };
+import kivuli { Cmd, Sub };
+import kivuli.testing { click, texts, Lookup };
+import std.http { Request };
+import std.env;
+import std.fs;
+import std.task { sleep };
+import support { settle };
+
+const ADDRESS: string = "rapidkoi://localhost:18771";
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+fun marks(m: Model, s: string): bool = click(view(m), s) == Ok(Msg.EditAddress);
+
+/** Opens ADDRESS from home, without running its task. */
+fun opening(): (Model, Cmd<Msg>) {
+    let (home, _) = start(["./main"], None);
+    update(Model { draft: ADDRESS, ..home }, Msg.Go)
+}
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun is_task(c: Cmd<Msg>): bool = match c {
+    Task(_) => true,
+    _ => false,
+};
+
+fun loading(m: Model): bool = match m.tabs[0].page.screen {
+    Loading(_) => true,
+    _ => false,
+};
+
+/** A format 1 bundle's bytes, as an unsigned server would send. */
+fun plain(): u8[] = write(Bundle {
+    manifest: Manifest {
+        contract: 1,
+        name: "Plain",
+        version: "1.0.0",
+        description: None,
+        state_version: 1,
+        icon: None,
+        banners: [],
+    },
+    module: [0, 97, 115, 109, 1, 0, 0, 0],
+    assets: [],
+}).unwrap();
+
+/** The load number of the first tab's page, from the task's own message. */
+fun number(c: Cmd<Msg>): i64 = match c {
+    Task(job) => match job() {
+        Fetched(_, n, _) => n,
+        _ => -1,
+    },
+    _ => -1,
+};
+
+@test
+fun an_address_opens_a_loading_tab_and_a_task() {
+    let (m, cmd) = opening();
+    assert_eq((m.tabs.len, loading(m), is_task(cmd)), (1, true, true));
+    assert_eq(shows(m, "Loading…"), true);
+    assert_eq(marks(m, "localhost:18771 · loading…"), true);
+}
+
+@test
+fun the_spinner_turns_and_the_time_shows_after_3_s() {
+    let (m, _) = opening();
+    let started = m.now;
+    let a = step(m, Msg.Tick(started + 120));
+    let b = step(a, Msg.Tick(started + 240));
+    assert_eq(texts(view(a)) != texts(view(b)), true);
+    assert_eq(shows(step(b, Msg.Tick(started + 2000)), "Loading…"), true);
+    assert_eq(shows(step(b, Msg.Tick(started + 4100)), "Loading… 4 s"), true);
+}
+
+@test
+fun everything_else_works_while_it_loads() {
+    let (m, _) = opening();
+    let home = step(m, Msg.Home);
+    assert_eq((home.current, home.tabs.len), (None, 1));
+    let back = step(home, Msg.Select(m.tabs[0].id));
+    assert_eq(loading(back), true);
+    let (more, cmd) = update(Model { draft: ADDRESS, ..step(back, Msg.NewTab) }, Msg.Go);
+    assert_eq((more.tabs.len, is_task(cmd)), (2, true));
+}
+
+@test
+fun a_stale_result_changes_nothing() {
+    let (m, cmd) = opening();
+    let id = m.tabs[0].id;
+    let n = number(cmd);
+    // An older load number: ignored.
+    let older = step(m, Msg.Fetched(id, n - 1, Fetched.Unsigned("localhost:18771", plain())));
+    assert_eq(loading(older), true);
+    // A closed tab: ignored.
+    let closed = step(m, Msg.CloseTab(id));
+    let late = step(closed, Msg.Fetched(id, n, Fetched.Unsigned("localhost:18771", plain())));
+    assert_eq(late.tabs.len, 0);
+}
+
+@test
+fun a_result_becomes_the_app_or_the_reason() {
+    let (m, cmd) = opening();
+    let id = m.tabs[0].id;
+    let n = number(cmd);
+    let good = step(m, Msg.Fetched(id, n, Fetched.Unsigned("localhost:18771", plain())));
+    assert_eq((loading(good), good.tabs[0].page.name), (false, "Plain"));
+    let bad = step(
+        m,
+        Msg.Fetched(
+            id,
+            n,
+            Fetched.Refused(
+                Refusal.Unverified(
+                    "localhost:18771",
+                    "The app's build doesn't match its index's hash",
+                ),
+            ),
+        ),
+    );
+    assert_eq(
+        shows(
+            bad,
+            "This app couldn't be verified, so Rapidkoi didn't run it: The app's build doesn't match its index's hash",
+        ),
+        true,
+    );
+    assert_eq(click(view(bad), "Restart"), Err(Lookup.NotFound("button \"Restart\"")));
+    // ⟳ while loading starts again: the earlier number is then stale.
+    let (again, cmd2) = update(m, Msg.Reload);
+    assert_eq((is_task(cmd2), number(cmd2) != n), (true, true));
+    assert_eq(
+        loading(step(again, Msg.Fetched(id, n, Fetched.Unsigned("localhost:18771", plain())))),
+        true,
+    );
+}
+
+@test
+fun subscriptions_tick_only_while_loading() {
+    let (idle, _) = start(["./main"], None);
+    let quiet = match subscriptions(idle) {
+        Quiet => true,
+        _ => false,
+    };
+    let (m, _) = opening();
+    let ticking = match subscriptions(m) {
+        Every(ms, _) => ms == 120,
+        _ => false,
+    };
+    assert_eq((quiet, ticking), (true, true));
+}
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+/** A signed site for localhost:PORT, published and served. */
+fun site(port: i64): string {
+    let dir = "{env.current_dir().unwrap()}/test/tmp/loading-{port}";
+    clean(dir);
+    clean("{dir}.key");
+    fs.make_dirs(dir).unwrap();
+    write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+    ).unwrap();
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+    spawn http.serve("127.0.0.1:{port}", fun(r: Request) = handle("{dir}/site", port, r));
+    sleep(100);
+    dir
+}
+
+@test
+fun a_changed_snapshot_loads_again_once_then_says_so() {
+    let dir = site(18772);
+    let (home, _) = start(["./main"], None);
+    // Two tabs start loading the same site with the same (empty) snapshot.
+    let (one, c1) = update(Model { draft: "rapidkoi://localhost:18772", ..home }, Msg.Go);
+    let (two, c2) = update(
+        Model { draft: "rapidkoi://localhost:18772", ..step(one, Msg.NewTab) },
+        Msg.Go,
+    );
+    let first = match c1 {
+        Task(job) => job(),
+        _ => Msg.Home,
+    };
+    let second = match c2 {
+        Task(job) => job(),
+        _ => Msg.Home,
+    };
+    // The first records the key (a first use); the second's snapshot is now stale.
+    let (a, _) = update(two, first);
+    let (b, again) = update(a, second);
+    assert_eq(is_task(again), true);
+    assert_eq(
+        match b.tabs[1].page.screen {
+            Loading(_) => true,
+            _ => false,
+        },
+        true,
+    );
+    // Stale a second time (a hand-made stale result): the page says so.
+    let id = b.tabs[1].id;
+    let stale = match second {
+        Fetched(_, _, f) => f,
+        _ => Fetched.Unsigned("", []),
+    };
+    let c = step(b, Msg.Fetched(id, number(again), stale));
+    assert_eq(shows(c, "Trust for localhost:18772 changed while it loaded; try again"), true);
+    // The re-load itself, run, opens it verified.
+    let settled = settle(b, again, update);
+    assert_eq(marks(settled, "✓ localhost:18772 · verified (development)"), true);
+    clean(dir);
+    clean("{dir}.key");
+}
+
+@test
+fun end_to_end_start_returns_the_task_and_trust_is_saved() {
+    let dir = site(18773);
+    let s = store_at("test/tmp/loading-store");
+    clean(s.dir);
+    let (m, cmd) = start(["./main", "rapidkoi://localhost:18773"], Some(s));
+    assert_eq((loading(m), is_task(cmd)), (true, true));
+    let done = settle(m, cmd, update);
+    assert_eq(marks(done, "✓ localhost:18773 · verified (development)"), true);
+    assert_eq(fs.is_file("{s.dir}/trust"), true);
+    clean(dir);
+    clean("{dir}.key");
+    clean(s.dir);
+}

@@ -5,7 +5,7 @@
  * loads. A signed file says how far its key is trusted. Never runs it;
  * `tabs` starts the guest.
  *
- * Depends on: wasmtime, std.http, guest, bundle, signing, verify, address, limits
+ * Depends on: wasmtime, std.http, guest, bundle, signing, verify, fetching, address, limits
  * Used by: tabs
  */
 import wasmtime { Engine, Module };
@@ -17,10 +17,12 @@ import verify {
     Change,
     Keyring,
     VerifyError,
-    verify_site,
+    known_for,
+    record,
     standing_of,
     reason as verify_reason,
 };
+import fetching { Fetched, fetch_app };
 import address { Address, is_address, parse, url, shown };
 import limits { MAX_BUNDLE, FETCH_TIMEOUT_MS };
 import std.http { Limits };
@@ -63,25 +65,10 @@ public enum Refusal {
  */
 public fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Refusal> {
     if is_address(path) {
+        // The same work a background load does, waited for (tests, and `load_again`'s files).
         let a = parse(path).map_err(fun(e) = Refusal.Failed(path, address.reason(e)))?;
-        let host = shown(a);
-        if !a.http {
-            // A site with a key is verified; one without is an unsigned development server.
-            match verify_site(ring, host, fun(p: string) = get(a, p)) {
-                Ok(v) => {
-                    return from_opened(engine, host, v.opened, Some(v.trust));
-                }
-                Err(Unapproved(c)) => {
-                    return Err(Refusal.Unapproved(host, c));
-                }
-                Err(Unsigned) => {}
-                Err(e) => {
-                    return Err(Refusal.Unverified(host, verify_reason(e)));
-                }
-            }
-        }
-        let bytes = fetch(a).map_err(fun(why: string) = Refusal.Failed(host, why))?;
-        return from_bundle(engine, ring, host, bytes);
+        let f = fetch_app(a, known_for(ring, shown(a)), FETCH_TIMEOUT_MS);
+        return from_fetched(engine, ring, f);
     }
     let file = name_of(path);
     let bytes = read_bytes(path).map_err(
@@ -129,14 +116,41 @@ public fun fetch(a: Address): Result<u8[], string> {
 }
 
 /**
- * A site's file at `path`, as (status, body): at most `MAX_BUNDLE` bytes,
- * within `FETCH_TIMEOUT_MS`, on the window's thread (CLAUDE.md rule 3).
+ * Turns what a background load fetched into an app: records the trust a
+ * signed site's check found, then compiles (only now, after every check
+ * passed). Call `current` first: a result checked against a snapshot
+ * that's since changed must load again instead.
+ *
+ * @returns the app; or why not (as `load`)
+ *
+ * Example:
+ *     from_fetched(engine, ring, fetched)
  */
-fun get(a: Address, path: string): Result<(i64, u8[]), string> {
-    let bounds = Limits { body: MAX_BUNDLE, timeout_ms: FETCH_TIMEOUT_MS, ..http.limits() };
-    let r = http.request_with("GET", "http://{a.host}:{a.port}{path}", #{}, [], bounds)?;
-    Ok((r.status, r.body))
-}
+public fun from_fetched(
+    engine: Engine,
+    ring: Keyring,
+    f: Fetched,
+): Result<Loaded, Refusal> = match f {
+    Signed(v, r, _) => {
+        record(ring, r);
+        from_opened(engine, v.trust.host, v.opened, Some(v.trust))
+    }
+    Unsigned(name, bytes) => from_bundle(engine, ring, name, bytes),
+    Refused(r) => Err(r),
+};
+
+/**
+ * Says whether a fetched result can be used as it is: a signed site's was
+ * checked against a snapshot of its host's trust, which must still be the
+ * keyring's. Otherwise (another tab recorded trust meanwhile) it loads again.
+ *
+ * Example:
+ *     if current(ring, fetched) { from_fetched(…) } else { … }
+ */
+public fun current(ring: Keyring, f: Fetched): bool = match f {
+    Signed(v, _, known) => known_for(ring, v.trust.host) == known,
+    _ => true,
+};
 
 /** A bundle's bytes (either format), checked; a signed one says how far its key is trusted. */
 fun from_bundle(engine: Engine, ring: Keyring, file: string, bytes: u8[]): Result<Loaded, Refusal> {

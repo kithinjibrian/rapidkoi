@@ -1,20 +1,22 @@
 /**
  * Pages and tabs: what one tab holds, and the life of an app page. Starting
- * a guest from a file or a module, sending it events, Restart, and leaving
- * a page with its state so Continue can resume it. Calls guests (bounded by
+ * a guest from a file or a module, sending it events, Restart, and resuming
+ * a page that was left (`leftoff.la` keeps what's left). Calls guests (bounded by
  * fuel); never draws.
  *
- * Depends on: cbor, wasmtime, guest, bundle, loader, verify, contract, render
+ * Depends on: cbor, wasmtime, guest, bundle, loader, verify, address, contract, render, leftoff
  * Used by: actions, frame, home, panel, shell
  */
 import cbor { Value };
 import wasmtime { Engine, Module };
 import guest { Guest, open, reason };
 import bundle { Manifest };
-import loader { Refusal, load, why };
+import loader { Loaded, Refusal, load, why };
+import address;
 import verify { Trust, Change, Keyring };
 import contract { Described, ContractError, read_tree, read_update, envelope };
 import render { Msg };
+import leftoff { LeftOff };
 
 /** What an app page shows. */
 public enum Screen {
@@ -29,6 +31,20 @@ public enum Screen {
      * page that was open before (when reloading), kept until the person decides.
      */
     Unapproved(Change, AppPage[]),
+    /** Loading in the background (PRP-008): when it started, and what to do when it arrives. */
+    Loading(Pending),
+}
+
+/** A load in progress: what the page needs when its result arrives. */
+public struct Pending {
+    /** When it started, in milliseconds since 1970. */
+    public started: i64,
+    /** Whether this is the one retry after a changed snapshot. */
+    public again: bool,
+    /** The state to continue with (⟳ on a running page), and its version. */
+    public saved: Option<(u8[], i64)>,
+    /** The page this replaces (⟳), kept running until the new one is ready or refused. */
+    public kept: AppPage[],
 }
 
 /** A compiled app, kept so Restart and Continue can start it again. */
@@ -52,6 +68,8 @@ public struct AppPage {
     /** Who signed it and how far that's trusted; `None` when unsigned. */
     public trust: Option<Trust>,
     program: Option<Program>,
+    /** Which load this page is waiting for (0 when none): a result for another is stale. */
+    public load: i64,
     /** What's on screen. */
     public screen: Screen,
 }
@@ -82,27 +100,6 @@ public struct Pin {
     public icon: Option<u8[]>,
 }
 
-/** The app page the person last left, for "Where you left off". */
-public struct LeftOff {
-    /** The app's name. */
-    public name: string,
-    /** Its file. */
-    public path: string,
-    /** Its last screen title, if any. */
-    public title: Option<string>,
-    /** Its state when left; `None` when it had stopped. */
-    public state: Option<u8[]>,
-    /** The version of that state's shape (1 for a bare `.wasm`). */
-    public state_version: i64,
-    manifest: Option<Manifest>,
-    /** Its icon, if it had one. */
-    public icon: Option<u8[]>,
-    trust: Option<Trust>,
-    /** Which signed app it is, when read back from disk (no `trust` then). */
-    signer: Option<(string, u8[])>,
-    program: Option<Program>,
-}
-
 /**
  * Opens the app in a local file the person chose: a `.rkb` bundle or a `.wasm`.
  *
@@ -131,6 +128,61 @@ public fun open_path(engine: Engine, ring: Keyring, path: string): AppPage = mat
 };
 
 /**
+ * Says whether a page is loading in the background.
+ *
+ * Example:
+ *     is_loading(page)
+ */
+public fun is_loading(p: AppPage): bool = match p.screen {
+    Loading(_) => true,
+    _ => false,
+};
+
+/**
+ * A stopped page with a reason and no Restart, named after its file or
+ * address (⟳ tries again).
+ *
+ * Example:
+ *     failed_page("rapidkoi://localhost:8000", "Trust for localhost:8000 changed while it loaded; try again")
+ */
+public fun failed_page(path: string, why: string): AppPage = failed(
+    address.parse(path).map(fun(a) = address.shown(a)).unwrap_or(path),
+    path,
+    why,
+);
+
+/**
+ * A page loading in the background: its address as its name until the
+ * app arrives.
+ *
+ * @param path the address
+ * @param number this load's number (`AppPage.load`)
+ * @param pending when it started, and what to do on arrival
+ *
+ * Example:
+ *     loading("rapidkoi://localhost:8000", 3, Pending { started: now, again: false, saved: None, kept: [] })
+ */
+public fun loading(path: string, number: i64, pending: Pending): AppPage = AppPage {
+    name: address.parse(path).map(fun(a) = address.shown(a)).unwrap_or(path),
+    load: number,
+    screen: Screen.Loading(pending),
+    ..failed(path, path, ""),
+};
+
+/**
+ * The page for an app that arrived: started fresh, as `open_path` starts one.
+ *
+ * Example:
+ *     from_loaded(engine, loaded, "rapidkoi://localhost:8000")
+ */
+public fun from_loaded(engine: Engine, l: Loaded, path: string): AppPage = AppPage {
+    manifest: l.manifest,
+    icon: l.icon,
+    trust: l.trust,
+    ..open_module(l.name, path, engine, l.module),
+};
+
+/**
  * Starts a compiled app as a page.
  *
  * @param name what to call it
@@ -152,6 +204,7 @@ public fun open_module(name: string, path: string, engine: Engine, module: Modul
         title: None,
         trust: None,
         program: Some(program),
+        load: 0,
         screen: start(program, None),
     })
 }
@@ -196,34 +249,13 @@ public fun close_page(p: AppPage) {
                 close_page(k);
             }
         }
+        Loading(pending) => {
+            for k of pending.kept {
+                close_page(k);
+            }
+        }
         _ => {}
     }
-}
-
-/**
- * Closes a page and remembers it for "Where you left off".
- *
- * @param p the page
- * @returns what Continue needs: its name, title, state and compiled module
- *
- * Example:
- *     let left = leave(page);
- */
-public fun leave(p: AppPage): LeftOff {
-    let left = LeftOff {
-        name: p.name,
-        path: p.path,
-        title: p.title,
-        state: state_of(p),
-        state_version: state_version_of(p),
-        manifest: p.manifest,
-        icon: p.icon,
-        trust: p.trust,
-        signer: None,
-        program: p.program,
-    };
-    close_page(p);
-    left
 }
 
 /**
@@ -245,29 +277,10 @@ public fun resume(l: LeftOff): AppPage = match l.program {
         title: l.title,
         trust: l.trust,
         program: Some(prog),
+        load: 0,
         screen: start(prog, l.state),
     }),
     None => failed(l.name, l.path, "This app couldn't be reopened"),
-};
-
-/**
- * What leaving a page would remember, without closing it: what's saved as
- * "where you left off" while the app is still open (PRP-007 amendment 1).
- *
- * Example:
- *     snapshot(page)
- */
-public fun snapshot(p: AppPage): LeftOff = LeftOff {
-    name: p.name,
-    path: p.path,
-    title: p.title,
-    state: state_of(p),
-    state_version: state_version_of(p),
-    manifest: p.manifest,
-    icon: p.icon,
-    trust: p.trust,
-    signer: None,
-    program: None,
 };
 
 /**
@@ -287,55 +300,6 @@ public fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = 
     }
     Some(_) => (p, true),
     None => (p, false),
-};
-
-/**
- * Says whether a left-off still holds its compiled app (left this
- * session), so `resume` can start it; one read from disk must be loaded
- * again.
- *
- * Example:
- *     if compiled(l) { resume(l) } else { … }
- */
-public fun compiled(l: LeftOff): bool = l.program.is_some();
-
-/**
- * A "where you left off" read back from disk: no compiled program and no
- * state, so Continue opens its path again, and a signed app's state comes
- * back from `states/` (PRP-007 amendment 2).
- *
- * Example:
- *     recalled("Counter", "rapidkoi://localhost:8000", Some("Count: 3"), None, Some((host, key)))
- */
-public fun recalled(
-    name: string,
-    path: string,
-    title: Option<string>,
-    icon: Option<u8[]>,
-    signer: Option<(string, u8[])>,
-): LeftOff = LeftOff {
-    name: name,
-    path: path,
-    title: title,
-    state: None,
-    state_version: 1,
-    manifest: None,
-    icon: icon,
-    trust: None,
-    signer: signer,
-    program: None,
-};
-
-/**
- * Returns which signed app a left-off is (its host and key), or `None`
- * for an unsigned one: signed apps keep their state across restarts.
- *
- * Example:
- *     signer_of(left)
- */
-public fun signer_of(l: LeftOff): Option<(string, u8[])> = match l.trust {
-    Some(t) => Some((t.host, t.key)),
-    None => l.signer,
 };
 
 /**
@@ -419,11 +383,17 @@ fun failed(name: string, path: string, why: string): AppPage = AppPage {
     title: None,
     trust: None,
     program: None,
+    load: 0,
     screen: Screen.Stopped(why, false),
 };
 
-/** A page for an app that wasn't loaded: stopped, refused, or asking about its key. */
-fun refused(r: Refusal, path: string): AppPage = match r {
+/**
+ * A page for an app that wasn't loaded: stopped, refused, or asking about its key.
+ *
+ * Example:
+ *     refused(r, "rapidkoi://localhost:8000")
+ */
+public fun refused(r: Refusal, path: string): AppPage = match r {
     Failed(name, w) => failed(name, path, w),
     Unverified(host, _) => AppPage { screen: Screen.Refused(why(r)), ..failed(host, path, "") },
     Unapproved(host, c) => AppPage { screen: Screen.Unapproved(c, []), ..failed(host, path, "") },

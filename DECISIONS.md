@@ -162,22 +162,6 @@ Rules:
 
 ---
 
-### DECISION-021 — Loading in the background
-
-**Status:** deferred
-**Raised:** 2026-10-18 — Session 22
-**Revisit when:** Before fetching bundles from anywhere but localhost, or when a local fetch is noticeably slow.
-
-**Question:** kivuli runs GTK's main loop, and a `std.http` request made from `update` waits on that thread, so the window pauses for the download. How does Rapidkoi load in the background and get a message when it's done?
-
-**Options (to weigh then):**
-- A) A kivuli command that runs a function off the main loop (a green thread or an OS thread) and sends its result as a message.
-- B) An integration between Lugha's scheduler and GLib's main loop, so green threads run while GTK waits.
-
-**Notes:** PRP-004 fetches synchronously from localhost only, bounded by `MAX_BUNDLE` and a 3-second timeout.
-
----
-
 ### DECISION-022 — Accounts: per-app identity and sign-in
 
 **Status:** deferred
@@ -203,6 +187,24 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-021 — Loading in the background
+
+**Status:** resolved
+**Raised:** 2026-10-18 — Session 22
+**Resolved:** 2026-10-18 — Session 41 (PRP-008, the owner approved)
+
+**Outcome:** Option A: kivuli 0.6's `Cmd.task`. A load's task fetches and checks against a snapshot of trust; the window records trust and compiles on arrival. A DNS lookup, TLS handshake and compiling still briefly hold the thread (a Lugha runtime matter, kivuli's DECISION-022).
+
+**Question:** kivuli runs GTK's main loop, and a `std.http` request made from `update` waits on that thread, so the window pauses for the download. How does Rapidkoi load in the background and get a message when it's done?
+
+**Options (to weigh then):**
+- A) A kivuli command that runs a function off the main loop (a green thread or an OS thread) and sends its result as a message.
+- B) An integration between Lugha's scheduler and GLib's main loop, so green threads run while GTK waits.
+
+**Notes:** PRP-004 fetches synchronously from localhost only, bounded by `MAX_BUNDLE` and a 3-second timeout.
+
+---
 
 ### DECISION-018 — Placeholders while kivuli catches up
 

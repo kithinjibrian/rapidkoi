@@ -5,18 +5,19 @@
  * current theme, maximized. The state and what
  * changes it live in `window.la`; `view` never calls a guest.
  *
- * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, render, frame, home, panel, theme, themes
+ * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, render, frame, home, panel, theme, themes
  * Used by: main
  */
-import kivuli { View, Cmd, column, row, scroll, text };
+import kivuli { View, Cmd, Sub, column, row, scroll, text };
 import wasmtime { Engine };
 import actions { Msg, PanelPage };
-import tabs { AppPage, handle };
+import tabs { AppPage, Tab, handle, is_loading };
+import loads;
 public import window { Model, with_pages, title_of };
 import navigate;
 import saving { session_store, restore, persist, mark, forgotten };
 import store { Store };
-import render { screen, stopped, refused };
+import render { screen, stopped, refused, loading };
 import frame { bar, rail, unapproved };
 import home;
 import panel;
@@ -59,15 +60,29 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
         return (remembered, Cmd.focus("address"));
     }
     let at = mark(remembered);
-    let opened = persist(remembered, navigate.open_file(remembered, argv[1]), at);
+    let (placed, cmd) = navigate.open_file(remembered, argv[1]);
+    let opened = persist(remembered, placed, at);
     // Opening clears the notice line; what restoring said still shows.
     let notice = match (remembered.notice, opened.notice) {
         (Some(a), Some(b)) => Some("{a} · {b}"),
         (Some(a), None) => Some(a),
         (None, b) => b,
     };
-    (Model { notice: notice, ..opened }, Cmd.none())
+    (Model { notice: notice, ..opened }, cmd)
 }
+
+/**
+ * What the window listens to: the loading tick (120 ms) while some tab is
+ * loading in the background, and nothing otherwise.
+ *
+ * Example:
+ *     App { subscriptions: subscriptions, … }
+ */
+public fun subscriptions(m: Model): Sub<Msg> = if m.tabs.any(fun(t: Tab) = is_loading(t.page)) {
+    Sub.every(120, Msg.Tick)
+} else {
+    Sub.none()
+};
 
 /**
  * Handles one message from the window, then saves whatever it changed
@@ -100,13 +115,13 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     NewTab | Home => (window.go_home(m), Cmd.focus("address")),
     CloseTab(id) => (window.close(m, id), Cmd.none()),
     Draft(text) => (Model { draft: text, notice: None, ..m }, Cmd.none()),
-    Go => (navigate.go(m), Cmd.none()),
+    Go => navigate.go(m),
     EditAddress => match window.page_of(m) {
         App(a) => (Model { editing: true, draft: a.path, ..m }, Cmd.focus("address")),
         Home => (m, Cmd.focus("address")),
     },
-    OpenPinned(path) => (navigate.open_file(window.go_home(m), path), Cmd.none()),
-    Continue => (navigate.reopen(m), Cmd.none()),
+    OpenPinned(path) => navigate.open_file(window.go_home(m), path),
+    Continue => navigate.reopen(m),
     TogglePanel => (
         Model {
             panel: if m.panel.is_some() { None } else { Some(PanelPage.Main) },
@@ -132,9 +147,11 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     },
     Forget => (forgotten(m, window.forget(m)), Cmd.none()),
     FocusSearch => (m, Cmd.focus("address")),
-    Reload => (navigate.reload(m), Cmd.none()),
+    Reload => navigate.reload(m),
     KeepMine => (navigate.keep_mine(m), Cmd.none()),
-    SeparateApp => (navigate.separate_app(m), Cmd.none()),
+    SeparateApp => navigate.separate_app(m),
+    Fetched(id, number, f) => loads.arrive(m, id, number, f),
+    Tick(now) => (Model { now: now, ..m }, Cmd.none()),
 };
 
 /**
@@ -154,10 +171,10 @@ public fun view(m: Model): View<Msg> {
     let middle = match page {
         Home => card(home.view(m.draft, m.pinned, window.card(m), m.tabs)),
         App(a) if m.panel.is_some() => row([
-            card(app_view(id, a)).expand(),
+            card(app_view(id, a, m.now)).expand(),
             panel.view(a, m.panel.unwrap_or(PanelPage.Main), m.confirm),
         ]),
-        App(a) => card(app_view(id, a)),
+        App(a) => card(app_view(id, a, m.now)),
     };
     let mut parts: View<Msg>[] = [];
     if let Some(n) = m.notice {
@@ -185,11 +202,12 @@ public fun view(m: Model): View<Msg> {
 fun card(v: View<Msg>): View<Msg> = scroll(v.padding(SPACE_LG)).style([Look.Page]);
 
 /** A tab's app, its messages tagged with the tab, so they reach only it. */
-fun app_view(id: i64, a: AppPage): View<Msg> {
+fun app_view(id: i64, a: AppPage, now: i64): View<Msg> {
     let shown = match a.screen {
         Running(_, _, d) => screen(d.root),
         Stopped(why, can_restart) => stopped(why, can_restart),
         Refused(why) => refused(why),
+        Loading(p) => loading(a.name, if now > p.started { now - p.started } else { 0 }),
         // Rapidkoi's own question, not the app's: its buttons are the window's.
         Unapproved(c, kept) => {
             return unapproved(c, kept.len > 0);

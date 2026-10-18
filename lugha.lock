@@ -2,5 +2,5 @@
 [locked]
 cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1.0", commit = "eaad158c396e96afc03422509c9c92710909da90" }
 gtk = { git = "https://github.com/kithinjibrian/lugha-gtk", version = "0.1.29", commit = "5d43b81395d938fb4c21023fba01eeef6897b89e" }
-kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.5.0", commit = "62e87b782c271fcd074a3b6425a5c79d9195fa62" }
+kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.6.0", commit = "c6c7043698737aa74ec91138038da4bf9cf4dbb1" }
 wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1.0", commit = "e3e9477736a01ebed44725575e2255684c7253e5" }

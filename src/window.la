@@ -4,14 +4,15 @@
  * pins, "where you left off" and the theme. Opening files and addresses is
  * `navigate.la`. Never draws.
  *
- * Depends on: wasmtime, verify, store, actions, tabs, home, frame, themes
+ * Depends on: wasmtime, verify, store, actions, tabs, leftoff, home, frame, themes
  * Used by: navigate, shell
  */
 import wasmtime { Engine };
 import verify { Keyring, keyring };
 import store { Store };
 import actions { Msg, PanelPage, Confirm };
-import tabs { Page, Tab, Pin, LeftOff, AppPage, leave, snapshot, state_of };
+import tabs { Page, Tab, Pin, AppPage, state_of };
+import leftoff { LeftOff, leave, snapshot };
 import home { Card };
 import frame { icon_of };
 import themes { Theme, DARK };
@@ -46,6 +47,10 @@ public struct Model {
     public notice: Option<string>,
     /** Rapidkoi's own colours. */
     public theme: Theme,
+    /** The last loading tick, in milliseconds since 1970: how long a load has taken. */
+    public now: i64,
+    /** The last load number given out (PRP-008). */
+    loads: i64,
 }
 
 /**
@@ -79,6 +84,8 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         left_off: None,
         notice: None,
         theme: DARK,
+        now: 0,
+        loads: 0,
     }
 }
 

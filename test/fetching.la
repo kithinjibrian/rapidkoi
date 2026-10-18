@@ -1,0 +1,136 @@
+// What a background load does, over real local sockets: a signed site's
+// key, index and build checked against a snapshot; an unsigned server's
+// bundle; a server that never answers; a tampered build. One port per test.
+// Writes only under test/tmp/.
+import rapidkoi.fetching { Fetched, fetch_app };
+import rapidkoi.loader { why };
+import rapidkoi.address { Address, parse };
+import rapidkoi.verify { Identity };
+import rapidkoi.publish { make_key, publish_site };
+import rapidkoi.serve { handle };
+import rapidkoi.bundle { Bundle, Manifest, write };
+import std.http { Request };
+import std.env;
+import std.fs;
+import std.task { sleep };
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+/** A signed site for localhost:PORT, published and served. */
+fun site(port: i64): string {
+    let dir = "{env.current_dir().unwrap()}/test/tmp/fetching-{port}";
+    clean(dir);
+    clean("{dir}.key");
+    fs.make_dirs(dir).unwrap();
+    write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+    ).unwrap();
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+    spawn http.serve("127.0.0.1:{port}", fun(r: Request) = handle("{dir}/site", port, r));
+    sleep(100);
+    dir
+}
+
+fun done(dir: string) {
+    clean(dir);
+    clean("{dir}.key");
+}
+
+fun at(port: i64): Address = parse("rapidkoi://localhost:{port}").unwrap();
+
+fun refusal(f: Fetched): string = match f {
+    Refused(r) => why(r),
+    _ => "not refused",
+};
+
+@test
+fun a_signed_site_comes_back_checked_with_what_to_record() {
+    let dir = site(18761);
+    let snapshot: Identity[] = [];
+    let f = fetch_app(at(18761), snapshot, 5000);
+    match f {
+        Signed(v, _, known) => {
+            assert_eq(v.opened.bundle.manifest.name, "Notes");
+            assert_eq(v.trust.host, "localhost:18761");
+            assert_eq(known.len, 0);
+        }
+        _ => panic("expected a signed site, got {refusal(f)}"),
+    }
+    done(dir);
+}
+
+@test
+fun an_unsigned_server_gives_its_bundle() {
+    let file = "test/tmp/fetching-unsigned.rkb";
+    let m = Manifest {
+        contract: 1,
+        name: "Plain",
+        version: "1.0.0",
+        description: None,
+        state_version: 1,
+        icon: None,
+        banners: [],
+    };
+    write_bytes(
+        file,
+        write(Bundle { manifest: m, module: [0, 97, 115, 109, 1, 0, 0, 0], assets: [] }).unwrap(),
+    ).unwrap();
+    spawn http.serve("127.0.0.1:18762", fun(r: Request) = handle(file, 18762, r));
+    sleep(100);
+    let f = fetch_app(at(18762), [], 5000);
+    match f {
+        Unsigned(name, bytes) => assert_eq(
+            (name, bytes),
+            ("localhost:18762", read_bytes(file).unwrap()),
+        ),
+        _ => panic("expected an unsigned bundle, got {refusal(f)}"),
+    }
+    clean(file);
+}
+
+@test
+fun a_server_that_never_answers_times_out() {
+    spawn http.serve("127.0.0.1:18763", fun(_: Request) {
+        sleep(3000);
+        http.text(200, "late")
+    });
+    sleep(100);
+    assert_eq(refusal(fetch_app(at(18763), [], 1000)), "localhost:18763 didn't answer in 1 second");
+}
+
+@test
+fun nobody_listening_is_plain() {
+    assert_eq(
+        refusal(fetch_app(at(18769), [], 1000)).starts_with(
+            "Couldn't reach rapidkoi://localhost:18769",
+        ),
+        true,
+    );
+}
+
+@test
+fun a_tampered_build_is_refused_as_before() {
+    let dir = site(18764);
+    let builds = "{dir}/site/.well-known/rapidkoi/builds";
+    let name = fs.list_dir(builds).unwrap()[0];
+    let mut b = read_bytes("{builds}/{name}").unwrap();
+    b[b.len / 2] = b[b.len / 2] ^ 1;
+    write_bytes("{builds}/{name}", b).unwrap();
+    assert_eq(
+        refusal(fetch_app(at(18764), [], 5000)),
+        "This app couldn't be verified, so Rapidkoi didn't run it: The app's build doesn't match its index's hash",
+    );
+    done(dir);
+}

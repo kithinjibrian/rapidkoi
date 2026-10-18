@@ -82,6 +82,25 @@ public fun refused(reason: string): View<Msg> = column([
     text(reason).dim().align(Align.Start),
 ]).spacing(SPACE_SM);
 
+/**
+ * The page while an app loads in the background: its address, a spinner,
+ * and from 3 seconds on, the time so far.
+ *
+ * @param address what's loading, as the bar shows it
+ * @param elapsed how long so far, in milliseconds
+ *
+ * Example:
+ *     loading("localhost:8000", 4100)
+ */
+public fun loading(address: string, elapsed: i64): View<Msg> {
+    let frame = ["◐", "◓", "◑", "◒"][elapsed / 120 % 4];
+    let label = if elapsed >= 3000 { "Loading… {elapsed / 1000} s" } else { "Loading…" };
+    column([
+        text(address).size(TEXT_TITLE).bold().align(Align.Start),
+        row([text(frame), text(label).dim()]).spacing(SPACE_SM),
+    ]).spacing(SPACE_SM)
+}
+
 /** An app's text, at the start of its line: kivuli centers text unless told. */
 fun styled_text(s: string, style: TextStyle): View<Msg> {
     let shown: View<Msg> = match style {

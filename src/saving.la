@@ -5,7 +5,7 @@
  * newer Rapidkoi's are left alone, each with a notice; a failed save is a
  * notice too, never a crash.
  *
- * Depends on: std.env, std.time, store, states, remembered, verify, window, tabs
+ * Depends on: std.env, std.time, store, states, remembered, verify, window, leftoff
  * Used by: shell
  */
 import std.env;
@@ -36,7 +36,7 @@ import remembered {
 };
 import verify { keyring, keyring_of, identities, changes, moves };
 import window { Model, used_last };
-import tabs { LeftOff, signer_of };
+import leftoff { LeftOff, signer_of };
 
 /** How the notices name one remembered file. */
 struct Part {

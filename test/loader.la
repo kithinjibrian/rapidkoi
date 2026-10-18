@@ -14,6 +14,7 @@ import kivuli.testing { texts };
 import std.http { Request };
 import wasmtime { Engine };
 import std.task { sleep };
+import support { settle };
 
 /** Writes a bundle of `version` to test/tmp and gives its path. */
 fun bundle_file(tag: string, version: string): string {
@@ -116,7 +117,8 @@ fun reload_fetches_the_new_build() {
     let m = with_pages(engine, [open_path(engine, keyring(), "rapidkoi://localhost:18735")]);
     assert_eq(version_of(m), "1.0.0");
     bundle_file("loader-reload", "1.1.0");
-    assert_eq(version_of(reload(m)), "1.1.0");
+    let (loading, cmd) = reload(m);
+    assert_eq(version_of(settle(loading, cmd, update)), "1.1.0");
 }
 
 @test
