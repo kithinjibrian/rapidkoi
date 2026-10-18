@@ -1133,9 +1133,35 @@ docs/source/meetings/2026-10-17-ui/screenshot-5-panel.png
 
 ---
 
-## SESSION 29 — 2026-10-18 — The panel back on the frame; its close button at the bottom — open
+## SESSION 29 — 2026-10-18 — The panel back on the frame; its close button at the bottom — closed
 
-Branch: panel-back
+Branch: panel-back → merged into main
+
+### WHAT WAS DONE
+
+The owner (screenshot 6): "previous design was better. move the close button at the bottom". Session 28's page-coloured panel (also stretched to half the window by its scroll wrapper) was undone: the panel sits on the frame at PANEL_WIDTH again. Left-aligned text stays. The × close moved from the header to a **Close** button at the bottom, under Forget. The section cards are the frame's colour on the frame again, so they're not drawn as separate cards; the owner prefers it that way.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/shell.la, src/panel.la, docs/DESIGN.md, CHANGELOG.md, docs/source/meetings/2026-10-17-ui/screenshot-6-panel-page-colour.png
+```
+
+### TESTS WRITTEN
+
+- None (all 121 pass).
+
+### DECISIONS MADE
+
+- The panel stays on the frame colour (the owner's preference over visible cards).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check.
 
 ---
 

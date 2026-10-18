@@ -98,7 +98,6 @@ fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
             // Drawn by Rapidkoi only; tapping it opens who published it.
             left(button(marker(p, p.path), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app")),
         ]).spacing(SPACE_XS).expand(),
-        icon_button("window-close-symbolic", "Close the panel", Some(Msg.TogglePanel)),
     ]).spacing(SPACE_MD);
     let mut parts = [header];
     if let Some(m) = p.manifest {
@@ -131,6 +130,10 @@ fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
         ),
         _ => button("Forget this app", Msg.Ask(Confirm.Forget)).button_style(ButtonStyle.Danger),
     });
+    // Closing sits at the bottom, under Forget (the owner, session 29).
+    parts.push(
+        button("Close", Msg.TogglePanel).icon("window-close-symbolic").tooltip("Close the panel"),
+    );
     column(parts)
 }
 
