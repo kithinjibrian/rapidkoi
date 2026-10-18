@@ -1,14 +1,17 @@
 /**
  * The `pack` command: `./main pack MODULE --name N --version V … -o OUT.rkb`
- * reads the developer's files and writes one bundle. It reads only the
+ * reads the developer's files and writes one bundle; `./main pack` alone
+ * packs the current folder's `rapidkoi.toml` (signed when it has a key). It reads only the
  * files named, writes only OUT (never over an existing file without
  * `--force`), never runs the module, and opens no window.
  *
- * Depends on: std.fs, bundle
+ * Depends on: std.fs, std.env, bundle, publish
  * Used by: main
  */
 import std.fs;
 import bundle { Bundle, Manifest, write, reason };
+import std.env;
+import publish { pack_project };
 
 /** What the command line asked for. */
 struct Request {
@@ -62,6 +65,11 @@ public fun run(argv: string[]): i32 {
  *     make(["counter.wasm", "--name", "Counter", "--version", "0.1.0", "-o", "counter.rkb"])
  */
 public fun make(args: string[]): Result<string, string> {
+    // No module named: the current folder's rapidkoi.toml says what to pack.
+    if args.len == 0 || args.len == 1 && args[0] == "--force" {
+        let dir = env.current_dir().map_err(fun(e: string) = "can't find the current folder: {e}")?;
+        return pack_project(dir, args.len == 1);
+    }
     let r = parse(args)?;
     if fs.exists(r.out) && !r.force {
         return Err("{r.out} exists; add --force to replace it");

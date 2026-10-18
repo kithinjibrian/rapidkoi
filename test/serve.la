@@ -90,3 +90,68 @@ fun the_command_checks_its_arguments() {
     fs.remove_file(file).unwrap();
     fs.remove_file("test/tmp/serve-bad.rkb").unwrap();
 }
+
+/** A fake site folder: a key, an index and one build, as files. */
+fun site_dir(tag: string): (string, string) {
+    let dir = "test/tmp/serve-{tag}";
+    let root = "{dir}/.well-known/rapidkoi";
+    fs.make_dirs("{root}/builds").unwrap();
+    write_bytes("{root}/key", [1]).unwrap();
+    write_bytes("{root}/index", [2]).unwrap();
+    let build = "builds/{times("ab", 32)}.rkb";
+    write_bytes("{root}/{build}", [3]).unwrap();
+    (dir, build)
+}
+
+fun remove_site(dir: string, build: string) {
+    let root = "{dir}/.well-known/rapidkoi";
+    for f of ["key", "index", build] {
+        fs.remove_file("{root}/{f}").unwrap();
+    }
+    for d of ["{root}/builds", root, "{dir}/.well-known", dir] {
+        fs.remove_dir(d).unwrap();
+    }
+}
+
+@test
+fun a_site_serves_its_key_index_and_builds() {
+    let (dir, build) = site_dir("site");
+    assert_eq(prepare([dir]), Ok((dir, 8000)));
+    let get = fun(path: string) = handle(dir, 8000, request("GET", path));
+    assert_eq(get("/.well-known/rapidkoi/key").body, [1]);
+    assert_eq(get("/.well-known/rapidkoi/index").body, [2]);
+    assert_eq(get("/.well-known/rapidkoi/{build}").body, [3]);
+    assert_eq(
+        get("/.well-known/rapidkoi/{build}").header("content-type"),
+        Some("application/vnd.rapidkoi.bundle"),
+    );
+    // A well-formed name that isn't there.
+    assert_eq(get("/.well-known/rapidkoi/builds/{times("cd", 32)}.rkb").status, 404);
+    // Nothing else reaches the disk.
+    assert_eq(get("/.well-known/rapidkoi/builds/{times("AB", 32)}.rkb").status, 404);
+    assert_eq(get("/.well-known/rapidkoi/builds/../key").status, 404);
+    assert_eq(get("/.well-known/rapidkoi/builds/{times("ab", 31)}/..x.rkb").status, 404);
+    assert_eq(get("/.well-known/rapidkoi/app.rkb").status, 404);
+    assert_eq(get("/.well-known/rapidkoi/builds/").status, 404);
+    assert_eq(get("/x/.well-known/rapidkoi/key").status, 404);
+    assert_eq(handle(dir, 8000, request("POST", "/.well-known/rapidkoi/key")).status, 405);
+    remove_site(dir, build);
+}
+
+@test
+fun a_folder_must_be_a_published_site() {
+    fs.make_dirs("test/tmp/serve-empty").unwrap();
+    assert_eq(
+        prepare(["test/tmp/serve-empty"]),
+        Err("test/tmp/serve-empty isn't a published site: run rapidkoi publish first"),
+    );
+    fs.remove_dir("test/tmp/serve-empty").unwrap();
+}
+
+fun times(s: string, n: i64): string {
+    let mut parts: string[] = [];
+    for _ in 0..n {
+        parts.push(s);
+    }
+    parts.join("")
+}

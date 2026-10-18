@@ -1,0 +1,198 @@
+// Publishing to a site folder: versions, pruning, withdrawing, a tampered
+// index, and the secret key staying out of the site. Writes only under
+// test/tmp/.
+import rapidkoi.publish { WELL_KNOWN, make_key, publish_site, publish_args, pack_project };
+import rapidkoi.index { read_index, Version };
+import rapidkoi.keys { read_secret, hex };
+import rapidkoi.signing { read_any };
+import std.env;
+import std.fs;
+import support { png };
+
+/** Removes a folder and everything in it (test folders only). */
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+/** A fresh project in test/tmp/pub-NAME, its key next to it (outside). */
+fun project(name: string, version: string, keep: i64): string {
+    let root = env.current_dir().unwrap();
+    let dir = "{root}/test/tmp/pub-{name}";
+    clean(dir);
+    clean("{dir}.key");
+    fs.make_dirs(dir).unwrap();
+    write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    write_bytes("{dir}/icon.png", png(32, 32)).unwrap();
+    set_version(dir, version, keep);
+    make_key(dir).unwrap();
+    dir
+}
+
+fun set_version(dir: string, version: string, keep: i64) {
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Notes\"\nversion = \"{version}\"\nhost = \"localhost:8000\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}.key\"\nkeep = {keep}\n",
+    ).unwrap();
+}
+
+fun site(dir: string): string = "{dir}/site/{WELL_KNOWN}";
+
+fun done(dir: string) {
+    clean(dir);
+    clean("{dir}.key");
+}
+
+@test
+fun publishing_twice_lists_two_versions() {
+    let dir = project("twice", "1.0.0", 3);
+    assert_eq(publish_site(dir).unwrap().starts_with("published Notes 1.0.0"), true);
+    set_version(dir, "1.1.0", 3);
+    publish_site(dir).unwrap();
+    let key = read_secret("{dir}.key", "localhost:8000").unwrap();
+    let ix = read_index(
+        read_bytes("{site(dir)}/index").unwrap(),
+        key.public_key,
+        "localhost:8000",
+    ).unwrap();
+    assert_eq((ix.sequence, ix.current, ix.versions.len), (2, "1.1.0", 2));
+    assert_eq(fs.list_dir("{site(dir)}/builds").unwrap().len, 2);
+    // Each build is a signed bundle named by its hash.
+    for v of ix.versions {
+        let o = read_any(read_bytes("{site(dir)}/builds/{hex(v.sha256)}.rkb").unwrap()).unwrap();
+        assert_eq(o.signed.unwrap().key, key.public_key);
+    }
+    // The same bytes again change nothing.
+    assert_eq(publish_site(dir).unwrap().ends_with("nothing changed"), true);
+    done(dir);
+}
+
+@test
+fun keep_one_removes_the_old_build() {
+    let dir = project("keep", "1.0.0", 1);
+    publish_site(dir).unwrap();
+    set_version(dir, "1.0.1", 1);
+    assert_eq(publish_site(dir).unwrap().ends_with("1 old build removed"), true);
+    assert_eq(fs.list_dir("{site(dir)}/builds").unwrap().len, 1);
+    done(dir);
+}
+
+@test
+fun withdrawing_re_signs_the_index() {
+    let dir = project("withdraw", "1.0.0", 3);
+    publish_site(dir).unwrap();
+    assert_eq(
+        publish_args(dir, ["--withdraw", "1.0.0", "--reason", "Security fix in 1.0.1"]),
+        Ok("withdrew Notes 1.0.0 · sequence 2"),
+    );
+    let key = read_secret("{dir}.key", "localhost:8000").unwrap();
+    let ix = read_index(
+        read_bytes("{site(dir)}/index").unwrap(),
+        key.public_key,
+        "localhost:8000",
+    ).unwrap();
+    assert_eq(ix.versions[0].withdrawn, Some("Security fix in 1.0.1"));
+    assert_eq(publish_args(dir, ["--withdraw", "1.0.0"]).is_err(), true);
+    done(dir);
+}
+
+@test
+fun a_tampered_index_is_never_built_on() {
+    let dir = project("tampered", "1.0.0", 3);
+    publish_site(dir).unwrap();
+    let mut bytes = read_bytes("{site(dir)}/index").unwrap();
+    bytes[bytes.len - 1] = bytes[bytes.len - 1] ^ 1;
+    write_bytes("{site(dir)}/index", bytes).unwrap();
+    set_version(dir, "1.1.0", 3);
+    let e = err(publish_site(dir));
+    assert_eq(e.ends_with("isn't signed by its publisher's key; it wasn't changed"), true);
+    assert_eq(read_bytes("{site(dir)}/index").unwrap(), bytes);
+    done(dir);
+}
+
+@test
+fun a_site_with_another_key_is_refused() {
+    let dir = project("other", "1.0.0", 3);
+    publish_site(dir).unwrap();
+    clean("{dir}.key");
+    make_key(dir).unwrap();
+    set_version(dir, "1.1.0", 3);
+    assert_eq(err(publish_site(dir)).ends_with("would look like an unapproved key change"), true);
+    done(dir);
+}
+
+@test
+fun the_secret_key_never_reaches_the_site() {
+    let dir = project("secret", "1.0.0", 3);
+    publish_site(dir).unwrap();
+    let secret = read_secret("{dir}.key", "localhost:8000").unwrap().secret;
+    let mut files = ["{site(dir)}/key", "{site(dir)}/index"];
+    for name of fs.list_dir("{site(dir)}/builds").unwrap() {
+        files.push("{site(dir)}/builds/{name}");
+    }
+    for f of files {
+        assert_eq(contains(read_bytes(f).unwrap(), secret), false);
+    }
+    done(dir);
+}
+
+@test
+fun keys_and_signing_need_the_project_to_say_so() {
+    let dir = project("nokey", "1.0.0", 3);
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nmodule = \"m.wasm\"\n",
+    ).unwrap();
+    assert_eq(publish_site(dir), Err("rapidkoi.toml: [app] needs host to sign"));
+    assert_eq(make_key(dir), Err("rapidkoi.toml: [app] needs host to sign"));
+    // Without a host or key, pack writes an unsigned bundle.
+    assert_eq(pack_project(dir, false).unwrap().contains("unsigned"), true);
+    assert_eq(
+        read_any(read_bytes("{dir}/Notes-1.0.0.rkb").unwrap()).unwrap().signed.is_none(),
+        true,
+    );
+    assert_eq(err(pack_project(dir, false)).ends_with("exists; add --force to replace it"), true);
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:8000\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}/inside.key\"\n",
+    ).unwrap();
+    assert_eq(err(publish_site(dir)).contains("is inside the project"), true);
+    done(dir);
+}
+
+@test
+fun pack_signs_when_the_project_has_a_key() {
+    let dir = project("pack", "1.0.0", 3);
+    assert_eq(pack_project(dir, false).unwrap().contains(", signed,"), true);
+    let o = read_any(read_bytes("{dir}/Notes-1.0.0.rkb").unwrap()).unwrap();
+    assert_eq(o.signed.unwrap().host, "localhost:8000");
+    done(dir);
+}
+
+/** The error of a result that must have failed. */
+fun err(r: Result<string, string>): string = match r {
+    Err(e) => e,
+    Ok(s) => panic("expected an error, got: {s}"),
+};
+
+/** Whether `needle` appears anywhere in `hay`. */
+fun contains(hay: u8[], needle: u8[]): bool {
+    let mut i = 0;
+    while i + needle.len <= hay.len {
+        let mut j = 0;
+        while j < needle.len && hay[i + j] == needle[j] {
+            j += 1;
+        }
+        if j == needle.len {
+            return true;
+        }
+        i += 1;
+    }
+    false
+}
