@@ -1894,9 +1894,35 @@ src/themes.la, src/theme.la, docs/DESIGN.md
 
 ---
 
-## SESSION 51 — 2026-10-18 — The overlay panel: padding, a fixed width, under ⓘ, no closing from outside — open
+## SESSION 51 — 2026-10-18 — The overlay panel: padding, a fixed width, under ⓘ, no closing from outside — closed
 
 Branch: prp-010-kivuli_placeholders
+
+### WHAT WAS DONE
+
+The owner's screenshots 19–20, four points. 1) Padding: the dark look was on the padded node itself (kivuli's padding falls outside a node's background), so content met the border; the look moved to a wrapper. 2) Width: `PANEL_WIDTH` is a GTK minimum and the header's long marker ("✓ localhost:8000 · verified (development)") widened the panel; the marker is now a `button_with` text with `wrap_at(PANEL_CHARS)` and `ellipsize` (at most two lines, then …). 3) The panel sits at the top right just under ⓘ, as tall as its content (`.place(End, Start)`), not stretched to the bottom. 4) The dim layer is no longer a button: it blocks clicks to the app but closes nothing; Escape moved to the panel's Close button.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/shell.la, src/panel.la, test/panel.la, docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- The overlay test now checks a stray click can't close it (no scrim button), Close and Escape do, and no Escape is left when closed. 245 pass.
+
+### DECISIONS MADE
+
+- No closing from outside (the owner). Escape stays, on Close.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check of PRP-010, then merge.
 
 ---
 

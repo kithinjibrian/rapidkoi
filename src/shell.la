@@ -203,17 +203,18 @@ public fun view(m: Model): View<Msg> {
     let id = m.current.unwrap_or(-1);
     let middle = match page {
         Home => card(home.view(m.draft, m.pinned, window.card(m), m.tabs)),
-        // The panel sits over the app, which keeps its width; a dim layer
-        // between them closes it (and keeps the app from being clicked meanwhile).
+        // The panel sits over the app, which keeps its width. A dim layer
+        // between them keeps the app from being clicked meanwhile; it isn't a
+        // button, so a stray click never closes the panel (Close, Escape, ⓘ do).
         App(a) => overlay(card(app_view(id, a, m.now)), match m.panel {
             Some(p) => [
-                button("", Msg.TogglePanel).style([Look.Scrim]).tooltip(
-                    "Click to close the panel",
-                ).shortcut("Escape"),
-                // Inset from the page's edges, so its rounded corners show.
-                column([panel.view(a, p, m.confirm).style([Look.Panel]).expand()]).padding(
+                column([]).style([Look.Scrim]),
+                // Under ⓘ at the top right, as tall as its content. The dark
+                // look is on a wrapper, so the panel's padding falls inside it;
+                // the outer padding insets it from the page's edges.
+                column([column([panel.view(a, p, m.confirm)]).style([Look.Panel])]).padding(
                     SPACE_SM,
-                ).place(Align.End, Align.Fill),
+                ).place(Align.End, Align.Start),
             ],
             None => [],
         }),

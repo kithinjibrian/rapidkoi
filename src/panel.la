@@ -115,8 +115,10 @@ fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
         column([
             left(text(p.name).size(TEXT_TITLE).bold().wrap_at(NAME_CHARS)),
             left(text(version).dim()),
-            // Drawn by Rapidkoi only; tapping it opens who published it.
-            left(button(marker(p, shorten(file_name(p.path), MARKER_CHARS)), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app")),
+            // Drawn by Rapidkoi only; tapping it opens who published it. Cut
+            // with "…" rather than widening the panel past PANEL_WIDTH (a
+            // site's marker is long); the bar shows it whole.
+            left(button_with(text(marker(p, shorten(file_name(p.path), MARKER_CHARS))).wrap_at(PANEL_CHARS).ellipsize(), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app")),
         ]).spacing(SPACE_XS).expand(),
     ]).spacing(SPACE_MD);
     let mut parts = [header];
@@ -156,7 +158,7 @@ fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
             ).expand(),
             button("Close", Msg.TogglePanel).icon("window-close-symbolic").tooltip(
                 "Close the panel",
-            ).expand(),
+            ).shortcut("Escape").expand(),
         ]).spacing(SPACE_SM),
     });
     column(parts)
