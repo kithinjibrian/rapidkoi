@@ -62,7 +62,7 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the
 | `TILES_PER_ROW` | 4 | until kivuli has a wrapping grid (DECISION-018) |
 | `BANNER_HEIGHT` | 180 | "Where you left off" |
 | `PANEL_WIDTH` | 360 | the app info panel, fixed: its text never widens it (session 31) |
-| `PANEL_CHARS` | 40 | the most characters a wrapped panel line asks for (`.wrap_at`); paths are cut with … and shown whole on hover |
+| `PANEL_CHARS` | 30 | the most characters a wrapped panel line asks for (`.wrap_at`), kept well under the width so the panel never shifts between pages; the name wraps at 14, the header's file name is cut at 18, paths are cut with … and shown whole on hover |
 | `PAGE_RADIUS` | 12 | the page's top-right curve |
 | `WINDOW_WIDTH` × `WINDOW_HEIGHT` | 960 × 700 | the window's default size |
 

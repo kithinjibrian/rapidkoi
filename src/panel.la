@@ -22,6 +22,12 @@ import themes { Look };
 /** The panel's icon, in pixels. */
 const HEADER_ICON: i64 = 48;
 
+/** The most characters of the app's name per line (it's large type). */
+const NAME_CHARS: i64 = 14;
+
+/** The most characters of the file name in the header's marker; longer is cut with …. */
+const MARKER_CHARS: i64 = 18;
+
 /**
  * Builds the info panel for an app page, at one of its pages.
  *
@@ -93,10 +99,10 @@ fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
     let header = row([
         face,
         column([
-            left(text(p.name).size(TEXT_TITLE).bold().wrap_at(PANEL_CHARS / 2)),
+            left(text(p.name).size(TEXT_TITLE).bold().wrap_at(NAME_CHARS)),
             left(text(version).dim()),
             // Drawn by Rapidkoi only; tapping it opens who published it.
-            left(button(marker(p, file_name(p.path)), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app")),
+            left(button(marker(p, shorten(file_name(p.path), MARKER_CHARS)), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app")),
         ]).spacing(SPACE_XS).expand(),
     ]).spacing(SPACE_MD);
     let mut parts = [header];
@@ -235,4 +241,18 @@ fun left(v: View<Msg>): View<Msg> = v.align(Align.Start);
 fun file_name(path: string): string {
     let parts = path.split("/");
     if path.contains("://") { path } else { parts[parts.len - 1] }
+}
+
+/** `s` cut to at most `n` characters, with … when it was longer. */
+fun shorten(s: string, n: i64): string {
+    let mut out = "";
+    let mut count = 0;
+    for c of s.chars() {
+        if count == n {
+            return out + "…";
+        }
+        out = out + "{c}";
+        count += 1;
+    }
+    out
 }

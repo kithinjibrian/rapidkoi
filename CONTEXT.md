@@ -1234,6 +1234,41 @@ docs/source/meetings/2026-10-17-ui/screenshot-12-panel-width.png, screenshot-13-
 
 ---
 
+## SESSION 32 — 2026-10-18 — The panel's width, firmer — closed
+
+Branch: panel-width-firm → merged into main
+
+### WHAT WAS DONE
+
+The owner: the panel still shifted "a tiny bit but still noticeable". Some page's content was still slightly wider than 360, so its width won. Now every page's content is kept well under PANEL_WIDTH, so the panel's own width always decides:
+- PANEL_CHARS 30 (from 40)
+- the app's name wraps at 14
+- the header's file name is cut at 18 characters with …
+
+### FILES CREATED OR MODIFIED
+
+```
+src/theme.la, src/panel.la (NAME_CHARS, MARKER_CHARS, shorten), docs/DESIGN.md
+```
+
+### TESTS WRITTEN
+
+- None (layout; all 121 pass).
+
+### DECISIONS MADE
+
+- Content capped well below the width, rather than near it.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's on-screen check. If it still shifts, measure each page's width from a screenshot.
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 28 on a new branch. PRP-005 (the info panel and bar) is on `main`. Next, at the owner's choice:
