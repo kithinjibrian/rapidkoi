@@ -8,7 +8,7 @@
  * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, render, frame, home, panel, theme, themes
  * Used by: main
  */
-import kivuli { View, Cmd, Sub, column, row, scroll, text };
+import kivuli { View, Cmd, Sub, Align, button, column, overlay, row, scroll, text };
 import wasmtime { Engine };
 import actions { Msg, PanelPage };
 import tabs { AppPage, Tab, handle, is_loading };
@@ -170,11 +170,17 @@ public fun view(m: Model): View<Msg> {
     let id = m.current.unwrap_or(-1);
     let middle = match page {
         Home => card(home.view(m.draft, m.pinned, window.card(m), m.tabs)),
-        App(a) if m.panel.is_some() => row([
-            card(app_view(id, a, m.now)).expand(),
-            panel.view(a, m.panel.unwrap_or(PanelPage.Main), m.confirm),
-        ]),
-        App(a) => card(app_view(id, a, m.now)),
+        // The panel sits over the app, which keeps its width; a dim layer
+        // between them closes it (and keeps the app from being clicked meanwhile).
+        App(a) => overlay(card(app_view(id, a, m.now)), match m.panel {
+            Some(p) => [
+                button("", Msg.TogglePanel).style([Look.Scrim]).tooltip(
+                    "Click to close the panel",
+                ).shortcut("Escape"),
+                panel.view(a, p, m.confirm).place(Align.End, Align.Fill),
+            ],
+            None => [],
+        }),
     };
     let mut parts: View<Msg>[] = [];
     if let Some(n) = m.notice {

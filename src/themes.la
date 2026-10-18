@@ -21,6 +21,8 @@ public enum Look {
     Page,
     /** A rounded card of rows in the info panel: the frame's colour on the page's. */
     Section,
+    /** Over the app while the info panel is open: dims it, and a click on it closes the panel. */
+    Scrim,
 }
 
 /** One theme: a name, and a colour per part. Hex values live only here. */
@@ -31,10 +33,17 @@ public struct Theme {
     public frame: string,
     /** The page card. */
     public page: string,
+    /** The dim layer over the app while the panel is open: translucent (`#rrggbbaa`). */
+    public scrim: string,
 }
 
 /** The dark theme, the default (the owner's colours, 2026-10-17). */
-public const DARK: Theme = Theme { name: "dark", frame: "#242424", page: "#161616" };
+public const DARK: Theme = Theme {
+    name: "dark",
+    frame: "#242424",
+    page: "#161616",
+    scrim: "#00000060",
+};
 
 /**
  * Builds the kivuli theme that paints Rapidkoi's looks in `t`.
@@ -46,7 +55,7 @@ public const DARK: Theme = Theme { name: "dark", frame: "#242424", page: "#16161
  *     view.theme(kivuli_theme(DARK))
  */
 public fun kivuli_theme(t: Theme): Looks = looks(
-    [Look.Frame, Look.Page, Look.Section],
+    [Look.Frame, Look.Page, Look.Section, Look.Scrim],
     fun(l: Look) = surface(t, l),
 );
 
@@ -75,4 +84,6 @@ public fun surface(t: Theme, l: Look): Surface = match l {
         radius: Some(PAGE_RADIUS),
         ..Surface.theme(),
     },
+    // Flat: a plain dim layer, not a button that looks like one.
+    Scrim => Surface { background: Some(hex(t.scrim)), flat: Some(true), ..Surface.theme() },
 };
