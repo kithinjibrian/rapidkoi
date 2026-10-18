@@ -154,6 +154,7 @@ Rules:
   - kivuli 0.5.0: images from bytes. A bundle's icon shows on its tab and home tile (session 21)
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
 - **Still to come:**
+  0. **Clickable rows:** a button that holds a whole row (label, summary, arrow), for the info panel's rows (PRP-005)
   1. a file dialog
   2. an overlay, for the panel over the app
   3. context menus, for tab actions

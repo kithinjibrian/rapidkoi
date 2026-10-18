@@ -73,6 +73,18 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the
 - The verified mark is `✓`; a local file is marked `📄 … · local file`. Both are drawn only by Rapidkoi, never inside the app's area.
 - The art palette for generated app art comes with PRP-003.
 
+## The bar and the info panel (sessions 26–27)
+
+- **The bar:** `‹ ⌂ › ⟳ [address ☆] ⓘ ⤴`.
+  - ⟳ (`view-refresh-symbolic`) reloads, keeping the app's state.
+  - ☆ (`non-starred-symbolic`, ★ `starred-symbolic` when pinned) pins.
+- **The info panel** (the owner's sketch, `docs/source/meetings/2026-10-17-ui/sketch-3-info-panel.png`):
+  - a header (a 48 px icon, the name in title style, `Version …` dim, and the marker as a subtle button opening About)
+  - the description
+  - **Your settings** and **On this device**, each a small dim heading over a `Look.Section` card (the frame's `#242424`, `PAGE_RADIUS` corners) of rows: the label, a dim summary, and a › arrow
+  - **Forget this app** (danger)
+- Rows open pages with a ‹ Back arrow. **Start over** and **Forget** always ask first, in place, with [Cancel] and the danger action.
+
 ## In code
 
 The tokens are `public` constants in `src/theme.la`. Views use the names, never the numbers.

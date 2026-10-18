@@ -19,6 +19,8 @@ public enum Look {
     Frame,
     /** The page: home or an app, a rounded card inside the frame. */
     Page,
+    /** A rounded card of rows in the info panel: the frame's colour on the page's. */
+    Section,
 }
 
 /** One theme: a name, and a colour per part. Hex values live only here. */
@@ -44,7 +46,7 @@ public const DARK: Theme = Theme { name: "dark", frame: "#242424", page: "#16161
  *     view.theme(kivuli_theme(DARK))
  */
 public fun kivuli_theme(t: Theme): Looks = looks(
-    [Look.Frame, Look.Page],
+    [Look.Frame, Look.Page, Look.Section],
     fun(l: Look) = surface(t, l),
 );
 
@@ -65,6 +67,12 @@ public fun surface(t: Theme, l: Look): Surface = match l {
     Page => Surface {
         background: Some(hex(t.page)),
         radius_top_right: Some(PAGE_RADIUS),
+        ..Surface.theme(),
+    },
+    // The panel's cards: the frame's colour, rounded, on the page's.
+    Section => Surface {
+        background: Some(hex(t.frame)),
+        radius: Some(PAGE_RADIUS),
         ..Surface.theme(),
     },
 };

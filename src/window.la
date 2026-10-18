@@ -8,7 +8,7 @@
  * Used by: navigate, shell
  */
 import wasmtime { Engine };
-import actions { Msg };
+import actions { Msg, PanelPage, Confirm };
 import tabs { Page, Tab, Pin, LeftOff, AppPage, leave };
 import home { Card };
 import frame { icon_of };
@@ -26,8 +26,10 @@ public struct Model {
     public draft: string,
     /** Whether an app page's address is being edited. */
     public editing: bool,
-    /** Whether the info panel is open. */
-    public showing_panel: bool,
+    /** The info panel's page, or `None` when it's closed. */
+    public panel: Option<PanelPage>,
+    /** A destructive action waiting for "yes". */
+    public confirm: Option<Confirm>,
     /** Pinned apps, in this session (PRP-003 keeps them). */
     public pinned: Pin[],
     /** The last app tab visited before home, if it's still open. */
@@ -62,7 +64,8 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         next: made.len,
         draft: "",
         editing: false,
-        showing_panel: false,
+        panel: None,
+        confirm: None,
         pinned: [],
         last: None,
         left_off: None,
@@ -135,7 +138,8 @@ public fun go_home(m: Model): Model = Model {
     last: if m.current.is_some() { m.current } else { m.last },
     draft: "",
     editing: false,
-    showing_panel: false,
+    panel: None,
+    confirm: None,
     notice: None,
     ..m,
 };
@@ -147,7 +151,7 @@ public fun go_home(m: Model): Model = Model {
  *     show_tab(m, 2)
  */
 public fun show_tab(m: Model, id: i64): Model = if app(m, id).is_some() {
-    Model { current: Some(id), editing: false, notice: None, ..m }
+    Model { current: Some(id), editing: false, notice: None, confirm: None, ..m }
 } else {
     m
 };
@@ -192,8 +196,51 @@ public fun close(m: Model, id: i64): Model {
     } else {
         Some(kept[if at < kept.len { at } else { kept.len - 1 }].id)
     };
-    Model { tabs: kept, current: current, left_off: left, showing_panel: false, ..m }
+    Model { tabs: kept, current: current, left_off: left, panel: None, confirm: None, ..m }
 }
+
+/**
+ * Forgets the current app: closes its tab without making it "where you left
+ * off", unpins it, drops a "where you left off" from the same place, and
+ * closes the panel. What's on disk goes too once there is a store
+ * (PRP-006).
+ *
+ * Example:
+ *     forget(m)
+ */
+public fun forget(m: Model): Model = match (m.current, page_of(m)) {
+    (Some(id), App(a)) => {
+        let closed = close(m, id);
+        // close() made this app "where you left off"; forgetting keeps the
+        // one from before, unless that was this app too.
+        let left = match m.left_off {
+            Some(l) if l.path == a.path => None,
+            _ => m.left_off,
+        };
+        Model {
+            pinned: closed.pinned.filter(fun(p: Pin) = p.path != a.path),
+            left_off: left,
+            panel: None,
+            confirm: None,
+            ..closed,
+        }
+    }
+    _ => m,
+};
+
+/**
+ * Pins the current app, or unpins it if it's pinned (☆ in the bar).
+ *
+ * Example:
+ *     toggle_pin(m)
+ */
+public fun toggle_pin(m: Model): Model = match page_of(m) {
+    App(a) if is_pinned(m, a.path) => Model {
+        pinned: m.pinned.filter(fun(p: Pin) = p.path != a.path),
+        ..m,
+    },
+    _ => pin(m),
+};
 
 /**
  * Pins the current app, unless it's pinned already.

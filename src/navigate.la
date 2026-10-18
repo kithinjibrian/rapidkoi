@@ -8,7 +8,16 @@
  * Used by: shell
  */
 import std.fs;
-import tabs { AppPage, open_path, close_page, leave, resume };
+import tabs {
+    AppPage,
+    open_path,
+    close_page,
+    leave,
+    resume,
+    load_again,
+    state_of,
+    state_version_of,
+};
 import window { Model, page_of, with_tab, add_tab, app };
 import address { is_address, parse };
 
@@ -68,18 +77,24 @@ public fun reopen(m: Model): Model = match m.left_off {
 };
 
 /**
- * Fetches or reads the current app again and starts it fresh: a new build
- * from a development server after a repack. Its state starts over (a new
- * build may have a new state shape; DECISION-019 handles state across
- * builds later).
+ * ⟳ Reload: loads the current app again from its file or server and
+ * continues with its current state when the state's shape is unchanged; a
+ * changed shape starts fresh, with a notice. A stopped page starts fresh.
  *
  * Example:
  *     reload(m)
  */
 public fun reload(m: Model): Model = match (m.current, page_of(m)) {
     (Some(id), App(a)) => {
+        let saved = state_of(a).map(fun(st: u8[]) = (st, state_version_of(a)));
         close_page(a);
-        with_tab(m, id, fun(_: AppPage) = open_path(m.engine, a.path))
+        let (page, over) = load_again(m.engine, a.path, saved);
+        let notice: Option<string> = if over {
+            Some("{page.name}'s saved state changed shape, so it started over")
+        } else {
+            None
+        };
+        Model { notice: notice, ..with_tab(m, id, fun(_: AppPage) = page) }
     }
     _ => m,
 };

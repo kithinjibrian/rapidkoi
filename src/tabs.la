@@ -188,7 +188,7 @@ public fun leave(p: AppPage): LeftOff {
         path: p.path,
         title: p.title,
         state: state_of(p),
-        state_version: p.manifest.map(fun(m: Manifest) = m.state_version).unwrap_or(1),
+        state_version: state_version_of(p),
         manifest: p.manifest,
         icon: p.icon,
         program: p.program,
@@ -219,6 +219,63 @@ public fun resume(l: LeftOff): AppPage = match l.program {
     }),
     None => failed(l.name, l.path, "This app couldn't be reopened"),
 };
+
+/**
+ * Loads an app again from where it came from (its file, or its development
+ * server) and starts it with `saved` state when the new build's state
+ * version matches; otherwise fresh. ⟳ Reload uses it.
+ *
+ * @param engine the program's engine
+ * @param path the page's file or address
+ * @param saved the running page's state and state version, if it had one
+ * @returns the page, and whether a saved state had to be dropped because
+ *     its shape changed (`migrate` comes with PRP-006)
+ *
+ * Example:
+ *     load_again(engine, page.path, Some((state, 1)))
+ */
+public fun load_again(
+    engine: Engine,
+    path: string,
+    saved: Option<(u8[], i64)>,
+): (AppPage, bool) = match load(engine, path) {
+    Err((name, why)) => (failed(name, path, why), false),
+    Ok(l) => {
+        let fresh = AppPage {
+            manifest: l.manifest,
+            icon: l.icon,
+            ..open_module(l.name, path, engine, l.module),
+        };
+        let now = state_version_of(fresh);
+        match saved {
+            Some((state, version)) if version == now => {
+                close_page(fresh);
+                let program = Program { engine: engine, module: l.module };
+                (
+                    titled(AppPage {
+                        program: Some(program),
+                        screen: start(program, Some(state)),
+                        ..fresh,
+                    }),
+                    false,
+                )
+            }
+            Some(_) => (fresh, true),
+            None => (fresh, false),
+        }
+    }
+};
+
+/**
+ * Returns the version of a page's state shape: its manifest's, or 1 for a
+ * bare module.
+ *
+ * Example:
+ *     state_version_of(page)
+ */
+public fun state_version_of(p: AppPage): i64 = p.manifest.map(
+    fun(m: Manifest) = m.state_version,
+).unwrap_or(1);
 
 /**
  * Returns a page's current state.

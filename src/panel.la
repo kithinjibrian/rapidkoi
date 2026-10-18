@@ -1,61 +1,217 @@
 /**
- * The app info panel, pure: what an app is, what it may do, and the
- * actions on its tab. Shown beside the app until kivuli has an overlay
- * (DECISION-018).
+ * The app info panel, pure, as the owner sketched it
+ * (`docs/source/meetings/2026-10-17-ui/sketch-3-info-panel.png`): a header
+ * (icon, name, version, host marker), the description, "Your settings"
+ * (Account · Notifications · Access), "On this device" (Where you left off
+ * · Data), and Forget this app. Each row opens its own page, with a back
+ * arrow. Destructive actions ask first. Shown beside the app until kivuli
+ * has an overlay (DECISION-018).
  *
- * Depends on: kivuli, render, actions, tabs, frame, theme
+ * Depends on: kivuli, actions, tabs, frame, bundle, address, theme, themes
  * Used by: shell
  */
-import kivuli { View, ButtonStyle, button, column, row, text };
-import render;
-import actions { Msg };
-import tabs { AppPage };
-import frame { icon_button, marker };
+import kivuli { View, ButtonStyle, button, column, image, row, spacer, text };
+import actions { Msg, PanelPage, Confirm };
+import tabs { AppPage, state_of, state_version_of };
+import frame { icon_button, icon_of, initial, marker };
 import bundle { Manifest };
 import address { parse };
-import theme { SPACE_SM, SPACE_MD, TEXT_TITLE, PANEL_WIDTH };
+import theme { SPACE_XS, SPACE_SM, SPACE_MD, TEXT_TITLE, TEXT_HEADING, PANEL_WIDTH };
+import themes { Look };
+
+/** The panel's icon, in pixels. */
+const HEADER_ICON: i64 = 48;
 
 /**
- * Builds the info panel for an app page.
+ * Builds the info panel for an app page, at one of its pages.
  *
- * @param id the page's tab
- * @param p the page
- * @param pinned whether the app is pinned
- * @returns the panel: name, title, version and description (bundles), where it came from, contract and state version, permissions, Restart, Pin/Unpin, Close tab
+ * @param p the app's page
+ * @param at which of the panel's pages to show
+ * @param confirm a destructive action waiting for "yes", if any
+ * @returns the panel
  *
  * Example:
- *     panel.view(tab.id, page, false)
+ *     panel.view(page, PanelPage.Main, None)
  */
-public fun view(id: i64, p: AppPage, pinned: bool): View<Msg> {
-    let mut parts = [
-        row([
-            text(p.name).size(TEXT_TITLE).bold().expand(),
-            icon_button("window-close-symbolic", "Close the panel", Some(Msg.TogglePanel)),
+public fun view(p: AppPage, at: PanelPage, confirm: Option<Confirm>): View<Msg> {
+    let body = match at {
+        Main => front(p, confirm),
+        Account => sub("Account", [
+            text("How {p.name} knows you").dim(),
+            text("Not signed in"),
+            text(
+                "Sign-in comes in a later step: each app will get its own ID for you, and the name you choose.",
+            ).dim().wrap(),
         ]),
-    ];
-    if let Some(t) = p.title {
-        parts.push(text(t));
+        Notifications => sub("Notifications", [
+            text("{p.name} hasn't asked to send notifications.").wrap(),
+        ]),
+        Access => sub("Access", [
+            text("None: {p.name} can't reach anything outside itself.").wrap(),
+        ]),
+        State => sub("Where you left off", state_page(p, confirm)),
+        Data => sub("Data", [
+            text("No data yet.").wrap(),
+            text("App databases come in a later step.").dim().wrap(),
+        ]),
+        About => sub("About", about(p)),
+    };
+    body.spacing(SPACE_MD).padding(SPACE_MD).width(PANEL_WIDTH)
+}
+
+/**
+ * Returns a byte count the way people read it: "Nothing saved", "900 B",
+ * "12 KB", "3.4 MB".
+ *
+ * Example:
+ *     size(12_288)
+ */
+public fun size(n: i64): string {
+    if n <= 0 {
+        return "Nothing saved";
     }
+    if n < 1024 {
+        return "{n} B";
+    }
+    if n < 1024 * 1024 {
+        return "{n / 1024} KB";
+    }
+    // One decimal for megabytes, rounded to the nearest tenth: 3.4 MB.
+    let tenths = (n * 10 + 512 * 1024) / (1024 * 1024);
+    "{tenths / 10}.{tenths % 10} MB"
+}
+
+fun front(p: AppPage, confirm: Option<Confirm>): View<Msg> {
+    let face: View<Msg> = match icon_of(p.path, p.icon) {
+        Some(img) => image(img).size(HEADER_ICON),
+        None => text(initial(p.name)).size(TEXT_TITLE).bold(),
+    };
+    let version = match p.manifest {
+        Some(m) => "Version {m.version}",
+        None => "No version",
+    };
+    let header = row([
+        face,
+        column([
+            text(p.name).size(TEXT_TITLE).bold(),
+            text(version).dim(),
+            // Drawn by Rapidkoi only; tapping it opens who published it.
+            button(marker(p, p.path), Msg.PanelGo(PanelPage.About)).button_style(ButtonStyle.Subtle).tooltip("About this app"),
+        ]).spacing(SPACE_XS).expand(),
+        icon_button("window-close-symbolic", "Close the panel", Some(Msg.TogglePanel)),
+    ]).spacing(SPACE_MD);
+    let mut parts = [header];
     if let Some(m) = p.manifest {
-        parts.push(text("Version {m.version}").dim());
         if let Some(d) = m.description {
             parts.push(text(d).wrap());
         }
     }
-    parts.push(text(marker(p, p.path)).dim().wrap());
-    let state = p.manifest.map(fun(m: Manifest) = m.state_version).unwrap_or(1);
-    parts.push(text("Contract v1 · state v{state}").dim());
-    parts.push(text("Permissions: none. This app can't reach anything outside itself.").wrap());
-    if let Ok(a) = parse(p.path) {
-        parts.push(
-            text("Served from rapidkoi://{address.shown(a)} (development, unsigned)").dim().wrap(),
-        );
-        parts.push(
-            button("Reload", Msg.Reload).tooltip("Fetch the server's bundle again and start fresh"),
-        );
-    }
-    parts.push(button("Restart", Msg.Tab(id, render.Msg.Restart)));
-    parts.push(if pinned { button("Unpin", Msg.Unpin(p.path)) } else { button("Pin", Msg.Pin) });
-    parts.push(button("Close tab", Msg.CloseTab(id)).button_style(ButtonStyle.Danger));
-    column(parts).spacing(SPACE_SM).padding(SPACE_MD).width(PANEL_WIDTH)
+    parts.push(heading("Your settings"));
+    parts.push(
+        section([
+            line("Account", "Not signed in", PanelPage.Account),
+            line("Notifications", "Off", PanelPage.Notifications),
+            line("Access", "None", PanelPage.Access),
+        ]),
+    );
+    parts.push(heading("On this device"));
+    let saved = state_of(p).map(fun(s: u8[]) = s.len).unwrap_or(0);
+    parts.push(
+        section([
+            line("Where you left off", size(saved), PanelPage.State),
+            line("Data", "None", PanelPage.Data),
+        ]),
+    );
+    parts.push(spacer());
+    parts.push(match confirm {
+        Some(Forget) => asking(
+            "Forget {p.name}? Everything it stored on this device will be deleted.",
+            "Forget",
+            Msg.Forget,
+        ),
+        _ => button("Forget this app", Msg.Ask(Confirm.Forget)).button_style(ButtonStyle.Danger),
+    });
+    column(parts)
 }
+
+fun state_page(p: AppPage, confirm: Option<Confirm>): View<Msg>[] {
+    let saved = state_of(p).map(fun(s: u8[]) = s.len).unwrap_or(0);
+    [text("{size(saved)} · state v{state_version_of(p)}"), text(
+        "What {p.name} keeps between visits. ⟳ Reload keeps it; Start over clears it.",
+    ).dim().wrap(), match confirm {
+        Some(StartOver) => asking(
+            "Start {p.name} over? What it saved on this device will be cleared.",
+            "Start over",
+            Msg.StartOver,
+        ),
+        _ => button("Start over", Msg.Ask(Confirm.StartOver)).button_style(ButtonStyle.Danger),
+    }]
+}
+
+fun about(p: AppPage): View<Msg>[] {
+    let publisher = match (parse(p.path), p.manifest) {
+        (Ok(_), _) => "Development server, unsigned",
+        (Err(_), Some(_)) => "Not signed: a local bundle",
+        (Err(_), None) => "Not signed: a bare module",
+    };
+    let version = p.manifest.map(fun(m: Manifest) = m.version).unwrap_or("none");
+    let format = match p.manifest {
+        Some(_) => "Bundle format 1 (unsigned)",
+        None => "A bare WebAssembly module",
+    };
+    [
+        pair("Publisher", publisher),
+        pair("From", p.path),
+        pair("Version", version),
+        pair("Contract", "v1 · state v{state_version_of(p)}"),
+        pair("Build", format),
+    ]
+}
+
+/** A page under the main one: a back arrow, its title, then its parts. */
+fun sub(title: string, parts: View<Msg>[]): View<Msg> {
+    let mut all = [
+        row([
+            icon_button("go-previous-symbolic", "Back", Some(Msg.PanelBack)),
+            text(title).size(TEXT_HEADING).bold(),
+        ]).spacing(SPACE_SM),
+    ];
+    for v of parts {
+        all.push(v);
+    }
+    column(all)
+}
+
+/** A small dim heading above a section. */
+fun heading(s: string): View<Msg> = text(s).dim();
+
+/** A rounded card of rows. */
+fun section(rows: View<Msg>[]): View<Msg> = column(rows).spacing(SPACE_XS).padding(SPACE_SM).style([
+    Look.Section,
+]);
+
+/**
+ * One row: its name, a short summary, and the arrow that opens its page.
+ * kivuli buttons can't hold a whole row yet, so the arrow is the click
+ * target (DECISION-020).
+ */
+fun line(label: string, summary: string, opens: PanelPage): View<Msg> = row([
+    text(label).expand(),
+    text(summary).dim(),
+    icon_button("go-next-symbolic", label, Some(Msg.PanelGo(opens))),
+]).spacing(SPACE_SM);
+
+/** A label and its value, for About. */
+fun pair(label: string, value: string): View<Msg> = column([
+    text(label).dim(),
+    text(value).wrap(),
+]).spacing(SPACE_XS);
+
+/** The question before a destructive action, with Cancel and the action. */
+fun asking(question: string, action: string, msg: Msg): View<Msg> = column([
+    text(question).wrap(),
+    row([
+        button("Cancel", Msg.Cancel),
+        button(action, msg).button_style(ButtonStyle.Danger),
+    ]).spacing(SPACE_SM),
+]).spacing(SPACE_SM);

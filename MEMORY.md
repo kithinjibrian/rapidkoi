@@ -202,6 +202,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - **Rapidkoi's frame and tabs (PRP-002 + Amendment 1), merged in session 10:** the bar, an app-only tab rail, home (Where you left off, Pinned, search), the info panel, the dark theme defined (placeholder). 73 Lugha tests.
 - **Bundles (PRP-003), merged in session 20:** `./main pack` makes a `.rkb` (format 1); `./main app.rkb` or typing its path opens it. 95 Lugha tests.
 - **Local development (PRP-004), merged in session 23:** `./main serve app.rkb` (127.0.0.1 only); `rapidkoi://localhost:PORT` opens it; Reload. 115 Lugha tests.
+- **The info panel and bar actions (PRP-005), merged in session 27:** the owner's panel sketch; ⟳ keeps state; ☆ pins. 121 Lugha tests.
 
 ### In Progress
 - Nothing.

@@ -308,4 +308,5 @@ Update this tree when modules are added.
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
   - Pins, "where you left off" and search are in memory only.
   - Back, forward, share, settings and more are shown disabled.
+  - Only a panel row's › arrow is clickable, not the whole row: kivuli buttons can't hold a row yet (DECISION-020). Account, Notifications, Access and Data are placeholder pages until accounts (DECISION-022), notifications, permissions and app data exist.
   - Only local development addresses open (localhost, 127.0.0.1, [::1]); other hosts wait for HTTPS and signing (DECISION-009). A fetch waits on the window's thread, so the window pauses while it downloads (DECISION-021). Reload is manual; there's no live reload yet.

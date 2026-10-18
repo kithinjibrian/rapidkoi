@@ -1,6 +1,7 @@
 /**
  * What Rapidkoi's window can send its `update`: the frame's buttons, the
- * address box, home, the info panel, and each tab's own screen.
+ * address box, home, the info panel and its pages, and each tab's own
+ * screen.
  *
  * Depends on: render
  * Used by: frame, home, panel, shell
@@ -31,12 +32,48 @@ public enum Msg {
     Continue,
     /** Show or hide the app info panel. */
     TogglePanel,
-    /** Pin the current app. */
-    Pin,
-    /** Unpin an app, by path. */
-    Unpin(string),
+    /** Pin the current app, or unpin it if it's pinned (☆ in the bar). */
+    TogglePin,
     /** Move the keyboard to the address box (Ctrl+K). */
     FocusSearch,
-    /** Fetch or read the current app again and start it fresh. */
+    /** Load the current app again from its file or server, keeping its state when it can (⟳). */
     Reload,
+    /** Open one of the info panel's pages. */
+    PanelGo(PanelPage),
+    /** Go back to the info panel's main page. */
+    PanelBack,
+    /** Ask before a destructive action. */
+    Ask(Confirm),
+    /** Don't do the action that was asked about. */
+    Cancel,
+    /** Clear the current app's state and start it fresh (confirmed). */
+    StartOver,
+    /** Forget the current app: its tab, pin and saved state (confirmed). */
+    Forget,
+}
+
+/** The info panel's pages. */
+public enum PanelPage {
+    /** The header, description, settings, storage and Forget. */
+    Main,
+    /** How the app knows you (sign-in comes later: DECISION-022). */
+    Account,
+    /** Whether it may send notifications. */
+    Notifications,
+    /** What it can reach: devices, files, servers. */
+    Access,
+    /** What it saved: where you left off, and Start over. */
+    State,
+    /** Its files and database. */
+    Data,
+    /** Who published it, where it came from, its version and build. */
+    About,
+}
+
+/** A destructive action waiting for "yes". */
+public enum Confirm {
+    /** Clear the app's state. */
+    StartOver,
+    /** Forget the app entirely. */
+    Forget,
 }
