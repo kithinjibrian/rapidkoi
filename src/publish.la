@@ -80,7 +80,7 @@ public fun run(argv: string[]): i32 {
  * Makes the project's secret key at `[publish].key`.
  *
  * @param dir the project's folder, absolute
- * @returns what was written, with the key's fingerprint and a chmod reminder
+ * @returns what was written, with the key's fingerprint
  *
  * Example:
  *     make_key("/work/notes")?
@@ -90,7 +90,7 @@ public fun make_key(dir: string): Result<string, string> {
     let (host, path) = signer(p)?;
     let k = keygen(host, path, p.dir).map_err(key_reason)?;
     Ok(
-        "wrote {path} · fingerprint {fingerprint(k.public_key)}\nKeep it secret. Run: chmod 600 {path}",
+        "wrote {path} (readable by you only) · fingerprint {fingerprint(k.public_key)}\nKeep it secret: never commit or share it",
     )
 }
 

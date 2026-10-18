@@ -31,3 +31,4 @@ Never deleted. Older entries are never modified.
 - A site whose key changes without its old key's approval asks first: keep using your version, or open it as a separate app. Key rotations signed by the old key are followed silently.
 - `./main publish --withdraw VERSION --reason TEXT` withdraws a version; Rapidkoi refuses a withdrawn build with the publisher's reason.
 - `./main pack` with no arguments packs from `rapidkoi.toml`, signed when it has a key. Signed `.rkb` files opened by path show ⚠ not confirmed until their key is trusted this session.
+- `./main keygen` writes the secret key readable by you only (0600), whole or not at all.

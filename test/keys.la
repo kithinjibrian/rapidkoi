@@ -25,6 +25,30 @@ fun keygen_writes_a_key_that_signs() {
 }
 
 @test
+fun keygen_leaves_only_the_key() {
+    // The key is written through a 0600 temporary file renamed into place;
+    // nothing else stays behind. (std.fs can't read a mode back yet, so
+    // 0600 itself is std's test: lugha m115.)
+    let path = fresh("keys-only.key");
+    keygen("a.example", path, "/elsewhere").unwrap();
+    assert_eq((fs.is_file(path), fs.exists("{path}.tmp")), (true, false));
+    assert_eq(read_secret(path, "a.example").is_ok(), true);
+    fs.remove_file(path).unwrap();
+}
+
+@test
+fun keygen_reports_a_folder_it_cant_write() {
+    write_bytes("test/tmp/keys-file", [0]).unwrap();
+    assert_eq(
+        keygen("a.example", "test/tmp/keys-file/a.key", "/elsewhere").map_err(
+            fun(e: KeyError) = reason(e).starts_with("test/tmp/keys-file"),
+        ),
+        Err(true),
+    );
+    fs.remove_file("test/tmp/keys-file").unwrap();
+}
+
+@test
 fun keygen_never_overwrites() {
     let path = fresh("keys-twice.key");
     keygen("a.example", path, "/elsewhere").unwrap();

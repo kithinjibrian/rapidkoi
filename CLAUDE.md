@@ -184,7 +184,7 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
 ./main rapidkoi://localhost:8000                                       # opens a window: the user's
 
 # Signed apps: rapidkoi.toml describes the app (the repo's own is the counter's)
-./main keygen          # once: the secret key at [publish].key, outside the project; then chmod 600 it
+./main keygen          # once: the secret key at [publish].key, outside the project, mode 0600
 ./main publish         # signs and writes site/.well-known/rapidkoi/{key, index, builds/<sha256>.rkb}
 ./main publish --withdraw VERSION --reason TEXT
 ./main pack            # one .rkb from rapidkoi.toml, signed when it has a host and a key
