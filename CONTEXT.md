@@ -1526,12 +1526,39 @@ CONTEXT.md, lugha.lock (lughac's)
 
 ---
 
-## SESSION 40 — 2026-10-18 — Design background loading (PRP-008) — open
+## SESSION 40 — 2026-10-18 — Design background loading (PRP-008) — closed
 
 Branch: prp-008-background_loading
+
+### WHAT WAS DONE
+
+Designed background loading in chat with the owner, three topics, each "yes": a loading page in the tab at once (spinner, elapsed time after 3 s, "· loading…" marker; closing or ⟳ ignores the old result; local files stay instant); the task gets a snapshot of trusted keys and returns the verified bytes plus a record, trust recorded only on arrival, a changed snapshot reloads once; 30 s per request, local addresses only (https next). Wrote PRP-008, including the step-0 split of tabs.la (481 lines) into leftoff.la and the kivuli 0.6 bump. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/source/meetings/2026-10-18-background-loading.md
+PRPs/prp-008-background_loading.md — for approval
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- DECISION-021 will resolve to option A (kivuli's Cmd.task) when PRP-008 merges.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-008 awaits approval (and with it, the tabs.la split).
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-007 is merged. Next: design background loading (DECISION-021, kivuli 0.6's Cmd.task) in chat, one question at a time, then write PRP-008. After it: remote apps over HTTPS (first target: rapidkoi://counter.dafifi.net on the owner's VM), and the tabs PRP (split src/tabs.la first).
+PRP-008 (`PRPs/prp-008-background_loading.md`) awaits approval on `prp-008-background_loading`. If approved: open session 41 there, step 0 (split tabs.la → leftoff.la, suite unchanged), bump kivuli to 0.6 (`lughac update`), then build test-first in the PRP's order. Stop before merge for the owner's review. Then: remote apps over HTTPS (counter.dafifi.net), and the tabs PRP.
