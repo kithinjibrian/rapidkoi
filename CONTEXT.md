@@ -1559,12 +1559,44 @@ PRPs/prp-008-background_loading.md — for approval
 
 ---
 
-## SESSION 41 — 2026-10-18 — Build PRP-008: background loading — open
+## SESSION 41 — 2026-10-18 — Build PRP-008: background loading — closed
 
 Branch: prp-008-background_loading
+
+### WHAT WAS DONE
+
+Built PRP-008 test-first. Step 0: LeftOff and its functions moved unchanged to leftoff.la (tabs.la 481 → 366; suite unchanged). kivuli 0.6 (`lughac update`). verify: `check_site` over a snapshot (`known_for`), `record` on arrival; `verify_site` is both. fetching.la: the task's work (key, index, build checked against the snapshot; an unsigned server's bundle; "didn't answer in N seconds"; nothing listening is "Couldn't reach"). loader: `from_fetched` (records, then compiles) and `current` (the snapshot still the keyring's). tabs: `Screen.Loading(Pending)` (started, again, saved, kept), `AppPage.load`, `loading`, `from_loaded`, `failed_page`, `is_loading`, `refused` public. loads.la: `begin` (a loading page and a Cmd.task capturing only the address and snapshot), `arrive` (stale by tab and number ignored; a changed snapshot loads again once, then "Trust for HOST changed while it loaded; try again"; ⟳ keeps the open page until the new one is ready or a changed key is answered), `resumed` (moved from navigate). navigate's opens return (Model, Cmd). shell: Fetched and Tick, the loading page, `subscriptions` (120 ms only while loading). The marker shows "HOST · loading…". FETCH_TIMEOUT_MS 30 s.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/leftoff.la, src/fetching.la, src/loads.la — new
+src/tabs.la, src/verify.la, src/loader.la, src/navigate.la, src/shell.la, src/window.la, src/actions.la, src/render.la, src/frame.la, src/main.la, src/limits.la (and imports in saving, remembered)
+lugha.toml (kivuli 0.6), lugha.lock (lughac update)
+test/fetching.la, test/loading.la — new; test/support.la (settle); test/verify.la (+2); test/opening.la, test/saving.la, test/loader.la (settle background loads); test/remembered.la, test/tabs.la (imports)
+CLAUDE.md (rule 3, tree, known issues, stack), DECISIONS.md (021 resolved), CHANGELOG.md
+```
+
+### TESTS WRITTEN
+
+- 226 pass: fetching 5 (live), loading 8 (a loading tab and task, the spinner and "Loading… 4 s", other actions meanwhile, stale results ignored, a result becomes the app or the reason with no Restart, ⟳ makes the old number stale, a changed snapshot reloads once then says so, end to end with trust saved, subscriptions only while loading), verify +2.
+
+### DECISIONS MADE
+
+- Tests run tasks with `support.settle`, matching kivuli's public `Cmd.Task`; no kivuli change needed (a `kivuli.testing` helper could come later).
+- The checked bundle travels from the task to the window as data; it isn't re-read on arrival (the PRP suggested a second `read_any`; the bytes never leave the process, so it would only repeat the same check).
+- ⟳ keeps the open page (running or not) as before, so a changed key still offers "Keep using my version".
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's review and on-screen checks before merge (the verification path moved into the task).
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-008 (`PRPs/prp-008-background_loading.md`) awaits approval on `prp-008-background_loading`. If approved: open session 41 there, step 0 (split tabs.la → leftoff.la, suite unchanged), bump kivuli to 0.6 (`lughac update`), then build test-first in the PRP's order. Stop before merge for the owner's review. Then: remote apps over HTTPS (counter.dafifi.net), and the tabs PRP.
+PRP-008 is built on `prp-008-background_loading`, not merged. Wait for the owner's review and on-screen checks, run the full suite, merge. Next: remote apps over HTTPS (first target: rapidkoi://counter.dafifi.net on the owner's VM; see memory), then the tabs PRP.
