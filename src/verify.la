@@ -6,8 +6,8 @@
  * that isn't withdrawn), then the build (size, hash, signature, key, host).
  * Nothing here runs an app, and there is no way past a failed check.
  *
- * Trust lasts for this session (PRP-007 keeps it on disk): host → key and
- * the highest sequence seen, kept in a `Keyring` the window holds.
+ * Trust is host → key and the highest sequence seen, kept in a `Keyring`
+ * the window holds; `saving` keeps it on disk across restarts (PRP-007).
  *
  * Depends on: std.crypto, index, signing, keys, rules
  * Used by: loader, tabs, frame, panel
@@ -83,17 +83,23 @@ public enum VerifyError {
     BuildHost(string),
 }
 
-/** One identity Rapidkoi trusts this session. */
-struct Known {
-    host: string,
-    key: u8[],
-    sequence: i64,
-    separate: bool,
+/** One identity Rapidkoi trusts: a host, its key, and how far its index got. */
+public struct Identity {
+    /** The host. */
+    public host: string,
+    /** Its 32-byte public key. */
+    public key: u8[],
+    /** The highest index sequence seen for it. */
+    public sequence: i64,
+    /** Whether it's a second publisher for the host, opened as a separate app. */
+    public separate: bool,
 }
 
 /** The keys trusted this session, shared by every copy (it's a box). */
 public struct Keyring {
-    known: Ref<Known[]>,
+    known: Ref<Identity[]>,
+    /** How many times trust was recorded: a save is due when it moves. */
+    count: Ref<i64>,
 }
 
 /** A verified site's current build. */
@@ -113,7 +119,35 @@ public const SITE: string = "/.well-known/rapidkoi";
  * Example:
  *     let ring = keyring();
  */
-public fun keyring(): Keyring = Keyring { known: Ref.new([]) };
+public fun keyring(): Keyring = keyring_of([]);
+
+/**
+ * A keyring trusting `ids`: what was saved.
+ *
+ * Example:
+ *     keyring_of(read_trust(bytes)?)
+ */
+public fun keyring_of(ids: Identity[]): Keyring = Keyring {
+    known: Ref.new(ids),
+    count: Ref.new(0),
+};
+
+/**
+ * Returns the identities a keyring trusts, to save.
+ *
+ * Example:
+ *     trust_file(identities(ring))
+ */
+public fun identities(ring: Keyring): Identity[] = ring.known.get();
+
+/**
+ * Returns how many times trust was recorded in this keyring: compare two
+ * readings to know whether there's anything new to save.
+ *
+ * Example:
+ *     if changes(ring) != before { save(…) }
+ */
+public fun changes(ring: Keyring): i64 = ring.count.get();
 
 /**
  * Verifies a site and returns its current build, checked. Trust is
@@ -144,19 +178,19 @@ public fun verify_site(
     if kf.host != host {
         return Err(VerifyError.WrongHost(kf.host, host));
     }
-    let known = ring.known.get().filter(fun(k: Known) = k.host == host);
+    let known = ring.known.get().filter(fun(k: Identity) = k.host == host);
     // The identity this site is checked as: the known key it matches or a
     // signed trail leads from; none on first use.
-    let from = match first(known, fun(k: Known) = equal(k.key, kf.key)) {
+    let from = match first(known, fun(k: Identity) = equal(k.key, kf.key)) {
         Some(k) => Some(k),
-        None => first(known, fun(k: Known) = follow(k.key, kf).is_ok()),
+        None => first(known, fun(k: Identity) = follow(k.key, kf).is_ok()),
     };
     if known.len > 0 && from.is_none() {
         return Err(VerifyError.Unapproved(Change { host: host, old: known[0].key, new: kf.key }));
     }
     let key = kf.key;
-    let seen = from.map(fun(k: Known) = k.sequence).unwrap_or(0);
-    let separate = from.map(fun(k: Known) = k.separate).unwrap_or(false);
+    let seen = from.map(fun(k: Identity) = k.sequence).unwrap_or(0);
+    let separate = from.map(fun(k: Identity) = k.separate).unwrap_or(false);
     // 2. The index, signed by that key.
     let ix = read_index(body("index", get("{SITE}/index"))?, key, host).map_err(VerifyError.Index)?;
     if ix.sequence < seen {
@@ -185,7 +219,12 @@ public fun verify_site(
         return Err(VerifyError.BuildHost(s.host));
     }
     // Everything passed: remember the key and how far the sequence got.
-    remember(ring, from, Known { host: host, key: key, sequence: ix.sequence, separate: separate });
+    remember(ring, from, Identity {
+        host: host,
+        key: key,
+        sequence: ix.sequence,
+        separate: separate,
+    });
     Ok(Verified {
         opened: opened,
         trust: Trust {
@@ -206,11 +245,12 @@ public fun verify_site(
  *     separate(ring, change)
  */
 public fun separate(ring: Keyring, c: Change) {
-    ring.known.update(fun(all: Known[]) {
+    ring.known.update(fun(all: Identity[]) {
         let mut next = all;
-        next.push(Known { host: c.host, key: c.new, sequence: 0, separate: true });
+        next.push(Identity { host: c.host, key: c.new, sequence: 0, separate: true });
         next
     });
+    ring.count.update(fun(n: i64) = n + 1);
 }
 
 /**
@@ -221,13 +261,13 @@ public fun separate(ring: Keyring, c: Change) {
  *     standing_of(ring, opened.signed?)
  */
 public fun standing_of(ring: Keyring, s: Signed): Trust {
-    let found = first(ring.known.get(), fun(k: Known) = k.host == s.host && equal(k.key, s.key));
+    let found = first(ring.known.get(), fun(k: Identity) = k.host == s.host && equal(k.key, s.key));
     Trust {
         host: s.host,
         key: s.key,
         standing: if found.is_some() { Standing.Trusted } else { Standing.NotConfirmed },
         build: s.hash,
-        separate: found.map(fun(k: Known) = k.separate).unwrap_or(false),
+        separate: found.map(fun(k: Identity) = k.separate).unwrap_or(false),
     }
 }
 
@@ -254,9 +294,19 @@ public fun reason(e: VerifyError): string = match e {
 };
 
 /** Records an identity, in place of the one it was checked as (after a rotation, its old key). */
-fun remember(ring: Keyring, from: Option<Known>, now: Known) {
-    ring.known.update(fun(all: Known[]) {
-        let mut next: Known[] = [];
+fun remember(ring: Keyring, from: Option<Identity>, now: Identity) {
+    // Nothing new (the same key at the same sequence): nothing to save.
+    if let Some(f) = from {
+        if f.host == now.host && equal(
+            f.key,
+            now.key,
+        ) && f.sequence == now.sequence && f.separate == now.separate {
+            return;
+        }
+    }
+    ring.count.update(fun(n: i64) = n + 1);
+    ring.known.update(fun(all: Identity[]) {
+        let mut next: Identity[] = [];
         for k of all {
             let replaced = match from {
                 Some(f) => k.host == f.host && equal(k.key, f.key) && k.separate == f.separate,
