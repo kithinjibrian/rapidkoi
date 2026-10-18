@@ -1269,16 +1269,38 @@ src/theme.la, src/panel.la (NAME_CHARS, MARKER_CHARS, shorten), docs/DESIGN.md
 
 ---
 
-## SESSION 33 — 2026-10-18 — Propose PRP-006: signed apps, published locally — open
+## SESSION 33 — 2026-10-18 — Propose PRP-006: signed apps, published locally — closed
 
 Branch: prp-006-signing
+
+### WHAT WAS DONE
+
+Lugha landed `std.crypto` (m113, reviewed) and `std.toml` (m114). Wrote PRP-006: rapidkoi.toml, keygen, format 2 signed bundles, publish to site/ (key, signed index, builds/<sha256>.rkb), serve site/, and verified opening of `rapidkoi://localhost` sites (in-session trust; no bypass; an unapproved key change becomes a separate app). Prompts were given to the owner for `std.fs.rename`/`set_mode`, `flush`, a clock (lugha) and background tasks (kivuli, DECISION-021). No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-006-signed_apps.md — for approval (crypto: the owner's security review before merge)
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- Trust is in-session until the on-disk store (PRP-007, needs std.fs.rename). Remote hosts stay off until DECISION-021. No `rotate` command yet; rotations are verified.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-006 awaits approval.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 28 on a new branch. PRP-005 (the info panel and bar) is on `main`. Next, at the owner's choice:
-- PRP-006, remembering: the on-disk store (needs `fs.rename` for safe saves and `fs.set_mode`), migrate
-- signing (when `std.crypto` and `std.toml` land)
-- links
-- kivuli items (DECISION-020)
+Open session 34 on `prp-006-signing`. If approved, build PRP-006 test-first, in this order: project.la (toml), keys.la, signing.la (format 2), index.la, publish.la (keygen and publish), serve site/, verify.la (live sockets), then the markers and About. Stop before merge for the owner's security review.
