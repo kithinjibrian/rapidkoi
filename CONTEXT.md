@@ -2621,6 +2621,16 @@ CONTEXT.md
 
 ---
 
+## SESSION 70 — 2026-10-19 — Discuss moving the shell's pages into bundled apps — open
+
+Branch: main
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-012 and PRP-013 are merged, and the quote demo runs at `rapidkoi://quote.dafifi.net`. Next arc, the owner's choice: links (the vision's step 2, starting with DECISION-016 and its discovery interview) or tab restore.
