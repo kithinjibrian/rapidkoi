@@ -2621,16 +2621,41 @@ CONTEXT.md
 
 ---
 
-## SESSION 70 — 2026-10-19 — Discuss moving the shell's pages into bundled apps — open
+## SESSION 70 — 2026-10-19 — Discuss moving the shell's pages into bundled apps — closed
 
 Branch: main
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner proposed a UI redesign whose first step moves as much UI as possible out of the shell into apps bundled with it (new tab first), leaving the shell to draw only the frame. Discussed, no code:
+- Agreed in principle, with one line: screens that grant, approve or verify (permission prompts, sign-in approval, Access, Account's secret, the ⓘ panel's verification) stay native, since an app-drawn copy of them can be spoofed by any app. Content screens (new tab/home, search, Notifications, Data) can be bundled apps.
+- Gaps found: contract 2 has only Text, Button, Input, Column, Row (home needs images, a wrapping grid, menus); bundled apps need privileged capabilities (read pins and left-off, open an address), each a guest-exposed host capability under the SECURITY RULE; DESIGN.md forbids apps setting colours, so a bundled home loses `themes.la` unless that rule changes; where the bundled .wasm comes from (cargo build embedded in the binary?); where this sits in the build path.
+- Next: a discovery interview (PRPs/DISCOVERY.md) for a PRP piloting the new tab as a bundled app.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None (the owner hasn't answered yet).
+
+### PENDING DECISIONS OPENED
+
+- None yet; the gaps above become DECISIONS.md entries during discovery.
+
+### STILL OPEN AT CLOSE
+
+- The owner's answer on the trusted-screens line, then discovery question 1.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-012 and PRP-013 are merged, and the quote demo runs at `rapidkoi://quote.dafifi.net`. Next arc, the owner's choice: links (the vision's step 2, starting with DECISION-016 and its discovery interview) or tab restore.
+The owner wants the shell to draw only the frame, with its pages moved into bundled apps (new tab first). Session 70 agreed in principle, keeping granting/approving/verifying screens native, and listed the gaps (contract 2's few node kinds, privileged capabilities for bundled apps, colours, embedding the .wasm, build-path placement). Next: the discovery interview for a PRP piloting the new tab as a bundled app. Links (DECISION-016) and tab restore are still waiting.
