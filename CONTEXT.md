@@ -2916,6 +2916,16 @@ PRPs/prp-015-address_box.md
 
 ---
 
+## SESSION 78 — 2026-10-19 — Build PRP-015: the address box — open
+
+Branch: prp-015-address_box
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). PRP-015 (the address box) is written and waiting for approval; once approved and PRP-014 is merged, branch `prp-015-address_box` from `redesign`, tests first.
