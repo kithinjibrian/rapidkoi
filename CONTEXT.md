@@ -3210,6 +3210,39 @@ DECISIONS.md, MEMORY.md, CONTEXT.md
 
 ---
 
+## SESSION 86 — 2026-10-20 — DECISION-031: buttons styled by Rapidkoi — closed
+
+Branch: prp-016-account_menu_icons
+
+### WHAT WAS DONE
+
+- The owner on DECISION-031: button looks aren't shipping in kivuli; buttons are styled like the rest, not following desktop themes. Recorded as a partial answer.
+- Asked the follow-up: does all of the UI (text, fields, apps' content) follow Rapidkoi's theme instead of the desktop's, and the header bar's colour.
+
+### FILES CREATED OR MODIFIED
+
+```
+DECISIONS.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- Buttons are styled by Rapidkoi's theme through `.style`, never the desktop theme's looks.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The rest of DECISION-031; then PRP-017.
+
+---
+
 ## NEXT SESSION START POINT
 
-DECISION-030 is resolved (rewrite the UI for the redesign on kivuli 0.17; delete the old view). DECISION-031 (button looks and the header bar colour, missing from kivuli 0.17) waits for the owner. Then write PRP-017 for the move, on a branch from the PRP-014–016 stack. DECISION-029 is open. Nothing merges to `main` until the whole redesign is built (DECISION-027).
+DECISION-030 resolved (rewrite the UI for the redesign on kivuli 0.17). DECISION-031 partly answered: buttons follow Rapidkoi's theme, not the desktop's; open: whether everything does (text, fields, apps' content) and the header bar's colour. Then PRP-017 for the move. DECISION-029 is open. Nothing merges to `main` until the whole redesign is built (DECISION-027).

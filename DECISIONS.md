@@ -26,6 +26,9 @@ Rules:
 - A) kivuli adds button looks (the theme's suggested, destructive and flat) and a style for the header bar, before Rapidkoi moves. Recommended for button looks: the contract promises them.
 - B) Move now; buttons show the theme's plain look and the header bar the theme's colour until kivuli adds them (known issues).
 
+**Partly answered (session 86, the owner):** button looks aren't coming to kivuli. Buttons are styled like everything else, through `.style`, from Rapidkoi's own theme, not the desktop's. Contract 2's `Primary` and `Danger` stay: the app names the kind, Rapidkoi decides how it looks. Still open: the header bar's colour, and whether all of Rapidkoi's UI (text included) follows Rapidkoi's theme rather than the desktop's.
+
+
 ---
 
 ### DECISION-029 — Clicking away from the address box doesn't take focus away (kivuli)
