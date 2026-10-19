@@ -2728,6 +2728,16 @@ PRPs/prp-014-bare_frame.md
 
 ---
 
+## SESSION 73 — 2026-10-19 — Build PRP-014: the bare frame — open
+
+Branch: prp-014-bare_frame
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 On branch `redesign` (never merge to `main` until the whole redesign is built: DECISION-027). PRP-014 (the bare frame) is waiting for the owner's approval; once approved, branch `prp-014-bare_frame` from `redesign`, tests first. After it: the new tab as a bundled app (discovery still to run: the contract's missing nodes, privileged capabilities, colours, embedding the .wasm).
