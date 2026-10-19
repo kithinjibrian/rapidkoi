@@ -2844,6 +2844,16 @@ CONTEXT.md
 
 ---
 
+## SESSION 76 — 2026-10-19 — Discovery: the address box (3) — open
+
+Branch: prp-014-bare_frame
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). Address box discovery (sketch in session 74): placement settled (header, centred, a pill; suggestions card over the page under it, session 75). Question 2 (suggestion sources) is waiting. Still to ask: keys (Enter, →, Escape, arrows), failures, edge cases, tests.
