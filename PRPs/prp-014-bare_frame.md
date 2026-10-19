@@ -48,9 +48,9 @@ The first step of the redesign (DECISION-027). The window shows three areas and 
 ## TESTS TO WRITE
 
 `test/layout.la`, with no display:
-- [ ] View: a fresh model's view has no text (`texts(v)` is empty).
-- [ ] View: a model with tabs open, a pin and a notice still has no text, and no "New tab" or "Close" button (`click` returns `Err`).
-- [ ] View: `shell.view(m)` and `layout.view(m)` show the same (the shell wires the new frame).
+- [x] View: a fresh model's view has no text (`texts(v)` is empty).
+- [x] View: a model with tabs open, a pin and a notice still has no text, and no "New tab" or "Close" button (`click` returns `Err`).
+- [x] View: `shell.view(m)` and `layout.view(m)` show the same (the shell wires the new frame).
 - The old view tests keep passing against `legacy.view`.
 
 ## ROLLBACK PLAN
@@ -60,12 +60,12 @@ The first step of the redesign (DECISION-027). The window shows three areas and 
 
 ## ACCEPTANCE CRITERIA
 - [ ] The window shows only the header with − □ ×, the empty sidebar on the right and the empty content area with one rounded corner
-- [ ] `lughac test test/` passes
-- [ ] `lughac build src/main.la -o main` succeeds
-- [ ] `lughac fmt --check src test` is clean
-- [ ] Every `public` item has a `/** … */` doc comment
-- [ ] No file over 500 lines
-- [ ] CHANGELOG.md updated
+- [x] `lughac test test/` passes
+- [x] `lughac build src/main.la -o main` succeeds
+- [x] `lughac fmt --check src test` is clean
+- [x] Every `public` item has a `/** … */` doc comment
+- [x] No file over 500 lines
+- [x] CHANGELOG.md updated
 
 ## VALIDATION
 - `lughac fmt --check src test`

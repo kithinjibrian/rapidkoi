@@ -1,0 +1,110 @@
+/**
+ * The window as it was before the redesign (PRP-014): the bar, home or the
+ * current app with the info panel over it, and the rail. Nothing shows it
+ * any more; the old view tests drive it, so they keep guarding `update`
+ * until later redesign PRPs replace each part, and the last one deletes
+ * this module (DECISION-027). Never calls a guest.
+ *
+ * Depends on: kivuli, actions, tabs, window, account, access, placeholders, people, render, frame, home, panel, theme, themes
+ * Used by: the old view tests only
+ */
+import kivuli { View, Align, column, overlay, row, scroll, text };
+import actions { Msg };
+import tabs { AppPage, Pin };
+import account { account_of };
+import access { access_of };
+import placeholders { fill };
+import people { name_in };
+import window { Model, title_of };
+import render { screen, stopped, refused, loading };
+import frame { bar, rail, unapproved };
+import home;
+import panel;
+import theme { SPACE_SM, SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT, PANEL_HEIGHT };
+import themes { Look, kivuli_theme };
+
+/**
+ * Draws the window: the bar, home or the current app (with the panel
+ * beside it when open), and the rail. Never calls a guest.
+ *
+ * @param m the model
+ * @returns the window's view
+ *
+ * Example:
+ *     view(m)
+ */
+public fun view(m: Model): View<Msg> {
+    let page = window.page_of(m);
+    // On an app page m.current is Some: page_of found its tab.
+    let id = m.current.unwrap_or(-1);
+    let middle = match page {
+        Home => card(home.view(m.draft, m.pinned, window.card(m), m.tabs)),
+        // The panel sits over the app, which keeps its width. A dim layer
+        // between them keeps the app from being clicked meanwhile; it isn't a
+        // button, so a stray click never closes the panel (Close, Escape, ⓘ do).
+        App(a) => overlay(card(app_view(id, a, m)), match m.panel {
+            Some(p) => [
+                column([]).style([Look.Scrim]),
+                // Under ⓘ at the top right, as tall as its content. The dark
+                // look is on a wrapper, so the panel's padding falls inside it;
+                // the outer padding insets it from the page's edges.
+                // One height for every page: shorter ones leave room below,
+                // and the main page keeps Forget and Close at the bottom.
+                column([column([panel.view(a, p, m.confirm, account_of(m, a), access_of(m, a)).expand()]).style([Look.Panel]).height(
+                    PANEL_HEIGHT,
+                )]).padding(
+                    SPACE_SM,
+                ).place(Align.End, Align.Start),
+            ],
+            None => [],
+        }),
+    };
+    let mut parts: View<Msg>[] = [];
+    if let Some(n) = m.notice {
+        parts.push(text(n).dim().padding(SPACE_MD));
+    }
+    let pins = m.pinned.map(fun(p: Pin) = p.path);
+    parts.push(row([middle.expand(), rail(m.tabs, m.current, pins)]).expand());
+    let pinned = match page {
+        App(a) => window.is_pinned(m, a.path),
+        Home => false,
+    };
+    let b = bar(page, m.draft, m.editing, pinned);
+    column(parts).style([Look.Frame]).window(
+        title_of(m),
+        WINDOW_WIDTH,
+        WINDOW_HEIGHT,
+    ).maximized().theme(kivuli_theme(m.theme)).header(b.start, b.title, b.end).header_style([
+        Look.Frame,
+    ])
+}
+
+/**
+ * The page, flush with the frame: it meets the header bar above and the rail
+ * on its right, and the window's edges on the left and bottom.
+ */
+fun card(v: View<Msg>): View<Msg> = scroll(v.padding(SPACE_LG)).style([Look.Page]);
+
+/** A tab's app, its messages tagged with the tab, so they reach only it. */
+fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
+    let now = m.now;
+    let shown = match a.screen {
+        // {FIRST_NAME} and {LAST_NAME} are filled while drawing: the app
+        // can show your name, never know it (PRP-011).
+        Running(_, _, d) => {
+            let (first, last) = match a.trust {
+                Some(t) => name_in(m.people, t.host, t.origin),
+                None => (m.people.first, m.people.last),
+            };
+            screen(fill(d.root, first, last))
+        }
+        Stopped(why, can_restart) => stopped(why, can_restart),
+        Refused(why) => refused(why),
+        Loading(p) => loading(a.name, if now > p.started { now - p.started } else { 0 }),
+        // Rapidkoi's own question, not the app's: its buttons are the window's.
+        Unapproved(c, kept) => {
+            return unapproved(c, kept.len > 0);
+        }
+    };
+    shown.map(fun(inner: render.Msg) = Msg.Tab(id, inner))
+}

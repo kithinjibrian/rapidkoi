@@ -1,7 +1,8 @@
 // Remembering across restarts: a window started on a test data folder,
 // changed, then started again on the same folder. Sites are served over
 // real local sockets, one port per test. Writes only under test/tmp/.
-import rapidkoi.shell { Model, start, update, view };
+import rapidkoi.shell { Model, start, update };
+import rapidkoi.legacy { view };
 import rapidkoi.actions { Msg };
 import rapidkoi.store { Store, store_at, save };
 import rapidkoi.remembered { read_pins, read_trust, read_left, left_file, pins_file };

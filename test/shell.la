@@ -1,7 +1,8 @@
 // The window: tabs (apps only; home isn't a tab), the address box, pins,
 // "where you left off", the info panel, and failing safely per tab.
 // Fixture guests; no display.
-import rapidkoi.shell { Model, start, with_pages, update, view, title_of };
+import rapidkoi.shell { Model, start, with_pages, update, title_of };
+import rapidkoi.legacy { view };
 import rapidkoi.window { card };
 import rapidkoi.actions { Msg, Confirm };
 import rapidkoi.tabs { AppPage, open_module, state_of };

@@ -53,6 +53,8 @@ Only backgrounds and the one corner are set; text and borders stay the GTK theme
 
 From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the window's header bar (one row with the window controls), and the window opens maximized.
 
+**During the redesign (DECISION-027, PRP-014)** the frame is drawn empty by `src/layout.la`: the header bar with only the window controls, the sidebar (`FRAME_THICKNESS` wide) and the page. The bar and rail below are the old view's (`src/legacy.la`), kept until the redesign replaces them.
+
 | Token | Value | Use |
 |-------|-------|-----|
 | `FRAME_THICKNESS` | 50 | the rail's whole width, equal to the header bar's height: the frame is an even L (session 15) |

@@ -2,7 +2,8 @@
 // Forget) and home's tiles' (Open, Unpin, Forget). Each item's message, and
 // what it does: select the tab first, then act as the bar or panel would.
 // Fixture guests; no display, no network.
-import rapidkoi.shell { Model, start, with_pages, update, view };
+import rapidkoi.shell { Model, start, with_pages, update };
+import rapidkoi.legacy { view };
 import rapidkoi.actions { Msg, PanelPage, Confirm, TabAction, PinAction };
 import rapidkoi.tabs { AppPage, open_module };
 import kivuli.testing { pick, texts };

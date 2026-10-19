@@ -1,7 +1,8 @@
 // The panel's Account page (PRP-011): who you are to this app, signing in
 // and out, starting over as someone new, and your name. Writes only under
 // test/tmp/.
-import rapidkoi.shell { Model, with_pages, update, view };
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.legacy { view };
 import rapidkoi.saving { restore };
 import rapidkoi.actions { Msg, PanelPage, Confirm, NameScope, NamePart };
 import rapidkoi.tabs { AppPage, open_module, state_of };

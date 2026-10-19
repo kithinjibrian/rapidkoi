@@ -1,7 +1,8 @@
 // End to end: the Rust counter (guest/rust/counter) driven through the
 // window, with no display. Skipped unless the guest has been built (see
 // CLAUDE.md COMMANDS), so the suite never needs Rust.
-import rapidkoi.shell { Model, start, update, view, title_of };
+import rapidkoi.shell { Model, start, update, title_of };
+import rapidkoi.legacy { view };
 import rapidkoi.actions { Msg };
 import kivuli.testing { click, is_disabled, type_into, texts };
 import std.fs;

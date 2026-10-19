@@ -1,7 +1,8 @@
 // The panel's Access page (PRP-012): what an app can reach, a switch for
 // each server, "new" after an update adds one, and the one-time notice.
 // Writes only under test/tmp/.
-import rapidkoi.shell { Model, with_pages, update, view };
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.legacy { view };
 import rapidkoi.saving { restore };
 import rapidkoi.actions { Msg, PanelPage };
 import rapidkoi.tabs { AppPage, Tab, open_module };

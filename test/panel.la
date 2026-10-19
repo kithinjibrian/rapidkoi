@@ -1,7 +1,8 @@
 // The info panel and the bar's ⟳ and ☆: the panel's pages, its confirms,
 // Forget, and Reload keeping state. Fixture guests; no display.
 import rapidkoi.panel { size };
-import rapidkoi.shell { Model, with_pages, update, view };
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.legacy { view };
 import rapidkoi.actions { Msg, PanelPage, Confirm };
 import rapidkoi.tabs { AppPage, open_module, state_of };
 import rapidkoi.render;

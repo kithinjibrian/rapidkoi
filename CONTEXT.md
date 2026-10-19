@@ -2728,16 +2728,53 @@ PRPs/prp-014-bare_frame.md
 
 ---
 
-## SESSION 73 — 2026-10-19 — Build PRP-014: the bare frame — open
+## SESSION 73 — 2026-10-19 — Build PRP-014: the bare frame — closed
 
 Branch: prp-014-bare_frame
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner approved PRP-014. Built it test first:
+- `test/layout.la` (4 tests) failed first (no `layout` module), then passed.
+- `src/layout.la`: the bare frame. An empty header bar (an empty title view, so GTK shows only − □ ×; the window title stays for the taskbar), an empty `Look.Frame` sidebar `FRAME_THICKNESS` wide on the right, and an expanding `Look.Page` content area.
+- `src/legacy.la`: the old `view`, `card` and `app_view`, moved unchanged out of `shell.la`. The 12 old view-driven test files import `view` from it.
+- `shell.view` is now `layout.view`; `shell.la`'s view-only imports went with the view.
+- Checks, by exit status: fmt clean; `lughac test test/` 320 passed; build ok. The only warning is the old W0104 in `dialing.la`.
+- Not merged into `redesign`: the owner checks the window first.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/layout.la (new)
+src/legacy.la (new)
+src/shell.la
+test/layout.la (new)
+test/{account,access,effects,counter,loading,loader,panel,remote,menus,saving,opening,shell}.la (import view from legacy)
+docs/DESIGN.md
+CLAUDE.md (file tree)
+CHANGELOG.md
+PRPs/prp-014-bare_frame.md (checked off; the visual check is the owner's)
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/layout.la: a fresh window shows no text; open tabs and a notice show nothing and no New tab or Close tab; home with a typed search shows nothing; the shell's view is the bare frame.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner opens `./main` to check the frame; then merge `prp-014-bare_frame` into `redesign` (not `main`).
 
 ---
 
 ## NEXT SESSION START POINT
 
-On branch `redesign` (never merge to `main` until the whole redesign is built: DECISION-027). PRP-014 (the bare frame) is waiting for the owner's approval; once approved, branch `prp-014-bare_frame` from `redesign`, tests first. After it: the new tab as a bundled app (discovery still to run: the contract's missing nodes, privileged capabilities, colours, embedding the .wasm).
+PRP-014 (the bare frame) is built on `prp-014-bare_frame`, all checks green, waiting for the owner to look at `./main`. On their word, merge it into `redesign` (never `main` until the whole redesign is built: DECISION-027). Then the next redesign PRP: what goes into the frame (header, sidebar) or the new tab as a bundled app (discovery to run: the contract's missing nodes, privileged capabilities, colours, embedding the .wasm).

@@ -1,0 +1,51 @@
+// The bare frame (PRP-014): the header bar, the sidebar and the content
+// area, and nothing else, whatever the model holds. No display.
+import rapidkoi.shell { Model, start, with_pages, update, view };
+import rapidkoi.layout;
+import rapidkoi.actions { Msg };
+import rapidkoi.tabs { AppPage, open_module };
+import kivuli.testing { click, pick, texts };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+/** A window with two echo apps open and a notice showing. */
+fun busy(): Model {
+    let engine = Engine.new();
+    let m = with_pages(engine, [app(engine, "a"), app(engine, "b")]);
+    Model { notice: Some("Something happened"), ..m }
+}
+
+@test
+fun a_fresh_window_shows_no_text() {
+    let (m, _) = start(["main"], None);
+    assert_eq(texts(layout.view(m)).len, 0);
+}
+
+@test
+fun open_tabs_and_a_notice_show_nothing() {
+    let v = layout.view(busy());
+    assert_eq(texts(v).len, 0);
+    assert(click(v, "New tab").is_err());
+    assert(pick(v, "a", "Close tab").is_err());
+}
+
+@test
+fun home_shows_nothing_either() {
+    let (m, _) = start(["main"], None);
+    let (typed, _) = update(m, Msg.Draft("count"));
+    assert_eq(texts(layout.view(typed)).len, 0);
+}
+
+@test
+fun the_shell_shows_the_bare_frame() {
+    let m = busy();
+    assert_eq(texts(view(m)).len, 0);
+    assert(click(view(m), "New tab").is_err());
+}

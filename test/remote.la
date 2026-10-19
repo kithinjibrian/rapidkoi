@@ -2,7 +2,8 @@
 // 127.0.0.1 as https://localhost:PORT (test/fixtures/tls). Remote host
 // names can't be reached offline; localhost over TLS runs the same HTTPS
 // path. Writes only under test/tmp/.
-import rapidkoi.shell { Model, start, update, view };
+import rapidkoi.shell { Model, start, update };
+import rapidkoi.legacy { view };
 import rapidkoi.window { with_network };
 import rapidkoi.dialing { Network };
 import rapidkoi.actions { Msg };
