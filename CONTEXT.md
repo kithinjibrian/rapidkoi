@@ -3104,6 +3104,16 @@ PRPs/prp-016-account_menu_icons.md, CONTEXT.md
 
 ---
 
+## SESSION 83 — 2026-10-19 — Build PRP-016: account and menu icons — open
+
+Branch: prp-016-account_menu_icons
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green. PRP-016 (account and menu icons, disabled for now) waits for approval; once approved, branch `prp-016-account_menu_icons` from `prp-015-address_box`, tests first. DECISION-029 (clicking away from the box, a kivuli change) is open. Merge into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027).
