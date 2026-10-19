@@ -1,5 +1,5 @@
-// The bare frame (PRP-014): the header bar, the sidebar and the content
-// area, and nothing else, whatever the model holds. No display.
+// The frame (PRP-014, PRP-015): the header bar with the address box, the
+// sidebar, and the content area showing the current app. No display.
 import rapidkoi.shell { Model, start, with_pages, update, view };
 import rapidkoi.layout;
 import rapidkoi.actions { Msg };
@@ -29,23 +29,30 @@ fun a_fresh_window_shows_no_text() {
 }
 
 @test
-fun open_tabs_and_a_notice_show_nothing() {
+fun no_tabs_rail_or_notice_above_the_page() {
     let v = layout.view(busy());
-    assert_eq(texts(v).len, 0);
+    assert(!texts(v).any(fun(s: string) = s == "Something happened"));
     assert(click(v, "New tab").is_err());
     assert(pick(v, "a", "Close tab").is_err());
 }
 
 @test
-fun home_shows_nothing_either() {
-    let (m, _) = start(["main"], None);
-    let (typed, _) = update(m, Msg.Draft("count"));
-    assert_eq(texts(layout.view(typed)).len, 0);
+fun the_content_area_shows_the_current_app() {
+    let v = layout.view(busy());
+    assert(texts(v).any(fun(s: string) = s == "echo"));
+    assert(click(v, "Add").is_ok());
 }
 
 @test
-fun the_shell_shows_the_bare_frame() {
+fun homes_content_area_is_empty() {
+    let (m, _) = update(busy(), Msg.Home);
+    let v = layout.view(Model { notice: None, ..m });
+    assert(!texts(v).any(fun(s: string) = s == "echo"));
+    assert(click(v, "Add").is_err());
+}
+
+@test
+fun the_shell_shows_the_layout() {
     let m = busy();
-    assert_eq(texts(view(m)).len, 0);
-    assert(click(view(m), "New tab").is_err());
+    assert_eq(texts(view(m)), texts(layout.view(m)));
 }

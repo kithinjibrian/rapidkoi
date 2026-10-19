@@ -64,25 +64,25 @@ The second redesign step (DECISION-027), from the owner's sketch (sessions 74–
 ## TESTS TO WRITE
 
 `test/suggestions.la`, pure:
-- [ ] An empty query suggests nothing.
-- [ ] A query matches an open tab by name and by screen title, ignoring case, and sends `Select(id)`.
-- [ ] A query matches a pin, sending `OpenPinned(path)`.
-- [ ] A closed where-you-left-off matches, sending `Continue`; an open one isn't listed twice.
-- [ ] The order is tabs, pins, left-off.
+- [x] An empty query suggests nothing.
+- [x] A query matches an open tab by name and by screen title, ignoring case, and sends `Select(id)`.
+- [x] A query matches a pin, sending `OpenPinned(path)`.
+- [x] A closed where-you-left-off matches, sending `Continue`; an open one isn't listed twice.
+- [x] The order is tabs, pins, left-off.
 
 `test/addressbox.la`, through `kivuli.testing`:
-- [ ] Home at rest: a field with the hint "Enter Address", and no card.
-- [ ] Typing sends `Draft`; with text, the card shows what was typed first, and clicking it sends `Go`.
-- [ ] → ("Go") sends `Go`; Enter in the field sends `Go`.
-- [ ] Matches show under "Rapidkoi suggest"; with none, the heading is gone.
-- [ ] Clicking a suggestion sends its message; after `update`, the card is gone and the app is current.
-- [ ] Escape (`press(v, "Escape")`) and the clear layer send `Dismiss`; after `update`, the box is empty and the card is gone; on an app page its address shows again.
-- [ ] Opening "nope" shows "No app or file called “nope”" in the card, and the card stays.
-- [ ] On an app page at rest, clicking the address sends `EditAddress`; Ctrl+K does too.
+- [x] Home at rest: a field with the hint "Enter Address", and no card.
+- [x] Typing sends `Draft`; with text, the card shows what was typed first, and clicking it sends `Go`.
+- [x] → ("Go") sends `Go`; Enter in the field sends `Go`.
+- [x] Matches show under "Rapidkoi suggest"; with none, the heading is gone.
+- [x] Clicking a suggestion sends its message; after `update`, the card is gone and the app is current.
+- [x] Escape (`press(v, "Escape")`) and the clear layer send `Dismiss`; after `update`, the box is empty and the card is gone; on an app page its address shows again.
+- [x] Opening "nope" shows "No app or file called “nope”" in the card, and the card stays.
+- [x] On an app page at rest, clicking the address sends `EditAddress`; Ctrl+K does too.
 
 `test/layout.la`:
-- [ ] The content area shows the current app's screen (the echo fixture's text).
-- [ ] Home's content area is empty.
+- [x] The content area shows the current app's screen (the echo fixture's text).
+- [x] Home's content area is empty.
 
 ## ROLLBACK PLAN
 
@@ -91,12 +91,12 @@ The second redesign step (DECISION-027), from the owner's sketch (sessions 74–
 
 ## ACCEPTANCE CRITERIA
 - [ ] The pill sits centred in the header, ends round; typing opens the card under it; Enter, → and suggestions open apps in the content area; Escape and a click outside close it
-- [ ] `lughac test test/` passes
-- [ ] `lughac build src/main.la -o main` succeeds
-- [ ] `lughac fmt --check src test` is clean
-- [ ] Every `public` item has a `/** … */` doc comment
-- [ ] No file over 500 lines
-- [ ] CHANGELOG.md updated
+- [x] `lughac test test/` passes
+- [x] `lughac build src/main.la -o main` succeeds
+- [x] `lughac fmt --check src test` is clean
+- [x] Every `public` item has a `/** … */` doc comment
+- [x] No file over 500 lines
+- [x] CHANGELOG.md updated
 
 ## VALIDATION
 - `lughac fmt --check src test`

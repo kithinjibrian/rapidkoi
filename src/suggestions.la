@@ -1,0 +1,63 @@
+/**
+ * What the address box suggests, pure (PRP-015): what's already on this
+ * computer and matches what was typed. Nothing typed leaves the computer;
+ * an app's screens join once links exist.
+ *
+ * Depends on: actions, tabs, home
+ * Used by: addressbox
+ */
+import actions { Msg };
+import tabs { Tab, Pin };
+import home { Card, matches };
+
+/** One suggestion: what it's called, and what choosing it sends. */
+public struct Suggestion {
+    /** The app's name. */
+    public label: string,
+    /** Its screen's title, when it has one. */
+    public detail: Option<string>,
+    /** `Select(id)` for an open tab, `OpenPinned(path)` for a pin, `Continue` for a closed app. */
+    public msg: Msg,
+}
+
+/**
+ * Returns what matches `query` by name or screen title, ignoring case:
+ * open tabs, then pins, then where-you-left-off when it's closed.
+ *
+ * @param query what's typed; blank suggests nothing
+ * @param open the open tabs
+ * @param pinned the pinned apps
+ * @param card where you left off, if anywhere
+ * @returns the suggestions, in that order
+ *
+ * Example:
+ *     suggest("count", m.tabs, m.pinned, window.card(m))
+ */
+public fun suggest(query: string, open: Tab[], pinned: Pin[], card: Option<Card>): Suggestion[] {
+    let q = query.trim();
+    let mut found: Suggestion[] = [];
+    if q == "" {
+        return found;
+    }
+    for t of open {
+        if matches(q, t.page.name, t.page.title) {
+            found.push(Suggestion {
+                label: t.page.name,
+                detail: t.page.title,
+                msg: Msg.Select(t.id),
+            });
+        }
+    }
+    for p of pinned {
+        if matches(q, p.name, None) {
+            found.push(Suggestion { label: p.name, detail: None, msg: Msg.OpenPinned(p.path) });
+        }
+    }
+    // An open tab is already among the tabs above; only a closed app is added.
+    if let Some(c) = card {
+        if c.msg == Msg.Continue && matches(q, c.name, c.title) {
+            found.push(Suggestion { label: c.name, detail: c.title, msg: Msg.Continue });
+        }
+    }
+    found
+}

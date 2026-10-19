@@ -1,23 +1,29 @@
 /**
- * The window's frame, pure (PRP-014): the header bar across the top, the
- * sidebar down the right and the content area filling the rest. Only the
- * frame: what goes in each area comes with later redesign PRPs
- * (DECISION-027). Never calls a guest.
+ * The window's frame, pure (PRP-014, PRP-015): the header bar across the
+ * top holding the address box, the sidebar down the right, and the content
+ * area filling the rest with the current app. While the address box has
+ * text, its suggestions card floats over the page under it. What else goes
+ * in the frame comes with later redesign PRPs (DECISION-027). Never calls a
+ * guest.
  *
- * Depends on: kivuli, actions, window, theme, themes
+ * Depends on: kivuli, actions, tabs, window, content, addressbox, theme, themes
  * Used by: shell
  */
-import kivuli { View, column, row };
+import kivuli { View, Align, button_with, column, overlay, row, scroll };
 import actions { Msg };
-import window { Model, title_of };
-import theme { FRAME_THICKNESS, WINDOW_WIDTH, WINDOW_HEIGHT };
+import tabs { Page };
+import window { Model, title_of, page_of };
+import content { app_view };
+import addressbox;
+import theme { SPACE_SM, SPACE_LG, FRAME_THICKNESS, WINDOW_WIDTH, WINDOW_HEIGHT };
 import themes { Look, kivuli_theme };
 
 /**
- * Draws the bare frame: an empty header bar (GTK's window controls only), an
- * empty sidebar on the right and an empty content area.
+ * Draws the frame: the header bar with the address box (and GTK's window
+ * controls), the sidebar on the right, the current app in the content area,
+ * and the suggestions card over them while typing.
  *
- * @param m the model: its theme and the window's title
+ * @param m the model
  * @returns the window's view
  *
  * Example:
@@ -27,19 +33,35 @@ public fun view(m: Model): View<Msg> {
     let none: View<Msg>[] = [];
     // The content area meets the window's left and bottom edges; Look.Page
     // rounds only its top-right corner, where the frame wraps it.
-    let content = column(none).expand().style([Look.Page]);
+    let page = match page_of(m) {
+        // On an app page m.current is Some: page_of found its tab.
+        App(a) => scroll(app_view(m.current.unwrap_or(-1), a, m).padding(SPACE_LG)),
+        // Empty until the new tab is a bundled app (DECISION-027).
+        Home => column(none),
+    };
+    let area = column([page.expand()]).expand().style([Look.Page]);
     // Empty and as wide as the header bar is tall, so the frame is an even L.
     // The root's Look.Frame paints it, as one surface with the header bar.
     let sidebar = column(none).width(FRAME_THICKNESS);
-    // An empty title view: without one GTK would show the window's title in
-    // the bar. The title stays set for the taskbar.
-    column([row([content, sidebar]).expand()]).style([Look.Frame]).window(
+    // The card's layer spans the content and the sidebar, so its centre is
+    // the window's, under the pill centred in the header bar.
+    let layers = match addressbox.card(m) {
+        Some(card) => [
+            // Under the card, catching any click outside it. Escape is here
+            // because kivuli gives shortcuts to buttons only.
+            button_with(column(none), Msg.Dismiss).name("dismiss").style([Look.Clear]).shortcut(
+                "Escape",
+            ),
+            column([card]).padding(SPACE_SM).place(Align.Center, Align.Start),
+        ],
+        None => none,
+    };
+    let body = overlay(row([area, sidebar]).expand(), layers).expand();
+    column([body]).style([Look.Frame]).window(
         title_of(m),
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-    ).maximized().theme(kivuli_theme(m.theme)).header(
-        none,
-        column(none).expand(),
-        none,
-    ).header_style([Look.Frame])
+    ).maximized().theme(kivuli_theme(m.theme)).header(none, addressbox.field(m), none).header_style(
+        [Look.Frame],
+    )
 }

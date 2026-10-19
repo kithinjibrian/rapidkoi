@@ -120,18 +120,20 @@ fun both(a: Cmd<Msg>, b: Cmd<Msg>): Cmd<Msg> = match (a, b) {
  */
 fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Tab(id, inner) => (window.with_tab(m, id, fun(a: AppPage) = handle(a, inner)), Cmd.none()),
-    Select(id) => (window.show_tab(m, id), Cmd.none()),
+    // Choosing a tab, from the address box's suggestions too, closes them.
+    Select(id) => (window.show_tab(Model { draft: "", ..m }, id), Cmd.none()),
     // Home isn't a tab: + and ⌂ both show it, keeping every app open.
     NewTab | Home => (window.go_home(m), Cmd.focus("address")),
     CloseTab(id) => (window.close(m, id), Cmd.none()),
     Draft(text) => (Model { draft: text, notice: None, ..m }, Cmd.none()),
     Go => navigate.go(m),
+    Dismiss => (Model { draft: "", editing: false, notice: None, ..m }, Cmd.none()),
     EditAddress => match window.page_of(m) {
         App(a) => (Model { editing: true, draft: a.path, ..m }, Cmd.focus("address")),
         Home => (m, Cmd.focus("address")),
     },
     OpenPinned(path) => navigate.open_file(window.go_home(m), path),
-    Continue => navigate.reopen(m),
+    Continue => navigate.reopen(Model { draft: "", editing: false, ..m }),
     TogglePanel => (
         Model {
             panel: if m.panel.is_some() { None } else { Some(PanelPage.Main) },

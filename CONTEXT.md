@@ -2916,16 +2916,51 @@ PRPs/prp-015-address_box.md
 
 ---
 
-## SESSION 78 — 2026-10-19 — Build PRP-015: the address box — open
+## SESSION 78 — 2026-10-19 — Build PRP-015: the address box — closed
 
 Branch: prp-015-address_box
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner approved PRP-015. Branched `prp-015-address_box` from `prp-014-bare_frame` (PRP-014 isn't merged into `redesign` yet: the owner hasn't confirmed its look), so merging 015 brings 014 with it. Built test first: the three test files didn't compile (no modules), then 17 passed.
+- `suggestions.la`: `Suggestion` and `suggest` (tabs, pins, closed left-off; blank suggests nothing).
+- `addressbox.la`: `field` (the pill: the field and → while typing, or the app's marker button with Ctrl+K) and `card`.
+- `content.la`: `app_view` moved from `legacy.la`, now public.
+- `layout.la`: the pill as the header's title, the current app in the content area, and an overlay (a `Look.Clear` `button_with` named "dismiss" carrying Escape, then the card) spanning content and sidebar.
+- `Msg.Dismiss`; `Select` and `Continue` now empty the box, so choosing a suggestion closes the card.
+- `themes.la`: `Address`, `Bare`, `Suggestions`, `Clear`; `theme.la`: `ADDRESS_HEIGHT` 34, `ADDRESS_WIDTH` 560. `frame.file_of` is public.
+- Departures from the PRP, both small: `matches` stays in `home.la` (moving it would make `home` and `suggestions` import each other); Ctrl+K isn't wired on home, where the field is focused already and no button can carry the shortcut.
+- Checks, by exit status: fmt clean; `lughac test test/` 333 passed; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/suggestions.la, src/addressbox.la, src/content.la (new)
+src/layout.la, src/legacy.la, src/shell.la, src/actions.la, src/theme.la, src/themes.la, src/frame.la
+test/suggestions.la, test/addressbox.la (new), test/layout.la
+docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-015-address_box.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/suggestions.la (5): blank query; tabs by name and title ignoring case; pins; a closed left-off, an open one once; the order.
+- test/addressbox.la (7): home at rest; typed text first and → / Enter send Go; "Rapidkoi suggest" with matches; a suggestion opens and closes the card; Escape and the clear layer dismiss; a failed open says why in the card; an app page's address until clicked, and back on Escape.
+- test/layout.la (5, rewritten): no text on a fresh window; no tabs, rail or notice above the page; the current app shows; home's area is empty; the shell's view is the layout.
+
+### DECISIONS MADE
+
+- None beyond the PRP.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look at `./main` (PRP-014's frame and PRP-015's box); then merge `prp-015-address_box` (which holds 014) into `redesign`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). PRP-015 (the address box) is written and waiting for approval; once approved and PRP-014 is merged, branch `prp-015-address_box` from `redesign`, tests first.
+PRP-014 (the bare frame) and PRP-015 (the address box) are built, stacked on `prp-015-address_box`, all checks green, waiting for the owner's look at `./main`. On their word, merge into `redesign` (never `main` until the whole redesign is built: DECISION-027). Next redesign steps: the sidebar's contents (tabs), the new tab as a bundled app (discovery to run), back/forward/reload/ⓘ in the header.

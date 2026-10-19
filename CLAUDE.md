@@ -270,7 +270,7 @@ public fun load_settings(path: string): Settings { … }
 ├── .llmignore         — protected paths
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
-├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only), layout.la (pure: the bare frame, PRP-014), legacy.la (the pre-redesign view, for the old tests until the redesign replaces it),
+├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only), layout.la (pure: the frame, PRP-014), addressbox.la (pure: the pill and its suggestions card, PRP-015), suggestions.la (pure: what the box suggests), content.la (pure: the current app in the content area), legacy.la (the pre-redesign view, for the old tests until the redesign replaces it),
 │                        window.la (the Model, and changes that open nothing: tabs, home, pins, left off), navigate.la (opening: the address box, files, addresses, Continue, Reload), themes.la (Rapidkoi's colours as kivuli looks; dark first),
 │                        bundle.la (pure: bundle format 1, read/write), rules.la (pure: every bundle rule, BundleError), loader.la (a path or address → manifest + compiled module, verified when signed),
 │                        signing.la (format 2: signed bundles, read either format), keys.la (secret keys: keygen, read, fingerprints), index.la (the signed index and the public key file, rotations),

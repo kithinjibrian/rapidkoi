@@ -312,7 +312,13 @@ public fun icon_of(path: string, icon: Option<u8[]>): Option<Image> = icon.map(
     fun(b: u8[]) = Image.Bytes("{path}#icon", b),
 );
 
-fun file_of(path: string): string {
+/**
+ * Returns the last part of a path or address: what the bar shows for it.
+ *
+ * Example:
+ *     file_of("apps/counter.wasm")
+ */
+public fun file_of(path: string): string {
     let parts = path.split("/");
     parts[parts.len - 1]
 }

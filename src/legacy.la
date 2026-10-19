@@ -5,7 +5,7 @@
  * until later redesign PRPs replace each part, and the last one deletes
  * this module (DECISION-027). Never calls a guest.
  *
- * Depends on: kivuli, actions, tabs, window, account, access, placeholders, people, render, frame, home, panel, theme, themes
+ * Depends on: kivuli, actions, tabs, window, account, access, content, frame, home, panel, theme, themes
  * Used by: the old view tests only
  */
 import kivuli { View, Align, column, overlay, row, scroll, text };
@@ -13,11 +13,9 @@ import actions { Msg };
 import tabs { AppPage, Pin };
 import account { account_of };
 import access { access_of };
-import placeholders { fill };
-import people { name_in };
 import window { Model, title_of };
-import render { screen, stopped, refused, loading };
-import frame { bar, rail, unapproved };
+import frame { bar, rail };
+import content { app_view };
 import home;
 import panel;
 import theme { SPACE_SM, SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT, PANEL_HEIGHT };
@@ -84,27 +82,3 @@ public fun view(m: Model): View<Msg> {
  * on its right, and the window's edges on the left and bottom.
  */
 fun card(v: View<Msg>): View<Msg> = scroll(v.padding(SPACE_LG)).style([Look.Page]);
-
-/** A tab's app, its messages tagged with the tab, so they reach only it. */
-fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
-    let now = m.now;
-    let shown = match a.screen {
-        // {FIRST_NAME} and {LAST_NAME} are filled while drawing: the app
-        // can show your name, never know it (PRP-011).
-        Running(_, _, d) => {
-            let (first, last) = match a.trust {
-                Some(t) => name_in(m.people, t.host, t.origin),
-                None => (m.people.first, m.people.last),
-            };
-            screen(fill(d.root, first, last))
-        }
-        Stopped(why, can_restart) => stopped(why, can_restart),
-        Refused(why) => refused(why),
-        Loading(p) => loading(a.name, if now > p.started { now - p.started } else { 0 }),
-        // Rapidkoi's own question, not the app's: its buttons are the window's.
-        Unapproved(c, kept) => {
-            return unapproved(c, kept.len > 0);
-        }
-    };
-    shown.map(fun(inner: render.Msg) = Msg.Tab(id, inner))
-}

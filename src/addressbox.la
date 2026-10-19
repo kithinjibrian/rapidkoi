@@ -1,0 +1,114 @@
+/**
+ * The address box, pure (PRP-015): the pill in the header bar, and the card
+ * of suggestions that drops under it, over the page, while there's text in
+ * it. Rapidkoi draws both where apps can't: the address and its trust
+ * marker are Rapidkoi's word. Opening and closing happen in `update`.
+ *
+ * Depends on: kivuli, actions, tabs, window, frame, suggestions, theme, themes
+ * Used by: layout
+ */
+import kivuli { View, ButtonStyle, button, button_with, column, input, row, text };
+import actions { Msg };
+import tabs { Page };
+import window { Model, page_of };
+import frame { marker, marker_icon, marker_note, file_of };
+import suggestions { Suggestion, suggest };
+import theme { SPACE_XS, SPACE_SM, ADDRESS_HEIGHT, ADDRESS_WIDTH };
+import themes { Look };
+
+/**
+ * Builds the pill for the header bar: on home or while editing, a field
+ * ("Enter Address", with → once there's text); on an app at rest, its
+ * address and trust marker, which a click or Ctrl+K turns into the field.
+ *
+ * @param m the model
+ * @returns the pill
+ *
+ * Example:
+ *     addressbox.field(m)
+ */
+public fun field(m: Model): View<Msg> {
+    let inside = match page_of(m) {
+        App(p) if !m.editing => {
+            let shown = file_of(p.path);
+            let face = button(marker(p, shown), Msg.EditAddress);
+            let marked = match marker_icon(p) {
+                Some(name) => face.icon(name),
+                None => face,
+            };
+            // The marker's meaning in words, then what clicking it does.
+            [
+                marked.button_style(ButtonStyle.Subtle).tooltip(
+                    "{marker_note(p, shown)}. Click to type an address (Ctrl+K)",
+                ).shortcut("Ctrl+K").expand(),
+            ]
+        }
+        _ => {
+            let box = input(m.draft, Msg.Draft).placeholder("Enter Address").name(
+                "address",
+            ).on_submit(Msg.Go).autofocus().style([Look.Bare]).expand();
+            if typing(m) {
+                [
+                    box,
+                    button("", Msg.Go).icon("go-next-symbolic").tooltip("Go").button_style(
+                        ButtonStyle.Subtle,
+                    ),
+                ]
+            } else {
+                [box]
+            }
+        }
+    };
+    row(inside).style([Look.Address]).height(ADDRESS_HEIGHT).width(ADDRESS_WIDTH)
+}
+
+/**
+ * Builds the suggestions card while the box has text: what was typed (to
+ * open it), why opening it failed if it did, then "Rapidkoi suggest" and
+ * the apps that match.
+ *
+ * @param m the model
+ * @returns the card, or `None` while the box is empty or shows an address
+ *
+ * Example:
+ *     addressbox.card(m)
+ */
+public fun card(m: Model): Option<View<Msg>> {
+    if !typing(m) {
+        return None;
+    }
+    let mut rows = [choice(m.draft, None, Msg.Go)];
+    if let Some(n) = m.notice {
+        rows.push(text(n).dim().wrap().padding(SPACE_SM));
+    }
+    let found = suggest(m.draft, m.tabs, m.pinned, window.card(m));
+    if found.len > 0 {
+        rows.push(text("Rapidkoi suggest").dim().padding(SPACE_SM));
+        for s of found {
+            rows.push(choice(s.label, s.detail, s.msg));
+        }
+    }
+    Some(
+        column(rows).spacing(SPACE_XS).padding(SPACE_SM).style([Look.Suggestions]).width(
+            ADDRESS_WIDTH,
+        ),
+    )
+}
+
+/** Whether the field is showing with text in it: then the card and → show. */
+fun typing(m: Model): bool {
+    let field_shown = match page_of(m) {
+        App(_) => m.editing,
+        Home => true,
+    };
+    field_shown && m.draft.trim() != ""
+}
+
+/** One line of the card: a name, a dim detail after it, the whole line one button. */
+fun choice(label: string, detail: Option<string>, msg: Msg): View<Msg> {
+    let mut parts: View<Msg>[] = [text(label)];
+    if let Some(d) = detail {
+        parts.push(text(d).dim());
+    }
+    button_with(row(parts).spacing(SPACE_SM), msg).button_style(ButtonStyle.Subtle)
+}

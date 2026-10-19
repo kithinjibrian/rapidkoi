@@ -1,0 +1,68 @@
+// What the address box suggests (PRP-015): open tabs, pins and a closed
+// "where you left off", matched by name or title. Pure; no display.
+import rapidkoi.suggestions { Suggestion, suggest };
+import rapidkoi.home { Card };
+import rapidkoi.tabs { Tab, Pin, AppPage, open_module };
+import rapidkoi.actions { Msg };
+import wasmtime { Engine, Module };
+import support { fixed, titled_tree, result_of };
+
+/** A counter app whose screen is titled "Sprint 3". */
+fun counter(): AppPage {
+    let engine = Engine.new();
+    let wat = fixed(2, [1], titled_tree("Count: 0", "Sprint 3"), result_of([2]));
+    open_module("counter", "apps/counter.wasm", engine, Module.from_text(engine, wat).unwrap())
+}
+
+fun pin(name: string): Pin = Pin { name: name, path: "{name}.wasm", icon: None };
+
+fun closed(name: string): Card = Card {
+    name: name,
+    title: None,
+    msg: Msg.Continue,
+    path: "{name}.wasm",
+    icon: None,
+};
+
+fun messages(found: Suggestion[]): Msg[] = found.map(fun(s: Suggestion) = s.msg);
+
+@test
+fun an_empty_query_suggests_nothing() {
+    let open = [Tab { id: 1, page: counter() }];
+    assert_eq(suggest("", open, [pin("notes")], Some(closed("mail"))).len, 0);
+    assert_eq(suggest("   ", open, [pin("notes")], Some(closed("mail"))).len, 0);
+}
+
+@test
+fun an_open_tab_matches_by_name_or_title_ignoring_case() {
+    let open = [Tab { id: 7, page: counter() }];
+    let by_name = suggest("COUNT", open, [], None);
+    assert_eq(messages(by_name), [Msg.Select(7)]);
+    assert_eq(by_name[0].label, "counter");
+    assert_eq(by_name[0].detail, Some("Sprint 3"));
+    assert_eq(messages(suggest("sprint", open, [], None)), [Msg.Select(7)]);
+    assert_eq(suggest("mail", open, [], None).len, 0);
+}
+
+@test
+fun a_pin_matches() {
+    let found = suggest("not", [], [pin("notes"), pin("mail")], None);
+    assert_eq(messages(found), [Msg.OpenPinned("notes.wasm")]);
+    assert_eq(found[0].label, "notes");
+    assert_eq(found[0].detail, None);
+}
+
+@test
+fun a_closed_left_off_matches_but_an_open_one_is_listed_once() {
+    assert_eq(messages(suggest("ma", [], [], Some(closed("mail")))), [Msg.Continue]);
+    let open = [Tab { id: 3, page: counter() }];
+    let still_open = Card { msg: Msg.Select(3), ..closed("counter") };
+    assert_eq(messages(suggest("count", open, [], Some(still_open))), [Msg.Select(3)]);
+}
+
+@test
+fun tabs_come_first_then_pins_then_left_off() {
+    let open = [Tab { id: 2, page: counter() }];
+    let found = suggest("c", open, [pin("clock")], Some(closed("calendar")));
+    assert_eq(messages(found), [Msg.Select(2), Msg.OpenPinned("clock.wasm"), Msg.Continue]);
+}

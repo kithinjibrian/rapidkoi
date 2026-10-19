@@ -11,7 +11,7 @@
  */
 // kivuli's Theme and theme() are imported under other names: this module has a Theme of its own.
 import kivuli { Surface, Border, hex, Theme as Looks, theme as looks };
-import theme { PAGE_RADIUS, EDGE_WIDTH };
+import theme { PAGE_RADIUS, EDGE_WIDTH, ADDRESS_HEIGHT };
 
 /** The parts of Rapidkoi's window a theme colours. */
 public enum Look {
@@ -25,6 +25,14 @@ public enum Look {
     Scrim,
     /** The info panel over the app: the page's dark colour, a thin edge, every corner rounded. */
     Panel,
+    /** The address box: a pill in the page's colour, its ends half circles. */
+    Address,
+    /** A text field drawn by what holds it: no background, edge or shadow of its own (the address box's field). */
+    Bare,
+    /** The address box's suggestions card: the page's colour, a thin edge, rounded. */
+    Suggestions,
+    /** An invisible layer that catches clicks: outside the suggestions card, to close it. */
+    Clear,
 }
 
 /** One theme: a name, and a colour per part. Hex values live only here. */
@@ -60,7 +68,17 @@ public const DARK: Theme = Theme {
  *     view.theme(kivuli_theme(DARK))
  */
 public fun kivuli_theme(t: Theme): Looks = looks(
-    [Look.Frame, Look.Page, Look.Section, Look.Scrim, Look.Panel],
+    [
+        Look.Frame,
+        Look.Page,
+        Look.Section,
+        Look.Scrim,
+        Look.Panel,
+        Look.Address,
+        Look.Bare,
+        Look.Suggestions,
+        Look.Clear,
+    ],
     fun(l: Look) = surface(t, l),
 );
 
@@ -101,4 +119,27 @@ public fun surface(t: Theme, l: Look): Surface = match l {
     },
     // Flat: a plain dim layer, not a button that looks like one.
     Scrim => Surface { background: Some(hex(t.scrim)), flat: Some(true), ..Surface.theme() },
+    // Half the height rounds each end into a half circle: a pill (the owner,
+    // session 75). kivuli radii are pixels, so the box's height is fixed.
+    Address => Surface {
+        background: Some(hex(t.page)),
+        radius: Some(ADDRESS_HEIGHT / 2),
+        flat: Some(true),
+        ..Surface.theme(),
+    },
+    // Transparent and flat, so the pill around it is the only shape.
+    Bare => Surface { background: Some(hex(CLEAR)), flat: Some(true), ..Surface.theme() },
+    // Like the info panel: it floats over the page.
+    Suggestions => Surface {
+        background: Some(hex(t.page)),
+        border: Some(Border { width: EDGE_WIDTH, color: hex(t.edge) }),
+        radius: Some(PAGE_RADIUS),
+        flat: Some(true),
+        ..Surface.theme(),
+    },
+    // Nothing to see: it only catches the click.
+    Clear => Surface { background: Some(hex(CLEAR)), flat: Some(true), ..Surface.theme() },
 };
+
+/** Fully transparent, in every theme. */
+const CLEAR: string = "#00000000";

@@ -27,6 +27,8 @@ public enum Msg {
     Draft(string),
     /** Open what the address box says. */
     Go,
+    /** Close the address box's suggestions: Escape, or a click outside them. Empties the box. */
+    Dismiss,
     /** Turn the address shown on an app page back into the box. */
     EditAddress,
     /** Open a pinned app, by path, in the current tab. */

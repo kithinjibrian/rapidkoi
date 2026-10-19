@@ -1,0 +1,50 @@
+/**
+ * The content area's page, pure: the current app, as it stands (running,
+ * loading, stopped, refused, or Rapidkoi's question about a changed key).
+ * Never calls a guest.
+ *
+ * Depends on: kivuli, actions, tabs, window, placeholders, people, render, frame
+ * Used by: layout, legacy
+ */
+import kivuli { View };
+import actions { Msg };
+import tabs { AppPage };
+import placeholders { fill };
+import people { name_in };
+import window { Model };
+import render { screen, stopped, refused, loading };
+import frame { unapproved };
+
+/**
+ * Draws a tab's app, its messages tagged with the tab, so they reach only it.
+ *
+ * @param id the tab's id
+ * @param a its app page
+ * @param m the model: the time (for loading) and the person's name (for placeholders)
+ * @returns the page's view
+ *
+ * Example:
+ *     app_view(id, a, m)
+ */
+public fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
+    let now = m.now;
+    let shown = match a.screen {
+        // {FIRST_NAME} and {LAST_NAME} are filled while drawing: the app
+        // can show your name, never know it (PRP-011).
+        Running(_, _, d) => {
+            let (first, last) = match a.trust {
+                Some(t) => name_in(m.people, t.host, t.origin),
+                None => (m.people.first, m.people.last),
+            };
+            screen(fill(d.root, first, last))
+        }
+        Stopped(why, can_restart) => stopped(why, can_restart),
+        Refused(why) => refused(why),
+        Loading(p) => loading(a.name, if now > p.started { now - p.started } else { 0 }),
+        // Rapidkoi's own question, not the app's: its buttons are the window's.
+        Unapproved(c, kept) => {
+            return unapproved(c, kept.len > 0);
+        }
+    };
+    shown.map(fun(inner: render.Msg) = Msg.Tab(id, inner))
+}
