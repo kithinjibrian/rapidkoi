@@ -3243,6 +3243,16 @@ DECISIONS.md, CONTEXT.md
 
 ---
 
+## SESSION 87 — 2026-10-20 — Everything follows Rapidkoi's theme; PRP-017 — open
+
+Branch: prp-016-account_menu_icons
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 DECISION-030 resolved (rewrite the UI for the redesign on kivuli 0.17). DECISION-031 partly answered: buttons follow Rapidkoi's theme, not the desktop's; open: whether everything does (text, fields, apps' content) and the header bar's colour. Then PRP-017 for the move. DECISION-029 is open. Nothing merges to `main` until the whole redesign is built (DECISION-027).
