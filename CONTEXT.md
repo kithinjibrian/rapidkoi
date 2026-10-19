@@ -2961,16 +2961,43 @@ docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-015-address_box.md, CONTEXT.md
 
 ---
 
-## SESSION 79 — 2026-10-19 — The address box's look: centring and focus — open
+## SESSION 79 — 2026-10-19 — The address box's look: centring and focus — closed
 
 Branch: prp-015-address_box
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner's screenshot of PRP-015: the pill stretched to the header bar's edges with the field tight inside it, and GTK's focus ring drawn on the field, not the pill. They asked for room so the field is centred, and focus on the whole pill.
+- Centring: the pill is a styled wrapper around a row padded `SPACE_XS` (kivuli's padding falls outside a node's own look), aligned to the centre so it keeps its height. `ADDRESS_HEIGHT` is now 34 + 2 × `SPACE_XS` = 42, so the radius (half) still makes half-circle ends.
+- Focus on the whole pill: kivuli 0.10 can't remove a field's focus ring (an `outline`; `flat` only clears shadow and border) or style a node while something inside has focus. Not worked around: recorded as DECISION-028 (open) with a recommended kivuli change, added to CLAUDE.md's known issues, and reported.
+- Checks, by exit status: fmt clean; `lughac test test/` 333 passed; build ok. The new look is the owner's to check.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/addressbox.la, src/theme.la
+DECISIONS.md (DECISION-028), CLAUDE.md (known issues), docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None: layout only; the existing address box tests pass.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-028: the pill's focus ring needs kivuli to style focus (outline, focus-within).
+
+### STILL OPEN AT CLOSE
+
+- DECISION-028 (the owner's choice; then a kivuli session in `../kivuli`).
+- The owner's look at the centred pill; then merge `prp-015-address_box` (which holds 014) into `redesign`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-014 (the bare frame) and PRP-015 (the address box) are built, stacked on `prp-015-address_box`, all checks green, waiting for the owner's look at `./main`. On their word, merge into `redesign` (never `main` until the whole redesign is built: DECISION-027). Next redesign steps: the sidebar's contents (tabs), the new tab as a bundled app (discovery to run), back/forward/reload/ⓘ in the header.
+PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green. The pill was re-centred in session 79 and waits for the owner's look. DECISION-028 is open: focus on the whole pill needs a kivuli change (recommended: `Surface` gains an outline, and looks gain a focused-within surface), done in `../kivuli` under its own rules, then a kivuli bump here. Once the owner is happy, merge into `redesign` (never `main` until the whole redesign is built: DECISION-027).

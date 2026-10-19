@@ -12,7 +12,20 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-(none)
+### DECISION-028 — The address box's focus ring on the whole pill (kivuli)
+
+**Status:** open
+**Raised:** 2026-10-19 — Session 79 (the owner's screenshot of PRP-015)
+
+**Question:** The owner wants focus shown on the whole pill, not the field inside it. GTK draws the field's own focus ring (an `outline`, which `flat` doesn't remove), and kivuli 0.10 has no way to turn it off or to style a node while something inside it has focus (CSS `:focus-within`). How does kivuli gain it?
+
+**Options:**
+- A) kivuli adds to `Surface` an `outline` (on/off, or a width and colour), and a way to give a look a second surface for while the node or something in it has focus (e.g. `looks` taking a `focused` surface per look, generated as `:focus-within`). Rapidkoi then turns the field's ring off (`Look.Bare`) and gives `Look.Address` a ring when focused. Recommended: general, typed, no CSS from apps.
+- B) kivuli adds a single `.focus_ring_on_parent()`-style modifier for fields. Narrower, and only fits this one case.
+
+**Until then:** the field keeps GTK's ring inside the pill (CLAUDE.md known issues). The fix is a kivuli change in `../kivuli` under its own CLAUDE.md, then a kivuli version bump here.
+
+---
 
 ---
 

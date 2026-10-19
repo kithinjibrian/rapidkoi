@@ -7,7 +7,7 @@
  * Depends on: kivuli, actions, tabs, window, frame, suggestions, theme, themes
  * Used by: layout
  */
-import kivuli { View, ButtonStyle, button, button_with, column, input, row, text };
+import kivuli { View, Align, ButtonStyle, button, button_with, column, input, row, text };
 import actions { Msg };
 import tabs { Page };
 import window { Model, page_of };
@@ -59,7 +59,13 @@ public fun field(m: Model): View<Msg> {
             }
         }
     };
-    row(inside).style([Look.Address]).height(ADDRESS_HEIGHT).width(ADDRESS_WIDTH)
+    // kivuli's padding sits outside a node's look, so the room inside the
+    // pill is the inner row's padding, inside the styled wrapper. Centred
+    // across the header bar, the pill keeps its own height instead of
+    // stretching to the bar's edges (the owner, session 79).
+    column([row(inside).padding(SPACE_XS)]).style([Look.Address]).height(ADDRESS_HEIGHT).width(
+        ADDRESS_WIDTH,
+    ).align(Align.Center)
 }
 
 /**
