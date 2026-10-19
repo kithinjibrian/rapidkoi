@@ -2961,6 +2961,16 @@ docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-015-address_box.md, CONTEXT.md
 
 ---
 
+## SESSION 79 — 2026-10-19 — The address box's look: centring and focus — open
+
+Branch: prp-015-address_box
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-014 (the bare frame) and PRP-015 (the address box) are built, stacked on `prp-015-address_box`, all checks green, waiting for the owner's look at `./main`. On their word, merge into `redesign` (never `main` until the whole redesign is built: DECISION-027). Next redesign steps: the sidebar's contents (tabs), the new tab as a bundled app (discovery to run), back/forward/reload/ⓘ in the header.
