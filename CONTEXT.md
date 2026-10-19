@@ -2844,16 +2844,40 @@ CONTEXT.md
 
 ---
 
-## SESSION 76 — 2026-10-19 — Discovery: the address box (3) — open
+## SESSION 76 — 2026-10-19 — Discovery: the address box (3) — closed
 
 Branch: prp-014-bare_frame
 
 ### WHAT WAS DONE
 
-- In progress.
+- Question 2 answered: option A, local suggestions only. First what was typed (Enter or → goes there), then "Rapidkoi suggest": the open tabs, pins and where-you-left-off that match (home's search, moved into the box). An app's screens join once links exist; nothing typed leaves the computer.
+- Read today's box: `Msg.Draft`, `Msg.Go` (Enter), `Msg.EditAddress` (the marker on an app page), `Msg.FocusSearch` (Ctrl+K).
+- Asked question 3: how the box and card behave (opening, closing, keys).
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- Suggestions are local only (open tabs, pins, left off).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Discovery question 3; PRP-014's visual check and merge into `redesign`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). Address box discovery (sketch in session 74): placement settled (header, centred, a pill; suggestions card over the page under it, session 75). Question 2 (suggestion sources) is waiting. Still to ask: keys (Enter, →, Escape, arrows), failures, edge cases, tests.
+PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). Address box discovery (sketch in session 74): placement (header, centred, a pill, card under it over the page) and sources (local only: tabs, pins, left off) are settled. Question 3 (behaviour and keys) is waiting. Still to ask: failures, edge cases, tests; then write PRP-015.
