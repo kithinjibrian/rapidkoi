@@ -3141,6 +3141,16 @@ docs/DESIGN.md, CHANGELOG.md, PRPs/prp-016-account_menu_icons.md, CONTEXT.md
 
 ---
 
+## SESSION 84 — 2026-10-20 — kivuli's breaking release: what a rewrite means — open
+
+Branch: prp-016-account_menu_icons
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-014, 015 and 016 are built, stacked on `prp-016-account_menu_icons` (from `prp-015-address_box`, from `prp-014-bare_frame`), all checks green, waiting for the owner's look. DECISION-029 (clicking away from the box: a kivuli change) is open. Merge the stack into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027). Next: what account opens (a native page), the menu (needs kivuli to open a menu from a left click), the sidebar's tabs, the new tab as a bundled app.
