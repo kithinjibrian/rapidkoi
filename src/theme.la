@@ -49,11 +49,8 @@ public const TILE_SIZE: i64 = 120;
 public const BANNER_HEIGHT: i64 = 180;
 /** A thin edge's width (the floating info panel), in pixels. */
 public const EDGE_WIDTH: i64 = 1;
-/**
- * The address box's height, in pixels: a 34 px field (the header bar's
- * icon-button size) with `SPACE_XS` around it inside the pill.
- */
-public const ADDRESS_HEIGHT: i64 = 34 + 2 * SPACE_XS;
+/** The address box's height, in pixels: the header bar's icon-button size, so it sits like one. */
+public const ADDRESS_HEIGHT: i64 = 34;
 /** The address box's width, and its suggestions card's, in pixels. */
 public const ADDRESS_WIDTH: i64 = 560;
 /** The page's top-right curve, in pixels. */

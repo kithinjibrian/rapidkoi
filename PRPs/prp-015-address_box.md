@@ -73,7 +73,7 @@ The second redesign step (DECISION-027), from the owner's sketch (sessions 74–
 `test/addressbox.la`, through `kivuli.testing`:
 - [x] Home at rest: a field with the hint "Enter Address", and no card.
 - [x] Typing sends `Draft`; with text, the card shows what was typed first, and clicking it sends `Go`.
-- [x] → ("Go") sends `Go`; Enter in the field sends `Go`.
+- [x] Enter in the field sends `Go` (no → button since session 80).
 - [x] Matches show under "Rapidkoi suggest"; with none, the heading is gone.
 - [x] Clicking a suggestion sends its message; after `update`, the card is gone and the app is current.
 - [x] Escape (`press(v, "Escape")`) and the clear layer send `Dismiss`; after `update`, the box is empty and the card is gone; on an app page its address shows again.

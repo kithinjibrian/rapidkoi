@@ -49,7 +49,9 @@ fun typing_shows_what_was_typed_first() {
     let v = card(m);
     assert_eq(texts(v), ["zzz"]);
     assert_eq(click(v, "zzz"), Ok(Msg.Go));
-    assert_eq(click(addressbox.field(m), "Go"), Ok(Msg.Go));
+    // Just the rounded field (session 80): Enter goes, there's no → button.
+    assert(click(addressbox.field(m), "Go").is_err());
+    assert_eq(submit(addressbox.field(m), "Enter Address"), Ok(Msg.Go));
 }
 
 @test

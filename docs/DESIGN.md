@@ -55,7 +55,7 @@ From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the
 
 **During the redesign (DECISION-027, PRP-014)** the frame is drawn empty by `src/layout.la`: the header bar with only the window controls, the sidebar (`FRAME_THICKNESS` wide) and the page. The bar and rail below are the old view's (`src/legacy.la`), kept until the redesign replaces them.
 
-**The address box (PRP-015, `src/addressbox.la`)** sits centred in the header bar: `ADDRESS_HEIGHT` (42: a 34 px field with `SPACE_XS` around it) tall, centred across the bar, `ADDRESS_WIDTH` (560) wide, a pill (`Look.Address`: the page's colour, radius `ADDRESS_HEIGHT / 2`), its field drawn bare inside it (`Look.Bare`). Its suggestions card (`Look.Suggestions`: the page's colour, a thin edge, `PAGE_RADIUS`) is the same width, `SPACE_SM` under the header, centred on the window, over a click-catching `Look.Clear` layer.
+**The address box (PRP-015, `src/addressbox.la`)** sits centred in the header bar: the field itself, rounded, with no box around it (session 80). `ADDRESS_HEIGHT` (34) tall, centred across the bar, `ADDRESS_WIDTH` (560) wide, `Look.Address`: the page's colour, radius `ADDRESS_HEIGHT / 2`, so its ends are half circles and GTK's focus ring goes round all of it. Enter goes; there's no → button. Its suggestions card (`Look.Suggestions`: the page's colour, a thin edge, `PAGE_RADIUS`) is the same width, `SPACE_SM` under the header, centred on the window, over a click-catching `Look.Clear` layer.
 
 | Token | Value | Use |
 |-------|-------|-----|

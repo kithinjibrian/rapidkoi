@@ -2998,16 +2998,43 @@ DECISIONS.md (DECISION-028), CLAUDE.md (known issues), docs/DESIGN.md, CONTEXT.m
 
 ---
 
-## SESSION 80 — 2026-10-19 — The address box: just a rounded field — open
+## SESSION 80 — 2026-10-19 — The address box: just a rounded field — closed
 
 Branch: prp-015-address_box
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner scrapped the pill: "just have the rounded input box without the external box".
+- Test first: `typing_shows_what_was_typed_first` now expects no "Go" button and Enter to go; it failed, then passed.
+- `addressbox.field`: the field itself (or, on an app at rest, the address button) carries `Look.Address` (radius half of `ADDRESS_HEIGHT`, back to 34), centred across the header bar. No wrapper, no → button; `Look.Bare` removed. `Look.Address` is no longer flat, so the field keeps GTK's own edge and focus ring, which now go round the whole box.
+- DECISION-028 resolved without a kivuli change; its known issue removed from CLAUDE.md.
+- Checks, by exit status: fmt clean; `lughac test test/` 333 passed; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/addressbox.la, src/theme.la, src/themes.la, test/addressbox.la
+DECISIONS.md, CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/addressbox.la: the field has no → button; Enter goes.
+
+### DECISIONS MADE
+
+- DECISION-028: resolved, the rounded field alone.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look at the rounded field; then merge `prp-015-address_box` (holding 014) into `redesign`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green. The pill was re-centred in session 79 and waits for the owner's look. DECISION-028 is open: focus on the whole pill needs a kivuli change (recommended: `Surface` gains an outline, and looks gain a focused-within surface), done in `../kivuli` under its own rules, then a kivuli bump here. Once the owner is happy, merge into `redesign` (never `main` until the whole redesign is built: DECISION-027).
+PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green. The address box is now just a rounded field (session 80), waiting for the owner's look. Once they're happy, merge into `redesign` (never `main` until the whole redesign is built: DECISION-027). Next redesign steps: the sidebar's contents (tabs), the new tab as a bundled app (discovery to run), back/forward/reload/ⓘ in the header.

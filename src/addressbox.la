@@ -1,5 +1,5 @@
 /**
- * The address box, pure (PRP-015): the pill in the header bar, and the card
+ * The address box, pure (PRP-015): the rounded field in the header bar, and the card
  * of suggestions that drops under it, over the page, while there's text in
  * it. Rapidkoi draws both where apps can't: the address and its trust
  * marker are Rapidkoi's word. Opening and closing happen in `update`.
@@ -17,18 +17,19 @@ import theme { SPACE_XS, SPACE_SM, ADDRESS_HEIGHT, ADDRESS_WIDTH };
 import themes { Look };
 
 /**
- * Builds the pill for the header bar: on home or while editing, a field
- * ("Enter Address", with → once there's text); on an app at rest, its
- * address and trust marker, which a click or Ctrl+K turns into the field.
+ * Builds the address box for the header bar, a rounded field: on home or
+ * while editing, the field ("Enter Address"; Enter goes); on an app at
+ * rest, its address and trust marker, which a click or Ctrl+K turns into
+ * the field.
  *
  * @param m the model
- * @returns the pill
+ * @returns the box
  *
  * Example:
  *     addressbox.field(m)
  */
 public fun field(m: Model): View<Msg> {
-    let inside = match page_of(m) {
+    let shape = match page_of(m) {
         App(p) if !m.editing => {
             let shown = file_of(p.path);
             let face = button(marker(p, shown), Msg.EditAddress);
@@ -37,35 +38,19 @@ public fun field(m: Model): View<Msg> {
                 None => face,
             };
             // The marker's meaning in words, then what clicking it does.
-            [
-                marked.button_style(ButtonStyle.Subtle).tooltip(
-                    "{marker_note(p, shown)}. Click to type an address (Ctrl+K)",
-                ).shortcut("Ctrl+K").expand(),
-            ]
+            marked.tooltip("{marker_note(p, shown)}. Click to type an address (Ctrl+K)").shortcut(
+                "Ctrl+K",
+            )
         }
-        _ => {
-            let box = input(m.draft, Msg.Draft).placeholder("Enter Address").name(
-                "address",
-            ).on_submit(Msg.Go).autofocus().style([Look.Bare]).expand();
-            if typing(m) {
-                [
-                    box,
-                    button("", Msg.Go).icon("go-next-symbolic").tooltip("Go").button_style(
-                        ButtonStyle.Subtle,
-                    ),
-                ]
-            } else {
-                [box]
-            }
-        }
+        // The field is the whole box, no wrapper around it, so GTK's focus
+        // ring goes round the whole of it (the owner, session 80).
+        _ => input(m.draft, Msg.Draft).placeholder("Enter Address").name("address").on_submit(
+            Msg.Go,
+        ).autofocus(),
     };
-    // kivuli's padding sits outside a node's look, so the room inside the
-    // pill is the inner row's padding, inside the styled wrapper. Centred
-    // across the header bar, the pill keeps its own height instead of
-    // stretching to the bar's edges (the owner, session 79).
-    column([row(inside).padding(SPACE_XS)]).style([Look.Address]).height(ADDRESS_HEIGHT).width(
-        ADDRESS_WIDTH,
-    ).align(Align.Center)
+    // Centred across the header bar, it keeps its own height instead of
+    // stretching to the bar's edges (session 79).
+    shape.style([Look.Address]).height(ADDRESS_HEIGHT).width(ADDRESS_WIDTH).align(Align.Center)
 }
 
 /**
@@ -101,7 +86,7 @@ public fun card(m: Model): Option<View<Msg>> {
     )
 }
 
-/** Whether the field is showing with text in it: then the card and → show. */
+/** Whether the field is showing with text in it: then the card shows. */
 fun typing(m: Model): bool {
     let field_shown = match page_of(m) {
         App(_) => m.editing,
