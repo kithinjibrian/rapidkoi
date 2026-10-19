@@ -222,6 +222,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** A guest drawing a trust screen or holding the power to grant permissions or read the secret; merging the redesign to `main` piecemeal.
 
+**Amended (DECISION-030, session 85):** the redesign is written on kivuli 0.17; the old view and its tests are deleted rather than ported.
+
 ---
 
 ## CURRENT PROJECT STATE

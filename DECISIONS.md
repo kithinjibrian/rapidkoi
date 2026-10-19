@@ -12,19 +12,6 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-### DECISION-030 — Moving to kivuli 0.17: port, or rewrite the UI
-
-**Status:** open
-**Raised:** 2026-10-20 — Session 84 (the owner: "kivuli has pushed very breaking changes. i need us to rewrite")
-
-**Question:** kivuli 0.11–0.17 replaced every styling modifier with typed values in `.style([...])`: `.bold`, `.dim`, `.size` on text, `.padding`, `.spacing`, `.width`, `.height`, `.button_style`/`ButtonStyle`, named looks (`Surface`, `theme`, `.theme`, `.header_style`). Rapidkoi uses them in 15 of its modules, `render.la` (guests' screens) included. What does the rewrite cover?
-
-**Options:**
-- A) Rewrite the UI for the redesign only. Port what the new frame draws (`layout`, `addressbox`, `content`, `render`, `theme`/`themes` as style functions), and delete the old view (`legacy`, `frame`'s bar and rail, `home`, `panel`'s, `account`'s and `access`'s views) with the tests that drive it. The model, `update` and everything under it stay; the behaviour those tests guarded gets tests that drive `update` directly. Recommended: the redesign replaces the old view anyway, and porting it is work thrown away.
-- B) Port everything as it is, old view included: the most coverage kept, the most throwaway work.
-- C) Rewrite all of Rapidkoi, not just its UI.
-
----
 
 ### DECISION-031 — What kivuli 0.17 can't do that Rapidkoi needs (kivuli)
 
@@ -227,6 +214,27 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-030 — Moving to kivuli 0.17: port, or rewrite the UI
+
+**Status:** resolved
+**Raised:** 2026-10-20 — Session 84 (the owner: "kivuli has pushed very breaking changes. i need us to rewrite")
+**Resolved:** 2026-10-20 — Session 85 (the owner, in chat)
+
+**Question:** kivuli 0.11–0.17 replaced every styling modifier with typed values in `.style([...])`: `.bold`, `.dim`, `.size` on text, `.padding`, `.spacing`, `.width`, `.height`, `.button_style`/`ButtonStyle`, named looks (`Surface`, `theme`, `.theme`, `.header_style`). Rapidkoi uses them in 15 of its modules, `render.la` (guests' screens) included. What does the rewrite cover?
+
+**Options:**
+- A) Rewrite the UI for the redesign only. Port what the new frame draws (`layout`, `addressbox`, `content`, `render`, `theme`/`themes` as style functions), and delete the old view (`legacy`, `frame`'s bar and rail, `home`, `panel`'s, `account`'s and `access`'s views) with the tests that drive it. The model, `update` and everything under it stay; the behaviour those tests guarded gets tests that drive `update` directly. Recommended: the redesign replaces the old view anyway, and porting it is work thrown away.
+- B) Port everything as it is, old view included: the most coverage kept, the most throwaway work.
+- C) Rewrite all of Rapidkoi, not just its UI.
+
+**Outcome:** A. Rewrite the UI for the redesign on kivuli 0.17: port what the new frame draws, delete the old view and the tests that drive it, and give the behaviour they guarded tests that drive `update` directly. The model and logic stay.
+
+**Rationale:** The redesign replaces the old view; porting it would be thrown away.
+
+**Copied to MEMORY.md:** yes (decision 19, amended)
+
+---
 
 ### DECISION-028 — The address box's focus ring on the whole pill (kivuli)
 

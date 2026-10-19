@@ -3177,6 +3177,39 @@ DECISIONS.md, CONTEXT.md
 
 ---
 
+## SESSION 85 — 2026-10-20 — DECISION-030: rewrite the UI for the redesign — closed
+
+Branch: prp-016-account_menu_icons
+
+### WHAT WAS DONE
+
+- The owner chose A for DECISION-030: rewrite the UI for the redesign on kivuli 0.17, delete the old view and its tests. Recorded (resolved) and added to MEMORY.md decision 19.
+- Asked DECISION-031: wait for kivuli's button looks and header bar style, or move now without them.
+
+### FILES CREATED OR MODIFIED
+
+```
+DECISIONS.md, MEMORY.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- DECISION-030: A.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- DECISION-031; then PRP-017, the move to kivuli 0.17.
+
+---
+
 ## NEXT SESSION START POINT
 
-kivuli is at 0.17 with breaking styling changes; Rapidkoi still pins 0.10. DECISION-030 (port, or rewrite the UI for the redesign) and DECISION-031 (button looks and the header bar colour missing from kivuli) wait for the owner. Then a PRP for the move, on a branch from the PRP-014–016 stack. DECISION-029 is open. Nothing merges to `main` until the whole redesign is built (DECISION-027).
+DECISION-030 is resolved (rewrite the UI for the redesign on kivuli 0.17; delete the old view). DECISION-031 (button looks and the header bar colour, missing from kivuli 0.17) waits for the owner. Then write PRP-017 for the move, on a branch from the PRP-014–016 stack. DECISION-029 is open. Nothing merges to `main` until the whole redesign is built (DECISION-027).
