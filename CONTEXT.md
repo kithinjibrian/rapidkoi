@@ -2775,6 +2775,16 @@ CONTEXT.md
 
 ---
 
+## SESSION 74 — 2026-10-19 — Discovery: the address box — open
+
+Branch: prp-014-bare_frame
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-014 (the bare frame) is built on `prp-014-bare_frame`, all checks green, waiting for the owner to look at `./main`. On their word, merge it into `redesign` (never `main` until the whole redesign is built: DECISION-027). Then the next redesign PRP: what goes into the frame (header, sidebar) or the new tab as a bundled app (discovery to run: the contract's missing nodes, privileged capabilities, colours, embedding the .wasm).
