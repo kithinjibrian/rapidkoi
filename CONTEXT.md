@@ -2809,16 +2809,41 @@ CONTEXT.md
 
 ---
 
-## SESSION 75 — 2026-10-19 — Discovery: the address box (2) — open
+## SESSION 75 — 2026-10-19 — Discovery: the address box (2) — closed
 
 Branch: prp-014-bare_frame
 
 ### WHAT WAS DONE
 
-- In progress.
+- Question 1 answered: option A. The field stays in the header bar, centred; while typing, a rounded card of suggestions floats over the top of the page, lined up under it. A kivuli popover (option B) may come later as polish.
+- The owner asked for the field to be a pill: ends fully round ("50% rounded"). kivuli radii are pixels, so the PRP fixes the field's height as a token and its radius at half of it, in a new `themes.la` look. kivuli looks apply to any node, a text field included; the look on screen is the owner's to check.
+- Asked question 2: where the suggestions come from.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- Address box placement: in the header, suggestions dropping below it over the page (option A).
+- The field is a pill (radius = half its height).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Discovery question 2; PRP-014's visual check and merge into `redesign`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). Discovery is running for the next PRP, the address box (the owner's sketch, session 74): question 1 (placement, and how the suggestions card appears given kivuli has no anchored popover) is waiting. Still to ask: where suggestions come from ("Rapidkoi suggest": local only, or a service?), keys (Enter, →, Escape, arrows), failures, edge cases, tests.
+PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). Address box discovery (sketch in session 74): placement settled (header, centred, a pill; suggestions card over the page under it, session 75). Question 2 (suggestion sources) is waiting. Still to ask: keys (Enter, →, Escape, arrows), failures, edge cases, tests.
