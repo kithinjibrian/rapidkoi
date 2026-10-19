@@ -1,12 +1,13 @@
 /**
  * The window's frame, pure (PRP-014, PRP-015): the header bar across the
- * top holding the address box, the sidebar down the right, and the content
+ * top holding the address box (and, at its end, account and menu, disabled
+ * for now), the sidebar down the right, and the content
  * area filling the rest with the current app. While the address box has
  * text, its suggestions card floats over the page under it. What else goes
  * in the frame comes with later redesign PRPs (DECISION-027). Never calls a
  * guest.
  *
- * Depends on: kivuli, actions, tabs, window, content, addressbox, theme, themes
+ * Depends on: kivuli, actions, tabs, window, content, frame, addressbox, theme, themes
  * Used by: shell
  */
 import kivuli { View, Align, button_with, column, overlay, row, scroll };
@@ -14,6 +15,7 @@ import actions { Msg };
 import tabs { Page };
 import window { Model, title_of, page_of };
 import content { app_view };
+import frame { icon_button };
 import addressbox;
 import theme { SPACE_SM, SPACE_LG, FRAME_THICKNESS, WINDOW_WIDTH, WINDOW_HEIGHT };
 import themes { Look, kivuli_theme };
@@ -56,12 +58,18 @@ public fun view(m: Model): View<Msg> {
         ],
         None => none,
     };
+    // Shown disabled until each gets its own PRP (DECISION-018's way); the
+    // menu waits on kivuli opening a menu from a left click.
+    let end = [
+        icon_button("avatar-default-symbolic", "Account (coming soon)", None),
+        icon_button("open-menu-symbolic", "Menu (coming soon)", None),
+    ];
     let body = overlay(row([area, sidebar]).expand(), layers).expand();
     column([body]).style([Look.Frame]).window(
         title_of(m),
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-    ).maximized().theme(kivuli_theme(m.theme)).header(none, addressbox.field(m), none).header_style(
-        [Look.Frame],
-    )
+    ).maximized().theme(kivuli_theme(m.theme)).header(none, addressbox.field(m), end).header_style([
+        Look.Frame,
+    ])
 }

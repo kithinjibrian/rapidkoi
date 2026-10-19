@@ -43,9 +43,9 @@ The next redesign step (DECISION-027), the owner's request (session 82). The hea
 ## TESTS TO WRITE
 
 `test/layout.la`, no display:
-- [ ] The view has an "Account (coming soon)" button, disabled.
-- [ ] The view has a "Menu (coming soon)" button, disabled.
-- [ ] Both are there on home and on an app page.
+- [x] The view has an "Account (coming soon)" button, disabled.
+- [x] The view has a "Menu (coming soon)" button, disabled.
+- [x] Both are there on home and on an app page.
 
 ## ROLLBACK PLAN
 
@@ -54,12 +54,12 @@ The next redesign step (DECISION-027), the owner's request (session 82). The hea
 
 ## ACCEPTANCE CRITERIA
 - [ ] The header bar shows the account and menu icons at its right, before − □ ×, greyed out, with their tooltips
-- [ ] `lughac test test/` passes
-- [ ] `lughac build src/main.la -o main` succeeds
-- [ ] `lughac fmt --check src test` is clean
-- [ ] Every `public` item has a `/** … */` doc comment
-- [ ] No file over 500 lines
-- [ ] CHANGELOG.md updated
+- [x] `lughac test test/` passes
+- [x] `lughac build src/main.la -o main` succeeds
+- [x] `lughac fmt --check src test` is clean
+- [x] Every `public` item has a `/** … */` doc comment
+- [x] No file over 500 lines
+- [x] CHANGELOG.md updated
 
 ## VALIDATION
 - `lughac fmt --check src test`

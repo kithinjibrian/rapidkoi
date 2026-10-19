@@ -3104,16 +3104,43 @@ PRPs/prp-016-account_menu_icons.md, CONTEXT.md
 
 ---
 
-## SESSION 83 — 2026-10-19 — Build PRP-016: account and menu icons — open
+## SESSION 83 — 2026-10-19 — Build PRP-016: account and menu icons — closed
 
-Branch: prp-016-account_menu_icons
+Branch: prp-016-account_menu_icons (from `prp-015-address_box`)
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner approved PRP-016. Test first: `account_and_menu_wait_greyed_out_on_home_and_on_apps` failed, then passed.
+- `layout.la`: the header's end views are account (`avatar-default-symbolic`, "Account (coming soon)") and menu (`open-menu-symbolic`, "Menu (coming soon)"), both disabled.
+- `frame.icon_button` is public, with a doc comment.
+- The first full run failed to compile 17–27 test files: `lughac` couldn't reach GitHub to fetch `lugha-gtk` ("Could not resolve host"), and left `lugha.lock` one line short. Once GitHub answered, the rerun restored `lugha.lock` itself (unchanged from git; it was never opened or edited by hand).
+- Checks, by exit status (the rerun): fmt clean; `lughac test test/` 334 passed; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/layout.la, src/frame.la, test/layout.la
+docs/DESIGN.md, CHANGELOG.md, PRPs/prp-016-account_menu_icons.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/layout.la: account and menu are there and disabled, on home and on an app page.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look at `./main`; DECISION-029; merging the stack into `redesign`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green. PRP-016 (account and menu icons, disabled for now) waits for approval; once approved, branch `prp-016-account_menu_icons` from `prp-015-address_box`, tests first. DECISION-029 (clicking away from the box, a kivuli change) is open. Merge into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027).
+PRP-014, 015 and 016 are built, stacked on `prp-016-account_menu_icons` (from `prp-015-address_box`, from `prp-014-bare_frame`), all checks green, waiting for the owner's look. DECISION-029 (clicking away from the box: a kivuli change) is open. Merge the stack into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027). Next: what account opens (a native page), the menu (needs kivuli to open a menu from a left click), the sidebar's tabs, the new tab as a bundled app.

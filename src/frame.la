@@ -161,8 +161,18 @@ public fun initial(name: string): string {
     "?"
 }
 
-/** An icon-only button with a tooltip; `None` means disabled. */
-fun icon_button(icon: string, tip: string, msg: Option<Msg>): View<Msg> = match msg {
+/**
+ * Builds an icon-only button with a tooltip, flat as the header bar's are.
+ *
+ * @param icon a symbolic icon's name
+ * @param tip the tooltip, which tests find it by
+ * @param msg what a click sends; `None` shows it disabled
+ * @returns the button
+ *
+ * Example:
+ *     icon_button("open-menu-symbolic", "Menu (coming soon)", None)
+ */
+public fun icon_button(icon: string, tip: string, msg: Option<Msg>): View<Msg> = match msg {
     Some(m) => button("", m).icon(icon).tooltip(tip).button_style(ButtonStyle.Subtle),
     // kivuli: `.disabled(true)` removes the message, so any one will do.
     None => button("", Msg.Home).disabled(true).icon(icon).tooltip(tip).button_style(

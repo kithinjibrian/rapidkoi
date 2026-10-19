@@ -4,7 +4,7 @@ import rapidkoi.shell { Model, start, with_pages, update, view };
 import rapidkoi.layout;
 import rapidkoi.actions { Msg };
 import rapidkoi.tabs { AppPage, open_module };
-import kivuli.testing { click, pick, texts };
+import kivuli.testing { click, is_disabled, pick, texts };
 import wasmtime { Engine, Module };
 import support { echo };
 
@@ -55,4 +55,14 @@ fun homes_content_area_is_empty() {
 fun the_shell_shows_the_layout() {
     let m = busy();
     assert_eq(texts(view(m)), texts(layout.view(m)));
+}
+
+@test
+fun account_and_menu_wait_greyed_out_on_home_and_on_apps() {
+    let (home, _) = update(busy(), Msg.Home);
+    for m of [home, busy()] {
+        let v = layout.view(m);
+        assert_eq(is_disabled(v, "Account (coming soon)"), Ok(true));
+        assert_eq(is_disabled(v, "Menu (coming soon)"), Ok(true));
+    }
 }
