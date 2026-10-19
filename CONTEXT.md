@@ -2693,6 +2693,16 @@ MEMORY.md
 
 ---
 
+## SESSION 72 — 2026-10-19 — PRP for the bare frame: header, sidebar, content area — open
+
+Branch: redesign
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 On branch `redesign` (never merge to `main` until the whole redesign is built: DECISION-027). Discovery for the first redesign PRP, the new tab as a bundled app: question 2 (what it does on screen) is waiting for the owner. Still to cover: model and messages, failures, edge cases, files, what it must not touch, the contract's missing nodes (images, wrap, menus: a contract bump), the privileged capabilities, colours (DESIGN.md), embedding the cargo-built .wasm, rollback, verification.
