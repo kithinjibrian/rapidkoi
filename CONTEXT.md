@@ -3070,6 +3070,16 @@ DECISIONS.md (DECISION-029), CLAUDE.md (known issues), CONTEXT.md
 
 ---
 
+## SESSION 82 — 2026-10-19 — PRP-016: account and menu icons — open
+
+Branch: prp-015-address_box
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green; the address box is a rounded field (session 80). DECISION-029 is open: clicking away should take focus from the box, which needs kivuli (recommended: `.on_blur(msg)` on fields and clearing focus on a click on empty space), done in `../kivuli` under its own rules, then a kivuli bump here and `Dismiss` on blur. Merge into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027).
