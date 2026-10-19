@@ -214,6 +214,16 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
+### 19. The shell draws the frame; its pages are bundled apps (DECISION-027)
+
+**Decision:** The shell draws the frame (bar, tab rail, address box, error screen) and the screens that grant, approve or verify (app info, key-change and sign-in approval, Access, Account). Content pages (new tab first, then search, notifications, harmless preferences) are apps bundled with the shell. Built on the branch `redesign`, merged to `main` only when the whole redesign is done.
+
+**Why:** The shell dogfoods its own platform and keeps its trusted core small; anything an app can draw can be faked.
+
+**Rules out:** A guest drawing a trust screen or holding the power to grant permissions or read the secret; merging the redesign to `main` piecemeal.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working

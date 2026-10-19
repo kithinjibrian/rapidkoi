@@ -186,6 +186,26 @@ Rules:
 
 ## RESOLVED
 
+### DECISION-027 — The shell draws the frame; its pages become bundled apps
+
+**Status:** resolved
+**Raised:** 2026-10-19 — Session 70
+**Resolved:** 2026-10-19 — Session 71 (the owner, in chat)
+
+**Question:** Should the shell's own pages (new tab, search, notifications) be drawn by the shell, or be apps bundled with it?
+
+**Outcome:**
+- The shell draws the frame: the bar, the tab rail, the address box and the error screen.
+- Screens that grant, approve or verify stay native in the frame: app info (ⓘ), key-change approval, sign-in approval, Access, Account. Test: if a hostile app drew a perfect copy, could it trick the person into giving something away or believing something false?
+- Content pages (new tab/home, search, notifications, harmless preferences) become apps bundled with the shell, the new tab first. Data is undecided (deleting needs a native confirmation).
+- The redesign lives on the long-lived branch `redesign`; each PRP's branch merges into it, and `redesign` merges into `main` only when the whole redesign is built. Regressions on `redesign` meanwhile are expected.
+
+**Rationale:** Bundled apps use the same platform outside developers get, and keep the trusted core small. Anything any app can draw can be faked, so trust screens stay where guests can't paint.
+
+**Copied to MEMORY.md:** yes (decision 19)
+
+---
+
 ### DECISION-026 — A declared server name that resolves to this computer or the local network (std.http)
 
 **Status:** resolved (the design; building it waits for std: PRP-013)

@@ -2656,6 +2656,43 @@ CONTEXT.md
 
 ---
 
+## SESSION 71 — 2026-10-19 — Discovery: the new tab as a bundled app — closed
+
+Branch: redesign
+
+### WHAT WAS DONE
+
+- The owner accepted the line from session 70 (trust screens native, content pages bundled apps) and said the redesign will regress a lot, so nothing merges to `main` until it's all built.
+- Created the long-lived branch `redesign` from `main`; each redesign PRP branches from it and merges back into it.
+- Recorded DECISION-027 (resolved) and MEMORY.md decision 19.
+- Asked discovery question 2: what the pilot new tab does on screen.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+DECISIONS.md
+MEMORY.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- DECISION-027: the shell draws the frame and trust screens; content pages become bundled apps; built on `redesign`, merged to `main` only when complete.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Discovery question 2 (the pilot's scope: same as today's home, or redesigned).
+
+---
+
 ## NEXT SESSION START POINT
 
-The owner wants the shell to draw only the frame, with its pages moved into bundled apps (new tab first). Session 70 agreed in principle, keeping granting/approving/verifying screens native, and listed the gaps (contract 2's few node kinds, privileged capabilities for bundled apps, colours, embedding the .wasm, build-path placement). Next: the discovery interview for a PRP piloting the new tab as a bundled app. Links (DECISION-016) and tab restore are still waiting.
+On branch `redesign` (never merge to `main` until the whole redesign is built: DECISION-027). Discovery for the first redesign PRP, the new tab as a bundled app: question 2 (what it does on screen) is waiting for the owner. Still to cover: model and messages, failures, edge cases, files, what it must not touch, the contract's missing nodes (images, wrap, menus: a contract bump), the privileged capabilities, colours (DESIGN.md), embedding the cargo-built .wasm, rollback, verification.
