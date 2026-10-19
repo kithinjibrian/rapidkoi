@@ -3070,16 +3070,40 @@ DECISIONS.md (DECISION-029), CLAUDE.md (known issues), CONTEXT.md
 
 ---
 
-## SESSION 82 — 2026-10-19 — PRP-016: account and menu icons — open
+## SESSION 82 — 2026-10-19 — PRP-016: account and menu icons — closed
 
 Branch: prp-015-address_box
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner asked for two icons at the header bar's right: account and menu.
+- Wrote PRP-016 (`PRPs/prp-016-account_menu_icons.md`): both shown disabled with "coming soon" tooltips, like the other placeholders; what each opens gets its own PRP. Found the menu will need kivuli: 0.10 opens menus only by right-click or long press. Icons `avatar-default-symbolic` and `open-menu-symbolic` exist in Adwaita. Waiting for approval; no code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-016-account_menu_icons.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (listed in PRP-016).
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-016's approval (disabled placeholders, or should they open something now).
+- DECISION-029; merging `prp-015-address_box` into `redesign`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green; the address box is a rounded field (session 80). DECISION-029 is open: clicking away should take focus from the box, which needs kivuli (recommended: `.on_blur(msg)` on fields and clearing focus on a click on empty space), done in `../kivuli` under its own rules, then a kivuli bump here and `Dismiss` on blur. Merge into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027).
+PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green. PRP-016 (account and menu icons, disabled for now) waits for approval; once approved, branch `prp-016-account_menu_icons` from `prp-015-address_box`, tests first. DECISION-029 (clicking away from the box, a kivuli change) is open. Merge into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027).
