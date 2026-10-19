@@ -1,139 +1,295 @@
 /**
- * Rapidkoi's themes: the colours of its own parts as kivuli typed looks.
- * The frame (the header bar and the rail) is one flat colour, with no
- * shadow, and the page sits flush inside it, curving only at its top-right
- * corner (the owner's direction, after the Opera inspiration). Apps never get colours; their content follows
- * the GTK theme. Dark is first and the default; others come later, with
- * settings.
+ * Rapidkoi's themes: every colour it shows, its own parts and apps' content
+ * alike, as kivuli style values (DECISION-031). The desktop's GTK theme is
+ * never followed. The frame (the header bar and the sidebar) is one flat
+ * colour, and the page sits flush inside it, curving only at its top-right
+ * corner. Apps name a button's kind; the theme decides its look. Dark is
+ * first and the default; others come later, with settings.
  *
- * Depends on: kivuli, theme
- * Used by: window, shell
+ * Depends on: kivuli, nodes, theme
+ * Used by: window, layout, addressbox, frame, content, render
  */
-// kivuli's Theme and theme() are imported under other names: this module has a Theme of its own.
-import kivuli { Surface, Border, hex, Theme as Looks, theme as looks };
-import theme { PAGE_RADIUS, EDGE_WIDTH, ADDRESS_HEIGHT };
+import kivuli {
+    Styling,
+    Font,
+    Text,
+    Background,
+    Border,
+    Side,
+    Radius,
+    Shadow,
+    Effects,
+    Paint,
+    Size,
+    Weight,
+    Width,
+    When,
+    State,
+    hex,
+};
+import nodes { ButtonLook };
+import theme { TEXT_TITLE, TEXT_HEADING, PAGE_RADIUS, EDGE_WIDTH, ADDRESS_HEIGHT, BUTTON_RADIUS };
 
-/** The parts of Rapidkoi's window a theme colours. */
-public enum Look {
-    /** The frame: everything around the page, the rail included. */
-    Frame,
-    /** The page: home or an app, a rounded card inside the frame. */
-    Page,
-    /** A rounded card of rows in the info panel: the frame's colour on the page's. */
-    Section,
-    /** Over the app while the info panel is open: dims it, and a click on it closes the panel. */
-    Scrim,
-    /** The info panel over the app: the page's dark colour, a thin edge, every corner rounded. */
-    Panel,
-    /** The address box: a rounded field in the page's colour, its ends half circles. */
-    Address,
-    /** The address box's suggestions card: the page's colour, a thin edge, rounded. */
-    Suggestions,
-    /** An invisible layer that catches clicks: outside the suggestions card, to close it. */
-    Clear,
-}
-
-/** One theme: a name, and a colour per part. Hex values live only here. */
+/** One theme: a name, and a colour per part (`#rrggbb` or `#rrggbbaa`). Hex values live only here. */
 public struct Theme {
     /** What settings will call it. */
     public name: string,
-    /** The frame (the owner's "bars": top and side, one colour). */
+    /** The frame: the header bar and the sidebar, one colour. */
     public frame: string,
-    /** The page card. */
+    /** The page, the address box and the suggestions card. */
     public page: string,
-    /** The dim layer over the app while the panel is open: translucent (`#rrggbbaa`). */
+    /** The dim layer over the app while the panel is open: translucent. */
     public scrim: string,
-    /** A thin line around a part that floats over the page (the info panel). */
+    /** Thin lines: around the suggestions card and text fields. */
     public edge: string,
+    /** Text. */
+    public text: string,
+    /** Secondary text: the text colour, fainter. */
+    public dim: string,
+    /** A normal button at rest, under the pointer, and pressed. */
+    public control: string,
+    /** A normal button under the pointer. */
+    public control_hover: string,
+    /** A normal button being pressed. */
+    public control_press: string,
+    /** The main action (primary buttons) and a focused field's edge. */
+    public accent: string,
+    /** A primary button under the pointer or pressed. */
+    public accent_hover: string,
+    /** Text on the accent. */
+    public on_accent: string,
+    /** Buttons that delete or discard. */
+    public danger: string,
+    /** A danger button under the pointer or pressed. */
+    public danger_hover: string,
+    /** Text on the danger colour. */
+    public on_danger: string,
+    /** A subtle button under the pointer: a faint light wash. */
+    public subtle_hover: string,
+    /** Nothing: fully transparent. */
+    public clear: string,
 }
 
-/** The dark theme, the default (the owner's colours, 2026-10-17). */
+/** The dark theme, the default (the frame and page are the owner's colours, 2026-10-17). */
 public const DARK: Theme = Theme {
     name: "dark",
     frame: "#242424",
     page: "#161616",
     scrim: "#00000060",
     edge: "#3a3a3a",
+    text: "#e8e8e8",
+    dim: "#e8e8e88c",
+    control: "#2e2e2e",
+    control_hover: "#383838",
+    control_press: "#424242",
+    accent: "#3584e4",
+    accent_hover: "#4a90e8",
+    on_accent: "#ffffff",
+    danger: "#c01c28",
+    danger_hover: "#d42c38",
+    on_danger: "#ffffff",
+    subtle_hover: "#ffffff14",
+    clear: "#00000000",
+};
+
+/** A button kind's colours: at rest, under the pointer, pressed, and its text. */
+public struct ButtonPaint {
+    /** At rest. */
+    public background: string,
+    /** Under the pointer. */
+    public hover: string,
+    /** Being pressed. */
+    public press: string,
+    /** Its label and icon. */
+    public text: string,
+}
+
+/**
+ * Returns the colours a kind of button takes in a theme.
+ *
+ * Example:
+ *     button_paint(DARK, ButtonLook.Primary)
+ */
+public fun button_paint(t: Theme, kind: ButtonLook): ButtonPaint = match kind {
+    Normal => ButtonPaint {
+        background: t.control,
+        hover: t.control_hover,
+        press: t.control_press,
+        text: t.text,
+    },
+    Primary => ButtonPaint {
+        background: t.accent,
+        hover: t.accent_hover,
+        press: t.accent_hover,
+        text: t.on_accent,
+    },
+    Danger => ButtonPaint {
+        background: t.danger,
+        hover: t.danger_hover,
+        press: t.danger_hover,
+        text: t.on_danger,
+    },
+    Subtle => ButtonPaint {
+        background: t.clear,
+        hover: t.subtle_hover,
+        press: t.subtle_hover,
+        text: t.text,
+    },
 };
 
 /**
- * Builds the kivuli theme that paints Rapidkoi's looks in `t`.
- *
- * @param t the theme
- * @returns the kivuli theme for the root's `.theme(…)`
+ * Returns the frame's look: the header bar, the sidebar and the window
+ * around the page, one flat colour with light text.
  *
  * Example:
- *     view.theme(kivuli_theme(DARK))
+ *     header_bar(start, title, end).style(frame(m.theme))
  */
-public fun kivuli_theme(t: Theme): Looks = looks(
-    [
-        Look.Frame,
-        Look.Page,
-        Look.Section,
-        Look.Scrim,
-        Look.Panel,
-        Look.Address,
-        Look.Suggestions,
-        Look.Clear,
-    ],
-    fun(l: Look) = surface(t, l),
-);
+public fun frame(t: Theme): Styling[] {
+    // Flat: no theme shadow or edge line, so the header bar, sidebar and gaps are one surface.
+    let mut all = flat(t.frame);
+    all.push(Text { color: paint(t.text), ..Text.theme() });
+    all
+}
 
 /**
- * Returns how one look appears in a theme.
- *
- * @param t the theme
- * @param l the look
- * @returns its surface; unset fields stay the GTK theme's
+ * Returns the page's look: the content area, its top-right corner curved
+ * where the frame wraps it.
  *
  * Example:
- *     surface(DARK, Look.Page)
+ *     area.style(page(m.theme))
  */
-public fun surface(t: Theme, l: Look): Surface = match l {
-    // Flat: no theme shadow or edge line, so the header bar, rail and gaps are one surface.
-    Frame => Surface { background: Some(hex(t.frame)), flat: Some(true), ..Surface.theme() },
-    // Only the top-right corner curves: where the frame wraps the page.
-    Page => Surface {
-        background: Some(hex(t.page)),
-        radius_top_right: Some(PAGE_RADIUS),
-        ..Surface.theme(),
-    },
-    // The panel's cards: the frame's colour, rounded, on the page's.
-    Section => Surface {
-        background: Some(hex(t.frame)),
-        radius: Some(PAGE_RADIUS),
-        ..Surface.theme(),
-    },
-    // The panel floats over the dimmed app: the page's dark colour (its
-    // cards, in the frame's, stand out on it), a thin edge to set it apart,
-    // and rounded all round.
-    Panel => Surface {
-        background: Some(hex(t.page)),
-        border: Some(Border { width: EDGE_WIDTH, color: hex(t.edge) }),
-        radius: Some(PAGE_RADIUS),
-        flat: Some(true),
-        ..Surface.theme(),
-    },
-    // Flat: a plain dim layer, not a button that looks like one.
-    Scrim => Surface { background: Some(hex(t.scrim)), flat: Some(true), ..Surface.theme() },
-    // Half the height rounds each end into a half circle: a pill (the owner,
+public fun page(t: Theme): Styling[] = [
+    Background { color: paint(t.page), ..Background.theme() },
+    Border { radius: Radius.Corners(0, PAGE_RADIUS, 0, 0), ..Border.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+];
+
+/**
+ * Returns a text field's look: the page's colour, a thin edge that turns the
+ * accent while the field has focus.
+ *
+ * Example:
+ *     input(v, f).style(field(t))
+ */
+public fun field(t: Theme): Styling[] = [
+    Background { color: paint(t.page), ..Background.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+    Border { all: line(t.edge), radius: Radius.All(BUTTON_RADIUS), ..Border.theme() },
+    Shadow.off(),
+    When(State.Focus, [Border { all: line(t.accent), ..Border.theme() }]),
+];
+
+/**
+ * Returns the address box's look: a field whose ends are half circles.
+ *
+ * Example:
+ *     input(m.draft, Msg.Draft).style(address(m.theme))
+ */
+public fun address(t: Theme): Styling[] {
+    let mut all = field(t);
+    // Half the height rounds each end into a half circle (the owner,
     // session 75). kivuli radii are pixels, so the box's height is fixed.
-    Address => Surface {
-        background: Some(hex(t.page)),
-        radius: Some(ADDRESS_HEIGHT / 2),
-        ..Surface.theme(),
-    },
-    // Like the info panel: it floats over the page.
-    Suggestions => Surface {
-        background: Some(hex(t.page)),
-        border: Some(Border { width: EDGE_WIDTH, color: hex(t.edge) }),
-        radius: Some(PAGE_RADIUS),
-        flat: Some(true),
-        ..Surface.theme(),
-    },
-    // Nothing to see: it only catches the click.
-    Clear => Surface { background: Some(hex(CLEAR)), flat: Some(true), ..Surface.theme() },
+    all.push(Border { radius: Radius.All(ADDRESS_HEIGHT / 2), ..Border.theme() });
+    all
+}
+
+/**
+ * Returns the suggestions card's look: the page's colour, a thin edge, rounded.
+ *
+ * Example:
+ *     column(rows).style(suggestions(m.theme))
+ */
+public fun suggestions(t: Theme): Styling[] = [
+    Background { color: paint(t.page), ..Background.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+    Border { all: line(t.edge), radius: Radius.All(PAGE_RADIUS), ..Border.theme() },
+    Shadow.off(),
+];
+
+/**
+ * Returns an invisible look: a layer that only catches clicks.
+ *
+ * Example:
+ *     button_with(column([]), Msg.Dismiss).style(clear(m.theme))
+ */
+public fun clear(t: Theme): Styling[] = flat(t.clear);
+
+/**
+ * Returns ordinary text's look.
+ *
+ * Example:
+ *     text(s).style(body(t))
+ */
+public fun body(t: Theme): Styling[] = [Text { color: paint(t.text), ..Text.theme() }];
+
+/**
+ * Returns secondary text's look: fainter.
+ *
+ * Example:
+ *     text(reason).style(dim(t))
+ */
+public fun dim(t: Theme): Styling[] = [Text { color: paint(t.dim), ..Text.theme() }];
+
+/**
+ * Returns a view's title's look: `TEXT_TITLE` points, bold.
+ *
+ * Example:
+ *     text("This app stopped working").style(title(t))
+ */
+public fun title(t: Theme): Styling[] = [
+    Font { size: Size.Pt(TEXT_TITLE), weight: Weight.Bold, ..Font.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+];
+
+/**
+ * Returns a section heading's look: `TEXT_HEADING` points, bold.
+ *
+ * Example:
+ *     text("Pinned").style(heading(t))
+ */
+public fun heading(t: Theme): Styling[] = [
+    Font { size: Size.Pt(TEXT_HEADING), weight: Weight.Bold, ..Font.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+];
+
+/**
+ * Returns a button's look for its kind: its colours at rest, under the
+ * pointer and pressed, rounded, and faded while disabled.
+ *
+ * Example:
+ *     button("Restart", Msg.Restart).style(button(t, ButtonLook.Primary))
+ */
+public fun button(t: Theme, kind: ButtonLook): Styling[] {
+    let p = button_paint(t, kind);
+    [
+        Background { color: paint(p.background), ..Background.theme() },
+        Text { color: paint(p.text), ..Text.theme() },
+        Border {
+            all: Side { width: Width.Px(0), ..Side.theme() },
+            radius: Radius.All(BUTTON_RADIUS),
+            ..Border.theme(),
+        },
+        Shadow.off(),
+        When(State.Hover, [Background { color: paint(p.hover), ..Background.theme() }]),
+        When(State.Press, [Background { color: paint(p.press), ..Background.theme() }]),
+        // Half as strong: still readable, plainly not clickable.
+        When(State.Disabled, [Effects { opacity: Some(0.5), ..Effects.theme() }]),
+    ]
+}
+
+/** A colour of the theme's, as kivuli paint. */
+fun paint(colour: string): Paint = Paint.Color(hex(colour));
+
+/** A thin solid line in a colour. */
+fun line(colour: string): Side = Side {
+    width: Width.Px(EDGE_WIDTH),
+    color: paint(colour),
+    ..Side.theme(),
 };
 
-/** Fully transparent, in every theme. */
-const CLEAR: string = "#00000000";
+/** A flat surface: one colour, no border line or theme shadow. */
+fun flat(colour: string): Styling[] = [
+    Background { color: paint(colour), ..Background.theme() },
+    Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() },
+    Shadow.off(),
+];

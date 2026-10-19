@@ -1,0 +1,74 @@
+// Rapidkoi's theme (PRP-017): which colour goes where, and every style
+// building without kivuli refusing a value. No display.
+import rapidkoi.themes {
+    DARK,
+    ButtonPaint,
+    button_paint,
+    frame,
+    page,
+    address,
+    field,
+    suggestions,
+    clear,
+    body,
+    dim,
+    title,
+    heading,
+    button,
+};
+import rapidkoi.nodes { ButtonLook };
+
+@test
+fun primary_buttons_are_the_accent() {
+    assert_eq(button_paint(DARK, ButtonLook.Primary), ButtonPaint {
+        background: DARK.accent,
+        hover: DARK.accent_hover,
+        press: DARK.accent_hover,
+        text: DARK.on_accent,
+    });
+}
+
+@test
+fun danger_buttons_are_the_danger_colour() {
+    let p = button_paint(DARK, ButtonLook.Danger);
+    assert_eq(p.background, DARK.danger);
+    assert_eq(p.text, DARK.on_danger);
+}
+
+@test
+fun normal_and_subtle_buttons_differ_at_rest_and_share_the_text_colour() {
+    let normal = button_paint(DARK, ButtonLook.Normal);
+    let subtle = button_paint(DARK, ButtonLook.Subtle);
+    assert_eq(normal.background, DARK.control);
+    assert_eq(normal.hover, DARK.control_hover);
+    assert_eq(normal.press, DARK.control_press);
+    assert_eq(subtle.background, DARK.clear);
+    assert_eq(subtle.hover, DARK.subtle_hover);
+    assert_eq(normal.text, DARK.text);
+    assert_eq(subtle.text, DARK.text);
+}
+
+@test
+fun every_style_builds() {
+    // kivuli stops on a bad colour when it's read: building each style once
+    // here turns a typo in the theme into a failed test, not a closed window.
+    let all = [
+        frame(DARK),
+        page(DARK),
+        address(DARK),
+        field(DARK),
+        suggestions(DARK),
+        clear(DARK),
+        body(DARK),
+        dim(DARK),
+        title(DARK),
+        heading(DARK),
+        button(DARK, ButtonLook.Normal),
+        button(DARK, ButtonLook.Primary),
+        button(DARK, ButtonLook.Danger),
+        button(DARK, ButtonLook.Subtle),
+    ];
+    for styles of all {
+        assert(styles.len > 0);
+    }
+}

@@ -3277,16 +3277,64 @@ DECISIONS.md, MEMORY.md, CLAUDE.md, PRPs/prp-017-kivuli_0_17.md, CONTEXT.md
 
 ---
 
-## SESSION 88 — 2026-10-20 — Build PRP-017: kivuli 0.17 — open
+## SESSION 88 — 2026-10-20 — Build PRP-017: kivuli 0.18 — closed
 
-Branch: prp-017-kivuli_0_17
+Branch: prp-017-kivuli_0_17 (from `prp-016-account_menu_icons`)
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner said "you need to bump kivuli", taken as PRP-017's approval. kivuli had moved on to 0.18 (the header bar a node: `.header(header_bar(…).style(…))`), which is what PRP-017 planned around, so Rapidkoi targets 0.18.
+- `lugha.toml` kivuli 0.18; `lughac update` rewrote `lugha.lock` (committed separately, as lughac wrote it). The installed lughac compiles kivuli 0.18.
+- Test first: `test/themes.la` (which colour goes where; every style builds) failed, then passed.
+- `themes.la`: `Theme` grows to every colour (PRP-017's table); looks are functions returning `Styling[]`; `button_paint` holds a button kind's colours as plain data so tests can check it (kivuli.testing can't inspect styles).
+- `theme.la`: helpers `px`, `margin`, `padding`, `gap`, `at_least`, `at_most`; `BUTTON_RADIUS`; the old view's tokens removed.
+- Ported `render.la` (screen, stopped, refused, loading take the theme), `content.la`, `addressbox.la`, `layout.la` (header bar styled as the frame), `frame.la` (kept: label, initial, icon_button, marker*, unapproved, icon_of, file_of).
+- Deleted `src/legacy.la`, `src/home.la` (`Card`, `matches` moved to `suggestions.la`), `src/panel.la`, and the page views in `account.la` and `access.la` (their logic stays).
+- Tests: the old-view tests now use `layout.view` or check the model. `test/views.la` → `test/frame.la` (pure checks); `test/panel.la`'s update checks moved into `test/shell.la`; address tooltip text updated to PRP-015's wording.
+- Checks, by exit status: fmt clean; `lughac test test/` 320 passed, none skipped; build ok; no old styling APIs left in `src/`.
+- Not checked: the look on screen (the owner's).
+
+### CHECKS DROPPED WITH THE OLD VIEW
+
+- access: the page's summaries ("3 servers", "2 servers, 1 off", "1 server", "None"), "Its own server", clicking a switch sends `ToggleServer` (kept: the facts via `access_of`).
+- account: "Signed in as …" and other page wording, clicking Sign out / Sign in / Start over / the auto switch / typing the name fields (kept: the facts via `account_of` and every message's effect).
+- counter: the bundle's icon on its tab, the panel's "Version 0.1.0" and description (kept: the manifest's version and description, the icon's bytes).
+- loader: `the_panel_says_where_it_came_from` (the panel's About).
+- opening: the panel's About ("Verified (development)", "Trusted since …", "Bundle format 2 (signed)").
+- shell: home's "Rapidkoi" and "Where you left off" texts, clicking Continue, the panel's "Your settings" and Forget button.
+- menus: `a_tab_s_menu_names_each_action_for_that_tab`, `reload_is_greyed_out_while_a_tab_loads`, `the_left_off_card_s_menu`, the tile menu's items (kept: what each action does).
+- panel: `the_bar_reloads_and_pins`, `the_main_page`, `sizes_read_plainly`, `the_panel_opens_over_the_app_and_only_closes_on_purpose`, `a_whole_row_is_one_click_target`, the pages' wording.
+- views: the bar, the rail, home (empty, left off and pinned, search filtering), the dark theme's `Surface`, icons on tabs and tiles, `first_trusted`.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml, lugha.lock (lughac)
+src/themes.la, src/theme.la, src/render.la, src/content.la, src/addressbox.la, src/layout.la, src/frame.la, src/suggestions.la, src/window.la, src/account.la, src/access.la
+src/home.la, src/legacy.la, src/panel.la (deleted)
+test/themes.la, test/frame.la (new); test/views.la, test/panel.la (deleted); test/access.la, account.la, counter.la, effects.la, loader.la, loading.la, menus.la, opening.la, remote.la, render.la, saving.la, shell.la, suggestions.la
+docs/DESIGN.md (rewritten), CLAUDE.md (stack, tree), CHANGELOG.md, PRPs/prp-017-kivuli_0_17.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/themes.la (4): primary is the accent; danger the danger colour; normal and subtle at rest and their text; every style builds.
+- test/shell.la (+5, from panel.la): each panel page opens and comes back; start over asks first; forget asks then removes everything; switching tabs drops a confirm; reload says why when the file is gone.
+
+### DECISIONS MADE
+
+- Target kivuli 0.18, not 0.17 (it had moved on; the header bar change was planned for).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look at `./main` (and the proposed colours); DECISION-029; merging the stack (014–017) into `redesign`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-017 (rewrite the UI on kivuli 0.17, Rapidkoi's theme for everything, delete the old view) waits for approval. Once approved: branch `prp-017-kivuli_0_17` from `prp-016-account_menu_icons`, `lughac update` for kivuli 0.17 (if lughac is too old, stop and ask the owner), tests first. DECISION-029 (clicking away from the box) is open. Nothing merges to `main` until the whole redesign is built (DECISION-027).
+PRP-014 to PRP-017 are built, stacked on `prp-017-kivuli_0_17`, all checks green on kivuli 0.18: the frame, the address box, account and menu icons, and every colour from Rapidkoi's theme. Waiting for the owner's look (and the colours in DESIGN.md). Merge the stack into `redesign` on their word (never `main` until the whole redesign is built: DECISION-027). DECISION-029 (clicking away from the box: kivuli) is open. Next: the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.

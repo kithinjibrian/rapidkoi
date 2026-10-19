@@ -2,10 +2,10 @@
 // changed, then started again on the same folder. Sites are served over
 // real local sockets, one port per test. Writes only under test/tmp/.
 import rapidkoi.shell { Model, start, update };
-import rapidkoi.legacy { view };
+import rapidkoi.layout { view };
 import rapidkoi.actions { Msg };
 import rapidkoi.store { Store, store_at, save };
-import rapidkoi.remembered { read_pins, read_trust, read_left, left_file, pins_file };
+import rapidkoi.remembered { read_pins, read_trust, read_left, left_file };
 import rapidkoi.leftoff { LeftOff, recalled };
 import rapidkoi.publish { make_key, publish_site };
 import rapidkoi.keys { read_secret };
@@ -17,7 +17,7 @@ import std.http { Request };
 import std.env;
 import std.fs;
 import std.task { sleep };
-import support { png, settle };
+import support { settle };
 
 const COUNTER: string = "guest/rust/target/wasm32-unknown-unknown/release/counter.wasm";
 
@@ -55,7 +55,7 @@ fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == 
 /** The bar's marker, found by what it means (its tooltip leads with that). */
 fun marks(m: Model, s: string): bool = click(
     view(m),
-    "{s}. Click to search or type a path (Ctrl+K)",
+    "{s}. Click to type an address (Ctrl+K)",
 ) == Ok(Msg.EditAddress);
 
 /** A signed site for `localhost:PORT`, published and served. */

@@ -3,12 +3,26 @@
  * computer and matches what was typed. Nothing typed leaves the computer;
  * an app's screens join once links exist.
  *
- * Depends on: actions, tabs, home
- * Used by: addressbox
+ * Depends on: kivuli, actions, tabs
+ * Used by: addressbox, window
  */
+import kivuli { Image };
 import actions { Msg };
 import tabs { Tab, Pin };
-import home { Card, matches };
+
+/** "Where you left off": the app and its last screen, and what Continue sends. */
+public struct Card {
+    /** The app's name. */
+    public name: string,
+    /** Its last screen's title, if any. */
+    public title: Option<string>,
+    /** `Select(id)` for an open tab, `Continue` for a closed app. */
+    public msg: Msg,
+    /** The app's file or address, for its menu's Forget. */
+    public path: string,
+    /** The app's icon, keyed, if it has one. */
+    public icon: Option<Image>,
+}
 
 /** One suggestion: what it's called, and what choosing it sends. */
 public struct Suggestion {
@@ -60,4 +74,29 @@ public fun suggest(query: string, open: Tab[], pinned: Pin[], card: Option<Card>
         }
     }
     found
+}
+
+/**
+ * Says whether a search matches a name or title, ignoring case.
+ *
+ * @param query what the person typed
+ * @param name an app's name
+ * @param title its screen title, if any
+ * @returns true when either contains the query
+ *
+ * Example:
+ *     matches("COUNT", "counter", None)
+ */
+public fun matches(query: string, name: string, title: Option<string>): bool {
+    let q = lower(query);
+    lower(name).contains(q) || lower(title.unwrap_or("")).contains(q)
+}
+
+/** ASCII and Latin-1 lower case (what `char.to_lower` covers). */
+fun lower(s: string): string {
+    let mut out = "";
+    for c of s.chars() {
+        out = out + "{c.to_lower()}";
+    }
+    out
 }

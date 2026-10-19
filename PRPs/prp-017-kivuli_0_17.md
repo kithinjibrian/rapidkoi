@@ -1,4 +1,4 @@
-## FEATURE: Rewrite Rapidkoi's UI on kivuli 0.17, every colour from Rapidkoi's theme, and delete the old view.
+## FEATURE: Rewrite Rapidkoi's UI on kivuli 0.17 (built on 0.18, which made the header bar a node; session 88), every colour from Rapidkoi's theme, and delete the old view.
 
 ## OBJECTIVE
 Rapidkoi moves from kivuli 0.10 to 0.17 (DECISION-030 A). The window looks as it does after PRP-016: the frame, the rounded address box with its suggestions card, account and menu (disabled), and the current app in the content area. Now every colour, apps' content included, comes from Rapidkoi's dark theme instead of the desktop's (DECISION-031), and the header bar is the frame's colour. The old view (bar, rail, home, info panel, Account and Access pages) is gone from the code; the info panel, Account and Access come back natively in later redesign PRPs.
@@ -71,9 +71,9 @@ Rapidkoi moves from kivuli 0.10 to 0.17 (DECISION-030 A). The window looks as it
 ## TESTS TO WRITE
 
 Before the port:
-- [ ] `test/themes.la`: each style function returns the theme's colours (e.g. `button(DARK, Primary)` has `accent`'s background); every function in `DARK` builds without kivuli stopping (a view using all of them renders in `kivuli.testing`).
-- [ ] `test/render.la` (from `guest.la`'s render checks): each `TextStyle` and `ButtonLook` renders with its theme style; `Space` maps to the tokens; an unknown component says so.
-- [ ] `test/layout.la`: the header bar is styled `frame`; existing frame, address box and icon tests still pass.
+- [x] `test/themes.la`: each style function returns the theme's colours (e.g. `button(DARK, Primary)` has `accent`'s background); every function in `DARK` builds without kivuli stopping (a view using all of them renders in `kivuli.testing`).
+- [x] `test/render.la` (from `guest.la`'s render checks): each `TextStyle` and `ButtonLook` renders with its theme style; `Space` maps to the tokens; an unknown component says so.
+- [x] `test/layout.la`: the header bar is styled `frame`; existing frame, address box and icon tests still pass.
 
 Moved, not rewritten:
 - `test/views.la` → `test/frame.la`: `label`, `initial`, `icon_of`, `marker`, `marker_icon`, `marker_note`, `matches`.
@@ -90,13 +90,13 @@ Deleted with the old view: tests whose only subject is the old bar, rail, home g
 ## ACCEPTANCE CRITERIA
 - [ ] The window as after PRP-016, in Rapidkoi's dark theme on a light desktop theme too, the header bar the frame's colour
 - [ ] An app's normal, primary, danger and subtle buttons look different and react to hover
-- [ ] No `.bold`, `.dim`, `.padding`, `.spacing`, `.width`, `.height`, `.button_style`, `ButtonStyle`, `Surface` or `.header_style` left in `src/`
-- [ ] `lughac test test/` passes
-- [ ] `lughac build src/main.la -o main` succeeds
-- [ ] `lughac fmt --check src test` is clean
-- [ ] Every `public` item has a `/** … */` doc comment
-- [ ] No file over 500 lines
-- [ ] CHANGELOG.md updated
+- [x] No `.bold`, `.dim`, `.padding`, `.spacing`, `.width`, `.height`, `.button_style`, `ButtonStyle`, `Surface` or `.header_style` left in `src/`
+- [x] `lughac test test/` passes
+- [x] `lughac build src/main.la -o main` succeeds
+- [x] `lughac fmt --check src test` is clean
+- [x] Every `public` item has a `/** … */` doc comment
+- [x] No file over 500 lines
+- [x] CHANGELOG.md updated
 
 ## VALIDATION
 - `lughac fmt --check src test`

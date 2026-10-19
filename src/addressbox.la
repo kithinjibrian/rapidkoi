@@ -4,17 +4,18 @@
  * it. Rapidkoi draws both where apps can't: the address and its trust
  * marker are Rapidkoi's word. Opening and closing happen in `update`.
  *
- * Depends on: kivuli, actions, tabs, window, frame, suggestions, theme, themes
+ * Depends on: kivuli, actions, tabs, window, frame, suggestions, nodes, theme, themes
  * Used by: layout
  */
-import kivuli { View, Align, ButtonStyle, button, button_with, column, input, row, text };
+import kivuli { View, Align, button, button_with, column, input, row, text };
 import actions { Msg };
 import tabs { Page };
 import window { Model, page_of };
 import frame { marker, marker_icon, marker_note, file_of };
 import suggestions { Suggestion, suggest };
-import theme { SPACE_XS, SPACE_SM, ADDRESS_HEIGHT, ADDRESS_WIDTH };
-import themes { Look };
+import nodes { ButtonLook };
+import theme { SPACE_XS, SPACE_SM, ADDRESS_HEIGHT, ADDRESS_WIDTH, gap, margin, padding, at_least };
+import themes { Theme, address, dim, body, suggestions as card_look, button as button_look };
 
 /**
  * Builds the address box for the header bar, a rounded field: on home or
@@ -50,7 +51,9 @@ public fun field(m: Model): View<Msg> {
     };
     // Centred across the header bar, it keeps its own height instead of
     // stretching to the bar's edges (session 79).
-    shape.style([Look.Address]).height(ADDRESS_HEIGHT).width(ADDRESS_WIDTH).align(Align.Center)
+    let mut look = address(m.theme);
+    look.push(at_least(ADDRESS_WIDTH, ADDRESS_HEIGHT));
+    shape.style(look).align(Align.Center)
 }
 
 /**
@@ -68,22 +71,23 @@ public fun card(m: Model): Option<View<Msg>> {
     if !typing(m) {
         return None;
     }
-    let mut rows = [choice(m.draft, None, Msg.Go)];
+    let t = m.theme;
+    let mut rows = [choice(t, m.draft, None, Msg.Go)];
     if let Some(n) = m.notice {
-        rows.push(text(n).dim().wrap().padding(SPACE_SM));
+        rows.push(text(n).style(dim(t)).style([margin(SPACE_SM)]).wrap());
     }
     let found = suggest(m.draft, m.tabs, m.pinned, window.card(m));
     if found.len > 0 {
-        rows.push(text("Rapidkoi suggest").dim().padding(SPACE_SM));
+        rows.push(text("Rapidkoi suggest").style(dim(t)).style([margin(SPACE_SM)]));
         for s of found {
-            rows.push(choice(s.label, s.detail, s.msg));
+            rows.push(choice(t, s.label, s.detail, s.msg));
         }
     }
-    Some(
-        column(rows).spacing(SPACE_XS).padding(SPACE_SM).style([Look.Suggestions]).width(
-            ADDRESS_WIDTH,
-        ),
-    )
+    let mut look = card_look(t);
+    look.push(gap(SPACE_XS));
+    look.push(padding(SPACE_SM));
+    look.push(at_least(ADDRESS_WIDTH, 0));
+    Some(column(rows).style(look))
 }
 
 /** Whether the field is showing with text in it: then the card shows. */
@@ -96,10 +100,10 @@ fun typing(m: Model): bool {
 }
 
 /** One line of the card: a name, a dim detail after it, the whole line one button. */
-fun choice(label: string, detail: Option<string>, msg: Msg): View<Msg> {
-    let mut parts: View<Msg>[] = [text(label)];
+fun choice(t: Theme, label: string, detail: Option<string>, msg: Msg): View<Msg> {
+    let mut parts: View<Msg>[] = [text(label).style(body(t))];
     if let Some(d) = detail {
-        parts.push(text(d).dim());
+        parts.push(text(d).style(dim(t)));
     }
-    button_with(row(parts).spacing(SPACE_SM), msg).button_style(ButtonStyle.Subtle)
+    button_with(row(parts).style([gap(SPACE_SM)]), msg).style(button_look(t, ButtonLook.Subtle))
 }

@@ -4,16 +4,15 @@
 // end case runs the task over a real local socket. Writes only under
 // test/tmp/.
 import rapidkoi.shell { Model, start, update, subscriptions };
-import rapidkoi.legacy { view };
+import rapidkoi.layout { view };
 import rapidkoi.actions { Msg };
 import rapidkoi.fetching { Fetched };
 import rapidkoi.loader { Refusal };
-import rapidkoi.tabs { Screen };
 import rapidkoi.bundle { Bundle, Manifest, write };
 import rapidkoi.publish { make_key, publish_site };
 import rapidkoi.serve { handle };
 import rapidkoi.store { store_at };
-import kivuli { Cmd, Sub };
+import kivuli { Cmd };
 import kivuli.testing { click, texts, Lookup };
 import std.http { Request };
 import std.env;
@@ -28,7 +27,7 @@ fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == 
 /** The bar's marker, found by what it means (its tooltip leads with that). */
 fun marks(m: Model, s: string): bool = click(
     view(m),
-    "{s}. Click to search or type a path (Ctrl+K)",
+    "{s}. Click to type an address (Ctrl+K)",
 ) == Ok(Msg.EditAddress);
 
 /** Opens ADDRESS from home, without running its task. */

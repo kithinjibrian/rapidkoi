@@ -4,7 +4,7 @@
  * Never calls a guest.
  *
  * Depends on: kivuli, actions, tabs, window, placeholders, people, render, frame
- * Used by: layout, legacy
+ * Used by: layout
  */
 import kivuli { View };
 import actions { Msg };
@@ -20,7 +20,7 @@ import frame { unapproved };
  *
  * @param id the tab's id
  * @param a its app page
- * @param m the model: the time (for loading) and the person's name (for placeholders)
+ * @param m the model: the time (for loading), the person's name (for placeholders) and the theme
  * @returns the page's view
  *
  * Example:
@@ -36,14 +36,14 @@ public fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
                 Some(t) => name_in(m.people, t.host, t.origin),
                 None => (m.people.first, m.people.last),
             };
-            screen(fill(d.root, first, last))
+            screen(fill(d.root, first, last), m.theme)
         }
-        Stopped(why, can_restart) => stopped(why, can_restart),
-        Refused(why) => refused(why),
-        Loading(p) => loading(a.name, if now > p.started { now - p.started } else { 0 }),
+        Stopped(why, can_restart) => stopped(why, can_restart, m.theme),
+        Refused(why) => refused(why, m.theme),
+        Loading(p) => loading(a.name, if now > p.started { now - p.started } else { 0 }, m.theme),
         // Rapidkoi's own question, not the app's: its buttons are the window's.
         Unapproved(c, kept) => {
-            return unapproved(c, kept.len > 0);
+            return unapproved(c, kept.len > 0, m.theme);
         }
     };
     shown.map(fun(inner: render.Msg) = Msg.Tab(id, inner))

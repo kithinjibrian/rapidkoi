@@ -1,12 +1,10 @@
-// Right-click menus (PRP-010): a tab's (Reload, Pin, About, Close,
-// Forget) and home's tiles' (Open, Unpin, Forget). Each item's message, and
-// what it does: select the tab first, then act as the bar or panel would.
-// Fixture guests; no display, no network.
-import rapidkoi.shell { Model, start, with_pages, update };
-import rapidkoi.legacy { view };
+// What a tab's and a pin's menu items do (PRP-010): select the tab first,
+// then act as the bar or panel would. The menus themselves come back with
+// the redesign's tabs and new tab (DECISION-030). Fixture guests; no
+// display, no network.
+import rapidkoi.shell { Model, with_pages, update };
 import rapidkoi.actions { Msg, PanelPage, Confirm, TabAction, PinAction };
 import rapidkoi.tabs { AppPage, open_module };
-import kivuli.testing { pick, texts };
 import wasmtime { Engine, Module };
 import support { echo };
 
@@ -26,28 +24,6 @@ fun two(): Model {
 fun step(m: Model, msg: Msg): Model {
     let (next, _) = update(m, msg);
     next
-}
-
-@test
-fun a_tab_s_menu_names_each_action_for_that_tab() {
-    let m = two();
-    assert_eq(pick(view(m), "todo", "Reload"), Ok(Msg.OnTab(1, TabAction.Reload)));
-    assert_eq(pick(view(m), "todo", "Pin to home"), Ok(Msg.OnTab(1, TabAction.TogglePin)));
-    assert_eq(pick(view(m), "todo", "About this app"), Ok(Msg.OnTab(1, TabAction.About)));
-    assert_eq(pick(view(m), "todo", "Close tab"), Ok(Msg.OnTab(1, TabAction.Close)));
-    assert_eq(pick(view(m), "todo", "Forget this app…"), Ok(Msg.OnTab(1, TabAction.Forget)));
-    // Once pinned, the item says so.
-    let pinned = step(step(m, Msg.Select(1)), Msg.TogglePin);
-    assert_eq(pick(view(pinned), "todo", "Unpin"), Ok(Msg.OnTab(1, TabAction.TogglePin)));
-}
-
-@test
-fun reload_is_greyed_out_while_a_tab_loads() {
-    let (home, _) = start(["./main"], None);
-    let (m, _) = update(Model { draft: "rapidkoi://localhost:18799", ..home }, Msg.Go);
-    let tab = m.tabs[0].page.name;
-    assert_eq(pick(view(m), tab, "Reload").is_err(), true);
-    assert_eq(pick(view(m), tab, "Close tab"), Ok(Msg.OnTab(m.tabs[0].id, TabAction.Close)));
 }
 
 @test
@@ -77,20 +53,8 @@ fun picking_an_item_selects_that_tab_then_acts() {
 }
 
 @test
-fun a_pinned_tile_s_menu() {
+fun a_pin_s_actions() {
     let pinned = step(step(two(), Msg.TogglePin), Msg.Home);
-    assert_eq(
-        pick(view(pinned), "Open notes", "Open"),
-        Ok(Msg.OnPin("notes.wasm", PinAction.Open)),
-    );
-    assert_eq(
-        pick(view(pinned), "Open notes", "Unpin"),
-        Ok(Msg.OnPin("notes.wasm", PinAction.Unpin)),
-    );
-    assert_eq(
-        pick(view(pinned), "Open notes", "Forget this app…"),
-        Ok(Msg.OnPin("notes.wasm", PinAction.Forget)),
-    );
     let unpinned = step(pinned, Msg.OnPin("notes.wasm", PinAction.Unpin));
     assert_eq((unpinned.pinned.len, unpinned.current), (0, None));
     // Forget opens it, with the panel's question.
@@ -99,16 +63,4 @@ fun a_pinned_tile_s_menu() {
     assert_eq(asked.tabs[asked.tabs.len - 1].page.path, "notes.wasm");
     // Unpinning a path that isn't pinned changes nothing.
     assert_eq(step(pinned, Msg.OnPin("other.wasm", PinAction.Unpin)).pinned.len, 1);
-}
-
-@test
-fun the_left_off_card_s_menu() {
-    // Both closed: notes, closed last, is "where you left off".
-    let m = step(step(step(two(), Msg.CloseTab(1)), Msg.CloseTab(0)), Msg.Home);
-    assert_eq(texts(view(m)).any(fun(s: string) = s == "Where you left off"), true);
-    assert_eq(pick(view(m), "Continue", "Open"), Ok(Msg.Continue));
-    assert_eq(
-        pick(view(m), "Continue", "Forget this app…"),
-        Ok(Msg.OnPin("notes.wasm", PinAction.Forget)),
-    );
 }

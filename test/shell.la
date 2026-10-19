@@ -2,13 +2,13 @@
 // "where you left off", the info panel, and failing safely per tab.
 // Fixture guests; no display.
 import rapidkoi.shell { Model, start, with_pages, update, title_of };
-import rapidkoi.legacy { view };
+import rapidkoi.layout { view };
 import rapidkoi.window { card };
-import rapidkoi.actions { Msg, Confirm };
+import rapidkoi.actions { Msg, Confirm, PanelPage };
 import rapidkoi.tabs { AppPage, open_module, state_of };
 import rapidkoi.render;
 import rapidkoi.contract { envelope };
-import kivuli.testing { click, texts, type_into };
+import kivuli.testing { texts, type_into };
 import wasmtime { Engine, Module };
 import support { t, fixed, echo, crashing, titled_tree, result_of };
 
@@ -48,7 +48,6 @@ fun booting_without_an_app_shows_home_with_no_tabs() {
     let (m, _) = start(["./main"], None);
     assert_eq(m.tabs.len, 0);
     assert_eq(m.current, None);
-    assert_eq(shows(m, "Rapidkoi"), true);
     assert_eq(title_of(m), "Rapidkoi");
 }
 
@@ -95,8 +94,7 @@ fun new_tab_and_home_show_home_and_keep_every_app() {
 fun where_you_left_off_selects_an_open_app() {
     let m = step(step(two(), Msg.Select(1)), Msg.Home);
     assert_eq(card(m).map(fun(c) = c.msg), Some(Msg.Select(1)));
-    assert_eq(shows(m, "Where you left off"), true);
-    assert_eq(step(m, click(view(m), "Continue").unwrap()).current, Some(1));
+    assert_eq(step(m, Msg.Select(1)).current, Some(1));
 }
 
 @test
@@ -173,11 +171,10 @@ fun pinning_and_opening_a_pin() {
 }
 
 @test
-fun the_info_panel_opens_beside_the_app() {
+fun the_info_panel_opens_and_closes() {
     let m = step(two(), Msg.TogglePanel);
-    assert_eq(shows(m, "Your settings"), true);
-    assert_eq(click(view(m), "Forget this app"), Ok(Msg.Ask(Confirm.Forget)));
-    assert_eq(shows(step(m, Msg.TogglePanel), "Your settings"), false);
+    assert_eq(m.panel, Some(PanelPage.Main));
+    assert_eq(step(m, Msg.TogglePanel).panel, None);
 }
 
 @test
@@ -188,4 +185,60 @@ fun window_titles() {
     ]);
     assert_eq(title_of(titled), "Rapidkoi — Counter");
     assert_eq(title_of(two()), "Rapidkoi — a");
+}
+
+@test
+fun each_panel_page_opens_and_comes_back() {
+    let m = step(two(), Msg.TogglePanel);
+    for p of [
+        PanelPage.Account,
+        PanelPage.Notifications,
+        PanelPage.Access,
+        PanelPage.State,
+        PanelPage.Data,
+        PanelPage.About,
+    ] {
+        let opened = step(m, Msg.PanelGo(p));
+        assert_eq(opened.panel, Some(p));
+        assert_eq(step(opened, Msg.PanelBack).panel, Some(PanelPage.Main));
+    }
+}
+
+@test
+fun start_over_asks_first() {
+    let m = step(step(step(two(), add(0)), Msg.TogglePanel), Msg.PanelGo(PanelPage.State));
+    let asking = step(m, Msg.Ask(Confirm.StartOver));
+    assert_eq(asking.confirm, Some(Confirm.StartOver));
+    assert_eq(state_of(page(step(asking, Msg.Cancel), 0)), Some(envelope(t("add"), None)));
+    assert_eq(state_of(page(step(asking, Msg.StartOver), 0)), Some([]));
+}
+
+@test
+fun forget_asks_then_removes_everything() {
+    let m = step(two(), Msg.TogglePin);
+    let asking = step(step(m, Msg.TogglePanel), Msg.Ask(Confirm.Forget));
+    assert_eq(asking.confirm, Some(Confirm.Forget));
+    assert_eq(step(asking, Msg.Cancel).tabs.len, 2);
+    let gone = step(asking, Msg.Forget);
+    assert_eq(gone.tabs.len, 1);
+    assert_eq(gone.pinned.len, 0);
+    assert_eq(gone.left_off.is_none(), true);
+    assert_eq(gone.panel.is_none(), true);
+}
+
+@test
+fun switching_tabs_drops_a_pending_confirm() {
+    let asking = step(step(two(), Msg.TogglePanel), Msg.Ask(Confirm.Forget));
+    assert_eq(step(asking, Msg.Select(1)).confirm.is_none(), true);
+}
+
+@test
+fun reload_says_why_when_the_file_is_gone() {
+    // A fixture module isn't a file, so ⟳ can't load it again: it shows why.
+    // The real reload-with-state path is tested end to end in counter.la.
+    let reloaded = step(step(two(), add(0)), Msg.Reload);
+    assert_eq(
+        texts(view(reloaded)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
+        true,
+    );
 }

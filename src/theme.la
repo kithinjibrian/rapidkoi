@@ -1,10 +1,12 @@
 /**
- * The design tokens of `docs/DESIGN.md`, and the contract's meaning words
- * mapped onto them. Every number the shell passes to kivuli comes from here.
+ * The design tokens of `docs/DESIGN.md`, the contract's meaning words
+ * mapped onto them, and helpers that turn tokens into kivuli's style
+ * values. Every number the shell passes to kivuli comes from here.
  *
- * Depends on: contract
- * Used by: render
+ * Depends on: kivuli, contract
+ * Used by: render, themes, layout, addressbox, frame, content
  */
+import kivuli { Spacing, Sizing, Edges, Width };
 import contract { Space };
 
 /** Inside tight groups, in pixels. */
@@ -35,36 +37,16 @@ public const WINDOW_HEIGHT: i64 = 700;
  * 80 px rail's 113).
  */
 public const FRAME_THICKNESS: i64 = 50;
-/** One tab button in the rail, square: the header bar's icon-button size. */
-public const TAB_SIZE: i64 = 34;
-/** An app icon on a rail tab, in pixels. */
-public const TAB_ICON: i64 = 22;
-/** An app icon on a home tile, in pixels. */
-public const TILE_ICON: i64 = 64;
-/** The rail's own width: the frame's thickness less its padding on both sides. */
-public const RAIL_WIDTH: i64 = FRAME_THICKNESS - 2 * SPACE_SM;
-/** A Pinned tile on home, in pixels (square). */
-public const TILE_SIZE: i64 = 120;
-/** "Where you left off", in pixels. */
-public const BANNER_HEIGHT: i64 = 180;
 /** A thin edge's width (the floating info panel), in pixels. */
 public const EDGE_WIDTH: i64 = 1;
 /** The address box's height, in pixels: the header bar's icon-button size, so it sits like one. */
 public const ADDRESS_HEIGHT: i64 = 34;
 /** The address box's width, and its suggestions card's, in pixels. */
 public const ADDRESS_WIDTH: i64 = 560;
+/** A button's and a text field's corners, in pixels. */
+public const BUTTON_RADIUS: i64 = 6;
 /** The page's top-right curve, in pixels. */
 public const PAGE_RADIUS: i64 = 12;
-/** The app info panel, in pixels. */
-public const PANEL_WIDTH: i64 = 360;
-/** The app info panel's height, in pixels: the same for every page, room for the main one (session 52). */
-public const PANEL_HEIGHT: i64 = 520;
-/**
- * The most characters a wrapped line in the panel may ask for. Kept well
- * under `PANEL_WIDTH`, so the panel's own width always wins and it never
- * shifts between pages (GTK sizes are minimums; this caps the text).
- */
-public const PANEL_CHARS: i64 = 30;
 
 /**
  * Returns the pixels a contract spacing or padding word stands for.
@@ -73,7 +55,7 @@ public const PANEL_CHARS: i64 = 30;
  * @returns its token's pixels; `0` for `none`
  *
  * Example:
- *     column(kids).spacing(pixels(Space.Md))
+ *     column(kids).style([gap(pixels(Space.Md))])
  */
 public fun pixels(s: Space): i64 = match s {
     Zero => 0,
@@ -83,3 +65,62 @@ public fun pixels(s: Space): i64 = match s {
     Lg => SPACE_LG,
     Xl => SPACE_XL,
 };
+
+/**
+ * Returns `n` pixels as a kivuli width.
+ *
+ * Example:
+ *     px(SPACE_SM)
+ */
+public fun px(n: i64): Width = Width.Px(n);
+
+/**
+ * Returns room outside a node, `n` pixels on every side (the contract's
+ * padding, and what kivuli 0.10 called padding).
+ *
+ * Example:
+ *     text("Hi").style([margin(SPACE_MD)])
+ */
+public fun margin(n: i64): Spacing = Spacing {
+    margin: Edges { all: Width.Px(n), ..Edges.theme() },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns room inside a node's border, `n` pixels on every side.
+ *
+ * Example:
+ *     column(rows).style([padding(SPACE_SM)])
+ */
+public fun padding(n: i64): Spacing = Spacing {
+    padding: Edges { all: Width.Px(n), ..Edges.theme() },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns room between a column's, row's or wrap's children, in pixels.
+ *
+ * Example:
+ *     row(parts).style([gap(SPACE_SM)])
+ */
+public fun gap(n: i64): Spacing = Spacing { gap: Width.Px(n), ..Spacing.theme() };
+
+/**
+ * Returns a size a node is never smaller than, in pixels; `0` leaves that way alone.
+ *
+ * Example:
+ *     sidebar.style([at_least(FRAME_THICKNESS, 0)])
+ */
+public fun at_least(width: i64, height: i64): Sizing = Sizing {
+    min_width: if width > 0 { Width.Px(width) } else { Width.Theme },
+    min_height: if height > 0 { Width.Px(height) } else { Width.Theme },
+    ..Sizing.theme(),
+};
+
+/**
+ * Returns a width a node never grows past, in pixels.
+ *
+ * Example:
+ *     box.style([at_most(ADDRESS_WIDTH)])
+ */
+public fun at_most(width: i64): Sizing = Sizing { max_width: Width.Px(width), ..Sizing.theme() };

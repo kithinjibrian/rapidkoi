@@ -3,7 +3,7 @@
 // names can't be reached offline; localhost over TLS runs the same HTTPS
 // path. Writes only under test/tmp/.
 import rapidkoi.shell { Model, start, update };
-import rapidkoi.legacy { view };
+import rapidkoi.layout { view };
 import rapidkoi.window { with_network };
 import rapidkoi.dialing { Network };
 import rapidkoi.actions { Msg };
@@ -78,7 +78,7 @@ fun a_tls_site_opens_verified_and_its_first_use_is_saved() {
     assert_eq(
         click(
             view(m),
-            "localhost:18791 · verified (development). Click to search or type a path (Ctrl+K)",
+            "localhost:18791 · verified (development). Click to type an address (Ctrl+K)",
         ),
         Ok(Msg.EditAddress),
     );

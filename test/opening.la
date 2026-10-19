@@ -4,9 +4,9 @@
 import rapidkoi.publish { make_key, publish_site, pack_project };
 import rapidkoi.serve { handle };
 import rapidkoi.shell { Model, with_pages, update };
-import rapidkoi.legacy { view };
+import rapidkoi.layout { view };
 import rapidkoi.navigate { open_file, reload };
-import rapidkoi.actions { Msg, PanelPage };
+import rapidkoi.actions { Msg };
 import kivuli.testing { texts, click, Lookup };
 import std.http { Request };
 import std.env;
@@ -66,7 +66,7 @@ fun reloaded(m: Model): Model {
 /** The bar's marker, found by what it means (its tooltip leads with that). */
 fun marks(m: Model, s: string): bool = click(
     view(m),
-    "{s}. Click to search or type a path (Ctrl+K)",
+    "{s}. Click to type an address (Ctrl+K)",
 ) == Ok(Msg.EditAddress);
 
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
@@ -84,10 +84,6 @@ fun a_published_site_opens_verified() {
     serving(dir, 18741);
     let m = opened(18741);
     assert_eq(marks(m, "localhost:18741 · verified (development)"), true);
-    let about = step(step(m, Msg.TogglePanel), Msg.PanelGo(PanelPage.About));
-    assert_eq(shows(about, "Verified (development)"), true);
-    assert_eq(texts(view(about)).any(fun(x: string) = x.starts_with("Trusted since ")), true);
-    assert_eq(shows(about, "Bundle format 2 (signed)"), true);
     clean(dir);
     clean("{dir}.key");
 }
