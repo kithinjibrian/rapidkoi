@@ -2775,16 +2775,40 @@ CONTEXT.md
 
 ---
 
-## SESSION 74 — 2026-10-19 — Discovery: the address box — open
+## SESSION 74 — 2026-10-19 — Discovery: the address box — closed
 
 Branch: prp-014-bare_frame
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner sent a sketch of the address box: at rest, a rounded field "Enter Address"; while typing, a rounded card holding the field (with → to go) and suggestions under it: what was typed, then a "Rapidkoi suggest" group (e.g. `chatapp.com/about`).
+- Checked kivuli 0.10: no popover anchored to a node, and `overlay` covers the window's body only, not the header bar, so a card that covers the field in the header can't be drawn today. Focus can be moved (`Cmd.focus`, `.autofocus`) but there's no focus or blur event.
+- Asked discovery question 1: where the box sits and how the suggestions card appears. No code. PRP-014's visual check is still the owner's.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None yet. A kivuli popover, if chosen, is a kivuli change in its own repo.
+
+### STILL OPEN AT CLOSE
+
+- Discovery question 1 for the address box PRP; the owner's look at PRP-014 before merging it into `redesign`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-014 (the bare frame) is built on `prp-014-bare_frame`, all checks green, waiting for the owner to look at `./main`. On their word, merge it into `redesign` (never `main` until the whole redesign is built: DECISION-027). Then the next redesign PRP: what goes into the frame (header, sidebar) or the new tab as a bundled app (discovery to run: the contract's missing nodes, privileged capabilities, colours, embedding the .wasm).
+PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). Discovery is running for the next PRP, the address box (the owner's sketch, session 74): question 1 (placement, and how the suggestions card appears given kivuli has no anchored popover) is waiting. Still to ask: where suggestions come from ("Rapidkoi suggest": local only, or a service?), keys (Enter, →, Escape, arrows), failures, edge cases, tests.
