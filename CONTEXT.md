@@ -3277,6 +3277,16 @@ DECISIONS.md, MEMORY.md, CLAUDE.md, PRPs/prp-017-kivuli_0_17.md, CONTEXT.md
 
 ---
 
+## SESSION 88 — 2026-10-20 — Build PRP-017: kivuli 0.17 — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-017 (rewrite the UI on kivuli 0.17, Rapidkoi's theme for everything, delete the old view) waits for approval. Once approved: branch `prp-017-kivuli_0_17` from `prp-016-account_menu_icons`, `lughac update` for kivuli 0.17 (if lughac is too old, stop and ask the owner), tests first. DECISION-029 (clicking away from the box) is open. Nothing merges to `main` until the whole redesign is built (DECISION-027).
