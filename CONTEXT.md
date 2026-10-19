@@ -2878,16 +2878,44 @@ CONTEXT.md
 
 ---
 
-## SESSION 77 — 2026-10-19 — PRP-015: the address box — open
+## SESSION 77 — 2026-10-19 — PRP-015: the address box — closed
 
 Branch: prp-014-bare_frame
 
 ### WHAT WAS DONE
 
-- In progress.
+- Question 3 answered: the behaviour as proposed. The card shows while the box has text; Enter, → or a suggestion opens and closes it; Escape or a click outside closes it and puts back what the box showed; no arrow keys until kivuli has key events in a field.
+- Wrote PRP-015 (`PRPs/prp-015-address_box.md`), with the remaining discovery answered in it as recommendations for the owner to approve:
+  - failed opens show their reason in the card;
+  - the content area shows the current app again (`app_view` moves from `legacy.la` to `content.la`), since an opened app must show somewhere;
+  - the overlay spans content and sidebar so the card centres under the pill.
+- No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+PRPs/prp-015-address_box.md
+```
+
+### TESTS WRITTEN
+
+- None (listed in PRP-015).
+
+### DECISIONS MADE
+
+- The address box's behaviour (question 3).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-015's approval; PRP-014's visual check and merge into `redesign`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). Address box discovery (sketch in session 74): placement (header, centred, a pill, card under it over the page) and sources (local only: tabs, pins, left off) are settled. Question 3 (behaviour and keys) is waiting. Still to ask: failures, edge cases, tests; then write PRP-015.
+PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). PRP-015 (the address box) is written and waiting for approval; once approved and PRP-014 is merged, branch `prp-015-address_box` from `redesign`, tests first.
