@@ -2693,16 +2693,41 @@ MEMORY.md
 
 ---
 
-## SESSION 72 — 2026-10-19 — PRP for the bare frame: header, sidebar, content area — open
+## SESSION 72 — 2026-10-19 — PRP for the bare frame: header, sidebar, content area — closed
 
 Branch: redesign
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner sent a sketch (header on top, sidebar on the right, content area with one rounded top-right corner) and asked for only that on screen, with − □ × in the header. That replaces discovery question 2: the redesign starts from the frame, not the new tab app.
+- Found today's layout already has that shape (`Look.Frame`, `Look.Page` with the top-right radius, `FRAME_THICKNESS`), so the change is emptying it.
+- Wrote PRP-014 (`PRPs/prp-014-bare_frame.md`): a new pure `layout.view`; the old view moves unchanged to `legacy.la` so the old view tests keep guarding `update` until later PRPs replace each part. Waiting for approval; no code.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+PRPs/prp-014-bare_frame.md
+```
+
+### TESTS WRITTEN
+
+- None (listed in PRP-014).
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-014's approval, in particular keeping the old view as `legacy.la` for the old tests.
 
 ---
 
 ## NEXT SESSION START POINT
 
-On branch `redesign` (never merge to `main` until the whole redesign is built: DECISION-027). Discovery for the first redesign PRP, the new tab as a bundled app: question 2 (what it does on screen) is waiting for the owner. Still to cover: model and messages, failures, edge cases, files, what it must not touch, the contract's missing nodes (images, wrap, menus: a contract bump), the privileged capabilities, colours (DESIGN.md), embedding the cargo-built .wasm, rollback, verification.
+On branch `redesign` (never merge to `main` until the whole redesign is built: DECISION-027). PRP-014 (the bare frame) is waiting for the owner's approval; once approved, branch `prp-014-bare_frame` from `redesign`, tests first. After it: the new tab as a bundled app (discovery still to run: the contract's missing nodes, privileged capabilities, colours, embedding the .wasm).
