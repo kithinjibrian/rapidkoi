@@ -2998,6 +2998,16 @@ DECISIONS.md (DECISION-028), CLAUDE.md (known issues), docs/DESIGN.md, CONTEXT.m
 
 ---
 
+## SESSION 80 — 2026-10-19 — The address box: just a rounded field — open
+
+Branch: prp-015-address_box
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green. The pill was re-centred in session 79 and waits for the owner's look. DECISION-028 is open: focus on the whole pill needs a kivuli change (recommended: `Surface` gains an outline, and looks gain a focused-within surface), done in `../kivuli` under its own rules, then a kivuli bump here. Once the owner is happy, merge into `redesign` (never `main` until the whole redesign is built: DECISION-027).
