@@ -2809,6 +2809,16 @@ CONTEXT.md
 
 ---
 
+## SESSION 75 — 2026-10-19 — Discovery: the address box (2) — open
+
+Branch: prp-014-bare_frame
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 PRP-014 (the bare frame) is built on `prp-014-bare_frame`, waiting for the owner's look at `./main`, then a merge into `redesign` (never `main`: DECISION-027). Discovery is running for the next PRP, the address box (the owner's sketch, session 74): question 1 (placement, and how the suggestions card appears given kivuli has no anchored popover) is waiting. Still to ask: where suggestions come from ("Rapidkoi suggest": local only, or a service?), keys (Enter, →, Escape, arrows), failures, edge cases, tests.
