@@ -3035,6 +3035,41 @@ DECISIONS.md, CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
 
 ---
 
+## SESSION 81 — 2026-10-19 — Clicking away keeps focus in the address box — closed
+
+Branch: prp-015-address_box
+
+### WHAT WAS DONE
+
+- The owner: clicking away doesn't take focus away from the address box.
+- Checked kivuli 0.10: only `Cmd.focus(name)` and `.autofocus()`; no way to clear focus, no focus-out event on a field, no click on empty space. GTK keeps focus where it is when a click lands on nothing focusable.
+- Not worked around: recorded DECISION-029 (open) with options (recommended: kivuli adds `.on_blur(msg)` on fields and clears focus on a click on empty space), added to CLAUDE.md's known issues, and reported. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+DECISIONS.md (DECISION-029), CLAUDE.md (known issues), CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-029: losing focus by clicking away needs kivuli (on_blur, clear focus on empty clicks).
+
+### STILL OPEN AT CLOSE
+
+- DECISION-029 (the owner's choice; then a kivuli session in `../kivuli`).
+- Merging `prp-015-address_box` (holding 014) into `redesign` on the owner's word.
+
+---
+
 ## NEXT SESSION START POINT
 
-PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green. The address box is now just a rounded field (session 80), waiting for the owner's look. Once they're happy, merge into `redesign` (never `main` until the whole redesign is built: DECISION-027). Next redesign steps: the sidebar's contents (tabs), the new tab as a bundled app (discovery to run), back/forward/reload/ⓘ in the header.
+PRP-014 and PRP-015 are built, stacked on `prp-015-address_box`, all checks green; the address box is a rounded field (session 80). DECISION-029 is open: clicking away should take focus from the box, which needs kivuli (recommended: `.on_blur(msg)` on fields and clearing focus on a click on empty space), done in `../kivuli` under its own rules, then a kivuli bump here and `Dismiss` on blur. Merge into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027).

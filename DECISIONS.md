@@ -12,7 +12,20 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-(none)
+### DECISION-029 — Clicking away from the address box doesn't take focus away (kivuli)
+
+**Status:** open
+**Raised:** 2026-10-19 — Session 81 (the owner, trying PRP-015)
+
+**Question:** Clicking the page or the frame leaves the cursor in the address box. GTK only moves focus to something focusable, and kivuli 0.10 has no way to clear the window's focus, no event when a field loses focus, and no click on empty space. Only while the suggestions card is open does a click outside reach Rapidkoi (the clear layer). How does kivuli gain it?
+
+**Options:**
+- A) kivuli adds two general pieces: `.on_blur(msg)` on text fields (the message sent when focus leaves the field), and a click on space no widget takes clearing the window's focus (the way browsers and most GTK apps behave). Rapidkoi then sends `Dismiss` on blur: the box empties, the card closes, an app page shows its address again, and the clear layer can go. Recommended: matches every browser.
+- B) kivuli adds only `Cmd.unfocus()` (clear the window's focus); Rapidkoi calls it on `Dismiss`. Fixes clicks while the card is open, but not a click on the page with an empty box, since nothing reports that click.
+
+**Until then:** focus stays in the box until something else focusable is clicked or Tab moves it. The fix is a kivuli change in `../kivuli` under its own CLAUDE.md, then a kivuli bump here.
+
+---
 
 ---
 
