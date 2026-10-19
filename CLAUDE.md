@@ -112,7 +112,7 @@ Ask before anything that leaves this machine: creating the GitHub repository, ad
 
 Read `docs/DESIGN.md` before writing any `view` code.
 
-Every spacing, padding, size and text size comes from the tokens in `docs/DESIGN.md`. App content's colours come only from the GTK theme through kivuli's styles (`ButtonStyle`, `.dim()`). Rapidkoi's own parts (bar, rail, home) take colours from its themes in `src/themes.la` and nowhere else. Never hardcode a colour outside `themes.la`, never give an app a way to set colours, never pass a bare number to `.padding`, `.spacing` or `.size`.
+Every spacing, size and text size comes from the tokens in `docs/DESIGN.md`. Every colour, apps' content included, comes from Rapidkoi's theme in `src/themes.la`, through kivuli's `.style`; the desktop's GTK theme is ignored (DECISION-031). Never hardcode a colour outside `themes.la`, never give an app a way to set colours, never write a bare number in a `Spacing`, `Sizing`, `Font` or `Border`: use a token.
 
 ---
 

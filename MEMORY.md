@@ -226,6 +226,16 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
+### 20. Rapidkoi's theme for everything (DECISION-031)
+
+**Decision:** Every colour Rapidkoi shows, apps' content included, comes from Rapidkoi's theme (`src/themes.la`) through kivuli's `.style`. The desktop's GTK theme is ignored. Apps name a button's kind (normal, primary, danger, subtle); Rapidkoi's theme decides its look.
+
+**Why:** The owner (sessions 86–87): kivuli has no button looks and won't; one look Rapidkoi controls.
+
+**Rules out:** Following the desktop's light or dark theme; apps setting colours.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working

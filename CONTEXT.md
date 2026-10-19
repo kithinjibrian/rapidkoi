@@ -3243,16 +3243,40 @@ DECISIONS.md, CONTEXT.md
 
 ---
 
-## SESSION 87 — 2026-10-20 — Everything follows Rapidkoi's theme; PRP-017 — open
+## SESSION 87 — 2026-10-20 — Everything follows Rapidkoi's theme; PRP-017 — closed
 
 Branch: prp-016-account_menu_icons
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: "everything follows rapidkoi throw away the notion of desktop". DECISION-031 resolved: every colour, apps' content included, from Rapidkoi's theme; contract 2's button kinds stay, Rapidkoi decides their look. MEMORY.md decision 20; CLAUDE.md's DESIGN RULE rewritten for 0.17.
+- Found kivuli 0.17 styles the header bar (`.header(header_bar(start, title, end).style([...]))`), so no kivuli change is needed for it.
+- Wrote PRP-017 (`PRPs/prp-017-kivuli_0_17.md`): bump to 0.17, the theme grows (proposed colours in the PRP), styles as functions returning `Styling[]`, port layout/addressbox/content/frame/render, delete the old view, convert the view-driven tests to drive `update`. Waiting for approval; no code.
+
+### FILES CREATED OR MODIFIED
+
+```
+DECISIONS.md, MEMORY.md, CLAUDE.md, PRPs/prp-017-kivuli_0_17.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (listed in PRP-017).
+
+### DECISIONS MADE
+
+- DECISION-031: Rapidkoi's theme for everything; the desktop theme is ignored.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-017's approval (and the proposed colours); DECISION-029.
 
 ---
 
 ## NEXT SESSION START POINT
 
-DECISION-030 resolved (rewrite the UI for the redesign on kivuli 0.17). DECISION-031 partly answered: buttons follow Rapidkoi's theme, not the desktop's; open: whether everything does (text, fields, apps' content) and the header bar's colour. Then PRP-017 for the move. DECISION-029 is open. Nothing merges to `main` until the whole redesign is built (DECISION-027).
+PRP-017 (rewrite the UI on kivuli 0.17, Rapidkoi's theme for everything, delete the old view) waits for approval. Once approved: branch `prp-017-kivuli_0_17` from `prp-016-account_menu_icons`, `lughac update` for kivuli 0.17 (if lughac is too old, stop and ask the owner), tests first. DECISION-029 (clicking away from the box) is open. Nothing merges to `main` until the whole redesign is built (DECISION-027).

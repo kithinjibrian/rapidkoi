@@ -13,23 +13,7 @@ Rules:
 ## OPEN — Requires human input before implementation
 
 
-### DECISION-031 — What kivuli 0.17 can't do that Rapidkoi needs (kivuli)
 
-**Status:** open
-**Raised:** 2026-10-20 — Session 84
-
-**Question:** Two things Rapidkoi draws today have no replacement yet:
-- **Button looks** (`ButtonStyle` is gone; "button looks come in a later release"). Contract 2's buttons carry `Normal`, `Primary` and `Danger`, and Rapidkoi's own buttons use flat (`Subtle`) and `Primary`. DESIGN.md says app content's colours come only from the GTK theme, so painting them by hand would break that rule.
-- **The header bar's colour** (`.header_style` is gone): the frame is one surface, the header bar the same colour as the sidebar.
-
-**Options:**
-- A) kivuli adds button looks (the theme's suggested, destructive and flat) and a style for the header bar, before Rapidkoi moves. Recommended for button looks: the contract promises them.
-- B) Move now; buttons show the theme's plain look and the header bar the theme's colour until kivuli adds them (known issues).
-
-**Partly answered (session 86, the owner):** button looks aren't coming to kivuli. Buttons are styled like everything else, through `.style`, from Rapidkoi's own theme, not the desktop's. Contract 2's `Primary` and `Danger` stay: the app names the kind, Rapidkoi decides how it looks. Still open: the header bar's colour, and whether all of Rapidkoi's UI (text included) follows Rapidkoi's theme rather than the desktop's.
-
-
----
 
 ### DECISION-029 — Clicking away from the address box doesn't take focus away (kivuli)
 
@@ -217,6 +201,25 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-031 — Colours: Rapidkoi's theme for everything, no desktop theme
+
+**Status:** resolved
+**Raised:** 2026-10-20 — Session 84
+**Resolved:** 2026-10-20 — Sessions 86 and 87 (the owner, in chat: "buttons should just be styled like the rest not following desktop themes"; "everything follows rapidkoi throw away the notion of desktop")
+
+**Question:** kivuli 0.17 has no button looks (and won't). Where do colours come from?
+
+**Outcome:**
+- Everything Rapidkoi shows follows Rapidkoi's theme (`src/themes.la`): the frame, text, fields, buttons, and apps' content. The desktop's GTK theme is ignored, light or dark.
+- Buttons are styled through `.style` like everything else. Contract 2's `Normal`, `Primary`, `Danger` and `Subtle` stay: the app names the kind, Rapidkoi's theme decides the look. Apps still never set colours.
+- The header bar takes the frame's colour through `header_bar(…).style([...])` (kivuli 0.17).
+
+**Rationale:** One look Rapidkoi controls: the page is always Rapidkoi's dark, so its text and controls must be too.
+
+**Copied to MEMORY.md:** yes (decision 20)
+
+---
 
 ### DECISION-030 — Moving to kivuli 0.17: port, or rewrite the UI
 
