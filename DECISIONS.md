@@ -12,6 +12,35 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
+### DECISION-030 — Moving to kivuli 0.17: port, or rewrite the UI
+
+**Status:** open
+**Raised:** 2026-10-20 — Session 84 (the owner: "kivuli has pushed very breaking changes. i need us to rewrite")
+
+**Question:** kivuli 0.11–0.17 replaced every styling modifier with typed values in `.style([...])`: `.bold`, `.dim`, `.size` on text, `.padding`, `.spacing`, `.width`, `.height`, `.button_style`/`ButtonStyle`, named looks (`Surface`, `theme`, `.theme`, `.header_style`). Rapidkoi uses them in 15 of its modules, `render.la` (guests' screens) included. What does the rewrite cover?
+
+**Options:**
+- A) Rewrite the UI for the redesign only. Port what the new frame draws (`layout`, `addressbox`, `content`, `render`, `theme`/`themes` as style functions), and delete the old view (`legacy`, `frame`'s bar and rail, `home`, `panel`'s, `account`'s and `access`'s views) with the tests that drive it. The model, `update` and everything under it stay; the behaviour those tests guarded gets tests that drive `update` directly. Recommended: the redesign replaces the old view anyway, and porting it is work thrown away.
+- B) Port everything as it is, old view included: the most coverage kept, the most throwaway work.
+- C) Rewrite all of Rapidkoi, not just its UI.
+
+---
+
+### DECISION-031 — What kivuli 0.17 can't do that Rapidkoi needs (kivuli)
+
+**Status:** open
+**Raised:** 2026-10-20 — Session 84
+
+**Question:** Two things Rapidkoi draws today have no replacement yet:
+- **Button looks** (`ButtonStyle` is gone; "button looks come in a later release"). Contract 2's buttons carry `Normal`, `Primary` and `Danger`, and Rapidkoi's own buttons use flat (`Subtle`) and `Primary`. DESIGN.md says app content's colours come only from the GTK theme, so painting them by hand would break that rule.
+- **The header bar's colour** (`.header_style` is gone): the frame is one surface, the header bar the same colour as the sidebar.
+
+**Options:**
+- A) kivuli adds button looks (the theme's suggested, destructive and flat) and a style for the header bar, before Rapidkoi moves. Recommended for button looks: the contract promises them.
+- B) Move now; buttons show the theme's plain look and the header bar the theme's colour until kivuli adds them (known issues).
+
+---
+
 ### DECISION-029 — Clicking away from the address box doesn't take focus away (kivuli)
 
 **Status:** open

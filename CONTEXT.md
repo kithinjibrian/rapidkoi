@@ -3141,16 +3141,42 @@ docs/DESIGN.md, CHANGELOG.md, PRPs/prp-016-account_menu_icons.md, CONTEXT.md
 
 ---
 
-## SESSION 84 — 2026-10-20 — kivuli's breaking release: what a rewrite means — open
+## SESSION 84 — 2026-10-20 — kivuli's breaking release: what a rewrite means — closed
 
 Branch: prp-016-account_menu_icons
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: kivuli pushed very breaking changes; rewrite.
+- Read kivuli's CHANGELOG (0.11–0.17, from `../kivuli`): styling is one door, `.style([...])` of typed values (`Font`, `Text`, `Background`, `Border`, `Spacing`, `Sizing`, `Shadow`, `Effects`, `Outline`, `When(State, …)`). Gone: `.bold`, `.dim`, `.size` on text, `.padding`, `.spacing`, `.width`, `.height`, `.button_style`/`ButtonStyle`, `Surface`, `theme`, `.theme`, `.header_style`. Rapidkoi uses them in 15 modules.
+- Not yet in 0.17: button looks; a header bar style. New and useful: `When(State.Focus, …)`, `Outline`, `max_width`.
+- Opened DECISION-030 (what the rewrite covers; recommended: rewrite the UI for the redesign, delete the old view) and DECISION-031 (button looks and the header bar's colour, kivuli). No code; `lugha.toml` still says kivuli 0.10.
+
+### FILES CREATED OR MODIFIED
+
+```
+DECISIONS.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-030, DECISION-031.
+
+### STILL OPEN AT CLOSE
+
+- DECISION-030 and 031 (the owner's); then a PRP for the move to kivuli 0.17.
+- DECISION-029; the stack (PRP-014–016) unmerged.
 
 ---
 
 ## NEXT SESSION START POINT
 
-PRP-014, 015 and 016 are built, stacked on `prp-016-account_menu_icons` (from `prp-015-address_box`, from `prp-014-bare_frame`), all checks green, waiting for the owner's look. DECISION-029 (clicking away from the box: a kivuli change) is open. Merge the stack into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027). Next: what account opens (a native page), the menu (needs kivuli to open a menu from a left click), the sidebar's tabs, the new tab as a bundled app.
+kivuli is at 0.17 with breaking styling changes; Rapidkoi still pins 0.10. DECISION-030 (port, or rewrite the UI for the redesign) and DECISION-031 (button looks and the header bar colour missing from kivuli) wait for the owner. Then a PRP for the move, on a branch from the PRP-014–016 stack. DECISION-029 is open. Nothing merges to `main` until the whole redesign is built (DECISION-027).
