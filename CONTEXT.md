@@ -3433,6 +3433,40 @@ CONTEXT.md
 
 ---
 
+## SESSION 92 — 2026-10-20 — PRP-018 written: modules in folders — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner agreed the grouping from session 91.
+- Checked: a test in a subfolder can't import `test/support.la` (E0312; probe file made and removed). Opened DECISION-033 (recommended: `test/` stays flat).
+- Wrote PRP-018 (`PRPs/prp-018-module_folders.md`): the moves, `theme` → `ui/tokens`, imports in `src/`, `test/` and `examples/quote/`, docs. No code. It stays on this branch (session 90).
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-018-module_folders.md, DECISIONS.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- The grouping (PRP-018's table).
+
+### PENDING DECISIONS OPENED
+
+- DECISION-033: tests in folders.
+
+### STILL OPEN AT CLOSE
+
+- PRP-018's approval and DECISION-033.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-017 are built there, all checks green on kivuli 0.18. Discovery for PRP-018 (Rapidkoi's modules in folders) is at question 1: the grouping proposed in session 91. The counter and the colours are still the owner's to look at.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-017 are built there, all checks green on kivuli 0.18. PRP-018 (modules in folders) waits for approval, with DECISION-033 (recommended: `test/` stays flat). The counter and the colours are still the owner's to look at.
