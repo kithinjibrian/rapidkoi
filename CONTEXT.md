@@ -4294,6 +4294,16 @@ src/ui/themes.la, src/ui/tokens.la, src/ui/header.la, test/themes.la, docs/DESIG
 
 ---
 
+## SESSION 117 — 2026-10-21 — No glow on the address box — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. Brand: `#FF7700` and `#FF2E63`; the header bar and sidebar wear them at 45% (`#733600 → #73152d`) with white icons; the window controls are white with round hovers on their icon boxes (session 116, not yet seen). PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
