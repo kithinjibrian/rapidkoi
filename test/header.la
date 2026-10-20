@@ -47,6 +47,13 @@ fun back_home_forward_in_that_order() {
 }
 
 @test
+fun home_has_no_back_home_or_forward() {
+    // Nothing to go back from or home to: the bar starts empty (session 110).
+    assert_eq(header.start(step(window(plain()), Msg.Home)).len, 0);
+    assert_eq(header.start(with_pages(Engine.new(), [])).len, 0);
+}
+
+@test
 fun account_then_menu_wait_greyed_out() {
     let end = header.end(window(plain()));
     assert_eq(end.len, 2);

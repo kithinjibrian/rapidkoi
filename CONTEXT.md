@@ -4056,16 +4056,40 @@ lugha.toml (kivuli 0.49), lugha.lock (lughac), src/ui/header.la, DECISIONS.md, C
 
 ---
 
-## SESSION 110 — 2026-10-21 — No back, home or forward on home — open
+## SESSION 110 — 2026-10-21 — No back, home or forward on home — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: on a tab with no app open, hide back, home and forward.
+- Test first: `home_has_no_back_home_or_forward` (home after leaving an app, and a window with no tabs). `header.start(m)` returns nothing on home, the three on an app page.
+- `lughac check` clean; header tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/header.la, test/header.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/header.la: home has no back, home or forward.
+
+### DECISIONS MADE
+
+- Navigation buttons show only on an app page.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. PRP-019 (the header bar) is built: icons 24 px and centred, the address box 30 px with room around it, no suggestions card until it's redesigned, and the window controls in `WindowControls.look()` (session 109). No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. PRP-019 (the header bar) is built: ← ⌂ → on app pages only, icons 24 px and centred, the address box 30 px with room around it, no suggestions card until it's redesigned, the window controls in `WindowControls.look()`. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

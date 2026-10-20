@@ -9,10 +9,10 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.addressbox, ui.icons, ui.tokens, ui.themes
  * Used by: ui.layout
  */
-import kivuli { View, Align, Bar, header_bar, image };
+import kivuli { View, Align, Bar, Border, header_bar, image };
 import kivuli.ui { Button, WindowControls, button_with as ui_button_with };
 import window.actions { Msg };
-import window.window { Model };
+import window.window { Model, page_of };
 import ui.addressbox;
 import ui.icons { Icon, icon };
 import ui.tokens { HEADER_ICON, square };
@@ -45,14 +45,20 @@ public fun bar(m: Model): Bar<Msg> {
 }
 
 /**
- * Returns the bar's start, in order: ← back, ⌂ home, → forward. Back and
- * forward wait for links (build step 2), so the bar keeps its shape when
- * history arrives.
+ * Returns the bar's start, in order: ← back, ⌂ home, → forward, on an app
+ * page; nothing on home, where there's nowhere to go back from or home to
+ * (the owner, session 110). Back and forward wait for links (build step 2).
  *
  * Example:
  *     header.start(m)
  */
-public fun start(m: Model): View<Msg>[] = [
+public fun start(m: Model): View<Msg>[] = match page_of(m) {
+    Home => [],
+    App(_) => navigation(m),
+};
+
+/** ← back, ⌂ home, → forward. */
+fun navigation(m: Model): View<Msg>[] = [
     tool(m.theme, Icon.Back, "Back (comes with links)", None),
     tool(m.theme, Icon.Home, "Home", Some(Msg.Home)),
     tool(m.theme, Icon.Forward, "Forward (comes with links)", None),
