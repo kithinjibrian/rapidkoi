@@ -4598,16 +4598,39 @@ src/ui/tokens.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 126 — 2026-10-21 — The window controls' glyphs at 20 px — open
+## SESSION 126 — 2026-10-21 — The window controls' glyphs at 20 px — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: every icon 20 px, the window controls included. kivuli.ui's `WindowControls.look()` draws their glyphs at 24 (`Sizing.icon(24)` on `Part.WindowIcon`); `themes.window_controls` now sets `Sizing { icon: Width.Px(HEADER_ICON) }` there after it. The icon box stays kivuli's 24 plus `SPACE_XS` padding, so the hover circle is still 32.
+- `lughac check` clean; theme tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/themes.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a size).
+
+### DECISIONS MADE
+
+- The window controls' glyphs match the icons (`HEADER_ICON`).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons, every icon 20 px (session 125); the window controls hover as 32 px circles, red for close; the address box is a full pill with one outline, no glow, one height. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons, every icon 20 px, window-control glyphs included (session 126); the window controls hover as 32 px circles, red for close; the address box is a full pill with one outline, no glow, one height. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

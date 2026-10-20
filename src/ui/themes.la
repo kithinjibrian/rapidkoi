@@ -10,6 +10,7 @@
  * Used by: window.window, ui.layout, ui.addressbox, ui.frame, ui.content, ui.render
  */
 import kivuli {
+    Sizing,
     Styling,
     Font,
     Text,
@@ -39,6 +40,7 @@ import ui.tokens {
     EDGE_WIDTH,
     BUTTON_RADIUS,
     CIRCLE,
+    HEADER_ICON,
     SPACE_XS,
     margin_x,
     padding,
@@ -289,6 +291,9 @@ public fun window_controls(t: Theme): Styling[] = [
     // The circle: each control's 24 × 24 icon box, padded so it isn't tight
     // around the glyph (32 across), round.
     Inside(Part.WindowIcon, [
+        // The glyph the size of every other icon (the owner, session 126),
+        // in place of kivuli.ui's 24.
+        Sizing { icon: Width.Px(HEADER_ICON), ..Sizing.theme() },
         padding(SPACE_XS),
         Border { radius: Radius.All(CIRCLE), ..Border.theme() },
         When(State.Hover, [Background { color: paint(t.frame_hover), ..Background.theme() }]),
