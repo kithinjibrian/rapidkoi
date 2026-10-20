@@ -3373,7 +3373,7 @@ Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- The owner: "stay on this branch till i tell you so". All work stays on `prp-017-kivuli_0_17`: no merge into `redesign`, no new branch, until the owner says.
+- The owner: "stay on this branch till i tell you so", then "no merge to redesign not main". All work stays on `prp-017-kivuli_0_17`: no merge into `redesign` or `main`, no new branch, until the owner says.
 
 ### FILES CREATED OR MODIFIED
 
@@ -3401,4 +3401,4 @@ CONTEXT.md
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign`, no new branches.** PRP-014 to PRP-017 are built there, all checks green on kivuli 0.18. The counter and the colours are still the owner's to look at. No decision is open. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-017 are built there, all checks green on kivuli 0.18. The counter and the colours are still the owner's to look at. No decision is open. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
