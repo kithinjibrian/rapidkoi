@@ -3847,6 +3847,16 @@ lugha.lock (lughac), docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-019-heade
 
 ---
 
+## SESSION 104 — 2026-10-21 — Header icons too big; end order — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar on `kivuli.ui`, Iconsax icons, a dark palette) is built; it waits for the owner's test run and look. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
