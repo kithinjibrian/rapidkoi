@@ -54,10 +54,10 @@ Written through `ui/tokens.la`'s helpers: `margin(n)` (room outside a node), `pa
 ## The frame
 
 The window opens maximized (`WINDOW_WIDTH` × `WINDOW_HEIGHT`, 960 × 700, when not).
-- **The header bar** (`header_bar(…).style(frame(t))`): the address box centred, then account (`avatar-default-symbolic`) and menu (`open-menu-symbolic`) at its end before the window controls, subtle icon buttons (`frame.icon_button`), disabled for now (PRP-016).
+- **The header bar** (PRP-019, `src/ui/header.la`, in `frame(t)`): ← back, ⌂ home, → forward; the address box; 👤 account and ☰ menu; then the window controls. Each control is a `kivuli.ui` ghost icon button (`ui.button_with` + `Button.ghost()` + `Button.icon()`, 36 px) holding one of Rapidkoi's Iconsax icons (`src/ui/icons.la`, recoloured to the theme's `text`) at `HEADER_ICON` (20). Back, forward, account and menu are disabled with a tooltip saying when they come. No reload (the owner, session 101).
 - **The sidebar:** empty, `FRAME_THICKNESS` (50) wide, the frame's colour: the frame is an even L.
 - **The content area:** the current app, `SPACE_LG` from its edges, scrolling; empty on home until the new tab is a bundled app.
-- **The address box** (PRP-015, `src/ui/addressbox.la`): the field itself, `ADDRESS_HEIGHT` (34) tall and at least `ADDRESS_WIDTH` (560) wide, rounded by half its height so its ends are half circles (`address(t)`). On an app at rest it's the trust marker as a button. While it has text, the **suggestions card** (`suggestions(t)`, same width, `SPACE_SM` under the header, centred on the window) floats over the page, above a click-catching `clear` layer that also carries Escape.
+- **The address box** (PRP-015, PRP-019, `src/ui/addressbox.la`): a `kivuli.ui` `input_group`, `ADDRESS_HEIGHT` (36) tall and at least `ADDRESS_WIDTH` (560) wide, rounded by half its height (a pill). At its start the shield (`shield-tick`) for a verified or trusted signed app, its tooltip the marker's words; at its end ☆ (`star`, Pin / Unpin) on an app page. In the middle the field (`group_input`), or on an app at rest the address as a ghost button. While it has text, the **suggestions card** (`suggestions(t)`, same width, `SPACE_SM` under the header, centred on the window) floats over the page, above a click-catching `clear` layer that also carries Escape.
 
 ## Text alignment
 

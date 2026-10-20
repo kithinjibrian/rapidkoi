@@ -1,7 +1,7 @@
 /**
  * Rapidkoi's own small pieces of the frame, pure: how it names an app and
  * where it came from (the trust marker, drawn only by Rapidkoi, never by an
- * app), icon buttons, app icons, and the changed-key question. The frame's
+ * app), app icons, and the changed-key question. The frame's
  * layout is `layout.la`.
  *
  * Depends on: kivuli, window.actions, net.address, window.tabs, trust.verify, trust.keys, guest.nodes, ui.tokens, ui.themes
@@ -46,27 +46,6 @@ public fun initial(name: string): string {
         return "{c.to_upper()}";
     }
     "?"
-}
-
-/**
- * Builds an icon-only button with a tooltip, subtle as the header bar's are.
- *
- * @param t the theme
- * @param icon a symbolic icon's name
- * @param tip the tooltip, which tests find it by
- * @param msg what a click sends; `None` shows it disabled
- * @returns the button
- *
- * Example:
- *     icon_button(m.theme, "open-menu-symbolic", "Menu (coming soon)", None)
- */
-public fun icon_button(t: Theme, icon: string, tip: string, msg: Option<Msg>): View<Msg> {
-    let look = button_look(t, ButtonLook.Subtle);
-    match msg {
-        Some(m) => button("", m).icon(icon).tooltip(tip).style(look),
-        // kivuli: `.disabled(true)` removes the message, so any one will do.
-        None => button("", Msg.Home).disabled(true).icon(icon).tooltip(tip).style(look),
-    }
 }
 
 /**

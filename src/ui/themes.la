@@ -25,6 +25,8 @@ import kivuli {
     Width,
     When,
     State,
+    Palette,
+    Token,
     hex,
 };
 import guest.nodes { ButtonLook };
@@ -98,6 +100,49 @@ public const DARK: Theme = Theme {
     subtle_hover: "#ffffff14",
     clear: "#00000000",
 };
+
+/**
+ * Returns a theme as a `kivuli.ui` palette: its colours under shadcn's
+ * token names, so `kivuli.ui`'s components draw in them (PRP-019). The same
+ * colour for light and dark: Rapidkoi ignores the desktop's scheme
+ * (DECISION-031), and the root fixes it to dark besides.
+ *
+ * @param t the theme
+ * @returns the palette for the root's `.palette(…)`
+ *
+ * Example:
+ *     page.palette(palette(m.theme)).scheme(Scheme.Dark)
+ */
+public fun palette(t: Theme): Palette {
+    let pairs = [
+        (Token.Background, t.page),
+        (Token.Foreground, t.text),
+        // Cards and popovers float over the page in the frame's colour.
+        (Token.Card, t.frame),
+        (Token.CardForeground, t.text),
+        (Token.Popover, t.frame),
+        (Token.PopoverForeground, t.text),
+        (Token.Primary, t.accent),
+        (Token.PrimaryForeground, t.on_accent),
+        (Token.Secondary, t.control),
+        (Token.SecondaryForeground, t.text),
+        (Token.Muted, t.control),
+        (Token.MutedForeground, t.dim),
+        // What a ghost button turns under the pointer.
+        (Token.Accent, t.control_hover),
+        (Token.AccentForeground, t.text),
+        (Token.Destructive, t.danger),
+        (Token.DestructiveForeground, t.on_danger),
+        (Token.Border, t.edge),
+        (Token.Input, t.edge),
+        (Token.Ring, t.accent),
+    ];
+    let mut p = Palette.zinc();
+    for (token, colour) of pairs {
+        p = p.with(token, hex(colour), hex(colour));
+    }
+    p
+}
 
 /** A button kind's colours: at rest, under the pointer, pressed, and its text. */
 public struct ButtonPaint {

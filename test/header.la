@@ -1,0 +1,82 @@
+// The header bar (PRP-019): ← ⌂ →, the address box with its shield and
+// pin, then account and menu. Through kivuli.testing; no display.
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.ui.header;
+import rapidkoi.ui.addressbox;
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.trust.verify { Trust, Standing };
+import kivuli.testing { click, is_disabled, type_into };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun plain(): AppPage {
+    let engine = Engine.new();
+    open_module("notes", "notes.wasm", engine, Module.from_text(engine, echo()).unwrap())
+}
+
+/** Notes from `notes.acme.com`, its key in `standing`. */
+fun signed(standing: Standing): AppPage = AppPage {
+    path: "rapidkoi://notes.acme.com",
+    trust: Some(Trust {
+        host: "notes.acme.com",
+        key: [3; 32],
+        standing: standing,
+        build: [0; 32],
+        separate: false,
+        since: 0,
+        origin: [3; 32],
+    }),
+    ..plain(),
+};
+
+fun window(p: AppPage): Model = with_pages(Engine.new(), [p]);
+
+@test
+fun back_home_forward_in_that_order() {
+    let start = header.start(window(plain()));
+    assert_eq(start.len, 3);
+    assert_eq(is_disabled(start[0], "Back (comes with links)"), Ok(true));
+    assert_eq(click(start[1], "Home"), Ok(Msg.Home));
+    assert_eq(is_disabled(start[2], "Forward (comes with links)"), Ok(true));
+}
+
+@test
+fun account_then_menu_wait_greyed_out() {
+    let end = header.end(window(plain()));
+    assert_eq(end.len, 2);
+    assert_eq(is_disabled(end[0], "Account (coming soon)"), Ok(true));
+    assert_eq(is_disabled(end[1], "Menu (coming soon)"), Ok(true));
+}
+
+@test
+fun home_has_no_pin_and_no_shield() {
+    let m = step(window(plain()), Msg.Home);
+    let box = addressbox.field(m);
+    assert(click(box, "Pin").is_err());
+    assert_eq(addressbox.shield_note(m), None);
+    assert_eq(type_into(box, "Enter Address", "no"), Ok(Msg.Draft("no")));
+}
+
+@test
+fun an_app_can_be_pinned_and_unpinned() {
+    let m = window(plain());
+    assert_eq(click(addressbox.field(m), "Pin"), Ok(Msg.TogglePin));
+    let pinned = step(m, Msg.TogglePin);
+    assert_eq(click(addressbox.field(pinned), "Unpin"), Ok(Msg.TogglePin));
+    assert_eq(addressbox.shield_note(m), None);
+}
+
+@test
+fun a_verified_app_shows_the_shield_and_an_unconfirmed_one_does_not() {
+    let verified = window(signed(Standing.Verified));
+    assert_eq(addressbox.shield_note(verified), Some("notes.acme.com · verified"));
+    let trusted = window(signed(Standing.Trusted));
+    assert_eq(addressbox.shield_note(trusted), Some("notes.acme.com · trusted"));
+    assert_eq(addressbox.shield_note(window(signed(Standing.NotConfirmed))), None);
+}

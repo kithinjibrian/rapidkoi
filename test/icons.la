@@ -1,0 +1,28 @@
+// Rapidkoi's own icons (PRP-019): the Iconsax SVGs compiled in, and each
+// drawn in a theme colour. Reads assets/icons/; no display.
+import rapidkoi.ui.icons { Icon, ALL, svg, file, icon, recolour };
+import kivuli { Image };
+
+@test
+fun every_icon_is_its_file_in_assets() {
+    for i of ALL {
+        // A missing file reads as "", which no icon is.
+        assert_eq(read_file("assets/icons/{file(i)}").unwrap_or(""), svg(i));
+    }
+}
+
+@test
+fun recolouring_swaps_the_white_fill_and_nothing_else() {
+    let drawn = recolour("<svg fill=\"#ffffff\"><path fill=\"#ffffff\"/></svg>", "#e8e8e8");
+    assert_eq(drawn, "<svg fill=\"#e8e8e8\"><path fill=\"#e8e8e8\"/></svg>");
+    assert_eq(recolour("<svg/>", "#e8e8e8"), "<svg/>");
+}
+
+@test
+fun an_icon_is_keyed_by_its_name_and_colour() {
+    let expected = Image.Bytes(
+        "icon:home.svg:#e8e8e8",
+        recolour(svg(Icon.Home), "#e8e8e8").to_bytes(),
+    );
+    assert_eq(icon(Icon.Home, "#e8e8e8"), expected);
+}

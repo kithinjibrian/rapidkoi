@@ -83,16 +83,16 @@ Hex values stay in `themes.la`. The frame's `#242424` header and sidebar keep `t
 ## TESTS TO WRITE
 
 `test/icons.la`:
-- [ ] Each icon constant equals its file in `assets/icons/`.
-- [ ] `icon(name, colour)` puts `colour` where `#ffffff` was, and nowhere else changes; its key names the icon and the colour.
-- [ ] An unknown name panics (a programmer error: names are fixed in code).
+- [x] Each icon constant equals its file in `assets/icons/`.
+- [x] `icon(name, colour)` puts `colour` where `#ffffff` was, and nowhere else changes; its key names the icon and the colour.
+- [x] (Changed while building: an `Icon` enum, not names, so an unknown icon can't compile; Lugha tests can't expect a panic.)
 
 `test/header.la` (through `kivuli.testing`):
-- [ ] Order: Back, Home, Forward, the address box, Account, Menu (by tooltip).
-- [ ] Back, Forward, Account, Menu are disabled; Home sends `Msg.Home`.
-- [ ] On home: no ☆ and no shield; the field takes typing.
-- [ ] On an unsigned app: ☆ "Pin" sends `TogglePin`, and after pinning it reads "Unpin"; no shield.
-- [ ] On a verified signed app: the shield is there, its tooltip the marker note; on a not-confirmed one, no shield.
+- [x] Order: Back, Home, Forward, the address box, Account, Menu (by tooltip).
+- [x] Back, Forward, Account, Menu are disabled; Home sends `Msg.Home`.
+- [x] On home: no ☆ and no shield; the field takes typing.
+- [x] On an unsigned app: ☆ "Pin" sends `TogglePin`, and after pinning it reads "Unpin"; no shield.
+- [x] On a verified signed app: the shield is there, its tooltip the marker note; on a not-confirmed one, no shield.
 
 `test/addressbox.la` and `test/layout.la`: keep passing (the field is now inside the group).
 
@@ -103,9 +103,9 @@ Hex values stay in `themes.la`. The frame's `#242424` header and sidebar keep `t
 ## ACCEPTANCE CRITERIA
 - [ ] The header shows ← ⌂ →, the framed address box with 🛡 and ☆ where they apply, 👤 ☰, in white Iconsax icons on the frame's colour
 - [ ] The tests above pass, and `lughac test test/` passes (the owner runs them)
-- [ ] `lughac build src/main.la -o main` succeeds; `lughac fmt --check src test` is clean
-- [ ] Every `public` item has a `/** … */` doc comment; no file over 500 lines
-- [ ] CHANGELOG.md, DESIGN.md and CLAUDE.md updated
+- [x] `lughac build src/main.la -o main` succeeds; `lughac fmt --check src test` is clean
+- [x] Every `public` item has a `/** … */` doc comment; no file over 500 lines
+- [x] CHANGELOG.md, DESIGN.md and CLAUDE.md updated
 
 ## VALIDATION
 - `lughac fmt --check src test`

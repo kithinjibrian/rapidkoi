@@ -1,17 +1,20 @@
 /**
- * The address box, pure (PRP-015): the rounded field in the header bar, and the card
+ * The address box, pure (PRP-015, PRP-019): the framed group in the header bar, and the card
  * of suggestions that drops under it, over the page, while there's text in
  * it. Rapidkoi draws both where apps can't: the address and its trust
  * marker are Rapidkoi's word. Opening and closing happen in `update`.
  *
- * Depends on: kivuli, window.actions, window.tabs, window.window, ui.frame, ui.suggestions, guest.nodes, ui.tokens, ui.themes
- * Used by: ui.layout
+ * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, window.window, ui.frame, ui.icons, ui.suggestions, trust.verify, guest.nodes, ui.tokens, ui.themes
+ * Used by: ui.header, ui.layout
  */
-import kivuli { View, Align, button, button_with, column, input, row, text };
+import kivuli { View, Align, Border, Radius, Text, button_with, column, image, row, text };
+import kivuli.ui { input_group, group_input, group_button_with, Button, button as ui_button };
 import window.actions { Msg };
 import window.tabs { Page };
-import window.window { Model, page_of };
-import ui.frame { marker, marker_icon, marker_note, file_of };
+import window.window { Model, page_of, is_pinned };
+import ui.frame { marker, marker_note, file_of };
+import ui.icons { Icon, icon };
+import trust.verify { Standing };
 import ui.suggestions { Suggestion, suggest };
 import guest.nodes { ButtonLook };
 import ui.tokens {
@@ -19,6 +22,7 @@ import ui.tokens {
     SPACE_SM,
     ADDRESS_HEIGHT,
     ADDRESS_WIDTH,
+    HEADER_ICON,
     gap,
     margin,
     padding,
@@ -27,10 +31,11 @@ import ui.tokens {
 import ui.themes { Theme, address, dim, body, suggestions as card_look, button as button_look };
 
 /**
- * Builds the address box for the header bar, a rounded field: on home or
- * while editing, the field ("Enter Address"; Enter goes); on an app at
- * rest, its address and trust marker, which a click or Ctrl+K turns into
- * the field.
+ * Builds the address box for the header bar, one framed group: the shield
+ * at its start for a verified or trusted signed app; in the middle the field
+ * ("Enter Address"; Enter goes) on home or while editing, or the app's
+ * address, which a click or Ctrl+K turns into the field; and ☆ at its end on
+ * an app page.
  *
  * @param m the model
  * @returns the box
@@ -39,31 +44,66 @@ import ui.themes { Theme, address, dim, body, suggestions as card_look, button a
  *     addressbox.field(m)
  */
 public fun field(m: Model): View<Msg> {
-    let shape = match page_of(m) {
+    let t = m.theme;
+    let page = page_of(m);
+    let middle = match page {
         App(p) if !m.editing => {
             let shown = file_of(p.path);
-            let face = button(marker(p, shown), Msg.EditAddress);
-            let marked = match marker_icon(p) {
-                Some(name) => face.icon(name),
-                None => face,
-            };
             // The marker's meaning in words, then what clicking it does.
-            marked.tooltip("{marker_note(p, shown)}. Click to type an address (Ctrl+K)").shortcut(
+            ui_button(marker(p, shown), Msg.EditAddress).style([
+                Button.ghost(),
+                Text.start(),
+            ]).tooltip("{marker_note(p, shown)}. Click to type an address (Ctrl+K)").shortcut(
                 "Ctrl+K",
             )
         }
-        // The field is the whole box, no wrapper around it, so GTK's focus
-        // ring goes round the whole of it (the owner, session 80).
-        _ => input(m.draft, Msg.Draft).placeholder("Enter Address").name("address").on_submit(
+        _ => group_input(m.draft, Msg.Draft).placeholder("Enter Address").name("address").on_submit(
             Msg.Go,
         ).autofocus(),
     };
-    // Centred across the header bar, it keeps its own height instead of
-    // stretching to the bar's edges (session 79).
-    let mut look = address(m.theme);
-    look.push(at_least(ADDRESS_WIDTH, ADDRESS_HEIGHT));
-    shape.style(look).align(Align.Center)
+    let mut start: View<Msg>[] = [];
+    if let Some(note) = shield_note(m) {
+        // A picture, not a button: it says, and does nothing until app info returns.
+        start.push(image(icon(Icon.Shield, t.text)).size(HEADER_ICON).tooltip(note));
+    }
+    let mut end: View<Msg>[] = [];
+    if let App(p) = page {
+        let tip = if is_pinned(m, p.path) { "Unpin" } else { "Pin" };
+        end.push(
+            group_button_with(
+                [image(icon(Icon.Star, t.text)).size(HEADER_ICON)],
+                Msg.TogglePin,
+            ).tooltip(tip),
+        );
+    }
+    // A pill, as the owner asked (session 75): half its height rounds each end.
+    input_group(start, middle, end).style([
+        Border { radius: Radius.All(ADDRESS_HEIGHT / 2), ..Border.theme() },
+        at_least(ADDRESS_WIDTH, ADDRESS_HEIGHT),
+    ]).align(Align.Center)
 }
+
+/**
+ * Returns what the shield at the address box's start says, when it shows:
+ * only for a signed app whose key is verified or trusted. A key not yet
+ * confirmed gets no shield; its address says so in words.
+ *
+ * @param m the model
+ * @returns the shield's tooltip, or `None` for no shield
+ *
+ * Example:
+ *     shield_note(m)
+ */
+public fun shield_note(m: Model): Option<string> = match page_of(m) {
+    App(p) => match p.trust {
+        Some(t) => match t.standing {
+            NotConfirmed => None,
+            _ => Some(marker_note(p, file_of(p.path))),
+        },
+        None => None,
+    },
+    Home => None,
+};
 
 /**
  * Builds the suggestions card while the box has text: what was typed (to

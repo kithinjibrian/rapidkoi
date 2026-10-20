@@ -3806,16 +3806,47 @@ PRPs/prp-019-header_bar.md, CONTEXT.md
 
 ---
 
-## SESSION 103 — 2026-10-21 — Build PRP-019: the header bar on kivuli.ui — open
+## SESSION 103 — 2026-10-21 — Build PRP-019: the header bar on kivuli.ui — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner approved PRP-019. Tests written first (`test/icons.la`, `test/header.la`; neither compiled before the code). Not run: the owner runs tests.
+- `src/ui/icons.la` (generated from `assets/icons/`): an `Icon` enum (Back, Forward, Home, Menu, Account, Reload, Settings, Shield, Star), `ALL`, `file`, `svg` (each SVG as text), `recolour` (`split("#ffffff").join(colour)`; every drawn fill is `#ffffff`, the `white`s are inside clip paths), `icon(i, colour)` (`Image.Bytes` keyed by file and colour). Changed from the PRP: an enum instead of names, since Lugha tests can't expect a panic; an unknown icon now can't compile.
+- `src/ui/header.la`: `bar(m)`, `start(m)` (Back, Home, Forward), `end(m)` (Account, Menu); `kivuli.ui` ghost icon buttons at `HEADER_ICON` (20); disabled ones say when they come.
+- `src/ui/addressbox.la`: `field` is an `input_group` (pill radius), the shield picture at its start (`shield_note`: verified or trusted signed apps only), the field or the address as a ghost button in the middle (same tooltip and Ctrl+K), ☆ Pin/Unpin at its end on app pages.
+- `src/ui/themes.la`: `palette(t)` (the PRP's table); `src/ui/layout.la`: `.palette(palette(t)).scheme(Scheme.Dark).header(header.bar(m))`; `frame.icon_button` removed; `ADDRESS_HEIGHT` 36, `HEADER_ICON` 20.
+- `lughac build` adds the same one line to `lugha.lock` every time on kivuli 0.48 (an entry `update` didn't record); committed as lughac's write, never opened.
+- Checks: `lughac check src/main.la` clean; every `test/*.la` type-checks; `lughac fmt --check src test examples` clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/icons.la, src/ui/header.la (new); src/ui/addressbox.la, src/ui/layout.la, src/ui/themes.la, src/ui/frame.la, src/ui/tokens.la
+test/icons.la, test/header.la (new)
+lugha.lock (lughac), docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-019-header_bar.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/icons.la (3): each icon equals its file; recolouring swaps only the white; an icon's image key and bytes.
+- test/header.la (5): back/home/forward order and states; account then menu disabled; home has no pin or shield and takes typing; pin and unpin on an app; the shield for verified and trusted, not for not-confirmed.
+
+### DECISIONS MADE
+
+- Icons are an `Icon` enum (PRP-019 changed while building).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run (`lughac test test/`) and look at `./main`.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar on `kivuli.ui`, Iconsax icons, a dark palette) waits for approval; then build it on this branch, tests first, and hand the test commands to the owner.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar on `kivuli.ui`, Iconsax icons, a dark palette) is built; it waits for the owner's test run and look. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

@@ -274,7 +274,7 @@ public fun load_settings(path: string): Settings { … }
 │                        window/   window.la (the Model, and changes that open nothing: tabs, home, pins, left off), actions.la (the shell's Msg), tabs.la (Page, Tab, Pin; an app page's life),
 │                                  leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), navigate.la (opening: the address box, files, addresses, Continue, Reload)
 │                        ui/       layout.la (pure: the frame: header bar, sidebar, content area), addressbox.la (pure: the address box and its card), suggestions.la (pure: what the box suggests; Card, matches),
-│                                  content.la (pure: the current app), frame.la (pure: names, the trust marker, icon buttons, the changed-key question), render.la (pure: Node → kivuli View; error screens),
+│                                  content.la (pure: the current app), header.la (pure: the header bar), icons.la (Rapidkoi's Iconsax icons as text, recoloured), frame.la (pure: names, the trust marker, the changed-key question), render.la (pure: Node → kivuli View; error screens),
 │                                  tokens.la (DESIGN.md tokens and style helpers), themes.la (every colour, as kivuli style values; dark first)
 │                        guest/    guest.la (a running guest: store, limits, calling convention), running.la (init and opened events, messages, answers, view), limits.la (every limit),
 │                                  contract.la (pure: CBOR ↔ contract; re-exports nodes' types), nodes.la (the decoded types), props.la (reading one node's props), placeholders.la (pure: {FIRST_NAME}), effects.la (answering what apps ask for)
@@ -289,7 +289,7 @@ public fun load_settings(path: string): Settings { … }
 ├── test/              — @test files, flat, each named for the module it tests (DECISION-033), support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
 ├── guest/rust/        — Cargo workspace: rapidkoi (contract 2 for Rust: View builder, App trait, export!, Request, SignIn), counter (the demo), quote (the network demo)
-├── assets/icons/      — icons copied from Iconsax for the frame (SVG; not shown until kivuli or a decision says how)
+├── assets/icons/      — the Iconsax SVGs; `src/ui/icons.la` holds each as text (a test keeps them equal), so change both together
 ├── examples/quote/    — the network demo's rapidkoi.toml, its server (server.la: the signed site, sign-in, /quote) and Dockerfile (the VM)
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)
 ├── docs/

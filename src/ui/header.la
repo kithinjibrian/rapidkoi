@@ -1,0 +1,68 @@
+/**
+ * The header bar, pure (PRP-019): ← back, ⌂ home, → forward; the address
+ * box; 👤 account and ☰ menu; then GTK's window controls. Every icon is one
+ * of Rapidkoi's own (`ui/icons.la`) in the theme's text colour, on a
+ * `kivuli.ui` ghost icon button. What isn't built yet is shown disabled,
+ * saying when it comes.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.addressbox, ui.icons, ui.tokens, ui.themes
+ * Used by: ui.layout
+ */
+import kivuli { View, Bar, header_bar, image };
+import kivuli.ui { Button, button_with as ui_button_with };
+import window.actions { Msg };
+import window.window { Model };
+import ui.addressbox;
+import ui.icons { Icon, icon };
+import ui.tokens { HEADER_ICON };
+import ui.themes { Theme, frame };
+
+/**
+ * Builds the header bar, in the frame's colour.
+ *
+ * @param m the model
+ * @returns the bar for the root's `.header(…)`
+ *
+ * Example:
+ *     page.header(header.bar(m))
+ */
+public fun bar(m: Model): Bar<Msg> = header_bar(start(m), addressbox.field(m), end(m)).style(
+    frame(m.theme),
+);
+
+/**
+ * Returns the bar's start, in order: ← back, ⌂ home, → forward. Back and
+ * forward wait for links (build step 2), so the bar keeps its shape when
+ * history arrives.
+ *
+ * Example:
+ *     header.start(m)
+ */
+public fun start(m: Model): View<Msg>[] = [
+    tool(m.theme, Icon.Back, "Back (comes with links)", None),
+    tool(m.theme, Icon.Home, "Home", Some(Msg.Home)),
+    tool(m.theme, Icon.Forward, "Forward (comes with links)", None),
+];
+
+/**
+ * Returns the bar's end, before the window controls, in order: 👤 account
+ * and ☰ menu, each disabled until its own PRP.
+ *
+ * Example:
+ *     header.end(m)
+ */
+public fun end(m: Model): View<Msg>[] = [
+    tool(m.theme, Icon.Account, "Account (coming soon)", None),
+    tool(m.theme, Icon.Menu, "Menu (coming soon)", None),
+];
+
+/** An icon button: a ghost square holding the icon, found by its tooltip; `None` shows it disabled. */
+fun tool(t: Theme, i: Icon, tip: string, msg: Option<Msg>): View<Msg> {
+    let face: View<Msg>[] = [image(icon(i, t.text)).size(HEADER_ICON)];
+    let b = match msg {
+        Some(m) => ui_button_with(face, m),
+        // kivuli: `.disabled(true)` drops the message, so any one will do.
+        None => ui_button_with(face, Msg.Home).disabled(true),
+    };
+    b.style([Button.ghost(), Button.icon()]).tooltip(tip)
+}

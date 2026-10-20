@@ -1,0 +1,108 @@
+/**
+ * Rapidkoi's own icons (PRP-019): the Iconsax SVGs in `assets/icons/`,
+ * compiled in as text (Lugha can't embed a file, and the binary may run
+ * anywhere), each drawn in a theme colour. A test keeps every one equal to
+ * its file. Apps never reach these.
+ *
+ * Depends on: kivuli
+ * Used by: ui.header, ui.addressbox
+ */
+import kivuli { Image };
+
+/** An icon of Rapidkoi's, named for what it's for. */
+public enum Icon {
+    /** `arrow-left4.svg`. */
+    Back,
+    /** `arrow-right4.svg`. */
+    Forward,
+    /** `home.svg`. */
+    Home,
+    /** `menu.svg`. */
+    Menu,
+    /** `profile-circle.svg`. */
+    Account,
+    /** `rotate-right.svg`. */
+    Reload,
+    /** `settings.svg`. */
+    Settings,
+    /** `shield-tick.svg`. */
+    Shield,
+    /** `star.svg`. */
+    Star,
+}
+
+/** Every icon, for tests and for listing. */
+public const ALL: Icon[] = [
+    Icon.Back,
+    Icon.Forward,
+    Icon.Home,
+    Icon.Menu,
+    Icon.Account,
+    Icon.Reload,
+    Icon.Settings,
+    Icon.Shield,
+    Icon.Star,
+];
+
+/**
+ * Returns the file in `assets/icons/` an icon came from.
+ *
+ * Example:
+ *     file(Icon.Home)
+ */
+public fun file(i: Icon): string = match i {
+    Back => "arrow-left4.svg",
+    Forward => "arrow-right4.svg",
+    Home => "home.svg",
+    Menu => "menu.svg",
+    Account => "profile-circle.svg",
+    Reload => "rotate-right.svg",
+    Settings => "settings.svg",
+    Shield => "shield-tick.svg",
+    Star => "star.svg",
+};
+
+/**
+ * Returns an icon's SVG, exactly as its file holds it: white (`#ffffff`).
+ *
+ * Example:
+ *     svg(Icon.Home)
+ */
+public fun svg(i: Icon): string = match i {
+    Back => "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M15 19.9201L8.47997 13.4001C7.70997 12.6301 7.70997 11.3701 8.47997 10.6001L15 4.08008\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>",
+    Forward => "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M8.90991 19.9201L15.4299 13.4001C16.1999 12.6301 16.1999 11.3701 15.4299 10.6001L8.90991 4.08008\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-miterlimit=\"10\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>",
+    Home => "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"#ffffff\" xmlns=\"http://www.w3.org/2000/svg\">\n<g clip-path=\"url(#clip0_4418_7358)\">\n<path d=\"M12 18.75C11.59 18.75 11.25 18.41 11.25 18V15C11.25 14.59 11.59 14.25 12 14.25C12.41 14.25 12.75 14.59 12.75 15V18C12.75 18.41 12.41 18.75 12 18.75Z\"/>\n<path d=\"M17.6 22.5608H6.39996C4.57996 22.5608 2.91996 21.1608 2.61996 19.3708L1.28996 11.4008C1.06996 10.1608 1.67996 8.5708 2.66996 7.7808L9.59996 2.2308C10.94 1.1508 13.05 1.1608 14.4 2.2408L21.33 7.7808C22.31 8.5708 22.91 10.1608 22.71 11.4008L21.38 19.3608C21.08 21.1308 19.38 22.5608 17.6 22.5608ZM11.99 2.9308C11.46 2.9308 10.93 3.0908 10.54 3.4008L3.60996 8.9608C3.04996 9.4108 2.64996 10.4508 2.76996 11.1608L4.09996 19.1208C4.27996 20.1708 5.32996 21.0608 6.39996 21.0608H17.6C18.67 21.0608 19.72 20.1708 19.9 19.1108L21.23 11.1508C21.34 10.4508 20.94 9.3908 20.39 8.9508L13.46 3.4108C13.06 3.0908 12.52 2.9308 11.99 2.9308Z\"/>\n</g>\n<defs>\n<clipPath id=\"clip0_4418_7358\">\n<rect width=\"24\" height=\"24\" fill=\"white\"/>\n</clipPath>\n</defs>\n</svg>",
+    Menu => "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<g clip-path=\"url(#clip0_4418_9850)\">\n<path d=\"M3 7H21\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>\n<path d=\"M3 12H21\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>\n<path d=\"M3 17H21\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>\n</g>\n<defs>\n<clipPath id=\"clip0_4418_9850\">\n<rect width=\"24\" height=\"24\" fill=\"none\"/>\n</clipPath>\n</defs>\n</svg>",
+    Account => "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"#ffffff\" xmlns=\"http://www.w3.org/2000/svg\">\n<g clip-path=\"url(#clip0_3111_32736)\">\n<path d=\"M22 12C22 6.49 17.51 2 12 2C6.49 2 2 6.49 2 12C2 14.9 3.25 17.51 5.23 19.34C5.23 19.35 5.23 19.35 5.22 19.36C5.32 19.46 5.44 19.54 5.54 19.63C5.6 19.68 5.65 19.73 5.71 19.77C5.89 19.92 6.09 20.06 6.28 20.2C6.35 20.25 6.41 20.29 6.48 20.34C6.67 20.47 6.87 20.59 7.08 20.7C7.15 20.74 7.23 20.79 7.3 20.83C7.5 20.94 7.71 21.04 7.93 21.13C8.01 21.17 8.09 21.21 8.17 21.24C8.39 21.33 8.61 21.41 8.83 21.48C8.91 21.51 8.99 21.54 9.07 21.56C9.31 21.63 9.55 21.69 9.79 21.75C9.86 21.77 9.93 21.79 10.01 21.8C10.29 21.86 10.57 21.9 10.86 21.93C10.9 21.93 10.94 21.94 10.98 21.95C11.32 21.98 11.66 22 12 22C12.34 22 12.68 21.98 13.01 21.95C13.05 21.95 13.09 21.94 13.13 21.93C13.42 21.9 13.7 21.86 13.98 21.8C14.05 21.79 14.12 21.76 14.2 21.75C14.44 21.69 14.69 21.64 14.92 21.56C15 21.53 15.08 21.5 15.16 21.48C15.38 21.4 15.61 21.33 15.82 21.24C15.9 21.21 15.98 21.17 16.06 21.13C16.27 21.04 16.48 20.94 16.69 20.83C16.77 20.79 16.84 20.74 16.91 20.7C17.11 20.58 17.31 20.47 17.51 20.34C17.58 20.3 17.64 20.25 17.71 20.2C17.91 20.06 18.1 19.92 18.28 19.77C18.34 19.72 18.39 19.67 18.45 19.63C18.56 19.54 18.67 19.45 18.77 19.36C18.77 19.35 18.77 19.35 18.76 19.34C20.75 17.51 22 14.9 22 12ZM16.94 16.97C14.23 15.15 9.79 15.15 7.06 16.97C6.62 17.26 6.26 17.6 5.96 17.97C4.44 16.43 3.5 14.32 3.5 12C3.5 7.31 7.31 3.5 12 3.5C16.69 3.5 20.5 7.31 20.5 12C20.5 14.32 19.56 16.43 18.04 17.97C17.75 17.6 17.38 17.26 16.94 16.97Z\"/>\n<path d=\"M12 6.92969C9.93 6.92969 8.25 8.60969 8.25 10.6797C8.25 12.7097 9.84 14.3597 11.95 14.4197C11.98 14.4197 12.02 14.4197 12.04 14.4197C12.06 14.4197 12.09 14.4197 12.11 14.4197C12.12 14.4197 12.13 14.4197 12.13 14.4197C14.15 14.3497 15.74 12.7097 15.75 10.6797C15.75 8.60969 14.07 6.92969 12 6.92969Z\"/>\n</g>\n<defs>\n<clipPath id=\"clip0_3111_32736\">\n<rect width=\"24\" height=\"24\" fill=\"white\"/>\n</clipPath>\n</defs>\n</svg>",
+    Reload => "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<path d=\"M14.8901 5.08039C14.0201 4.82039 13.0601 4.65039 12.0001 4.65039C7.21008 4.65039 3.33008 8.53039 3.33008 13.3204C3.33008 18.1204 7.21008 22.0004 12.0001 22.0004C16.7901 22.0004 20.6701 18.1204 20.6701 13.3304C20.6701 11.5504 20.1301 9.89039 19.2101 8.51039\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M16.13 5.32L13.24 2\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M16.13 5.32031L12.76 7.78031\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>",
+    Settings => "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"#ffffff\" xmlns=\"http://www.w3.org/2000/svg\">\n<g clip-path=\"url(#clip0_4418_8716)\">\n<path d=\"M18.9401 5.41945L13.7701 2.42945C12.7801 1.85945 11.2301 1.85945 10.2401 2.42945L5.02008 5.43945C2.95008 6.83945 2.83008 7.04945 2.83008 9.27945V14.7095C2.83008 16.9395 2.95008 17.1595 5.06008 18.5795L10.2301 21.5695C10.7301 21.8595 11.3701 21.9995 12.0001 21.9995C12.6301 21.9995 13.2701 21.8595 13.7601 21.5695L18.9801 18.5595C21.0501 17.1595 21.1701 16.9495 21.1701 14.7195V9.27945C21.1701 7.04945 21.0501 6.83945 18.9401 5.41945ZM12.0001 15.2495C10.2101 15.2495 8.75008 13.7895 8.75008 11.9995C8.75008 10.2095 10.2101 8.74945 12.0001 8.74945C13.7901 8.74945 15.2501 10.2095 15.2501 11.9995C15.2501 13.7895 13.7901 15.2495 12.0001 15.2495Z\"/>\n</g>\n<defs>\n<clipPath id=\"clip0_4418_8716\">\n<rect width=\"24\" height=\"24\" fill=\"white\"/>\n</clipPath>\n</defs>\n</svg>",
+    Shield => "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<g clip-path=\"url(#clip0_4418_9540)\">\n<path d=\"M10.49 2.23055L5.50003 4.11055C4.35003 4.54055 3.41003 5.90055 3.41003 7.12055V14.5505C3.41003 15.7305 4.19003 17.2805 5.14003 17.9905L9.44003 21.2005C10.85 22.2605 13.17 22.2605 14.58 21.2005L18.88 17.9905C19.83 17.2805 20.61 15.7305 20.61 14.5505V7.12055C20.61 5.89055 19.67 4.53055 18.52 4.10055L13.53 2.23055C12.68 1.92055 11.32 1.92055 10.49 2.23055Z\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<path d=\"M9.05005 11.8697L10.66 13.4797L14.96 9.17969\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</g>\n<defs>\n<clipPath id=\"clip0_4418_9540\">\n<rect width=\"24\" height=\"24\" fill=\"none\"/>\n</clipPath>\n</defs>\n</svg>",
+    Star => "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<g clip-path=\"url(#clip0_4418_9900)\">\n<path d=\"M13.73 3.51063L15.49 7.03063C15.73 7.52063 16.37 7.99063 16.91 8.08063L20.1 8.61062C22.14 8.95062 22.62 10.4306 21.15 11.8906L18.67 14.3706C18.25 14.7906 18.02 15.6006 18.15 16.1806L18.86 19.2506C19.42 21.6806 18.13 22.6206 15.98 21.3506L12.99 19.5806C12.45 19.2606 11.56 19.2606 11.01 19.5806L8.02003 21.3506C5.88003 22.6206 4.58003 21.6706 5.14003 19.2506L5.85003 16.1806C5.98003 15.6006 5.75003 14.7906 5.33003 14.3706L2.85003 11.8906C1.39003 10.4306 1.86003 8.95062 3.90003 8.61062L7.09003 8.08063C7.62003 7.99063 8.26003 7.52063 8.50003 7.03063L10.26 3.51063C11.22 1.60063 12.78 1.60063 13.73 3.51063Z\" stroke=\"#ffffff\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</g>\n<defs>\n<clipPath id=\"clip0_4418_9900\">\n<rect width=\"24\" height=\"24\" fill=\"none\"/>\n</clipPath>\n</defs>\n</svg>",
+};
+
+/**
+ * Returns an SVG with its white fill (`#ffffff`, as Iconsax ships it) in
+ * `colour` instead; nothing else changes.
+ *
+ * Example:
+ *     recolour(svg(Icon.Home), "#e8e8e8")
+ */
+// Lugha's strings have no replace: splitting at each white and joining
+// with the new colour is the same.
+public fun recolour(svg: string, colour: string): string = svg.split("#ffffff").join(colour);
+
+/**
+ * Returns an icon drawn in `colour`, as a picture kivuli shows. Keyed by the
+ * icon and the colour, so kivuli reads each pair once.
+ *
+ * @param i the icon
+ * @param colour a theme colour, `#rrggbb`
+ * @returns the SVG as image bytes
+ *
+ * Example:
+ *     image(icon(Icon.Home, t.text))
+ */
+public fun icon(i: Icon, colour: string): Image = Image.Bytes(
+    "icon:{file(i)}:{colour}",
+    recolour(svg(i), colour).to_bytes(),
+);
