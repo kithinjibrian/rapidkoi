@@ -4056,6 +4056,16 @@ lugha.toml (kivuli 0.49), lugha.lock (lughac), src/ui/header.la, DECISIONS.md, C
 
 ---
 
+## SESSION 110 — 2026-10-21 — No back, home or forward on home — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. PRP-019 (the header bar) is built: icons 24 px and centred, the address box 30 px with room around it, no suggestions card until it's redesigned, and the window controls in `WindowControls.look()` (session 109). No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
