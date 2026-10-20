@@ -3883,16 +3883,41 @@ src/ui/tokens.la, src/ui/header.la, src/ui/addressbox.la, DECISIONS.md (DECISION
 
 ---
 
-## SESSION 105 — 2026-10-21 — Header icons centred at 48; window controls — open
+## SESSION 105 — 2026-10-21 — Header icons centred at 48; window controls — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner's screenshot: the header icons sat at the bar's top and were too small; "try icon size 48"; the window controls are ugly, improve them.
+- Header buttons centred down the bar (`.align(Align.Center)`, as the address box). `HEADER_ICON` 48; the shield and ☆ inside the 36 px address box keep 16 under a new `ADDRESS_ICON`.
+- Window controls: kivuli 0.48 keeps them GTK's (no styling, no hiding, no minimise/maximise commands). Not worked around: DECISION-035 (open; A style GTK's, B hide them and draw Rapidkoi's own), CLAUDE.md known issue, reported.
+- `lughac check` clean; header and addressbox tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/tokens.la, src/ui/header.la, src/ui/addressbox.la, DECISIONS.md (DECISION-035), CLAUDE.md, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (layout only).
+
+### DECISIONS MADE
+
+- Header icons 48 px; address-box icons 16 px.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-035: the window controls (kivuli).
+
+### STILL OPEN AT CLOSE
+
+- DECISION-035; the owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built; session 104 shrank its icons to 16 px (capped with `square`, DECISION-034) and fixed 👤 ☰'s order. Waiting for the owner's look and test run. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built; icons now 48 px and centred (session 105). DECISION-035 (the window controls: style GTK's or draw Rapidkoi's own) is open and needs a kivuli change. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

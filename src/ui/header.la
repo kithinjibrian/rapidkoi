@@ -8,7 +8,7 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.addressbox, ui.icons, ui.tokens, ui.themes
  * Used by: ui.layout
  */
-import kivuli { View, Bar, header_bar, image };
+import kivuli { View, Align, Bar, header_bar, image };
 import kivuli.ui { Button, button_with as ui_button_with };
 import window.actions { Msg };
 import window.window { Model };
@@ -73,5 +73,7 @@ fun tool(t: Theme, i: Icon, tip: string, msg: Option<Msg>): View<Msg> {
         // kivuli: `.disabled(true)` drops the message, so any one will do.
         None => ui_button_with(face, Msg.Home).disabled(true),
     };
-    b.style([Button.ghost(), Button.icon()]).tooltip(tip)
+    // Centred down the bar, as the address box is: GTK puts a header bar's
+    // children at its top otherwise (the owner's screenshot, session 105).
+    b.style([Button.ghost(), Button.icon()]).tooltip(tip).align(Align.Center)
 }

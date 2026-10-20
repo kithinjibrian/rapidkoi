@@ -323,6 +323,7 @@ Update this tree when modules are added.
 
 - **A missing `update`, `alloc` or `view` export is only found on its first call**, not at load: lugha-wasmtime can't list exports yet (DECISION-017). The error screen still shows.
 - **A second `./main other.wasm` raises the first window** instead of opening the app: kivuli makes GTK single-instance (DECISION-014).
+- **The window controls (− □ ×) are GTK's, unstyled**: kivuli can't style or replace them yet (DECISION-035).
 - **Placeholders until kivuli and PRP-003 catch up (DECISION-018), each to be replaced, never extended:**
   - Opening a file means typing its path into the box, since there's no file dialog.
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
