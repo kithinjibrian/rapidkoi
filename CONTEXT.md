@@ -4090,6 +4090,16 @@ src/ui/header.la, test/header.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
+## SESSION 111 — 2026-10-21 — The brand colour, #FF7700 — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. PRP-019 (the header bar) is built: ← ⌂ → on app pages only, icons 24 px and centred, the address box 30 px with room around it, no suggestions card until it's redesigned, the window controls in `WindowControls.look()`. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
