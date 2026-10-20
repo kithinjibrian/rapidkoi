@@ -1,6 +1,6 @@
 # Design System — rapidkoi
 
-rapidkoi draws nothing itself: kivuli (0.18) renders to GTK 4 widgets. Every colour comes from **Rapidkoi's theme** (`src/themes.la`), never the desktop's GTK theme, light or dark (DECISION-031). Every size, spacing and text size comes from the tokens in `src/theme.la`. Both reach kivuli through `.style([...])`, its one way to style a node.
+rapidkoi draws nothing itself: kivuli (0.18) renders to GTK 4 widgets. Every colour comes from **Rapidkoi's theme** (`src/ui/themes.la`), never the desktop's GTK theme, light or dark (DECISION-031). Every size, spacing and text size comes from the tokens in `src/ui/tokens.la`. Both reach kivuli through `.style([...])`, its one way to style a node.
 
 The screens of the old view (bar, rail, home, info panel, Account and Access pages) were deleted in PRP-017 (DECISION-030); their designs are in this file's git history, for when the redesign brings each back.
 
@@ -8,7 +8,7 @@ The screens of the old view (bar, rail, home, info panel, Account and Access pag
 
 ## Colour
 
-**Everything** takes Rapidkoi's theme: its own parts and apps' content alike. Apps never set colours: they name a text style (`body`, `title`, `heading`, `dim`) or a button kind (`normal`, `primary`, `danger`, `subtle`), and the theme decides the look. Hex values live only in `src/themes.la`.
+**Everything** takes Rapidkoi's theme: its own parts and apps' content alike. Apps never set colours: they name a text style (`body`, `title`, `heading`, `dim`) or a button kind (`normal`, `primary`, `danger`, `subtle`), and the theme decides the look. Hex values live only in `src/ui/themes.la`.
 
 Dark is first and the default (the frame and page are the owner's colours, 2026-10-17; the rest proposed in PRP-017):
 
@@ -26,7 +26,7 @@ Dark is first and the default (the frame and page are the owner's colours, 2026-
 | `subtle_hover` | `#ffffff14` | subtle buttons under the pointer (transparent at rest) |
 | `clear` | `#00000000` | nothing: the click-catching layer |
 
-**Looks** are functions in `themes.la` returning `Styling[]`: `frame`, `page`, `field`, `address`, `suggestions`, `clear`, `body`, `dim`, `title`, `heading`, `button(t, kind)`.
+**Looks** are functions in `ui/themes.la` returning `Styling[]`: `frame`, `page`, `field`, `address`, `suggestions`, `clear`, `body`, `dim`, `title`, `heading`, `button(t, kind)`.
 - Buttons: the kind's colour, no border, `BUTTON_RADIUS` corners, the hover and pressed colours through `When(State.Hover | Press, …)`, half opacity while disabled.
 - Fields: the page's colour, an `EDGE_WIDTH` edge in `edge`, turning `accent` while focused.
 - The page: only its top-right corner curves (`PAGE_RADIUS`), where the frame wraps it.
@@ -41,7 +41,7 @@ Dark is first and the default (the frame and page are the owner's colours, 2026-
 | `SPACE_LG` | 24 | the page's margin, between sections |
 | `SPACE_XL` | 36 | between major regions |
 
-Written through `theme.la`'s helpers: `margin(n)` (room outside a node), `padding(n)` (inside its border), `gap(n)` (between children), `at_least(w, h)`, `at_most(w)`. The contract's `padding` is a margin.
+Written through `ui/tokens.la`'s helpers: `margin(n)` (room outside a node), `padding(n)` (inside its border), `gap(n)` (between children), `at_least(w, h)`, `at_most(w)`. The contract's `padding` is a margin.
 
 ## Typography (points)
 
@@ -57,7 +57,7 @@ The window opens maximized (`WINDOW_WIDTH` × `WINDOW_HEIGHT`, 960 × 700, when 
 - **The header bar** (`header_bar(…).style(frame(t))`): the address box centred, then account (`avatar-default-symbolic`) and menu (`open-menu-symbolic`) at its end before the window controls, subtle icon buttons (`frame.icon_button`), disabled for now (PRP-016).
 - **The sidebar:** empty, `FRAME_THICKNESS` (50) wide, the frame's colour: the frame is an even L.
 - **The content area:** the current app, `SPACE_LG` from its edges, scrolling; empty on home until the new tab is a bundled app.
-- **The address box** (PRP-015, `src/addressbox.la`): the field itself, `ADDRESS_HEIGHT` (34) tall and at least `ADDRESS_WIDTH` (560) wide, rounded by half its height so its ends are half circles (`address(t)`). On an app at rest it's the trust marker as a button. While it has text, the **suggestions card** (`suggestions(t)`, same width, `SPACE_SM` under the header, centred on the window) floats over the page, above a click-catching `clear` layer that also carries Escape.
+- **The address box** (PRP-015, `src/ui/addressbox.la`): the field itself, `ADDRESS_HEIGHT` (34) tall and at least `ADDRESS_WIDTH` (560) wide, rounded by half its height so its ends are half circles (`address(t)`). On an app at rest it's the trust marker as a button. While it has text, the **suggestions card** (`suggestions(t)`, same width, `SPACE_SM` under the header, centred on the window) floats over the page, above a click-catching `clear` layer that also carries Escape.
 
 ## Text alignment
 
@@ -92,5 +92,5 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 ## What is forbidden
 
 - No numbers in a `Spacing`, `Sizing`, `Font` or `Border` other than the tokens above.
-- No colours outside `src/themes.la`; nothing follows the desktop theme; apps never get colours.
+- No colours outside `src/ui/themes.la`; nothing follows the desktop theme; apps never get colours.
 - Icons are theme icon names, preferably `…-symbolic`.

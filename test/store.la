@@ -1,6 +1,6 @@
 // Rapidkoi's data folder: where it is, safe writes, bounded reads, and
 // setting a broken file aside. Writes only under test/tmp/.
-import rapidkoi.store {
+import rapidkoi.data.store {
     Store,
     StoreError,
     data_dir,

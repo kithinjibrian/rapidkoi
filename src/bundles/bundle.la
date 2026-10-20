@@ -4,11 +4,11 @@
  * writes bytes, checking every rule in `rules.la` both ways. Unsigned and
  * local; hashes and signatures come with format 2 (DECISION-009).
  *
- * Depends on: cbor, limits, rules, network
- * Used by: pack, tabs, panel
+ * Depends on: cbor, guest.limits, bundles.rules, net.network
+ * Used by: commands.pack, window.tabs, panel
  */
 import cbor { Value, Entry, Limits, decode, encode };
-import limits {
+import guest.limits {
     MAX_BUNDLE,
     MAX_MODULE,
     MAX_ASSETS,
@@ -17,8 +17,8 @@ import limits {
     MAX_BANNER_HEIGHT,
     MAX_SERVERS,
 };
-public import rules { BundleError, reason };
-import network { check_server };
+public import bundles.rules { BundleError, reason };
+import net.network { check_server };
 
 /** The format this Rapidkoi reads and writes. */
 public const FORMAT: i64 = 1;

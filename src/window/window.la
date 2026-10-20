@@ -4,21 +4,21 @@
  * pins, "where you left off" and the theme. Opening files and addresses is
  * `navigate.la`. Never draws.
  *
- * Depends on: wasmtime, verify, store, fetching, people, identity, actions, tabs, leftoff, suggestions, frame, themes
- * Used by: navigate, shell
+ * Depends on: wasmtime, trust.verify, data.store, net.fetching, people.people, people.identity, window.actions, window.tabs, window.leftoff, ui.suggestions, ui.frame, ui.themes
+ * Used by: window.navigate, shell
  */
 import wasmtime { Engine };
-import verify { Keyring, keyring };
-import store { Store };
-import dialing { Network };
-import people { People, nobody };
-import identity { Master };
-import actions { Msg, PanelPage, Confirm };
-import tabs { Page, Tab, Pin, AppPage, state_of };
-import leftoff { LeftOff, leave, snapshot };
-import suggestions { Card };
-import frame { icon_of };
-import themes { Theme, DARK };
+import trust.verify { Keyring, keyring };
+import data.store { Store };
+import net.dialing { Network };
+import people.people { People, nobody };
+import people.identity { Master };
+import window.actions { Msg, PanelPage, Confirm };
+import window.tabs { Page, Tab, Pin, AppPage, state_of };
+import window.leftoff { LeftOff, leave, snapshot };
+import ui.suggestions { Card };
+import ui.frame { icon_of };
+import ui.themes { Theme, DARK };
 
 /** The window's state. */
 public struct Model {

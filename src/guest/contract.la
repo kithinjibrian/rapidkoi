@@ -5,11 +5,11 @@
  * description is enforced here (`limits.la`). The types live in `nodes.la`
  * and are re-exported here, so callers import them from `contract`.
  *
- * Depends on: cbor, limits, nodes, props
- * Used by: render, theme, shell
+ * Depends on: cbor, guest.limits, guest.nodes, guest.props
+ * Used by: ui.render, ui.tokens, shell
  */
 import cbor { Value, Entry, Limits, decode, encode };
-import limits {
+import guest.limits {
     MAX_VIEW,
     MAX_UPDATE,
     MAX_NODES,
@@ -21,9 +21,9 @@ import limits {
     MAX_URL,
     MAX_HEADERS,
 };
-import network { Request, Reply };
-import props { text, optional_text, maybe_text, text_style, button_look, space };
-public import nodes {
+import net.network { Request, Reply };
+import guest.props { text, optional_text, maybe_text, text_style, button_look, space };
+public import guest.nodes {
     TextStyle,
     ButtonLook,
     Space,

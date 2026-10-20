@@ -7,18 +7,26 @@
  * in the frame comes with later redesign PRPs (DECISION-027). Never calls a
  * guest.
  *
- * Depends on: kivuli, actions, tabs, window, content, frame, addressbox, theme, themes
+ * Depends on: kivuli, window.actions, window.tabs, window.window, ui.content, ui.frame, ui.addressbox, ui.tokens, ui.themes
  * Used by: shell
  */
 import kivuli { View, Align, button_with, column, header_bar, overlay, row, scroll };
-import actions { Msg };
-import tabs { Page };
-import window { Model, title_of, page_of };
-import content { app_view };
-import frame { icon_button };
-import addressbox;
-import theme { SPACE_SM, SPACE_LG, FRAME_THICKNESS, WINDOW_WIDTH, WINDOW_HEIGHT, margin, at_least };
-import themes { page, clear, frame as frame_look };
+import window.actions { Msg };
+import window.tabs { Page };
+import window.window { Model, title_of, page_of };
+import ui.content { app_view };
+import ui.frame { icon_button };
+import ui.addressbox;
+import ui.tokens {
+    SPACE_SM,
+    SPACE_LG,
+    FRAME_THICKNESS,
+    WINDOW_WIDTH,
+    WINDOW_HEIGHT,
+    margin,
+    at_least,
+};
+import ui.themes { page, clear, frame as frame_look };
 
 /**
  * Draws the frame: the header bar with the address box (and GTK's window

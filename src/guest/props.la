@@ -2,11 +2,11 @@
  * Reading one node's props: required and optional text, and the contract's
  * meaning words (styles, spacing). Each failure names the node's path.
  *
- * Depends on: cbor, nodes
- * Used by: contract
+ * Depends on: cbor, guest.nodes
+ * Used by: guest.contract
  */
 import cbor { Value };
-import nodes { TextStyle, ButtonLook, Space, ContractError, invalid };
+import guest.nodes { TextStyle, ButtonLook, Space, ContractError, invalid };
 
 /** A required text prop. */
 fun text(props: Value, name: string, here: string): Result<string, ContractError> = match props.get(

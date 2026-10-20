@@ -2,12 +2,12 @@
 // window, with no display. Skipped unless the guest has been built (see
 // CLAUDE.md COMMANDS), so the suite never needs Rust.
 import rapidkoi.shell { Model, start, update, title_of };
-import rapidkoi.layout { view };
-import rapidkoi.window { card };
-import rapidkoi.actions { Msg };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.window { card };
+import rapidkoi.window.actions { Msg };
 import kivuli.testing { click, is_disabled, type_into, texts };
 import std.fs;
-import rapidkoi.pack { make };
+import rapidkoi.commands.pack { make };
 
 const COUNTER: string = "guest/rust/target/wasm32-unknown-unknown/release/counter.wasm";
 

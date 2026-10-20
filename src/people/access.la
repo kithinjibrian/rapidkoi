@@ -5,14 +5,14 @@
  * page was the old info panel's; the redesign draws it natively again
  * later (DECISION-030). Requests themselves are `requests.la`'s.
  *
- * Depends on: actions, tabs, window, people, requests
+ * Depends on: window.actions, window.tabs, window.window, people.people, net.requests
  * Used by: shell
  */
-import actions { Msg };
-import tabs { AppPage, Page };
-import window { Model, page_of };
-import people { Person, person, with_person, known };
-import requests { allowed };
+import window.actions { Msg };
+import window.tabs { AppPage, Page };
+import window.window { Model, page_of };
+import people.people { Person, person, with_person, known };
+import net.requests { allowed };
 
 /** What the Access page shows for one app. */
 public struct Access {

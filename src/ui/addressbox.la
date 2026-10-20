@@ -4,18 +4,27 @@
  * it. Rapidkoi draws both where apps can't: the address and its trust
  * marker are Rapidkoi's word. Opening and closing happen in `update`.
  *
- * Depends on: kivuli, actions, tabs, window, frame, suggestions, nodes, theme, themes
- * Used by: layout
+ * Depends on: kivuli, window.actions, window.tabs, window.window, ui.frame, ui.suggestions, guest.nodes, ui.tokens, ui.themes
+ * Used by: ui.layout
  */
 import kivuli { View, Align, button, button_with, column, input, row, text };
-import actions { Msg };
-import tabs { Page };
-import window { Model, page_of };
-import frame { marker, marker_icon, marker_note, file_of };
-import suggestions { Suggestion, suggest };
-import nodes { ButtonLook };
-import theme { SPACE_XS, SPACE_SM, ADDRESS_HEIGHT, ADDRESS_WIDTH, gap, margin, padding, at_least };
-import themes { Theme, address, dim, body, suggestions as card_look, button as button_look };
+import window.actions { Msg };
+import window.tabs { Page };
+import window.window { Model, page_of };
+import ui.frame { marker, marker_icon, marker_note, file_of };
+import ui.suggestions { Suggestion, suggest };
+import guest.nodes { ButtonLook };
+import ui.tokens {
+    SPACE_XS,
+    SPACE_SM,
+    ADDRESS_HEIGHT,
+    ADDRESS_WIDTH,
+    gap,
+    margin,
+    padding,
+    at_least,
+};
+import ui.themes { Theme, address, dim, body, suggestions as card_look, button as button_look };
 
 /**
  * Builds the address box for the header bar, a rounded field: on home or

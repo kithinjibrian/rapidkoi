@@ -1,6 +1,6 @@
 // rapidkoi.toml, pure: what a project describes, its defaults, and the
 // plain reason when it's wrong.
-import rapidkoi.project { Project, parse_project, reason };
+import rapidkoi.bundles.project { Project, parse_project, reason };
 
 fun ok(text: string): Project = parse_project(text, "/work/notes", Some("/home/me")).unwrap();
 

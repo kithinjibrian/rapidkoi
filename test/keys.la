@@ -1,6 +1,15 @@
 // Secret keys: making one, reading it back, fingerprints, and keeping key
 // files out of the project. Writes only under test/tmp/.
-import rapidkoi.keys { SecretKey, KeyError, keygen, read_secret, fingerprint, hex, inside, reason };
+import rapidkoi.trust.keys {
+    SecretKey,
+    KeyError,
+    keygen,
+    read_secret,
+    fingerprint,
+    hex,
+    inside,
+    reason,
+};
 import std.crypto { ed25519_sign, ed25519_verify };
 import std.fs;
 

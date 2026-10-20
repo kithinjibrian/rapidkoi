@@ -1,8 +1,8 @@
 // What the address box suggests (PRP-015): open tabs, pins and a closed
 // "where you left off", matched by name or title. Pure; no display.
-import rapidkoi.suggestions { Card, Suggestion, suggest };
-import rapidkoi.tabs { Tab, Pin, AppPage, open_module };
-import rapidkoi.actions { Msg };
+import rapidkoi.ui.suggestions { Card, Suggestion, suggest };
+import rapidkoi.window.tabs { Tab, Pin, AppPage, open_module };
+import rapidkoi.window.actions { Msg };
 import wasmtime { Engine, Module };
 import support { fixed, titled_tree, result_of };
 

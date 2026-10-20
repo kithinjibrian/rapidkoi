@@ -2,15 +2,15 @@
 // changed, then started again on the same folder. Sites are served over
 // real local sockets, one port per test. Writes only under test/tmp/.
 import rapidkoi.shell { Model, start, update };
-import rapidkoi.layout { view };
-import rapidkoi.actions { Msg };
-import rapidkoi.store { Store, store_at, save };
-import rapidkoi.remembered { read_pins, read_trust, read_left, left_file };
-import rapidkoi.leftoff { LeftOff, recalled };
-import rapidkoi.publish { make_key, publish_site };
-import rapidkoi.keys { read_secret };
-import rapidkoi.index { KeyFile, key_file, rotate };
-import rapidkoi.serve { handle };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.data.store { Store, store_at, save };
+import rapidkoi.data.remembered { read_pins, read_trust, read_left, left_file };
+import rapidkoi.window.leftoff { LeftOff, recalled };
+import rapidkoi.commands.publish { make_key, publish_site };
+import rapidkoi.trust.keys { read_secret };
+import rapidkoi.trust.index { KeyFile, key_file, rotate };
+import rapidkoi.commands.serve { handle };
 import kivuli.testing { click, texts };
 import cbor { Value, Entry, encode };
 import std.http { Request };

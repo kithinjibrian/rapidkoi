@@ -6,15 +6,15 @@
  * natively again later (DECISION-030). Keys are worked out from the cached
  * master secret, never read here.
  *
- * Depends on: actions, tabs, window, people, identity, render
+ * Depends on: window.actions, window.tabs, window.window, people.people, people.identity, ui.render
  * Used by: shell
  */
-import actions { Msg };
-import tabs { AppPage, Page, handle };
-import window { Model, with_tab, page_of };
-import people { Person, MAX_NAME, person, with_person, forget_person };
-import identity { public_key, user_label };
-import render;
+import window.actions { Msg };
+import window.tabs { AppPage, Page, handle };
+import window.window { Model, with_tab, page_of };
+import people.people { Person, MAX_NAME, person, with_person, forget_person };
+import people.identity { public_key, user_label };
+import ui.render;
 
 /** What the Account page shows for one app. */
 public struct Account {

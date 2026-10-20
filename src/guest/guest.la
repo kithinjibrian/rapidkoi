@@ -4,7 +4,7 @@
  * calls `handle` and `view` through the contract's calling convention. Every pointer and length a guest hands back is checked. Knows
  * nothing about what the bytes mean (that is `contract.la`).
  *
- * Depends on: wasmtime, limits
+ * Depends on: wasmtime, guest.limits
  * Used by: shell
  */
 import wasmtime {
@@ -20,7 +20,7 @@ import wasmtime {
     Memory,
     MemoryError,
 };
-import limits {
+import guest.limits {
     CONTRACT_VERSION,
     MAX_MODULE,
     MEMORY_BYTES,

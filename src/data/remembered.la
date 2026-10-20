@@ -6,16 +6,16 @@
  * limits, then every field checked. `recall` adds the store: a missing file
  * is Fresh, a broken one is set aside, a newer one is left alone.
  *
- * Depends on: cbor, store, verify, tabs, leftoff, rules, limits
- * Used by: saving
+ * Depends on: cbor, data.store, trust.verify, window.tabs, window.leftoff, bundles.rules, guest.limits
+ * Used by: data.saving
  */
 import cbor { Value, Entry, Limits, decode, encode };
-import store { Store, StoreError, load, set_aside, reason as store_reason };
-import verify { Identity };
-import tabs { Pin };
-import leftoff { LeftOff, recalled, signer_of };
-import rules { check_host, check_asset, check_role };
-import limits { MAX_ICON_PX };
+import data.store { Store, StoreError, load, set_aside, reason as store_reason };
+import trust.verify { Identity };
+import window.tabs { Pin };
+import window.leftoff { LeftOff, recalled, signer_of };
+import bundles.rules { check_host, check_asset, check_role };
+import guest.limits { MAX_ICON_PX };
 
 /** The format the pins, left-off and state files are written in. */
 public const FORMAT: i64 = 1;

@@ -6,7 +6,7 @@
  * and set aside as `NAME.broken` when they can't be read, never deleted.
  *
  * Depends on: std.fs
- * Used by: remembered, saving
+ * Used by: data.remembered, data.saving
  */
 import std.fs;
 

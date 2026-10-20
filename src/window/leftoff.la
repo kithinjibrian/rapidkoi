@@ -4,12 +4,12 @@
  * open page, one read back from disk, and which signed app it is. Moved
  * unchanged from `tabs.la` (PRP-008 step 0).
  *
- * Depends on: bundle, verify, tabs
- * Used by: tabs, window, navigate, saving, remembered
+ * Depends on: bundles.bundle, trust.verify, window.tabs
+ * Used by: window.tabs, window.window, window.navigate, data.saving, data.remembered
  */
-import bundle { Manifest };
-import verify { Trust };
-import tabs { AppPage, Program, close_page, state_of, state_version_of };
+import bundles.bundle { Manifest };
+import trust.verify { Trust };
+import window.tabs { AppPage, Program, close_page, state_of, state_version_of };
 
 /** The app page the person last left, for "Where you left off". */
 public struct LeftOff {

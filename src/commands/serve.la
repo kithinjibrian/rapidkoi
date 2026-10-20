@@ -7,13 +7,13 @@
  * named by 64 lowercase hex digits, nothing else: no other request path
  * reaches the disk.
  *
- * Depends on: std.http, std.fs, signing, bundle
+ * Depends on: std.http, std.fs, bundles.signing, bundles.bundle
  * Used by: main
  */
 import std.http { Request, Response };
 import std.fs;
-import signing { read_any };
-import bundle { reason };
+import bundles.signing { read_any };
+import bundles.bundle { reason };
 
 /** Where a development server serves its bundle: the well-known path from the packaging design. */
 public const BUNDLE_PATH: string = "/.well-known/rapidkoi/app.rkb";

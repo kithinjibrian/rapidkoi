@@ -6,14 +6,14 @@
  * the project's key, writes nothing outside the site folder, and never
  * writes or prints the secret key.
  *
- * Depends on: std.fs, std.env, std.crypto, project, keys, signing, index, bundle
- * Used by: main, pack
+ * Depends on: std.fs, std.env, std.crypto, bundles.project, trust.keys, bundles.signing, trust.index, bundles.bundle
+ * Used by: main, commands.pack
  */
 import std.fs;
 import std.env;
 import std.crypto { sha256 };
-import project { Project, read_project, reason as project_reason };
-import keys {
+import bundles.project { Project, read_project, reason as project_reason };
+import trust.keys {
     SecretKey,
     KeyError,
     keygen,
@@ -23,8 +23,8 @@ import keys {
     inside,
     reason as key_reason,
 };
-import signing { write_signed };
-import index {
+import bundles.signing { write_signed };
+import trust.index {
     Index,
     KeyFile,
     sign_index,
@@ -36,8 +36,8 @@ import index {
     read_key_file,
     reason as index_reason,
 };
-import limits { CONTRACT_VERSION };
-import bundle { Bundle, Manifest, write, reason as bundle_reason };
+import guest.limits { CONTRACT_VERSION };
+import bundles.bundle { Bundle, Manifest, write, reason as bundle_reason };
 
 /** Where a site keeps Rapidkoi's files, under its root. */
 public const WELL_KNOWN: string = ".well-known/rapidkoi";

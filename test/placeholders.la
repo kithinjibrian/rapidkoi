@@ -1,7 +1,7 @@
 // {FIRST_NAME} and {LAST_NAME} (PRP-011), pure: filled in display text
 // only, never in text fields; anything else in braces stays as it is.
-import rapidkoi.placeholders { fill };
-import rapidkoi.nodes { Node, TextStyle, ButtonLook, Space };
+import rapidkoi.guest.placeholders { fill };
+import rapidkoi.guest.nodes { Node, TextStyle, ButtonLook, Space };
 import cbor { Value };
 
 fun body(s: string): Node = Node.Text(s, TextStyle.Body);

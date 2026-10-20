@@ -6,17 +6,17 @@
  * `MAX_APPS`: past that, the one used longest ago is removed. Unsigned
  * apps have no identity, so nothing here.
  *
- * Depends on: std.fs, std.crypto, cbor, store, remembered, keys, rules, limits
- * Used by: navigate, saving
+ * Depends on: std.fs, std.crypto, cbor, data.store, data.remembered, trust.keys, bundles.rules, guest.limits
+ * Used by: window.navigate, data.saving
  */
 import std.fs;
 import std.crypto { sha256, equal };
 import cbor { Value, Entry, Limits, decode, encode };
-import store { Store, StoreError, store_at, save, remove, ensure };
-import remembered { Unreadable, Recalled, recall, FORMAT };
-import keys { hex };
-import rules { check_host };
-import limits { MAX_STATE };
+import data.store { Store, StoreError, store_at, save, remove, ensure };
+import data.remembered { Unreadable, Recalled, recall, FORMAT };
+import trust.keys { hex };
+import bundles.rules { check_host };
+import guest.limits { MAX_STATE };
 
 /** One signed app's saved state. */
 public struct Saved {

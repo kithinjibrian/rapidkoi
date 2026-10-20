@@ -3,12 +3,12 @@
  * address box, home, the info panel and its pages, and each tab's own
  * screen.
  *
- * Depends on: render, fetching
- * Used by: frame, home, panel, shell
+ * Depends on: ui.render, net.fetching
+ * Used by: ui.frame, home, panel, shell
  */
-import render;
-import fetching { Fetched };
-import network { Reply };
+import ui.render;
+import net.fetching { Fetched };
+import net.network { Reply };
 import cbor { Value };
 
 /** A message to the shell. */

@@ -3,15 +3,15 @@
 // page. An echo guest's state becomes the answer it got, so each test reads
 // exactly what Rapidkoi sent. Writes only under test/tmp/.
 import rapidkoi.shell { Model, with_pages };
-import rapidkoi.layout { view };
-import rapidkoi.effects { answer_all };
-import rapidkoi.saving { restore };
-import rapidkoi.tabs { AppPage, open_module, state_of, with_saved };
-import rapidkoi.verify { Trust, Standing };
-import rapidkoi.identity { master, public_key, sign_in_message };
-import rapidkoi.people { People, Person, person, with_person };
-import rapidkoi.contract { answer };
-import rapidkoi.store { Store, store_at };
+import rapidkoi.ui.layout { view };
+import rapidkoi.guest.effects { answer_all };
+import rapidkoi.data.saving { restore };
+import rapidkoi.window.tabs { AppPage, open_module, state_of, with_saved };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.people.identity { master, public_key, sign_in_message };
+import rapidkoi.people.people { People, Person, person, with_person };
+import rapidkoi.guest.contract { answer };
+import rapidkoi.data.store { Store, store_at };
 import cbor { Value, Entry, encode, decode, Limits };
 import std.crypto { ed25519_verify };
 import std.fs;

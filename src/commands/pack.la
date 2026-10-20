@@ -5,14 +5,14 @@
  * files named, writes only OUT (never over an existing file without
  * `--force`), never runs the module, and opens no window.
  *
- * Depends on: std.fs, std.env, bundle, publish
+ * Depends on: std.fs, std.env, bundles.bundle, commands.publish
  * Used by: main
  */
 import std.fs;
-import bundle { Bundle, Manifest, write, reason };
-import limits { CONTRACT_VERSION };
+import bundles.bundle { Bundle, Manifest, write, reason };
+import guest.limits { CONTRACT_VERSION };
 import std.env;
-import publish { pack_project };
+import commands.publish { pack_project };
 
 /** What the command line asked for. */
 struct Request {

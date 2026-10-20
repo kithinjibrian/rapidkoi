@@ -2,12 +2,12 @@
 // "where you left off", the info panel, and failing safely per tab.
 // Fixture guests; no display.
 import rapidkoi.shell { Model, start, with_pages, update, title_of };
-import rapidkoi.layout { view };
-import rapidkoi.window { card };
-import rapidkoi.actions { Msg, Confirm, PanelPage };
-import rapidkoi.tabs { AppPage, open_module, state_of };
-import rapidkoi.render;
-import rapidkoi.contract { envelope };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.window { card };
+import rapidkoi.window.actions { Msg, Confirm, PanelPage };
+import rapidkoi.window.tabs { AppPage, open_module, state_of };
+import rapidkoi.ui.render;
+import rapidkoi.guest.contract { envelope };
 import kivuli.testing { texts, type_into };
 import wasmtime { Engine, Module };
 import support { t, fixed, echo, crashing, titled_tree, result_of };

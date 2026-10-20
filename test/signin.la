@@ -3,11 +3,11 @@
 // single-use challenge; the signature checked with the key over the
 // server's own host), and Rapidkoi's real signing answers it. Writes only
 // under test/tmp/.
-import rapidkoi.requests { send };
-import rapidkoi.network { Request, Reply };
-import rapidkoi.dialing { Network };
-import rapidkoi.identity { master, public_key, sign_in, sign_in_message };
-import rapidkoi.store { Store, store_at };
+import rapidkoi.net.requests { send };
+import rapidkoi.net.network { Request, Reply };
+import rapidkoi.net.dialing { Network };
+import rapidkoi.people.identity { master, public_key, sign_in, sign_in_message };
+import rapidkoi.data.store { Store, store_at };
 import cbor { Value, Entry, Limits, decode, encode };
 import std.crypto { ed25519_verify, random_bytes, equal };
 import std.http { Request as Incoming, Response };

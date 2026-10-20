@@ -69,13 +69,13 @@ A test file's imports start from its own folder, so `test/ui/layout.la` can't im
 - `git revert` the PRP's commit on `prp-017-kivuli_0_17` (one commit: moves and import changes together).
 
 ## ACCEPTANCE CRITERIA
-- [ ] `src/` holds only `main.la`, `shell.la` and the nine folders
-- [ ] No test assertion changed; `lughac test test/` passes (320)
-- [ ] `lughac test examples/quote/server.la` passes
-- [ ] `lughac build src/main.la -o main` succeeds; `lughac build examples/quote/server.la -o quote-server` succeeds
-- [ ] `lughac fmt --check src test examples` is clean
-- [ ] No file over 500 lines
-- [ ] CHANGELOG.md and CLAUDE.md updated
+- [x] `src/` holds only `main.la`, `shell.la` and the nine folders
+- [x] No test assertion changed; `lughac test test/` passes (320)
+- [x] `lughac test examples/quote/server.la` passes
+- [x] `lughac build src/main.la -o main` succeeds; `lughac build examples/quote/server.la -o quote-server` succeeds
+- [x] `lughac fmt --check src test examples` is clean
+- [x] No file over 500 lines
+- [x] CHANGELOG.md and CLAUDE.md updated
 
 ## VALIDATION
 - `lughac fmt --check src test examples`

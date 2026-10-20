@@ -1,6 +1,6 @@
 // Rapidkoi's theme (PRP-017): which colour goes where, and every style
 // building without kivuli refusing a value. No display.
-import rapidkoi.themes {
+import rapidkoi.ui.themes {
     DARK,
     ButtonPaint,
     button_paint,
@@ -16,7 +16,7 @@ import rapidkoi.themes {
     heading,
     button,
 };
-import rapidkoi.nodes { ButtonLook };
+import rapidkoi.guest.nodes { ButtonLook };
 
 @test
 fun primary_buttons_are_the_accent() {

@@ -6,11 +6,11 @@
  * may point to (PRP-013): never this computer or the local network.
  * Nothing is sent or looked up from here (`dialing.la` does both).
  *
- * Depends on: address, limits
- * Used by: bundle, nodes, contract, effects, requests
+ * Depends on: net.address, guest.limits
+ * Used by: bundles.bundle, guest.nodes, guest.contract, guest.effects, net.requests
  */
-import address { parse, shown, site_url };
-import limits { MAX_BODY_UP };
+import net.address { parse, shown, site_url };
+import guest.limits { MAX_BODY_UP };
 
 /** One request an app asks for. */
 public struct Request {

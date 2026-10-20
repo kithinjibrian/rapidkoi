@@ -63,7 +63,7 @@ If mid-implementation the scope turns out larger than the PRP described: stop, d
 Write the test before writing the implementation. No exceptions.
 
 - For every new function, write a failing `@test` first, then the minimum code to make it pass.
-- Tests live in `test/`, mirroring `src/`: `src/update.la` → `test/update.la`. Keep test code out of `src/`.
+- Tests live in `test/`, flat, each file named for the module it tests: `src/ui/layout.la` → `test/layout.la` (a test in a subfolder can't import `test/support.la`, DECISION-033). Keep test code out of `src/`.
 - `update` and `view` are pure: test them with no display. Use `kivuli.testing` to find and press buttons and type into inputs in a view tree.
 - Anything that opens a GTK window must start with `if !has_display() { skip("no display"); }` so it is skipped, not failed, without one.
 - Test behavior visible to callers: inputs, outputs, and every error variant. Do not test kivuli's, GTK's, or lughac's own behavior.
@@ -112,7 +112,7 @@ Ask before anything that leaves this machine: creating the GitHub repository, ad
 
 Read `docs/DESIGN.md` before writing any `view` code.
 
-Every spacing, size and text size comes from the tokens in `docs/DESIGN.md`. Every colour, apps' content included, comes from Rapidkoi's theme in `src/themes.la`, through kivuli's `.style`; the desktop's GTK theme is ignored (DECISION-031). Never hardcode a colour outside `themes.la`, never give an app a way to set colours, never write a bare number in a `Spacing`, `Sizing`, `Font` or `Border`: use a token.
+Every spacing, size and text size comes from the tokens in `docs/DESIGN.md`. Every colour, apps' content included, comes from Rapidkoi's theme in `src/ui/themes.la`, through kivuli's `.style`; the desktop's GTK theme is ignored (DECISION-031). Never hardcode a colour outside `ui/themes.la`, never give an app a way to set colours, never write a bare number in a `Spacing`, `Sizing`, `Font` or `Border`: use a token.
 
 ---
 
@@ -223,7 +223,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 
 1. **The app is one kivuli program: a `Model`, a `Msg` enum, a pure `update`, and a pure `view`.** *Why:* that is kivuli's contract; state changed anywhere else is invisible to the diff and won't render.
 2. **Never touch a GTK widget or import `gtk` from rapidkoi.** *Why:* kivuli owns the widgets; reaching past it breaks its diff and pinned-closure bookkeeping.
-3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/limits.la`), it opens local app files the person chose (≤ 32 MB, PRP-002), and it reads and saves Rapidkoi's own small files in its data folder (`src/saving.la`, `src/states.la`: trust ≤ 1 MB, pins ≤ 32 MB, left-off ≤ 8 MB, each signed app's state ≤ `MAX_STATE` + 64 KB, written safely, PRP-007; it moves to `Cmd.task` when std's file I/O stops blocking the thread). Fetching an address is never done in `update`: it describes a `Cmd.task` (`src/loads.la`, `src/fetching.la`, PRP-008), and trust is recorded and the module compiled only when its result arrives. An app's requests are the same: each is checked (`src/network.la`) and sent in a `Cmd.task` (`src/requests.la`, PRP-012), never in `update`, and answered when its result arrives. *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
+3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/window/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/guest/limits.la`), it opens local app files the person chose (≤ 32 MB, PRP-002), and it reads and saves Rapidkoi's own small files in its data folder (`src/data/saving.la`, `src/data/states.la`: trust ≤ 1 MB, pins ≤ 32 MB, left-off ≤ 8 MB, each signed app's state ≤ `MAX_STATE` + 64 KB, written safely, PRP-007; it moves to `Cmd.task` when std's file I/O stops blocking the thread). Fetching an address is never done in `update`: it describes a `Cmd.task` (`src/net/loads.la`, `src/net/fetching.la`, PRP-008), and trust is recorded and the module compiled only when its result arrives. An app's requests are the same: each is checked (`src/net/network.la`) and sent in a `Cmd.task` (`src/net/requests.la`, PRP-012), never in `update`, and answered when its result arrives. *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
 4. **Keep `src/main.la` to wiring:** `main` calls kivuli with the initial model, `update` and `view` imported from their modules. *Why:* `main.la` can't be tested on its own; everything worth testing lives in a module.
 
 5. **Follow the vision's build path in order** (shell → links → a real app → storage and sync → live sessions → history). Never build part of a later step early. *Why:* each step shapes the next; a speculative later piece locks in guesses.
@@ -270,23 +270,23 @@ public fun load_settings(path: string): Settings { … }
 ├── .llmignore         — protected paths
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
-├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only), layout.la (pure: the frame: header bar, sidebar, content area), addressbox.la (pure: the address box and its suggestions card), suggestions.la (pure: what the box suggests; Card, matches), content.la (pure: the current app in the content area),
-│                        window.la (the Model, and changes that open nothing: tabs, home, pins, left off), navigate.la (opening: the address box, files, addresses, Continue, Reload), themes.la (every colour, as kivuli style values; dark first),
-│                        bundle.la (pure: bundle format 1, read/write), rules.la (pure: every bundle rule, BundleError), loader.la (a path or address → manifest + compiled module, verified when signed),
-│                        signing.la (format 2: signed bundles, read either format), keys.la (secret keys: keygen, read, fingerprints), index.la (the signed index and the public key file, rotations),
-│                        project.la (rapidkoi.toml), publish.la (the `keygen` and `publish` commands, pack from rapidkoi.toml), verify.la (opening a signed site: every check, the keyring),
-│                        store.la (the data folder: safe writes, bounded reads, set aside), remembered.la (the trust, pins and left-off files), states.la (each signed app's state, by host and key),
-│                        identity.la (the master secret, per-app keys, sign-ins), people.la (sign-in settings and your name), effects.la (answering what apps ask for), account.la (an app's account: the model side), placeholders.la (pure: {FIRST_NAME}),
-│                        network.la (pure: which requests an app may make), requests.la (apps' requests: sent in tasks, answered on arrival), dialing.la (looking a name up, refusing local addresses, connecting to exactly the checked ones; Network), access.la (what an app can reach: the model side, the notice),
-│                        running.la (a guest's init and opened events, messages, answers and view), saving.la (restore at start, save on every change), fetching.la (a background load's work: fetch and check against a snapshot), loads.la (begin a load, take its result),
-│                        pack.la (the `./main pack` command), serve.la (the `./main serve` development server: a bundle or a site), address.la (pure: local development addresses),
-│                        tabs.la (Page, Tab, Pin; an app page's life: open, events, restart, resume), leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), actions.la (the shell's Msg),
-│                        frame.la (pure: names, the trust marker, icon buttons, the changed-key question),
-│                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1; re-exports nodes' types),
-│                        nodes.la (the decoded types: Node, style words, ContractError), props.la (reading one node's props),
-│                        render.la (pure: Node → kivuli View; the error screen), theme.la (DESIGN.md tokens), limits.la (every limit)
-│                        Imports run one way: nodes ← props ← contract ← theme ← themes ← render ← tabs ← actions ← frame ← suggestions ← window ← content, addressbox ← layout ← shell ← main; limits ← contract, guest ← tabs
-├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
+├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only), and nine folders (PRP-018):
+│                        window/   window.la (the Model, and changes that open nothing: tabs, home, pins, left off), actions.la (the shell's Msg), tabs.la (Page, Tab, Pin; an app page's life),
+│                                  leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), navigate.la (opening: the address box, files, addresses, Continue, Reload)
+│                        ui/       layout.la (pure: the frame: header bar, sidebar, content area), addressbox.la (pure: the address box and its card), suggestions.la (pure: what the box suggests; Card, matches),
+│                                  content.la (pure: the current app), frame.la (pure: names, the trust marker, icon buttons, the changed-key question), render.la (pure: Node → kivuli View; error screens),
+│                                  tokens.la (DESIGN.md tokens and style helpers), themes.la (every colour, as kivuli style values; dark first)
+│                        guest/    guest.la (a running guest: store, limits, calling convention), running.la (init and opened events, messages, answers, view), limits.la (every limit),
+│                                  contract.la (pure: CBOR ↔ contract; re-exports nodes' types), nodes.la (the decoded types), props.la (reading one node's props), placeholders.la (pure: {FIRST_NAME}), effects.la (answering what apps ask for)
+│                        bundles/  bundle.la (pure: format 1), rules.la (pure: every bundle rule, BundleError), signing.la (format 2: signed bundles), loader.la (a path or address → manifest + module, verified when signed), project.la (rapidkoi.toml)
+│                        trust/    keys.la (secret keys: keygen, read, fingerprints), index.la (the signed index and public key file, rotations), verify.la (opening a signed site: every check, the keyring)
+│                        net/      network.la (pure: which requests an app may make), requests.la (apps' requests, in tasks), dialing.la (lookups, refusing local addresses; Network),
+│                                  fetching.la (a background load's work), loads.la (begin a load, take its result), address.la (pure: local development addresses)
+│                        data/     store.la (the data folder: safe writes, bounded reads), remembered.la (the trust, pins and left-off files), states.la (each signed app's state), saving.la (restore at start, save on every change)
+│                        people/   identity.la (the master secret, per-app keys, sign-ins), people.la (sign-in settings and your name), account.la (an app's account: the model side), access.la (what an app can reach: the model side)
+│                        commands/ pack.la (`./main pack`), publish.la (`keygen`, `publish`), serve.la (`./main serve`: a bundle or a site)
+│                        Imports name the folder (`import ui.layout;` binds `layout`). They run one way: guest.nodes ← props ← contract ← ui.tokens ← themes ← render ← window.tabs ← actions ← ui.frame ← suggestions ← window.window ← ui.content, addressbox ← layout ← shell ← main
+├── test/              — @test files, flat, each named for the module it tests (DECISION-033), support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
 ├── guest/rust/        — Cargo workspace: rapidkoi (contract 2 for Rust: View builder, App trait, export!, Request, SignIn), counter (the demo), quote (the network demo)
 ├── examples/quote/    — the network demo's rapidkoi.toml, its server (server.la: the signed site, sign-in, /quote) and Dockerfile (the VM)

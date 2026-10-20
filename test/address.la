@@ -1,6 +1,15 @@
 // Addresses, pure: local development addresses and remote HTTPS hosts,
 // what each one fetches, and the plain reason when one can't open.
-import rapidkoi.address { Address, AddressError, parse, url, site_url, shown, is_address, reason };
+import rapidkoi.net.address {
+    Address,
+    AddressError,
+    parse,
+    url,
+    site_url,
+    shown,
+    is_address,
+    reason,
+};
 
 fun ok(text: string): Address = parse(text).unwrap();
 

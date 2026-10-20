@@ -1,6 +1,6 @@
 // The people file (PRP-011): each app's sign-in settings and your name,
 // read as hostile input. Pure.
-import rapidkoi.people {
+import rapidkoi.people.people {
     People,
     Person,
     nobody,
@@ -12,7 +12,7 @@ import rapidkoi.people {
     read_people,
     known,
 };
-import rapidkoi.remembered { Unreadable };
+import rapidkoi.data.remembered { Unreadable };
 import cbor { Value, Entry, encode };
 
 const HOST: string = "notes.acme.com";

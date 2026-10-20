@@ -1,7 +1,7 @@
 // Verifying a signed site, without a network: sites are built in memory
 // with real keys and signatures, and fetched through a fake `get`. Every
 // check has a case that fails it, and trust is recorded only on success.
-import rapidkoi.verify {
+import rapidkoi.trust.verify {
     Standing,
     Change,
     Keyring,
@@ -20,10 +20,19 @@ import rapidkoi.verify {
     known_for,
     reason,
 };
-import rapidkoi.index { Index, KeyFile, Rotation, sign_index, add, withdraw, key_file, rotate };
-import rapidkoi.signing { write_signed, read_any };
-import rapidkoi.keys { SecretKey, hex };
-import rapidkoi.bundle { Bundle, Manifest };
+import rapidkoi.trust.index {
+    Index,
+    KeyFile,
+    Rotation,
+    sign_index,
+    add,
+    withdraw,
+    key_file,
+    rotate,
+};
+import rapidkoi.bundles.signing { write_signed, read_any };
+import rapidkoi.trust.keys { SecretKey, hex };
+import rapidkoi.bundles.bundle { Bundle, Manifest };
 import std.crypto { ed25519_keypair, sha256 };
 import std.time;
 

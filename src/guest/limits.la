@@ -3,7 +3,7 @@
  * passes one is stopped with an error screen; Rapidkoi keeps running.
  * Values from `docs/source/meetings/2026-10-17-ui-contract.md`.
  *
- * Used by: guest, contract
+ * Used by: guest.guest, guest.contract
  */
 
 /** The contract version this shell speaks (`rapidkoi_version()`): 2, one entry point for every event (PRP-011). */

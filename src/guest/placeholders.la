@@ -7,10 +7,10 @@
  * window title is visible outside Rapidkoi). Anything else in braces is
  * left as it is.
  *
- * Depends on: nodes
+ * Depends on: guest.nodes
  * Used by: shell
  */
-import nodes { Node };
+import guest.nodes { Node };
 
 /**
  * Fills the placeholders in a screen's display text.

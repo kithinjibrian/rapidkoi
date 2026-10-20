@@ -6,15 +6,15 @@
  * (PRP-012) adds each app's switched-off servers, the servers you've been
  * told about, and those not yet looked at. Read as hostile input; saved by `saving` as it changes.
  *
- * Depends on: cbor, std.crypto, remembered, rules, network, limits
- * Used by: effects, account, saving, render
+ * Depends on: cbor, std.crypto, data.remembered, bundles.rules, net.network, guest.limits
+ * Used by: guest.effects, people.account, data.saving, ui.render
  */
 import cbor { Value, Entry, Limits, decode, encode };
 import std.crypto { equal };
-import remembered { Unreadable };
-import rules { check_host };
-import network { check_server };
-import limits { MAX_SERVERS };
+import data.remembered { Unreadable };
+import bundles.rules { check_host };
+import net.network { check_server };
+import guest.limits { MAX_SERVERS };
 
 /** The longest name part, in characters. */
 public const MAX_NAME: i64 = 64;

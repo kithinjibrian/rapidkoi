@@ -4,10 +4,10 @@
  * `bundle.write` alike, so a bundle the packer writes is always one Rapidkoi
  * reads.
  *
- * Depends on: limits
- * Used by: bundle
+ * Depends on: guest.limits
+ * Used by: bundles.bundle
  */
-import limits {
+import guest.limits {
     MAX_MODULE,
     MAX_ASSET,
     MAX_ASSETS,

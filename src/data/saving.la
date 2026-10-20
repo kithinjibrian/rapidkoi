@@ -5,15 +5,15 @@
  * newer Rapidkoi's are left alone, each with a notice; a failed save is a
  * notice too, never a crash.
  *
- * Depends on: std.env, std.time, store, states, people, identity, remembered, verify, window, leftoff
+ * Depends on: std.env, std.time, data.store, data.states, people.people, people.identity, data.remembered, trust.verify, window.window, window.leftoff
  * Used by: shell
  */
 import std.env;
 import std.time;
-import states { Saved, keep, drop_state, move_state };
-import people { People, Person, nobody, people_file, read_people, MAX_PEOPLE_FILE };
-import identity { existing, reason as identity_reason };
-import store {
+import data.states { Saved, keep, drop_state, move_state };
+import people.people { People, Person, nobody, people_file, read_people, MAX_PEOPLE_FILE };
+import people.identity { existing, reason as identity_reason };
+import data.store {
     Store,
     StoreError,
     data_dir,
@@ -23,7 +23,7 @@ import store {
     skipping,
     reason as store_reason,
 };
-import remembered {
+import data.remembered {
     Recalled,
     MAX_TRUST_FILE,
     MAX_PINS_FILE,
@@ -36,9 +36,9 @@ import remembered {
     pins_file,
     left_file,
 };
-import verify { keyring, keyring_of, identities, changes, moves };
-import window { Model, used_last };
-import leftoff { LeftOff, signer_of };
+import trust.verify { keyring, keyring_of, identities, changes, moves };
+import window.window { Model, used_last };
+import window.leftoff { LeftOff, signer_of };
 
 /** How the notices name one remembered file. */
 struct Part {

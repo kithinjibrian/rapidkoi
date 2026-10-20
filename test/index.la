@@ -1,6 +1,6 @@
 // The signed index and the public key file, pure apart from std.crypto:
 // signing, verifying, versions, pruning, withdrawing, and key rotations.
-import rapidkoi.index {
+import rapidkoi.trust.index {
     Index,
     Version,
     KeyFile,
@@ -16,7 +16,7 @@ import rapidkoi.index {
     follow,
     reason,
 };
-import rapidkoi.keys { SecretKey };
+import rapidkoi.trust.keys { SecretKey };
 import std.crypto { ed25519_keypair, sha256 };
 import cbor { Value, Entry, Limits, decode, encode };
 

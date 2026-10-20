@@ -1,7 +1,7 @@
 // The pack command: flags in, a `.rkb` out, or a clear error. Writes only
 // under test/tmp/ (gitignored) and cleans up.
-import rapidkoi.pack { make };
-import rapidkoi.bundle { read, asset };
+import rapidkoi.commands.pack { make };
+import rapidkoi.bundles.bundle { read, asset };
 import std.fs;
 import support { png as png_of };
 

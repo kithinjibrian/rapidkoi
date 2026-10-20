@@ -1,7 +1,7 @@
 // The three remembered files: each round trips, and every way one can be
 // wrong is Broken (naming the field) or Newer, never a panic. Writes only
 // under test/tmp/.
-import rapidkoi.remembered {
+import rapidkoi.data.remembered {
     Unreadable,
     Recalled,
     trust_file,
@@ -12,10 +12,10 @@ import rapidkoi.remembered {
     read_left,
     recall,
 };
-import rapidkoi.verify { Identity };
-import rapidkoi.tabs { Pin };
-import rapidkoi.leftoff { LeftOff, recalled, signer_of };
-import rapidkoi.store { Store, store_at, save };
+import rapidkoi.trust.verify { Identity };
+import rapidkoi.window.tabs { Pin };
+import rapidkoi.window.leftoff { LeftOff, recalled, signer_of };
+import rapidkoi.data.store { Store, store_at, save };
 import cbor { Value, Entry, encode };
 import std.fs;
 import support { png };

@@ -5,11 +5,11 @@
  * name and over HTTPS only (PRP-009): `rapidkoi://HOST[:PORT][/route]` or
  * `https://HOST[:PORT]…`, port 443 by default. Never a remote IP address.
  *
- * Depends on: rules
- * Used by: loader, fetching, loads, navigate, tabs, frame, panel
+ * Depends on: bundles.rules
+ * Used by: bundles.loader, net.fetching, net.loads, window.navigate, window.tabs, ui.frame, panel
  */
 
-import rules { check_host };
+import bundles.rules { check_host };
 
 /** A parsed address. */
 public struct Address {

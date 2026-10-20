@@ -1,7 +1,7 @@
 // Each signed app's state, kept by host and key under states/: round
 // trips, the identity check, removal, moving after a rotation, and the cap.
 // Writes only under test/tmp/.
-import rapidkoi.states {
+import rapidkoi.data.states {
     Saved,
     MAX_APPS,
     state_name,
@@ -12,8 +12,8 @@ import rapidkoi.states {
     drop_state,
     move_state,
 };
-import rapidkoi.remembered { Unreadable, Recalled };
-import rapidkoi.store { Store, store_at, save };
+import rapidkoi.data.remembered { Unreadable, Recalled };
+import rapidkoi.data.store { Store, store_at, save };
 import std.fs;
 
 fun clean(path: string) {

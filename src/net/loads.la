@@ -7,13 +7,13 @@
  * only on arrival. `resumed` starts a signed app from its saved state,
  * however it was opened.
  *
- * Depends on: kivuli, std.time, std.crypto, tabs, leftoff, window, fetching, loader, verify, states, remembered, store, address, actions, limits
- * Used by: navigate, shell
+ * Depends on: kivuli, std.time, std.crypto, window.tabs, window.leftoff, window.window, net.fetching, bundles.loader, trust.verify, data.states, data.remembered, data.store, net.address, window.actions, guest.limits
+ * Used by: window.navigate, shell
  */
 import kivuli { Cmd };
 import std.time;
 import std.crypto { equal };
-import tabs {
+import window.tabs {
     AppPage,
     Pending,
     loading,
@@ -24,18 +24,18 @@ import tabs {
     state_of,
     with_saved,
 };
-import leftoff { LeftOff };
-import window { Model, with_tab, app };
-import fetching { Fetched, fetch_app };
-import dialing { Network };
-import loader { Refusal, from_fetched, current };
-import verify { known_for, moves };
-import states { saved_state, move_state };
-import remembered { Recalled };
-import store { Store };
-import address { parse, shown };
-import actions { Msg };
-import limits { FETCH_TIMEOUT_MS };
+import window.leftoff { LeftOff };
+import window.window { Model, with_tab, app };
+import net.fetching { Fetched, fetch_app };
+import net.dialing { Network };
+import bundles.loader { Refusal, from_fetched, current };
+import trust.verify { known_for, moves };
+import data.states { saved_state, move_state };
+import data.remembered { Recalled };
+import data.store { Store };
+import net.address { parse, shown };
+import window.actions { Msg };
+import guest.limits { FETCH_TIMEOUT_MS };
 
 /**
  * Puts a loading page in tab `id` (which must exist) and returns the task

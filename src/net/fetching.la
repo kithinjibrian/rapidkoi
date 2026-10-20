@@ -9,17 +9,24 @@
  * network) and returns plain data: the window records trust and compiles
  * when the result arrives (`loader.from_fetched`).
  *
- * Depends on: std.http, dialing, network, verify, loader, address, limits
- * Used by: loader, navigate
+ * Depends on: std.http, net.dialing, net.network, trust.verify, bundles.loader, net.address, guest.limits
+ * Used by: bundles.loader, window.navigate
  */
 import std.http { Limits };
-import verify { Verified, Record, Identity, VerifyError, check_site, reason as verify_reason };
-import loader { Refusal };
-import address { Address, url, site_url, shown };
-import limits { MAX_BUNDLE };
+import trust.verify {
+    Verified,
+    Record,
+    Identity,
+    VerifyError,
+    check_site,
+    reason as verify_reason,
+};
+import bundles.loader { Refusal };
+import net.address { Address, url, site_url, shown };
+import guest.limits { MAX_BUNDLE };
 
-import dialing { Network, Dialed, dial };
-import network { reason as network_reason };
+import net.dialing { Network, Dialed, dial };
+import net.network { reason as network_reason };
 
 /** What a background load came back with. */
 public enum Fetched {

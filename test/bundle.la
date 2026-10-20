@@ -1,6 +1,6 @@
 // Bundle format 1, pure: reading and writing `.rkb` bytes, and every rule
 // a bundle must keep. No files, no guest, no display.
-import rapidkoi.bundle { Bundle, Manifest, BundleError, read, write, asset, reason };
+import rapidkoi.bundles.bundle { Bundle, Manifest, BundleError, read, write, asset, reason };
 import cbor { Value, encode };
 import support { t, kv, png as png_of };
 

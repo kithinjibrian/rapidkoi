@@ -6,19 +6,19 @@
  * everything else is answered with nothing. Each answer goes back through
  * the app's `update`, which may ask again, up to `MAX_ANSWERS` in a row.
  *
- * Depends on: kivuli, identity, people, tabs, window, contract, render, requests, actions
+ * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, ui.render, net.requests, window.actions
  * Used by: shell
  */
-import identity { Master, master, public_key, sign_in, reason as identity_reason };
-import people { person };
-import tabs { AppPage, Tab, Screen, handle };
-import window { Model, with_tab };
-import contract { Effect };
+import people.identity { Master, master, public_key, sign_in, reason as identity_reason };
+import people.people { person };
+import window.tabs { AppPage, Tab, Screen, handle };
+import window.window { Model, with_tab };
+import guest.contract { Effect };
 import cbor { Value };
 import kivuli { Cmd };
-import actions { Msg };
-import requests;
-import render;
+import window.actions { Msg };
+import net.requests;
+import ui.render;
 
 /** The most answers in a row for one app before it's stopped: an app that keeps asking. */
 public const MAX_ANSWERS: i64 = 32;

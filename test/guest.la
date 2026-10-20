@@ -1,10 +1,10 @@
 // Running guests: loading, the version check, the calling convention, and
 // every way a guest can misbehave. Fixture guests are WebAssembly text; no
 // Rust and no display needed.
-import rapidkoi.guest { Guest, GuestError, compile, open, reason };
+import rapidkoi.guest.guest { Guest, GuestError, compile, open, reason };
 import wasmtime { Engine, Module };
 import support { fixed, pack, counter_tree, result_of };
-import rapidkoi.contract { lifecycle };
+import rapidkoi.guest.contract { lifecycle };
 
 /** Opens WebAssembly text as a guest. */
 fun start(wat: string): Result<Guest, GuestError> {

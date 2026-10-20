@@ -3,14 +3,14 @@
 // names can't be reached offline; localhost over TLS runs the same HTTPS
 // path. Writes only under test/tmp/.
 import rapidkoi.shell { Model, start, update };
-import rapidkoi.layout { view };
-import rapidkoi.window { with_network };
-import rapidkoi.dialing { Network };
-import rapidkoi.actions { Msg };
-import rapidkoi.store { store_at };
-import rapidkoi.remembered { read_trust };
-import rapidkoi.publish { make_key, publish_site };
-import rapidkoi.serve { handle };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.window { with_network };
+import rapidkoi.net.dialing { Network };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.data.store { store_at };
+import rapidkoi.data.remembered { read_trust };
+import rapidkoi.commands.publish { make_key, publish_site };
+import rapidkoi.commands.serve { handle };
 import kivuli.testing { click, texts };
 import std.http { Request };
 import std.env;

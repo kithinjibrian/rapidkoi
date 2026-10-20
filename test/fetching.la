@@ -2,14 +2,14 @@
 // key, index and build checked against a snapshot; an unsigned server's
 // bundle; a server that never answers; a tampered build. One port per test.
 // Writes only under test/tmp/.
-import rapidkoi.fetching { Fetched, fetch_app };
-import rapidkoi.dialing { Network };
-import rapidkoi.loader { why };
-import rapidkoi.address { Address, parse };
-import rapidkoi.verify { Identity };
-import rapidkoi.publish { make_key, publish_site };
-import rapidkoi.serve { handle };
-import rapidkoi.bundle { Bundle, Manifest, write };
+import rapidkoi.net.fetching { Fetched, fetch_app };
+import rapidkoi.net.dialing { Network };
+import rapidkoi.bundles.loader { why };
+import rapidkoi.net.address { Address, parse };
+import rapidkoi.trust.verify { Identity };
+import rapidkoi.commands.publish { make_key, publish_site };
+import rapidkoi.commands.serve { handle };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
 import std.http { Request, Response };
 import std.env;
 import std.fs;

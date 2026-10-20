@@ -5,11 +5,11 @@
  * (`loads.la`); the state itself lives in `window.la`. Reads local files
  * (CLAUDE.md rule 3).
  *
- * Depends on: std.fs, kivuli, tabs, leftoff, window, address, verify, loads, actions
+ * Depends on: std.fs, kivuli, window.tabs, window.leftoff, window.window, net.address, trust.verify, net.loads, window.actions
  * Used by: shell
  */
 import std.fs;
-import tabs {
+import window.tabs {
     AppPage,
     open_path,
     close_page,
@@ -19,13 +19,13 @@ import tabs {
     state_version_of,
     failed_page,
 };
-import leftoff { leave, compiled };
-import verify { separate };
-import loads { begin, resumed };
+import window.leftoff { leave, compiled };
+import trust.verify { separate };
+import net.loads { begin, resumed };
 import kivuli { Cmd };
-import actions { Msg };
-import window { Model, page_of, with_tab, add_tab, app };
-import address { is_address, parse };
+import window.actions { Msg };
+import window.window { Model, page_of, with_tab, add_tab, app };
+import net.address { is_address, parse };
 
 /**
  * Opens what the address box says: a local file or development address,

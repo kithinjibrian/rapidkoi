@@ -5,12 +5,20 @@
  * (its effects included), and `view`. Calls guests (bounded by fuel);
  * never draws.
  *
- * Depends on: cbor, guest, contract, tabs
- * Used by: tabs
+ * Depends on: cbor, guest.guest, guest.contract, window.tabs
+ * Used by: window.tabs
  */
-import guest { Guest, open, reason };
-import contract { Described, ContractError, Effect, Update, read_tree, read_update, lifecycle };
-import tabs { Screen, Program };
+import guest.guest { Guest, open, reason };
+import guest.contract {
+    Described,
+    ContractError,
+    Effect,
+    Update,
+    read_tree,
+    read_update,
+    lifecycle,
+};
+import window.tabs { Screen, Program };
 
 /**
  * Opens the guest in a fresh store and brings it up: on a fresh start the

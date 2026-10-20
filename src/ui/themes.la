@@ -6,8 +6,8 @@
  * corner. Apps name a button's kind; the theme decides its look. Dark is
  * first and the default; others come later, with settings.
  *
- * Depends on: kivuli, nodes, theme
- * Used by: window, layout, addressbox, frame, content, render
+ * Depends on: kivuli, guest.nodes, ui.tokens
+ * Used by: window.window, ui.layout, ui.addressbox, ui.frame, ui.content, ui.render
  */
 import kivuli {
     Styling,
@@ -27,8 +27,15 @@ import kivuli {
     State,
     hex,
 };
-import nodes { ButtonLook };
-import theme { TEXT_TITLE, TEXT_HEADING, PAGE_RADIUS, EDGE_WIDTH, ADDRESS_HEIGHT, BUTTON_RADIUS };
+import guest.nodes { ButtonLook };
+import ui.tokens {
+    TEXT_TITLE,
+    TEXT_HEADING,
+    PAGE_RADIUS,
+    EDGE_WIDTH,
+    ADDRESS_HEIGHT,
+    BUTTON_RADIUS,
+};
 
 /** One theme: a name, and a colour per part (`#rrggbb` or `#rrggbbaa`). Hex values live only here. */
 public struct Theme {

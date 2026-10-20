@@ -4,18 +4,18 @@
  * app), icon buttons, app icons, and the changed-key question. The frame's
  * layout is `layout.la`.
  *
- * Depends on: kivuli, actions, address, tabs, verify, keys, nodes, theme, themes
- * Used by: layout, addressbox, content
+ * Depends on: kivuli, window.actions, net.address, window.tabs, trust.verify, trust.keys, guest.nodes, ui.tokens, ui.themes
+ * Used by: ui.layout, ui.addressbox, ui.content
  */
 import kivuli { View, Image, Align, button, column, row, text };
-import actions { Msg };
-import address { parse };
-import tabs { AppPage, is_loading };
-import verify { Change, Standing };
-import keys { fingerprint };
-import nodes { ButtonLook };
-import theme { SPACE_SM, gap };
-import themes { Theme, title, dim, button as button_look };
+import window.actions { Msg };
+import net.address { parse };
+import window.tabs { AppPage, is_loading };
+import trust.verify { Change, Standing };
+import trust.keys { fingerprint };
+import guest.nodes { ButtonLook };
+import ui.tokens { SPACE_SM, gap };
+import ui.themes { Theme, title, dim, button as button_look };
 
 /**
  * Returns what a tab is called: "name · title", or the name alone.

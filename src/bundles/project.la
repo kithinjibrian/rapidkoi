@@ -5,7 +5,7 @@
  * made absolute from the toml's folder; `~/` expands from `$HOME`.
  *
  * Depends on: std.toml, std.env
- * Used by: pack, publish
+ * Used by: commands.pack, commands.publish
  */
 import std.toml { Value, Limits, parse_with, as_text, as_i64, as_table, as_array };
 import std.env;

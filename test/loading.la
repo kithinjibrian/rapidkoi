@@ -4,14 +4,14 @@
 // end case runs the task over a real local socket. Writes only under
 // test/tmp/.
 import rapidkoi.shell { Model, start, update, subscriptions };
-import rapidkoi.layout { view };
-import rapidkoi.actions { Msg };
-import rapidkoi.fetching { Fetched };
-import rapidkoi.loader { Refusal };
-import rapidkoi.bundle { Bundle, Manifest, write };
-import rapidkoi.publish { make_key, publish_site };
-import rapidkoi.serve { handle };
-import rapidkoi.store { store_at };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.net.fetching { Fetched };
+import rapidkoi.bundles.loader { Refusal };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
+import rapidkoi.commands.publish { make_key, publish_site };
+import rapidkoi.commands.serve { handle };
+import rapidkoi.data.store { store_at };
 import kivuli { Cmd };
 import kivuli.testing { click, texts, Lookup };
 import std.http { Request };

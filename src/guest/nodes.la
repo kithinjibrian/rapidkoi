@@ -4,10 +4,10 @@
  * them is `contract.la`, reading props is `props.la`.
  *
  * Depends on: cbor
- * Used by: contract, props (and, through contract's re-export, render, theme, shell)
+ * Used by: guest.contract, props (and, through contract's re-export, ui.render, ui.tokens, shell)
  */
 import cbor { Value, DecodeError };
-import network { Request };
+import net.network { Request };
 
 /** How a text reads: the contract's `style` words. */
 public enum TextStyle {
@@ -33,7 +33,7 @@ public enum ButtonLook {
     Subtle,
 }
 
-/** A spacing or padding word; sizes come from `theme.la`. */
+/** A spacing or padding word; sizes come from `ui/tokens.la`. */
 public enum Space {
     /** `"none"`, or the prop left out. */
     Zero,

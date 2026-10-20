@@ -1,12 +1,12 @@
 // Opening signed apps end to end, over real local sockets: publish a site
 // to test/tmp, serve it on a green thread, open it in a window. Each test
 // has its own port. Writes only under test/tmp/.
-import rapidkoi.publish { make_key, publish_site, pack_project };
-import rapidkoi.serve { handle };
+import rapidkoi.commands.publish { make_key, publish_site, pack_project };
+import rapidkoi.commands.serve { handle };
 import rapidkoi.shell { Model, with_pages, update };
-import rapidkoi.layout { view };
-import rapidkoi.navigate { open_file, reload };
-import rapidkoi.actions { Msg };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.navigate { open_file, reload };
+import rapidkoi.window.actions { Msg };
 import kivuli.testing { texts, click, Lookup };
 import std.http { Request };
 import std.env;

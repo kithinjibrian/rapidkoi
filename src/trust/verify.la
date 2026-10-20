@@ -9,16 +9,23 @@
  * Trust is host → key and the highest sequence seen, kept in a `Keyring`
  * the window holds; `saving` keeps it on disk across restarts (PRP-007).
  *
- * Depends on: std.crypto, std.time, index, signing, keys, rules
- * Used by: loader, tabs, frame, panel
+ * Depends on: std.crypto, std.time, trust.index, bundles.signing, trust.keys, bundles.rules
+ * Used by: bundles.loader, window.tabs, ui.frame, panel
  */
 import std.crypto { sha256, equal };
 import std.time;
-import index { Version, IndexError, read_index, read_key_file, follow, reason as index_reason };
-import signing { Opened, Signed, read_any };
-import keys { fingerprint, hex };
-import rules { BundleError };
-import bundle { reason as bundle_reason };
+import trust.index {
+    Version,
+    IndexError,
+    read_index,
+    read_key_file,
+    follow,
+    reason as index_reason,
+};
+import bundles.signing { Opened, Signed, read_any };
+import trust.keys { fingerprint, hex };
+import bundles.rules { BundleError };
+import bundles.bundle { reason as bundle_reason };
 
 /** How far Rapidkoi trusts where an app came from. */
 public enum Standing {

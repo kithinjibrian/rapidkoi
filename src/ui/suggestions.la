@@ -3,12 +3,12 @@
  * computer and matches what was typed. Nothing typed leaves the computer;
  * an app's screens join once links exist.
  *
- * Depends on: kivuli, actions, tabs
- * Used by: addressbox, window
+ * Depends on: kivuli, window.actions, window.tabs
+ * Used by: ui.addressbox, window.window
  */
 import kivuli { Image };
-import actions { Msg };
-import tabs { Tab, Pin };
+import window.actions { Msg };
+import window.tabs { Tab, Pin };
 
 /** "Where you left off": the app and its last screen, and what Continue sends. */
 public struct Card {

@@ -3,11 +3,11 @@
  * mapped onto them, and helpers that turn tokens into kivuli's style
  * values. Every number the shell passes to kivuli comes from here.
  *
- * Depends on: kivuli, contract
- * Used by: render, themes, layout, addressbox, frame, content
+ * Depends on: kivuli, guest.contract
+ * Used by: ui.render, ui.themes, ui.layout, ui.addressbox, ui.frame, ui.content
  */
 import kivuli { Spacing, Sizing, Edges, Width };
-import contract { Space };
+import guest.contract { Space };
 
 /** Inside tight groups, in pixels. */
 public const SPACE_XS: i64 = 4;

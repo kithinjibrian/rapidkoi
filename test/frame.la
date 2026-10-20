@@ -1,9 +1,9 @@
 // The frame's small pieces, pure (PRP-017): names, initials, icon keys,
 // matching, and the trust marker Rapidkoi draws for each app. No display.
-import rapidkoi.frame { label, initial, icon_of, marker, marker_icon, marker_note };
-import rapidkoi.suggestions { matches };
-import rapidkoi.verify { Trust, Standing };
-import rapidkoi.tabs { AppPage, open_module };
+import rapidkoi.ui.frame { label, initial, icon_of, marker, marker_icon, marker_note };
+import rapidkoi.ui.suggestions { matches };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.window.tabs { AppPage, open_module };
 import kivuli { Image };
 import wasmtime { Engine, Module };
 import support { fixed, titled_tree, result_of };

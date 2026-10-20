@@ -12,11 +12,11 @@
  * (default 127.0.0.1) is where it accepts connections; a container behind
  * a TLS proxy uses 0.0.0.0.
  *
- * Depends on: rapidkoi.serve, rapidkoi.identity, cbor, std.crypto, std.http, std.time
+ * Depends on: rapidkoi.commands.serve, rapidkoi.people.identity, cbor, std.crypto, std.http, std.time
  */
-import rapidkoi.serve { handle };
-import rapidkoi.identity { sign_in_message, user_label };
-import rapidkoi.keys { hex };
+import rapidkoi.commands.serve { handle };
+import rapidkoi.people.identity { sign_in_message, user_label };
+import rapidkoi.trust.keys { hex };
 import cbor { Value, Entry, Limits, decode, encode };
 import std.crypto { ed25519_verify, ed25519_keypair, ed25519_sign, random_bytes, equal };
 import std.http { Request, Response };

@@ -1,6 +1,6 @@
 // Contract v1, pure: CBOR bytes to a Node tree, update results, and event
 // envelopes. No guest and no display.
-import rapidkoi.contract {
+import rapidkoi.guest.contract {
     Node,
     TextStyle,
     ButtonLook,
@@ -17,7 +17,7 @@ import rapidkoi.contract {
     envelope,
 };
 import cbor { Value, Entry, encode, decode, Limits };
-import rapidkoi.network { Request, Reply };
+import rapidkoi.net.network { Request, Reply };
 import support { t, kv, leaf, parent, wide, deep };
 
 fun tree(v: Value): Result<Node, ContractError> = read_tree(encode(v)).map(

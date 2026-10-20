@@ -5,13 +5,13 @@
  * by the key before). Signed as exact bytes and checked before decoding.
  * Pure apart from std.crypto.
  *
- * Depends on: std.crypto, cbor, keys, rules
- * Used by: publish, verify
+ * Depends on: std.crypto, cbor, trust.keys, bundles.rules
+ * Used by: commands.publish, trust.verify
  */
 import std.crypto { ed25519_sign, ed25519_verify, equal };
 import cbor { Value, Entry, Limits, decode, encode };
-import keys { SecretKey };
-import rules { check_version };
+import trust.keys { SecretKey };
+import bundles.rules { check_version };
 
 /** One published version. */
 public struct Version {

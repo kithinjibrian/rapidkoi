@@ -3,8 +3,8 @@
 // the redesign's tabs and new tab (DECISION-030). Fixture guests; no
 // display, no network.
 import rapidkoi.shell { Model, with_pages, update };
-import rapidkoi.actions { Msg, PanelPage, Confirm, TabAction, PinAction };
-import rapidkoi.tabs { AppPage, open_module };
+import rapidkoi.window.actions { Msg, PanelPage, Confirm, TabAction, PinAction };
+import rapidkoi.window.tabs { AppPage, open_module };
 import wasmtime { Engine, Module };
 import support { echo };
 

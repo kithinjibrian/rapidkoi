@@ -6,12 +6,12 @@
  * then every format 1 rule. Whether the signing key is *trusted* is
  * `verify`'s question, not this module's.
  *
- * Depends on: std.crypto, cbor, bundle, rules, keys
- * Used by: pack, publish, loader, verify
+ * Depends on: std.crypto, cbor, bundles.bundle, bundles.rules, trust.keys
+ * Used by: commands.pack, commands.publish, bundles.loader, trust.verify
  */
 import std.crypto { sha256, ed25519_sign, ed25519_verify, equal };
 import cbor { Value, Entry, Limits, decode, encode };
-import bundle {
+import bundles.bundle {
     Bundle,
     Manifest,
     FORMAT,
@@ -23,9 +23,9 @@ import bundle {
     check,
     entry,
 };
-import rules { BundleError, check_host };
-import keys { SecretKey };
-import limits { MAX_BUNDLE, MAX_MODULE, MAX_ASSETS };
+import bundles.rules { BundleError, check_host };
+import trust.keys { SecretKey };
+import guest.limits { MAX_BUNDLE, MAX_MODULE, MAX_ASSETS };
 
 /** What a signature says about a bundle. */
 public struct Signed {

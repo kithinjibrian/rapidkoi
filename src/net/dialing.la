@@ -8,15 +8,15 @@
  * addresses (`localhost`, typed as such) are never looked up. Safe to run
  * in a task; never called from `update`.
  *
- * Depends on: std.net, std.http, std.tls, std.time, network, address
- * Used by: fetching, requests
+ * Depends on: std.net, std.http, std.tls, std.time, net.network, net.address
+ * Used by: net.fetching, net.requests
  */
 import std.net;
 import std.http { Response, Limits };
 import std.tls;
 import std.time;
-import network { NetworkError, check_addresses };
-import address { Address, shown };
+import net.network { NetworkError, check_addresses };
+import net.address { Address, shown };
 
 /**
  * How Rapidkoi reaches the network: the system's trusted roots and
@@ -178,6 +178,7 @@ fun final(
 fun options(reach: Network, timeout_ms: i64, ip: string): tls.Options = tls.Options {
     ca_file: reach.ca_file.unwrap_or(""),
     timeout_ms: timeout_ms,
+    // Every field is set, so no `..tls.options()` (W0104). A field std adds
+    // later is a compile error here, to be decided, not silently defaulted.
     address: ip,
-    ..tls.options(),
 };

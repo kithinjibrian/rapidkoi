@@ -1,10 +1,10 @@
 // Publishing to a site folder: versions, pruning, withdrawing, a tampered
 // index, and the secret key staying out of the site. Writes only under
 // test/tmp/.
-import rapidkoi.publish { WELL_KNOWN, make_key, publish_site, publish_args, pack_project };
-import rapidkoi.index { read_index, Version };
-import rapidkoi.keys { read_secret, hex };
-import rapidkoi.signing { read_any };
+import rapidkoi.commands.publish { WELL_KNOWN, make_key, publish_site, publish_args, pack_project };
+import rapidkoi.trust.index { read_index, Version };
+import rapidkoi.trust.keys { read_secret, hex };
+import rapidkoi.bundles.signing { read_any };
 import std.env;
 import std.fs;
 import support { png };

@@ -5,7 +5,7 @@
  * published. Signing itself is std.crypto's.
  *
  * Depends on: std.crypto, std.fs, cbor
- * Used by: signing, index, publish
+ * Used by: bundles.signing, trust.index, commands.publish
  */
 import std.crypto { ed25519_keypair, ed25519_public, sha256 };
 import std.fs;

@@ -3467,16 +3467,47 @@ PRPs/prp-018-module_folders.md, DECISIONS.md, CONTEXT.md
 
 ---
 
-## SESSION 93 — 2026-10-20 — Build PRP-018: modules in folders — open
+## SESSION 93 — 2026-10-20 — Build PRP-018: modules in folders — closed
 
-Branch: prp-017-kivuli_0_17
+Branch: prp-017-kivuli_0_17 (the owner: stay on it, session 90)
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner approved PRP-018 with DECISION-033 A.
+- Fixed two slips from session 92 first: DECISION-033 had never been written into DECISIONS.md (now there, resolved A), and that session's commit had swept in a one-line change lughac made to `lugha.lock` during the failing probe test (restored from `2e34b42`, never opened).
+- `git mv` of 46 modules into `window/`, `ui/`, `guest/`, `bundles/`, `trust/`, `net/`, `data/`, `people/`, `commands/`; `theme` → `ui/tokens`. A script rewrote the imports in `src/` (`import ui.layout;` still binds `layout`, so no code using a module by name changed), the `Depends on:`/`Used by:` lines, and `rapidkoi.x` paths in `test/` and `examples/quote/server.la`. It compiled first time.
+- The script also rewrote `application/vnd.rapidkoi.bundle` inside two strings in `test/serve.la`; put back.
+- A first test run failed to compile two files: lughac couldn't reach GitHub for `lugha-gtk` and left `lugha.lock` a line short (restored). With the network up, lughac rewrote one line of `lugha.lock`, committed as its own write (never opened).
+- CLAUDE.md: the tree by folder, the import order, the TESTING RULE (tests flat, named for the module). DESIGN.md and CODE_STYLE paths, CHANGELOG.
+- Checks, by exit status, after the refactor and the string fix: fmt clean (src, test, examples); `lughac test test/` 320 passed; the example server's 2 passed; both builds ok. Two later re-runs (after doc edits only) were stopped by the owner.
+- The owner: "going forward I'll run testing of any kind". Saved as a memory; Claude no longer runs tests, it hands over the commands.
+- The owner pasted W0104 on `net/dialing.la`'s `tls.Options`: every field was set, so `..tls.options()` copied nothing. Removed, with a comment; `lughac check` clean, no warnings. For the owner to test.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/** (46 moves; imports), test/*.la (imports), examples/quote/server.la (imports)
+DECISIONS.md (DECISION-033), lugha.lock (lughac), CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, PRPs/prp-018-module_folders.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None: the refactor's test is that all 320 pass unchanged.
+
+### DECISIONS MADE
+
+- DECISION-033: `test/` stays flat.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look at the counter and the colours (PRP-017); the owner's test run of this commit.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-017 are built there, all checks green on kivuli 0.18. PRP-018 (modules in folders) waits for approval, with DECISION-033 (recommended: `test/` stays flat). The counter and the colours are still the owner's to look at.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-018 are built there, all checks green on kivuli 0.18; `src/` is in folders (PRP-018). The counter and the colours are still the owner's to look at. No decision is open. **The owner runs all tests (session 93): hand over the commands, never run them.** The W0104 fix in `net/dialing.la` waits for their run. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app. When lughac can't reach GitHub it fails to compile some tests and leaves `lugha.lock` a line short: restore the lock from git and rerun.

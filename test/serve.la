@@ -1,7 +1,7 @@
 // The development server, without a network: what its handler answers,
 // and how the command checks its arguments. Writes only under test/tmp/.
-import rapidkoi.serve { BUNDLE_PATH, handle, prepare };
-import rapidkoi.bundle { Bundle, Manifest, write };
+import rapidkoi.commands.serve { BUNDLE_PATH, handle, prepare };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
 import std.http { Request };
 import std.fs;
 

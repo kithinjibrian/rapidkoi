@@ -6,22 +6,22 @@
  * arriving (`arrive`: dropped for a closed tab or an older load, else
  * answered through the app's `handle`). Nothing is sent from `update`.
  *
- * Depends on: kivuli, std.http, cbor, network, dialing, address, tabs, window, people, contract, render, actions, limits
- * Used by: effects, shell
+ * Depends on: kivuli, std.http, cbor, net.network, net.dialing, net.address, window.tabs, window.window, people.people, guest.contract, ui.render, window.actions, guest.limits
+ * Used by: guest.effects, shell
  */
 import kivuli { Cmd };
 import std.http { Limits };
 import cbor { Value };
-import network { Request, Reply, Allowed, NetworkError, check_request, reason };
-import dialing { Network, Dialed, dial };
-import address { parse, shown };
-import tabs { AppPage, handle };
-import window { Model, with_tab, app };
-import people { person };
-import contract { reply };
-import render;
-import actions { Msg };
-import limits { MAX_IN_FLIGHT, MAX_BODY_DOWN, REQUEST_TIMEOUT_MS };
+import net.network { Request, Reply, Allowed, NetworkError, check_request, reason };
+import net.dialing { Network, Dialed, dial };
+import net.address { parse, shown };
+import window.tabs { AppPage, handle };
+import window.window { Model, with_tab, app };
+import people.people { person };
+import guest.contract { reply };
+import ui.render;
+import window.actions { Msg };
+import guest.limits { MAX_IN_FLIGHT, MAX_BODY_DOWN, REQUEST_TIMEOUT_MS };
 
 /**
  * Returns what a page may reach: a signed app its host and declared

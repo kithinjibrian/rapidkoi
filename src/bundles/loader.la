@@ -5,14 +5,14 @@
  * loads. A signed file says how far its key is trusted. Never runs it;
  * `tabs` starts the guest.
  *
- * Depends on: wasmtime, std.http, guest, bundle, signing, verify, fetching, address, limits
- * Used by: tabs
+ * Depends on: wasmtime, std.http, guest.guest, bundles.bundle, bundles.signing, trust.verify, net.fetching, net.address, guest.limits
+ * Used by: window.tabs
  */
 import wasmtime { Engine, Module };
-import guest { compile, reason };
-import bundle { Manifest, asset, reason as bundle_reason };
-import signing { Opened, read_any };
-import verify {
+import guest.guest { compile, reason };
+import bundles.bundle { Manifest, asset, reason as bundle_reason };
+import bundles.signing { Opened, read_any };
+import trust.verify {
     Trust,
     Change,
     Keyring,
@@ -22,10 +22,10 @@ import verify {
     standing_of,
     reason as verify_reason,
 };
-import fetching { Fetched, fetch_app };
-import dialing { Network };
-import address { Address, is_address, parse, url, shown };
-import limits { MAX_BUNDLE, FETCH_TIMEOUT_MS, CONTRACT_VERSION };
+import net.fetching { Fetched, fetch_app };
+import net.dialing { Network };
+import net.address { Address, is_address, parse, url, shown };
+import guest.limits { MAX_BUNDLE, FETCH_TIMEOUT_MS, CONTRACT_VERSION };
 import std.http { Limits };
 
 /** An app ready to start: what to call it, its manifest if it has one, and its compiled module. */

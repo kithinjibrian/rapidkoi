@@ -6,13 +6,13 @@
  * signature covers the verified host, so another host can't use it.
  * Nothing per-app secret is stored: seeds are worked out when needed.
  *
- * Depends on: std.crypto, cbor, store, keys
- * Used by: effects, account, saving
+ * Depends on: std.crypto, cbor, data.store, trust.keys
+ * Used by: guest.effects, people.account, data.saving
  */
 import std.crypto { random_bytes, hkdf_sha256, ed25519_public, ed25519_sign };
 import cbor { Value, Entry, Limits, decode, encode };
-import store { Store, StoreError, load, save, reason as store_reason };
-import keys { hex };
+import data.store { Store, StoreError, load, save, reason as store_reason };
+import trust.keys { hex };
 
 /** This computer's master secret: never shown, never sent. */
 public struct Master {

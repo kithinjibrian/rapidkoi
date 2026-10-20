@@ -3,17 +3,17 @@
  * loading, stopped, refused, or Rapidkoi's question about a changed key).
  * Never calls a guest.
  *
- * Depends on: kivuli, actions, tabs, window, placeholders, people, render, frame
- * Used by: layout
+ * Depends on: kivuli, window.actions, window.tabs, window.window, guest.placeholders, people.people, ui.render, ui.frame
+ * Used by: ui.layout
  */
 import kivuli { View };
-import actions { Msg };
-import tabs { AppPage };
-import placeholders { fill };
-import people { name_in };
-import window { Model };
-import render { screen, stopped, refused, loading };
-import frame { unapproved };
+import window.actions { Msg };
+import window.tabs { AppPage };
+import guest.placeholders { fill };
+import people.people { name_in };
+import window.window { Model };
+import ui.render { screen, stopped, refused, loading };
+import ui.frame { unapproved };
 
 /**
  * Draws a tab's app, its messages tagged with the tab, so they reach only it.

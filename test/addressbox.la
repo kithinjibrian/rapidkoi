@@ -1,10 +1,10 @@
 // The address box (PRP-015): the pill in the header bar and the card of
 // suggestions under it. Through kivuli.testing; fixture guests, no display.
 import rapidkoi.shell { Model, with_pages, update };
-import rapidkoi.addressbox;
-import rapidkoi.layout;
-import rapidkoi.actions { Msg };
-import rapidkoi.tabs { AppPage, open_module };
+import rapidkoi.ui.addressbox;
+import rapidkoi.ui.layout;
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.tabs { AppPage, open_module };
 import kivuli { View };
 import kivuli.testing { click, press, texts, type_into, submit };
 import wasmtime { Engine, Module };

@@ -4,20 +4,20 @@
  * a page that was left (`leftoff.la` keeps what's left). Calls guests (bounded by
  * fuel); never draws.
  *
- * Depends on: cbor, wasmtime, guest, bundle, loader, verify, address, contract, render, leftoff, running
- * Used by: actions, frame, home, panel, shell
+ * Depends on: cbor, wasmtime, guest.guest, bundles.bundle, bundles.loader, trust.verify, net.address, guest.contract, ui.render, window.leftoff, guest.running
+ * Used by: window.actions, ui.frame, home, panel, shell
  */
 import cbor { Value };
 import wasmtime { Engine, Module };
-import guest { Guest, open, reason };
-import bundle { Manifest };
-import loader { Loaded, Refusal, load, why };
-import address;
-import verify { Trust, Change, Keyring };
-import contract { Described, ContractError, Effect, read_tree, envelope, answer };
-import render { Msg };
-import leftoff { LeftOff };
-import running { start, step };
+import guest.guest { Guest, open, reason };
+import bundles.bundle { Manifest };
+import bundles.loader { Loaded, Refusal, load, why };
+import net.address;
+import trust.verify { Trust, Change, Keyring };
+import guest.contract { Described, ContractError, Effect, read_tree, envelope, answer };
+import ui.render { Msg };
+import window.leftoff { LeftOff };
+import guest.running { start, step };
 
 /** What an app page shows. */
 public enum Screen {

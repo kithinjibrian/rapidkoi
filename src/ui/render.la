@@ -1,17 +1,17 @@
 /**
  * Rendering, pure: turns a decoded contract tree into kivuli views, and
- * draws the error screen. Every size comes from `theme.la`; every colour
+ * draws the error screen. Every size comes from `ui/tokens.la`; every colour
  * from Rapidkoi's theme (`themes.la`), never the desktop's (DECISION-031).
  * Never calls the guest.
  *
- * Depends on: kivuli, cbor, contract, theme, themes
+ * Depends on: kivuli, cbor, guest.contract, ui.tokens, ui.themes
  * Used by: shell
  */
 import kivuli { View, Align, button, column, input, row, text };
 import cbor { Value };
-import contract { Node, TextStyle, ButtonLook };
-import theme { SPACE_SM, pixels, gap, margin };
-import themes { Theme, body, dim, title, heading, field, button as button_look };
+import guest.contract { Node, TextStyle, ButtonLook };
+import ui.tokens { SPACE_SM, pixels, gap, margin };
+import ui.themes { Theme, body, dim, title, heading, field, button as button_look };
 
 /** What the shell's window sends its `update`. */
 public enum Msg {

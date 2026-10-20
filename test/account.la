@@ -3,15 +3,15 @@
 // will show, checked on the model: its page comes back natively later
 // (DECISION-030). Writes only under test/tmp/.
 import rapidkoi.shell { Model, with_pages, update };
-import rapidkoi.account { Account, account_of };
-import rapidkoi.saving { restore };
-import rapidkoi.actions { Msg, PanelPage, Confirm, NameScope, NamePart };
-import rapidkoi.tabs { AppPage, open_module, state_of };
-import rapidkoi.verify { Trust, Standing };
-import rapidkoi.people { person };
-import rapidkoi.identity { master, public_key, user_label };
-import rapidkoi.contract { answer };
-import rapidkoi.store { Store, store_at };
+import rapidkoi.people.account { Account, account_of };
+import rapidkoi.data.saving { restore };
+import rapidkoi.window.actions { Msg, PanelPage, Confirm, NameScope, NamePart };
+import rapidkoi.window.tabs { AppPage, open_module, state_of };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.people.people { person };
+import rapidkoi.people.identity { master, public_key, user_label };
+import rapidkoi.guest.contract { answer };
+import rapidkoi.data.store { Store, store_at };
 import cbor { Value, Entry, encode };
 import std.fs;
 import wasmtime { Engine, Module };

@@ -4,24 +4,24 @@
  * The state and what changes it live in `window.la`; `view` never calls a
  * guest.
  *
- * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, effects, requests, access, account, render, layout
+ * Depends on: kivuli, wasmtime, window.actions, window.tabs, window.window, data.saving, data.store, net.loads, guest.effects, net.requests, people.access, people.account, ui.render, ui.layout
  * Used by: main
  */
 import kivuli { View, Cmd, Sub };
 import wasmtime { Engine };
-import actions { Msg, PanelPage, Confirm, TabAction, PinAction };
-import tabs { AppPage, Tab, Pin, handle, is_loading };
-import loads;
-import effects { answer_all };
-import requests;
-import account { on_account, forget_account };
-import access { on_access, looked, news };
-public import window { Model, with_pages, title_of };
-import navigate;
-import saving { session_store, restore, persist, mark, forgotten };
-import store { Store };
-import render;
-import layout;
+import window.actions { Msg, PanelPage, Confirm, TabAction, PinAction };
+import window.tabs { AppPage, Tab, Pin, handle, is_loading };
+import net.loads;
+import guest.effects { answer_all };
+import net.requests;
+import people.account { on_account, forget_account };
+import people.access { on_access, looked, news };
+public import window.window { Model, with_pages, title_of };
+import window.navigate;
+import data.saving { session_store, restore, persist, mark, forgotten };
+import data.store { Store };
+import ui.render;
+import ui.layout;
 
 /**
  * Builds the first window from the command line, remembering what this
