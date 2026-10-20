@@ -4294,16 +4294,39 @@ src/ui/themes.la, src/ui/tokens.la, src/ui/header.la, test/themes.la, docs/DESIG
 
 ---
 
-## SESSION 117 — 2026-10-21 — No glow on the address box — open
+## SESSION 117 — 2026-10-21 — No glow on the address box — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: remove the glow from the input. It's `kivuli.ui`'s input-group focus halo (a 3 px shadow in `Ring`, set under `State.FocusWithin`). The address box adds `When(State.FocusWithin, [Shadow.off()])` after it; the thin ring edge stays.
+- `lughac check` clean; addressbox tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/addressbox.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a look).
+
+### DECISIONS MADE
+
+- No focus glow on the address box.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. Brand: `#FF7700` and `#FF2E63`; the header bar and sidebar wear them at 45% (`#733600 → #73152d`) with white icons; the window controls are white with round hovers on their icon boxes (session 116, not yet seen). PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. Brand: `#FF7700` and `#FF2E63`; the header bar and sidebar wear them at 45% with white icons; round hovers on the window controls; no focus glow on the address box (session 117). PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

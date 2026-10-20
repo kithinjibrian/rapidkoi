@@ -8,7 +8,7 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.frame, ui.icons, ui.tokens, ui.themes
  * Used by: ui.header
  */
-import kivuli { View, Align, Border, Radius, Text, image };
+import kivuli { View, Align, Border, Radius, Shadow, State, Text, When, image };
 import kivuli.ui { input_group, group_input, group_button_with, Button, button as ui_button };
 import window.actions { Msg };
 import window.window { Model, page_of, is_pinned };
@@ -86,6 +86,9 @@ public fun field(m: Model): View<Msg> {
         at_least(ADDRESS_WIDTH, ADDRESS_HEIGHT),
         // Room above and below inside the header bar (the owner, session 107).
         margin_y(SPACE_SM),
+        // No glow while typed in: kivuli.ui's 3 px halo goes, its thin ring
+        // edge stays (the owner, session 117).
+        When(State.FocusWithin, [Shadow.off()]),
     ]).align(Align.Center)
 }
 
