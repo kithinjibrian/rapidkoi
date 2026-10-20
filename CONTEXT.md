@@ -3335,6 +3335,38 @@ docs/DESIGN.md (rewritten), CLAUDE.md (stack, tree), CHANGELOG.md, PRPs/prp-017-
 
 ---
 
+## SESSION 89 — 2026-10-20 — Focus leaves the address box after all — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner, running plain `./main` on PRP-017: clicking elsewhere does take focus from the address box. DECISION-029 resolved (doesn't reproduce on kivuli 0.18; no kivuli change), its known issue removed from CLAUDE.md. kivuli's changelog names no focus change, so the cause isn't known; reopen if it comes back.
+
+### FILES CREATED OR MODIFIED
+
+```
+DECISIONS.md, CLAUDE.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- DECISION-029: resolved, nothing to do.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The rest of the owner's look (the counter, the colours); merging the stack (014–017) into `redesign`.
+
+---
+
 ## NEXT SESSION START POINT
 
-PRP-014 to PRP-017 are built, stacked on `prp-017-kivuli_0_17`, all checks green on kivuli 0.18: the frame, the address box, account and menu icons, and every colour from Rapidkoi's theme. Waiting for the owner's look (and the colours in DESIGN.md). Merge the stack into `redesign` on their word (never `main` until the whole redesign is built: DECISION-027). DECISION-029 (clicking away from the box: kivuli) is open. Next: the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
+PRP-014 to PRP-017 are built, stacked on `prp-017-kivuli_0_17`, all checks green on kivuli 0.18. The owner has run plain `./main`; the counter and the colours are still to look at. No decision is open. Merge the stack into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027). Next: the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
