@@ -4500,16 +4500,39 @@ src/ui/tokens.la, src/ui/addressbox.la, CONTEXT.md
 
 ---
 
-## SESSION 123 — 2026-10-21 — The address box's icons at 24 px — open
+## SESSION 123 — 2026-10-21 — The address box's icons at 24 px — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: try icon size 24. The header icons were already 24 (session 106), so taken as the address box's shield and ☆: `ADDRESS_ICON` 16 → 24. In a 30 px box they may make it taller (the ☆ is a compact 24 px button); for the owner to see.
+- `lughac check` clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/tokens.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a size).
+
+### DECISIONS MADE
+
+- The address box's icons are 24 px.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons; the window controls hover as 32 px circles, red for close; the address box is a full pill with one outline, no glow, and (session 122) the same height on home and on an app. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white 24 px icons; the window controls hover as 32 px circles, red for close; the address box is a full pill with one outline, no glow, one height, its shield and ☆ at 24 px (session 123). PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
