@@ -9,14 +9,14 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.addressbox, ui.icons, ui.tokens, ui.themes
  * Used by: ui.layout
  */
-import kivuli { View, Align, Bar, Inside, Part, Paint, Text, hex, header_bar, image };
+import kivuli { View, Align, Bar, header_bar, image };
 import kivuli.ui { Button, WindowControls, button_with as ui_button_with };
 import window.actions { Msg };
 import window.window { Model, page_of };
 import ui.addressbox;
 import ui.icons { Icon, icon };
-import ui.tokens { HEADER_ICON, square };
-import ui.themes { Theme, header };
+import ui.tokens { HEADER_ICON, SPACE_XS, square, margin_x };
+import ui.themes { Theme, header, window_controls };
 
 /**
  * Builds the header bar, on the dimmed brand gradient (orange into pink).
@@ -41,13 +41,10 @@ public fun bar(m: Model): Bar<Msg> {
     // (kivuli 0.49; DECISION-035, A). GTK still decides which show and where.
     let mut look = header(m.theme);
     look.push(WindowControls.look());
-    // − □ × in the icons' colour at rest: kivuli.ui's muted grey is too faint
-    // on the gradient. Hovered, they keep its wash and glyph.
-    look.push(
-        Inside(Part.WindowButton, [
-            Text { color: Paint.Color(hex(m.theme.on_frame)), ..Text.theme() },
-        ]),
-    );
+    // Rapidkoi's own touches on GTK's − □ ×: white, round, with room (session 116).
+    for x of window_controls(m.theme) {
+        look.push(x);
+    }
     header_bar(start(m), addressbox.field(m), packed).style(look)
 }
 
@@ -98,5 +95,6 @@ fun tool(t: Theme, i: Icon, tip: string, msg: Option<Msg>): View<Msg> {
     };
     // Centred down the bar, as the address box is: GTK puts a header bar's
     // children at its top otherwise (the owner's screenshot, session 105).
-    b.style([Button.ghost(), Button.icon()]).tooltip(tip).align(Align.Center)
+    // Room on each side, so the buttons don't crowd (the owner, session 116).
+    b.style([Button.ghost(), Button.icon(), margin_x(SPACE_XS)]).tooltip(tip).align(Align.Center)
 }

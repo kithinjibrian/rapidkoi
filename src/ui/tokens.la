@@ -47,6 +47,8 @@ public const ADDRESS_WIDTH: i64 = 560;
 public const HEADER_ICON: i64 = 24;
 /** An icon inside the address box (the shield, ☆), in pixels: it has to fit the box's 36. */
 public const ADDRESS_ICON: i64 = 16;
+/** A radius past half of any box Rapidkoi rounds: a circle, or a pill. */
+public const CIRCLE: i64 = 999;
 /** A button's and a text field's corners, in pixels. */
 public const BUTTON_RADIUS: i64 = 6;
 /** The page's top-right curve, in pixels. */
@@ -154,5 +156,16 @@ public fun square(n: i64): Sizing = Sizing {
  */
 public fun margin_y(n: i64): Spacing = Spacing {
     margin: Edges { top: Width.Px(n), bottom: Width.Px(n), ..Edges.theme() },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns room left and right of a node, `n` pixels each, none above or below.
+ *
+ * Example:
+ *     button.style([margin_x(SPACE_XS)])
+ */
+public fun margin_x(n: i64): Spacing = Spacing {
+    margin: Edges { left: Width.Px(n), right: Width.Px(n), ..Edges.theme() },
     ..Spacing.theme(),
 };

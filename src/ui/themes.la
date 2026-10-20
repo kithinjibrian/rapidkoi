@@ -29,6 +29,8 @@ import kivuli {
     Token,
     Gradient,
     Stop,
+    Inside,
+    Part,
     hex,
 };
 import guest.nodes { ButtonLook };
@@ -39,6 +41,9 @@ import ui.tokens {
     EDGE_WIDTH,
     ADDRESS_HEIGHT,
     BUTTON_RADIUS,
+    CIRCLE,
+    SPACE_XS,
+    margin_x,
 };
 
 /** One theme: a name, and a colour per part (`#rrggbb` or `#rrggbbaa`). Hex values live only here. */
@@ -77,6 +82,8 @@ public struct Theme {
     public frame_to: string,
     /** Icons and text on the frame's gradient. */
     public on_frame: string,
+    /** What a control on the gradient turns under the pointer. */
+    public frame_hover: string,
     /** Buttons that delete or discard. */
     public danger: string,
     /** A danger button under the pointer or pressed. */
@@ -108,12 +115,14 @@ public const DARK: Theme = Theme {
     on_accent: "#161616",
     // The brand gradient's other end, a pink-red (the owner, session 112).
     accent_end: "#ff2e63",
-    // The brand pair at 60% brightness: the owner asked for it dialled down
-    // (session 113).
-    frame_from: "#994700",
-    frame_to: "#991c3b",
-    // Light on the dimmed gradient: #e8e8e8 reads at 5.3:1 and 6.6:1 on its ends.
-    on_frame: "#e8e8e8",
+    // The brand pair at 45% brightness: the owner asked for it dialled down
+    // twice (sessions 113, 116).
+    frame_from: "#733600",
+    frame_to: "#73152d",
+    // White on the dimmed gradient (the owner, session 116).
+    on_frame: "#ffffff",
+    // A faint white wash: a window control under the pointer, on the gradient.
+    frame_hover: "#ffffff26",
     danger: "#c01c28",
     danger_hover: "#d42c38",
     on_danger: "#ffffff",
@@ -241,6 +250,34 @@ public fun header(t: Theme): Styling[] = brand(t, 90, t.frame_from, t.frame_to);
  *     column([]).style(sidebar(m.theme))
  */
 public fun sidebar(t: Theme): Styling[] = brand(t, 180, t.frame_to, t.frame_from);
+
+/**
+ * Returns the window controls' look on the gradient, given after
+ * `kivuli.ui`'s `WindowControls.look()`: white glyphs, room on each side,
+ * and the hover a circle on each control's 24 × 24 icon box, faint white
+ * (red for close). The buttons themselves stay clear: GTK stretches them to
+ * the bar's height, where rounding makes a tall pill (the owner's
+ * screenshot, session 116).
+ *
+ * Example:
+ *     header_bar(start, title, end).style(window_controls(t))
+ */
+public fun window_controls(t: Theme): Styling[] = [
+    Inside(Part.WindowButton, [
+        Text { color: paint(t.on_frame), ..Text.theme() },
+        Background { color: paint(t.clear), ..Background.theme() },
+        margin_x(SPACE_XS),
+        When(State.Hover, [Background { color: paint(t.clear), ..Background.theme() }]),
+        When(State.Press, [Background { color: paint(t.clear), ..Background.theme() }]),
+    ]),
+    Inside(Part.WindowIcon, [
+        Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+        When(State.Hover, [Background { color: paint(t.frame_hover), ..Background.theme() }]),
+    ]),
+    Inside(Part.WindowCloseIcon, [
+        When(State.Hover, [Background { color: paint(t.danger), ..Background.theme() }]),
+    ]),
+];
 
 /** A flat surface carrying the brand gradient from `from` to `to` along `angle` degrees (0 up, 90 right). */
 fun brand(t: Theme, angle: i64, from: string, to: string): Styling[] {

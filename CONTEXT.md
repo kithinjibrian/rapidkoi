@@ -4257,16 +4257,43 @@ lugha.toml (kivuli 0.50), lugha.lock (lughac), CLAUDE.md, CONTEXT.md
 
 ---
 
-## SESSION 116 — 2026-10-21 — Dimmer gradient, white icons, round window controls, more room — open
+## SESSION 116 — 2026-10-21 — Dimmer gradient, white icons, round window controls, more room — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner's screenshot on kivuli 0.50: still too bright; make the icons white; round the window controls; more room between the buttons.
+- Test first (`test/themes.la`: 45% ends, white icons, the new look builds).
+- Gradient at 45%: `#733600 → #73152d`. `on_frame` `#ffffff`.
+- Window controls: the screenshot showed the hover as a tall pill (GTK stretches the buttons to the bar's height, so kivuli's round corners make a pill). New `themes.window_controls(t)`, after `WindowControls.look()`: the buttons clear in every state with white glyphs and `margin_x(SPACE_XS)`; the hover a circle on `Part.WindowIcon` (24 × 24, `Radius.All(CIRCLE)`) in `frame_hover` `#ffffff26`, `Part.WindowCloseIcon` red. Whether GTK sets `:hover` on the icon box when the pointer is on the button's edge is for the owner to see.
+- Header buttons get `margin_x(SPACE_XS)`. New tokens: `CIRCLE` (999), `margin_x(n)`.
+- `lughac check` clean; every test file type-checks; fmt clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/themes.la, src/ui/tokens.la, src/ui/header.la, test/themes.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/themes.la: the gradient at 45%, white icons; `window_controls(DARK)` builds.
+
+### DECISIONS MADE
+
+- The frame's gradient at 45%; white icons; round hovers on the window controls.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look (the round hover especially) and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. Brand: `#FF7700` and `#FF2E63`; the header bar and sidebar wear them at 60% with light icons. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. Brand: `#FF7700` and `#FF2E63`; the header bar and sidebar wear them at 45% (`#733600 → #73152d`) with white icons; the window controls are white with round hovers on their icon boxes (session 116, not yet seen). PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
