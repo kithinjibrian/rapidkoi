@@ -3738,6 +3738,40 @@ CONTEXT.md
 
 ---
 
+## SESSION 101 — 2026-10-21 — Discovery: the header bar on kivuli.ui — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- Question 2 answered: no reload; use the Iconsax SVGs (`assets/icons/`); start small, with just the header bar (PRP-019).
+- Found: Lugha can't embed a file at compile time, and `view` can't read files; a binary run from elsewhere wouldn't find `assets/`. The icons are 7.5 KB of SVG with `fill="#ffffff"` baked in.
+- Asked question 3: the header bar's layout and what each control does now.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- The redesign starts with the header bar alone; no reload button; Iconsax icons.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Question 3 (layout and behaviour); then how the icons reach the binary and take the theme's colour.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. The owner wants a full redesign on `kivuli.ui` (session 100). Question 2 waits: the plan (a redesign spec for every screen, then PRPs screen by screen) and the screen inventory.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. Discovery for PRP-019, the header bar redesigned on `kivuli.ui` with the Iconsax icons (no reload): question 3 (layout and behaviour) waits. Then: icons in the binary (recommended: a module holding the SVGs as strings, recoloured from the theme), palette, tests.
