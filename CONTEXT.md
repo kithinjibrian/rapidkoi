@@ -4191,6 +4191,16 @@ src/ui/themes.la, src/ui/header.la, test/themes.la, docs/DESIGN.md, CHANGELOG.md
 
 ---
 
+## SESSION 114 — 2026-10-21 — kivuli 0.49.2 — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. Brand: `#FF7700` (accent) and `#FF2E63`; the header bar and sidebar wear the pair at 60% (`#994700 → #991c3b`, session 113) with light icons. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
