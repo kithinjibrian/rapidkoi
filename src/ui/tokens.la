@@ -43,10 +43,10 @@ public const EDGE_WIDTH: i64 = 1;
 public const ADDRESS_HEIGHT: i64 = 30;
 /** The address box's width, and its suggestions card's, in pixels. */
 public const ADDRESS_WIDTH: i64 = 560;
-/** An icon on the header bar's buttons, in pixels (the owner set 24, session 106). */
-public const HEADER_ICON: i64 = 24;
-/** An icon inside the address box (the shield, ☆), in pixels: the header's size (the owner, session 123). */
-public const ADDRESS_ICON: i64 = 24;
+/** An icon on the header bar's buttons, in pixels: 16, as inside the address box, so every icon matches (the owner, session 124). */
+public const HEADER_ICON: i64 = 16;
+/** An icon inside the address box (the shield, ☆), in pixels: 16, as on the header's buttons (the owner, session 124). */
+public const ADDRESS_ICON: i64 = 16;
 /** A radius past half of any box Rapidkoi rounds: a circle, or a pill. */
 public const CIRCLE: i64 = 999;
 /** A button's and a text field's corners, in pixels. */
