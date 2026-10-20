@@ -43,8 +43,8 @@ public const EDGE_WIDTH: i64 = 1;
 public const ADDRESS_HEIGHT: i64 = 36;
 /** The address box's width, and its suggestions card's, in pixels. */
 public const ADDRESS_WIDTH: i64 = 560;
-/** An icon in the header bar, in pixels (Iconsax draws on a 24 px grid). */
-public const HEADER_ICON: i64 = 20;
+/** An icon in the header bar, in pixels: GTK's and kivuli.ui's icon size (the owner found 20 too big, session 104). */
+public const HEADER_ICON: i64 = 16;
 /** A button's and a text field's corners, in pixels. */
 public const BUTTON_RADIUS: i64 = 6;
 /** The page's top-right curve, in pixels. */
@@ -126,3 +126,20 @@ public fun at_least(width: i64, height: i64): Sizing = Sizing {
  *     box.style([at_most(ADDRESS_WIDTH)])
  */
 public fun at_most(width: i64): Sizing = Sizing { max_width: Width.Px(width), ..Sizing.theme() };
+
+/**
+ * Returns an exact square size, `n` pixels, that the node never grows past.
+ *
+ * Example:
+ *     image(icon(Icon.Home, t.text)).style([square(HEADER_ICON)])
+ */
+// kivuli 0.48 applies a picture's `.size(n)` as GTK's size request, a
+// minimum, so an SVG still draws at its own size (DECISION-034); an exact
+// size with a maximum puts it in kivuli's clamp instead.
+public fun square(n: i64): Sizing = Sizing {
+    width: Width.Px(n),
+    height: Width.Px(n),
+    max_width: Width.Px(n),
+    max_height: Width.Px(n),
+    ..Sizing.theme(),
+};

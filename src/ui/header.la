@@ -14,7 +14,7 @@ import window.actions { Msg };
 import window.window { Model };
 import ui.addressbox;
 import ui.icons { Icon, icon };
-import ui.tokens { HEADER_ICON };
+import ui.tokens { HEADER_ICON, square };
 import ui.themes { Theme, frame };
 
 /**
@@ -26,9 +26,18 @@ import ui.themes { Theme, frame };
  * Example:
  *     page.header(header.bar(m))
  */
-public fun bar(m: Model): Bar<Msg> = header_bar(start(m), addressbox.field(m), end(m)).style(
-    frame(m.theme),
-);
+public fun bar(m: Model): Bar<Msg> {
+    // kivuli packs the end outermost first, so the bar takes it reversed:
+    // ☰ next to the window controls, 👤 before it (seen in session 104).
+    let shown = end(m);
+    let mut packed: View<Msg>[] = [];
+    let mut i = shown.len - 1;
+    while i >= 0 {
+        packed.push(shown[i]);
+        i = i - 1;
+    }
+    header_bar(start(m), addressbox.field(m), packed).style(frame(m.theme))
+}
 
 /**
  * Returns the bar's start, in order: ← back, ⌂ home, → forward. Back and
@@ -58,7 +67,7 @@ public fun end(m: Model): View<Msg>[] = [
 
 /** An icon button: a ghost square holding the icon, found by its tooltip; `None` shows it disabled. */
 fun tool(t: Theme, i: Icon, tip: string, msg: Option<Msg>): View<Msg> {
-    let face: View<Msg>[] = [image(icon(i, t.text)).size(HEADER_ICON)];
+    let face: View<Msg>[] = [image(icon(i, t.text)).style([square(HEADER_ICON)])];
     let b = match msg {
         Some(m) => ui_button_with(face, m),
         // kivuli: `.disabled(true)` drops the message, so any one will do.

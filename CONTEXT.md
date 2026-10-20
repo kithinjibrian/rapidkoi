@@ -3847,16 +3847,42 @@ lugha.lock (lughac), docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-019-heade
 
 ---
 
-## SESSION 104 — 2026-10-21 — Header icons too big; end order — open
+## SESSION 104 — 2026-10-21 — Header icons too big; end order — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner's screenshot of PRP-019: "those icons are damn big"; it also showed ☰ before 👤.
+- Size: kivuli applies a picture's `.size(n)` as GTK's size request (a minimum), so the SVGs drew at their own size. Now `tokens.square(n)`, an exact `Sizing` with a maximum (kivuli's documented clamp), on every header and address-box icon; `HEADER_ICON` 20 → 16. Logged as DECISION-034 (deferred, for kivuli).
+- Order: kivuli packs a header bar's end outermost first; `header.bar` now passes `end(m)` reversed, so 👤 then ☰ beside the window controls.
+- `lughac check` clean; header, addressbox and layout tests type-check; build ok. Tests and the look are the owner's.
+- Seen in the screenshot, not touched: the window controls (− □ ×) look small next to the bar; for the owner's next look.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/tokens.la, src/ui/header.la, src/ui/addressbox.la, DECISIONS.md (DECISION-034), docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (layout only; `test/header.la` checks `end(m)` in reading order, unchanged).
+
+### DECISIONS MADE
+
+- Header icons are 16 px.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-034 (deferred): kivuli's `.size(n)` on pictures.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar on `kivuli.ui`, Iconsax icons, a dark palette) is built; it waits for the owner's test run and look. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built; session 104 shrank its icons to 16 px (capped with `square`, DECISION-034) and fixed 👤 ☰'s order. Waiting for the owner's look and test run. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

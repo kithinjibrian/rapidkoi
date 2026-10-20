@@ -18,6 +18,19 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-034 — A picture's `.size(n)` doesn't cap it (kivuli)
+
+**Status:** deferred (reported; Rapidkoi uses kivuli's documented exact `Sizing` meanwhile)
+**Raised:** 2026-10-21 — Session 104 (the owner's screenshot: the header's icons far bigger than `HEADER_ICON`)
+
+**Question:** kivuli 0.48's README says `.size(n)` on a picture is "an n × n box", but `render/styling.la` applies it as GTK's size request, a minimum, so an SVG (the Iconsax icons) draws at its own larger size. Should kivuli make `.size(n)` a box (a clamp, as an exact `Sizing` gets)?
+
+**Meanwhile:** Rapidkoi sizes its icons with `tokens.square(n)`, an exact `Sizing` with a maximum, which kivuli documents as clamping. Not a silent workaround: once kivuli fixes `.size`, `square` can go.
+
+**Revisit when:** kivuli's owner looks at it, in `../kivuli`.
+
+---
+
 ### DECISION-002 — Publishing
 
 **Status:** deferred
