@@ -3467,6 +3467,16 @@ PRPs/prp-018-module_folders.md, DECISIONS.md, CONTEXT.md
 
 ---
 
+## SESSION 93 — 2026-10-20 — Build PRP-018: modules in folders — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-017 are built there, all checks green on kivuli 0.18. PRP-018 (modules in folders) waits for approval, with DECISION-033 (recommended: `test/` stays flat). The counter and the colours are still the owner's to look at.
