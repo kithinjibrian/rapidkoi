@@ -3540,16 +3540,41 @@ assets/icons/README.md, CLAUDE.md, CONTEXT.md
 
 ---
 
-## SESSION 95 — 2026-10-21 — Adapt to kivuli's new breaking changes — open
+## SESSION 95 — 2026-10-21 — Adapt to kivuli's new breaking changes — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: kivuli made very breaking changes; adapt. kivuli is at 0.48 locally (0.19–0.48 since our 0.18): clicking away clears focus (0.19, why DECISION-029 went away), style utilities, palettes and `Token` colours (0.21), `kivuli.ui` components after shadcn (0.23 on), text at the start of its line by default (0.25, its one "Breaking" entry), `State.FocusWithin` (0.27), dialogs, menus, switches, SVG images (0.48).
+- 0.48 isn't on GitHub: its newest tag is v0.47.0, and `../kivuli` is 7 commits ahead of origin. `lughac update` for 0.48 failed (lock unchanged).
+- Bumped to 0.47 (`lughac update` rewrote `lugha.lock`). With no code change: `lughac check src/main.la` clean (no errors, no warnings), every `test/*.la` type-checks, `lughac build` ok. Tests not run (the owner runs them).
+- The owner's uncommitted changes (`assets/icons/*.svg`, the README's removal, `.claude/settings.json`) left alone.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml (kivuli 0.47), lugha.lock (lughac), CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run on 0.47; pushing kivuli 0.48 (then bump for SVG icons); what "very breaking" the owner meant if not covered here.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-018 are built there, all checks green on kivuli 0.18; `src/` is in folders (PRP-018). The counter and the colours are still the owner's to look at. No decision is open. `assets/icons/` holds Iconsax icons (SVG), which kivuli can't show yet. **The owner runs all tests (session 93): hand over the commands, never run them.** The W0104 fix in `net/dialing.la` waits for their run. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app. When lughac can't reach GitHub it fails to compile some tests and leaves `lugha.lock` a line short: restore the lock from git and rerun.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is bumped to 0.47 (compiles, builds, no code change; tests are the owner's). kivuli 0.48 (SVG images, so the Iconsax icons in `assets/icons/` can show) waits for the owner to push it; then bump and `lughac update`. `kivuli.ui` (shadcn-style components, palettes) is new and unused here. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
