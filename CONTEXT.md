@@ -4224,16 +4224,39 @@ lugha.lock (lughac), CONTEXT.md
 
 ---
 
-## SESSION 115 — 2026-10-21 — kivuli 0.50 — open
+## SESSION 115 — 2026-10-21 — kivuli 0.50 — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner pushed kivuli 0.50 ("again": pick the latest tag). Bumped `lugha.toml` to 0.50; `lughac update` rewrote `lugha.lock` (never opened). 0.50 adds `Sizing.icon(px)` and draws `WindowControls.look()`'s glyphs at 24 px; Rapidkoi's `Sizing` values use `..Sizing.theme()`, so its new field needed nothing. CLAUDE.md's STACK says 0.50.
+- `lughac check` clean; every test file type-checks; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml (kivuli 0.50), lugha.lock (lughac), CLAUDE.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49.2 (0.50 exists locally, unpushed: `Sizing.icon(px)`, 24 px window-control glyphs; a `Sizing { … }` naming every field needs `icon`, ours use `..Sizing.theme()`). Brand: `#FF7700` and `#FF2E63`; the header bar and sidebar wear them at 60% with light icons. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. Brand: `#FF7700` and `#FF2E63`; the header bar and sidebar wear them at 60% with light icons. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
