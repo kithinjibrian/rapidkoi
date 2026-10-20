@@ -3918,6 +3918,16 @@ src/ui/tokens.la, src/ui/header.la, src/ui/addressbox.la, DECISIONS.md (DECISION
 
 ---
 
+## SESSION 106 — 2026-10-21 — Header icons centred inside their buttons — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built; icons now 48 px and centred (session 105). DECISION-035 (the window controls: style GTK's or draw Rapidkoi's own) is open and needs a kivuli change. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
