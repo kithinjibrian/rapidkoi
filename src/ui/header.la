@@ -67,7 +67,12 @@ public fun end(m: Model): View<Msg>[] = [
 
 /** An icon button: a ghost square holding the icon, found by its tooltip; `None` shows it disabled. */
 fun tool(t: Theme, i: Icon, tip: string, msg: Option<Msg>): View<Msg> {
-    let face: View<Msg>[] = [image(icon(i, t.text)).style([square(HEADER_ICON)])];
+    // Centred in the button: an exact size puts the picture in kivuli's
+    // clamp, which fills the button's height and draws it at the top
+    // otherwise (session 106).
+    let face: View<Msg>[] = [
+        image(icon(i, t.text)).style([square(HEADER_ICON)]).align(Align.Center),
+    ];
     let b = match msg {
         Some(m) => ui_button_with(face, m),
         // kivuli: `.disabled(true)` drops the message, so any one will do.

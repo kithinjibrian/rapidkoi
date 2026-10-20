@@ -3918,16 +3918,40 @@ src/ui/tokens.la, src/ui/header.la, src/ui/addressbox.la, DECISIONS.md (DECISION
 
 ---
 
-## SESSION 106 — 2026-10-21 — Header icons centred inside their buttons — open
+## SESSION 106 — 2026-10-21 — Header icons centred inside their buttons — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner set `HEADER_ICON` to 24 (committed here with its doc comment) and found the icons still not centred down the bar.
+- Cause, from kivuli's `render/build.la` and `render/styling.la`: an exact `Sizing` puts the picture in a clamp that takes the picture's alignment (fill by default) and draws the picture at its top-left. The buttons were centred; the icons inside them weren't. Fix: `.align(Align.Center)` on each icon picture (header, shield, ☆).
+- `lughac check` clean; build ok. The look is the owner's.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/tokens.la (the owner's 24), src/ui/header.la, src/ui/addressbox.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (layout only).
+
+### DECISIONS MADE
+
+- Header icons 24 px (the owner).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- DECISION-035 (window controls); the owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built; icons now 48 px and centred (session 105). DECISION-035 (the window controls: style GTK's or draw Rapidkoi's own) is open and needs a kivuli change. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built; icons 24 px, centred in their buttons (session 106). DECISION-035 (the window controls: style GTK's or draw Rapidkoi's own) is open and needs a kivuli change. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
