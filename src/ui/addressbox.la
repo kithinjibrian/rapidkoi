@@ -28,6 +28,8 @@ import ui.tokens {
     margin,
     padding,
     at_least,
+    margin_y,
+    EDGE_WIDTH,
 };
 import ui.themes { Theme, address, dim, body, suggestions as card_look, button as button_look };
 
@@ -47,6 +49,9 @@ import ui.themes { Theme, address, dim, body, suggestions as card_look, button a
 public fun field(m: Model): View<Msg> {
     let t = m.theme;
     let page = page_of(m);
+    // kivuli.ui makes fields and buttons at least 36 high; inside the box's
+    // edge they take its height instead, so the box can be thinner.
+    let inside = at_least(0, ADDRESS_HEIGHT - 2 * EDGE_WIDTH);
     let middle = match page {
         App(p) if !m.editing => {
             let shown = file_of(p.path);
@@ -54,13 +59,14 @@ public fun field(m: Model): View<Msg> {
             ui_button(marker(p, shown), Msg.EditAddress).style([
                 Button.ghost(),
                 Text.start(),
+                inside,
             ]).tooltip("{marker_note(p, shown)}. Click to type an address (Ctrl+K)").shortcut(
                 "Ctrl+K",
             )
         }
         _ => group_input(m.draft, Msg.Draft).placeholder("Enter Address").name("address").on_submit(
             Msg.Go,
-        ).autofocus(),
+        ).autofocus().style([inside]),
     };
     let mut start: View<Msg>[] = [];
     if let Some(note) = shield_note(m) {
@@ -85,6 +91,8 @@ public fun field(m: Model): View<Msg> {
     input_group(start, middle, end).style([
         Border { radius: Radius.All(ADDRESS_HEIGHT / 2), ..Border.theme() },
         at_least(ADDRESS_WIDTH, ADDRESS_HEIGHT),
+        // Room above and below inside the header bar (the owner, session 107).
+        margin_y(SPACE_SM),
     ]).align(Align.Center)
 }
 

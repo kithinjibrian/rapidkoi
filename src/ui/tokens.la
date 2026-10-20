@@ -39,8 +39,8 @@ public const WINDOW_HEIGHT: i64 = 700;
 public const FRAME_THICKNESS: i64 = 50;
 /** A thin edge's width (the floating info panel), in pixels. */
 public const EDGE_WIDTH: i64 = 1;
-/** The address box's height, in pixels: `kivuli.ui`'s input group and icon buttons are 36. */
-public const ADDRESS_HEIGHT: i64 = 36;
+/** The address box's height, in pixels: thinner than `kivuli.ui`'s 36, so the bar shows room above and below it (the owner, session 107). */
+public const ADDRESS_HEIGHT: i64 = 30;
 /** The address box's width, and its suggestions card's, in pixels. */
 public const ADDRESS_WIDTH: i64 = 560;
 /** An icon on the header bar's buttons, in pixels (the owner set 24, session 106). */
@@ -144,4 +144,15 @@ public fun square(n: i64): Sizing = Sizing {
     max_width: Width.Px(n),
     max_height: Width.Px(n),
     ..Sizing.theme(),
+};
+
+/**
+ * Returns room above and below a node, `n` pixels each, none at its sides.
+ *
+ * Example:
+ *     box.style([margin_y(SPACE_SM)])
+ */
+public fun margin_y(n: i64): Spacing = Spacing {
+    margin: Edges { top: Width.Px(n), bottom: Width.Px(n), ..Edges.theme() },
+    ..Spacing.theme(),
 };

@@ -3952,16 +3952,40 @@ src/ui/tokens.la (the owner's 24), src/ui/header.la, src/ui/addressbox.la, docs/
 
 ---
 
-## SESSION 107 — 2026-10-21 — A thinner address box with room above and below — open
+## SESSION 107 — 2026-10-21 — A thinner address box with room above and below — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: make the address box thinner, with at least some margin above and below.
+- `ADDRESS_HEIGHT` 36 → 30 (its radius follows: still a pill). kivuli.ui makes fields and buttons at least 36 high, so the field and the address button inside the box take the box's inner height (`at_least(0, ADDRESS_HEIGHT - 2 * EDGE_WIDTH)`, later values win). The box gets `margin_y(SPACE_SM)` (new helper in `ui/tokens.la`).
+- `lughac check` clean; addressbox, header and layout tests type-check; build ok. The look is the owner's.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/tokens.la, src/ui/addressbox.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (layout only).
+
+### DECISIONS MADE
+
+- The address box is 30 px with 8 px above and below.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- DECISION-035 (window controls); the owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built; icons 24 px, centred in their buttons (session 106). DECISION-035 (the window controls: style GTK's or draw Rapidkoi's own) is open and needs a kivuli change. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built; icons 24 px and centred (session 106); the address box 30 px with room above and below (session 107). DECISION-035 (the window controls: style GTK's or draw Rapidkoi's own) is open and needs a kivuli change. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
