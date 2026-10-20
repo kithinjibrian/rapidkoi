@@ -3672,16 +3672,39 @@ lugha.toml (kivuli 0.48), lugha.lock (lughac), CONTEXT.md
 
 ---
 
-## SESSION 99 — 2026-10-21 — Discovery: moving onto kivuli.ui — open
+## SESSION 99 — 2026-10-21 — Discovery: moving onto kivuli.ui — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner wants Rapidkoi on kivuli 0.48's `kivuli.ui` components. Read kivuli's README: palettes (`.palette(Palette.zinc().with(token, light, dark).radius(px))`, `.scheme(Scheme.Dark)`), shadcn's `Token` set, and the components (`ui.button` + variants and sizes, `ui.input`, `input_group`, `card`, `ui.dropdown_menu`, `ui.dialog`/`ui.sheet`, `ui.tabs`, `ui.switch`, `ui.avatar`, `Tooltip.look()`, …).
+- Asked discovery question 1: what this PRP covers. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Discovery question 1 (scope); the owner's test run on kivuli 0.48.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48 (compiles, builds, no code change; tests are the owner's). It shows SVG, so the Iconsax icons in `assets/icons/` can replace theme icons in the frame: a PRP (how the binary finds `assets/` at run time is part of it). `kivuli.ui` (shadcn-style components, palettes) is new and unused here. Next redesign steps (each needs its PRP): icons in the frame, the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. Discovery for PRP-019 (Rapidkoi on `kivuli.ui` and a palette) is at question 1: the scope. Still to ask: how Rapidkoi's colours map onto shadcn's tokens (frame vs page), apps' button kinds onto `ui.button` variants, failures/edge cases, tests. Then: icons in the frame (Iconsax SVGs), the sidebar's tabs, native info panel / Account / Access, the new tab as a bundled app.
