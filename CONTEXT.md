@@ -3575,6 +3575,38 @@ lugha.toml (kivuli 0.47), lugha.lock (lughac), CONTEXT.md
 
 ---
 
+## SESSION 96 — 2026-10-21 — Commit the owner's Claude settings — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "commit claude". Committed their `.claude/settings.json` change (attribution off: no co-author or session lines on commits and PRs). The icons in `assets/icons/` are still uncommitted, theirs to decide.
+
+### FILES CREATED OR MODIFIED
+
+```
+.claude/settings.json (the owner's), CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- As session 95.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is bumped to 0.47 (compiles, builds, no code change; tests are the owner's). kivuli 0.48 (SVG images, so the Iconsax icons in `assets/icons/` can show) waits for the owner to push it; then bump and `lughac update`. `kivuli.ui` (shadcn-style components, palettes) is new and unused here. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.

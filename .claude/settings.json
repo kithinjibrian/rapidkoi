@@ -12,5 +12,11 @@
       "Edit(../lugha-wasmtime/**)",
       "Edit(../lugha-cbor/**)"
     ]
+  },
+    "attribution": {
+    "coAuthoredBy": false,
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }
