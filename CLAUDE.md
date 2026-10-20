@@ -289,6 +289,7 @@ public fun load_settings(path: string): Settings { … }
 ├── test/              — @test files, flat, each named for the module it tests (DECISION-033), support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
 ├── guest/rust/        — Cargo workspace: rapidkoi (contract 2 for Rust: View builder, App trait, export!, Request, SignIn), counter (the demo), quote (the network demo)
+├── assets/icons/      — icons copied from Iconsax for the frame (SVG; not shown until kivuli or a decision says how)
 ├── examples/quote/    — the network demo's rapidkoi.toml, its server (server.la: the signed site, sign-in, /quote) and Dockerfile (the VM)
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)
 ├── docs/

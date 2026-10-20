@@ -3508,6 +3508,38 @@ DECISIONS.md (DECISION-033), lugha.lock (lughac), CLAUDE.md, docs/DESIGN.md, CHA
 
 ---
 
+## SESSION 94 — 2026-10-20 — An assets folder for Iconsax icons — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner wants an asset folder to copy icons from Iconsax into. Made `assets/icons/` with a README (naming, licence to check, and that kivuli 0.18 shows PNG/JPEG and theme icons, not SVG). Added it to CLAUDE.md's tree. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+assets/icons/README.md, CLAUDE.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None yet: how SVG icons reach the window is for when the owner wants them used.
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run of `d6413a0`; the counter and the colours.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-018 are built there, all checks green on kivuli 0.18; `src/` is in folders (PRP-018). The counter and the colours are still the owner's to look at. No decision is open. **The owner runs all tests (session 93): hand over the commands, never run them.** The W0104 fix in `net/dialing.la` waits for their run. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app. When lughac can't reach GitHub it fails to compile some tests and leaves `lugha.lock` a line short: restore the lock from git and rerun.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-018 are built there, all checks green on kivuli 0.18; `src/` is in folders (PRP-018). The counter and the colours are still the owner's to look at. No decision is open. `assets/icons/` holds Iconsax icons (SVG), which kivuli can't show yet. **The owner runs all tests (session 93): hand over the commands, never run them.** The W0104 fix in `net/dialing.la` waits for their run. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app. When lughac can't reach GitHub it fails to compile some tests and leaves `lugha.lock` a line short: restore the lock from git and rerun.
