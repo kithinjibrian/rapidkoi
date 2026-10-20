@@ -3772,6 +3772,40 @@ CONTEXT.md
 
 ---
 
+## SESSION 102 — 2026-10-21 — PRP-019: the header bar on kivuli.ui — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- Question 3 answered: home between back and forward (← ⌂ →); the rest as proposed.
+- Read kivuli 0.48's `ui.button_with`, `Button.ghost()/icon()`, `input_group`, `group_input`, `group_button_with`, `Palette.zinc().with(…)`, `.scheme`.
+- Wrote PRP-019 (`PRPs/prp-019-header_bar.md`), with the remaining choices as recommendations: the SVGs as string constants in `src/ui/icons.la` (Lugha can't embed files; a test keeps them equal to `assets/icons/`), recoloured with `split("#ffffff").join(colour)`; Rapidkoi's colours as a dark palette (table in the PRP); a new `src/ui/header.la`. Waiting for approval; no code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-019-header_bar.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (listed in PRP-019).
+
+### DECISIONS MADE
+
+- Header order: ← ⌂ →, the address box (🛡 start, ☆ end), 👤 ☰.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-019's approval.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. Discovery for PRP-019, the header bar redesigned on `kivuli.ui` with the Iconsax icons (no reload): question 3 (layout and behaviour) waits. Then: icons in the binary (recommended: a module holding the SVGs as strings, recoloured from the theme), palette, tests.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar on `kivuli.ui`, Iconsax icons, a dark palette) waits for approval; then build it on this branch, tests first, and hand the test commands to the owner.
