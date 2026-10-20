@@ -23,6 +23,7 @@ import ui.tokens {
     square,
     at_least,
     margin_y,
+    flush_y,
     EDGE_WIDTH,
 };
 import ui.themes { address, bare };
@@ -59,9 +60,12 @@ public fun field(m: Model): View<Msg> {
                 "{marker_note(p, shown)}. Click to type an address (Ctrl+K)",
             ).shortcut("Ctrl+K")
         }
+        // No padding above and below: kivuli.ui's field has 4 px each way, the
+        // address button none, so the box (and the bar) was taller on home
+        // and while typing than on an app's page (session 122).
         _ => group_input(m.draft, Msg.Draft).placeholder("Enter Address").name("address").on_submit(
             Msg.Go,
-        ).autofocus().style([inside]),
+        ).autofocus().style([inside, flush_y()]),
     };
     let mut start: View<Msg>[] = [];
     if let Some(note) = shield_note(m) {

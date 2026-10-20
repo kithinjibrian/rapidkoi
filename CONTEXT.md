@@ -4465,16 +4465,41 @@ src/ui/addressbox.la, src/ui/themes.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 122 — 2026-10-21 — Why the bar is thinner while an app loads — open
+## SESSION 122 — 2026-10-21 — Why the bar is thinner while an app loads — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: the bar is thinner while an app loads; why?
+- Cause: the address box's middle is the text field on home and while typing, but the address button once an app's page shows (loading included). kivuli.ui's field has 4 px padding above and below; the button none. So the box, and the bar around it, was taller with the field. The owner's earlier screenshots agree (about 70 px on home, 62 px on an app).
+- Fix: the field takes `flush_y()` (no vertical padding; new helper in `ui/tokens.la`), so both are the box's inner height. Not seen yet: if GTK's entry still asks for more than 28 px, the box will settle at that in both states.
+- `lughac check` clean; addressbox tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/tokens.la, src/ui/addressbox.la, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a look).
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look (home vs an app: the same height?) and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons; the window controls hover as 32 px circles, red for close; the address box is a full pill (session 121) with one outline and no glow. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui` (apps' buttons span the page today), the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons; the window controls hover as 32 px circles, red for close; the address box is a full pill with one outline, no glow, and (session 122) the same height on home and on an app. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

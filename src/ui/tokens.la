@@ -169,3 +169,14 @@ public fun margin_x(n: i64): Spacing = Spacing {
     margin: Edges { left: Width.Px(n), right: Width.Px(n), ..Edges.theme() },
     ..Spacing.theme(),
 };
+
+/**
+ * Returns no room above or below a node's content, inside its border.
+ *
+ * Example:
+ *     group_input(v, f).style([flush_y()])
+ */
+public fun flush_y(): Spacing = Spacing {
+    padding: Edges { top: Width.Px(0), bottom: Width.Px(0), ..Edges.theme() },
+    ..Spacing.theme(),
+};
