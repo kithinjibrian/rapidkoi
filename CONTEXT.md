@@ -3399,16 +3399,40 @@ CONTEXT.md
 
 ---
 
-## SESSION 91 — 2026-10-20 — PRP-018: modules in folders — open
+## SESSION 91 — 2026-10-20 — PRP-018: modules in folders — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: Lugha supports module folders (`src/styles.la` beside `src/styles/fonts.la`, as kivuli is doing); refactor Rapidkoi that way.
+- Confirmed in `lughac spec` section 6: a file is a module named by its path (`src/ui/layout.la` is `rapidkoi.ui.layout`); inside a package, `import ui.layout;` loads the package's own; a folder may not share a name with a listed package (kivuli, wasmtime, cbor).
+- Proposed a grouping of the 47 modules into folders (discovery question 1). No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's answer on the grouping; then PRP-018.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-017 are built there, all checks green on kivuli 0.18. The counter and the colours are still the owner's to look at. No decision is open. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches.** PRP-014 to PRP-017 are built there, all checks green on kivuli 0.18. Discovery for PRP-018 (Rapidkoi's modules in folders) is at question 1: the grouping proposed in session 91. The counter and the colours are still the owner's to look at.
