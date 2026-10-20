@@ -4432,16 +4432,39 @@ src/ui/themes.la, src/ui/addressbox.la, test/themes.la, docs/DESIGN.md, CONTEXT.
 
 ---
 
-## SESSION 121 — 2026-10-21 — The address box fully round — open
+## SESSION 121 — 2026-10-21 — The address box fully round — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: round the input group 50% (or the px equivalent). Its radius was `ADDRESS_HEIGHT / 2` (15), which falls short if kivuli.ui's minimums make the box taller. Now `Radius.All(CIRCLE)` in `addressbox.field` and `themes.address`: GTK caps a radius at half the box, so the ends are half circles at any height.
+- `lughac check` clean; theme and addressbox tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/addressbox.la, src/ui/themes.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a look).
+
+### DECISIONS MADE
+
+- Pills round with `CIRCLE`, not half a fixed height.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons; the window controls hover as 32 px circles, red for close; the address box has one outline (session 120) and no glow. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui` (apps' buttons span the page today), the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons; the window controls hover as 32 px circles, red for close; the address box is a full pill (session 121) with one outline and no glow. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui` (apps' buttons span the page today), the ☰ menu, app info as a sheet.

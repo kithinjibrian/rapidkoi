@@ -37,7 +37,6 @@ import ui.tokens {
     TEXT_HEADING,
     PAGE_RADIUS,
     EDGE_WIDTH,
-    ADDRESS_HEIGHT,
     BUTTON_RADIUS,
     CIRCLE,
     SPACE_XS,
@@ -337,7 +336,7 @@ public fun address(t: Theme): Styling[] {
     let mut all = field(t);
     // Half the height rounds each end into a half circle (the owner,
     // session 75). kivuli radii are pixels, so the box's height is fixed.
-    all.push(Border { radius: Radius.All(ADDRESS_HEIGHT / 2), ..Border.theme() });
+    all.push(Border { radius: Radius.All(CIRCLE), ..Border.theme() });
     all
 }
 

@@ -17,6 +17,7 @@ import ui.icons { Icon, icon };
 import ui.tokens {
     SPACE_SM,
     ADDRESS_HEIGHT,
+    CIRCLE,
     ADDRESS_WIDTH,
     ADDRESS_ICON,
     square,
@@ -81,9 +82,11 @@ public fun field(m: Model): View<Msg> {
             ).tooltip(tip),
         );
     }
-    // A pill, as the owner asked (session 75): half its height rounds each end.
+    // A pill, as the owner asked (sessions 75, 121): GTK caps a radius at half
+    // the box, so CIRCLE rounds each end fully whatever height kivuli.ui's
+    // minimums give it.
     input_group(start, middle, end).style([
-        Border { radius: Radius.All(ADDRESS_HEIGHT / 2), ..Border.theme() },
+        Border { radius: Radius.All(CIRCLE), ..Border.theme() },
         at_least(ADDRESS_WIDTH, ADDRESS_HEIGHT),
         // Room above and below inside the header bar (the owner, session 107).
         margin_y(SPACE_SM),
