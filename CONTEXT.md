@@ -3367,6 +3367,38 @@ DECISIONS.md, CLAUDE.md, CONTEXT.md
 
 ---
 
+## SESSION 90 — 2026-10-20 — Stay on prp-017-kivuli_0_17 — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "stay on this branch till i tell you so". All work stays on `prp-017-kivuli_0_17`: no merge into `redesign`, no new branch, until the owner says.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- Work stays on `prp-017-kivuli_0_17` until the owner says otherwise.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look at the counter and the colours.
+
+---
+
 ## NEXT SESSION START POINT
 
-PRP-014 to PRP-017 are built, stacked on `prp-017-kivuli_0_17`, all checks green on kivuli 0.18. The owner has run plain `./main`; the counter and the colours are still to look at. No decision is open. Merge the stack into `redesign` on the owner's word (never `main` until the whole redesign is built: DECISION-027). Next: the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign`, no new branches.** PRP-014 to PRP-017 are built there, all checks green on kivuli 0.18. The counter and the colours are still the owner's to look at. No decision is open. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
