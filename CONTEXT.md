@@ -3705,6 +3705,39 @@ CONTEXT.md
 
 ---
 
+## SESSION 100 — 2026-10-21 — Discovery: a full redesign on kivuli.ui — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- Question 1 answered: not A, B or C. The owner: "i want it to be a full redesign not patching here and there".
+- Asked question 2: how to plan a full redesign under the one-PRP-at-a-time rule (proposed: one redesign spec for every screen, approved once, then built screen by screen in PRPs on this branch), with an inventory of screens drawn from today's features and the Iconsax icons the owner chose (back, forward, home, reload, star, shield, profile, menu, settings).
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- The move to `kivuli.ui` is a full redesign, not a patch of today's screens.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Question 2 (the plan and the screen inventory).
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. Discovery for PRP-019 (Rapidkoi on `kivuli.ui` and a palette) is at question 1: the scope. Still to ask: how Rapidkoi's colours map onto shadcn's tokens (frame vs page), apps' button kinds onto `ui.button` variants, failures/edge cases, tests. Then: icons in the frame (Iconsax SVGs), the sidebar's tabs, native info panel / Account / Access, the new tab as a bundled app.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. The owner wants a full redesign on `kivuli.ui` (session 100). Question 2 waits: the plan (a redesign spec for every screen, then PRPs screen by screen) and the screen inventory.
