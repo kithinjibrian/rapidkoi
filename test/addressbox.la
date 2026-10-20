@@ -1,12 +1,12 @@
-// The address box (PRP-015): the pill in the header bar and the card of
-// suggestions under it. Through kivuli.testing; fixture guests, no display.
+// The address box (PRP-015, PRP-019): the framed pill in the header bar.
+// Its suggestions card is gone until its redesign (session 108). Through
+// kivuli.testing; fixture guests, no display.
 import rapidkoi.shell { Model, with_pages, update };
 import rapidkoi.ui.addressbox;
 import rapidkoi.ui.layout;
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage, open_module };
-import kivuli { View };
-import kivuli.testing { click, press, texts, type_into, submit };
+import kivuli.testing { click, press, type_into, submit };
 import wasmtime { Engine, Module };
 import support { echo };
 
@@ -28,66 +28,37 @@ fun home(): Model {
     step(with_pages(engine, [app(engine, "alpha"), app(engine, "beta")]), Msg.Home)
 }
 
-/** The card, which must be showing. */
-fun card(m: Model): View<Msg> = match addressbox.card(m) {
-    Some(v) => v,
-    None => panic("the card isn't showing"),
-};
-
 @test
-fun home_at_rest_is_an_empty_field_and_no_card() {
-    let m = home();
-    let f = addressbox.field(m);
+fun home_at_rest_is_an_empty_field() {
+    let f = addressbox.field(home());
     assert_eq(type_into(f, "Enter Address", "al"), Ok(Msg.Draft("al")));
     assert_eq(submit(f, "Enter Address"), Ok(Msg.Go));
-    assert(addressbox.card(m).is_none());
 }
 
 @test
-fun typing_shows_what_was_typed_first() {
-    let m = step(home(), Msg.Draft("zzz"));
-    let v = card(m);
-    assert_eq(texts(v), ["zzz"]);
-    assert_eq(click(v, "zzz"), Ok(Msg.Go));
+fun typing_shows_nothing_under_the_box() {
+    // The suggestions card is gone until its redesign (the owner, session 108).
+    let m = step(home(), Msg.Draft("alp"));
+    let v = layout.view(m);
+    assert(click(v, "alpha").is_err());
+    assert(click(v, "dismiss").is_err());
+    assert(press(v, "Escape").is_err());
     // Just the rounded field (session 80): Enter goes, there's no → button.
     assert(click(addressbox.field(m), "Go").is_err());
     assert_eq(submit(addressbox.field(m), "Enter Address"), Ok(Msg.Go));
 }
 
 @test
-fun matches_show_under_rapidkoi_suggest() {
-    let v = card(step(home(), Msg.Draft("alp")));
-    assert_eq(texts(v), ["alp", "Rapidkoi suggest", "alpha"]);
-    assert_eq(click(v, "alpha"), Ok(Msg.Select(0)));
-}
-
-@test
-fun a_suggestion_opens_its_app_and_closes_the_card() {
-    let m = step(home(), Msg.Draft("bet"));
-    let chosen = click(card(m), "beta").unwrap();
-    let after = step(m, chosen);
-    assert_eq(after.current, Some(1));
-    assert(addressbox.card(after).is_none());
-}
-
-@test
-fun escape_and_a_click_outside_dismiss_the_card() {
-    let m = step(home(), Msg.Draft("alp"));
-    let v = layout.view(m);
-    assert_eq(press(v, "Escape"), Ok(Msg.Dismiss));
-    assert_eq(click(v, "dismiss"), Ok(Msg.Dismiss));
-    let after = step(m, Msg.Dismiss);
-    assert_eq(after.draft, "");
-    assert(addressbox.card(after).is_none());
-    assert(press(layout.view(after), "Escape").is_err());
-}
-
-@test
-fun a_failed_open_says_why_in_the_card() {
+fun a_failed_open_keeps_why_in_the_model() {
     let m = step(step(home(), Msg.Draft("nope")), Msg.Go);
-    let v = card(m);
-    assert(texts(v).any(fun(s: string) = s == "No app or file called “nope”"));
-    assert(texts(v)[0] == "nope");
+    assert_eq(m.notice, Some("No app or file called “nope”"));
+    assert_eq(m.draft, "nope");
+}
+
+@test
+fun dismissing_empties_the_box() {
+    let after = step(step(home(), Msg.Draft("alp")), Msg.Dismiss);
+    assert_eq((after.draft, after.editing, after.notice), ("", false, None));
 }
 
 @test

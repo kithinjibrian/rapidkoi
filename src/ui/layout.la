@@ -1,21 +1,18 @@
 /**
- * The window's frame, pure (PRP-014, PRP-015): the header bar across the
- * top holding the address box (and, at its end, account and menu, disabled
- * for now), the sidebar down the right, and the content
- * area filling the rest with the current app. While the address box has
- * text, its suggestions card floats over the page under it. What else goes
- * in the frame comes with later redesign PRPs (DECISION-027). Never calls a
- * guest.
+ * The window's frame, pure (PRP-014, PRP-019): the header bar across the
+ * top (`ui/header.la`), the sidebar down the right, and the content area
+ * filling the rest with the current app. The address box's suggestions card
+ * is gone until its redesign (session 108). What else goes in the frame
+ * comes with later redesign PRPs (DECISION-027). Never calls a guest.
  *
- * Depends on: kivuli, window.actions, window.tabs, window.window, ui.content, ui.addressbox, ui.header, ui.tokens, ui.themes
+ * Depends on: kivuli, window.actions, window.tabs, window.window, ui.content, ui.header, ui.tokens, ui.themes
  * Used by: shell
  */
-import kivuli { View, Align, Scheme, button_with, column, overlay, row, scroll };
+import kivuli { View, Scheme, column, row, scroll };
 import window.actions { Msg };
 import window.tabs { Page };
 import window.window { Model, title_of, page_of };
 import ui.content { app_view };
-import ui.addressbox;
 import ui.header;
 import ui.tokens {
     SPACE_SM,
@@ -26,12 +23,11 @@ import ui.tokens {
     margin,
     at_least,
 };
-import ui.themes { page, clear, palette, frame as frame_look };
+import ui.themes { page, palette, frame as frame_look };
 
 /**
- * Draws the frame: the header bar with the address box (and GTK's window
- * controls), the sidebar on the right, the current app in the content area,
- * and the suggestions card over them while typing.
+ * Draws the frame: the header bar (and GTK's window controls), the sidebar
+ * on the right, and the current app in the content area.
  *
  * @param m the model
  * @returns the window's view
@@ -54,20 +50,7 @@ public fun view(m: Model): View<Msg> {
     // Empty and as wide as the header bar is tall, so the frame is an even L.
     // The root's frame look paints it, as one surface with the header bar.
     let sidebar = column(none).style([at_least(FRAME_THICKNESS, 0)]);
-    // The card's layer spans the content and the sidebar, so its centre is
-    // the window's, under the pill centred in the header bar.
-    let layers = match addressbox.card(m) {
-        Some(card) => [
-            // Under the card, catching any click outside it. Escape is here
-            // because kivuli gives shortcuts to buttons only.
-            button_with(column(none), Msg.Dismiss).name("dismiss").style(clear(t)).shortcut(
-                "Escape",
-            ),
-            column([card]).style([margin(SPACE_SM)]).place(Align.Center, Align.Start),
-        ],
-        None => none,
-    };
-    let body = overlay(row([area, sidebar]).expand(), layers).expand();
+    let body = row([area, sidebar]).expand();
     // Rapidkoi's colours as a palette, fixed dark: kivuli.ui's components
     // draw in them, and the desktop's scheme never applies (DECISION-031).
     column([body]).style(frame_look(t)).window(

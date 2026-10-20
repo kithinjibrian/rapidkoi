@@ -3986,16 +3986,42 @@ src/ui/tokens.la, src/ui/addressbox.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 108 — 2026-10-21 — Remove the address box's suggestions card — open
+## SESSION 108 — 2026-10-21 — Remove the address box's suggestions card — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: remove the dropdown under the address input; it'll be redesigned later.
+- Tests first: `test/addressbox.la` now checks that typing shows nothing under the box (no suggestion, no dismiss layer, no Escape), that a failed open keeps its reason in the model, and that `Dismiss` empties the box; the card's own tests are gone.
+- `layout.la`: no overlay; `addressbox.card`, `typing` and `choice` deleted. Kept for the redesign: `ui/suggestions.la` (what to suggest, with its tests), `Msg.Dismiss`, `themes.suggestions` and `themes.clear` (now unused in `src/`).
+- Lost meanwhile: Escape clearing the box, and seeing why an open failed (the reason is in `m.notice`, shown nowhere).
+- `lughac check` clean; every test file type-checks; fmt clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/layout.la, src/ui/addressbox.la, test/addressbox.la, docs/DESIGN.md, CHANGELOG.md, CLAUDE.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/addressbox.la: home at rest is an empty field; typing shows nothing under the box; a failed open keeps why in the model; dismissing empties the box (an app page's address test kept).
+
+### DECISIONS MADE
+
+- No suggestions card until it's redesigned.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- DECISION-035 (window controls); the owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built; icons 24 px and centred (session 106); the address box 30 px with room above and below (session 107). DECISION-035 (the window controls: style GTK's or draw Rapidkoi's own) is open and needs a kivuli change. Next pieces of the redesign (each its own PRP): the sidebar, the suggestions card, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built: icons 24 px and centred, the address box 30 px with room around it, and no suggestions card until it's redesigned (session 108; a failed open's reason shows nowhere meanwhile). DECISION-035 (the window controls) is open and needs a kivuli change. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

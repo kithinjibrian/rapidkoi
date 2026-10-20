@@ -1,37 +1,30 @@
 /**
- * The address box, pure (PRP-015, PRP-019): the framed group in the header bar, and the card
- * of suggestions that drops under it, over the page, while there's text in
- * it. Rapidkoi draws both where apps can't: the address and its trust
- * marker are Rapidkoi's word. Opening and closing happen in `update`.
+ * The address box, pure (PRP-015, PRP-019): the framed group in the header
+ * bar. Rapidkoi draws it where apps can't: the address and its trust marker
+ * are Rapidkoi's word. Its suggestions card is gone until its redesign
+ * (session 108; `ui/suggestions.la` keeps what to suggest). Opening and
+ * closing happen in `update`.
  *
- * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, window.window, ui.frame, ui.icons, ui.suggestions, trust.verify, guest.nodes, ui.tokens, ui.themes
- * Used by: ui.header, ui.layout
+ * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.frame, ui.icons, ui.tokens, ui.themes
+ * Used by: ui.header
  */
-import kivuli { View, Align, Border, Radius, Text, button_with, column, image, row, text };
+import kivuli { View, Align, Border, Radius, Text, image };
 import kivuli.ui { input_group, group_input, group_button_with, Button, button as ui_button };
 import window.actions { Msg };
-import window.tabs { Page };
 import window.window { Model, page_of, is_pinned };
 import ui.frame { marker, marker_note, file_of };
 import ui.icons { Icon, icon };
-import trust.verify { Standing };
-import ui.suggestions { Suggestion, suggest };
-import guest.nodes { ButtonLook };
 import ui.tokens {
-    SPACE_XS,
     SPACE_SM,
     ADDRESS_HEIGHT,
     ADDRESS_WIDTH,
     ADDRESS_ICON,
     square,
-    gap,
-    margin,
-    padding,
     at_least,
     margin_y,
     EDGE_WIDTH,
 };
-import ui.themes { Theme, address, dim, body, suggestions as card_look, button as button_look };
+import ui.themes { address };
 
 /**
  * Builds the address box for the header bar, one framed group: the shield
@@ -117,55 +110,3 @@ public fun shield_note(m: Model): Option<string> = match page_of(m) {
     },
     Home => None,
 };
-
-/**
- * Builds the suggestions card while the box has text: what was typed (to
- * open it), why opening it failed if it did, then "Rapidkoi suggest" and
- * the apps that match.
- *
- * @param m the model
- * @returns the card, or `None` while the box is empty or shows an address
- *
- * Example:
- *     addressbox.card(m)
- */
-public fun card(m: Model): Option<View<Msg>> {
-    if !typing(m) {
-        return None;
-    }
-    let t = m.theme;
-    let mut rows = [choice(t, m.draft, None, Msg.Go)];
-    if let Some(n) = m.notice {
-        rows.push(text(n).style(dim(t)).style([margin(SPACE_SM)]).wrap());
-    }
-    let found = suggest(m.draft, m.tabs, m.pinned, window.card(m));
-    if found.len > 0 {
-        rows.push(text("Rapidkoi suggest").style(dim(t)).style([margin(SPACE_SM)]));
-        for s of found {
-            rows.push(choice(t, s.label, s.detail, s.msg));
-        }
-    }
-    let mut look = card_look(t);
-    look.push(gap(SPACE_XS));
-    look.push(padding(SPACE_SM));
-    look.push(at_least(ADDRESS_WIDTH, 0));
-    Some(column(rows).style(look))
-}
-
-/** Whether the field is showing with text in it: then the card shows. */
-fun typing(m: Model): bool {
-    let field_shown = match page_of(m) {
-        App(_) => m.editing,
-        Home => true,
-    };
-    field_shown && m.draft.trim() != ""
-}
-
-/** One line of the card: a name, a dim detail after it, the whole line one button. */
-fun choice(t: Theme, label: string, detail: Option<string>, msg: Msg): View<Msg> {
-    let mut parts: View<Msg>[] = [text(label).style(body(t))];
-    if let Some(d) = detail {
-        parts.push(text(d).style(dim(t)));
-    }
-    button_with(row(parts).style([gap(SPACE_SM)]), msg).style(button_look(t, ButtonLook.Subtle))
-}

@@ -273,7 +273,7 @@ public fun load_settings(path: string): Settings { … }
 ├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only), and nine folders (PRP-018):
 │                        window/   window.la (the Model, and changes that open nothing: tabs, home, pins, left off), actions.la (the shell's Msg), tabs.la (Page, Tab, Pin; an app page's life),
 │                                  leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), navigate.la (opening: the address box, files, addresses, Continue, Reload)
-│                        ui/       layout.la (pure: the frame: header bar, sidebar, content area), addressbox.la (pure: the address box and its card), suggestions.la (pure: what the box suggests; Card, matches),
+│                        ui/       layout.la (pure: the frame: header bar, sidebar, content area), addressbox.la (pure: the address box), suggestions.la (pure: what the box will suggest; Card, matches),
 │                                  content.la (pure: the current app), header.la (pure: the header bar), icons.la (Rapidkoi's Iconsax icons as text, recoloured), frame.la (pure: names, the trust marker, the changed-key question), render.la (pure: Node → kivuli View; error screens),
 │                                  tokens.la (DESIGN.md tokens and style helpers), themes.la (every colour, as kivuli style values; dark first)
 │                        guest/    guest.la (a running guest: store, limits, calling convention), running.la (init and opened events, messages, answers, view), limits.la (every limit),
