@@ -3639,6 +3639,39 @@ assets/icons/*.svg (the owner's), assets/icons/README.md (removed by the owner),
 
 ---
 
+## SESSION 98 — 2026-10-21 — kivuli 0.48 — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner pushed kivuli 0.48 and asked to pull the latest tag. Bumped `lugha.toml` to 0.48; `lughac update` rewrote `lugha.lock`. `lughac check src/main.la` clean, every `test/*.la` type-checks, `lughac build` ok. Tests not run (the owner's).
+- 0.48 shows SVG images (`Image.File`/`Image.Bytes`), so the Iconsax icons in `assets/icons/` can be used; using them needs a PRP.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml (kivuli 0.48), lugha.lock (lughac), CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run on 0.48.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is bumped to 0.47 (compiles, builds, no code change; tests are the owner's). kivuli 0.48 (SVG images, so the Iconsax icons in `assets/icons/` can show) waits for the owner to push it; then bump and `lughac update`. `kivuli.ui` (shadcn-style components, palettes) is new and unused here. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48 (compiles, builds, no code change; tests are the owner's). It shows SVG, so the Iconsax icons in `assets/icons/` can replace theme icons in the frame: a PRP (how the binary finds `assets/` at run time is part of it). `kivuli.ui` (shadcn-style components, palettes) is new and unused here. Next redesign steps (each needs its PRP): icons in the frame, the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
