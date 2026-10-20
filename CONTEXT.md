@@ -4362,16 +4362,41 @@ src/ui/themes.la, test/themes.la, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
 
 ---
 
-## SESSION 119 — 2026-10-21 — Window controls: one circle for all three — open
+## SESSION 119 — 2026-10-21 — Window controls: one circle for all three — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner's screenshots (still the gradient: taken before session 118's build): hovering maximise showed a circle tight round the glyph; hovering close showed a tall red rounded rectangle.
+- Close: kivuli.ui's `WindowControls.look()` paints the close button (`Part.WindowClose`) red on hover, which session 116 didn't clear. Now cleared in hover and press, so only `Part.WindowCloseIcon`'s circle turns red.
+- Every icon box (`Part.WindowIcon`, 24 × 24) gets `padding(SPACE_XS)`: a 32 px circle, not tight.
+- `lughac check` clean; theme tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/themes.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a look).
+
+### DECISIONS MADE
+
+- One 32 px hover circle for all three controls.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look (rebuilt) and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. Brand: `#FF7700` (accent); `#FF2E63` kept unused. The frame (header bar, sidebar) is flat `#242424` with white icons (session 118); round hovers on the window controls; no focus glow on the address box. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons; the window controls hover as one 32 px circle each, red for close (session 119); no focus glow on the address box. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

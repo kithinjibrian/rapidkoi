@@ -42,6 +42,7 @@ import ui.tokens {
     CIRCLE,
     SPACE_XS,
     margin_x,
+    padding,
 };
 
 /** One theme: a name, and a colour per part (`#rrggbb` or `#rrggbbaa`). Hex values live only here. */
@@ -258,7 +259,16 @@ public fun window_controls(t: Theme): Styling[] = [
         When(State.Hover, [Background { color: paint(t.clear), ..Background.theme() }]),
         When(State.Press, [Background { color: paint(t.clear), ..Background.theme() }]),
     ]),
+    // kivuli.ui's look paints the close button itself red on hover: clear it
+    // too, so close shows the same circle as the rest (session 119).
+    Inside(Part.WindowClose, [
+        When(State.Hover, [Background { color: paint(t.clear), ..Background.theme() }]),
+        When(State.Press, [Background { color: paint(t.clear), ..Background.theme() }]),
+    ]),
+    // The circle: each control's 24 × 24 icon box, padded so it isn't tight
+    // around the glyph (32 across), round.
     Inside(Part.WindowIcon, [
+        padding(SPACE_XS),
         Border { radius: Radius.All(CIRCLE), ..Border.theme() },
         When(State.Hover, [Background { color: paint(t.frame_hover), ..Background.theme() }]),
     ]),
