@@ -4631,16 +4631,40 @@ src/ui/themes.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 127 — 2026-10-21 — PRP-020: a site settings button — open
+## SESSION 127 — 2026-10-21 — PRP-020: a site settings button — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: we need site settings, on the right of the shield. Proposed: the `settings` icon in the address box after the shield on every app page (first in the box without one), hidden on home, disabled "Site settings (coming soon)" until a next PRP builds the settings (app info, Account, Access, Data, likely a `ui.sheet`). The owner said yes; recorded as PRP-020 and built.
+- Test first (`test/header.la`: there and disabled on unsigned and signed app pages; absent on home). `addressbox.field` adds a `group_button_with` after the shield.
+- `lughac check` clean; header tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-020-site_settings_button.md, src/ui/addressbox.la, test/header.la, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/header.la: an app page has site settings waiting greyed out; home doesn't.
+
+### DECISIONS MADE
+
+- Site settings live in the address box, right of the shield.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons, every icon 20 px, window-control glyphs included (session 126); the window controls hover as 32 px circles, red for close; the address box is a full pill with one outline, no glow, one height. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The header bar (PRP-019) and the site settings button (PRP-020, disabled) are built: flat `#242424` frame, white 20 px icons, round window-control hovers, a full-pill address box with 🛡, ⚙ and ☆. No decision is open. Next: the site settings themselves (a native `ui.sheet` with app info, Account, Access, Data; the ⚙ opens it), then the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu.

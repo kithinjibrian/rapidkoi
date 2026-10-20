@@ -87,3 +87,13 @@ fun a_verified_app_shows_the_shield_and_an_unconfirmed_one_does_not() {
     assert_eq(addressbox.shield_note(trusted), Some("notes.acme.com · trusted"));
     assert_eq(addressbox.shield_note(window(signed(Standing.NotConfirmed))), None);
 }
+
+@test
+fun an_app_page_has_site_settings_waiting_greyed_out() {
+    // PRP-020: right of the shield, disabled until the settings exist.
+    for m of [window(plain()), window(signed(Standing.Verified))] {
+        assert_eq(is_disabled(addressbox.field(m), "Site settings (coming soon)"), Ok(true));
+    }
+    let home = step(window(plain()), Msg.Home);
+    assert(is_disabled(addressbox.field(home), "Site settings (coming soon)").is_err());
+}
