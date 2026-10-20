@@ -24,7 +24,7 @@ import ui.tokens {
     margin_y,
     EDGE_WIDTH,
 };
-import ui.themes { address };
+import ui.themes { address, bare };
 
 /**
  * Builds the address box for the header bar, one framed group: the shield
@@ -49,13 +49,14 @@ public fun field(m: Model): View<Msg> {
         App(p) if !m.editing => {
             let shown = file_of(p.path);
             // The marker's meaning in words, then what clicking it does.
+            // Bare: the box's ring is the only outline (session 120).
             ui_button(marker(p, shown), Msg.EditAddress).style([
                 Button.ghost(),
                 Text.start(),
                 inside,
-            ]).tooltip("{marker_note(p, shown)}. Click to type an address (Ctrl+K)").shortcut(
-                "Ctrl+K",
-            )
+            ]).style(bare(t)).tooltip(
+                "{marker_note(p, shown)}. Click to type an address (Ctrl+K)",
+            ).shortcut("Ctrl+K")
         }
         _ => group_input(m.draft, Msg.Draft).placeholder("Enter Address").name("address").on_submit(
             Msg.Go,

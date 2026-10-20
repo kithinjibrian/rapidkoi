@@ -4397,16 +4397,41 @@ src/ui/themes.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 120 — 2026-10-21 — One outline on the address box — open
+## SESSION 120 — 2026-10-21 — One outline on the address box — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner's screenshot (the quote app open): two outlines on the address box. The outer one is the input group's focus ring (focus inside it); the inner one the address button, a `kivuli.ui` ghost button with its own focused edge, halo and background.
+- New `themes.bare(t)`: no background, edge, shadow or focus ring in any state. The address button wears it, so the box's ring is the only outline. `test/themes.la` builds it.
+- `lughac check` clean; theme, addressbox and header tests type-check; build ok.
+- Seen in the screenshot, not touched: the quote app's "Try again" button spans the page (apps' content is a later redesign piece).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/themes.la, src/ui/addressbox.la, test/themes.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/themes.la: `bare(DARK)` builds.
+
+### DECISIONS MADE
+
+- The address button is bare inside the box.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons; the window controls hover as one 32 px circle each, red for close (session 119); no focus glow on the address box. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The frame (header bar, sidebar) is flat `#242424` with white icons; the window controls hover as 32 px circles, red for close; the address box has one outline (session 120) and no glow. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui` (apps' buttons span the page today), the ☰ menu, app info as a sheet.

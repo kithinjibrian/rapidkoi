@@ -241,6 +241,28 @@ public fun header(t: Theme): Styling[] = frame(t);
 public fun sidebar(t: Theme): Styling[] = frame(t);
 
 /**
+ * Returns a look that draws nothing of its own in any state: no background,
+ * edge, shadow or focus ring. For a control inside something that frames it
+ * already, as the address button inside the address box: one outline, not
+ * two (the owner's screenshot, session 120).
+ *
+ * Example:
+ *     ui.button(address, Msg.EditAddress).style(bare(t))
+ */
+public fun bare(t: Theme): Styling[] {
+    let clear = Background { color: paint(t.clear), ..Background.theme() };
+    let none = Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() };
+    [
+        clear,
+        none,
+        Shadow.off(),
+        When(State.Hover, [clear]),
+        When(State.Press, [clear]),
+        When(State.Focus, [clear, none, Shadow.off()]),
+    ]
+}
+
+/**
  * Returns the window controls' look on the frame, given after
  * `kivuli.ui`'s `WindowControls.look()`: white glyphs, room on each side,
  * and the hover a circle on each control's 24 × 24 icon box, faint white
