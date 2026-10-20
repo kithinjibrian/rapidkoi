@@ -4022,6 +4022,16 @@ src/ui/layout.la, src/ui/addressbox.la, test/addressbox.la, docs/DESIGN.md, CHAN
 
 ---
 
+## SESSION 109 — 2026-10-21 — Style the window controls (kivuli's new feature) — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built: icons 24 px and centred, the address box 30 px with room around it, and no suggestions card until it's redesigned (session 108; a failed open's reason shows nowhere meanwhile). DECISION-035 (the window controls) is open and needs a kivuli change. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
