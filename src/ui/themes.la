@@ -27,6 +27,8 @@ import kivuli {
     State,
     Palette,
     Token,
+    Gradient,
+    Stop,
     hex,
 };
 import guest.nodes { ButtonLook };
@@ -67,6 +69,10 @@ public struct Theme {
     public accent_hover: string,
     /** Text on the accent. */
     public on_accent: string,
+    /** Where the brand gradient ends: the accent runs into it (the header bar and sidebar). */
+    public accent_end: string,
+    /** Icons and text on the frame's gradient. */
+    public on_frame: string,
     /** Buttons that delete or discard. */
     public danger: string,
     /** A danger button under the pointer or pressed. */
@@ -96,6 +102,10 @@ public const DARK: Theme = Theme {
     accent_hover: "#ff8c2e",
     // Dark on the orange: white on it reads at 2.66:1, #161616 at 6.8:1.
     on_accent: "#161616",
+    // The brand gradient's other end, a pink-red (the owner, session 112).
+    accent_end: "#ff2e63",
+    // Dark on the gradient, as on the accent: #161616 reads at 5.3:1 on the pink.
+    on_frame: "#161616",
     danger: "#c01c28",
     danger_hover: "#d42c38",
     on_danger: "#ffffff",
@@ -192,16 +202,49 @@ public fun button_paint(t: Theme, kind: ButtonLook): ButtonPaint = match kind {
 };
 
 /**
- * Returns the frame's look: the header bar, the sidebar and the window
- * around the page, one flat colour with light text.
+ * Returns the window's look behind the page: the gradient's pink end, flat,
+ * so the page's curved top-right corner shows the colour the header bar and
+ * sidebar meet in.
  *
  * Example:
- *     header_bar(start, title, end).style(frame(m.theme))
+ *     column([body]).style(frame(m.theme))
  */
 public fun frame(t: Theme): Styling[] {
-    // Flat: no theme shadow or edge line, so the header bar, sidebar and gaps are one surface.
-    let mut all = flat(t.frame);
-    all.push(Text { color: paint(t.text), ..Text.theme() });
+    let mut all = flat(t.accent_end);
+    all.push(Text { color: paint(t.on_frame), ..Text.theme() });
+    all
+}
+
+/**
+ * Returns the header bar's look: the brand gradient left to right, orange
+ * into pink, with dark icons and text.
+ *
+ * Example:
+ *     header_bar(start, title, end).style(header(m.theme))
+ */
+public fun header(t: Theme): Styling[] = brand(t, 90, t.accent, t.accent_end);
+
+/**
+ * Returns the sidebar's look: the brand gradient top to bottom, pink into
+ * orange, so it meets the header bar's pink end at the top-right corner and
+ * the frame reads as one L.
+ *
+ * Example:
+ *     column([]).style(sidebar(m.theme))
+ */
+public fun sidebar(t: Theme): Styling[] = brand(t, 180, t.accent_end, t.accent);
+
+/** A flat surface carrying the brand gradient from `from` to `to` along `angle` degrees (0 up, 90 right). */
+fun brand(t: Theme, angle: i64, from: string, to: string): Styling[] {
+    let mut all = flat(t.accent_end);
+    all.push(Background {
+        gradient: Gradient.Linear(angle, [
+            Stop { color: paint(from), at: 0.0 },
+            Stop { color: paint(to), at: 1.0 },
+        ]),
+        ..Background.theme(),
+    });
+    all.push(Text { color: paint(t.on_frame), ..Text.theme() });
     all
 }
 

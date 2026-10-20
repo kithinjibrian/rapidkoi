@@ -14,7 +14,9 @@ Dark is first and the default (the frame and page are the owner's colours, 2026-
 
 | Field | Dark | Used for |
 |-------|------|----------|
-| `frame` | `#242424` | the header bar and the sidebar, one flat surface |
+| `frame` | `#242424` | cards and popovers (`Token.Card`, `Popover`) |
+| `accent_end` | `#ff2e63` | **the brand gradient** (the owner, session 112): `#ff7700 → #ff2e63`, on the header bar (left to right, `header(t)`) and the sidebar (top to bottom, pink into orange, `sidebar(t)`), meeting in pink at the top-right corner; the window behind the page is the pink (`frame(t)`) |
+| `on_frame` | `#161616` | icons, text and the window controls' glyphs on the gradient |
 | `page` | `#161616` | the content area, the address box, the suggestions card, text fields |
 | `edge` | `#3a3a3a` | thin lines: the suggestions card, text fields |
 | `scrim` | `#00000060` | kept for the info panel's return |

@@ -50,3 +50,4 @@ Never deleted. Older entries are never modified.
 - The address box's suggestions card is removed until its redesign; typing no longer shows suggestions, and Escape no longer clears the box.
 - kivuli 0.49: the window controls (− □ ×) take Rapidkoi's palette as ghost buttons, muted until hovered, close red on hover.
 - Rapidkoi's brand colour, `#FF7700`, is the accent: primary buttons, focus rings and a focused field's edge are orange, with dark text on orange.
+- The brand gradient, orange `#FF7700` into pink `#FF2E63`, on the header bar and the sidebar, with dark icons and window controls.

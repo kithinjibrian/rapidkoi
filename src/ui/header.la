@@ -9,17 +9,17 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.addressbox, ui.icons, ui.tokens, ui.themes
  * Used by: ui.layout
  */
-import kivuli { View, Align, Bar, Border, header_bar, image };
+import kivuli { View, Align, Bar, Inside, Part, Paint, Text, hex, header_bar, image };
 import kivuli.ui { Button, WindowControls, button_with as ui_button_with };
 import window.actions { Msg };
 import window.window { Model, page_of };
 import ui.addressbox;
 import ui.icons { Icon, icon };
 import ui.tokens { HEADER_ICON, square };
-import ui.themes { Theme, frame };
+import ui.themes { Theme, header };
 
 /**
- * Builds the header bar, in the frame's colour.
+ * Builds the header bar, on the brand gradient (orange into pink).
  *
  * @param m the model
  * @returns the bar for the root's `.header(…)`
@@ -39,8 +39,15 @@ public fun bar(m: Model): Bar<Msg> {
     }
     // GTK's own − □ × as ghost buttons in the palette, close red on hover
     // (kivuli 0.49; DECISION-035, A). GTK still decides which show and where.
-    let mut look = frame(m.theme);
+    let mut look = header(m.theme);
     look.push(WindowControls.look());
+    // Dark − □ × at rest, as the icons: kivuli.ui's muted grey disappears on
+    // the gradient. Hovered, they keep its dark wash and light glyph.
+    look.push(
+        Inside(Part.WindowButton, [
+            Text { color: Paint.Color(hex(m.theme.on_frame)), ..Text.theme() },
+        ]),
+    );
     header_bar(start(m), addressbox.field(m), packed).style(look)
 }
 
@@ -82,7 +89,7 @@ fun tool(t: Theme, i: Icon, tip: string, msg: Option<Msg>): View<Msg> {
     // clamp, which fills the button's height and draws it at the top
     // otherwise (session 106).
     let face: View<Msg>[] = [
-        image(icon(i, t.text)).style([square(HEADER_ICON)]).align(Align.Center),
+        image(icon(i, t.on_frame)).style([square(HEADER_ICON)]).align(Align.Center),
     ];
     let b = match msg {
         Some(m) => ui_button_with(face, m),

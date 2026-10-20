@@ -5,6 +5,8 @@ import rapidkoi.ui.themes {
     ButtonPaint,
     button_paint,
     frame,
+    header,
+    sidebar,
     page,
     address,
     field,
@@ -54,6 +56,8 @@ fun every_style_builds() {
     // here turns a typo in the theme into a failed test, not a closed window.
     let all = [
         frame(DARK),
+        header(DARK),
+        sidebar(DARK),
         page(DARK),
         address(DARK),
         field(DARK),
@@ -71,4 +75,12 @@ fun every_style_builds() {
     for styles of all {
         assert(styles.len > 0);
     }
+}
+
+@test
+fun the_brand_gradient_runs_orange_to_pink() {
+    // The owner's pair (session 112): the brand colour into a pink-red.
+    assert_eq((DARK.accent, DARK.accent_end), ("#ff7700", "#ff2e63"));
+    // Icons on the gradient are dark, as text on the accent is.
+    assert_eq(DARK.on_frame, DARK.on_accent);
 }

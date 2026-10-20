@@ -4123,16 +4123,41 @@ src/ui/themes.la, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
 
 ---
 
-## SESSION 112 — 2026-10-21 — The brand gradient on the header bar and sidebar — open
+## SESSION 112 — 2026-10-21 — The brand gradient on the header bar and sidebar — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner chose orange into pink (`#FF7700 → #FF2E63`, from session 111's suggestions) for the theme and asked for it on the header bar and sidebar.
+- Test first (`test/themes.la`: the gradient's ends; icons on it dark; the new looks build).
+- `themes.la`: `accent_end` `#ff2e63`, `on_frame` `#161616` (5.3:1 on the pink); `header(t)` (90°, orange into pink), `sidebar(t)` (180°, pink into orange, so the two meet in pink at the top-right corner), `frame(t)` now the pink, flat, behind the page (its curved corner shows pink). `header.bar` uses `header(t)`, dark icons (`on_frame`), and dark − □ × at rest (`Inside(Part.WindowButton, …)` after `WindowControls.look()`). The sidebar takes `sidebar(t)`.
+- `lughac check` clean; every test file type-checks; fmt clean; build ok. The look is the owner's.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/themes.la, src/ui/header.la, src/ui/layout.la, test/themes.la, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/themes.la: the brand gradient runs orange to pink, and icons on it are dark.
+
+### DECISIONS MADE
+
+- The frame (header bar, sidebar) wears the brand gradient; dark icons on it.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. The brand colour `#FF7700` is the accent (session 111). PRP-019 (the header bar) is built: ← ⌂ → on app pages only, icons 24 px and centred, the address box 30 px with room around it, no suggestions card until it's redesigned, the window controls in `WindowControls.look()`. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. Brand: `#FF7700`, and the gradient `#FF7700 → #FF2E63` on the header bar and sidebar (session 112). PRP-019 (the header bar) is built: ← ⌂ → on app pages only, dark 24 px icons, the address box 30 px with room around it, no suggestions card until it's redesigned, the window controls in `WindowControls.look()`. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
