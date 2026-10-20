@@ -3672,6 +3672,16 @@ lugha.toml (kivuli 0.48), lugha.lock (lughac), CONTEXT.md
 
 ---
 
+## SESSION 99 — 2026-10-21 — Discovery: moving onto kivuli.ui — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48 (compiles, builds, no code change; tests are the owner's). It shows SVG, so the Iconsax icons in `assets/icons/` can replace theme icons in the frame: a PRP (how the binary finds `assets/` at run time is part of it). `kivuli.ui` (shadcn-style components, palettes) is new and unused here. Next redesign steps (each needs its PRP): icons in the frame, the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
