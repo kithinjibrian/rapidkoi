@@ -3607,6 +3607,38 @@ Branch: prp-017-kivuli_0_17
 
 ---
 
+## SESSION 97 — 2026-10-21 — Commit the owner's Iconsax icons — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "commit the icons". Committed the nine SVGs in `assets/icons/` (arrow-left4, arrow-right4, home, menu, profile-circle, rotate-right, settings, shield-tick, star) and their removal of `assets/icons/README.md`. None holds `<image>` (which kivuli 0.48's SVG support refuses). They show once kivuli 0.48 is pushed and a PRP uses them.
+
+### FILES CREATED OR MODIFIED
+
+```
+assets/icons/*.svg (the owner's), assets/icons/README.md (removed by the owner), CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- As session 95.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is bumped to 0.47 (compiles, builds, no code change; tests are the owner's). kivuli 0.48 (SVG images, so the Iconsax icons in `assets/icons/` can show) waits for the owner to push it; then bump and `lughac update`. `kivuli.ui` (shadcn-style components, palettes) is new and unused here. Next redesign steps (each needs its PRP): the sidebar's tabs, the info panel / Account / Access as native screens, the new tab as a bundled app.
