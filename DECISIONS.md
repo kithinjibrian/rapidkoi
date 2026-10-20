@@ -12,9 +12,7 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-
-
-
+(none)
 
 ---
 
@@ -187,6 +185,25 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-033 — Tests can't sit in folders
+
+**Status:** resolved
+**Raised:** 2026-10-20 — Session 92 (PRP-018)
+**Resolved:** 2026-10-20 — Session 93 (the owner approved PRP-018 with A)
+
+**Question:** A test file's imports start from its own folder, so `test/ui/layout.la` can't import `test/support.la` (E0312). Do tests mirror `src/`'s new folders?
+
+**Options:**
+- A) `test/` stays flat, each file named for the module it tests. Recommended.
+- B) A copy of `support.la` in each test folder.
+- C) A Lugha change letting a test import from `test/`'s top (in `../lugha`).
+
+**Outcome:** A. `test/` stays flat; each test file is named for the module it tests.
+
+**Copied to MEMORY.md:** no (CLAUDE.md's TESTING RULE says it)
+
+---
 
 ### DECISION-029 — Clicking away from the address box doesn't take focus away (kivuli)
 
