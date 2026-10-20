@@ -19,7 +19,7 @@ import ui.tokens { HEADER_ICON, square };
 import ui.themes { Theme, header };
 
 /**
- * Builds the header bar, on the brand gradient (orange into pink).
+ * Builds the header bar, on the dimmed brand gradient (orange into pink).
  *
  * @param m the model
  * @returns the bar for the root's `.header(…)`
@@ -41,8 +41,8 @@ public fun bar(m: Model): Bar<Msg> {
     // (kivuli 0.49; DECISION-035, A). GTK still decides which show and where.
     let mut look = header(m.theme);
     look.push(WindowControls.look());
-    // Dark − □ × at rest, as the icons: kivuli.ui's muted grey disappears on
-    // the gradient. Hovered, they keep its dark wash and light glyph.
+    // − □ × in the icons' colour at rest: kivuli.ui's muted grey is too faint
+    // on the gradient. Hovered, they keep its wash and glyph.
     look.push(
         Inside(Part.WindowButton, [
             Text { color: Paint.Color(hex(m.theme.on_frame)), ..Text.theme() },

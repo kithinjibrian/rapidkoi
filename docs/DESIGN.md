@@ -15,8 +15,9 @@ Dark is first and the default (the frame and page are the owner's colours, 2026-
 | Field | Dark | Used for |
 |-------|------|----------|
 | `frame` | `#242424` | cards and popovers (`Token.Card`, `Popover`) |
-| `accent_end` | `#ff2e63` | **the brand gradient** (the owner, session 112): `#ff7700 → #ff2e63`, on the header bar (left to right, `header(t)`) and the sidebar (top to bottom, pink into orange, `sidebar(t)`), meeting in pink at the top-right corner; the window behind the page is the pink (`frame(t)`) |
-| `on_frame` | `#161616` | icons, text and the window controls' glyphs on the gradient |
+| `accent_end` | `#ff2e63` | **the brand gradient** (the owner, session 112): `#ff7700 → #ff2e63` |
+| `frame_from` / `frame_to` | `#994700` / `#991c3b` | the brand gradient at 60% brightness (session 113), on the header bar (left to right, `header(t)`) and the sidebar (top to bottom, pink into orange, `sidebar(t)`), meeting in pink at the top-right corner; the window behind the page is `frame_to` (`frame(t)`) |
+| `on_frame` | `#e8e8e8` | icons, text and the window controls' glyphs on the dimmed gradient (5.3:1 and 6.6:1) |
 | `page` | `#161616` | the content area, the address box, the suggestions card, text fields |
 | `edge` | `#3a3a3a` | thin lines: the suggestions card, text fields |
 | `scrim` | `#00000060` | kept for the info panel's return |

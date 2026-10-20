@@ -4158,16 +4158,39 @@ src/ui/themes.la, src/ui/header.la, src/ui/layout.la, test/themes.la, docs/DESIG
 
 ---
 
-## SESSION 113 — 2026-10-21 — A dimmer brand gradient — open
+## SESSION 113 — 2026-10-21 — A dimmer brand gradient — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: dial down the brightness (of the session-112 gradient). Compared 80/70/60/50% shades for contrast; chose 60%: `frame_from` `#994700`, `frame_to` `#991c3b`. At that depth light reads better than dark, so `on_frame` is `#e8e8e8` again (5.3:1, 6.6:1). The brand pair (`accent` `#ff7700`, `accent_end` `#ff2e63`) stays for buttons and focus.
+- Test first (`test/themes.la`: the dimmed ends, light icons). `lughac check` clean; theme, header and layout tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/themes.la, src/ui/header.la, test/themes.la, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/themes.la: the brand gradient runs orange to pink, dimmed; icons on it are light.
+
+### DECISIONS MADE
+
+- The frame's gradient at 60% brightness, light icons.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. Brand: `#FF7700`, and the gradient `#FF7700 → #FF2E63` on the header bar and sidebar (session 112). PRP-019 (the header bar) is built: ← ⌂ → on app pages only, dark 24 px icons, the address box 30 px with room around it, no suggestions card until it's redesigned, the window controls in `WindowControls.look()`. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. Brand: `#FF7700` (accent) and `#FF2E63`; the header bar and sidebar wear the pair at 60% (`#994700 → #991c3b`, session 113) with light icons. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
