@@ -14,11 +14,10 @@ Dark is first and the default (the frame and page are the owner's colours, 2026-
 
 | Field | Dark | Used for |
 |-------|------|----------|
-| `frame` | `#242424` | cards and popovers (`Token.Card`, `Popover`) |
-| `accent_end` | `#ff2e63` | **the brand gradient** (the owner, session 112): `#ff7700 → #ff2e63` |
-| `frame_from` / `frame_to` | `#733600` / `#73152d` | the brand gradient at 45% brightness (sessions 113, 116), on the header bar (left to right, `header(t)`) and the sidebar (top to bottom, pink into orange, `sidebar(t)`), meeting in pink at the top-right corner; the window behind the page is `frame_to` (`frame(t)`) |
-| `on_frame` | `#ffffff` | icons, text and the window controls' glyphs on the dimmed gradient (session 116) |
-| `frame_hover` | `#ffffff26` | a window control's round hover on the gradient (`window_controls(t)`; close turns `danger`) |
+| `frame` | `#242424` | the header bar, the sidebar and the window behind the page, one flat surface (back from the gradient, session 118); cards and popovers (`Token.Card`, `Popover`) |
+| `accent_end` | `#ff2e63` | the brand gradient's other end (`#ff7700 → #ff2e63`, session 112): kept, worn by nothing for now |
+| `on_frame` | `#ffffff` | icons, text and the window controls' glyphs on the frame (session 116) |
+| `frame_hover` | `#ffffff26` | a window control's round hover on the frame (`window_controls(t)`; close turns `danger`) |
 | `page` | `#161616` | the content area, the address box, the suggestions card, text fields |
 | `edge` | `#3a3a3a` | thin lines: the suggestions card, text fields |
 | `scrim` | `#00000060` | kept for the info panel's return |

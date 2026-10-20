@@ -80,11 +80,10 @@ fun every_style_builds() {
 }
 
 @test
-fun the_brand_gradient_runs_orange_to_pink_dimmed() {
-    // The owner's pair (session 112): the brand colour into a pink-red;
-    // the frame wears it at 45% brightness (sessions 113, 116).
+fun the_frame_is_flat_grey_with_white_icons() {
+    // The owner went back to the flat frame (session 118); the brand pair
+    // stays in the theme.
+    assert_eq(DARK.frame, "#242424");
     assert_eq((DARK.accent, DARK.accent_end), ("#ff7700", "#ff2e63"));
-    assert_eq((DARK.frame_from, DARK.frame_to), ("#733600", "#73152d"));
-    // Icons on the gradient are white (session 116).
     assert_eq(DARK.on_frame, "#ffffff");
 }

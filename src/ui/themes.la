@@ -27,8 +27,6 @@ import kivuli {
     State,
     Palette,
     Token,
-    Gradient,
-    Stop,
     Inside,
     Part,
     hex,
@@ -74,13 +72,9 @@ public struct Theme {
     public accent_hover: string,
     /** Text on the accent. */
     public on_accent: string,
-    /** Where the brand gradient ends: the accent runs into it. */
+    /** The brand gradient's other end: the accent runs into it. Kept for later; nothing wears it now. */
     public accent_end: string,
-    /** The frame's gradient start: the accent, dimmed (the header bar and sidebar). */
-    public frame_from: string,
-    /** The frame's gradient end: `accent_end`, dimmed. */
-    public frame_to: string,
-    /** Icons and text on the frame's gradient. */
+    /** Icons and text on the frame. */
     public on_frame: string,
     /** What a control on the gradient turns under the pointer. */
     public frame_hover: string,
@@ -115,13 +109,9 @@ public const DARK: Theme = Theme {
     on_accent: "#161616",
     // The brand gradient's other end, a pink-red (the owner, session 112).
     accent_end: "#ff2e63",
-    // The brand pair at 45% brightness: the owner asked for it dialled down
-    // twice (sessions 113, 116).
-    frame_from: "#733600",
-    frame_to: "#73152d",
-    // White on the dimmed gradient (the owner, session 116).
+    // White on the frame (the owner, session 116).
     on_frame: "#ffffff",
-    // A faint white wash: a window control under the pointer, on the gradient.
+    // A faint white wash: a window control under the pointer, on the frame.
     frame_hover: "#ffffff26",
     danger: "#c01c28",
     danger_hover: "#d42c38",
@@ -219,40 +209,38 @@ public fun button_paint(t: Theme, kind: ButtonLook): ButtonPaint = match kind {
 };
 
 /**
- * Returns the window's look behind the page: the gradient's pink end, flat,
- * so the page's curved top-right corner shows the colour the header bar and
- * sidebar meet in.
+ * Returns the frame's look: the window behind the page, one flat colour
+ * with white icons and text (the owner went back to it from the gradient,
+ * session 118).
  *
  * Example:
  *     column([body]).style(frame(m.theme))
  */
 public fun frame(t: Theme): Styling[] {
-    let mut all = flat(t.frame_to);
+    let mut all = flat(t.frame);
     all.push(Text { color: paint(t.on_frame), ..Text.theme() });
     all
 }
 
 /**
- * Returns the header bar's look: the brand gradient, dimmed, left to right,
- * orange into pink, with light icons and text.
+ * Returns the header bar's look: the frame's.
  *
  * Example:
  *     header_bar(start, title, end).style(header(m.theme))
  */
-public fun header(t: Theme): Styling[] = brand(t, 90, t.frame_from, t.frame_to);
+public fun header(t: Theme): Styling[] = frame(t);
 
 /**
- * Returns the sidebar's look: the brand gradient top to bottom, pink into
- * orange, so it meets the header bar's pink end at the top-right corner and
- * the frame reads as one L.
+ * Returns the sidebar's look: the frame's, so the header bar and sidebar
+ * read as one L.
  *
  * Example:
  *     column([]).style(sidebar(m.theme))
  */
-public fun sidebar(t: Theme): Styling[] = brand(t, 180, t.frame_to, t.frame_from);
+public fun sidebar(t: Theme): Styling[] = frame(t);
 
 /**
- * Returns the window controls' look on the gradient, given after
+ * Returns the window controls' look on the frame, given after
  * `kivuli.ui`'s `WindowControls.look()`: white glyphs, room on each side,
  * and the hover a circle on each control's 24 × 24 icon box, faint white
  * (red for close). The buttons themselves stay clear: GTK stretches them to
@@ -278,20 +266,6 @@ public fun window_controls(t: Theme): Styling[] = [
         When(State.Hover, [Background { color: paint(t.danger), ..Background.theme() }]),
     ]),
 ];
-
-/** A flat surface carrying the brand gradient from `from` to `to` along `angle` degrees (0 up, 90 right). */
-fun brand(t: Theme, angle: i64, from: string, to: string): Styling[] {
-    let mut all = flat(t.frame_to);
-    all.push(Background {
-        gradient: Gradient.Linear(angle, [
-            Stop { color: paint(from), at: 0.0 },
-            Stop { color: paint(to), at: 1.0 },
-        ]),
-        ..Background.theme(),
-    });
-    all.push(Text { color: paint(t.on_frame), ..Text.theme() });
-    all
-}
 
 /**
  * Returns the page's look: the content area, its top-right corner curved

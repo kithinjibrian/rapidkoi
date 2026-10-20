@@ -4327,16 +4327,41 @@ src/ui/addressbox.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 118 — 2026-10-21 — Back to the flat #242424 frame — open
+## SESSION 118 — 2026-10-21 — Back to the flat #242424 frame — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: #242424 looks better; go back to it. `frame(t)`, `header(t)` and `sidebar(t)` are the flat `frame` colour with white icons and text (`on_frame` `#ffffff` kept from session 116). Removed `frame_from`, `frame_to` and the gradient helper; `accent_end` `#ff2e63` kept in the theme, unused, as the brand pair's other end.
+- Test first (`test/themes.la`: the frame is flat grey with white icons; the brand pair kept).
+- Kept from sessions 116–117: white icons, round window-control hovers, room between buttons, no focus glow.
+- `lughac check` clean; every test file type-checks; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/themes.la, test/themes.la, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/themes.la: the frame is flat grey with white icons.
+
+### DECISIONS MADE
+
+- The frame is flat `#242424` again; the gradient is set aside.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. Brand: `#FF7700` and `#FF2E63`; the header bar and sidebar wear them at 45% with white icons; round hovers on the window controls; no focus glow on the address box (session 117). PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. Brand: `#FF7700` (accent); `#FF2E63` kept unused. The frame (header bar, sidebar) is flat `#242424` with white icons (session 118); round hovers on the window controls; no focus glow on the address box. PRP-019 (the header bar) is built. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
