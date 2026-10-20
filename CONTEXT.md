@@ -4022,16 +4022,40 @@ src/ui/layout.la, src/ui/addressbox.la, test/addressbox.la, docs/DESIGN.md, CHAN
 
 ---
 
-## SESSION 109 — 2026-10-21 — Style the window controls (kivuli's new feature) — open
+## SESSION 109 — 2026-10-21 — Style the window controls (kivuli's new feature) — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: kivuli shipped styling for the window controls. kivuli 0.49 (PRP-054 there): `Part.WindowButton`, `Part.WindowClose`, `Part.WindowIcon` in a header bar's `.style`, and `kivuli.ui`'s `WindowControls.look()`.
+- Bumped to 0.49 (`lughac update` rewrote `lugha.lock`); `header.bar` adds `WindowControls.look()` after the frame's look. DECISION-035 resolved (A); its known issue removed from CLAUDE.md, which now says kivuli 0.49.
+- `lughac check` clean; every test file type-checks; build ok. The look is the owner's.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml (kivuli 0.49), lugha.lock (lughac), src/ui/header.la, DECISIONS.md, CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a look; kivuli.testing can't see styles).
+
+### DECISIONS MADE
+
+- DECISION-035: A, kivuli's `WindowControls.look()`.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.48. PRP-019 (the header bar) is built: icons 24 px and centred, the address box 30 px with room around it, and no suggestions card until it's redesigned (session 108; a failed open's reason shows nowhere meanwhile). DECISION-035 (the window controls) is open and needs a kivuli change. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. PRP-019 (the header bar) is built: icons 24 px and centred, the address box 30 px with room around it, no suggestions card until it's redesigned, and the window controls in `WindowControls.look()` (session 109). No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

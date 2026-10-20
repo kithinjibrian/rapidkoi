@@ -12,20 +12,6 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-### DECISION-035 — The window controls (kivuli)
-
-**Status:** open
-**Raised:** 2026-10-21 — Session 105 (the owner: "the windows controls are fucking ugly. improve them")
-
-**Question:** GTK draws − □ × at the header bar's end, small and in the desktop's look. kivuli 0.48 keeps them GTK's: nothing styles them, nothing hides them, and there's no command to minimise or maximise, so Rapidkoi can't draw its own. How does kivuli gain it?
-
-**Options:**
-- A) Style GTK's own controls: `Inside(Part.WindowButton, [...])` (and their icons) in `header_bar(…).style([...])`, so Rapidkoi sets their size, colours and hover. Keeps GTK's behaviour (the desktop's button layout, double-click, snapping). Smallest change.
-- B) Hide GTK's controls (`header_bar(…).controls(false)`) and add `Cmd.minimize()`, `Cmd.toggle_maximized()` (`Cmd.quit()` exists), so Rapidkoi draws its own with Iconsax icons, like Chrome. Full control; Rapidkoi then owns their placement on every desktop.
-
-**Until then:** GTK's controls as they are (CLAUDE.md known issues). The fix is a kivuli change in `../kivuli` under its own CLAUDE.md, then a kivuli bump here.
-
----
 
 ---
 
@@ -211,6 +197,26 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-035 — The window controls (kivuli)
+
+**Status:** resolved
+**Raised:** 2026-10-21 — Session 105 (the owner: "the windows controls are fucking ugly. improve them")
+**Resolved:** 2026-10-21 — Session 109 (kivuli 0.49 shipped it)
+
+**Question:** GTK draws − □ × at the header bar's end, small and in the desktop's look. kivuli 0.48 keeps them GTK's: nothing styles them, nothing hides them, and there's no command to minimise or maximise, so Rapidkoi can't draw its own. How does kivuli gain it?
+
+**Options:**
+- A) Style GTK's own controls: `Inside(Part.WindowButton, [...])` (and their icons) in `header_bar(…).style([...])`, so Rapidkoi sets their size, colours and hover. Keeps GTK's behaviour (the desktop's button layout, double-click, snapping). Smallest change.
+- B) Hide GTK's controls (`header_bar(…).controls(false)`) and add `Cmd.minimize()`, `Cmd.toggle_maximized()` (`Cmd.quit()` exists), so Rapidkoi draws its own with Iconsax icons, like Chrome. Full control; Rapidkoi then owns their placement on every desktop.
+
+**Until then:** GTK's controls as they are (CLAUDE.md known issues). The fix is a kivuli change in `../kivuli` under its own CLAUDE.md, then a kivuli bump here.
+
+**Outcome:** A. kivuli 0.49 styles GTK's own controls (`Part.WindowButton`, `Part.WindowClose`, `Part.WindowIcon`); Rapidkoi's header bar takes `kivuli.ui`'s `WindowControls.look()`: ghost buttons in the palette, muted until hovered, close red on hover. GTK keeps which show, their order and what they do.
+
+**Copied to MEMORY.md:** no (a look)
+
+---
 
 ### DECISION-033 — Tests can't sit in folders
 

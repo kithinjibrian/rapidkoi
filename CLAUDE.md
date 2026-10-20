@@ -209,7 +209,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 ## STACK
 
 - **Lugha** via `lughac` 0.1.0. Use only what `lughac spec` documents. **Never build or reinstall `lughac` yourself**: when rapidkoi needs a newer one, stop and ask the user.
-- **kivuli 0.18** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.18" }`): the UI. 0.11–0.17 made styling one door, `.style([...])` of typed values (`Font`, `Text`, `Background`, `Border`, `Spacing`, `Sizing`, `Shadow`, `Effects`, `Outline`, `When(State, …)`), removing `.bold`, `.dim`, `.padding`, `.spacing`, `.width`, `.height`, `.button_style` and named looks; there are no button looks (Rapidkoi styles buttons itself, DECISION-031). 0.18 made the header bar a node: `.header(header_bar(start, title, end).style([...]))`. Earlier: `button_with` (0.10), context menus `.menu` (0.9), `overlay` (0.8), `wrap` (0.7), background tasks `Cmd.task`/`Sub.receive` (0.6), images from bytes (0.5). Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
+- **kivuli 0.49** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.49" }`): the UI. 0.19–0.49: clicking away clears focus, `kivuli.ui` components and palettes (Rapidkoi's header uses them), SVG images (0.48), styling the window controls (0.49). 0.11–0.17 made styling one door, `.style([...])` of typed values (`Font`, `Text`, `Background`, `Border`, `Spacing`, `Sizing`, `Shadow`, `Effects`, `Outline`, `When(State, …)`), removing `.bold`, `.dim`, `.padding`, `.spacing`, `.width`, `.height`, `.button_style` and named looks; there are no button looks (Rapidkoi styles buttons itself, DECISION-031). 0.18 made the header bar a node: `.header(header_bar(start, title, end).style([...]))`. Earlier: `button_with` (0.10), context menus `.menu` (0.9), `overlay` (0.8), `wrap` (0.7), background tasks `Cmd.task`/`Sub.receive` (0.6), images from bytes (0.5). Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
 - **lugha-gtk** comes in through kivuli. rapidkoi does not import `gtk` directly.
 - **GTK 4** + GLib, through kivuli.
 - **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` (`wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }`; source in `../lugha-wasmtime`). rapidkoi never declares a wasmtime `extern` itself.
@@ -323,7 +323,6 @@ Update this tree when modules are added.
 
 - **A missing `update`, `alloc` or `view` export is only found on its first call**, not at load: lugha-wasmtime can't list exports yet (DECISION-017). The error screen still shows.
 - **A second `./main other.wasm` raises the first window** instead of opening the app: kivuli makes GTK single-instance (DECISION-014).
-- **The window controls (− □ ×) are GTK's, unstyled**: kivuli can't style or replace them yet (DECISION-035).
 - **Placeholders until kivuli and PRP-003 catch up (DECISION-018), each to be replaced, never extended:**
   - Opening a file means typing its path into the box, since there's no file dialog.
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).

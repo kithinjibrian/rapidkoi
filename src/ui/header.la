@@ -1,6 +1,7 @@
 /**
  * The header bar, pure (PRP-019): ← back, ⌂ home, → forward; the address
- * box; 👤 account and ☰ menu; then GTK's window controls. Every icon is one
+ * box; 👤 account and ☰ menu; then GTK's window controls, styled as ghost
+ * buttons like the rest (`WindowControls.look()`). Every icon is one
  * of Rapidkoi's own (`ui/icons.la`) in the theme's text colour, on a
  * `kivuli.ui` ghost icon button. What isn't built yet is shown disabled,
  * saying when it comes.
@@ -9,7 +10,7 @@
  * Used by: ui.layout
  */
 import kivuli { View, Align, Bar, header_bar, image };
-import kivuli.ui { Button, button_with as ui_button_with };
+import kivuli.ui { Button, WindowControls, button_with as ui_button_with };
 import window.actions { Msg };
 import window.window { Model };
 import ui.addressbox;
@@ -36,7 +37,11 @@ public fun bar(m: Model): Bar<Msg> {
         packed.push(shown[i]);
         i = i - 1;
     }
-    header_bar(start(m), addressbox.field(m), packed).style(frame(m.theme))
+    // GTK's own − □ × as ghost buttons in the palette, close red on hover
+    // (kivuli 0.49; DECISION-035, A). GTK still decides which show and where.
+    let mut look = frame(m.theme);
+    look.push(WindowControls.look());
+    header_bar(start(m), addressbox.field(m), packed).style(look)
 }
 
 /**
