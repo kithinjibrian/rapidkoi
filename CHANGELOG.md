@@ -49,3 +49,4 @@ Never deleted. Older entries are never modified.
 - kivuli 0.48. The header bar redesigned on `kivuli.ui` (PRP-019): ← back, ⌂ home, → forward, the address box as one framed pill with a shield for a verified or trusted signed app and ☆ to pin, then account and menu; each a ghost icon button with Rapidkoi's own Iconsax icons. No reload. Rapidkoi's colours become a dark `kivuli.ui` palette.
 - The address box's suggestions card is removed until its redesign; typing no longer shows suggestions, and Escape no longer clears the box.
 - kivuli 0.49: the window controls (− □ ×) take Rapidkoi's palette as ghost buttons, muted until hovered, close red on hover.
+- Rapidkoi's brand colour, `#FF7700`, is the accent: primary buttons, focus rings and a focused field's edge are orange, with dark text on orange.

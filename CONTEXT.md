@@ -4090,16 +4090,39 @@ src/ui/header.la, test/header.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 111 — 2026-10-21 — The brand colour, #FF7700 — open
+## SESSION 111 — 2026-10-21 — The brand colour, #FF7700 — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: the brand colour is `#FF7700`. It's the dark theme's `accent` (primary buttons, `Token.Primary`, `Token.Ring` focus rings, a focused field's edge), hover `#ff8c2e`. Text on it is `#161616`: white on `#FF7700` is 2.66:1, too low; dark is 6.8:1. Saved as a memory.
+- `lughac check` clean; `test/themes.la` type-checks (it compares against `DARK`'s fields, not hex); build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/themes.la, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a colour value; `test/themes.la` already checks where the accent goes).
+
+### DECISIONS MADE
+
+- Accent `#FF7700`, dark text on it.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. PRP-019 (the header bar) is built: ← ⌂ → on app pages only, icons 24 px and centred, the address box 30 px with room around it, no suggestions card until it's redesigned, the window controls in `WindowControls.look()`. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.49. The brand colour `#FF7700` is the accent (session 111). PRP-019 (the header bar) is built: ← ⌂ → on app pages only, icons 24 px and centred, the address box 30 px with room around it, no suggestions card until it's redesigned, the window controls in `WindowControls.look()`. No decision is open. Next pieces of the redesign (each its own PRP): the address box's suggestions, the sidebar, the content area and apps' content on `kivuli.ui`, the ☰ menu, app info as a sheet.

@@ -21,7 +21,7 @@ Dark is first and the default (the frame and page are the owner's colours, 2026-
 | `text` | `#e8e8e8` | all text |
 | `dim` | `#e8e8e88c` | secondary text (text at 55%) |
 | `control` / `_hover` / `_press` | `#2e2e2e` / `#383838` / `#424242` | normal buttons |
-| `accent` / `accent_hover`, `on_accent` | `#3584e4` / `#4a90e8`, `#ffffff` | primary buttons; a focused field's edge |
+| `accent` / `accent_hover`, `on_accent` | `#ff7700` / `#ff8c2e`, `#161616` | **Rapidkoi's brand colour** (the owner, session 111): primary buttons, focus rings, a focused field's edge; dark text on it (white reads at 2.66:1) |
 | `danger` / `danger_hover`, `on_danger` | `#c01c28` / `#d42c38`, `#ffffff` | danger buttons |
 | `subtle_hover` | `#ffffff14` | subtle buttons under the pointer (transparent at rest) |
 | `clear` | `#00000000` | nothing: the click-catching layer |

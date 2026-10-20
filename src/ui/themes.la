@@ -61,7 +61,7 @@ public struct Theme {
     public control_hover: string,
     /** A normal button being pressed. */
     public control_press: string,
-    /** The main action (primary buttons) and a focused field's edge. */
+    /** Rapidkoi's brand colour: the main action (primary buttons), focus rings, a focused field's edge. */
     public accent: string,
     /** A primary button under the pointer or pressed. */
     public accent_hover: string,
@@ -91,9 +91,11 @@ public const DARK: Theme = Theme {
     control: "#2e2e2e",
     control_hover: "#383838",
     control_press: "#424242",
-    accent: "#3584e4",
-    accent_hover: "#4a90e8",
-    on_accent: "#ffffff",
+    // Rapidkoi's brand colour (the owner, session 111).
+    accent: "#ff7700",
+    accent_hover: "#ff8c2e",
+    // Dark on the orange: white on it reads at 2.66:1, #161616 at 6.8:1.
+    on_accent: "#161616",
     danger: "#c01c28",
     danger_hover: "#d42c38",
     on_danger: "#ffffff",
