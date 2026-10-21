@@ -78,6 +78,8 @@ public struct Theme {
     public accent_end: string,
     /** Icons and text on the frame. */
     public on_frame: string,
+    /** A faint icon on the frame: the shield of an unsigned app. */
+    public faint: string,
     /** What a control on the gradient turns under the pointer. */
     public frame_hover: string,
     /** Buttons that delete or discard. */
@@ -113,6 +115,8 @@ public const DARK: Theme = Theme {
     accent_end: "#ff2e63",
     // White on the frame (the owner, session 116).
     on_frame: "#ffffff",
+    // Grey, solid: SVG fills don't take #rrggbbaa everywhere, so not `dim`.
+    faint: "#8c8c8c",
     // A faint white wash: a window control under the pointer, on the frame.
     frame_hover: "#ffffff26",
     danger: "#c01c28",

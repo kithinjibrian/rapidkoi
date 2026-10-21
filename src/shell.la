@@ -94,12 +94,21 @@ public fun subscriptions(m: Model): Sub<Msg> = if m.tabs.any(fun(t: Tab) = is_lo
 public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     // The keyring is shared by every copy of the model: mark it first.
     let at = mark(m);
-    let (next, cmd) = handle_msg(m, msg);
+    let (handled, cmd) = handle_msg(m, msg);
+    // The shield's card belongs to one page: leaving it (another tab, home,
+    // another app in this tab) closes it (PRP-021).
+    let next = if shown(handled) != shown(m) { Model { shield: None, ..handled } } else { handled };
     // What a v2 app asked for is answered before anything is drawn or saved.
     let (answered, sends) = answer_all(next);
     // What each app declares, and "New" cleared once its Access page is left.
     (persist(m, news(looked(m, answered)), at), both(cmd, sends))
 }
+
+/** The page the window shows: its tab and its app's path; `None` on home. */
+fun shown(m: Model): Option<(i64, string)> = match (m.current, window.page_of(m)) {
+    (Some(id), App(a)) => Some((id, a.path)),
+    _ => None,
+};
 
 /** Two commands as one; either alone when the other does nothing, so a lone task stays a task. */
 fun both(a: Cmd<Msg>, b: Cmd<Msg>): Cmd<Msg> = match (a, b) {
@@ -128,6 +137,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Draft(text) => (Model { draft: text, notice: None, ..m }, Cmd.none()),
     Go => navigate.go(m),
     Dismiss => (Model { draft: "", editing: false, notice: None, ..m }, Cmd.none()),
+    Shield(page) => (Model { shield: page, ..m }, Cmd.none()),
     EditAddress => match window.page_of(m) {
         App(a) => (Model { editing: true, draft: a.path, ..m }, Cmd.focus("address")),
         Home => (m, Cmd.focus("address")),

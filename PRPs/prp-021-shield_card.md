@@ -64,17 +64,17 @@ The shield's look: Verified when the signature checks out (a verified site, or a
 ## TESTS TO WRITE
 
 `test/shield.la`:
-- [ ] A remote signed app whose site checked out: Connection secure, Signed app, look Verified, host, fingerprint, version.
-- [ ] A signed file whose key Rapidkoi trusts: Local file, Signed app, look Verified (its signature checks out against a trusted key; where it came from is shown in words).
-- [ ] A signed file not confirmed: Not confirmed yet, look Caution.
-- [ ] A new publisher: New publisher, look Caution.
-- [ ] A development address: This computer, look Caution.
-- [ ] A bare module or unsigned bundle: Local file, Not signed, look Unsigned.
-- [ ] "Known since" words for a date and for 0 (not recorded).
-- [ ] `update`: `Shield(Some(Main))` opens, `Shield(Some(Signed))` turns the page, `Shield(None)` closes; selecting a tab or going home closes it.
+- [x] A remote signed app whose site checked out: Connection secure, Signed app, look Verified, host, fingerprint, version.
+- [x] A signed file whose key Rapidkoi trusts: Local file, Signed app, look Verified (its signature checks out against a trusted key; where it came from is shown in words).
+- [x] A signed file not confirmed: Not confirmed yet, look Caution.
+- [x] A new publisher: New publisher, look Caution.
+- [x] A development address: This computer, look Caution.
+- [x] A bare module or unsigned bundle: Local file, Not signed, look Unsigned.
+- [x] "Known since" words for a date and for 0 (not recorded).
+- [x] `update`: `Shield(Some(Main))` opens, `Shield(Some(Signed))` turns the page, `Shield(None)` closes; selecting a tab or going home closes it.
 
 `test/header.la`:
-- [ ] The shield is a button on every app page ("Site information"), not on home; clicking it sends `Shield(Some(Main))`; in the card, "Connection secure" sends `Shield(Some(Connection))` and ‹ sends `Shield(Some(Main))`.
+- [x] The shield is a button on every app page ("Site information"), not on home; clicking it sends `Shield(Some(Main))`; in the card, "Connection secure" sends `Shield(Some(Connection))` and ‹ sends `Shield(Some(Main))`.
 
 ## ROLLBACK PLAN
 
@@ -83,8 +83,8 @@ The shield's look: Verified when the signature checks out (a verified site, or a
 ## ACCEPTANCE CRITERIA
 - [ ] The shield on every app page, in its look; clicking it opens the card under it; each row opens its page; ‹, Escape and a click outside behave
 - [ ] The tests above pass, and `lughac test test/` (the owner runs them)
-- [ ] `lughac build src/main.la -o main`; `lughac fmt --check src test` clean
-- [ ] DESIGN.md, CLAUDE.md, CHANGELOG.md updated
+- [x] `lughac build src/main.la -o main`; `lughac fmt --check src test` clean
+- [x] DESIGN.md, CLAUDE.md, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user: `./main rapidkoi://quote.dafifi.net`: a white shield; click it: the card with the app's name, "Connection secure ›", "Signed app ›"; open each, go back, press Escape. Then a local file (`./main counter.rkb`): a dim shield, "Local file", "Not signed".

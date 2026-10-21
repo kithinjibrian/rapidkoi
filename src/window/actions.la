@@ -29,6 +29,8 @@ public enum Msg {
     Go,
     /** Close the address box's suggestions: Escape, or a click outside them. Empties the box. */
     Dismiss,
+    /** Open the shield's card on a page, turn to a page, or close it (`None`; Escape, a click outside). */
+    Shield(Option<ShieldPage>),
     /** Turn the address shown on an app page back into the box. */
     EditAddress,
     /** Open a pinned app, by path, in the current tab. */
@@ -121,6 +123,16 @@ public enum PinAction {
     Unpin,
     /** Open it, with the panel's "Forget this app?" question. */
     Forget,
+}
+
+/** The shield's card's pages (PRP-021). */
+public enum ShieldPage {
+    /** The app, and a row each for its connection and its signature. */
+    Main,
+    /** How Rapidkoi reached it. */
+    Connection,
+    /** Who signed it, since when, and its version. */
+    Signed,
 }
 
 /** The info panel's pages. */

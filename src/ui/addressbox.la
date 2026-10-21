@@ -9,11 +9,19 @@
  * Used by: ui.header
  */
 import kivuli { View, Align, Border, Radius, Shadow, State, Text, When, image };
-import kivuli.ui { input_group, group_input, group_button_with, Button, button as ui_button };
-import window.actions { Msg };
+import kivuli.ui {
+    input_group,
+    group_input,
+    group_button_with,
+    Button,
+    button as ui_button,
+    popover as ui_popover,
+};
+import window.actions { Msg, ShieldPage };
 import window.window { Model, page_of, is_pinned };
 import ui.frame { marker, marker_note, file_of };
 import ui.icons { Icon, icon };
+import ui.shield { facts, look_colour, card };
 import ui.tokens {
     SPACE_SM,
     ADDRESS_HEIGHT,
@@ -29,9 +37,9 @@ import ui.tokens {
 import ui.themes { address, bare };
 
 /**
- * Builds the address box for the header bar, one framed group: the shield
- * at its start for a verified or trusted signed app, then site settings on
- * an app page (disabled until they exist, PRP-020); in the middle the field
+ * Builds the address box for the header bar, one framed group: on an app
+ * page, the shield at its start in its look, opening its card (PRP-021),
+ * then site settings (disabled until they exist, PRP-020); in the middle the field
  * ("Enter Address"; Enter goes) on home or while editing, or the app's
  * address, which a click or Ctrl+K turns into the field; and ☆ at its end on
  * an app page.
@@ -69,12 +77,21 @@ public fun field(m: Model): View<Msg> {
         ).autofocus().style([inside, flush_y()]),
     };
     let mut start: View<Msg>[] = [];
-    if let Some(note) = shield_note(m) {
-        // A picture, not a button: it says, and does nothing until app info returns.
+    if let App(p) = page {
+        // The shield, always, in its look (PRP-021); its card hangs under it
+        // while `m.shield` says it's open. A click outside or Escape closes it.
+        let f = facts(p);
+        let trigger = group_button_with(
+            [
+                image(icon(Icon.Shield, look_colour(t, f.look))).style([
+                    square(ADDRESS_ICON),
+                ]).align(Align.Center),
+            ],
+            Msg.Shield(Some(ShieldPage.Main)),
+        ).tooltip("Site information");
+        let page_shown = m.shield.unwrap_or(ShieldPage.Main);
         start.push(
-            image(icon(Icon.Shield, t.text)).style([square(ADDRESS_ICON)]).align(
-                Align.Center,
-            ).tooltip(note),
+            ui_popover(trigger, m.shield.is_some(), card(t, p, page_shown), Msg.Shield(None)),
         );
     }
     if let App(_) = page {
@@ -114,25 +131,3 @@ public fun field(m: Model): View<Msg> {
         When(State.FocusWithin, [Shadow.off()]),
     ]).align(Align.Center)
 }
-
-/**
- * Returns what the shield at the address box's start says, when it shows:
- * only for a signed app whose key is verified or trusted. A key not yet
- * confirmed gets no shield; its address says so in words.
- *
- * @param m the model
- * @returns the shield's tooltip, or `None` for no shield
- *
- * Example:
- *     shield_note(m)
- */
-public fun shield_note(m: Model): Option<string> = match page_of(m) {
-    App(p) => match p.trust {
-        Some(t) => match t.standing {
-            NotConfirmed => None,
-            _ => Some(marker_note(p, file_of(p.path))),
-        },
-        None => None,
-    },
-    Home => None,
-};

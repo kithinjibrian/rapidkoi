@@ -13,7 +13,7 @@ import data.store { Store };
 import net.dialing { Network };
 import people.people { People, nobody };
 import people.identity { Master };
-import window.actions { Msg, PanelPage, Confirm };
+import window.actions { Msg, PanelPage, ShieldPage, Confirm };
 import window.tabs { Page, Tab, Pin, AppPage, state_of };
 import window.leftoff { LeftOff, leave, snapshot };
 import ui.suggestions { Card };
@@ -38,6 +38,8 @@ public struct Model {
     public editing: bool,
     /** The info panel's page, or `None` when it's closed. */
     public panel: Option<PanelPage>,
+    /** The shield's card, open on a page, or `None` while closed (PRP-021). */
+    public shield: Option<ShieldPage>,
     /** A destructive action waiting for "yes". */
     public confirm: Option<Confirm>,
     /** Pinned apps, remembered across restarts by `saving`. */
@@ -87,6 +89,7 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         draft: "",
         editing: false,
         panel: None,
+        shield: None,
         confirm: None,
         pinned: [],
         last: None,

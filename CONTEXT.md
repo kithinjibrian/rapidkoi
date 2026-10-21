@@ -4795,16 +4795,44 @@ PRPs/prp-021-shield_card.md, CONTEXT.md
 
 ---
 
-## SESSION 132 — 2026-10-21 — Build PRP-021: the shield's card — open
+## SESSION 132 — 2026-10-21 — Build PRP-021: the shield's card — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner approved PRP-021 (including: a signed file whose key Rapidkoi trusts is Verified).
+- kivuli 0.51 (`lughac update`; the lock committed as lughac wrote it). Rapidkoi compiled on it unchanged.
+- Tests first: `test/shield.la` (facts for a verified site, a trusted file, a key not confirmed, a new publisher, this computer, unsigned; `known_since`; opening, paging and closing the card, and closing on another tab or home), `test/header.la` (the shield on every app page, not on home; the card's rows and ‹). Not run: the owner's. `the_card_turns_its_pages` assumes kivuli.testing finds buttons inside a popover's content (kivuli builds it while closed).
+- `src/ui/shield.la`: `ShieldLook`, `Connection`, `Signature`, `ShieldFacts`, `facts(p)`, `known_since`, `look_colour`, `card(t, p, page)` (date words from the old panel's `civil`). `Msg.Shield(Option<ShieldPage>)`, `ShieldPage`, `Model.shield`; `update` closes the card when the shown page (tab and path) changes. The address box's shield is a button on every app page, coloured by its look, in `ui.popover`; `shield_note` removed. Theme: `faint` `#8c8c8c` (unsigned); token `CARD_ICON` 32.
+- `lughac check` clean; every test file type-checks; fmt clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml (kivuli 0.51), lugha.lock (lughac), src/ui/shield.la (new), src/ui/addressbox.la, src/window/actions.la, src/window/window.la, src/shell.la, src/ui/themes.la, src/ui/tokens.la
+test/shield.la (new), test/header.la
+docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-021-shield_card.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/shield.la (7), test/header.la (2 new, 2 changed).
+
+### DECISIONS MADE
+
+- A trusted signed file is Verified (the owner approved it with the PRP).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run and look.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** PRP-021 (the shield's card in a kivuli 0.51 popover) waits for approval; then bump kivuli, tests first, build. Next after it: ⚙ site settings (app info, Account, Access, Data).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021). Waiting for the owner's test run and look. Next: ⚙ site settings (app info, Account, Access, Data), likely a popover or a sheet.

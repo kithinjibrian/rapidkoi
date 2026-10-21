@@ -1,0 +1,309 @@
+/**
+ * The shield, pure (PRP-021): what Rapidkoi can say about an app's trust
+ * (how it reached it, who signed it and since when, its version), the
+ * shield's look, and its card: the app at the top, a row each for the
+ * connection and the signature, each opening a page of its own. It answers
+ * "can I trust this?"; what the app may do is ⚙ site settings'. Only
+ * Rapidkoi draws it, from its own checks.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, net.address, trust.keys, ui.frame, ui.tokens, ui.themes
+ * Used by: ui.addressbox
+ */
+import kivuli { View, Align, Text, column, image, row, spacer, text };
+import kivuli.ui { Button, button_with as ui_button_with, separator };
+import window.actions { Msg, ShieldPage };
+import window.tabs { AppPage };
+import net.address { parse, shown };
+import trust.keys { fingerprint };
+import ui.frame { file_of, icon_of, initial };
+import ui.tokens { SPACE_XS, SPACE_SM, CARD_ICON, gap, square };
+import ui.themes { Theme, body, dim, heading };
+
+/** The shield's three looks: everything checks out, something to know, or nothing vouches. */
+public enum ShieldLook {
+    /** Signed, and the signature checks out: a verified site, or a signed file whose key Rapidkoi trusts. */
+    Verified,
+    /** A development address, a key not confirmed yet, or a new publisher. */
+    Caution,
+    /** Nothing signed it. */
+    Unsigned,
+}
+
+/** How Rapidkoi reached the app. */
+public enum Connection {
+    /** Over HTTPS from another machine, its certificate checked. */
+    Secure,
+    /** From this computer, for development. */
+    ThisComputer,
+    /** From a file on this computer. */
+    LocalFile,
+}
+
+/** What its signature says. */
+public enum Signature {
+    /** Signed, by a key Rapidkoi verified or trusts. */
+    Signed,
+    /** Signed, by a key Rapidkoi hasn't met. */
+    NotConfirmed,
+    /** Signed by a different key than before, opened as a separate app. */
+    NewPublisher,
+    /** Not signed. */
+    NotSigned,
+}
+
+/** What the shield says about one app. */
+public struct ShieldFacts {
+    /** The shield's look. */
+    public look: ShieldLook,
+    /** How Rapidkoi reached it. */
+    public connection: Connection,
+    /** What its signature says. */
+    public signature: Signature,
+    /** Where it came from: its host, or its file's name. */
+    public place: string,
+    /** Who signed it: "host · key xxxx-…"; `None` when unsigned. */
+    public publisher: Option<string>,
+    /** Since when Rapidkoi has known that publisher, or that it's new; `None` when unsigned or not confirmed. */
+    public since: Option<string>,
+    /** Its version, "· verified build" when its site's signed index lists the build; `None` without a manifest. */
+    public version: Option<string>,
+}
+
+/**
+ * Works out what the shield says about an app page, from what Rapidkoi
+ * already checked when it opened it.
+ *
+ * @param p the app page
+ * @returns its facts
+ *
+ * Example:
+ *     facts(page)
+ */
+public fun facts(p: AppPage): ShieldFacts {
+    let (connection, place) = match parse(p.path) {
+        Ok(a) => (if a.remote { Connection.Secure } else { Connection.ThisComputer }, shown(a)),
+        Err(_) => (Connection.LocalFile, file_of(p.path)),
+    };
+    let signature = match p.trust {
+        None => Signature.NotSigned,
+        Some(t) => if t.separate {
+            Signature.NewPublisher
+        } else {
+            match t.standing {
+                NotConfirmed => Signature.NotConfirmed,
+                _ => Signature.Signed,
+            }
+        },
+    };
+    let look = match signature {
+        NotSigned => ShieldLook.Unsigned,
+        NotConfirmed | NewPublisher => ShieldLook.Caution,
+        // Signed: a development address is still caution; a file is fine,
+        // its signature is what vouches for it.
+        Signed => match connection {
+            ThisComputer => ShieldLook.Caution,
+            _ => ShieldLook.Verified,
+        },
+    };
+    let publisher = p.trust.map(fun(t) = "{t.host} · key {fingerprint(t.key)}");
+    let since = match (p.trust, signature) {
+        (Some(_), NewPublisher) => Some("New publisher: its key changed"),
+        // Not trusted yet, so there's no "since".
+        (Some(_), NotConfirmed) => None,
+        (Some(t), _) => Some(known_since(t.since)),
+        (None, _) => None,
+    };
+    // Only a site's signed index vouches for the exact build.
+    let from_index = match p.trust {
+        Some(t) => match t.standing {
+            Verified => true,
+            _ => false,
+        },
+        None => false,
+    };
+    let version = p.manifest.map(
+        fun(m) = if from_index { "{m.version} · verified build" } else { m.version },
+    );
+    ShieldFacts {
+        look: look,
+        connection: connection,
+        signature: signature,
+        place: place,
+        publisher: publisher,
+        since: since,
+        version: version,
+    }
+}
+
+/**
+ * Returns since when Rapidkoi has known a publisher: "Same publisher since
+ * 18 Oct 2026".
+ *
+ * @param since when its key was first trusted, in milliseconds since 1970; 0 when not recorded
+ *
+ * Example:
+ *     known_since(trust.since)
+ */
+public fun known_since(since: i64): string {
+    if since <= 0 {
+        return "Same publisher since first use (date not recorded)";
+    }
+    let (y, m, d) = civil(since / 86_400_000);
+    let months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ];
+    "Same publisher since {d} {months[m - 1]} {y}"
+}
+
+/**
+ * Returns the colour the shield is drawn in for a look: the frame's white,
+ * the accent's orange, or faint.
+ *
+ * Example:
+ *     icon(Icon.Shield, look_colour(m.theme, f.look))
+ */
+public fun look_colour(t: Theme, look: ShieldLook): string = match look {
+    Verified => t.on_frame,
+    Caution => t.accent,
+    Unsigned => t.faint,
+};
+
+/**
+ * Builds the shield's card on a page: the app and its two rows, or one row's
+ * page with ‹ back.
+ *
+ * @param t the theme
+ * @param p the app page
+ * @param page which page of the card
+ * @returns the card's content, for the popover
+ *
+ * Example:
+ *     card(m.theme, page, ShieldPage.Main)
+ */
+public fun card(t: Theme, p: AppPage, page: ShieldPage): View<Msg> {
+    let f = facts(p);
+    match page {
+        Main => column([
+            identity(t, p),
+            separator(),
+            choice(t, connection_label(f.connection), ShieldPage.Connection),
+            choice(t, signature_label(f.signature), ShieldPage.Signed),
+        ]).style([gap(SPACE_SM)]),
+        Connection => detail(t, connection_label(f.connection), [
+            sentence(t, connection_sentence(f)),
+            line(t, "Address", f.place),
+        ]),
+        Signed => {
+            let mut lines = [sentence(t, signature_sentence(f, p))];
+            if let Some(who) = f.publisher {
+                lines.push(line(t, "Publisher", who));
+            }
+            if let Some(when) = f.since {
+                lines.push(line(t, "Known", when));
+            }
+            if let Some(v) = f.version {
+                lines.push(line(t, "Version", v));
+            }
+            detail(t, signature_label(f.signature), lines)
+        }
+    }
+}
+
+/** A connection row's words. */
+fun connection_label(c: Connection): string = match c {
+    Secure => "Connection secure",
+    ThisComputer => "This computer",
+    LocalFile => "Local file",
+};
+
+/** A signature row's words. */
+fun signature_label(s: Signature): string = match s {
+    Signed => "Signed app",
+    NotConfirmed => "Not confirmed yet",
+    NewPublisher => "New publisher",
+    NotSigned => "Not signed",
+};
+
+fun connection_sentence(f: ShieldFacts): string = match f.connection {
+    Secure => "Rapidkoi reached {f.place} over a secure connection: nobody between you can read or change it.",
+    ThisComputer => "Loaded from {f.place} on this computer, for development. Fine while you build it.",
+    LocalFile => "Opened from a file on this computer.",
+};
+
+fun signature_sentence(f: ShieldFacts, p: AppPage): string {
+    let host = p.trust.map(fun(t) = t.host).unwrap_or(f.place);
+    match f.signature {
+        Signed => "{host}'s publisher signed this app: you're running exactly what they published.",
+        NotConfirmed => "Signed, but Rapidkoi hasn't met this key yet. Open the app from {host} to confirm its publisher.",
+        NewPublisher => "Signed by a different key than before; you chose to open it as a separate app.",
+        NotSigned => "Nothing vouches for this app: only open it if you trust where it came from.",
+    }
+}
+
+/** The card's top: the app's icon (its initial without one) and name. */
+fun identity(t: Theme, p: AppPage): View<Msg> {
+    let face: View<Msg> = match icon_of(p.path, p.icon) {
+        Some(img) => image(img).style([square(CARD_ICON)]).align(Align.Center),
+        None => text(initial(p.name)).style(heading(t)).align(Align.Center),
+    };
+    row([face, text(p.name).style(heading(t)).align(Align.Center)]).style([gap(SPACE_SM)])
+}
+
+/** A row of the card: its words, then ›; the whole row opens its page. */
+fun choice(t: Theme, label: string, page: ShieldPage): View<Msg> = ui_button_with(
+    [text(label).style(body(t)), spacer(), text("›").style(dim(t))],
+    Msg.Shield(Some(page)),
+).style([Button.ghost(), Text.start()]);
+
+/** One row's page: ‹ back and its title, then its lines. */
+fun detail(t: Theme, title: string, lines: View<Msg>[]): View<Msg> {
+    let back = ui_button_with([text("‹").style(body(t))], Msg.Shield(Some(ShieldPage.Main))).style([
+        Button.ghost(),
+        Button.icon(),
+    ]).tooltip("Back");
+    let mut parts = [
+        row([back, text(title).style(heading(t)).align(Align.Center)]).style([gap(SPACE_XS)]),
+    ];
+    for l of lines {
+        parts.push(l);
+    }
+    column(parts).style([gap(SPACE_SM)])
+}
+
+/** A page's explaining sentence, wrapped to the card. */
+fun sentence(t: Theme, s: string): View<Msg> = text(s).style(body(t)).wrap();
+
+/** A fact: its name, dim, above its value. */
+fun line(t: Theme, name: string, value: string): View<Msg> = column([
+    text(name).style(dim(t)),
+    text(value).style(body(t)).wrap(),
+]);
+
+/**
+ * Days since 1970-01-01 as (year, month, day) in the proleptic Gregorian
+ * calendar: Howard Hinnant's civil_from_days (from the old panel's date
+ * words).
+ */
+fun civil(days: i64): (i64, i64, i64) {
+    let z = days + 719_468;
+    let era = (if z >= 0 { z } else { z - 146_096 }) / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + if m <= 2 { 1 } else { 0 };
+    (y, m, d)
+}

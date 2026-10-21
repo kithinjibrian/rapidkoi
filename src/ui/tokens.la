@@ -47,6 +47,8 @@ public const ADDRESS_WIDTH: i64 = 560;
 public const HEADER_ICON: i64 = 20;
 /** An icon inside the address box (the shield, ☆), in pixels: as on the header's buttons (the owner: 20, session 125). */
 public const ADDRESS_ICON: i64 = 20;
+/** The app's icon at the top of the shield's card, in pixels. */
+public const CARD_ICON: i64 = 32;
 /** A radius past half of any box Rapidkoi rounds: a circle, or a pill. */
 public const CIRCLE: i64 = 999;
 /** A button's and a text field's corners, in pixels. */
