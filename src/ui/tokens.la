@@ -47,6 +47,8 @@ public const ADDRESS_WIDTH: i64 = 560;
 public const HEADER_ICON: i64 = 20;
 /** An icon inside the address box (the shield, ☆), in pixels: as on the header's buttons (the owner: 20, session 125). */
 public const ADDRESS_ICON: i64 = 20;
+/** The shield's card's width, in pixels: the same on each of its pages (the owner, session 134). */
+public const CARD_WIDTH: i64 = 360;
 /** The app's icon at the top of the shield's card, in pixels. */
 public const CARD_ICON: i64 = 32;
 /** A radius past half of any box Rapidkoi rounds: a circle, or a pill. */
@@ -181,4 +183,17 @@ public fun margin_x(n: i64): Spacing = Spacing {
 public fun flush_y(): Spacing = Spacing {
     padding: Edges { top: Width.Px(0), bottom: Width.Px(0), ..Edges.theme() },
     ..Spacing.theme(),
+};
+
+/**
+ * Returns an exact width a node keeps whatever its content: its text wraps
+ * to it instead of widening it.
+ *
+ * Example:
+ *     card.style([exactly(CARD_WIDTH)])
+ */
+public fun exactly(width: i64): Sizing = Sizing {
+    width: Width.Px(width),
+    max_width: Width.Px(width),
+    ..Sizing.theme(),
 };

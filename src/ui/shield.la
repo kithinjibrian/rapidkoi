@@ -16,7 +16,7 @@ import window.tabs { AppPage };
 import net.address { parse, shown };
 import trust.keys { fingerprint };
 import ui.frame { file_of, icon_of, initial };
-import ui.tokens { SPACE_XS, SPACE_SM, CARD_ICON, gap, square };
+import ui.tokens { SPACE_XS, SPACE_SM, CARD_ICON, CARD_WIDTH, gap, square, exactly, padding };
 import ui.themes { Theme, body, dim, heading };
 
 /** The shield's three looks: everything checks out, something to know, or nothing vouches. */
@@ -193,7 +193,7 @@ public fun look_colour(t: Theme, look: ShieldLook): string = match look {
  */
 public fun card(t: Theme, p: AppPage, page: ShieldPage): View<Msg> {
     let f = facts(p);
-    match page {
+    let shown = match page {
         Main => column([
             identity(t, p),
             separator(),
@@ -217,7 +217,10 @@ public fun card(t: Theme, p: AppPage, page: ShieldPage): View<Msg> {
             }
             detail(t, signature_label(f.signature), lines)
         }
-    }
+    };
+    // One width on every page, so turning a page doesn't resize the card,
+    // and room inside it beyond kivuli.ui's own (the owner, session 134).
+    column([shown]).style([exactly(CARD_WIDTH), padding(SPACE_SM)])
 }
 
 /** A connection row's words. */

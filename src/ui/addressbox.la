@@ -8,7 +8,7 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.frame, ui.icons, ui.tokens, ui.themes
  * Used by: ui.header
  */
-import kivuli { View, Align, Border, Inside, Part, Radius, Shadow, State, Text, When, image };
+import kivuli { View, Align, Border, Radius, Shadow, State, Text, When, image };
 import kivuli.ui {
     input_group,
     group_input,
@@ -78,8 +78,8 @@ public fun field(m: Model): View<Msg> {
     };
     let mut start: View<Msg>[] = [];
     if let App(p) = page {
-        // The shield, always, in its look (PRP-021); it opens the card, which
-        // hangs from the whole box (below).
+        // The shield, always, in its look (PRP-021); its card hangs from it
+        // while `m.shield` says it's open. A click outside or Escape closes it.
         let f = facts(p);
         let shield_button = group_button_with(
             [
@@ -89,7 +89,14 @@ public fun field(m: Model): View<Msg> {
             ],
             Msg.Shield(Some(ShieldPage.Main)),
         ).tooltip("Site information");
-        start.push(shield_button);
+        start.push(
+            ui_popover(
+                shield_button,
+                m.shield.is_some(),
+                card(t, p, m.shield.unwrap_or(ShieldPage.Main)),
+                Msg.Shield(None),
+            ),
+        );
     }
     if let App(_) = page {
         // Site settings, right of the shield (PRP-020): disabled until the
@@ -127,16 +134,5 @@ public fun field(m: Model): View<Msg> {
         // edge stays (the owner, session 117).
         When(State.FocusWithin, [Shadow.off()]),
     ]);
-    match page {
-        // The shield's card hangs from the whole box, the box's width, so it
-        // lines up under it wherever it was opened from (the owner, session
-        // 133). A click outside or Escape closes it.
-        App(p) => ui_popover(
-            box,
-            m.shield.is_some(),
-            card(t, p, m.shield.unwrap_or(ShieldPage.Main)),
-            Msg.Shield(None),
-        ).style([Inside(Part.Popover, [at_least(ADDRESS_WIDTH, 0)])]).align(Align.Center),
-        Home => box.align(Align.Center),
-    }
+    box.align(Align.Center)
 }
