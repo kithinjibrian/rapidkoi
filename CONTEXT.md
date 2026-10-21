@@ -4665,6 +4665,38 @@ PRPs/prp-020-site_settings_button.md, src/ui/addressbox.la, test/header.la, docs
 
 ---
 
+## SESSION 128 — 2026-10-21 — Discovery: what the shield shows — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: the shield should show two things, HTTPS (secure) and that the app is signed; anything else? Answered from what Rapidkoi already knows about a page (`Trust`: host, key, standing, build, separate, since, origin; the manifest's version; where it came from): proposed adding who signed it (the publisher's key, and since when), that this exact build is in the publisher's signed index, and the shield's states (all good, a warning, a changed key) so the shield always shows instead of only when all's well. Permissions belong to site settings (⚙), not the shield. Waiting for the owner. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- None yet.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's answer: what the shield shows (the next PRP).
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The header bar (PRP-019) and the site settings button (PRP-020, disabled) are built: flat `#242424` frame, white 20 px icons, round window-control hovers, a full-pill address box with 🛡, ⚙ and ☆. No decision is open. Next: the site settings themselves (a native `ui.sheet` with app info, Account, Access, Data; the ⚙ opens it), then the address box's suggestions, the sidebar's contents, the content area and apps' content on `kivuli.ui`, the ☰ menu.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The header bar (PRP-019) and the site settings button (PRP-020, disabled) are built. Discovery for the shield's panel (what clicking 🛡 shows) is open: the owner proposed HTTPS and signed; session 128 suggested adding the publisher and since when, the build being in the signed index, and the shield's states. No decision is open in DECISIONS.md.
