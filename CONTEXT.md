@@ -4999,16 +4999,39 @@ src/ui/shield.la (the owner's rounding, kept), docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 138 — 2026-10-21 — The card's back as the arrow-left icon — open
+## SESSION 138 — 2026-10-21 — The card's back as the arrow-left icon — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: yes, back as an icon too. The card pages' back button shows `Icon.Back` (`arrow-left4`) at `CARD_ICON` in the text colour, its hover a circle (`CIRCLE`), tooltip "Back" kept (tests click it by that). The unused `rounded()` helper and its `BUTTON_RADIUS` import removed.
+- `lughac check` clean; shield and header tests type-check; fmt clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/shield.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a look).
+
+### DECISIONS MADE
+
+- Back in the card is the arrow-left icon.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; from the shield, 360 px on every page, padded pill rows ending in the arrow icon, every icon 20 px). Next: ⚙ site settings (app info, Account, Access, Data).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; from the shield, 360 px on every page, pill rows ending in arrow-right, back as arrow-left, every icon 20 px). Next: ⚙ site settings (app info, Account, Access, Data).

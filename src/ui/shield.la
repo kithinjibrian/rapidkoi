@@ -22,7 +22,6 @@ import ui.tokens {
     SPACE_SM,
     CARD_ICON,
     CARD_WIDTH,
-    BUTTON_RADIUS,
     CIRCLE,
     gap,
     square,
@@ -296,10 +295,15 @@ fun choice(t: Theme, label: string, page: ShieldPage): View<Msg> = button_with(
 
 /** One row's page: ‹ back and its title, then its lines. */
 fun detail(t: Theme, title: string, lines: View<Msg>[]): View<Msg> {
-    let back = ui_button_with([text("‹").style(body(t))], Msg.Shield(Some(ShieldPage.Main))).style([
+    // The arrow-left icon, as the rows end in arrow-right; a circle when
+    // hovered, as the rows are pills (the owner, session 138).
+    let back = ui_button_with(
+        [image(icon(Icon.Back, t.text)).style([square(CARD_ICON)]).align(Align.Center)],
+        Msg.Shield(Some(ShieldPage.Main)),
+    ).style([
         Button.ghost(),
         Button.icon(),
-        rounded(),
+        Border { radius: Radius.All(CIRCLE), ..Border.theme() },
     ]).tooltip("Back");
     let mut parts = [
         row([back, text(title).style(heading(t)).align(Align.Center)]).style([gap(SPACE_XS)]),
@@ -336,6 +340,3 @@ fun civil(days: i64): (i64, i64, i64) {
     let y = yoe + era * 400 + if m <= 2 { 1 } else { 0 };
     (y, m, d)
 }
-
-/** Rounded corners, so a hovered row's colour isn't a hard rectangle. */
-fun rounded(): Border = Border { radius: Radius.All(BUTTON_RADIUS), ..Border.theme() };
