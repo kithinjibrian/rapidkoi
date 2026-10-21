@@ -9,7 +9,7 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, net.address, trust.keys, ui.frame, ui.tokens, ui.themes
  * Used by: ui.addressbox
  */
-import kivuli { View, Align, Text, column, image, row, spacer, text };
+import kivuli { View, Align, button_with, column, image, row, spacer, text };
 import kivuli.ui { Button, button_with as ui_button_with, separator };
 import window.actions { Msg, ShieldPage };
 import window.tabs { AppPage };
@@ -261,10 +261,13 @@ fun identity(t: Theme, p: AppPage): View<Msg> {
 }
 
 /** A row of the card: its words, then ›; the whole row opens its page. */
-fun choice(t: Theme, label: string, page: ShieldPage): View<Msg> = ui_button_with(
-    [text(label).style(body(t)), spacer(), text("›").style(dim(t))],
+// kivuli's own button_with, not kivuli.ui's: its content fills the button,
+// so the words sit at the left and › at the right (kivuli.ui's centres its
+// content; the owner wanted them left, session 133).
+fun choice(t: Theme, label: string, page: ShieldPage): View<Msg> = button_with(
+    row([text(label).style(body(t)), spacer(), text("›").style(dim(t))]).expand(),
     Msg.Shield(Some(page)),
-).style([Button.ghost(), Text.start()]);
+).style([Button.ghost()]);
 
 /** One row's page: ‹ back and its title, then its lines. */
 fun detail(t: Theme, title: string, lines: View<Msg>[]): View<Msg> {

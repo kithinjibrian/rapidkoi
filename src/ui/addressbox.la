@@ -8,7 +8,7 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.frame, ui.icons, ui.tokens, ui.themes
  * Used by: ui.header
  */
-import kivuli { View, Align, Border, Radius, Shadow, State, Text, When, image };
+import kivuli { View, Align, Border, Inside, Part, Radius, Shadow, State, Text, When, image };
 import kivuli.ui {
     input_group,
     group_input,
@@ -78,10 +78,10 @@ public fun field(m: Model): View<Msg> {
     };
     let mut start: View<Msg>[] = [];
     if let App(p) = page {
-        // The shield, always, in its look (PRP-021); its card hangs under it
-        // while `m.shield` says it's open. A click outside or Escape closes it.
+        // The shield, always, in its look (PRP-021); it opens the card, which
+        // hangs from the whole box (below).
         let f = facts(p);
-        let trigger = group_button_with(
+        let shield_button = group_button_with(
             [
                 image(icon(Icon.Shield, look_colour(t, f.look))).style([
                     square(ADDRESS_ICON),
@@ -89,10 +89,7 @@ public fun field(m: Model): View<Msg> {
             ],
             Msg.Shield(Some(ShieldPage.Main)),
         ).tooltip("Site information");
-        let page_shown = m.shield.unwrap_or(ShieldPage.Main);
-        start.push(
-            ui_popover(trigger, m.shield.is_some(), card(t, p, page_shown), Msg.Shield(None)),
-        );
+        start.push(shield_button);
     }
     if let App(_) = page {
         // Site settings, right of the shield (PRP-020): disabled until the
@@ -121,7 +118,7 @@ public fun field(m: Model): View<Msg> {
     // A pill, as the owner asked (sessions 75, 121): GTK caps a radius at half
     // the box, so CIRCLE rounds each end fully whatever height kivuli.ui's
     // minimums give it.
-    input_group(start, middle, end).style([
+    let box = input_group(start, middle, end).style([
         Border { radius: Radius.All(CIRCLE), ..Border.theme() },
         at_least(ADDRESS_WIDTH, ADDRESS_HEIGHT),
         // Room above and below inside the header bar (the owner, session 107).
@@ -129,5 +126,17 @@ public fun field(m: Model): View<Msg> {
         // No glow while typed in: kivuli.ui's 3 px halo goes, its thin ring
         // edge stays (the owner, session 117).
         When(State.FocusWithin, [Shadow.off()]),
-    ]).align(Align.Center)
+    ]);
+    match page {
+        // The shield's card hangs from the whole box, the box's width, so it
+        // lines up under it wherever it was opened from (the owner, session
+        // 133). A click outside or Escape closes it.
+        App(p) => ui_popover(
+            box,
+            m.shield.is_some(),
+            card(t, p, m.shield.unwrap_or(ShieldPage.Main)),
+            Msg.Shield(None),
+        ).style([Inside(Part.Popover, [at_least(ADDRESS_WIDTH, 0)])]).align(Align.Center),
+        Home => box.align(Align.Center),
+    }
 }

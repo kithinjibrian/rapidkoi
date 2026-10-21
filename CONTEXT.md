@@ -4833,16 +4833,41 @@ docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-021-shield_card.md, CONTEXT.md
 
 ---
 
-## SESSION 133 — 2026-10-21 — The shield's card: left-aligned, the box's width — open
+## SESSION 133 — 2026-10-21 — The shield's card: left-aligned, the box's width — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner's screenshots of PRP-021: the card's rows were centred; left-align them; and the popover should be the same size wherever it's opened from.
+- Rows: kivuli.ui's `button_with` centres its content; the rows now use kivuli's own `button_with` (content fills it) with `Button.ghost()`, a row expanding with the words, a spacer, then ›.
+- Size: the popover now hangs from the whole address box (not the shield button), its panel at least `ADDRESS_WIDTH` (`Inside(Part.Popover, [at_least(ADDRESS_WIDTH, 0)])`), so it lines up under the box. The shield is a plain button that opens it.
+- `lughac check` clean; shield, header, addressbox and layout tests type-check; fmt clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/addressbox.la, src/ui/shield.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (layout).
+
+### DECISIONS MADE
+
+- The shield's card hangs from the address box, its width.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021). Waiting for the owner's test run and look. Next: ⚙ site settings (app info, Account, Access, Data), likely a popover or a sheet.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; session 133: rows left-aligned, the card the address box's width, hanging from the box). Next: ⚙ site settings (app info, Account, Access, Data).
