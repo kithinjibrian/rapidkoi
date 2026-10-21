@@ -5032,16 +5032,39 @@ src/ui/shield.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 139 — 2026-10-21 — PRP-022: site settings — open
+## SESSION 139 — 2026-10-21 — PRP-022: site settings — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- Designed in chat (not logged per message): the owner's sketch for ⚙ site settings: the app's icon, name, version and description; sections Account (Public key ›, Identity ›), App settings (servers ›, permissions ›), App data (State ›). Agreed: no permissions row until permissions exist; Forget this app at the bottom, asking first; no Account section for unsigned apps.
+- Wrote PRP-022 (`PRPs/prp-022-site_settings.md`): `src/ui/settings.la`; reuses the old panel's model (`Model.panel`, `Model.confirm`) and messages; `PanelPage` becomes `Main, Key, Account, Access, State`; confirmations as kivuli.ui dialogs; one of the two cards open at a time. Waiting for approval; no code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-022-site_settings.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (listed in PRP-022).
+
+### DECISIONS MADE
+
+- Site settings' shape (the owner's sketch and the three answers above).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-022's approval.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; from the shield, 360 px on every page, pill rows ending in arrow-right, back as arrow-left, every icon 20 px). Next: ⚙ site settings (app info, Account, Access, Data).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021). PRP-022 (site settings behind ⚙) waits for approval; then build it on this branch, tests first.
