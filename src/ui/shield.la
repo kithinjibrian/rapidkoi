@@ -16,12 +16,14 @@ import window.tabs { AppPage };
 import net.address { parse, shown };
 import trust.keys { fingerprint };
 import ui.frame { file_of, icon_of, initial };
+import ui.icons { Icon, icon };
 import ui.tokens {
     SPACE_XS,
     SPACE_SM,
     CARD_ICON,
     CARD_WIDTH,
     BUTTON_RADIUS,
+    CIRCLE,
     gap,
     square,
     exactly,
@@ -275,14 +277,22 @@ fun identity(t: Theme, p: AppPage): View<Msg> {
 
 /** A row of the card: its words, then ›; the whole row opens its page. */
 // kivuli's own button_with, not kivuli.ui's: its content fills the button,
-// so the words sit at the left and › at the right (kivuli.ui's centres its
-// content; the owner wanted them left, session 133). Room inside each row,
-// so it reads as a target (the owner, session 135); its hover rounded
-// (session 136).
+// so the words sit at the left and the arrow at the right (kivuli.ui's
+// centres its content; the owner wanted them left, session 133). Room inside
+// each row, so it reads as a target (session 135); its hover a pill (the
+// owner's rounding, session 136); the arrow an icon (session 137).
 fun choice(t: Theme, label: string, page: ShieldPage): View<Msg> = button_with(
-    row([text(label).style(body(t)), spacer(), text("›").style(dim(t))]).expand(),
+    row([
+        text(label).style(body(t)).align(Align.Center),
+        spacer(),
+        image(icon(Icon.Forward, t.faint)).style([square(CARD_ICON)]).align(Align.Center),
+    ]).expand(),
     Msg.Shield(Some(page)),
-).style([Button.ghost(), padding(SPACE_SM), rounded()]);
+).style([
+    Button.ghost(),
+    padding(SPACE_SM),
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+]);
 
 /** One row's page: ‹ back and its title, then its lines. */
 fun detail(t: Theme, title: string, lines: View<Msg>[]): View<Msg> {

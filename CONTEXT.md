@@ -4966,16 +4966,39 @@ src/ui/shield.la, src/ui/tokens.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 137 — 2026-10-21 — An arrow icon in the shield card's rows — open
+## SESSION 137 — 2026-10-21 — An arrow icon in the shield card's rows — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner had changed the rows' hover to `Border.rounded(99)` (a pill) and asked for the arrow-right icon instead of the "›" text. The rows end with `Icon.Forward` (`arrow-right4`) at `CARD_ICON` (20) in `faint`, the words centred down the row beside it. The owner's rounding kept, written as `Radius.All(CIRCLE)` (no bare numbers in styles, the DESIGN RULE).
+- `lughac check` clean; shield tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/shield.la (the owner's rounding, kept), docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a look).
+
+### DECISIONS MADE
+
+- The card's rows end with the arrow icon; their hover is a pill.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; from the shield, 360 px on every page, padded rows with rounded hovers, every icon 20 px). Next: ⚙ site settings (app info, Account, Access, Data).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; from the shield, 360 px on every page, padded pill rows ending in the arrow icon, every icon 20 px). Next: ⚙ site settings (app info, Account, Access, Data).
