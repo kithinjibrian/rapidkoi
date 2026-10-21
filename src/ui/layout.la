@@ -56,12 +56,13 @@ public fun view(m: Model): View<Msg> {
     let body = row([area, sidebar_view]).expand();
     // Rapidkoi's colours as a palette, fixed dark: kivuli.ui's components
     // draw in them, and the desktop's scheme never applies (DECISION-031).
-    column([body]).style(frame_look(t)).window(
+    // `.dialog` wraps the page in an overlay, so it comes first: the root
+    // modifiers (`.palette`, `.window`, `.header`) must sit on what it
+    // returns, or kivuli stops ("belongs on the root"; session 141).
+    // Start over, start over as someone new, and Forget ask first (PRP-022).
+    column([body]).style(frame_look(t)).dialog(settings.dialog(m)).window(
         title_of(m),
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-    ).maximized().palette(palette(t)).scheme(Scheme.Dark).header(header.bar(m)).dialog(
-        // Start over, start over as someone new, and Forget ask first (PRP-022).
-        settings.dialog(m),
-    )
+    ).maximized().palette(palette(t)).scheme(Scheme.Dark).header(header.bar(m))
 }

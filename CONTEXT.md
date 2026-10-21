@@ -5105,16 +5105,39 @@ docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-022-site_settings.md, CONTEXT.
 
 ---
 
-## SESSION 141 — 2026-10-21 — Fix: the dialog wrapped the root, the palette panicked — open
+## SESSION 141 — 2026-10-21 — Fix: the dialog wrapped the root, the palette panicked — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner ran `./main rapidkoi://quote.dafifi.net` after PRP-022: `panic: kivuli: .palette(…) belongs on the root of the view only` (kivuli's `render/live.la`). Cause: `.dialog(…)` wraps the view in an overlay (kivuli's `with_dialog`), and PRP-022 put it last, after `.palette`, `.window` and `.header`, so they no longer sat on the root. Fix: `.dialog(settings.dialog(m))` first, as kivuli's own `examples/components.la` orders it.
+- Not caught by tests: kivuli checks this only when it builds the window, which tests (no display) never do. `lughac check` clean; layout, settings and addressbox tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/layout.la, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (kivuli raises it while building widgets, past what `kivuli.testing` sees).
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's run and look.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022). Waiting for the owner's test run and look. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022; session 141 fixed the root modifier order: `.dialog` first). Waiting for the owner's run and look. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
