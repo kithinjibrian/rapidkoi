@@ -9,7 +9,7 @@
  */
 import kivuli { View, Cmd, Sub };
 import wasmtime { Engine };
-import window.actions { Msg, PanelPage, Confirm, TabAction, PinAction };
+import window.actions { Msg, PanelPage, ShieldPage, Confirm, TabAction, PinAction };
 import window.tabs { AppPage, Tab, Pin, handle, is_loading };
 import net.loads;
 import guest.effects { answer_all };
@@ -97,7 +97,12 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     let (handled, cmd) = handle_msg(m, msg);
     // The shield's card belongs to one page: leaving it (another tab, home,
     // another app in this tab) closes it (PRP-021).
-    let next = if shown(handled) != shown(m) { Model { shield: None, ..handled } } else { handled };
+    // Site settings too (PRP-022).
+    let next = if shown(handled) != shown(m) {
+        Model { shield: None, panel: None, ..handled }
+    } else {
+        handled
+    };
     // What a v2 app asked for is answered before anything is drawn or saved.
     let (answered, sends) = answer_all(next);
     // What each app declares, and "New" cleared once its Access page is left.
@@ -137,7 +142,11 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Draft(text) => (Model { draft: text, notice: None, ..m }, Cmd.none()),
     Go => navigate.go(m),
     Dismiss => (Model { draft: "", editing: false, notice: None, ..m }, Cmd.none()),
-    Shield(page) => (Model { shield: page, ..m }, Cmd.none()),
+    // One card at a time: opening the shield's closes site settings (PRP-022).
+    Shield(page) => (
+        Model { shield: page, panel: if page.is_some() { None } else { m.panel }, ..m },
+        Cmd.none(),
+    ),
     EditAddress => match window.page_of(m) {
         App(a) => (Model { editing: true, draft: a.path, ..m }, Cmd.focus("address")),
         Home => (m, Cmd.focus("address")),
@@ -147,6 +156,8 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     TogglePanel => (
         Model {
             panel: if m.panel.is_some() { None } else { Some(PanelPage.Main) },
+            // One card at a time: site settings close the shield's (PRP-022).
+            shield: None,
             confirm: None,
             ..m,
         },
@@ -196,7 +207,11 @@ fun on_tab(m: Model, id: i64, action: TabAction): (Model, Cmd<Msg>) {
     match action {
         Reload => navigate.reload(at),
         TogglePin => (window.toggle_pin(at), Cmd.none()),
-        About => (Model { panel: Some(PanelPage.About), confirm: None, ..at }, Cmd.none()),
+        // About this app is the shield's card now (PRP-022).
+        About => (
+            Model { shield: Some(ShieldPage.Main), panel: None, confirm: None, ..at },
+            Cmd.none(),
+        ),
         Close => (window.close(at, id), Cmd.none()),
         Forget => (
             Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget), ..at },

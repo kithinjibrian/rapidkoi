@@ -5065,16 +5065,46 @@ PRPs/prp-022-site_settings.md, CONTEXT.md
 
 ---
 
-## SESSION 140 — 2026-10-21 — Build PRP-022: site settings — open
+## SESSION 140 — 2026-10-21 — Build PRP-022: site settings — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner approved PRP-022.
+- Tests first: `test/settings.la` (9: ⚙ on app pages only; the main page's sections; no Account for unsigned; every page's back; Identity's name fields, sign out/in, the switch, start over; Servers' switches, none unsigned; State's clear; each dialog's Cancel and action; one card at a time). `test/shell.la`, `test/menus.la` follow `PanelPage`; header's PRP-020 test (⚙ disabled) removed. Not run: the owner's.
+- `src/ui/cards.la` (new): the card pieces the shield and settings share (`sized`, `identity`, `choice` with a summary, `detail` with back, `sentence`, `line`), moved out of `shield.la`.
+- `src/ui/settings.la` (new): `card(m, p, page)`, `dialog(m)` for the root, `dialog_view(m)` (what it shows, testable). Servers' summary and the size words restored from the old panel.
+- `PanelPage` is `Main, Key, Account, Access, State`; `TabAction.About` opens the shield's card; opening one card closes the other; leaving the page closes both. Forget from a tab or pin menu now shows only its dialog (two menu tests updated).
+- ⚙ enabled ("Site settings", `TogglePanel`) in a popover; the root's `.dialog(settings.dialog(m))`; theme `group(t)`.
+- `lughac check` clean; every test file type-checks; fmt clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/cards.la, src/ui/settings.la (new); src/ui/shield.la, src/ui/addressbox.la, src/ui/layout.la, src/ui/themes.la, src/window/actions.la, src/shell.la
+test/settings.la (new); test/shell.la, test/menus.la, test/header.la, test/themes.la
+docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-022-site_settings.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/settings.la (9).
+
+### DECISIONS MADE
+
+- Shared card pieces live in `ui/cards.la`.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run and look.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021). PRP-022 (site settings behind ⚙) waits for approval; then build it on this branch, tests first.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022). Waiting for the owner's test run and look. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.

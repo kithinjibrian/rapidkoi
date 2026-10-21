@@ -6,29 +6,19 @@
  * "can I trust this?"; what the app may do is ⚙ site settings'. Only
  * Rapidkoi draws it, from its own checks.
  *
- * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, net.address, trust.keys, ui.frame, ui.tokens, ui.themes
+ * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, net.address, trust.keys, ui.frame, ui.tokens, ui.themes, ui.cards
  * Used by: ui.addressbox
  */
-import kivuli { View, Align, Border, Radius, button_with, column, image, row, spacer, text };
-import kivuli.ui { Button, button_with as ui_button_with, separator };
+import kivuli { View, column };
+import kivuli.ui { separator };
 import window.actions { Msg, ShieldPage };
 import window.tabs { AppPage };
 import net.address { parse, shown };
 import trust.keys { fingerprint };
-import ui.frame { file_of, icon_of, initial };
-import ui.icons { Icon, icon };
-import ui.tokens {
-    SPACE_XS,
-    SPACE_SM,
-    CARD_ICON,
-    CARD_WIDTH,
-    CIRCLE,
-    gap,
-    square,
-    exactly,
-    padding,
-};
-import ui.themes { Theme, body, dim, heading };
+import ui.frame { file_of };
+import ui.tokens { SPACE_SM, gap };
+import ui.themes { Theme };
+import ui.cards { sized, identity, choice, detail, sentence, line };
 
 /** The shield's three looks: everything checks out, something to know, or nothing vouches. */
 public enum ShieldLook {
@@ -204,14 +194,20 @@ public fun look_colour(t: Theme, look: ShieldLook): string = match look {
  */
 public fun card(t: Theme, p: AppPage, page: ShieldPage): View<Msg> {
     let f = facts(p);
+    let back = Msg.Shield(Some(ShieldPage.Main));
     let shown = match page {
         Main => column([
-            identity(t, p),
+            identity(t, p, None),
             separator(),
-            choice(t, connection_label(f.connection), ShieldPage.Connection),
-            choice(t, signature_label(f.signature), ShieldPage.Signed),
+            choice(
+                t,
+                connection_label(f.connection),
+                None,
+                Msg.Shield(Some(ShieldPage.Connection)),
+            ),
+            choice(t, signature_label(f.signature), None, Msg.Shield(Some(ShieldPage.Signed))),
         ]).style([gap(SPACE_SM)]),
-        Connection => detail(t, connection_label(f.connection), [
+        Connection => detail(t, connection_label(f.connection), back, [
             sentence(t, connection_sentence(f)),
             line(t, "Address", f.place),
         ]),
@@ -226,12 +222,10 @@ public fun card(t: Theme, p: AppPage, page: ShieldPage): View<Msg> {
             if let Some(v) = f.version {
                 lines.push(line(t, "Version", v));
             }
-            detail(t, signature_label(f.signature), lines)
+            detail(t, signature_label(f.signature), back, lines)
         }
     };
-    // One width on every page, so turning a page doesn't resize the card
-    // (the owner, session 134).
-    column([shown]).style([exactly(CARD_WIDTH)])
+    sized(shown)
 }
 
 /** A connection row's words. */
@@ -264,64 +258,6 @@ fun signature_sentence(f: ShieldFacts, p: AppPage): string {
         NotSigned => "Nothing vouches for this app: only open it if you trust where it came from.",
     }
 }
-
-/** The card's top: the app's icon (its initial without one) and name. */
-fun identity(t: Theme, p: AppPage): View<Msg> {
-    let face: View<Msg> = match icon_of(p.path, p.icon) {
-        Some(img) => image(img).style([square(CARD_ICON)]).align(Align.Center),
-        None => text(initial(p.name)).style(heading(t)).align(Align.Center),
-    };
-    row([face, text(p.name).style(heading(t)).align(Align.Center)]).style([gap(SPACE_SM)])
-}
-
-/** A row of the card: its words, then ›; the whole row opens its page. */
-// kivuli's own button_with, not kivuli.ui's: its content fills the button,
-// so the words sit at the left and the arrow at the right (kivuli.ui's
-// centres its content; the owner wanted them left, session 133). Room inside
-// each row, so it reads as a target (session 135); its hover a pill (the
-// owner's rounding, session 136); the arrow an icon (session 137).
-fun choice(t: Theme, label: string, page: ShieldPage): View<Msg> = button_with(
-    row([
-        text(label).style(body(t)).align(Align.Center),
-        spacer(),
-        image(icon(Icon.Forward, t.faint)).style([square(CARD_ICON)]).align(Align.Center),
-    ]).expand(),
-    Msg.Shield(Some(page)),
-).style([
-    Button.ghost(),
-    padding(SPACE_SM),
-    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
-]);
-
-/** One row's page: ‹ back and its title, then its lines. */
-fun detail(t: Theme, title: string, lines: View<Msg>[]): View<Msg> {
-    // The arrow-left icon, as the rows end in arrow-right; a circle when
-    // hovered, as the rows are pills (the owner, session 138).
-    let back = ui_button_with(
-        [image(icon(Icon.Back, t.text)).style([square(CARD_ICON)]).align(Align.Center)],
-        Msg.Shield(Some(ShieldPage.Main)),
-    ).style([
-        Button.ghost(),
-        Button.icon(),
-        Border { radius: Radius.All(CIRCLE), ..Border.theme() },
-    ]).tooltip("Back");
-    let mut parts = [
-        row([back, text(title).style(heading(t)).align(Align.Center)]).style([gap(SPACE_XS)]),
-    ];
-    for l of lines {
-        parts.push(l);
-    }
-    column(parts).style([gap(SPACE_SM)])
-}
-
-/** A page's explaining sentence, wrapped to the card. */
-fun sentence(t: Theme, s: string): View<Msg> = text(s).style(body(t)).wrap();
-
-/** A fact: its name, dim, above its value. */
-fun line(t: Theme, name: string, value: string): View<Msg> = column([
-    text(name).style(dim(t)),
-    text(value).style(body(t)).wrap(),
-]);
 
 /**
  * Days since 1970-01-01 as (year, month, day) in the proleptic Gregorian

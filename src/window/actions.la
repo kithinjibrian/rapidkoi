@@ -135,22 +135,18 @@ public enum ShieldPage {
     Signed,
 }
 
-/** The info panel's pages. */
+/** Site settings' pages (PRP-022): the card behind ⚙. */
 public enum PanelPage {
-    /** The header, description, settings, storage and Forget. */
+    /** The app, its sections, and Forget. */
     Main,
-    /** How the app knows you (sign-in comes later: DECISION-022). */
+    /** Public key: who you are to the app. */
+    Key,
+    /** Identity: your name in it, signing in and out, starting over as someone new. */
     Account,
-    /** Whether it may send notifications. */
-    Notifications,
-    /** What it can reach: devices, files, servers. */
+    /** Servers: what it can reach, a switch each. */
     Access,
-    /** What it saved: where you left off, and Start over. */
+    /** State: what it saved, and clearing it. */
     State,
-    /** Its files and database. */
-    Data,
-    /** Who published it, where it came from, its version and build. */
-    About,
 }
 
 /** A destructive action waiting for "yes". */

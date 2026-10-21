@@ -70,14 +70,14 @@ Dialogs: "Start Notes over? What it saved on this device will be cleared." [Canc
 ## TESTS TO WRITE
 
 `test/settings.la`:
-- [ ] ⚙ is enabled on every app page ("Site settings") and sends `TogglePanel`; not on home.
-- [ ] Main lists Account (signed only), App settings, App data and Forget; an unsigned app has no Account rows.
-- [ ] Each row sends `PanelGo(page)`; back sends `PanelBack`.
-- [ ] Identity: typing a name sends `SetName(ThisApp, …)`; Sign out / Sign in; the switch sends `ToggleAutoSignIn`; "Start over as someone new…" sends `Ask(StartOverIdentity)`.
-- [ ] Servers: a signed app's switch sends `ToggleServer(s)`; an unsigned app has no switches.
-- [ ] State: "Clear and start over…" sends `Ask(StartOver)`.
-- [ ] Forget this app… sends `Ask(Forget)`; the dialog's Cancel sends `Cancel`, its danger button `Forget`.
-- [ ] Opening the shield's card closes this one and the other way round.
+- [x] ⚙ is enabled on every app page ("Site settings") and sends `TogglePanel`; not on home.
+- [x] Main lists Account (signed only), App settings, App data and Forget; an unsigned app has no Account rows.
+- [x] Each row sends `PanelGo(page)`; back sends `PanelBack`.
+- [x] Identity: typing a name sends `SetName(ThisApp, …)`; Sign out / Sign in; the switch sends `ToggleAutoSignIn`; "Start over as someone new…" sends `Ask(StartOverIdentity)`.
+- [x] Servers: a signed app's switch sends `ToggleServer(s)`; an unsigned app has no switches.
+- [x] State: "Clear and start over…" sends `Ask(StartOver)`.
+- [x] Forget this app… sends `Ask(Forget)`; the dialog's Cancel sends `Cancel`, its danger button `Forget`.
+- [x] Opening the shield's card closes this one and the other way round.
 
 `test/shell.la`, `test/account.la`, `test/access.la`: follow `PanelPage`.
 
@@ -88,8 +88,8 @@ Dialogs: "Start Notes over? What it saved on this device will be cleared." [Canc
 ## ACCEPTANCE CRITERIA
 - [ ] ⚙ opens the card as sketched; each page works; the dialogs ask before Start over, start over as someone new and Forget
 - [ ] The tests above and `lughac test test/` pass (the owner runs them)
-- [ ] `lughac build src/main.la -o main`; `lughac fmt --check src test` clean; no file over 500 lines
-- [ ] DESIGN.md, CLAUDE.md, CHANGELOG.md updated
+- [x] `lughac build src/main.la -o main`; `lughac fmt --check src test` clean; no file over 500 lines
+- [x] DESIGN.md, CLAUDE.md, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user: `./main rapidkoi://quote.dafifi.net`: ⚙ opens the card; open Public key, Identity (type a name, sign out and in), Servers (switch one off), State; Forget asks in a dialog; Cancel. Then a local file: no Account section.

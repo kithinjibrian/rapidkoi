@@ -104,13 +104,3 @@ fun the_card_turns_its_pages() {
     let signed_page = addressbox.field(step(m, Msg.Shield(Some(ShieldPage.Signed))));
     assert_eq(click(signed_page, "Back"), Ok(Msg.Shield(Some(ShieldPage.Main))));
 }
-
-@test
-fun an_app_page_has_site_settings_waiting_greyed_out() {
-    // PRP-020: right of the shield, disabled until the settings exist.
-    for m of [window(plain()), window(signed(Standing.Verified))] {
-        assert_eq(is_disabled(addressbox.field(m), "Site settings (coming soon)"), Ok(true));
-    }
-    let home = step(window(plain()), Msg.Home);
-    assert(is_disabled(addressbox.field(home), "Site settings (coming soon)").is_err());
-}

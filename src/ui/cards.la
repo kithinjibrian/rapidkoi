@@ -1,0 +1,126 @@
+/**
+ * The cards that hang from the address box, pure (PRP-021, PRP-022): the
+ * pieces the shield's card and site settings share. The app at the top, a
+ * row that opens a page (its words at the left, a summary, the arrow at the
+ * right, a pill when hovered), a page's head with back, a sentence, a fact,
+ * and the card's one width.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, ui.frame, ui.icons, ui.tokens, ui.themes
+ * Used by: ui.shield, ui.settings
+ */
+import kivuli { View, Align, Border, Radius, button_with, column, image, row, spacer, text };
+import kivuli.ui { Button, button_with as ui_button_with };
+import window.actions { Msg };
+import window.tabs { AppPage };
+import ui.frame { icon_of, initial };
+import ui.icons { Icon, icon };
+import ui.tokens {
+    SPACE_XS,
+    SPACE_SM,
+    CARD_ICON,
+    CARD_WIDTH,
+    CIRCLE,
+    gap,
+    square,
+    exactly,
+    padding,
+};
+import ui.themes { Theme, body, dim, heading };
+
+/**
+ * Wraps a card's content at its one width, so turning a page doesn't resize
+ * the card (the owner, session 134).
+ *
+ * Example:
+ *     sized(content)
+ */
+public fun sized(content: View<Msg>): View<Msg> = column([content]).style([exactly(CARD_WIDTH)]);
+
+/**
+ * Builds the card's top: the app's icon (its initial without one) and name,
+ * and a dim line under the name when given (its version).
+ *
+ * Example:
+ *     identity(t, page, Some("1.2.0"))
+ */
+public fun identity(t: Theme, p: AppPage, under: Option<string>): View<Msg> {
+    let face: View<Msg> = match icon_of(p.path, p.icon) {
+        Some(img) => image(img).style([square(CARD_ICON)]).align(Align.Center),
+        None => text(initial(p.name)).style(heading(t)).align(Align.Center),
+    };
+    let mut names: View<Msg>[] = [text(p.name).style(heading(t))];
+    if let Some(u) = under {
+        names.push(text(u).style(dim(t)));
+    }
+    row([face, column(names).align(Align.Center)]).style([gap(SPACE_SM)])
+}
+
+/**
+ * Builds a row that opens a page: its words, a dim summary when given, then
+ * the arrow; the whole row is the button.
+ *
+ * Example:
+ *     choice(t, "Servers", Some("2 servers"), Msg.PanelGo(PanelPage.Access))
+ */
+// kivuli's own button_with, not kivuli.ui's: its content fills the button,
+// so the words sit at the left and the arrow at the right (kivuli.ui's
+// centres its content; the owner wanted them left, session 133). Room inside
+// each row, so it reads as a target (session 135); its hover a pill (the
+// owner's rounding, session 136); the arrow an icon (session 137).
+public fun choice(t: Theme, label: string, summary: Option<string>, msg: Msg): View<Msg> {
+    let mut parts: View<Msg>[] = [text(label).style(body(t)).align(Align.Center), spacer()];
+    if let Some(s) = summary {
+        parts.push(text(s).style(dim(t)).align(Align.Center));
+    }
+    parts.push(image(icon(Icon.Forward, t.faint)).style([square(CARD_ICON)]).align(Align.Center));
+    button_with(row(parts).style([gap(SPACE_SM)]).expand(), msg).style([
+        Button.ghost(),
+        padding(SPACE_SM),
+        Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    ])
+}
+
+/**
+ * Builds a page: back (sending `back`) and its title, then its parts.
+ *
+ * Example:
+ *     detail(t, "Servers", Msg.PanelBack, parts)
+ */
+public fun detail(t: Theme, title: string, back: Msg, parts: View<Msg>[]): View<Msg> {
+    // The arrow-left icon, as the rows end in arrow-right; a circle when
+    // hovered, as the rows are pills (the owner, session 138).
+    let button = ui_button_with(
+        [image(icon(Icon.Back, t.text)).style([square(CARD_ICON)]).align(Align.Center)],
+        back,
+    ).style([
+        Button.ghost(),
+        Button.icon(),
+        Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    ]).tooltip("Back");
+    let mut all = [
+        row([button, text(title).style(heading(t)).align(Align.Center)]).style([gap(SPACE_XS)]),
+    ];
+    for p of parts {
+        all.push(p);
+    }
+    column(all).style([gap(SPACE_SM)])
+}
+
+/**
+ * Builds a page's explaining sentence, wrapped to the card.
+ *
+ * Example:
+ *     sentence(t, "Nothing vouches for this app.")
+ */
+public fun sentence(t: Theme, s: string): View<Msg> = text(s).style(body(t)).wrap();
+
+/**
+ * Builds a fact: its name, dim, above its value.
+ *
+ * Example:
+ *     line(t, "Version", "1.2.0")
+ */
+public fun line(t: Theme, name: string, value: string): View<Msg> = column([
+    text(name).style(dim(t)),
+    text(value).style(body(t)).wrap(),
+]);

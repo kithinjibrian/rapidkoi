@@ -190,14 +190,7 @@ fun window_titles() {
 @test
 fun each_panel_page_opens_and_comes_back() {
     let m = step(two(), Msg.TogglePanel);
-    for p of [
-        PanelPage.Account,
-        PanelPage.Notifications,
-        PanelPage.Access,
-        PanelPage.State,
-        PanelPage.Data,
-        PanelPage.About,
-    ] {
+    for p of [PanelPage.Key, PanelPage.Account, PanelPage.Access, PanelPage.State] {
         let opened = step(m, Msg.PanelGo(p));
         assert_eq(opened.panel, Some(p));
         assert_eq(step(opened, Msg.PanelBack).panel, Some(PanelPage.Main));

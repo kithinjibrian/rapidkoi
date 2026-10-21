@@ -268,6 +268,18 @@ public fun bare(t: Theme): Styling[] {
 }
 
 /**
+ * Returns a section's group in a card: its rows on the control grey, a
+ * little lighter than the card's frame colour, rounded (PRP-022).
+ *
+ * Example:
+ *     column(rows).style(group(t))
+ */
+public fun group(t: Theme): Styling[] = [
+    Background { color: paint(t.control), ..Background.theme() },
+    Border { radius: Radius.All(PAGE_RADIUS), ..Border.theme() },
+];
+
+/**
  * Returns the window controls' look on the frame, given after
  * `kivuli.ui`'s `WindowControls.look()`: white glyphs, room on each side,
  * and the hover a circle on each control's 24 × 24 icon box, faint white

@@ -1,0 +1,155 @@
+// Site settings (PRP-022): ⚙'s card (the app, Account, App settings, App
+// data, Forget), its pages, and the dialogs that ask first. Through
+// kivuli.testing; fixture guests, no display.
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.ui.settings;
+import rapidkoi.ui.addressbox;
+import rapidkoi.window.actions { Msg, PanelPage, ShieldPage, Confirm, NameScope, NamePart };
+import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.bundles.bundle { Manifest };
+import kivuli { View };
+import kivuli.testing { click, flip, texts, type_into };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun plain(): AppPage {
+    let engine = Engine.new();
+    open_module("Notes", "notes.wasm", engine, Module.from_text(engine, echo()).unwrap())
+}
+
+/** Notes from notes.acme.com, verified, declaring one server. */
+fun signed(): AppPage = AppPage {
+    path: "rapidkoi://notes.acme.com",
+    manifest: Some(Manifest {
+        contract: 2,
+        name: "Notes",
+        version: "1.2.0",
+        description: Some("Notes that follow you"),
+        state_version: 1,
+        icon: None,
+        banners: [],
+        servers: ["api.acme.com"],
+    }),
+    trust: Some(Trust {
+        host: "notes.acme.com",
+        key: [3; 32],
+        standing: Standing.Verified,
+        build: [0; 32],
+        separate: false,
+        since: 0,
+        origin: [3; 32],
+    }),
+    ..plain(),
+};
+
+fun window(p: AppPage): Model = with_pages(Engine.new(), [p]);
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun card(m: Model, page: PanelPage): View<Msg> = settings.card(m, m.tabs[0].page, page);
+
+fun shows(v: View<Msg>, s: string): bool = texts(v).any(fun(x: string) = x == s);
+
+@test
+fun the_gear_opens_site_settings_on_app_pages_only() {
+    for m of [window(plain()), window(signed())] {
+        assert_eq(click(addressbox.field(m), "Site settings"), Ok(Msg.TogglePanel));
+    }
+    let home = step(window(plain()), Msg.Home);
+    assert(click(addressbox.field(home), "Site settings").is_err());
+}
+
+@test
+fun the_main_page_has_the_app_and_its_sections() {
+    let v = card(window(signed()), PanelPage.Main);
+    for s of ["Notes", "1.2.0", "Notes that follow you", "Account", "App settings", "App data"] {
+        assert(shows(v, s));
+    }
+    assert_eq(click(v, "Public key"), Ok(Msg.PanelGo(PanelPage.Key)));
+    assert_eq(click(v, "Identity"), Ok(Msg.PanelGo(PanelPage.Account)));
+    assert_eq(click(v, "Servers"), Ok(Msg.PanelGo(PanelPage.Access)));
+    assert_eq(click(v, "State"), Ok(Msg.PanelGo(PanelPage.State)));
+    assert_eq(click(v, "Forget this app…"), Ok(Msg.Ask(Confirm.Forget)));
+}
+
+@test
+fun an_unsigned_app_has_no_account_section() {
+    let v = card(window(plain()), PanelPage.Main);
+    assert(!shows(v, "Account"));
+    assert(click(v, "Public key").is_err());
+    assert(click(v, "Identity").is_err());
+    assert_eq(click(v, "Servers"), Ok(Msg.PanelGo(PanelPage.Access)));
+}
+
+@test
+fun every_page_goes_back() {
+    for page of [PanelPage.Key, PanelPage.Account, PanelPage.Access, PanelPage.State] {
+        assert_eq(click(card(window(signed()), page), "Back"), Ok(Msg.PanelBack));
+    }
+}
+
+@test
+fun identity_names_signs_in_and_out_and_starts_over() {
+    let m = window(signed());
+    let v = card(m, PanelPage.Account);
+    assert_eq(
+        type_into(v, "First name", "Brian"),
+        Ok(Msg.SetName(NameScope.ThisApp, NamePart.First, "Brian")),
+    );
+    assert_eq(
+        type_into(v, "Last name", "K"),
+        Ok(Msg.SetName(NameScope.ThisApp, NamePart.Last, "K")),
+    );
+    assert_eq(click(v, "Sign out"), Ok(Msg.SignOut));
+    assert_eq(flip(v, "Sign in automatically"), Ok(Msg.ToggleAutoSignIn));
+    assert_eq(click(v, "Start over as someone new…"), Ok(Msg.Ask(Confirm.StartOverIdentity)));
+    let out = step(m, Msg.SignOut);
+    assert_eq(click(card(out, PanelPage.Account), "Sign in"), Ok(Msg.SignIn));
+}
+
+@test
+fun servers_are_switches_on_a_signed_app() {
+    let v = card(window(signed()), PanelPage.Access);
+    assert_eq(flip(v, "notes.acme.com"), Ok(Msg.ToggleServer("notes.acme.com")));
+    assert_eq(flip(v, "api.acme.com"), Ok(Msg.ToggleServer("api.acme.com")));
+    assert(shows(v, "Its own server"));
+    // An unsigned app's can't be switched.
+    assert(flip(card(window(plain()), PanelPage.Access), "api.acme.com").is_err());
+}
+
+@test
+fun state_offers_to_clear_after_asking() {
+    let v = card(window(signed()), PanelPage.State);
+    assert(shows(v, "Nothing saved"));
+    assert_eq(click(v, "Clear and start over…"), Ok(Msg.Ask(Confirm.StartOver)));
+}
+
+@test
+fun each_dialog_asks_and_can_be_cancelled() {
+    let m = window(signed());
+    assert(settings.dialog(m).is_none());
+    let cases = [
+        (Confirm.Forget, "Forget", Msg.Forget),
+        (Confirm.StartOver, "Start over", Msg.StartOver),
+        (Confirm.StartOverIdentity, "Start over", Msg.StartOverIdentity),
+    ];
+    for (c, label, msg) of cases {
+        let asking = step(step(m, Msg.TogglePanel), Msg.Ask(c));
+        let d = settings.dialog_view(asking);
+        assert_eq(click(d, "Cancel"), Ok(Msg.Cancel));
+        assert_eq(click(d, label), Ok(msg));
+    }
+}
+
+@test
+fun only_one_card_is_open_at_a_time() {
+    let settings_open = step(window(signed()), Msg.TogglePanel);
+    let shield_open = step(settings_open, Msg.Shield(Some(ShieldPage.Main)));
+    assert_eq((shield_open.panel, shield_open.shield), (None, Some(ShieldPage.Main)));
+    let back = step(shield_open, Msg.TogglePanel);
+    assert_eq((back.panel, back.shield), (Some(PanelPage.Main), None));
+}

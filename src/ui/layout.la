@@ -14,6 +14,7 @@ import window.tabs { Page };
 import window.window { Model, title_of, page_of };
 import ui.content { app_view };
 import ui.header;
+import ui.settings;
 import ui.tokens {
     SPACE_SM,
     SPACE_LG,
@@ -59,5 +60,8 @@ public fun view(m: Model): View<Msg> {
         title_of(m),
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-    ).maximized().palette(palette(t)).scheme(Scheme.Dark).header(header.bar(m))
+    ).maximized().palette(palette(t)).scheme(Scheme.Dark).header(header.bar(m)).dialog(
+        // Start over, start over as someone new, and Forget ask first (PRP-022).
+        settings.dialog(m),
+    )
 }

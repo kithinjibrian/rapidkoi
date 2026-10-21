@@ -17,11 +17,12 @@ import kivuli.ui {
     button as ui_button,
     popover as ui_popover,
 };
-import window.actions { Msg, ShieldPage };
+import window.actions { Msg, ShieldPage, PanelPage };
 import window.window { Model, page_of, is_pinned };
 import ui.frame { marker, marker_note, file_of };
 import ui.icons { Icon, icon };
 import ui.shield { facts, look_colour, card };
+import ui.settings;
 import ui.tokens {
     SPACE_SM,
     ADDRESS_HEIGHT,
@@ -39,7 +40,7 @@ import ui.themes { address, bare };
 /**
  * Builds the address box for the header bar, one framed group: on an app
  * page, the shield at its start in its look, opening its card (PRP-021),
- * then site settings (disabled until they exist, PRP-020); in the middle the field
+ * then ⚙ opening site settings (PRP-020, PRP-022); in the middle the field
  * ("Enter Address"; Enter goes) on home or while editing, or the app's
  * address, which a click or Ctrl+K turns into the field; and ☆ at its end on
  * an app page.
@@ -98,18 +99,21 @@ public fun field(m: Model): View<Msg> {
             ),
         );
     }
-    if let App(_) = page {
-        // Site settings, right of the shield (PRP-020): disabled until the
-        // settings themselves exist (the next PRP opens them from here).
+    if let App(p) = page {
+        // Site settings, right of the shield (PRP-020): its card hangs from
+        // ⚙ while `m.panel` says it's open (PRP-022). A click outside or
+        // Escape closes it, as ⚙ does.
+        let gear = group_button_with(
+            [image(icon(Icon.Settings, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
+            Msg.TogglePanel,
+        ).tooltip("Site settings");
         start.push(
-            group_button_with(
-                [
-                    image(icon(Icon.Settings, t.text)).style([square(ADDRESS_ICON)]).align(
-                        Align.Center,
-                    ),
-                ],
-                Msg.Home,
-            ).disabled(true).tooltip("Site settings (coming soon)"),
+            ui_popover(
+                gear,
+                m.panel.is_some(),
+                settings.card(m, p, m.panel.unwrap_or(PanelPage.Main)),
+                Msg.TogglePanel,
+            ),
         );
     }
     let mut end: View<Msg>[] = [];

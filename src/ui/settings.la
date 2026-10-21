@@ -1,0 +1,322 @@
+/**
+ * Site settings, pure (PRP-022): the card behind ⚙. The app (icon, name,
+ * version, description), then sections of rows that open pages: Account
+ * (Public key, Identity; signed apps only), App settings (Servers), App data
+ * (State); and Forget this app at the bottom. Start over, start over as
+ * someone new, and Forget ask first in a dialog over the window. Only
+ * Rapidkoi draws these; the logic is PRP-011's and PRP-012's.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, window.window, people.account, people.access, people.identity, trust.keys, guest.nodes, ui.cards, ui.tokens, ui.themes
+ * Used by: ui.addressbox, ui.layout
+ */
+import kivuli { View, Align, Dialog, column, row, spacer, text };
+import kivuli.ui {
+    button as ui_button,
+    switch,
+    separator,
+    dialog as ui_dialog,
+    dialog_header,
+    dialog_footer,
+    input as ui_input,
+};
+import window.actions { Msg, PanelPage, Confirm, NameScope, NamePart };
+import window.tabs { AppPage, state_of };
+import window.window { Model, page_of };
+import people.account { Account, account_of };
+import people.access { Access, access_of };
+import people.identity { public_key };
+import trust.keys { fingerprint };
+import guest.nodes { ButtonLook };
+import ui.cards { sized, choice, detail, sentence, line, identity as app_head };
+import ui.tokens { SPACE_XS, SPACE_SM, gap };
+import ui.themes { Theme, body, dim, group, button as button_look };
+
+/**
+ * Builds site settings' card on a page, for an app page.
+ *
+ * @param m the model (the person's account and settings, the theme)
+ * @param p the app page
+ * @param page which page of the card
+ * @returns the card's content, for the popover
+ *
+ * Example:
+ *     settings.card(m, page, PanelPage.Main)
+ */
+public fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
+    let t = m.theme;
+    let you = account_of(m, p);
+    let reach = access_of(m, p);
+    let shown = match page {
+        Main => front(t, p, you, reach),
+        Key => detail(t, "Public key", Msg.PanelBack, key_page(m, t, p, you)),
+        Account => detail(t, "Identity", Msg.PanelBack, identity_page(t, you)),
+        Access => detail(t, "Servers", Msg.PanelBack, servers_page(t, reach)),
+        State => detail(t, "State", Msg.PanelBack, [
+            sentence(t, "What {p.name} saved on this device."),
+            line(t, "Size", size(saved(p))),
+            ui_button("Clear and start over…", Msg.Ask(Confirm.StartOver)).style(
+                button_look(t, ButtonLook.Danger),
+            ),
+        ]),
+    };
+    sized(shown)
+}
+
+/**
+ * Returns the dialog asking before a destructive action, while one is asked
+ * about: for the root's `.dialog(…)`. ✕, Escape and a click outside cancel.
+ *
+ * Example:
+ *     page.dialog(settings.dialog(m))
+ */
+public fun dialog(m: Model): Option<Dialog<Msg>> = match m.confirm {
+    Some(_) => Some(ui_dialog(Msg.Cancel, [dialog_view(m)])),
+    None => None,
+};
+
+/**
+ * Returns what the dialog shows while an action is asked about: its question
+ * and its two buttons, Cancel and the action. Empty when nothing is asked.
+ *
+ * Example:
+ *     dialog_view(m)
+ */
+public fun dialog_view(m: Model): View<Msg> {
+    let t = m.theme;
+    let name = match page_of(m) {
+        App(p) => p.name,
+        Home => "this app",
+    };
+    let (title, says, label, msg) = match m.confirm {
+        Some(Forget) => (
+            "Forget {name}?",
+            "Its tab, pin, saved state and account here will be removed.",
+            "Forget",
+            Msg.Forget,
+        ),
+        Some(StartOver) => (
+            "Start {name} over?",
+            "What it saved on this device will be cleared.",
+            "Start over",
+            Msg.StartOver,
+        ),
+        Some(StartOverIdentity) => (
+            "Become someone new to {name}?",
+            "It will see a new key, and won't know you were the old one.",
+            "Start over",
+            Msg.StartOverIdentity,
+        ),
+        None => {
+            let none: View<Msg>[] = [];
+            return column(none);
+        }
+    };
+    column([
+        dialog_header(title, says),
+        dialog_footer([
+            ui_button("Cancel", Msg.Cancel).style(button_look(t, ButtonLook.Normal)),
+            ui_button(label, msg).style(button_look(t, ButtonLook.Danger)),
+        ]),
+    ])
+}
+
+/** The card's main page: the app, its sections, and Forget. */
+fun front(t: Theme, p: AppPage, you: Account, reach: Access): View<Msg> {
+    let mut parts: View<Msg>[] = [app_head(t, p, p.manifest.map(fun(x) = x.version))];
+    if let Some(d) = p.manifest.and_then(fun(x) = x.description) {
+        parts.push(sentence(t, d));
+    }
+    parts.push(separator());
+    // An unsigned app can't have an account: no section rather than a dead one.
+    if let Some(x) = you.person {
+        parts.push(
+            section(t, "Account", [
+                choice(
+                    t,
+                    "Public key",
+                    Some(you.label.unwrap_or("Not signed in yet")),
+                    Msg.PanelGo(PanelPage.Key),
+                ),
+                choice(
+                    t,
+                    "Identity",
+                    Some(if x.signed_out { "Signed out" } else { "Signed in" }),
+                    Msg.PanelGo(PanelPage.Account),
+                ),
+            ]),
+        );
+    }
+    parts.push(
+        section(t, "App settings", [
+            choice(t, "Servers", Some(servers_summary(reach)), Msg.PanelGo(PanelPage.Access)),
+        ]),
+    );
+    parts.push(
+        section(t, "App data", [
+            choice(t, "State", Some(size(saved(p))), Msg.PanelGo(PanelPage.State)),
+        ]),
+    );
+    parts.push(
+        ui_button("Forget this app…", Msg.Ask(Confirm.Forget)).style(
+            button_look(t, ButtonLook.Danger),
+        ),
+    );
+    column(parts).style([gap(SPACE_SM)])
+}
+
+/** A section: a dim heading over its rows in one rounded group. */
+fun section(t: Theme, title: string, rows: View<Msg>[]): View<Msg> = column([
+    text(title).style(dim(t)),
+    column(rows).style(group(t)),
+]).style([gap(SPACE_XS)]);
+
+/** Public key: who you are to the app, read-only. */
+fun key_page(m: Model, t: Theme, p: AppPage, you: Account): View<Msg>[] {
+    let mut parts = [
+        sentence(
+            t,
+            "This is who you are to {p.name}: it sees this key, never your name or the keys other apps see.",
+        ),
+    ];
+    match you.label {
+        Some(l) => parts.push(line(t, "You are", l)),
+        None => parts.push(line(t, "You are", "Not signed in yet: {p.name} hasn't asked")),
+    }
+    // The key itself needs the master secret, already read once the app asked.
+    let key = match (p.trust, m.master, you.person) {
+        (Some(tr), Some(secret), Some(x)) => public_key(
+            secret,
+            tr.host,
+            tr.origin,
+            x.generation,
+        ).ok(),
+        _ => None,
+    };
+    if let Some(k) = key {
+        parts.push(line(t, "Key", fingerprint(k)));
+    }
+    parts
+}
+
+/** Identity: your name in this app, signing in and out, starting over as someone new. */
+fun identity_page(t: Theme, you: Account): View<Msg>[] {
+    let x = match you.person {
+        Some(x) => x,
+        // The row isn't offered for an unsigned app; nothing to show if reached.
+        None => {
+            return [sentence(t, "{you.app} isn't signed, so it can't have an account.")];
+        }
+    };
+    let signing = if x.signed_out {
+        row([
+            text("Signed out").style(body(t)).align(Align.Center),
+            spacer(),
+            ui_button("Sign in", Msg.SignIn),
+        ])
+    } else {
+        row([
+            text("Signed in").style(body(t)).align(Align.Center),
+            spacer(),
+            ui_button("Sign out", Msg.SignOut),
+        ])
+    };
+    [
+        line(t, "Your name in {you.app}", "Only {you.app} shows it, and never sees it."),
+        ui_input(
+            x.first,
+            fun(s: string) = Msg.SetName(NameScope.ThisApp, NamePart.First, s),
+        ).placeholder("First name"),
+        ui_input(
+            x.last,
+            fun(s: string) = Msg.SetName(NameScope.ThisApp, NamePart.Last, s),
+        ).placeholder("Last name"),
+        signing,
+        row([
+            text("Sign in automatically").style(body(t)).align(Align.Center),
+            spacer(),
+            switch(x.auto, fun(_: bool) = Msg.ToggleAutoSignIn).name("Sign in automatically"),
+        ]),
+        ui_button("Start over as someone new…", Msg.Ask(Confirm.StartOverIdentity)).style(
+            button_look(t, ButtonLook.Danger),
+        ),
+    ]
+}
+
+/** Servers: its own first, then the declared ones; switches on a signed app. */
+fun servers_page(t: Theme, a: Access): View<Msg>[] {
+    let all = listed(a);
+    if all.len == 0 {
+        return [sentence(t, "{a.app} can't reach anything outside itself.")];
+    }
+    let mut parts: View<Msg>[] = [sentence(t, "What {a.app} can reach.")];
+    for s of all {
+        let mut words: View<Msg>[] = [text(s).style(body(t))];
+        if a.own == Some(s) {
+            words.push(text("Its own server").style(dim(t)));
+        }
+        if a.fresh.any(fun(f: string) = f == s) {
+            words.push(text("New").style(dim(t)));
+        }
+        let mut line_parts: View<Msg>[] = [column(words).align(Align.Center), spacer()];
+        if a.switches {
+            let on = !a.off.any(fun(o: string) = o == s);
+            line_parts.push(
+                switch(on, fun(_: bool) = Msg.ToggleServer(s)).name(s).align(Align.Center),
+            );
+        }
+        parts.push(row(line_parts));
+    }
+    if !a.switches {
+        parts.push(
+            sentence(t, "{a.app} isn't signed, so it can only reach servers on this computer."),
+        );
+    }
+    parts
+}
+
+/** Its own server first, then the declared ones. */
+fun listed(a: Access): string[] {
+    let mut all: string[] = [];
+    if let Some(o) = a.own {
+        all.push(o);
+    }
+    for s of a.servers {
+        if a.own != Some(s) {
+            all.push(s);
+        }
+    }
+    all
+}
+
+/** "None", "1 server", "3 servers, 1 off". */
+fun servers_summary(a: Access): string {
+    let all = listed(a);
+    if all.len == 0 {
+        return "None";
+    }
+    let noun = if all.len == 1 { "server" } else { "servers" };
+    let off = all.filter(fun(s: string) = a.off.any(fun(o: string) = o == s)).len;
+    if off == 0 { "{all.len} {noun}" } else { "{all.len} {noun}, {off} off" }
+}
+
+/** How many bytes the app saved: its state, 0 for none. */
+fun saved(p: AppPage): i64 = match state_of(p) {
+    Some(bytes) => bytes.len,
+    None => 0,
+};
+
+/** A size in plain words: "Nothing saved", "900 B", "12 KB", "3.4 MB" (the old panel's). */
+fun size(n: i64): string {
+    if n <= 0 {
+        return "Nothing saved";
+    }
+    if n < 1024 {
+        return "{n} B";
+    }
+    if n < 1024 * 1024 {
+        return "{n / 1024} KB";
+    }
+    // One decimal for megabytes, rounded to the nearest tenth: 3.4 MB.
+    let tenths = (n * 10 + 512 * 1024) / (1024 * 1024);
+    "{tenths / 10}.{tenths % 10} MB"
+}
