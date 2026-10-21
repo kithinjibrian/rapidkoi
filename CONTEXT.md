@@ -4868,6 +4868,16 @@ src/ui/addressbox.la, src/ui/shield.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
+## SESSION 134 — 2026-10-21 — The shield's card: from the shield, one width, padding — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; session 133: rows left-aligned, the card the address box's width, hanging from the box). Next: ⚙ site settings (app info, Account, Access, Data).
