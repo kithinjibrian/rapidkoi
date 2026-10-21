@@ -4933,16 +4933,39 @@ src/ui/shield.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 136 — 2026-10-21 — Rounded row hover; the card's icon at 20 — open
+## SESSION 136 — 2026-10-21 — Rounded row hover; the card's icon at 20 — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: make the hover colour rounded; icons at 20. The card's rows and ‹ back take `Radius.All(BUTTON_RADIUS)` (their ghost hover was square-cornered). The header and address-box icons were already 20; the card's app icon (`CARD_ICON`) 32 → 20.
+- `lughac check` clean; shield tests type-check; fmt clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/shield.la, src/ui/tokens.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a look).
+
+### DECISIONS MADE
+
+- Rounded hovers in the card; every icon 20 px.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; from the shield, 360 px on every page, padded rows). Next: ⚙ site settings (app info, Account, Access, Data).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; from the shield, 360 px on every page, padded rows with rounded hovers, every icon 20 px). Next: ⚙ site settings (app info, Account, Access, Data).

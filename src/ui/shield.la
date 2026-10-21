@@ -9,14 +9,24 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, net.address, trust.keys, ui.frame, ui.tokens, ui.themes
  * Used by: ui.addressbox
  */
-import kivuli { View, Align, button_with, column, image, row, spacer, text };
+import kivuli { View, Align, Border, Radius, button_with, column, image, row, spacer, text };
 import kivuli.ui { Button, button_with as ui_button_with, separator };
 import window.actions { Msg, ShieldPage };
 import window.tabs { AppPage };
 import net.address { parse, shown };
 import trust.keys { fingerprint };
 import ui.frame { file_of, icon_of, initial };
-import ui.tokens { SPACE_XS, SPACE_SM, CARD_ICON, CARD_WIDTH, gap, square, exactly, padding };
+import ui.tokens {
+    SPACE_XS,
+    SPACE_SM,
+    CARD_ICON,
+    CARD_WIDTH,
+    BUTTON_RADIUS,
+    gap,
+    square,
+    exactly,
+    padding,
+};
 import ui.themes { Theme, body, dim, heading };
 
 /** The shield's three looks: everything checks out, something to know, or nothing vouches. */
@@ -267,17 +277,19 @@ fun identity(t: Theme, p: AppPage): View<Msg> {
 // kivuli's own button_with, not kivuli.ui's: its content fills the button,
 // so the words sit at the left and › at the right (kivuli.ui's centres its
 // content; the owner wanted them left, session 133). Room inside each row,
-// so it reads as a target (the owner, session 135).
+// so it reads as a target (the owner, session 135); its hover rounded
+// (session 136).
 fun choice(t: Theme, label: string, page: ShieldPage): View<Msg> = button_with(
     row([text(label).style(body(t)), spacer(), text("›").style(dim(t))]).expand(),
     Msg.Shield(Some(page)),
-).style([Button.ghost(), padding(SPACE_SM)]);
+).style([Button.ghost(), padding(SPACE_SM), rounded()]);
 
 /** One row's page: ‹ back and its title, then its lines. */
 fun detail(t: Theme, title: string, lines: View<Msg>[]): View<Msg> {
     let back = ui_button_with([text("‹").style(body(t))], Msg.Shield(Some(ShieldPage.Main))).style([
         Button.ghost(),
         Button.icon(),
+        rounded(),
     ]).tooltip("Back");
     let mut parts = [
         row([back, text(title).style(heading(t)).align(Align.Center)]).style([gap(SPACE_XS)]),
@@ -314,3 +326,6 @@ fun civil(days: i64): (i64, i64, i64) {
     let y = yoe + era * 400 + if m <= 2 { 1 } else { 0 };
     (y, m, d)
 }
+
+/** Rounded corners, so a hovered row's colour isn't a hard rectangle. */
+fun rounded(): Border = Border { radius: Radius.All(BUTTON_RADIUS), ..Border.theme() };
