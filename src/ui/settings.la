@@ -52,7 +52,6 @@ public fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
         Account => detail(t, "Identity", Msg.PanelBack, identity_page(t, you)),
         Access => detail(t, "Servers", Msg.PanelBack, servers_page(t, reach)),
         State => detail(t, "State", Msg.PanelBack, [
-            sentence(t, "What {p.name} saved on this device."),
             line(t, "Size", size(saved(p))),
             ui_button("Clear and start over…", Msg.Ask(Confirm.StartOver)).style(
                 button_look(t, ButtonLook.Danger),
@@ -172,12 +171,7 @@ fun section(t: Theme, title: string, rows: View<Msg>[]): View<Msg> = column([
 
 /** Public key: who you are to the app, read-only. */
 fun key_page(m: Model, t: Theme, p: AppPage, you: Account): View<Msg>[] {
-    let mut parts = [
-        sentence(
-            t,
-            "This is who you are to {p.name}: it sees this key, never your name or the keys other apps see.",
-        ),
-    ];
+    let mut parts: View<Msg>[] = [];
     match you.label {
         Some(l) => parts.push(line(t, "You are", l)),
         None => parts.push(line(t, "You are", "Not signed in yet: {p.name} hasn't asked")),
@@ -221,7 +215,6 @@ fun identity_page(t: Theme, you: Account): View<Msg>[] {
         ])
     };
     [
-        line(t, "Your name in {you.app}", "Only {you.app} shows it, and never sees it."),
         ui_input(
             x.first,
             fun(s: string) = Msg.SetName(NameScope.ThisApp, NamePart.First, s),
@@ -246,9 +239,9 @@ fun identity_page(t: Theme, you: Account): View<Msg>[] {
 fun servers_page(t: Theme, a: Access): View<Msg>[] {
     let all = listed(a);
     if all.len == 0 {
-        return [sentence(t, "{a.app} can't reach anything outside itself.")];
+        return [text("None").style(dim(t))];
     }
-    let mut parts: View<Msg>[] = [sentence(t, "What {a.app} can reach.")];
+    let mut parts: View<Msg>[] = [];
     for s of all {
         let mut words: View<Msg>[] = [text(s).style(body(t))];
         if a.own == Some(s) {
@@ -267,9 +260,8 @@ fun servers_page(t: Theme, a: Access): View<Msg>[] {
         parts.push(row(line_parts));
     }
     if !a.switches {
-        parts.push(
-            sentence(t, "{a.app} isn't signed, so it can only reach servers on this computer."),
-        );
+        // A fact, not an explanation: why there are no switches.
+        parts.push(text("Unsigned: this computer only").style(dim(t)));
     }
     parts
 }

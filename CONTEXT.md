@@ -5138,16 +5138,40 @@ src/ui/layout.la, CONTEXT.md
 
 ---
 
-## SESSION 142 — 2026-10-21 — Remove the settings pages' explaining sentences — open
+## SESSION 142 — 2026-10-21 — Remove the settings pages' explaining sentences — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: "why do you feel the need to add stupid desc". Site settings' pages had sentences the sketch didn't have. Removed: State's "What Notes saved on this device.", Public key's "This is who you are to Notes…", Identity's "Your name in Notes / Only Notes shows it…", Servers' "What Notes can reach." Shortened: no servers is "None"; an unsigned app's servers note is "Unsigned: this computer only". Kept: the app's own description (the sketch's "App desc"). Saved as a memory: no copy beyond what's asked.
+- Not touched: the shield card's page sentences (the owner agreed those pages' contents, session 130); for the owner to say.
+- `lughac check` clean; settings tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/settings.la, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- No explaining sentences in site settings.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Whether the shield card's sentences go too; the owner's run and look.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022; session 141 fixed the root modifier order: `.dialog` first). Waiting for the owner's run and look. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022, without explaining sentences). Waiting for the owner's run and look. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
