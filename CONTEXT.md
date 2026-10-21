@@ -4933,6 +4933,16 @@ src/ui/shield.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
+## SESSION 136 — 2026-10-21 — Rounded row hover; the card's icon at 20 — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; from the shield, 360 px on every page, padded rows). Next: ⚙ site settings (app info, Account, Access, Data).
