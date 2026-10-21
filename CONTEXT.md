@@ -4697,6 +4697,38 @@ CONTEXT.md
 
 ---
 
+## SESSION 129 — 2026-10-21 — Discovery: the shield's contents — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner agreed: the shield is about trust, ⚙ site settings about what the app may do; and wants "who signed it, and since when" inside "Signed". Proposed the shield's contents (state line; Connection; Signed, with publisher and since; Version, verified build) and asked how it opens. Found: kivuli 0.50 has no popover holding arbitrary views anchored to a widget (only menus: `.menu`, `ui.dropdown_menu`), so a card under the shield needs a kivuli addition or an overlay like the old suggestions card. Design is in chat until the direction is clear (the owner, session 128). No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- The shield answers "can I trust this?": connection, signed (publisher and since when inside), version. Permissions live in ⚙.
+
+### PENDING DECISIONS OPENED
+
+- None yet (a kivuli popover may become one).
+
+### STILL OPEN AT CLOSE
+
+- Whether the shield always shows with a state; how its card opens.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93).** kivuli is at 0.50. The header bar (PRP-019) and the site settings button (PRP-020, disabled) are built. Discovery for the shield's panel (what clicking 🛡 shows) is open: the owner proposed HTTPS and signed; session 128 suggested adding the publisher and since when, the build being in the signed index, and the shield's states. No decision is open in DECISIONS.md.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). Designing in chat until the direction is clear (session 128).** The shield's card: a state line; Connection (HTTPS, host); Signed (publisher's key, "same publisher since …" or "new publisher"); Version (verified build). Open questions: does the shield always show, with a state; how its card opens (kivuli has no anchored popover for views yet).
