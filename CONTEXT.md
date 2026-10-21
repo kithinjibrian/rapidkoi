@@ -4901,16 +4901,38 @@ src/ui/addressbox.la, src/ui/shield.la, src/ui/tokens.la, docs/DESIGN.md, CONTEX
 
 ---
 
-## SESSION 135 — 2026-10-21 — Padding in the shield card's rows — open
+## SESSION 135 — 2026-10-21 — Padding in the shield card's rows — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: not padding around the card, padding in the row items. The card's extra `padding(SPACE_SM)` is gone; each row (`choice`) takes `padding(SPACE_SM)`. Build ok; shield tests type-check.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/shield.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (layout).
+
+### DECISIONS MADE
+
+- Padding inside the card's rows, not around the card.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; from the shield, 360 px on every page, more padding, session 134). Next: ⚙ site settings (app info, Account, Access, Data).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** kivuli is at 0.51. Built: the header bar (PRP-019), site settings button (PRP-020, disabled), the shield and its card (PRP-021; from the shield, 360 px on every page, padded rows). Next: ⚙ site settings (app info, Account, Access, Data).

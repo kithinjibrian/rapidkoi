@@ -218,9 +218,9 @@ public fun card(t: Theme, p: AppPage, page: ShieldPage): View<Msg> {
             detail(t, signature_label(f.signature), lines)
         }
     };
-    // One width on every page, so turning a page doesn't resize the card,
-    // and room inside it beyond kivuli.ui's own (the owner, session 134).
-    column([shown]).style([exactly(CARD_WIDTH), padding(SPACE_SM)])
+    // One width on every page, so turning a page doesn't resize the card
+    // (the owner, session 134).
+    column([shown]).style([exactly(CARD_WIDTH)])
 }
 
 /** A connection row's words. */
@@ -266,11 +266,12 @@ fun identity(t: Theme, p: AppPage): View<Msg> {
 /** A row of the card: its words, then ›; the whole row opens its page. */
 // kivuli's own button_with, not kivuli.ui's: its content fills the button,
 // so the words sit at the left and › at the right (kivuli.ui's centres its
-// content; the owner wanted them left, session 133).
+// content; the owner wanted them left, session 133). Room inside each row,
+// so it reads as a target (the owner, session 135).
 fun choice(t: Theme, label: string, page: ShieldPage): View<Msg> = button_with(
     row([text(label).style(body(t)), spacer(), text("›").style(dim(t))]).expand(),
     Msg.Shield(Some(page)),
-).style([Button.ghost()]);
+).style([Button.ghost(), padding(SPACE_SM)]);
 
 /** One row's page: ‹ back and its title, then its lines. */
 fun detail(t: Theme, title: string, lines: View<Msg>[]): View<Msg> {
