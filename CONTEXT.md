@@ -4761,6 +4761,16 @@ CONTEXT.md
 
 ---
 
+## SESSION 131 — 2026-10-21 — PRP-021: the shield's card in a popover — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). Designing in chat until the direction is clear (session 128).** The shield's card (the owner's sketch, session 130): the app's icon and name; "Connection secure ›" and "Signed App ›", each opening a page in the card. Open: each page's contents, whether the shield always shows, how the card opens (A kivuli popover, B an overlay card, C the ⚙ sheet).
