@@ -5172,16 +5172,38 @@ src/ui/settings.la, CONTEXT.md
 
 ---
 
-## SESSION 143 — 2026-10-21 — Remove the shield card's sentences — open
+## SESSION 143 — 2026-10-21 — Remove the shield card's sentences — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: remove the shield card's sentences too. The Connection page shows the address; the Signed page publisher, known since and version; `connection_sentence` and `signature_sentence` deleted. `lughac check` clean; shield and header tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/shield.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- No explaining sentences in the shield's card either.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's run and look.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022, without explaining sentences). Waiting for the owner's run and look. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022); no explaining sentences in either card. Waiting for the owner's run and look. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.

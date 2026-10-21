@@ -18,7 +18,7 @@ import trust.keys { fingerprint };
 import ui.frame { file_of };
 import ui.tokens { SPACE_SM, gap };
 import ui.themes { Theme };
-import ui.cards { sized, identity, choice, detail, sentence, line };
+import ui.cards { sized, identity, choice, detail, line };
 
 /** The shield's three looks: everything checks out, something to know, or nothing vouches. */
 public enum ShieldLook {
@@ -208,11 +208,10 @@ public fun card(t: Theme, p: AppPage, page: ShieldPage): View<Msg> {
             choice(t, signature_label(f.signature), None, Msg.Shield(Some(ShieldPage.Signed))),
         ]).style([gap(SPACE_SM)]),
         Connection => detail(t, connection_label(f.connection), back, [
-            sentence(t, connection_sentence(f)),
             line(t, "Address", f.place),
         ]),
         Signed => {
-            let mut lines = [sentence(t, signature_sentence(f, p))];
+            let mut lines: View<Msg>[] = [];
             if let Some(who) = f.publisher {
                 lines.push(line(t, "Publisher", who));
             }
@@ -242,22 +241,6 @@ fun signature_label(s: Signature): string = match s {
     NewPublisher => "New publisher",
     NotSigned => "Not signed",
 };
-
-fun connection_sentence(f: ShieldFacts): string = match f.connection {
-    Secure => "Rapidkoi reached {f.place} over a secure connection: nobody between you can read or change it.",
-    ThisComputer => "Loaded from {f.place} on this computer, for development. Fine while you build it.",
-    LocalFile => "Opened from a file on this computer.",
-};
-
-fun signature_sentence(f: ShieldFacts, p: AppPage): string {
-    let host = p.trust.map(fun(t) = t.host).unwrap_or(f.place);
-    match f.signature {
-        Signed => "{host}'s publisher signed this app: you're running exactly what they published.",
-        NotConfirmed => "Signed, but Rapidkoi hasn't met this key yet. Open the app from {host} to confirm its publisher.",
-        NewPublisher => "Signed by a different key than before; you chose to open it as a separate app.",
-        NotSigned => "Nothing vouches for this app: only open it if you trust where it came from.",
-    }
-}
 
 /**
  * Days since 1970-01-01 as (year, month, day) in the proleptic Gregorian
