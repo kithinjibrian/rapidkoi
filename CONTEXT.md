@@ -4729,6 +4729,38 @@ CONTEXT.md
 
 ---
 
+## SESSION 130 — 2026-10-21 — Discovery: the shield card's sketch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner's sketch: the shield's card has the app's icon and name at its top, then two rows, "Connection secure ›" and "Signed App ›", each opening its own page. Read as Chrome's site-information pattern (one card, drilling in, ‹ back). Proposed each page's contents and the states each row takes, and re-asked the two open questions (always show the shield; how the card opens). No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- The shield's card: app icon and name; rows Connection and Signed, each a page of its own (the owner's sketch).
+
+### PENDING DECISIONS OPENED
+
+- None yet.
+
+### STILL OPEN AT CLOSE
+
+- Each page's contents; whether the shield always shows; how the card opens (kivuli has no anchored popover for views).
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). Designing in chat until the direction is clear (session 128).** The shield's card: a state line; Connection (HTTPS, host); Signed (publisher's key, "same publisher since …" or "new publisher"); Version (verified build). Open questions: does the shield always show, with a state; how its card opens (kivuli has no anchored popover for views yet).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). Designing in chat until the direction is clear (session 128).** The shield's card (the owner's sketch, session 130): the app's icon and name; "Connection secure ›" and "Signed App ›", each opening a page in the card. Open: each page's contents, whether the shield always shows, how the card opens (A kivuli popover, B an overlay card, C the ⚙ sheet).
