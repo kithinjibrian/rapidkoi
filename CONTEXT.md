@@ -4795,6 +4795,16 @@ PRPs/prp-021-shield_card.md, CONTEXT.md
 
 ---
 
+## SESSION 132 — 2026-10-21 — Build PRP-021: the shield's card — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** PRP-021 (the shield's card in a kivuli 0.51 popover) waits for approval; then bump kivuli, tests first, build. Next after it: ⚙ site settings (app info, Account, Access, Data).
