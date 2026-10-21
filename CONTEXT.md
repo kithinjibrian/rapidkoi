@@ -4761,16 +4761,40 @@ CONTEXT.md
 
 ---
 
-## SESSION 131 — 2026-10-21 — PRP-021: the shield's card in a popover — open
+## SESSION 131 — 2026-10-21 — PRP-021: the shield's card in a popover — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- Designed in chat with the owner (sessions 128–131, not logged per message, at the owner's request): the shield answers "can I trust this?" (connection; signed, with publisher and since when inside; version), permissions stay in ⚙. The owner's sketch: the app's icon and name, rows "Connection secure ›" and "Signed app ›", each a page. The shield always shows, in a state. A dropdown menu was weighed and set aside for a popover (icon, sentences, pages in place).
+- kivuli 0.51 (tagged) has `popover(trigger, open, content, on_close)` and `ui.popover`.
+- Wrote PRP-021 (`PRPs/prp-021-shield_card.md`): kivuli 0.51; `src/ui/shield.la` (facts, look, card); `Model.shield: Option<ShieldPage>`; `Msg.Shield(Option<ShieldPage>)`; the shield a button on every app page, coloured by look. One choice made in it for the owner to confirm: a signed file with a trusted key is Verified. Waiting for approval; no code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-021-shield_card.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (listed in PRP-021).
+
+### DECISIONS MADE
+
+- The shield always shows, in a state (verified, caution, unsigned); its card is a popover after the owner's sketch.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-021's approval.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). Designing in chat until the direction is clear (session 128).** The shield's card (the owner's sketch, session 130): the app's icon and name; "Connection secure ›" and "Signed App ›", each opening a page in the card. Open: each page's contents, whether the shield always shows, how the card opens (A kivuli popover, B an overlay card, C the ⚙ sheet).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message.** PRP-021 (the shield's card in a kivuli 0.51 popover) waits for approval; then bump kivuli, tests first, build. Next after it: ⚙ site settings (app info, Account, Access, Data).
