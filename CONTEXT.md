@@ -5204,16 +5204,38 @@ src/ui/shield.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 144 — 2026-10-21 — More padding above and below the cards' rows — open
+## SESSION 144 — 2026-10-21 — More padding above and below the cards' rows — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: more padding above and below the row items, sensibly. The cards' rows (`cards.choice`, both cards) are padded `SPACE_MD` (12) above and below, `SPACE_SM` (8) at the sides; new helper `padding_xy(x, y)` in `ui/tokens.la`. Build ok; shield and settings tests type-check.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/cards.la, src/ui/tokens.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (layout).
+
+### DECISIONS MADE
+
+- Card rows: 12 px above and below, 8 at the sides.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022); no explaining sentences in either card. Waiting for the owner's run and look. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022); card rows 12 px above and below (session 144). Waiting for the owner's look and test run. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.

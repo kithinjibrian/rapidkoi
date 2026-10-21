@@ -197,3 +197,21 @@ public fun exactly(width: i64): Sizing = Sizing {
     max_width: Width.Px(width),
     ..Sizing.theme(),
 };
+
+/**
+ * Returns room inside a node's border: `x` pixels at its sides, `y` above
+ * and below.
+ *
+ * Example:
+ *     row.style([padding_xy(SPACE_SM, SPACE_MD)])
+ */
+public fun padding_xy(x: i64, y: i64): Spacing = Spacing {
+    padding: Edges {
+        top: Width.Px(y),
+        bottom: Width.Px(y),
+        left: Width.Px(x),
+        right: Width.Px(x),
+        ..Edges.theme(),
+    },
+    ..Spacing.theme(),
+};

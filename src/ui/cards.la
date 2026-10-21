@@ -17,13 +17,14 @@ import ui.icons { Icon, icon };
 import ui.tokens {
     SPACE_XS,
     SPACE_SM,
+    SPACE_MD,
     CARD_ICON,
     CARD_WIDTH,
     CIRCLE,
     gap,
     square,
     exactly,
-    padding,
+    padding_xy,
 };
 import ui.themes { Theme, body, dim, heading };
 
@@ -75,7 +76,8 @@ public fun choice(t: Theme, label: string, summary: Option<string>, msg: Msg): V
     parts.push(image(icon(Icon.Forward, t.faint)).style([square(CARD_ICON)]).align(Align.Center));
     button_with(row(parts).style([gap(SPACE_SM)]).expand(), msg).style([
         Button.ghost(),
-        padding(SPACE_SM),
+        // More room above and below than at the sides (the owner, session 144).
+        padding_xy(SPACE_SM, SPACE_MD),
         Border { radius: Radius.All(CIRCLE), ..Border.theme() },
     ])
 }
