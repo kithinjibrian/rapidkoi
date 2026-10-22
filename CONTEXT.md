@@ -5585,16 +5585,39 @@ PRPs/prp-025-one_address_field.md, docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, CONT
 
 ---
 
-## SESSION 155 — 2026-10-22 — PRP-026: one tab per app, one empty tab — open
+## SESSION 155 — 2026-10-22 — PRP-026: one tab per app, one empty tab — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- From chat: the owner asked what happens with an app in two tabs (each tab ran its own copy; saved state is per app, so the one used last wins; a pinned app's second tab was hidden from the sidebar), weighed shared state (only a mirror today: an app's whole state is its screen; per-tab screens with shared data need links and storage), and chose one tab per app, with at most one empty tab.
+- Wrote PRP-026 (`PRPs/prp-026-one_tab_per_app.md`): opening an open app switches to its tab; + with an empty tab open switches to it; "the same app" is the same address (host and port) or the same file path. Waiting for approval; no code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-026-one_tab_per_app.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (listed in PRP-026).
+
+### DECISIONS MADE
+
+- One tab per app, at most one empty tab, until links and storage.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-026's approval.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar, empty tabs, one address field with share (PRP-019–025). Waiting for the owner's test run and look. Waiting on kivuli: DECISION-036, 037.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: PRP-019–025. PRP-026 (one tab per app, one empty tab) waits for approval. Waiting on kivuli: DECISION-036, 037.
