@@ -33,6 +33,7 @@ import ui.tokens {
     square,
     padding,
     at_least,
+    fixed_height,
     margin_y,
     flush_y,
     EDGE_WIDTH,
@@ -139,7 +140,10 @@ public fun field(m: Model): View<Msg> {
     // minimums give it.
     let box = input_group(start, middle, end).style([
         Border { radius: Radius.All(CIRCLE), ..Border.theme() },
-        at_least(ADDRESS_WIDTH, ADDRESS_HEIGHT),
+        // Exactly this high on every tab: its content differs (the field
+        // alone on an empty tab; the shield, ⚙ and ☆ around the address on
+        // an app), and each asked for its own height (sessions 122, 152).
+        fixed_height(ADDRESS_WIDTH, ADDRESS_HEIGHT),
         // Room above and below inside the header bar (the owner, session 107).
         margin_y(SPACE_SM),
         // No glow while typed in: kivuli.ui's 3 px halo goes, its thin ring

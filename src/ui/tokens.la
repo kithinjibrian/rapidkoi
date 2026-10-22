@@ -232,3 +232,18 @@ public fun no_padding(): Spacing = Spacing {
     padding: Edges { all: Width.Px(0), ..Edges.theme() },
     ..Spacing.theme(),
 };
+
+/**
+ * Returns a size at least `width` wide and exactly `height` high: the node
+ * keeps that height whatever it holds (kivuli's clamp), so long as its
+ * content fits.
+ *
+ * Example:
+ *     box.style([fixed_height(ADDRESS_WIDTH, ADDRESS_HEIGHT)])
+ */
+public fun fixed_height(width: i64, height: i64): Sizing = Sizing {
+    min_width: Width.Px(width),
+    height: Width.Px(height),
+    max_height: Width.Px(height),
+    ..Sizing.theme(),
+};

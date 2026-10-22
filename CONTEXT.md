@@ -5482,16 +5482,39 @@ docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-024-empty_tabs.md, CONTEXT.md
 
 ---
 
-## SESSION 152 — 2026-10-22 — The address box: one height on every tab — open
+## SESSION 152 — 2026-10-22 — The address box: one height on every tab — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner: the address bar changes height for new tabs. Its content differs by tab (the field alone on an empty tab; the shield, ⚙ and ☆ around the address on an app), and each asked for its own height. The box is now exactly `ADDRESS_HEIGHT` (30) high with a minimum width (`fixed_height`, new in `ui/tokens.la`: an exact height and a maximum, kivuli's clamp). If some content needed more than 30, the clamp would give it its minimum; for the owner to see.
+- `lughac check` clean; addressbox, header and settings tests type-check; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/addressbox.la, src/ui/tokens.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a size).
+
+### DECISIONS MADE
+
+- The address box has one fixed height.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar, empty tabs (PRP-019–024). Waiting for the owner's test run and look. Waiting on kivuli: group hover (DECISION-036), a fitting scroll and scroll-to (DECISION-037). Next ideas: the new tab as a bundled app (DECISION-027), the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar, empty tabs (PRP-019–024); the address box a fixed 30 px (session 152). Waiting for the owner's test run and look. Waiting on kivuli: DECISION-036, 037. Next ideas: the new tab as a bundled app (DECISION-027), the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
