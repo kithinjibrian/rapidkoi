@@ -5515,6 +5515,16 @@ src/ui/addressbox.la, src/ui/tokens.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
+## SESSION 153 — 2026-10-22 — Fix: the fixed height's minimum — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar, empty tabs (PRP-019–024); the address box a fixed 30 px (session 152). Waiting for the owner's test run and look. Waiting on kivuli: DECISION-036, 037. Next ideas: the new tab as a bundled app (DECISION-027), the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
