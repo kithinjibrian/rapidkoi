@@ -5866,3 +5866,6 @@ src/ui/icons.la, test/icons.la, CLAUDE.md, CHANGELOG.md, PRPs/prp-029-icons_incl
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`/`include_str` (milestone 128). Built: PRP-019–029. Awaiting the owner's test runs. Nothing else queued.
+
+## SESSION 165 — 2026-10-22 — The owner's full test run: 10 failures — open
+Branch: prp-017-kivuli_0_17
