@@ -32,6 +32,8 @@ public struct Model {
     public tabs: Tab[],
     /** The empty tabs' ids (PRP-024): tabs showing the new-tab page, one id sequence with the app tabs. */
     public blanks: i64[],
+    /** The new-tab app the empty tab shows (PRP-027); `None` if it couldn't start, or in tests. */
+    public newtab: Option<AppPage>,
     /** The current tab's id, app or empty; `None` only before the first tab exists. */
     public current: Option<i64>,
     next: i64,
@@ -88,6 +90,7 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         store: None,
         tabs: made,
         blanks: [],
+        newtab: None,
         current: if made.len > 0 { Some(0) } else { None },
         next: made.len,
         draft: "",

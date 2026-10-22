@@ -159,6 +159,26 @@ public fun current(ring: Keyring, f: Fetched): bool = match f {
 };
 
 /** A bundle's bytes (either format), checked; a signed one says how far its key is trusted. */
+/**
+ * Opens a bundle already in memory, as `load` opens a `.rkb` file: every
+ * rule checked, a signed one verified against `ring`.
+ *
+ * @param engine the engine to compile its module with
+ * @param ring the keys trusted, for a signed bundle
+ * @param file what to call it in a refusal
+ * @param bytes the bundle's bytes
+ * @returns the app; or why not
+ *
+ * Example:
+ *     from_bytes(engine, keyring(), "newtab.rkb", BUNDLE)
+ */
+public fun from_bytes(
+    engine: Engine,
+    ring: Keyring,
+    file: string,
+    bytes: u8[],
+): Result<Loaded, Refusal> = from_bundle(engine, ring, file, bytes);
+
 fun from_bundle(engine: Engine, ring: Keyring, file: string, bytes: u8[]): Result<Loaded, Refusal> {
     let o = read_any(bytes).map_err(fun(e) = Refusal.Failed(file, bundle_reason(e)))?;
     let trust = o.signed.map(fun(s) = standing_of(ring, s));

@@ -20,7 +20,8 @@ Rules:
 
 ### DECISION-038 — Shipping Rapidkoi's own apps inside the binary needs Lugha's include_bytes
 
-**Status:** deferred (requested from Lugha: `docs/specs/lugha-include-bytes.md`)
+**Status:** resolved — Session 162: Lugha milestone 128 (`include_bytes`/`include_str`, lughac beccfd8); `src/window/newtab.la` embeds `assets/apps/newtab.rkb` (PRP-027 Part 2). The bundle shipped unsigned (the owner, session 158). `ui/icons.la` to `include_str` is its own PRP.
+**Was:** deferred (requested from Lugha: `docs/specs/lugha-include-bytes.md`)
 **Raised:** 2026-10-22 — Session 157 (the owner chose to embed the bundled new tab in `./main`, over a resources folder beside it)
 
 **Question:** The new tab is a Rust app packed into a signed bundle. Lugha can't read a file into a program at compile time, so the bundle can't be embedded without pasting its bytes into source.

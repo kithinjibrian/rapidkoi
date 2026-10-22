@@ -5792,9 +5792,36 @@ test/sidebar.la, test/shell.la, DECISIONS.md, CLAUDE.md, docs/DESIGN.md, CHANGEL
 
 ---
 
+## SESSION 162 — 2026-10-22 — Build PRP-027 Part 2: empty tabs run the new-tab app — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- Before it: committed the owner's chat tweaks (sidebar ring 1 px with a clear ring on every app; no focus ring on the address box's round buttons, 4a0c877).
+- Lugha shipped `include_bytes`/`include_str` (milestone 128, lughac beccfd8, reinstalled by the owner). DECISION-038 resolved. The owner said go ("okay commit").
+- `src/window/newtab.la`: `BUNDLE = include_bytes("../../assets/apps/newtab.rkb")`, `open(engine)`. `bundles/loader.la`: public `from_bytes`. `Model.newtab: Option<AppPage>`, started once in `shell.start`. `ui/content.la`: `newtab_view` (running: its screen, messages mapped to `Home`, a no-op on an empty tab; otherwise empty). `ui/layout.la`: the empty tab shows it.
+- `lughac check` src and tests touched, `fmt --check` clean, `./main` builds. Tests not run (the owner runs them).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/window/newtab.la (new), src/bundles/loader.la, src/window/window.la, src/shell.la, src/ui/content.la, src/ui/layout.la,
+test/newtab.la, test/layout.la, DECISIONS.md, CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, PRPs/prp-027-newtab_app.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- `test/newtab.la`: the built-in bytes are the unsigned "New tab" 0.1.0; it opens; `from_bytes` refuses junk; an empty tab shows "Rapidkoi", an app tab doesn't (and it's no tab, pin or left-off); a page not running, or none, leaves the area empty.
+- `test/layout.la`: a fresh window's only text is "Rapidkoi".
+
+### STILL OPEN AT CLOSE
+
+- The owner's test runs (PRP-027, PRP-028) and a look in a window.
+- Next: a PRP for `ui/icons.la` through `include_str` (dropping the test that keeps the copies equal).
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.54. Built: PRP-019–028 (PRP-027 Part 1 only). Awaiting the owner's test runs of PRP-027 Part 1 and PRP-028. PRP-027 Part 2 waits on Lugha's `include_bytes` (DECISION-038).
-
-## SESSION 162 — 2026-10-22 — Build PRP-027 Part 2: empty tabs run the new-tab app — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes` (milestone 128). Built: PRP-019–028. Awaiting the owner's test runs. Next: the icons PRP (`include_str`).

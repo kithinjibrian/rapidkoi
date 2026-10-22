@@ -24,9 +24,10 @@ fun busy(): Model {
 }
 
 @test
-fun a_fresh_window_shows_no_text() {
+fun a_fresh_window_shows_only_the_new_tab() {
+    // The frame has no text of its own; the empty tab runs the new-tab app (PRP-027).
     let (m, _) = start(["main"], None);
-    assert_eq(texts(layout.view(m)).len, 0);
+    assert_eq(texts(layout.view(m)), ["Rapidkoi"]);
 }
 
 @test

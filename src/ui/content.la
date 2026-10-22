@@ -6,7 +6,7 @@
  * Depends on: kivuli, window.actions, window.tabs, window.window, guest.placeholders, people.people, ui.render, ui.frame
  * Used by: ui.layout
  */
-import kivuli { View };
+import kivuli { View, column };
 import window.actions { Msg };
 import window.tabs { AppPage };
 import guest.placeholders { fill };
@@ -48,3 +48,22 @@ public fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
     };
     shown.map(fun(inner: render.Msg) = Msg.Tab(id, inner))
 }
+
+/**
+ * Draws the new-tab app on the empty tab (PRP-027), or nothing: Rapidkoi's
+ * own page failing or missing isn't the person's to read.
+ *
+ * @param m the model: its new-tab app and the theme
+ * @returns the page's view
+ *
+ * Example:
+ *     newtab_view(m)
+ */
+public fun newtab_view(m: Model): View<Msg> = match m.newtab {
+    Some(p) => match p.screen {
+        // It sends nothing; were it to, Home on an empty tab changes nothing.
+        Running(_, _, d) => screen(d.root, m.theme).map(fun(_: render.Msg) = Msg.Home),
+        _ => column([]),
+    },
+    None => column([]),
+};

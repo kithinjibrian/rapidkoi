@@ -12,7 +12,7 @@ From chat with the owner (sessions 157–158). An empty tab runs Rapidkoi's own 
 - Related existing code: `guest/rust/counter/` (the crate to copy), `src/commands/pack.la`, `src/bundles/loader.la`, `src/window/tabs.la` (`open_module`), `src/ui/content.la`.
 - Lugha spec sections relied on: Part 2 needs `include_bytes`, which doesn't exist yet (`docs/specs/lugha-include-bytes.md`).
 - kivuli API used: none new.
-- Open decisions that must be resolved first: DECISION-038 (deferred) blocks Part 2 only.
+- Open decisions that must be resolved first: DECISION-038, resolved session 162 (Lugha milestone 128).
 
 ## IMPLEMENTATION REQUIREMENTS
 
@@ -49,10 +49,11 @@ Part 1:
 - [x] `cargo test` in `guest/rust/newtab`: the view encodes to one column holding one title text, "Rapidkoi"; any event leaves the state as it was.
 - [x] `test/newtab.la`: `assets/apps/newtab.rkb` reads as an unsigned bundle named "New tab", version 0.1.0 (skips if the file is missing, like `test/counter.la`).
 
-Part 2 (written when DECISION-038 resolves):
-- [ ] An empty tab's content shows "Rapidkoi".
-- [ ] Opening an address from the empty tab fills it as before; the new-tab app isn't a tab, a pin or "left off".
-- [ ] A bundle that fails to load leaves the empty content area, no error screen.
+Part 2 (`test/newtab.la`, `test/layout.la`):
+- [x] The built-in bytes read as the unsigned "New tab" 0.1.0; it opens untrusted-by-key (no trust); `loader.from_bytes` refuses what isn't a bundle.
+- [x] An empty tab's content shows "Rapidkoi"; with no new-tab app it's empty.
+- [x] Opening from the empty tab fills it as before; the new-tab app isn't a tab, a pin or "left off".
+- [x] A new-tab page that isn't running leaves the content area empty, no error screen.
 
 ## ROLLBACK PLAN
 

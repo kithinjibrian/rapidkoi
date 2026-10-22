@@ -18,6 +18,7 @@ import people.account { on_account, forget_account };
 import people.access { on_access, looked, news };
 public import window.window { Model, with_pages, title_of };
 import window.navigate;
+import window.newtab;
 import data.saving { session_store, restore, persist, mark, forgotten };
 import data.store { Store };
 import ui.render;
@@ -50,7 +51,10 @@ public fun boot(argv: string[]): (Model, Cmd<Msg>) = match session_store() {
  *     start(["./main"], Some(store_at("test/tmp/s")))
  */
 public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
-    let empty = with_pages(Engine.new(), []);
+    let engine = Engine.new();
+    // The new tab's app, once for the window; without it the empty tab is
+    // just empty (PRP-027).
+    let empty = Model { newtab: newtab.open(engine).ok(), ..with_pages(engine, []) };
     let remembered = match s {
         Some(st) => restore(empty, st),
         None => empty,
