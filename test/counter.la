@@ -3,7 +3,8 @@
 // CLAUDE.md COMMANDS), so the suite never needs Rust.
 import rapidkoi.shell { Model, start, update, title_of };
 import rapidkoi.ui.layout { view };
-import rapidkoi.window.window { card };
+import rapidkoi.window.window { card, page_of };
+import rapidkoi.ui.content { app_view };
 import rapidkoi.window.actions { Msg };
 import kivuli.testing { click, is_disabled, type_into, texts };
 import std.fs;
@@ -24,10 +25,11 @@ fun step(m: Model, msg: Msg): Model {
     next
 }
 
-/** The app's texts: the window's, without the frame's. */
-fun shown(m: Model): string[] = texts(view(m)).filter(
-    fun(s: string) = !s.starts_with("📄") && !s.starts_with("📦"),
-);
+/** The app's texts: its page alone, not the frame (whose cards are built while closed). */
+fun shown(m: Model): string[] = match page_of(m) {
+    App(a) => texts(app_view(m.current.unwrap_or(-1), a, m)),
+    Home => [],
+};
 
 @test
 fun the_counter_starts_at_zero_with_reset_disabled() {

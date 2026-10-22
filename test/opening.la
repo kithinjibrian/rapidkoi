@@ -127,10 +127,12 @@ fun a_new_key_without_a_trail_asks_first() {
     assert_eq(click(view(asked), "Keep using my version"), Ok(Msg.KeepMine));
     let kept = step(asked, Msg.KeepMine);
     assert_eq(marks(kept, "localhost:18743 · verified (development)"), true);
-    // Opened in a new tab (nothing open to keep), keeping closes that tab.
-    let new_tab = opening(step(kept, Msg.Home), "rapidkoi://localhost:18743");
-    assert_eq((new_tab.tabs.len, click(view(new_tab), "Don't open it")), (2, Ok(Msg.KeepMine)));
-    assert_eq(step(new_tab, Msg.KeepMine).tabs.len, 1);
+    // Opened again after its tab closed (nothing open to keep): keeping
+    // closes that tab. While it's open, opening it shows its tab (PRP-026).
+    let closed = step(kept, Msg.CloseTab(kept.current.unwrap()));
+    let new_tab = opening(closed, "rapidkoi://localhost:18743");
+    assert_eq((new_tab.tabs.len, click(view(new_tab), "Don't open it")), (1, Ok(Msg.KeepMine)));
+    assert_eq(step(new_tab, Msg.KeepMine).tabs.len, 0);
     // Asked again; this time, a separate app.
     let again = reloaded(kept);
     assert_eq(click(view(again), "Open as a separate app"), Ok(Msg.SeparateApp));

@@ -61,7 +61,11 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     };
     if argv.len < 2 {
         // The window always has a tab: an empty one to start (PRP-024).
-        return (window.new_blank(remembered), Cmd.focus("address"));
+        // new_blank clears the notice line; what restoring said still shows.
+        return (
+            Model { notice: remembered.notice, ..window.new_blank(remembered) },
+            Cmd.focus("address"),
+        );
     }
     let at = mark(remembered);
     let (placed, cmd) = navigate.open_file(remembered, argv[1]);
@@ -103,8 +107,14 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     // The shield's card belongs to one page: leaving it (another tab, home,
     // another app in this tab) closes it (PRP-021).
     // Site settings too (PRP-022).
+    // A card the message itself opened (About or Forget from another tab's
+    // menu) stays: only what was open on the old page closes.
     let next = if shown(handled) != shown(m) {
-        Model { shield: None, panel: None, ..handled }
+        Model {
+            shield: if handled.shield == m.shield { None } else { handled.shield },
+            panel: if handled.panel == m.panel { None } else { handled.panel },
+            ..handled,
+        }
     } else {
         handled
     };

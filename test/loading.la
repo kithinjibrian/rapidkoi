@@ -105,7 +105,11 @@ fun everything_else_works_while_it_loads() {
     assert_eq((home.blanks.len, home.tabs.len), (1, 1));
     let back = step(home, Msg.Select(m.tabs[0].id));
     assert_eq(loading(back), true);
-    let (more, cmd) = update(Model { draft: ADDRESS, ..step(back, Msg.NewTab) }, Msg.Go);
+    // Another address (the same one would switch to its tab, PRP-026).
+    let (more, cmd) = update(
+        Model { draft: "rapidkoi://localhost:18774", ..step(back, Msg.NewTab) },
+        Msg.Go,
+    );
     assert_eq((more.tabs.len, is_task(cmd)), (2, true));
 }
 
@@ -208,33 +212,31 @@ fun site(port: i64): string {
 fun a_changed_snapshot_loads_again_once_then_says_so() {
     let dir = site(18772);
     let (home, _) = start(["./main"], None);
-    // Two tabs start loading the same site with the same (empty) snapshot.
+    // One tab per app (PRP-026): the same site can't load in two tabs, so
+    // the load's task runs twice from one (empty) snapshot. The first result
+    // records the key in the keyring every copy of the model shares; the
+    // second then arrives at the load still waiting, its snapshot stale.
     let (one, c1) = update(Model { draft: "rapidkoi://localhost:18772", ..home }, Msg.Go);
-    let (two, c2) = update(
-        Model { draft: "rapidkoi://localhost:18772", ..step(one, Msg.NewTab) },
-        Msg.Go,
-    );
     let first = match c1 {
         Task(job) => job(),
         _ => Msg.Home,
     };
-    let second = match c2 {
+    let second = match c1 {
         Task(job) => job(),
         _ => Msg.Home,
     };
-    // The first records the key (a first use); the second's snapshot is now stale.
-    let (a, _) = update(two, first);
-    let (b, again) = update(a, second);
+    let _ = update(one, first);
+    let (b, again) = update(one, second);
     assert_eq(is_task(again), true);
     assert_eq(
-        match b.tabs[1].page.screen {
+        match b.tabs[0].page.screen {
             Loading(_) => true,
             _ => false,
         },
         true,
     );
     // Stale a second time (a hand-made stale result): the page says so.
-    let id = b.tabs[1].id;
+    let id = b.tabs[0].id;
     let stale = match second {
         Fetched(_, _, f) => f,
         _ => Fetched.Unsigned("", []),

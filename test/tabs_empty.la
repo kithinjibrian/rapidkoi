@@ -67,9 +67,11 @@ fun a_pin_and_continue_fill_the_empty_tab_too() {
     let id = m.blanks[0];
     let pinned = step(m, Msg.OpenPinned("gone.wasm"));
     assert_eq((pinned.tabs.len, pinned.blanks.len, pinned.tabs[0].id), (1, 0, id));
-    // From an app tab, a pin opens in a tab of its own.
-    let again = step(pinned, Msg.OpenPinned("gone.wasm"));
-    assert_eq(again.tabs.len, 2);
+    // From an app tab, another pin opens in a tab of its own; the same one
+    // is already open, so it's shown (PRP-026).
+    let other = Model { pinned: [Pin { name: "else", path: "else.wasm", icon: None }], ..pinned };
+    assert_eq(step(other, Msg.OpenPinned("else.wasm")).tabs.len, 2);
+    assert_eq(step(pinned, Msg.OpenPinned("gone.wasm")).tabs.len, 1);
 }
 
 @test

@@ -5863,9 +5863,40 @@ src/ui/icons.la, test/icons.la, CLAUDE.md, CHANGELOG.md, PRPs/prp-029-icons_incl
 
 ---
 
+## SESSION 165 — 2026-10-22 — The owner's full test run: 10 failures — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+The owner ran `lughac test test/`: 376 tests, 366 passed, 10 failed. Four were code bugs, six were tests from before PRP-024/026.
+
+Code fixed:
+- `src/shell.la` `update`: a page change closed every card, including one the message just opened (About and Forget from another tab's menu, PRP-021/022). Now it closes only the cards that were already open.
+- `src/shell.la` `start`: `new_blank` cleared the notice line, so what restoring said was lost (PRP-024). It is kept now.
+- `src/window/navigate.la` `go`: typing an open app's path checked the file first. An app already open is now shown even if its file is gone (PRP-026).
+
+Tests brought up to date:
+- `counter`: reads only the app's page. The shield and settings cards are built while closed.
+- `addressbox`: the sidebar's "alpha" is a tab; the check is now on the box.
+- `shell`, `tabs_empty`, `loading` (×2), `opening`: closing the last tab leaves an empty tab; one tab per app.
+  - The stale-snapshot test now runs one load's task twice; the keyring is shared.
+
+`check`, `fmt --check` and `build` pass. Not re-run (the owner runs tests).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/shell.la, src/window/navigate.la, test/{counter,addressbox,shell,tabs_empty,loading,opening}.la, CONTEXT.md
+```
+
+### STILL OPEN AT CLOSE
+
+- The owner's re-run of the full suite.
+- Edge: with the shield open, About from another tab's menu still closes it (the same page value). Not fixed; not asked.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`/`include_str` (milestone 128). Built: PRP-019–029. Awaiting the owner's test runs. Nothing else queued.
-
-## SESSION 165 — 2026-10-22 — The owner's full test run: 10 failures — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`/`include_str`. Built: PRP-019–029. Session 165 fixed the 10 failures of the owner's full run; awaiting the re-run.

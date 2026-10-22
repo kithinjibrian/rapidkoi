@@ -40,7 +40,8 @@ fun typing_shows_nothing_under_the_box() {
     // The suggestions card is gone until its redesign (the owner, session 108).
     let m = step(home(), Msg.Draft("alp"));
     let v = layout.view(m);
-    assert(click(v, "alpha").is_err());
+    // The sidebar's "alpha" is the open tab; the box suggests nothing.
+    assert(click(addressbox.field(m), "alpha").is_err());
     assert(click(v, "dismiss").is_err());
     assert(press(v, "Escape").is_err());
     // Just the rounded field (session 80): Enter goes, there's no → button.

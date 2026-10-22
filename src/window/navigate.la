@@ -56,7 +56,8 @@ public fun go(m: Model): (Model, Cmd<Msg>) {
             Err(e) => (Model { notice: Some(address.reason(e)), ..m }, Cmd.none()),
         };
     }
-    if fs.is_file(wanted) {
+    // An app already open is shown even if its file has gone since (PRP-026).
+    if fs.is_file(wanted) || open_tab_of(m, wanted).is_some() {
         return open_file(m, wanted);
     }
     (Model { notice: Some("No app or file called “{wanted}”"), ..m }, Cmd.none())

@@ -133,9 +133,10 @@ fun closing_tabs_picks_a_neighbour_then_home() {
     let m = step(two(), Msg.CloseTab(0));
     assert_eq(m.current, Some(1));
     assert_eq(state_of(page(step(m, add(0)), 1)), Some([]));
+    // The last tab closed: one empty tab remains (PRP-024).
     let none = step(m, Msg.CloseTab(1));
-    assert_eq(none.tabs.len, 0);
-    assert_eq(none.current, None);
+    assert_eq((none.tabs.len, none.blanks.len), (0, 1));
+    assert_eq(none.current, Some(none.blanks[0]));
 }
 
 @test
