@@ -5845,3 +5845,6 @@ PRPs/prp-029-icons_include_str.md, CONTEXT.md
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes` (milestone 128). Built: PRP-019–028. PRP-029 (icons through `include_str`) written, awaiting approval. Awaiting the owner's test runs.
+
+## SESSION 164 — 2026-10-22 — Build PRP-029: icons through include_str — open
+Branch: prp-017-kivuli_0_17
