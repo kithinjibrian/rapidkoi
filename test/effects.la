@@ -7,7 +7,7 @@ import rapidkoi.ui.layout { view };
 import rapidkoi.guest.effects { answer_all };
 import rapidkoi.data.saving { restore };
 import rapidkoi.window.tabs { AppPage, Pin, Screen, open_module, state_of, with_saved };
-import rapidkoi.window.actions { Msg, Approval, Answer };
+import rapidkoi.window.actions { Msg, Approval, Answer, PanelPage };
 import rapidkoi.bundles.permissions { Permission, Setting };
 import rapidkoi.people.access { key_of };
 import rapidkoi.bundles.bundle { Manifest };
@@ -378,4 +378,20 @@ fun leaving_the_page_is_dont_allow() {
     let (left, _) = update(m, Msg.NewTab);
     assert_eq(left.approval, None);
     assert_eq(state_of(left.tabs[0].page), Some(answer(t("got"), Value.Array([]))));
+}
+
+@test
+fun an_approval_waits_while_a_card_is_open() {
+    // Session 171: not over the settings you're changing; asked once it closes.
+    let p = holding("pins", [], ["read_pins"]);
+    let m = Model {
+        pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }],
+        people: with_setting(nobody(), key_of(p), Permission.ReadPins, Setting.Ask),
+        panel: Some(PanelPage.Permissions),
+        ..with_pages(Engine.new(), [p]),
+    };
+    let (open, _) = answer_all(m);
+    assert_eq((open.approval, open.tabs[0].page.asks.len), (None, 1));
+    let (closed, _) = update(open, Msg.ClosePanel);
+    assert_eq(closed.approval.is_some(), true);
 }

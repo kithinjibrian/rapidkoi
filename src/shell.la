@@ -230,6 +230,9 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         },
         Cmd.none(),
     ),
+    // Closing only, never a toggle: a popover may say it closed more than
+    // once, and a toggle reopened it over everything (session 171).
+    ClosePanel => (Model { panel: None, confirm: None, ..m }, Cmd.none()),
     TogglePin => (window.toggle_pin(m), Cmd.none()),
     PanelGo(page) => (Model { panel: Some(page), confirm: None, ..m }, Cmd.none()),
     PanelBack => (Model { panel: Some(PanelPage.Main), confirm: None, ..m }, Cmd.none()),

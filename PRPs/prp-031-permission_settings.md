@@ -124,6 +124,8 @@ You set this on a **Permissions** page reached from the settings card's **App se
 - **The UI is `src/ui/grants.la`** (the summary, the page, `shows_row`, `shows_icon`, the dialog's content), with tests in `test/grants.la`. `test/permissions.la` was already `bundles/permissions.la`'s.
 - **Wording:** the row labels ("Reading your pins") and the dialog's ("read your pins") are `label_of` and `wish_of` in `bundles/permissions.la`.
 
+- **Session 171 fixes (the owner's screenshot: the dialog couldn't be closed):** ⚙'s popover closes with `Msg.ClosePanel`, never the toggle, because a popover can report closing twice and the toggle reopened it, holding every click. An approval also waits while ⚙'s or the shield's card is open, and asks once it closes.
+
 ## LATER (parked by the owner, session 168)
 
 - "Where you left off" went empty after the quote tab closed (the owner's screenshots, session 168; steps unknown). Look into it once this is built.

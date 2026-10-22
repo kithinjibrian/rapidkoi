@@ -42,8 +42,10 @@ public enum Msg {
     Approve(Answer),
     /** The Permissions page: the card's app's permission, by name, set to this. */
     SetPermission(string, Setting),
-    /** Show or hide the app info panel. */
+    /** Show or hide the app info panel: ⚙. */
     TogglePanel,
+    /** Close the app info panel: its popover closed itself (a click outside, Escape). Never opens it. */
+    ClosePanel,
     /** Pin the current app, or unpin it if it's pinned (☆ in the bar). */
     TogglePin,
     /** Move the keyboard to the address box (Ctrl+K once kivuli has window-level shortcuts; PRP-025). */

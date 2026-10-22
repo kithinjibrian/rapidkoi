@@ -6073,9 +6073,32 @@ src/shell.la, test/newtab.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
+## SESSION 171 — 2026-10-22 — The approval dialog stuck under ⚙'s card — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner's screenshot: the approval dialog appeared over ⚙'s open card (setting a permission to Needs approval sent `on_change`, the new tab re-read, and Rapidkoi asked), and couldn't be closed.
+- Cause, from the code (no window here):
+  - ⚙'s popover reported closing with `TogglePanel`.
+  - A popover closing itself (a dialog taking focus) can report it twice, and the toggle reopened it.
+  - An open popover takes every click outside it.
+- Fixed:
+  - `Msg.ClosePanel` (close only) is the popover's on_close.
+  - An approval waits while ⚙'s or the shield's card is open, and asks once it closes.
+  - Tests: `test/shell.la` `closing_the_card_never_reopens_it`, `test/effects.la` `an_approval_waits_while_a_card_is_open`.
+- Recorded in PRP-031's amendments. Checks and build pass. Tests not run (the owner runs them). `lugha.lock` is still modified and uncommitted (the owner's call).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/window/actions.la, src/shell.la, src/ui/addressbox.la, src/guest/effects.la, test/shell.la, test/effects.la, PRPs/prp-031-permission_settings.md, CONTEXT.md
+```
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031 and the launch order (session 170). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Awaiting the owner's test runs. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Awaiting the owner's test runs. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
 
-## SESSION 171 — 2026-10-22 — The approval dialog stuck under ⚙'s card — open
-Branch: prp-017-kivuli_0_17

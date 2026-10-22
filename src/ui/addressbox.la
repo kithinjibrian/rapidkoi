@@ -131,7 +131,7 @@ public fun field(m: Model): View<Msg> {
                 gear,
                 m.panel.is_some(),
                 settings.card(m, p, m.panel.unwrap_or(PanelPage.Main)),
-                Msg.TogglePanel,
+                Msg.ClosePanel,
             ),
         );
     }

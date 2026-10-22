@@ -377,3 +377,12 @@ fun its_own_setting_changing_is_a_change() {
     let set = step(m, Msg.SetPermission("read_pins", Setting.Ask));
     assert_eq(last_event(set, 0), v3(Happened.Change));
 }
+
+@test
+fun closing_the_card_never_reopens_it() {
+    // Session 171: the popover closing itself (a dialog taking the focus)
+    // can say so twice; a toggle reopened it, holding every click.
+    let m = step(two(), Msg.TogglePanel);
+    let closed = step(step(m, Msg.ClosePanel), Msg.ClosePanel);
+    assert_eq(closed.panel, None);
+}
