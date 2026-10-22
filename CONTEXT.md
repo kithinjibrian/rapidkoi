@@ -6041,9 +6041,38 @@ guest/rust/rapidkoi/src/abi.rs, guest/rust/newtab/src/lib.rs, scripts/newtab.sh,
 
 ---
 
+## SESSION 170 — 2026-10-22 — The new tab empty at launch: a launch order — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: at first launch the new tab showed nothing.
+  - Cause: `start` opened the new tab before restoring the data folder.
+  - Its `on_open` asks were only answered by the next update.
+  - Probably also the parked "where you left off went empty" (if Rapidkoi was restarted in between).
+- The owner's idea, done: a launch order in `shell.start`, documented there and in DESIGN.md. No app runs until the window it reads from is complete.
+  1. Restore.
+  2. Build the window.
+  3. Start the apps.
+  4. Answer their opening asks (`answer_all`, also on the empty-tab path now).
+- Test: `test/newtab.la` `the_first_screen_already_shows_what_s_remembered` (a pins file, then the first screen shows Pinned and the pin).
+- `lughac build` changed `lugha.lock` by one line again. The owner stopped my restore, so it's left modified and out of the commit, awaiting their call.
+- Checks, fmt and build pass. Tests not run (the owner runs them).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/shell.la, test/newtab.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### STILL OPEN AT CLOSE
+
+- `lugha.lock` modified by lughac: the owner decides (restore, or commit).
+- The owner's test runs (sessions 165, 167, 169, 170).
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031; contract 3 (open for step B). Awaiting the owner's test runs. Next: the parked empty "Where you left off" bug, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
-
-## SESSION 170 — 2026-10-22 — The new tab empty at launch — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031 and the launch order (session 170). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Awaiting the owner's test runs. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).

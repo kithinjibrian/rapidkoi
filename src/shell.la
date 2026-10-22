@@ -47,28 +47,41 @@ public fun boot(argv: string[]): (Model, Cmd<Msg>) = match session_store() {
  * Builds the first window on a data folder (or none, saving nothing).
  * Tests start here with a folder of their own, never the person's.
  *
+ * The launch order (session 170): no app runs until the window it reads
+ * from is complete.
+ * 1. Restore what the data folder holds: trust, pins, where you left off,
+ *    people and permission settings.
+ * 2. Build the window: the empty tab, or the app's tab.
+ * 3. Start the apps: the new tab, then the one named on the command line.
+ * 4. Answer what they asked for when they opened.
+ *
  * Example:
  *     start(["./main"], Some(store_at("test/tmp/s")))
  */
 public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     let engine = Engine.new();
-    // The new tab's app, once for the window; without it the empty tab is
-    // just empty (PRP-027).
-    let empty = Model { newtab: newtab.open(engine).ok(), ..with_pages(engine, []) };
-    let remembered = match s {
+    // 1. Restore.
+    let empty = with_pages(engine, []);
+    let restored = match s {
         Some(st) => restore(empty, st),
         None => empty,
     };
+    // 2 and 3. The new tab's app, once for the window, now that what it
+    // reads is there; without it the empty tab is just empty (PRP-027).
+    let remembered = Model { newtab: newtab.open(engine).ok(), ..restored };
     if argv.len < 2 {
         // The window always has a tab: an empty one to start (PRP-024).
         // new_blank clears the notice line; what restoring said still shows.
-        return (
-            Model { notice: remembered.notice, ..window.new_blank(remembered) },
-            Cmd.focus("address"),
-        );
+        let blank = Model { notice: remembered.notice, ..window.new_blank(remembered) };
+        // 4. What the new tab asked for when it opened: your pins and where
+        // you left off, so the first screen shows them.
+        let (answered, sends) = answer_all(blank);
+        return (answered, both(Cmd.focus("address"), sends));
     }
     let at = mark(remembered);
+    // 2 and 3: the app's tab, and the app in it.
     let (placed, cmd) = navigate.open_file(remembered, argv[1]);
+    // 4. What both asked for.
     let (answered, sends) = answer_all(placed);
     let opened = persist(remembered, news(answered), at);
     // Opening clears the notice line; what restoring said still shows.

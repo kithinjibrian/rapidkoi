@@ -5,7 +5,10 @@ import rapidkoi.bundles.bundle { Bundle, Manifest, Controls, read, write };
 import rapidkoi.bundles.loader { Origin, from_bytes, why };
 import rapidkoi.trust.verify { keyring };
 import rapidkoi.window.newtab { BUNDLE, open };
-import rapidkoi.window.tabs { failed_page };
+import rapidkoi.window.tabs { AppPage, Pin, failed_page };
+import rapidkoi.data.store { store_at, save };
+import rapidkoi.data.remembered { pins_file };
+import std.fs;
 import rapidkoi.shell { Model, start, with_pages, update };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
@@ -138,4 +141,25 @@ fun only_a_built_in_app_chooses_its_controls() {
     // PRP-031: a site can't hide the shield or dress up as Rapidkoi's own page.
     let hiding = declaring_all([], Some(Controls { address: [], settings: [] }));
     assert_eq(refusal(hiding, Origin.External), "This app asks to change Rapidkoi's own controls");
+}
+
+@test
+fun the_first_screen_already_shows_what_s_remembered() {
+    // The launch order (session 170): restore, build the window, start the
+    // apps, answer them. The new tab's on_open sees your pins.
+    let dir = "test/tmp/newtab-launch";
+    if fs.is_file("{dir}/pins") {
+        fs.remove_file("{dir}/pins").unwrap();
+    }
+    let s = store_at(dir);
+    save(
+        s,
+        "pins",
+        pins_file([Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }]),
+    ).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    assert_eq(m.newtab.map(fun(p: AppPage) = p.asks.len), Some(0));
+    assert(shows(m, "Pinned"));
+    assert(shows(m, "Quote"));
+    fs.remove_file("{dir}/pins").unwrap();
 }
