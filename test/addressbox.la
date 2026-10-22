@@ -62,14 +62,14 @@ fun dismissing_empties_the_box() {
 }
 
 @test
-fun an_app_page_shows_its_address_until_clicked() {
+fun an_app_page_has_the_same_field_with_its_address() {
+    // One typing box on every tab (PRP-025): no button to click first.
     let m = step(home(), Msg.Select(0));
     let f = addressbox.field(m);
-    assert(type_into(f, "Enter Address", "x").is_err());
-    assert_eq(press(f, "Ctrl+K"), Ok(Msg.EditAddress));
-    let editing = step(m, Msg.EditAddress);
-    assert_eq(type_into(addressbox.field(editing), "Enter Address", "x"), Ok(Msg.Draft("x")));
-    // Escape puts the address back.
-    let back = step(editing, Msg.Dismiss);
-    assert(type_into(addressbox.field(back), "Enter Address", "x").is_err());
+    assert_eq(type_into(f, "Enter Address", "x"), Ok(Msg.Draft("x")));
+    assert_eq(submit(f, "Enter Address"), Ok(Msg.Go));
+    // Typing starts editing; Dismiss puts the address back.
+    let typed = step(m, Msg.Draft("quote"));
+    assert_eq((typed.editing, typed.draft), (true, "quote"));
+    assert_eq(step(typed, Msg.Dismiss).editing, false);
 }

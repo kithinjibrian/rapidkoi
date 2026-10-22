@@ -8,18 +8,11 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.frame, ui.icons, ui.tokens, ui.themes
  * Used by: ui.header
  */
-import kivuli { View, Align, Border, Radius, Shadow, State, Styling, Text, When, image, row };
-import kivuli.ui {
-    input_group,
-    group_input,
-    group_button_with,
-    Button,
-    button as ui_button,
-    popover as ui_popover,
-};
+import kivuli { View, Align, Border, Radius, Shadow, State, Styling, When, image, row };
+import kivuli.ui { input_group, group_input, group_button_with, popover as ui_popover };
 import window.actions { Msg, ShieldPage, PanelPage };
 import window.window { Model, page_of, is_pinned };
-import ui.frame { marker, marker_note, file_of };
+import ui.frame { marker_note, file_of };
 import ui.icons { Icon, icon };
 import ui.shield { facts, look_colour, card };
 import ui.settings;
@@ -38,14 +31,13 @@ import ui.tokens {
     flush_y,
     EDGE_WIDTH,
 };
-import ui.themes { address, bare };
 
 /**
  * Builds the address box for the header bar, one framed group: on an app
  * page, the shield at its start in its look, opening its card (PRP-021),
- * then ⚙ opening site settings (PRP-020, PRP-022); in the middle the field
- * ("Enter Address"; Enter goes) on home or while editing, or the app's
- * address, which a click or Ctrl+K turns into the field; and ☆ at its end on
+ * then ⚙ opening site settings (PRP-020, PRP-022); in the middle one field
+ * on every tab ("Enter Address" on an empty tab, the app's address on an
+ * app; Enter goes, PRP-025); at its end share (greyed until links) and ☆ on
  * an app page.
  *
  * @param m the model
@@ -60,25 +52,30 @@ public fun field(m: Model): View<Msg> {
     // kivuli.ui makes fields and buttons at least 36 high; inside the box's
     // edge they take its height instead, so the box can be thinner.
     let inside = at_least(0, ADDRESS_HEIGHT - 2 * EDGE_WIDTH);
-    let middle = match page {
-        App(p) if !m.editing => {
-            let shown = file_of(p.path);
-            // The marker's meaning in words, then what clicking it does.
-            // Bare: the box's ring is the only outline (session 120).
-            ui_button(marker(p, shown), Msg.EditAddress).style([
-                Button.ghost(),
-                Text.start(),
-                inside,
-            ]).style(bare(t)).tooltip(
-                "{marker_note(p, shown)}. Click to type an address (Ctrl+K)",
-            ).shortcut("Ctrl+K")
-        }
-        // No padding above and below: kivuli.ui's field has 4 px each way, the
-        // address button none, so the box (and the bar) was taller on home
-        // and while typing than on an app's page (session 122).
-        _ => group_input(m.draft, Msg.Draft).placeholder("Enter Address").name("address").on_submit(
-            Msg.Go,
-        ).autofocus().style([inside, flush_y()]),
+    // One field on every tab (the owner, session 154): on an app it shows
+    // the app's address until typed in; on an empty tab, the hint. No button
+    // swapping into a field, so the box is the same everywhere.
+    let (shown, note) = match page {
+        App(p) => (
+            if m.editing { m.draft } else { facts(p).place },
+            // The trust marker's words, on hover: the shield says the rest.
+            Some(marker_note(p, file_of(p.path))),
+        ),
+        Home => (m.draft, None),
+    };
+    // No padding above and below: kivuli.ui's field has 4 px each way
+    // (session 122).
+    let typing = group_input(shown, Msg.Draft).placeholder("Enter Address").name(
+        "address",
+    ).on_submit(Msg.Go).style([inside, flush_y()]);
+    // It takes the keyboard by itself only on an empty tab, not over an app.
+    let with_focus = match page {
+        Home => typing.autofocus(),
+        App(_) => typing,
+    };
+    let middle = match note {
+        Some(n) => with_focus.tooltip(n),
+        None => with_focus,
     };
     let mut start: View<Msg>[] = [];
     if let App(p) = page {
@@ -125,7 +122,14 @@ public fun field(m: Model): View<Msg> {
     if start.len > 1 {
         start = [row(start)];
     }
-    let mut end: View<Msg>[] = [];
+    // Share on every tab, greyed until links can share an app's screen (the
+    // owner's icon, session 154); pin after it on an app.
+    let mut end: View<Msg>[] = [
+        group_button_with(
+            [image(icon(Icon.Share, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
+            Msg.Home,
+        ).disabled(true).style(round()).align(Align.Center).tooltip("Share (comes with links)"),
+    ];
     if let App(p) = page {
         let tip = if is_pinned(m, p.path) { "Unpin" } else { "Pin" };
         end.push(

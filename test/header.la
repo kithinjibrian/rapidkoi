@@ -105,3 +105,15 @@ fun the_card_turns_its_pages() {
     let signed_page = addressbox.field(step(m, Msg.Shield(Some(ShieldPage.Signed))));
     assert_eq(click(signed_page, "Back"), Ok(Msg.Shield(Some(ShieldPage.Main))));
 }
+
+@test
+fun share_waits_greyed_on_every_tab_and_pin_is_for_apps() {
+    // PRP-025: share (the owner's icon) until links can share a screen.
+    let app_page = window(plain());
+    let empty = step(window(plain()), Msg.NewTab);
+    for m of [app_page, empty] {
+        assert_eq(is_disabled(addressbox.field(m), "Share (comes with links)"), Ok(true));
+    }
+    assert_eq(click(addressbox.field(app_page), "Pin"), Ok(Msg.TogglePin));
+    assert(click(addressbox.field(empty), "Pin").is_err());
+}

@@ -142,7 +142,9 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     NewTab => (window.new_blank(m), Cmd.focus("address")),
     Home => (window.go_home(m), Cmd.focus("address")),
     CloseTab(id) => (window.close(m, id), Cmd.none()),
-    Draft(text) => (Model { draft: text, notice: None, ..m }, Cmd.none()),
+    // Typing in the field starts editing: on an app, what's typed replaces
+    // its address in the box until Enter or Dismiss (PRP-025).
+    Draft(text) => (Model { draft: text, editing: true, notice: None, ..m }, Cmd.none()),
     Go => navigate.go(m),
     Dismiss => (Model { draft: "", editing: false, notice: None, ..m }, Cmd.none()),
     // One card at a time: opening the shield's closes site settings (PRP-022).

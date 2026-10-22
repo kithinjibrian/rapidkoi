@@ -4,7 +4,8 @@
 // path. Writes only under test/tmp/.
 import rapidkoi.shell { Model, start, update };
 import rapidkoi.ui.layout { view };
-import rapidkoi.window.window { with_network };
+import rapidkoi.window.window { with_network, page_of };
+import rapidkoi.ui.frame { marker_note, file_of };
 import rapidkoi.net.dialing { Network };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.data.store { store_at };
@@ -76,11 +77,11 @@ fun a_tls_site_opens_verified_and_its_first_use_is_saved() {
         "https://localhost:18791",
     );
     assert_eq(
-        click(
-            view(m),
-            "localhost:18791 · verified (development). Click to type an address (Ctrl+K)",
-        ),
-        Ok(Msg.EditAddress),
+        match page_of(m) {
+            App(p) => marker_note(p, file_of(p.path)),
+            Home => "",
+        },
+        "localhost:18791 · verified (development)",
     );
     let saved = read_trust(read_bytes("{s.dir}/trust").unwrap()).unwrap();
     assert_eq((saved.len, saved[0].host, saved[0].since >= before), (1, "localhost:18791", true));

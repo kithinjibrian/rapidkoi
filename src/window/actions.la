@@ -41,7 +41,7 @@ public enum Msg {
     TogglePanel,
     /** Pin the current app, or unpin it if it's pinned (☆ in the bar). */
     TogglePin,
-    /** Move the keyboard to the address box (Ctrl+K). */
+    /** Move the keyboard to the address box (Ctrl+K once kivuli has window-level shortcuts; PRP-025). */
     FocusSearch,
     /** Load the current app again from its file or server, keeping its state when it can (⟳). */
     Reload,

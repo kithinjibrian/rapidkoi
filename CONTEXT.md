@@ -5548,16 +5548,43 @@ src/ui/tokens.la, CONTEXT.md
 
 ---
 
-## SESSION 154 — 2026-10-22 — PRP-025: one typing box, and share — open
+## SESSION 154 — 2026-10-22 — PRP-025: one typing box, and share — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner added `assets/icons/export-circle2.svg` and asked for [share] [pin] at the address box's end ([share] only on an empty tab), and the same address bar with an app open or on a new tab; after two tries at explaining, the owner confirmed "one typing box for both". Share's action wasn't answered: greyed "Share (comes with links)", like ← ⌂ →. Wrote PRP-025 (`PRPs/prp-025-one_address_field.md`) from that and built it.
+- `Icon.Share` in `ui/icons.la` (the owner's SVG committed with it). The address box's middle is one `group_input` on every tab: on an app it shows `shield.facts(p).place` until typed in, its hover text the trust marker's words; it autofocuses only on an empty tab. `Draft` now sets `editing`. End: share (disabled), then ☆ on apps.
+- Lost: Ctrl+K (kivuli shortcuts are buttons only); a known issue in CLAUDE.md.
+- Tests: `addressbox.la` (an app page has the same field), `header.la` (share on every tab, pin on apps); `loading`, `opening`, `saving`, `remote` read the marker's words with `frame.marker_note` instead of clicking the old button. `lughac check` clean; every test file type-checks; fmt clean; build ok. Not run: the owner's.
+
+### FILES CREATED OR MODIFIED
+
+```
+assets/icons/export-circle2.svg (the owner's), src/ui/icons.la, src/ui/addressbox.la, src/shell.la, src/window/actions.la
+test/addressbox.la, test/header.la, test/loading.la, test/opening.la, test/saving.la, test/remote.la
+PRPs/prp-025-one_address_field.md, docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/addressbox.la: an app page has the same field with its address; test/header.la: share greyed on every tab, pin on apps.
+
+### DECISIONS MADE
+
+- One address field on every tab; share greyed until links.
+
+### PENDING DECISIONS OPENED
+
+- None (Ctrl+K back would be a kivuli request for window-level shortcuts, if the owner wants it).
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run and look.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar, empty tabs (PRP-019–024); the address box a fixed 30 px (sessions 152–153). Waiting for the owner's run and look. Waiting on kivuli: DECISION-036, 037. Next ideas: the new tab as a bundled app (DECISION-027), the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar, empty tabs, one address field with share (PRP-019–025). Waiting for the owner's test run and look. Waiting on kivuli: DECISION-036, 037.

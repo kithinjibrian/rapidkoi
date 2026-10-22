@@ -7,6 +7,8 @@ import rapidkoi.shell { Model, with_pages, update };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.navigate { open_file, reload };
 import rapidkoi.window.actions { Msg };
+import rapidkoi.window.window { page_of };
+import rapidkoi.ui.frame { marker_note, file_of };
 import kivuli.testing { texts, click, Lookup };
 import std.http { Request };
 import std.env;
@@ -62,12 +64,11 @@ fun reloaded(m: Model): Model {
     settle(next, cmd, update)
 }
 
-/** The bar's marker is a button (it turns back into the address box). */
-/** The bar's marker, found by what it means (its tooltip leads with that). */
-fun marks(m: Model, s: string): bool = click(
-    view(m),
-    "{s}. Click to type an address (Ctrl+K)",
-) == Ok(Msg.EditAddress);
+/** What the trust marker says for the current app (its hover text in the address box, PRP-025). */
+fun marks(m: Model, s: string): bool = match page_of(m) {
+    App(p) => marker_note(p, file_of(p.path)) == s,
+    Home => false,
+};
 
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 

@@ -4,6 +4,8 @@
 import rapidkoi.shell { Model, start, update };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
+import rapidkoi.window.window { page_of };
+import rapidkoi.ui.frame { marker_note, file_of };
 import rapidkoi.data.store { Store, store_at, save };
 import rapidkoi.data.remembered { read_pins, read_trust, read_left, left_file };
 import rapidkoi.window.leftoff { LeftOff, recalled };
@@ -52,11 +54,11 @@ fun step(m: Model, msg: Msg): Model {
 
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
-/** The bar's marker, found by what it means (its tooltip leads with that). */
-fun marks(m: Model, s: string): bool = click(
-    view(m),
-    "{s}. Click to type an address (Ctrl+K)",
-) == Ok(Msg.EditAddress);
+/** What the trust marker says for the current app (its hover text in the address box, PRP-025). */
+fun marks(m: Model, s: string): bool = match page_of(m) {
+    App(p) => marker_note(p, file_of(p.path)) == s,
+    Home => false,
+};
 
 /** A signed site for `localhost:PORT`, published and served. */
 fun site(port: i64): string = site_of(port, "", 1);
