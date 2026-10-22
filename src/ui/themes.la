@@ -32,6 +32,7 @@ import kivuli {
     Part,
     hex,
 };
+import kivuli.ui { Button };
 import guest.nodes { ButtonLook };
 import ui.tokens {
     TEXT_TITLE,
@@ -40,6 +41,8 @@ import ui.tokens {
     EDGE_WIDTH,
     BUTTON_RADIUS,
     CIRCLE,
+    RING_WIDTH,
+    TAB_CLOSE,
     HEADER_ICON,
     SPACE_XS,
     SPACE_SM,
@@ -47,6 +50,7 @@ import ui.tokens {
     margin_x,
     padding,
     padding_xy,
+    no_padding,
 };
 
 /** One theme: a name, and a colour per part (`#rrggbb` or `#rrggbbaa`). Hex values live only here. */
@@ -284,6 +288,52 @@ public fun bare(t: Theme): Styling[] {
 public fun group(t: Theme): Styling[] = [
     Background { color: paint(t.control), ..Background.theme() },
     Border { radius: Radius.All(PAGE_RADIUS), ..Border.theme() },
+];
+
+/**
+ * Returns an app's button in the sidebar: a ghost icon button, round, washed
+ * faintly on hover as the window controls are (PRP-023).
+ *
+ * Example:
+ *     ui.button_with([face], Msg.Select(id)).style(app_button(t))
+ */
+public fun app_button(t: Theme): Styling[] = [
+    Button.ghost(),
+    Button.icon(),
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    When(State.Hover, [Background { color: paint(t.frame_hover), ..Background.theme() }]),
+];
+
+/**
+ * Returns what the current app's button adds: a round ring in the accent
+ * (the owner preferred a ring to a bar, session 145).
+ *
+ * Example:
+ *     look + app_current(t)
+ */
+public fun app_current(t: Theme): Styling[] = [
+    Border {
+        all: Side { width: Width.Px(RING_WIDTH), color: paint(t.accent), ..Side.theme() },
+        ..Border.theme(),
+    },
+];
+
+/**
+ * Returns the sidebar's × look: a small round button on the frame's colour,
+ * so it reads over an app's icon.
+ *
+ * Example:
+ *     ui.button_with([x], Msg.CloseTab(id)).style(tab_close(t))
+ */
+public fun tab_close(t: Theme): Styling[] = [
+    Button.ghost(),
+    Background { color: paint(t.control), ..Background.theme() },
+    Text { color: paint(t.on_frame), ..Text.theme() },
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    Sizing { min_width: Width.Px(TAB_CLOSE), min_height: Width.Px(TAB_CLOSE), ..Sizing.theme() },
+    // The × fills the small circle: kivuli.ui buttons have 16 px at the sides.
+    no_padding(),
+    When(State.Hover, [Background { color: paint(t.danger), ..Background.theme() }]),
 ];
 
 /**

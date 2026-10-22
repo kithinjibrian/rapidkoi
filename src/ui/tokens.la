@@ -51,6 +51,12 @@ public const ADDRESS_ICON: i64 = 20;
 public const CARD_WIDTH: i64 = 360;
 /** The app's icon at the top of the shield's card, in pixels: every icon's 20 (the owner, session 136). */
 public const CARD_ICON: i64 = 20;
+/** The current app's ring in the sidebar, in pixels. */
+public const RING_WIDTH: i64 = 2;
+/** The sidebar's × button, in pixels (square). */
+public const TAB_CLOSE: i64 = 16;
+/** The × inside it, in pixels. */
+public const TAB_CLOSE_ICON: i64 = 10;
 /** A radius past half of any box Rapidkoi rounds: a circle, or a pill. */
 public const CIRCLE: i64 = 999;
 /** A button's and a text field's corners, in pixels. */
@@ -213,5 +219,16 @@ public fun padding_xy(x: i64, y: i64): Spacing = Spacing {
         right: Width.Px(x),
         ..Edges.theme(),
     },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns no room inside a node's border, on any side.
+ *
+ * Example:
+ *     button.style([no_padding()])
+ */
+public fun no_padding(): Spacing = Spacing {
+    padding: Edges { all: Width.Px(0), ..Edges.theme() },
     ..Spacing.theme(),
 };

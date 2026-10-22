@@ -8,12 +8,13 @@
  * Depends on: kivuli, window.actions, window.tabs, window.window, ui.content, ui.header, ui.tokens, ui.themes
  * Used by: shell
  */
-import kivuli { View, Scheme, column, row, scroll };
+import kivuli { View, Align, Scheme, column, row, scroll };
 import window.actions { Msg };
 import window.tabs { Page };
 import window.window { Model, title_of, page_of };
 import ui.content { app_view };
 import ui.header;
+import ui.sidebar;
 import ui.settings;
 import ui.tokens {
     SPACE_SM,
@@ -24,7 +25,7 @@ import ui.tokens {
     margin,
     at_least,
 };
-import ui.themes { page, palette, sidebar, tooltips, frame as frame_look };
+import ui.themes { page, palette, tooltips, frame as frame_look, sidebar as side_look };
 
 /**
  * Draws the frame: the header bar (and GTK's window controls), the sidebar
@@ -50,9 +51,10 @@ public fun view(m: Model): View<Msg> {
     let area = column([shown.expand()]).expand().style(page(t));
     // Empty and as wide as the header bar is tall, so the frame is an even L.
     // The root's frame look paints it, as one surface with the header bar.
-    let mut side = sidebar(t);
+    let mut side = side_look(t);
     side.push(at_least(FRAME_THICKNESS, 0));
-    let sidebar_view = column(none).style(side);
+    // The apps, pinned first, then +; centred across the strip (PRP-023).
+    let sidebar_view = column([sidebar.view(m).align(Align.Center)]).style(side);
     let body = row([area, sidebar_view]).expand();
     // Rapidkoi's colours as a palette, fixed dark: kivuli.ui's components
     // draw in them, and the desktop's scheme never applies (DECISION-031).

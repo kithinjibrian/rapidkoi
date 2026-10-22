@@ -5301,16 +5301,46 @@ src/ui/themes.la, src/ui/layout.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 145 — 2026-10-22 — The sidebar (PRP-023) and the kivuli group-hover request — open
+## SESSION 147 — 2026-10-22 — The sidebar (PRP-023) and the kivuli group-hover request — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+Opened as "session 145" while another session wrote sessions 145 and 146 (round hovers in the address box; black tooltips); renumbered 147 at close.
+- Designed in chat with the owner: the active app ringed in the accent (a ring, not a bar); a × on any hovered app; right-click menu, Ctrl+W, + and Ctrl+T; pinned apps at the top (my recommendation, not objected to).
+- The × on hover needs a parent hover kivuli lacks: wrote `docs/specs/kivuli-group-hover.md` (`.group()`, `State.GroupHover` as `.kv-group:hover .child`), recorded DECISION-036 (deferred).
+- The owner: "knockout what you can". Wrote PRP-023 (`PRPs/prp-023-sidebar.md`) from the chat and built it: tests first (`test/sidebar.la`: 5; `test/layout.la` now expects the sidebar). `src/ui/sidebar.la`: pinned apps (one button when open), a line, the other open apps, + (`list-add-symbolic`, Ctrl+T); the current app ringed with a × overlay (`window-close-symbolic`, Ctrl+W); menus per PRP-010's actions. Themes: `app_button`, `app_current`, `tab_close`; tokens `RING_WIDTH`, `TAB_CLOSE`, `TAB_CLOSE_ICON`, `no_padding()` (`flush` is a Lugha built-in). + and × use the desktop's symbolic icons: there's no Iconsax add or close icon in `assets/icons/` yet.
+- `lughac check` clean; every test file type-checks; fmt clean; build ok. Tests not run (the owner's).
+- **`src/ui/themes.la` is 539 lines, over the 500 limit.** Stopped there and proposed a split to the owner (FILE SIZE RULE); not split yet.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/specs/kivuli-group-hover.md, DECISIONS.md (DECISION-036), PRPs/prp-023-sidebar.md
+src/ui/sidebar.la (new), src/ui/layout.la, src/ui/themes.la, src/ui/tokens.la
+test/sidebar.la (new), test/layout.la
+docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/sidebar.la (5): open apps select; a pin opens unless open; only the current app's × and Ctrl+W, none on home; + and Ctrl+T; each menu.
+
+### DECISIONS MADE
+
+- The sidebar's design (PRP-023); the × on the current app until kivuli's group hover.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-036 (deferred): kivuli group hover.
+
+### STILL OPEN AT CLOSE
+
+- Approval of `themes.la`'s split; the owner's test run and look; the kivuli request.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022); card rows 12 px above and below (session 144); round icon hovers in the address box (session 145); black tooltips (session 146). Waiting for the owner's look and test run. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield (PRP-021), site settings (PRP-022), the sidebar (PRP-023). `src/ui/themes.la` is 539 lines: split it (proposed in session 147: the frame's looks into `src/ui/frame_looks.la`) once the owner approves. DECISION-036: kivuli group hover requested (`docs/specs/kivuli-group-hover.md`).

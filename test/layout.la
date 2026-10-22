@@ -1,8 +1,9 @@
-// The frame (PRP-014, PRP-015): the header bar with the address box, the
-// sidebar, and the content area showing the current app. No display.
+// The frame (PRP-014, PRP-015, PRP-023): the header bar with the address
+// box, the sidebar with the apps, and the content area showing the current
+// app. No display.
 import rapidkoi.shell { Model, start, with_pages, update, view };
 import rapidkoi.ui.layout;
-import rapidkoi.window.actions { Msg };
+import rapidkoi.window.actions { Msg, TabAction };
 import rapidkoi.window.tabs { AppPage, open_module };
 import kivuli.testing { click, is_disabled, pick, texts };
 import wasmtime { Engine, Module };
@@ -29,11 +30,12 @@ fun a_fresh_window_shows_no_text() {
 }
 
 @test
-fun no_tabs_rail_or_notice_above_the_page() {
+fun the_sidebar_and_no_notice_above_the_page() {
     let v = layout.view(busy());
     assert(!texts(v).any(fun(s: string) = s == "Something happened"));
-    assert(click(v, "New tab").is_err());
-    assert(pick(v, "a", "Close tab").is_err());
+    // The sidebar (PRP-023): its apps and +.
+    assert_eq(click(v, "New tab"), Ok(Msg.NewTab));
+    assert_eq(pick(v, "a", "Close"), Ok(Msg.OnTab(0, TabAction.Close)));
 }
 
 @test

@@ -1,0 +1,134 @@
+/**
+ * The sidebar, pure (PRP-023): Rapidkoi's apps down the window's right.
+ * Pinned apps first (open or not), a line, the other open apps, then +.
+ * The current app's icon is ringed in the accent and has a × (Ctrl+W); any
+ * app's icon is washed faintly on hover; each has a right-click menu. A ×
+ * on any hovered app waits for kivuli's group hover (DECISION-036).
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, window.window, ui.frame, ui.tokens, ui.themes
+ * Used by: ui.layout
+ */
+import kivuli {
+    View,
+    Align,
+    Image,
+    MenuEntry,
+    column,
+    icon,
+    image,
+    item,
+    menu_separator,
+    overlay,
+    text,
+};
+import kivuli.ui { Button, button_with as ui_button_with, separator };
+import window.actions { Msg, TabAction, PinAction };
+import window.tabs { Tab, Pin, AppPage };
+import window.window { Model };
+import ui.frame { label, initial, icon_of };
+import ui.tokens { SPACE_XS, HEADER_ICON, TAB_CLOSE, TAB_CLOSE_ICON, gap, square };
+import ui.themes { Theme, heading, app_button, app_current, tab_close };
+
+/**
+ * Builds the sidebar's apps and +, top to bottom.
+ *
+ * @param m the model: its tabs, the current one, its pins
+ * @returns the sidebar's column
+ *
+ * Example:
+ *     sidebar.view(m)
+ */
+public fun view(m: Model): View<Msg> {
+    let t = m.theme;
+    let mut pinned: View<Msg>[] = [];
+    for p of m.pinned {
+        match tab_of(m, p.path) {
+            // Pinned and open: one button, its tab.
+            Some(tab) => pinned.push(open_app(m, tab, true)),
+            None => pinned.push(closed_pin(t, p)),
+        }
+    }
+    let mut rest: View<Msg>[] = [];
+    for tab of m.tabs {
+        if !m.pinned.any(fun(p: Pin) = p.path == tab.page.path) {
+            rest.push(open_app(m, tab, false));
+        }
+    }
+    let mut all = pinned;
+    if pinned.len > 0 && rest.len > 0 {
+        all.push(separator());
+    }
+    for v of rest {
+        all.push(v);
+    }
+    all.push(
+        ui_button_with([icon("list-add-symbolic").size(HEADER_ICON)], Msg.NewTab).style(
+            app_button(t),
+        ).tooltip("New tab").shortcut("Ctrl+T").align(Align.Center),
+    );
+    column(all).style([gap(SPACE_XS)])
+}
+
+/** The open tab showing `path`, if one does. */
+fun tab_of(m: Model, path: string): Option<Tab> {
+    for tab of m.tabs {
+        if tab.page.path == path {
+            return Some(tab);
+        }
+    }
+    None
+}
+
+/** An open app: its icon, the ring and × when it's current, and its menu. */
+fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
+    let t = m.theme;
+    let current = m.current == Some(tab.id);
+    let mut look = app_button(t);
+    if current {
+        for x of app_current(t) {
+            look.push(x);
+        }
+    }
+    let button = ui_button_with(
+        [face(t, tab.page.name, tab.page.path, tab.page.icon)],
+        Msg.Select(tab.id),
+    ).style(look).tooltip(label(tab.page)).menu([
+        item("Close", Msg.OnTab(tab.id, TabAction.Close)),
+        item(if pinned { "Unpin" } else { "Pin" }, Msg.OnTab(tab.id, TabAction.TogglePin)),
+        menu_separator(),
+        item("Forget this app…", Msg.OnTab(tab.id, TabAction.Forget)),
+    ]);
+    if !current {
+        return button.align(Align.Center);
+    }
+    // The current app's × at its icon's top-right corner, and Ctrl+W. Every
+    // app's, on hover, waits for kivuli's group hover (DECISION-036).
+    let close = ui_button_with(
+        [icon("window-close-symbolic").size(TAB_CLOSE_ICON)],
+        Msg.CloseTab(tab.id),
+    ).style(tab_close(t)).tooltip("Close {tab.page.name}").shortcut("Ctrl+W").place(
+        Align.End,
+        Align.Start,
+    );
+    overlay(button, [close]).align(Align.Center)
+}
+
+/** A pinned app that isn't open: its icon, opening it, and its menu. */
+fun closed_pin(t: Theme, p: Pin): View<Msg> = ui_button_with(
+    [face(t, p.name, p.path, p.icon)],
+    Msg.OpenPinned(p.path),
+).style(app_button(t)).tooltip("Open {p.name}").menu([
+    item("Open", Msg.OnPin(p.path, PinAction.Open)),
+    item("Unpin", Msg.OnPin(p.path, PinAction.Unpin)),
+    menu_separator(),
+    item("Forget this app…", Msg.OnPin(p.path, PinAction.Forget)),
+]).align(Align.Center);
+
+/** An app's icon, or its initial without one. */
+fun face(t: Theme, name: string, path: string, bytes: Option<u8[]>): View<Msg> = match icon_of(
+    path,
+    bytes,
+) {
+    Some(img) => image(img).style([square(HEADER_ICON)]).align(Align.Center),
+    None => text(initial(name)).style(heading(t)).align(Align.Center),
+};

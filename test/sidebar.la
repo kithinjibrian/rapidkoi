@@ -1,0 +1,84 @@
+// The sidebar (PRP-023): pinned apps, open apps, the current one's ×, +,
+// their shortcuts and menus. Through kivuli.testing; fixture guests, no
+// display.
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.ui.sidebar;
+import rapidkoi.window.actions { Msg, TabAction, PinAction };
+import rapidkoi.window.tabs { AppPage, Pin, open_module };
+import kivuli.testing { click, pick, press };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+/** Notes (tab 0, current) and Todo (tab 1). */
+fun two(): Model {
+    let engine = Engine.new();
+    with_pages(engine, [app(engine, "notes"), app(engine, "todo")])
+}
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun pin(name: string): Pin = Pin { name: name, path: "{name}.wasm", icon: None };
+
+@test
+fun open_apps_select_their_tab() {
+    let v = sidebar.view(two());
+    assert_eq(click(v, "notes"), Ok(Msg.Select(0)));
+    assert_eq(click(v, "todo"), Ok(Msg.Select(1)));
+}
+
+@test
+fun a_pin_opens_unless_its_app_is_open_already() {
+    let m = Model { pinned: [pin("mail"), pin("todo")], ..two() };
+    let v = sidebar.view(m);
+    assert_eq(click(v, "Open mail"), Ok(Msg.OpenPinned("mail.wasm")));
+    // Todo is pinned and open: one button, its tab.
+    assert(click(v, "Open todo").is_err());
+    assert_eq(click(v, "todo"), Ok(Msg.Select(1)));
+}
+
+@test
+fun only_the_current_app_has_a_close_button() {
+    let v = sidebar.view(two());
+    assert_eq(click(v, "Close notes"), Ok(Msg.CloseTab(0)));
+    assert(click(v, "Close todo").is_err());
+    assert_eq(press(v, "Ctrl+W"), Ok(Msg.CloseTab(0)));
+    let home = sidebar.view(step(two(), Msg.Home));
+    assert(click(home, "Close notes").is_err());
+    assert(press(home, "Ctrl+W").is_err());
+}
+
+@test
+fun plus_opens_a_new_tab() {
+    let v = sidebar.view(two());
+    assert_eq(click(v, "New tab"), Ok(Msg.NewTab));
+    assert_eq(press(v, "Ctrl+T"), Ok(Msg.NewTab));
+}
+
+@test
+fun each_app_has_its_menu() {
+    let m = Model { pinned: [pin("mail"), pin("todo")], ..two() };
+    let v = sidebar.view(m);
+    // An open app that isn't pinned.
+    assert_eq(pick(v, "notes", "Close"), Ok(Msg.OnTab(0, TabAction.Close)));
+    assert_eq(pick(v, "notes", "Pin"), Ok(Msg.OnTab(0, TabAction.TogglePin)));
+    assert_eq(pick(v, "notes", "Forget this app…"), Ok(Msg.OnTab(0, TabAction.Forget)));
+    // A pinned app that's open.
+    assert_eq(pick(v, "todo", "Unpin"), Ok(Msg.OnTab(1, TabAction.TogglePin)));
+    // A pinned app that isn't open.
+    assert_eq(pick(v, "Open mail", "Open"), Ok(Msg.OnPin("mail.wasm", PinAction.Open)));
+    assert_eq(pick(v, "Open mail", "Unpin"), Ok(Msg.OnPin("mail.wasm", PinAction.Unpin)));
+    assert_eq(
+        pick(v, "Open mail", "Forget this app…"),
+        Ok(Msg.OnPin("mail.wasm", PinAction.Forget)),
+    );
+}
