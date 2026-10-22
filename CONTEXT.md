@@ -5795,3 +5795,6 @@ test/sidebar.la, test/shell.la, DECISIONS.md, CLAUDE.md, docs/DESIGN.md, CHANGEL
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.54. Built: PRP-019–028 (PRP-027 Part 1 only). Awaiting the owner's test runs of PRP-027 Part 1 and PRP-028. PRP-027 Part 2 waits on Lugha's `include_bytes` (DECISION-038).
+
+## SESSION 162 — 2026-10-22 — Build PRP-027 Part 2: empty tabs run the new-tab app — open
+Branch: prp-017-kivuli_0_17
