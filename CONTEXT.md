@@ -5976,3 +5976,6 @@ DECISIONS.md, MEMORY.md, CLAUDE.md, docs/specs/app-events.md, docs/DESIGN.md, CH
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–030; contract 3 (open for step B), contract 2 still runs. Awaiting the owner's test runs (sessions 165 and 167). Next: step B, contract 3's drawing (images, wrapping rows, an accent style), then C (the left-off preview).
+
+## SESSION 168 — 2026-10-22 — PRP-031: permission settings, approval, controls, on_change — open
+Branch: prp-017-kivuli_0_17
