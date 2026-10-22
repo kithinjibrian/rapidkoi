@@ -6102,3 +6102,6 @@ src/window/actions.la, src/shell.la, src/ui/addressbox.la, src/guest/effects.la,
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Awaiting the owner's test runs. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
 
+
+## SESSION 172 — 2026-10-22 — kivuli: a drop-down in a popover breaks its dismissal (DECISION-040) — open
+Branch: prp-017-kivuli_0_17
