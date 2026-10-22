@@ -18,6 +18,19 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-040 — A drop-down inside a popover breaks the popover's dismissal (kivuli)
+
+**Status:** deferred (reported: `docs/specs/kivuli-dropdown-in-popover.md`)
+**Raised:** 2026-10-22 — Session 172 (the owner: after changing a permission in ⚙'s card, it couldn't be dismissed; the owner's run of a kivuli-only repro: "it's stuck here too")
+
+**Question:** After a pick in a `ui.dropdown` inside a `popover`, a click inside the window and Escape no longer close the popover. Only a click on another surface does, and kivuli's model and the widget drift apart. kivuli 0.54, no Rapidkoi code in the repro.
+
+**Meanwhile:** no workaround. The card still closes with ⚙ or a click outside the window (CLAUDE.md KNOWN ISSUES). Session 171's `ClosePanel` stays: it's how a popover's on_close should read anyway (the shield's does), not a fix for this.
+
+**Revisit when:** kivuli fixes it; then check ⚙'s Permissions page closes normally after a pick.
+
+---
+
 ### DECISION-038 — Shipping Rapidkoi's own apps inside the binary needs Lugha's include_bytes
 
 **Status:** resolved — Session 162: Lugha milestone 128 (`include_bytes`/`include_str`, lughac beccfd8); `src/window/newtab.la` embeds `assets/apps/newtab.rkb` (PRP-027 Part 2). The bundle shipped unsigned (the owner, session 158). `ui/icons.la` to `include_str` is its own PRP.

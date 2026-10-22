@@ -6098,10 +6098,35 @@ src/window/actions.la, src/shell.la, src/ui/addressbox.la, src/guest/effects.la,
 
 ---
 
+## SESSION 172 — 2026-10-22 — kivuli: a drop-down in a popover breaks its dismissal (DECISION-040) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner asked whether session 171 fitted the bug. Honest answer: partly.
+  - `ClosePanel` is hygiene, not the cause: kivuli sends a popover's close message once.
+  - "An approval waits while a card is open" hid the symptom.
+- Diagnosis:
+  - The owner found the confirm dialog from inside the card works.
+  - The bug is that the card can't be dismissed after a permission changes.
+  - A kivuli-only repro (scratchpad: a popover holding a `ui.dropdown`) showed the same thing. The owner: "it's stuck here too"; "open: true · close messages: 2"; it closes only when clicking outside the app.
+- Recorded:
+  - DECISION-040 (deferred, kivuli).
+  - `docs/specs/kivuli-dropdown-in-popover.md` (the repro inline).
+  - CLAUDE.md KNOWN ISSUES (close it with ⚙ again, or a click outside the window).
+- No code. Session 171's "approvals wait while a card is open" is still in, pending the owner (keep as UX, or remove).
+
+### FILES CREATED OR MODIFIED
+
+```
+DECISIONS.md, docs/specs/kivuli-dropdown-in-popover.md, CLAUDE.md, CONTEXT.md
+```
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Awaiting the owner's test runs. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Waiting on kivuli: DECISION-040 (a drop-down in a popover). Awaiting the owner: keep "approvals wait while a card is open" or remove it; the test runs. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
 
 
-## SESSION 172 — 2026-10-22 — kivuli: a drop-down in a popover breaks its dismissal (DECISION-040) — open
-Branch: prp-017-kivuli_0_17
