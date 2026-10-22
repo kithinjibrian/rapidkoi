@@ -1,6 +1,7 @@
 /**
  * The sidebar, pure (PRP-023): Rapidkoi's apps down the window's right.
- * Pinned apps first (open or not), a line, the other open apps, then +.
+ * Pinned apps first (open or not), a line, the other open apps, scrolling
+ * when they don't fit; + fixed at the bottom.
  * The current app's icon is ringed in the accent and has a × (Ctrl+W); any
  * app's icon is washed faintly on hover; each has a right-click menu. A ×
  * on any hovered app waits for kivuli's group hover (DECISION-036).
@@ -19,6 +20,7 @@ import kivuli {
     item,
     menu_separator,
     overlay,
+    scroll,
     text,
 };
 import kivuli.ui { Button, button_with as ui_button_with, separator };
@@ -61,12 +63,13 @@ public fun view(m: Model): View<Msg> {
     for v of rest {
         all.push(v);
     }
-    all.push(
-        ui_button_with([icon("list-add-symbolic").size(HEADER_ICON)], Msg.NewTab).style(
-            app_button(t),
-        ).tooltip("New tab").shortcut("Ctrl+T").align(Align.Center),
-    );
-    column(all).style([gap(SPACE_XS)])
+    let plus = ui_button_with([icon("list-add-symbolic").size(HEADER_ICON)], Msg.NewTab).style(
+        app_button(t),
+    ).tooltip("New tab").shortcut("Ctrl+T").align(Align.Center);
+    // The apps scroll when there are more than fit; + stays at the strip's
+    // bottom. Chrome's way (+ right after the last app until they overflow)
+    // and scrolling an app into view wait for kivuli (DECISION-037).
+    column([scroll(column(all).style([gap(SPACE_XS)])).expand(), plus]).style([gap(SPACE_XS)])
 }
 
 /** The open tab showing `path`, if one does. */

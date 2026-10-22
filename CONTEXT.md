@@ -5341,16 +5341,42 @@ docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, CONTEXT.md
 
 ---
 
-## SESSION 148 — 2026-10-22 — The sidebar scrolls; kivuli requests for natural height and scroll-to — open
+## SESSION 148 — 2026-10-22 — The sidebar scrolls; kivuli requests for natural height and scroll-to — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner asked whether the sidebar scrolls and whether + stays reachable with many apps (it didn't: a plain column, + last), then chose Chrome's way (+ right after the last app until they overflow, then at the bottom) and scrolling an app into view.
+- Both need kivuli: `scroll` always takes all its room (GTK's `propagate-natural-height` isn't exposed) and there's no scroll-to command (`Cmd.focus` scrolls but steals focus). Wrote `docs/specs/kivuli-scroll-fit-and-scroll-to.md`; DECISION-037 (deferred).
+- Meanwhile (PRP-023 amendment 1): the apps in a `scroll` that takes the strip's height, + fixed below it. `lughac check` clean; sidebar and layout tests type-check; build ok.
+- `src/ui/themes.la` is still 539 lines: its split (session 147's proposal) waits for the owner.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/specs/kivuli-scroll-fit-and-scroll-to.md, DECISIONS.md (DECISION-037), PRPs/prp-023-sidebar.md
+src/ui/sidebar.la, src/ui/layout.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (layout; the sidebar's tests still find every button inside the scroll).
+
+### DECISIONS MADE
+
+- Chrome's + and scroll-into-view, once kivuli has them; a scroll with + at the bottom meanwhile.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-037 (deferred).
+
+### STILL OPEN AT CLOSE
+
+- `themes.la`'s split approval; the owner's look and test run; the two kivuli requests (036, 037).
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield (PRP-021), site settings (PRP-022), the sidebar (PRP-023). `src/ui/themes.la` is 539 lines: split it (proposed in session 147: the frame's looks into `src/ui/frame_looks.la`) once the owner approves. DECISION-036: kivuli group hover requested (`docs/specs/kivuli-group-hover.md`).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield (PRP-021), site settings (PRP-022), the sidebar (PRP-023; scrolling, + at the bottom). `src/ui/themes.la` is 539 lines: split once the owner approves (proposed: the frame's looks into `src/ui/frame_looks.la`). Waiting on kivuli: group hover (DECISION-036), a fitting scroll and `Cmd.scroll_to` (DECISION-037); requests in `docs/specs/`.

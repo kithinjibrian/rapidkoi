@@ -79,3 +79,7 @@ Tooltips: an app's `label` ("Notes · Sprint 3"); a pinned app that isn't open: 
 
 ## VALIDATION
 - For the user: open two apps and pin one; the pinned one at the top, a line, the other below, + last; the current one ringed with a ×; right-click each; Ctrl+W, Ctrl+T.
+
+## AMENDMENT 1 (session 148)
+
+The owner asked whether the sidebar scrolls and whether + stays reachable with many apps, then chose Chrome's way: + right after the last app until the apps overflow, then stuck at the bottom; and scrolling an app into view when it's opened or selected. Both need kivuli (a scroll with natural height; `Cmd.scroll_to`): requested in `docs/specs/kivuli-scroll-fit-and-scroll-to.md`, DECISION-037. Meanwhile the apps scroll and + is fixed at the bottom of the strip.

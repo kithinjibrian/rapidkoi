@@ -18,6 +18,19 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-037 — Chrome's + and scrolling an app into view need kivuli
+
+**Status:** deferred (requested from kivuli: `docs/specs/kivuli-scroll-fit-and-scroll-to.md`)
+**Raised:** 2026-10-22 — Session 148 (the owner: "i want chrome's style and also scroll into view")
+
+**Question:** The sidebar's + should sit right after the last app until the apps overflow, then stay at the bottom, and opening or selecting an app should scroll the sidebar to it. kivuli 0.51's `scroll` always takes all its room (no natural height, GTK's `propagate-natural-height`) and has no scroll-to command (GTK's `gtk_viewport_scroll_to`); `Cmd.focus` scrolls but steals focus.
+
+**Meanwhile:** the apps scroll, + fixed at the bottom of the strip; nothing scrolls an app into view. Not a silent workaround.
+
+**Revisit when:** kivuli ships a fitting scroll and `Cmd.scroll_to`; then + follows the last app and select/open scroll to it.
+
+---
+
 ### DECISION-036 — A × on any hovered app needs a parent hover (kivuli)
 
 **Status:** deferred (requested from kivuli: `docs/specs/kivuli-group-hover.md`)

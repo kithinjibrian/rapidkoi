@@ -54,7 +54,7 @@ public fun view(m: Model): View<Msg> {
     let mut side = side_look(t);
     side.push(at_least(FRAME_THICKNESS, 0));
     // The apps, pinned first, then +; centred across the strip (PRP-023).
-    let sidebar_view = column([sidebar.view(m).align(Align.Center)]).style(side);
+    let sidebar_view = column([sidebar.view(m).expand().align(Align.Center)]).style(side);
     let body = row([area, sidebar_view]).expand();
     // Rapidkoi's colours as a palette, fixed dark: kivuli.ui's components
     // draw in them, and the desktop's scheme never applies (DECISION-031).
