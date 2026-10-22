@@ -24,7 +24,7 @@ import ui.tokens {
     margin,
     at_least,
 };
-import ui.themes { page, palette, sidebar, frame as frame_look };
+import ui.themes { page, palette, sidebar, tooltips, frame as frame_look };
 
 /**
  * Draws the frame: the header bar (and GTK's window controls), the sidebar
@@ -60,7 +60,8 @@ public fun view(m: Model): View<Msg> {
     // modifiers (`.palette`, `.window`, `.header`) must sit on what it
     // returns, or kivuli stops ("belongs on the root"; session 141).
     // Start over, start over as someone new, and Forget ask first (PRP-022).
-    column([body]).style(frame_look(t)).dialog(settings.dialog(m)).window(
+    // Tooltips are styled there too: GTK hangs them beside the root.
+    column([body]).style(frame_look(t)).dialog(settings.dialog(m)).style(tooltips(t)).window(
         title_of(m),
         WINDOW_WIDTH,
         WINDOW_HEIGHT,

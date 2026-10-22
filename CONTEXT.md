@@ -5269,12 +5269,38 @@ src/ui/addressbox.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 146 — 2026-10-22 — Black tooltips — open
+## SESSION 146 — 2026-10-22 — Black tooltips — closed
 
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: a black background on tooltips. New theme colour `tooltip` (`#000000`) and `themes.tooltips(t)`: `Inside(Part.Tooltip, …)` with that background and the theme's `text`, given on the root after `.dialog` (GTK hangs tooltips beside the root, so only its style reaches them). Build and fmt ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/themes.la, src/ui/layout.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (look).
+
+### DECISIONS MADE
+
+- Tooltips: black, the theme's text colour.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run; the settings icon's fills (session 145).
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022); card rows 12 px above and below (session 144); round icon hovers in the address box (session 145). Waiting for the owner's look and test run. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022); card rows 12 px above and below (session 144); round icon hovers in the address box (session 145); black tooltips (session 146). Waiting for the owner's look and test run. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.

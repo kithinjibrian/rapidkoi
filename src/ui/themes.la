@@ -90,6 +90,8 @@ public struct Theme {
     public on_danger: string,
     /** A subtle button under the pointer: a faint light wash. */
     public subtle_hover: string,
+    /** Behind a tooltip's text. */
+    public tooltip: string,
     /** Nothing: fully transparent. */
     public clear: string,
 }
@@ -123,6 +125,8 @@ public const DARK: Theme = Theme {
     danger_hover: "#d42c38",
     on_danger: "#ffffff",
     subtle_hover: "#ffffff14",
+    // Black (the owner, session 146).
+    tooltip: "#000000",
     clear: "#00000000",
 };
 
@@ -316,6 +320,21 @@ public fun window_controls(t: Theme): Styling[] = [
     ]),
     Inside(Part.WindowCloseIcon, [
         When(State.Hover, [Background { color: paint(t.danger), ..Background.theme() }]),
+    ]),
+];
+
+/**
+ * Returns every tooltip's look: the theme's text on `tooltip`. GTK shows a
+ * tooltip in its own window beside the root, so only the root's style
+ * reaches it (kivuli's `Part.Tooltip`).
+ *
+ * Example:
+ *     root.style(tooltips(t))
+ */
+public fun tooltips(t: Theme): Styling[] = [
+    Inside(Part.Tooltip, [
+        Background { color: paint(t.tooltip), ..Background.theme() },
+        Text { color: paint(t.text), ..Text.theme() },
     ]),
 ];
 
