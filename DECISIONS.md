@@ -18,6 +18,19 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-038 — Shipping Rapidkoi's own apps inside the binary needs Lugha's include_bytes
+
+**Status:** deferred (requested from Lugha: `docs/specs/lugha-include-bytes.md`)
+**Raised:** 2026-10-22 — Session 157 (the owner chose to embed the bundled new tab in `./main`, over a resources folder beside it)
+
+**Question:** The new tab is a Rust app packed into a signed bundle. Lugha can't read a file into a program at compile time, so the bundle can't be embedded without pasting its bytes into source.
+
+**Meanwhile:** the new-tab app, its packing and signing, and the build script can be made; Rapidkoi doesn't run it until Lugha has `include_bytes`. Not a silent workaround.
+
+**Revisit when:** Lugha ships `include_bytes`/`include_str`; then embed `newtab.rkb` (and move `ui/icons.la` to `include_str`).
+
+---
+
 ### DECISION-037 — Chrome's + and scrolling an app into view need kivuli
 
 **Status:** deferred (requested from kivuli: `docs/specs/kivuli-scroll-fit-and-scroll-to.md`)
