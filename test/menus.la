@@ -60,10 +60,10 @@ fun a_pin_s_actions() {
     let unpinned = step(pinned, Msg.OnPin("notes.wasm", PinAction.Unpin));
     // Still on the empty tab Home showed (PRP-024).
     assert_eq((unpinned.pinned.len, unpinned.blanks.len), (0, 1));
-    // Forget opens it, with the panel's question.
+    // Forget shows it (its open tab, PRP-026), with the question.
     let asked = step(pinned, Msg.OnPin("notes.wasm", PinAction.Forget));
     assert_eq((asked.panel, asked.confirm), (None, Some(Confirm.Forget)));
-    assert_eq(asked.tabs[asked.tabs.len - 1].page.path, "notes.wasm");
+    assert_eq(asked.current, Some(0));
     // Unpinning a path that isn't pinned changes nothing.
     assert_eq(step(pinned, Msg.OnPin("other.wasm", PinAction.Unpin)).pinned.len, 1);
 }

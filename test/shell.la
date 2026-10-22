@@ -167,9 +167,12 @@ fun the_address_box_on_an_app_replaces_its_app() {
 fun pinning_and_opening_a_pin() {
     let m = step(two(), Msg.TogglePin);
     assert_eq(m.pinned.len, 1);
-    // The pin's file doesn't exist here, so its new tab shows why.
-    let opened = step(m, Msg.OpenPinned("a.wasm"));
-    assert_eq(opened.tabs.len, 3);
+    // Open already: its tab is shown, not a second copy (PRP-026).
+    let shown = step(step(m, Msg.Select(1)), Msg.OpenPinned("a.wasm"));
+    assert_eq((shown.tabs.len, shown.current), (2, Some(0)));
+    // Closed: it opens again; its file doesn't exist here, so its tab shows why.
+    let opened = step(step(m, Msg.CloseTab(0)), Msg.OpenPinned("a.wasm"));
+    assert_eq(opened.tabs.len, 2);
     assert_eq(
         texts(view(opened)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
         true,

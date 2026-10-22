@@ -156,7 +156,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         App(a) => (Model { editing: true, draft: a.path, ..m }, Cmd.focus("address")),
         Home => (m, Cmd.focus("address")),
     },
-    OpenPinned(path) => navigate.open_file(window.go_home(m), path),
+    OpenPinned(path) => navigate.open_pin(m, path),
     Continue => navigate.reopen(Model { draft: "", editing: false, ..m }),
     TogglePanel => (
         Model {
@@ -227,10 +227,10 @@ fun on_tab(m: Model, id: i64, action: TabAction): (Model, Cmd<Msg>) {
 
 /** A home tile's menu item, for the app at `path`. Forget opens it, then the panel at its question. */
 fun on_pin(m: Model, path: string, action: PinAction): (Model, Cmd<Msg>) = match action {
-    Open => navigate.open_file(window.go_home(m), path),
+    Open => navigate.open_pin(m, path),
     Unpin => (Model { pinned: m.pinned.filter(fun(p: Pin) = p.path != path), ..m }, Cmd.none()),
     Forget => {
-        let (opened, cmd) = navigate.open_file(window.go_home(m), path);
+        let (opened, cmd) = navigate.open_pin(m, path);
         (Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget), ..opened }, cmd)
     }
 };

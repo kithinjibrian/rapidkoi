@@ -24,7 +24,17 @@ import trust.verify { separate };
 import net.loads { begin, resumed };
 import kivuli { Cmd };
 import window.actions { Msg };
-import window.window { Model, page_of, with_tab, add_tab, app, slot };
+import window.window {
+    Model,
+    page_of,
+    with_tab,
+    add_tab,
+    app,
+    slot,
+    open_tab_of,
+    show_tab,
+    go_home,
+};
 import net.address { is_address, parse };
 
 /**
@@ -63,6 +73,10 @@ public fun go(m: Model): (Model, Cmd<Msg>) {
  *     open_file(m, "counter.wasm")
  */
 public fun open_file(m: Model, path: string): (Model, Cmd<Msg>) {
+    // One tab per app (PRP-026): an app already open is shown, not started twice.
+    if let Some(id) = open_tab_of(m, path) {
+        return (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none());
+    }
     let placed = match m.current {
         Some(id) if app(m, id).is_some() => (Model { left_off: app(m, id).map(leave), ..m }, id),
         // A new tab, or the current empty tab, filled in place (PRP-024).
@@ -76,6 +90,18 @@ public fun open_file(m: Model, path: string): (Model, Cmd<Msg>) {
     let (page, said) = resumed(tidy, open_path(m.engine, m.ring, path));
     (Model { notice: said, ..with_tab(tidy, id, fun(_: AppPage) = page) }, Cmd.none())
 }
+
+/**
+ * Opens a pinned app: its tab when it's open (PRP-026), else in the empty
+ * tab (a new one when there's none).
+ *
+ * Example:
+ *     open_pin(m, "counter.wasm")
+ */
+public fun open_pin(m: Model, path: string): (Model, Cmd<Msg>) = match open_tab_of(m, path) {
+    Some(id) => (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none()),
+    None => open_file(go_home(m), path),
+};
 
 /**
  * Reopens the last app closed, with its saved state, in a new tab.

@@ -13,6 +13,7 @@ import data.store { Store };
 import net.dialing { Network };
 import people.people { People, nobody };
 import people.identity { Master };
+import net.address { parse };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm };
 import window.tabs { Page, Tab, Pin, AppPage, state_of };
 import window.leftoff { LeftOff, leave, snapshot };
@@ -217,12 +218,30 @@ public fun go_home(m: Model): Model = match m.current {
 };
 
 /**
- * Opens a new empty tab and shows it (PRP-024): + and Ctrl+T.
+ * Shows the empty tab, opening one when there's none (PRP-024, PRP-026:
+ * at most one): + and Ctrl+T.
  *
  * Example:
  *     new_blank(m)
  */
 public fun new_blank(m: Model): Model {
+    // At most one empty tab (PRP-026): + goes to it when there is one.
+    if m.blanks.len > 0 {
+        let id = m.blanks[0];
+        return Model {
+            current: Some(id),
+            last: match m.current {
+                Some(c) if app(m, c).is_some() => Some(c),
+                _ => m.last,
+            },
+            draft: "",
+            editing: false,
+            panel: None,
+            confirm: None,
+            notice: None,
+            ..m,
+        };
+    }
     let mut more = m.blanks;
     more.push(m.next);
     Model {
@@ -241,6 +260,34 @@ public fun new_blank(m: Model): Model {
         notice: None,
         ..m,
     }
+}
+
+/**
+ * Says whether two paths are the same app (PRP-026): one address (host and
+ * port, whatever the scheme, with or without a route), or one file path.
+ *
+ * Example:
+ *     same_app("rapidkoi://localhost:8000", "rapidkoi://localhost:8000/")
+ */
+public fun same_app(a: string, b: string): bool = match (parse(a), parse(b)) {
+    (Ok(x), Ok(y)) => x.host == y.host && x.port == y.port,
+    (Err(_), Err(_)) => a == b,
+    _ => false,
+};
+
+/**
+ * Returns the tab already showing the app at `path`, loading or running.
+ *
+ * Example:
+ *     open_tab_of(m, "counter.wasm")
+ */
+public fun open_tab_of(m: Model, path: string): Option<i64> {
+    for t of m.tabs {
+        if same_app(t.page.path, path) {
+            return Some(t.id);
+        }
+    }
+    None
 }
 
 /**

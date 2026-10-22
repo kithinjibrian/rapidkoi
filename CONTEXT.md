@@ -5618,16 +5618,43 @@ PRPs/prp-026-one_tab_per_app.md, CONTEXT.md
 
 ---
 
-## SESSION 156 — 2026-10-22 — Build PRP-026: one tab per app, one empty tab — open
+## SESSION 156 — 2026-10-22 — Build PRP-026: one tab per app, one empty tab — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner approved PRP-026.
+- Tests first: `test/one_tab.la` (5: an open file switches; `same_app`; a loading address counts as open; a pin switches with no empty tab left behind; at most one empty tab). Updated: `tabs_empty.la` (+ goes to the one empty tab; creation order via filling), `shell.la` (a pin of an open app shows its tab; a closed one opens again), `menus.la` (Forget shows the app's open tab). Not run: the owner's.
+- `window.la`: `same_app(a, b)` (one host and port whatever the scheme or route; else the same file path), `open_tab_of(m, path)`; `new_blank` goes to the existing empty tab. `navigate.la`: `open_file` shows an open app's tab instead of a second copy; `open_pin` (its tab, else the empty tab) for `OpenPinned` and the pin menu's Open and Forget. Correction to the PRP: a bare host isn't an address today, so "the same app" ignores the scheme and a trailing `/` only.
+- `lughac check` clean; every test file type-checks; fmt clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/window/window.la, src/window/navigate.la, src/shell.la
+test/one_tab.la (new); test/tabs_empty.la, test/shell.la, test/menus.la
+PRPs/prp-026-one_tab_per_app.md, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/one_tab.la (5).
+
+### DECISIONS MADE
+
+- One tab per app; at most one empty tab.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run and look.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: PRP-019–025. PRP-026 (one tab per app, one empty tab) waits for approval. Waiting on kivuli: DECISION-036, 037.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: PRP-019–026 (header bar, shield, site settings, sidebar, empty tabs, one address field with share, one tab per app). Waiting for the owner's test run and look. Waiting on kivuli: DECISION-036, 037.

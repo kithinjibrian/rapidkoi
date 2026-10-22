@@ -1,0 +1,73 @@
+// One tab per app, at most one empty tab (PRP-026). Fixture guests; no
+// display, no network (addresses stay loading: their tasks aren't run).
+import rapidkoi.shell { Model, start, with_pages, update };
+import rapidkoi.window.window { same_app };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.tabs { AppPage, Pin, open_module };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+/** a.wasm (tab 0) and b.wasm (tab 1); b current. */
+fun two(): Model {
+    let engine = Engine.new();
+    step(with_pages(engine, [app(engine, "a"), app(engine, "b")]), Msg.Select(1))
+}
+
+@test
+fun opening_an_open_file_switches_to_its_tab() {
+    let m = two();
+    let again = step(step(m, Msg.Draft("a.wasm")), Msg.Go);
+    assert_eq((again.tabs.len, again.current), (2, Some(0)));
+    // The tab it came from keeps its app.
+    assert_eq(again.tabs[1].page.path, "b.wasm");
+}
+
+@test
+fun the_same_address_is_the_same_app() {
+    assert(same_app("rapidkoi://localhost:8000", "rapidkoi://localhost:8000/"));
+    assert(same_app("rapidkoi://localhost:8000", "http://localhost:8000/"));
+    assert(!same_app("rapidkoi://localhost:8000", "rapidkoi://localhost:8001"));
+    assert(same_app("apps/a.wasm", "apps/a.wasm"));
+    assert(!same_app("apps/a.wasm", "b.wasm"));
+}
+
+@test
+fun an_address_still_loading_counts_as_open() {
+    let (m, _) = start(["./main"], None);
+    let loading = step(step(m, Msg.Draft("rapidkoi://localhost:18911")), Msg.Go);
+    let id = loading.current;
+    let other = step(loading, Msg.NewTab);
+    let again = step(step(other, Msg.Draft("rapidkoi://localhost:18911/")), Msg.Go);
+    assert_eq((again.tabs.len, again.current), (1, id));
+}
+
+@test
+fun a_pin_switches_to_the_open_app() {
+    let m = Model { pinned: [Pin { name: "a", path: "a.wasm", icon: None }], ..two() };
+    let pinned = step(m, Msg.OpenPinned("a.wasm"));
+    // No second copy, and no empty tab left behind.
+    assert_eq((pinned.tabs.len, pinned.blanks.len, pinned.current), (2, 0, Some(0)));
+}
+
+@test
+fun there_is_at_most_one_empty_tab() {
+    let m = two();
+    let first = step(m, Msg.NewTab);
+    assert_eq(first.blanks.len, 1);
+    let empty = first.current;
+    // + with the empty tab open elsewhere: back to it.
+    let again = step(step(first, Msg.Select(0)), Msg.NewTab);
+    assert_eq((again.blanks.len, again.current), (1, empty));
+}

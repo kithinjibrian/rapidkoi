@@ -13,7 +13,7 @@ Why: an app's whole state is its screen today, saved per app, not per tab, so tw
   - `src/window/navigate.la`: `open_file` (and `reopen`) switch to the app's open tab when there is one, leaving the current tab as it was (an empty tab stays empty; an app tab keeps its app).
   - Tests: `test/one_tab.la` (new); `test/tabs_empty.la` changes where it made several empty tabs.
   - DESIGN.md, CHANGELOG.md.
-- "The same app": the same address (host and port; `rapidkoi://` or not, a trailing `/` or not), or the same file path as typed. A signed app reached two ways (its site, a `.rkb` of it) stays two apps here: one tab per address or file.
+- "The same app": the same address (host and port, whichever scheme, with a trailing `/` or not; a bare host isn't an address today), or the same file path as typed. A signed app reached two ways (its site, a `.rkb` of it) stays two apps here: one tab per address or file.
 - Open decisions: none.
 
 ## IMPLEMENTATION REQUIREMENTS
@@ -43,11 +43,11 @@ Why: an app's whole state is its screen today, saved per app, not per tab, so tw
 ## TESTS TO WRITE
 
 `test/one_tab.la`:
-- [ ] Opening a file that's open in another tab switches to it; the tab count doesn't change; the current tab keeps what it had.
-- [ ] The same for an address, typed with or without `rapidkoi://` and a trailing `/`.
-- [ ] Opening a pin, and Continue, switch to the app's open tab.
-- [ ] + with an empty tab open switches to it; with none, adds one.
-- [ ] An address still loading counts as open.
+- [x] Opening a file that's open in another tab switches to it; the tab count doesn't change; the current tab keeps what it had.
+- [x] The same app: one host and port whatever the scheme or a trailing `/`; one file path.
+- [x] Opening a pin switches to the app's open tab (Continue opens a closed app, so it can't be open).
+- [x] + with an empty tab open switches to it; with none, adds one.
+- [x] An address still loading counts as open.
 
 `test/tabs_empty.la`: + twice leaves one empty tab.
 
@@ -58,7 +58,7 @@ Why: an app's whole state is its screen today, saved per app, not per tab, so tw
 ## ACCEPTANCE CRITERIA
 - [ ] An app never opens in a second tab; there's never more than one empty tab
 - [ ] `lughac test test/` passes (the owner runs it); build ok; fmt clean
-- [ ] DESIGN.md, CHANGELOG.md updated
+- [x] DESIGN.md, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user: open `rapidkoi://quote.dafifi.net`; + and type it again: the quote tab is shown, no second one. Press + twice: one empty tab.

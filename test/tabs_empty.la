@@ -42,10 +42,11 @@ fun a_fresh_window_has_one_empty_tab() {
 }
 
 @test
-fun plus_adds_empty_tabs() {
+fun plus_goes_to_the_one_empty_tab() {
+    // At most one empty tab (PRP-026): + shows it rather than adding more.
     let m = step(step(fresh(), Msg.NewTab), Msg.NewTab);
-    assert_eq(m.blanks.len, 3);
-    assert_eq(m.current, Some(m.blanks[2]));
+    assert_eq(m.blanks.len, 1);
+    assert_eq(m.current, Some(m.blanks[0]));
     assert_eq(click(sidebar.view(m), "Add a tab"), Ok(Msg.NewTab));
     assert_eq(press(sidebar.view(m), "Ctrl+T"), Ok(Msg.NewTab));
 }
@@ -88,7 +89,7 @@ fun closing_selects_a_neighbour_and_the_last_leaves_one_empty() {
 @test
 fun the_current_empty_tab_closes_with_its_x_and_ctrl_w() {
     let m = step(fresh(), Msg.NewTab);
-    let id = m.blanks[1];
+    let id = m.blanks[0];
     let v = sidebar.view(m);
     assert_eq(click(v, "Close New tab"), Ok(Msg.CloseTab(id)));
     assert_eq(press(v, "Ctrl+W"), Ok(Msg.CloseTab(id)));
@@ -98,9 +99,11 @@ fun the_current_empty_tab_closes_with_its_x_and_ctrl_w() {
 @test
 fun app_and_empty_tabs_keep_their_creation_order() {
     let engine = Engine.new();
-    // a (0), an empty tab (1), then b fills a new empty tab (2).
+    // a (0), then an empty tab (1), then a missing file opened from it
+    // fills it, then + makes a new empty tab (2).
     let m = step(with_pages(engine, [app(engine, "a")]), Msg.NewTab);
-    let ids = sidebar.order(step(step(m, Msg.NewTab), Msg.Select(0)));
+    let filled = step(step(m, Msg.Draft("lugha.toml")), Msg.Go);
+    let ids = sidebar.order(step(filled, Msg.NewTab));
     assert_eq(ids, [0, 1, 2]);
 }
 
