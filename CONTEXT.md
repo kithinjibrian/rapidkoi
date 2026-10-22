@@ -5741,9 +5741,27 @@ PRPs/prp-027-newtab_app.md, CLAUDE.md, CHANGELOG.md, CONTEXT.md
 
 ---
 
+## SESSION 160 — 2026-10-22 — PRP-028: the sidebar with kivuli 0.54 — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: kivuli shipped the requests. kivuli 0.52 group states (`Group.mark()`, `State.GroupHover`/`GroupFocusWithin`), 0.53 `scroll_fit`, 0.54 `Cmd.scroll_to`.
+- Wrote `PRPs/prp-028-sidebar_kivuli_0_54.md`: × on any hovered tab (DECISION-036), + after the last tab and scrolling the current tab into view (DECISION-037). Awaiting approval. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-028-sidebar_kivuli_0_54.md, CONTEXT.md
+```
+
+### STILL OPEN AT CLOSE
+
+- The owner's approval of PRP-028; the owner's test run of PRP-027 Part 1.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: PRP-019–026, PRP-027 Part 1 (the new-tab app, `assets/apps/newtab.rkb`). Part 2 (empty tabs run it) waits on Lugha's `include_bytes` (DECISION-038). Waiting on kivuli: DECISION-036, 037.
-
-## SESSION 160 — 2026-10-22 — PRP-028: the sidebar with kivuli 0.54 — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54 is out (Rapidkoi still on 0.51). Built: PRP-019–026, PRP-027 Part 1. PRP-028 (sidebar: × on hover, + after the last tab, scroll into view) is written, awaiting approval. PRP-027 Part 2 waits on Lugha's `include_bytes` (DECISION-038).
