@@ -5410,16 +5410,39 @@ PRPs/prp-024-empty_tabs.md, CONTEXT.md
 
 ---
 
-## SESSION 150 — 2026-10-22 — Split themes.la: the frame's looks into frame_looks.la — open
+## SESSION 150 — 2026-10-22 — Split themes.la: the frame's looks into frame_looks.la — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- The owner approved the split proposed in session 147 (themes.la was 539 lines). `src/ui/frame_looks.la` (new, 175 lines): `frame`, `header`, `sidebar`, `app_button`, `app_current`, `tab_close`, `window_controls`, `tooltips`. `themes.la` (394 lines) keeps `Theme`, `DARK`, the palette and the content's looks; its `paint` and `flat` are public so `frame_looks.la` reads colours from the theme (hex values still only in `themes.la`). Layout, header, sidebar and `test/themes.la` import from the new module. Each file's imports trimmed.
+- `lughac check` clean; every test file type-checks; fmt clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/frame_looks.la (new), src/ui/themes.la, src/ui/layout.la, src/ui/header.la, src/ui/sidebar.la, test/themes.la, CLAUDE.md, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (a refactor); `test/themes.la` builds every look, the moved ones included.
+
+### DECISIONS MADE
+
+- The frame's looks live in `ui/frame_looks.la`.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-024 (approved): next session.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar (PRP-019–023). Waiting for approval: PRP-024 (empty tabs, ⌂ as the app's home) and the split of `src/ui/themes.la` (539 lines; proposed: the frame's looks into `src/ui/frame_looks.la`). Waiting on kivuli: DECISION-036, 037.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar (PRP-019–023); themes split (session 150). Next: build PRP-024 (empty tabs, ⌂ as the app's home), approved. Waiting on kivuli: DECISION-036, 037.

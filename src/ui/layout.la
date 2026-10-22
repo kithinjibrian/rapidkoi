@@ -25,7 +25,8 @@ import ui.tokens {
     margin,
     at_least,
 };
-import ui.themes { page, palette, tooltips, frame as frame_look, sidebar as side_look };
+import ui.themes { page, palette };
+import ui.frame_looks { tooltips, frame as frame_look, sidebar as side_look };
 
 /**
  * Draws the frame: the header bar (and GTK's window controls), the sidebar

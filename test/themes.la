@@ -4,10 +4,6 @@ import rapidkoi.ui.themes {
     DARK,
     ButtonPaint,
     button_paint,
-    frame,
-    header,
-    sidebar,
-    window_controls,
     bare,
     group,
     page,
@@ -20,6 +16,16 @@ import rapidkoi.ui.themes {
     title,
     heading,
     button,
+};
+import rapidkoi.ui.frame_looks {
+    frame,
+    header,
+    sidebar,
+    window_controls,
+    app_button,
+    app_current,
+    tab_close,
+    tooltips,
 };
 import rapidkoi.guest.nodes { ButtonLook };
 
@@ -62,6 +68,10 @@ fun every_style_builds() {
         header(DARK),
         sidebar(DARK),
         window_controls(DARK),
+        app_button(DARK),
+        app_current(DARK),
+        tab_close(DARK),
+        tooltips(DARK),
         bare(DARK),
         group(DARK),
         page(DARK),

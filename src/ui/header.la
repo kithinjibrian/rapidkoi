@@ -16,7 +16,8 @@ import window.window { Model, page_of };
 import ui.addressbox;
 import ui.icons { Icon, icon };
 import ui.tokens { HEADER_ICON, SPACE_XS, square, margin_x };
-import ui.themes { Theme, header, window_controls };
+import ui.themes { Theme };
+import ui.frame_looks { header, window_controls };
 
 /**
  * Builds the header bar, on the dimmed brand gradient (orange into pink).

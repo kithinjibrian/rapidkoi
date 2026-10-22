@@ -1,0 +1,175 @@
+/**
+ * The frame's looks (split out of `themes.la`, session 150): the window
+ * behind the page, the header bar, the sidebar and its app buttons, the
+ * window controls and the tooltips. Colours come from the theme
+ * (`themes.paint`), never a hex value of their own.
+ *
+ * Depends on: kivuli, kivuli.ui, ui.tokens, ui.themes
+ * Used by: ui.layout, ui.header, ui.sidebar
+ */
+import kivuli {
+    Styling,
+    Background,
+    Border,
+    Side,
+    Radius,
+    Sizing,
+    Text,
+    Width,
+    When,
+    State,
+    Inside,
+    Part,
+};
+import kivuli.ui { Button };
+import ui.tokens {
+    SPACE_XS,
+    SPACE_SM,
+    SPACE_MD,
+    BUTTON_RADIUS,
+    CIRCLE,
+    RING_WIDTH,
+    TAB_CLOSE,
+    HEADER_ICON,
+    margin_x,
+    padding,
+    padding_xy,
+    no_padding,
+};
+import ui.themes { Theme, paint, flat };
+
+/**
+ * Returns the frame's look: the window behind the page, one flat colour
+ * with white icons and text (the owner went back to it from the gradient,
+ * session 118).
+ *
+ * Example:
+ *     column([body]).style(frame(m.theme))
+ */
+public fun frame(t: Theme): Styling[] {
+    let mut all = flat(t.frame);
+    all.push(Text { color: paint(t.on_frame), ..Text.theme() });
+    all
+}
+
+/**
+ * Returns the header bar's look: the frame's.
+ *
+ * Example:
+ *     header_bar(start, title, end).style(header(m.theme))
+ */
+public fun header(t: Theme): Styling[] = frame(t);
+
+/**
+ * Returns the sidebar's look: the frame's, so the header bar and sidebar
+ * read as one L.
+ *
+ * Example:
+ *     column([]).style(sidebar(m.theme))
+ */
+public fun sidebar(t: Theme): Styling[] = frame(t);
+
+/**
+ * Returns an app's button in the sidebar: a ghost icon button, round, washed
+ * faintly on hover as the window controls are (PRP-023).
+ *
+ * Example:
+ *     ui.button_with([face], Msg.Select(id)).style(app_button(t))
+ */
+public fun app_button(t: Theme): Styling[] = [
+    Button.ghost(),
+    Button.icon(),
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    When(State.Hover, [Background { color: paint(t.frame_hover), ..Background.theme() }]),
+];
+
+/**
+ * Returns what the current app's button adds: a round ring in the accent
+ * (the owner preferred a ring to a bar, session 145).
+ *
+ * Example:
+ *     look + app_current(t)
+ */
+public fun app_current(t: Theme): Styling[] = [
+    Border {
+        all: Side { width: Width.Px(RING_WIDTH), color: paint(t.accent), ..Side.theme() },
+        ..Border.theme(),
+    },
+];
+
+/**
+ * Returns the sidebar's × look: a small round button on the frame's colour,
+ * so it reads over an app's icon.
+ *
+ * Example:
+ *     ui.button_with([x], Msg.CloseTab(id)).style(tab_close(t))
+ */
+public fun tab_close(t: Theme): Styling[] = [
+    Button.ghost(),
+    Background { color: paint(t.control), ..Background.theme() },
+    Text { color: paint(t.on_frame), ..Text.theme() },
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    Sizing { min_width: Width.Px(TAB_CLOSE), min_height: Width.Px(TAB_CLOSE), ..Sizing.theme() },
+    // The × fills the small circle: kivuli.ui buttons have 16 px at the sides.
+    no_padding(),
+    When(State.Hover, [Background { color: paint(t.danger), ..Background.theme() }]),
+];
+
+/**
+ * Returns the window controls' look on the frame, given after
+ * `kivuli.ui`'s `WindowControls.look()`: white glyphs, room on each side,
+ * and the hover a circle on each control's 24 × 24 icon box, faint white
+ * (red for close). The buttons themselves stay clear: GTK stretches them to
+ * the bar's height, where rounding makes a tall pill (the owner's
+ * screenshot, session 116).
+ *
+ * Example:
+ *     header_bar(start, title, end).style(window_controls(t))
+ */
+public fun window_controls(t: Theme): Styling[] = [
+    Inside(Part.WindowButton, [
+        Text { color: paint(t.on_frame), ..Text.theme() },
+        Background { color: paint(t.clear), ..Background.theme() },
+        margin_x(SPACE_XS),
+        When(State.Hover, [Background { color: paint(t.clear), ..Background.theme() }]),
+        When(State.Press, [Background { color: paint(t.clear), ..Background.theme() }]),
+    ]),
+    // kivuli.ui's look paints the close button itself red on hover: clear it
+    // too, so close shows the same circle as the rest (session 119).
+    Inside(Part.WindowClose, [
+        When(State.Hover, [Background { color: paint(t.clear), ..Background.theme() }]),
+        When(State.Press, [Background { color: paint(t.clear), ..Background.theme() }]),
+    ]),
+    // The circle: each control's 24 × 24 icon box, padded so it isn't tight
+    // around the glyph (32 across), round.
+    Inside(Part.WindowIcon, [
+        // The glyph the size of every other icon (the owner, session 126),
+        // in place of kivuli.ui's 24.
+        Sizing { icon: Width.Px(HEADER_ICON), ..Sizing.theme() },
+        padding(SPACE_XS),
+        Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+        When(State.Hover, [Background { color: paint(t.frame_hover), ..Background.theme() }]),
+    ]),
+    Inside(Part.WindowCloseIcon, [
+        When(State.Hover, [Background { color: paint(t.danger), ..Background.theme() }]),
+    ]),
+];
+
+/**
+ * Returns every tooltip's look: the theme's text on `tooltip`, padded
+ * `SPACE_MD` at the sides and `SPACE_SM` above and below, its corners
+ * rounded `BUTTON_RADIUS` (session 146). GTK shows a
+ * tooltip in its own window beside the root, so only the root's style
+ * reaches it (kivuli's `Part.Tooltip`).
+ *
+ * Example:
+ *     root.style(tooltips(t))
+ */
+public fun tooltips(t: Theme): Styling[] = [
+    Inside(Part.Tooltip, [
+        Background { color: paint(t.tooltip), ..Background.theme() },
+        Text { color: paint(t.text), ..Text.theme() },
+        padding_xy(SPACE_MD, SPACE_SM),
+        Border { radius: Radius.All(BUTTON_RADIUS), ..Border.theme() },
+    ]),
+];

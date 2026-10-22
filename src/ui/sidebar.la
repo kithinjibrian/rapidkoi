@@ -29,7 +29,8 @@ import window.tabs { Tab, Pin, AppPage };
 import window.window { Model };
 import ui.frame { label, initial, icon_of };
 import ui.tokens { SPACE_XS, HEADER_ICON, TAB_CLOSE, TAB_CLOSE_ICON, gap, square };
-import ui.themes { Theme, heading, app_button, app_current, tab_close };
+import ui.themes { Theme, heading };
+import ui.frame_looks { app_button, app_current, tab_close };
 
 /**
  * Builds the sidebar's apps and +, top to bottom.
