@@ -153,6 +153,9 @@ public fun at_most(width: i64): Sizing = Sizing { max_width: Width.Px(width), ..
 public fun square(n: i64): Sizing = Sizing {
     width: Width.Px(n),
     height: Width.Px(n),
+    // Minimums as well, so a component's own can't exceed the maximum.
+    min_width: Width.Px(n),
+    min_height: Width.Px(n),
     max_width: Width.Px(n),
     max_height: Width.Px(n),
     ..Sizing.theme(),
@@ -200,6 +203,7 @@ public fun flush_y(): Spacing = Spacing {
  */
 public fun exactly(width: i64): Sizing = Sizing {
     width: Width.Px(width),
+    min_width: Width.Px(width),
     max_width: Width.Px(width),
     ..Sizing.theme(),
 };
@@ -243,6 +247,9 @@ public fun no_padding(): Spacing = Spacing {
  */
 public fun fixed_height(width: i64, height: i64): Sizing = Sizing {
     min_width: Width.Px(width),
+    // The minimum too: kivuli.ui's components set their own (36), and a
+    // minimum above the maximum stops the app (session 153).
+    min_height: Width.Px(height),
     height: Width.Px(height),
     max_height: Width.Px(height),
     ..Sizing.theme(),
