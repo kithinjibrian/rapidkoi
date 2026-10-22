@@ -4,6 +4,6 @@ version = "0.1.0"
 source = "src"
 
 [packages]
-kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.51" }
+kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.54" }
 wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }
 cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1" }

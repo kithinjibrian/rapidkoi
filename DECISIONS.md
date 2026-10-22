@@ -33,7 +33,8 @@ Rules:
 
 ### DECISION-037 — Chrome's + and scrolling an app into view need kivuli
 
-**Status:** deferred (requested from kivuli: `docs/specs/kivuli-scroll-fit-and-scroll-to.md`)
+**Status:** resolved — Session 161: kivuli 0.53 `scroll_fit` and 0.54 `Cmd.scroll_to`; + follows the last tab and the current tab scrolls into view (PRP-028).
+**Was:** deferred (requested from kivuli: `docs/specs/kivuli-scroll-fit-and-scroll-to.md`)
 **Raised:** 2026-10-22 — Session 148 (the owner: "i want chrome's style and also scroll into view")
 
 **Question:** The sidebar's + should sit right after the last app until the apps overflow, then stay at the bottom, and opening or selecting an app should scroll the sidebar to it. kivuli 0.51's `scroll` always takes all its room (no natural height, GTK's `propagate-natural-height`) and has no scroll-to command (GTK's `gtk_viewport_scroll_to`); `Cmd.focus` scrolls but steals focus.
@@ -46,7 +47,8 @@ Rules:
 
 ### DECISION-036 — A × on any hovered app needs a parent hover (kivuli)
 
-**Status:** deferred (requested from kivuli: `docs/specs/kivuli-group-hover.md`)
+**Status:** resolved — Session 161: kivuli 0.52 group states; every open tab shows its × while hovered (PRP-028).
+**Was:** deferred (requested from kivuli: `docs/specs/kivuli-group-hover.md`)
 **Raised:** 2026-10-22 — Session 145 (the owner: "add a x when one hovers on any app")
 
 **Question:** kivuli 0.51 styles a node only by its own state, so a × inside an app's sidebar button can't appear while the button is hovered. kivuli needs a group hover (`.group()` and `State.GroupHover`, as Tailwind's `group-hover`; GTK's CSS has `.parent:hover .child`).

@@ -47,14 +47,32 @@ fun a_pin_opens_unless_its_app_is_open_already() {
 }
 
 @test
-fun only_the_current_app_has_a_close_button() {
+fun every_open_tab_has_a_close_button() {
+    // Shown on hover, but always there (PRP-028).
     let v = sidebar.view(two());
     assert_eq(click(v, "Close notes"), Ok(Msg.CloseTab(0)));
-    assert(click(v, "Close todo").is_err());
-    assert_eq(press(v, "Ctrl+W"), Ok(Msg.CloseTab(0)));
-    let home = sidebar.view(step(two(), Msg.Home));
-    assert(click(home, "Close notes").is_err());
-    assert(press(home, "Ctrl+W").is_err());
+    assert_eq(click(v, "Close todo"), Ok(Msg.CloseTab(1)));
+    let home = sidebar.view(step(two(), Msg.NewTab));
+    assert_eq(click(home, "Close notes"), Ok(Msg.CloseTab(0)));
+}
+
+@test
+fun only_the_current_tab_closes_with_ctrl_w() {
+    assert_eq(press(sidebar.view(two()), "Ctrl+W"), Ok(Msg.CloseTab(0)));
+    assert_eq(press(sidebar.view(step(two(), Msg.Select(1))), "Ctrl+W"), Ok(Msg.CloseTab(1)));
+}
+
+@test
+fun a_closed_pin_has_no_close_button() {
+    let v = sidebar.view(Model { pinned: [pin("mail")], ..two() });
+    assert(click(v, "Close mail").is_err());
+}
+
+@test
+fun a_pinned_apps_close_keeps_its_pin() {
+    let m = Model { pinned: [pin("todo")], ..two() };
+    let closed = step(m, click(sidebar.view(m), "Close todo").unwrap());
+    assert_eq((closed.tabs.len, closed.pinned.len), (1, 1));
 }
 
 @test

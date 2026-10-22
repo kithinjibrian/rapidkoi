@@ -1,10 +1,10 @@
 /**
  * The sidebar, pure (PRP-023): Rapidkoi's apps down the window's right.
- * Pinned apps first (open or not), a line, the other open apps, scrolling
- * when they don't fit; + fixed at the bottom.
+ * Pinned apps first (open or not), a line, the other open apps, then +
+ * right after them; once they don't fit they scroll and + stays at the
+ * bottom (PRP-028).
  * The current app's icon is ringed in the accent and has a × (Ctrl+W); any
- * app's icon is washed faintly on hover; each has a right-click menu. A ×
- * on any hovered app waits for kivuli's group hover (DECISION-036).
+ * other open tab shows its × while hovered; each has a right-click menu.
  *
  * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, window.window, ui.frame, ui.tokens, ui.themes
  * Used by: ui.layout
@@ -20,8 +20,9 @@ import kivuli {
     item,
     menu_separator,
     overlay,
-    scroll,
+    scroll_fit,
     text,
+    Group,
 };
 import kivuli.ui { Button, button_with as ui_button_with, separator };
 import window.actions { Msg, TabAction, PinAction };
@@ -30,7 +31,7 @@ import window.window { Model, order as tab_order };
 import ui.frame { label, initial, icon_of };
 import ui.tokens { SPACE_XS, HEADER_ICON, TAB_CLOSE, TAB_CLOSE_ICON, gap, square };
 import ui.themes { Theme, heading };
-import ui.frame_looks { app_button, app_current, tab_close };
+import ui.frame_looks { app_button, app_current, tab_close, tab_close_on_hover };
 
 /**
  * Builds the sidebar's apps and +, top to bottom.
@@ -71,10 +72,9 @@ public fun view(m: Model): View<Msg> {
     let plus = ui_button_with([icon("list-add-symbolic").size(HEADER_ICON)], Msg.NewTab).style(
         app_button(t),
     ).tooltip("Add a tab").shortcut("Ctrl+T").align(Align.Center);
-    // The apps scroll when there are more than fit; + stays at the strip's
-    // bottom. Chrome's way (+ right after the last app until they overflow)
-    // and scrolling an app into view wait for kivuli (DECISION-037).
-    column([scroll(column(all).style([gap(SPACE_XS)])).expand(), plus]).style([gap(SPACE_XS)])
+    // Chrome's way: + right after the last app, at the bottom once they
+    // scroll. No spacer: a fitting scroll takes no spare room.
+    column([scroll_fit(column(all).style([gap(SPACE_XS)])), plus]).style([gap(SPACE_XS)])
 }
 
 /**
@@ -96,7 +96,7 @@ fun tab_by_id(m: Model, id: i64): Option<Tab> {
     None
 }
 
-/** An empty tab: the new-tab placeholder, ringed with its × when current, a menu with Close. */
+/** An empty tab: the new-tab placeholder, ringed when current, its ×, a menu with Close. */
 fun empty_tab(m: Model, id: i64): View<Msg> {
     let t = m.theme;
     let current = m.current == Some(id);
@@ -109,10 +109,7 @@ fun empty_tab(m: Model, id: i64): View<Msg> {
     let button = ui_button_with([icon("tab-new-symbolic").size(HEADER_ICON)], Msg.Select(id)).style(
         look,
     ).tooltip("New tab").menu([item("Close", Msg.CloseTab(id))]);
-    if !current {
-        return button.align(Align.Center);
-    }
-    overlay(button, [close_button(t, id, "New tab")]).align(Align.Center)
+    with_close(t, id, button, "New tab", current)
 }
 
 /** The open tab showing `path`, if one does. */
@@ -125,7 +122,7 @@ fun tab_of(m: Model, path: string): Option<Tab> {
     None
 }
 
-/** An open app: its icon, the ring and × when it's current, and its menu. */
+/** An open app: its icon, the ring when it's current, its ×, and its menu. */
 fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
     let t = m.theme;
     let current = m.current == Some(tab.id);
@@ -144,19 +141,33 @@ fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
         menu_separator(),
         item("Forget this app…", Msg.OnTab(tab.id, TabAction.Forget)),
     ]);
-    if !current {
-        return button.align(Align.Center);
-    }
-    // The current app's ×; every app's, on hover, waits for kivuli's group
-    // hover (DECISION-036).
-    overlay(button, [close_button(t, tab.id, tab.page.name)]).align(Align.Center)
+    with_close(t, tab.id, button, tab.page.name, current)
 }
 
-/** The current tab's × at its icon's top-right corner, and Ctrl+W. */
-fun close_button(t: Theme, id: i64, name: string): View<Msg> = ui_button_with(
-    [icon("window-close-symbolic").size(TAB_CLOSE_ICON)],
-    Msg.CloseTab(id),
-).style(tab_close(t)).tooltip("Close {name}").shortcut("Ctrl+W").place(Align.End, Align.Start);
+/**
+ * A tab's button with its × over the top-right corner, named `tab-{id}` so
+ * the shell can scroll it into view. The overlay is the group: a layer
+ * isn't inside its base, so marking the button wouldn't reach the ×.
+ */
+fun with_close(
+    t: Theme,
+    id: i64,
+    button: View<Msg>,
+    name: string,
+    current: bool,
+): View<Msg> = overlay(button, [close_button(t, id, name, current)]).style([Group.mark()]).name(
+    "tab-{id}",
+).align(Align.Center);
+
+/** A tab's ×: always shown on the current tab, with Ctrl+W; on the others, while hovered. */
+fun close_button(t: Theme, id: i64, name: string, current: bool): View<Msg> {
+    let x = ui_button_with(
+        [icon("window-close-symbolic").size(TAB_CLOSE_ICON)],
+        Msg.CloseTab(id),
+    ).tooltip("Close {name}").place(Align.End, Align.Start);
+    // One Ctrl+W in the window: the current tab's.
+    if current { x.style(tab_close(t)).shortcut("Ctrl+W") } else { x.style(tab_close_on_hover(t)) }
+}
 
 /** A pinned app that isn't open: its icon, opening it, and its menu. */
 fun closed_pin(t: Theme, p: Pin): View<Msg> = ui_button_with(

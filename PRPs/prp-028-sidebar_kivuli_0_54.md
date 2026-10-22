@@ -47,14 +47,14 @@ From chat with the owner (sessions 145, 148; kivuli shipped the requests, sessio
 ## TESTS TO WRITE
 
 `test/sidebar.la`:
-- [ ] Every open tab, app or empty, has a × button ("Close {name}") that sends `CloseTab(id)`; a closed pin has none.
-- [ ] Only the current tab's × answers Ctrl+W.
-- [ ] A pinned app's × closes its tab, and the pin stays.
+- [x] Every open tab, app or empty, has a × button ("Close {name}") that sends `CloseTab(id)`; a closed pin has none.
+- [x] Only the current tab's × answers Ctrl+W.
+- [x] A pinned app's × closes its tab, and the pin stays.
 
 `test/shell.la` (or `test/one_tab.la`):
-- [ ] Selecting a tab, + and opening a file return a command holding `Cmd.scroll_to("tab-{id}")` for the new current tab (found with `kivuli.testing`, as `Cmd.focus` is).
-- [ ] Closing the current tab scrolls to the neighbour now current.
-- [ ] A `Draft` (typing) returns no scroll.
+- [x] Selecting a tab and + return a command holding `Cmd.scroll_to("tab-{id}")` for the new current tab (matched on `Cmd`'s variants: `kivuli.testing` has no command finder). Opening a file from an empty tab fills it in place, the same id, so nothing scrolls (amended while building).
+- [x] Closing the current tab scrolls to the neighbour now current.
+- [x] A `Draft` (typing), and selecting the current tab, return no scroll.
 
 The hover itself, the scroll position and + following the last tab are seen by hand (a window).
 
@@ -67,7 +67,7 @@ The hover itself, the scroll position and + following the last tab are seen by h
 - [ ] + follows the last tab until they overflow
 - [ ] Selecting a tab out of sight scrolls the sidebar to it; the address box keeps the focus
 - [ ] `lughac test test/` passes (the owner runs it); build ok; fmt clean; no file over 500 lines
-- [ ] DECISIONS.md, CLAUDE.md, DESIGN.md, CHANGELOG.md updated
+- [x] DECISIONS.md, CLAUDE.md, DESIGN.md, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user: `./main`, open a few apps. Hover each: its × appears and closes it. With few tabs, + is right under the last. Open enough to overflow: the tabs scroll, + stays at the bottom; scroll the current one out of sight, press Ctrl+T or open an app: the sidebar scrolls to it, and typing still goes into the address box.

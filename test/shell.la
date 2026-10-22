@@ -8,6 +8,7 @@ import rapidkoi.window.actions { Msg, Confirm, PanelPage };
 import rapidkoi.window.tabs { AppPage, open_module, state_of };
 import rapidkoi.ui.render;
 import rapidkoi.guest.contract { envelope };
+import kivuli { Cmd };
 import kivuli.testing { texts, type_into };
 import wasmtime { Engine, Module };
 import support { t, fixed, echo, crashing, titled_tree, result_of };
@@ -244,4 +245,44 @@ fun reload_says_why_when_the_file_is_gone() {
         texts(view(reloaded)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
         true,
     );
+}
+
+/** Every `Cmd.scroll_to` in `c`, batches opened. */
+fun scrolls(c: Cmd<Msg>): string[] = match c {
+    ScrollTo(name) => [name],
+    Batch(cs) => {
+        let mut all: string[] = [];
+        for inner of cs {
+            for n of scrolls(inner) {
+                all.push(n);
+            }
+        }
+        all
+    }
+    _ => [],
+};
+
+fun scrolled(m: Model, msg: Msg): string[] {
+    let (_, c) = update(m, msg);
+    scrolls(c)
+}
+
+@test
+fun the_current_tab_is_scrolled_into_view() {
+    // PRP-028: whenever the current tab changes, the sidebar shows it.
+    let m = two();
+    assert_eq(scrolled(m, Msg.Select(1)), ["tab-1"]);
+    assert_eq(scrolled(m, Msg.NewTab), ["tab-2"]);
+    // Closing the current tab: its neighbour is current now.
+    assert_eq(scrolled(m, Msg.CloseTab(0)), ["tab-1"]);
+    // Opening a file from an empty tab fills it: the same id.
+    let blank = step(m, Msg.NewTab);
+    assert_eq(scrolled(step(blank, Msg.Draft("lugha.toml")), Msg.Go), []);
+}
+
+@test
+fun nothing_scrolls_when_the_current_tab_stays() {
+    let m = two();
+    assert_eq(scrolled(m, Msg.Draft("rapid")), []);
+    assert_eq(scrolled(m, Msg.Select(0)), []);
 }

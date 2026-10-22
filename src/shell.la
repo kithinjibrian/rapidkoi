@@ -107,8 +107,18 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     // What a v2 app asked for is answered before anything is drawn or saved.
     let (answered, sends) = answer_all(next);
     // What each app declares, and "New" cleared once its Access page is left.
-    (persist(m, news(looked(m, answered)), at), both(cmd, sends))
+    (persist(m, news(looked(m, answered)), at), both(both(cmd, sends), into_view(m, answered)))
 }
+
+/**
+ * Scrolls the sidebar to the current tab when it changed (PRP-028): a
+ * tab selected, made or closed to a neighbour may be out of sight. The
+ * focus stays where it is.
+ */
+fun into_view(before: Model, after: Model): Cmd<Msg> = match after.current {
+    Some(id) => if before.current != Some(id) { Cmd.scroll_to("tab-{id}") } else { Cmd.none() },
+    None => Cmd.none(),
+};
 
 /** The page the window shows: its tab and its app's path; `None` on home. */
 fun shown(m: Model): Option<(i64, string)> = match (m.current, window.page_of(m)) {

@@ -5762,9 +5762,36 @@ PRPs/prp-028-sidebar_kivuli_0_54.md, CONTEXT.md
 
 ---
 
+## SESSION 161 — 2026-10-22 — Build PRP-028: the sidebar with kivuli 0.54 — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- kivuli 0.51 → 0.54 (`lugha.toml`; `lughac update` rewrote `lugha.lock`). Checked clean with no other change.
+- `src/ui/sidebar.la`: every open tab (app or empty) is an overlay marked `Group.mark()` and named `tab-{id}`, with its ×; the current tab's × is always shown and holds Ctrl+W, the others' use `tab_close_on_hover` (new, `src/ui/frame_looks.la`: opacity 0, 1 on `GroupHover`/`GroupFocusWithin`). `scroll_fit` then +.
+- `src/shell.la`: `into_view` adds `Cmd.scroll_to("tab-{id}")` whenever `current` changes.
+- DECISION-036 and 037 resolved; CLAUDE.md, DESIGN.md, CHANGELOG.md, the PRP (test wording amended: filling an empty tab keeps its id, so nothing scrolls).
+- `lughac check` of src and the two test files, `fmt --check` clean, `./main` builds. Tests not run (the owner runs them).
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml, lugha.lock (by lughac update), src/ui/sidebar.la, src/ui/frame_looks.la, src/shell.la,
+test/sidebar.la, test/shell.la, DECISIONS.md, CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, PRPs/prp-028-sidebar_kivuli_0_54.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- `test/sidebar.la`: every open tab has a ×; only the current one answers Ctrl+W; a closed pin has none; a pinned app's × keeps the pin.
+- `test/shell.la`: the current tab is scrolled into view (select, +, close); nothing scrolls when it stays (typing, selecting the current tab).
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run and a look in a window (hover, + placement, scrolling).
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54 is out (Rapidkoi still on 0.51). Built: PRP-019–026, PRP-027 Part 1. PRP-028 (sidebar: × on hover, + after the last tab, scroll into view) is written, awaiting approval. PRP-027 Part 2 waits on Lugha's `include_bytes` (DECISION-038).
-
-## SESSION 161 — 2026-10-22 — Build PRP-028: the sidebar with kivuli 0.54 — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.54. Built: PRP-019–028 (PRP-027 Part 1 only). Awaiting the owner's test runs of PRP-027 Part 1 and PRP-028. PRP-027 Part 2 waits on Lugha's `include_bytes` (DECISION-038).

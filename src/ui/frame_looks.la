@@ -20,6 +20,7 @@ import kivuli {
     State,
     Inside,
     Part,
+    Effects,
 };
 import kivuli.ui { Button };
 import ui.tokens {
@@ -114,6 +115,22 @@ public fun tab_close(t: Theme): Styling[] = [
     no_padding(),
     When(State.Hover, [Background { color: paint(t.danger), ..Background.theme() }]),
 ];
+
+/**
+ * Returns the look of a × on a tab that isn't current (PRP-028): the ×'s
+ * look, hidden until the pointer is over its tab or the focus is in it.
+ *
+ * Example:
+ *     close.style(tab_close_on_hover(t))
+ */
+public fun tab_close_on_hover(t: Theme): Styling[] {
+    let hidden: Styling[] = [
+        Effects.opacity(0.0),
+        When(State.GroupHover, [Effects.opacity(1.0)]),
+        When(State.GroupFocusWithin, [Effects.opacity(1.0)]),
+    ];
+    tab_close(t) + hidden
+}
 
 /**
  * Returns the window controls' look on the frame, given after
