@@ -5269,6 +5269,12 @@ src/ui/addressbox.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
+## SESSION 146 — 2026-10-22 — Black tooltips — open
+
+Branch: prp-017-kivuli_0_17
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022); card rows 12 px above and below (session 144); round icon hovers in the address box (session 145). Waiting for the owner's look and test run. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
