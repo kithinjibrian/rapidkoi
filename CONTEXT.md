@@ -5973,9 +5973,36 @@ DECISIONS.md, MEMORY.md, CLAUDE.md, docs/specs/app-events.md, docs/DESIGN.md, CH
 
 ---
 
+## SESSION 168 — 2026-10-22 — PRP-031: permission settings, approval, controls, on_change — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner saw PRP-030 running: the new tab shows where you left off with Continue.
+- **A bug, parked by the owner until after PRP-031:** after the quote tab closed, "Where you left off" went empty. The steps aren't known; closing records it in the code (`window.close`), so the cause isn't found yet. It's in PRP-031's LATER section.
+- Settled in chat:
+  - ⚙ on the new tab shows its permissions.
+  - Permissions is a row under App settings, beside Servers, opening its own page.
+  - Each permission is Always allowed / Needs approval / Blocked, and the person decides.
+  - Built-in permissions default to Always allowed.
+  - Allow once answers one ask.
+  - A built-in app's manifest `controls` chooses address icons and settings rows; built-in only.
+  - `on_change` added (yes).
+- Wrote `PRPs/prp-031-permission_settings.md`. Awaiting approval (a trust screen and capability: the owner's security review). No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-031-permission_settings.md, CONTEXT.md
+```
+
+### STILL OPEN AT CLOSE
+
+- Approval of PRP-031. The owner's test runs (sessions 165, 167). The parked bug.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–030; contract 3 (open for step B), contract 2 still runs. Awaiting the owner's test runs (sessions 165 and 167). Next: step B, contract 3's drawing (images, wrapping rows, an accent style), then C (the left-off preview).
-
-## SESSION 168 — 2026-10-22 — PRP-031: permission settings, approval, controls, on_change — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–030; contract 3 (open for step B). PRP-031 (permission settings: Always allowed / Needs approval / Blocked, the approval dialog, built-in `controls`, `on_change`) is written and awaiting approval. Then: the parked empty "Where you left off" bug, step B (contract 3's drawing), C (the left-off preview).
