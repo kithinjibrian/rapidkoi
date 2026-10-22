@@ -179,6 +179,10 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
     --description "Counts, and says hello" --icon guest/rust/counter/icon.png -o counter.rkb
 ./main counter.rkb                                                     # opens a window: the user's
 
+# Rapidkoi's new-tab app (PRP-027): build and pack it into assets/apps/newtab.rkb (after building ./main)
+./scripts/newtab.sh
+./main assets/apps/newtab.rkb                                          # opens a window: the user's
+
 # Local development: serve a bundle, open it at its address (Reload in ⓘ after a repack)
 ./main serve counter.rkb --port 8000                                   # 127.0.0.1 only; Ctrl+C to stop
 ./main rapidkoi://localhost:8000                                       # opens a window: the user's
@@ -288,7 +292,9 @@ public fun load_settings(path: string): Settings { … }
 │                        Imports name the folder (`import ui.layout;` binds `layout`). They run one way: guest.nodes ← props ← contract ← ui.tokens ← themes ← render ← window.tabs ← actions ← ui.frame ← suggestions ← window.window ← ui.content, addressbox ← layout ← shell ← main
 ├── test/              — @test files, flat, each named for the module it tests (DECISION-033), support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
 │                        counter.la (end to end with the Rust counter; skips until it's built)
-├── guest/rust/        — Cargo workspace: rapidkoi (contract 2 for Rust: View builder, App trait, export!, Request, SignIn), counter (the demo), quote (the network demo)
+├── guest/rust/        — Cargo workspace: rapidkoi (contract 2 for Rust: View builder, App trait, export!, Request, SignIn), counter (the demo), quote (the network demo), newtab (Rapidkoi's new tab, PRP-027)
+├── assets/apps/       — newtab.rkb: the new-tab app, packed unsigned by scripts/newtab.sh and committed (built into ./main once Lugha has include_bytes, DECISION-038)
+├── scripts/           — newtab.sh: build and pack the new-tab app
 ├── assets/icons/      — the Iconsax SVGs; `src/ui/icons.la` holds each as text (a test keeps them equal), so change both together
 ├── examples/quote/    — the network demo's rapidkoi.toml, its server (server.la: the signed site, sign-in, /quote) and Dockerfile (the VM)
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)

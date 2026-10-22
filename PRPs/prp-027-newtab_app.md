@@ -7,7 +7,7 @@ From chat with the owner (sessions 157–158). An empty tab runs Rapidkoi's own 
 
 - Starting state: an empty tab (PRP-024) draws nothing in the content area; `guest/rust/` holds the counter and quote apps; bundles are packed with `./main pack`.
 - Ending state:
-  - **Part 1, now:** `guest/rust/newtab/` (a Rust crate in the workspace, contract 2) whose view is one title text, "Rapidkoi". `guest/rust/newtab/rapidkoi.toml` describes it (name "New tab", version 0.1.0, no host, so it packs unsigned). `scripts/newtab.sh` builds it with cargo and packs it into `assets/apps/newtab.rkb`, which is committed so building `./main` never needs cargo.
+  - **Part 1, now:** `guest/rust/newtab/` (a Rust crate in the workspace, contract 2) whose view is one title text, "Rapidkoi". `scripts/newtab.sh` builds it with cargo and packs it (`./main pack` with `--name "New tab" --version 0.1.0`, no key, so unsigned; amended while building: flags, not a `rapidkoi.toml`, since the repo's own `rapidkoi.toml` is the counter's) into `assets/apps/newtab.rkb`, which is committed so building `./main` never needs cargo.
   - **Part 2, once Lugha has `include_bytes` (DECISION-038):** `src/window/newtab.la` holds the bundle's bytes; an empty tab runs it as a page of its own; `src/ui/content.la` draws it.
 - Related existing code: `guest/rust/counter/` (the crate to copy), `src/commands/pack.la`, `src/bundles/loader.la`, `src/window/tabs.la` (`open_module`), `src/ui/content.la`.
 - Lugha spec sections relied on: Part 2 needs `include_bytes`, which doesn't exist yet (`docs/specs/lugha-include-bytes.md`).
@@ -46,8 +46,8 @@ From chat with the owner (sessions 157–158). An empty tab runs Rapidkoi's own 
 ## TESTS TO WRITE
 
 Part 1:
-- [ ] `cargo test` in `guest/rust/newtab`: the view encodes to one column holding one title text, "Rapidkoi"; any event leaves the state as it was.
-- [ ] `test/newtab.la`: `assets/apps/newtab.rkb` reads as an unsigned bundle named "New tab", version 0.1.0 (skips if the file is missing, like `test/counter.la`).
+- [x] `cargo test` in `guest/rust/newtab`: the view encodes to one column holding one title text, "Rapidkoi"; any event leaves the state as it was.
+- [x] `test/newtab.la`: `assets/apps/newtab.rkb` reads as an unsigned bundle named "New tab", version 0.1.0 (skips if the file is missing, like `test/counter.la`).
 
 Part 2 (written when DECISION-038 resolves):
 - [ ] An empty tab's content shows "Rapidkoi".

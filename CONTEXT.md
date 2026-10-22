@@ -5710,9 +5710,37 @@ PRPs/prp-027-newtab_app.md, CONTEXT.md
 
 ---
 
+## SESSION 159 — 2026-10-22 — Build PRP-027 Part 1: the new-tab app — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner approved Part 1 only.
+- `guest/rust/newtab`: a stateless contract-2 app whose view is `column([text("Rapidkoi").title()])`; added to the workspace.
+- `scripts/newtab.sh` builds it and packs it with `./main pack` flags (amended in the PRP: not a `rapidkoi.toml`) into `assets/apps/newtab.rkb` (45 KB, committed, unsigned).
+- Built `./main` (ok) and ran the script; `lughac fmt --check src test` clean. Tests not run (the owner runs them).
+
+### FILES CREATED OR MODIFIED
+
+```
+guest/rust/newtab/{Cargo.toml, src/lib.rs}, guest/rust/Cargo.toml, guest/rust/Cargo.lock,
+scripts/newtab.sh, assets/apps/newtab.rkb, test/newtab.la,
+PRPs/prp-027-newtab_app.md, CLAUDE.md, CHANGELOG.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- `guest/rust/newtab`: it shows the wordmark; it asks for nothing.
+- `test/newtab.la`: the committed bundle reads as format 1 (unsigned), "New tab" 0.1.0, contract 2.
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run: `cargo test --manifest-path guest/rust/Cargo.toml -p newtab`, `lughac test test/newtab.la`.
+- Part 2 waits on DECISION-038.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: PRP-019–026. PRP-027 (the bundled new-tab app) is written, awaiting approval: build Part 1 once approved; Part 2 waits on Lugha's `include_bytes` (DECISION-038). Waiting on kivuli: DECISION-036, 037.
-
-## SESSION 159 — 2026-10-22 — Build PRP-027 Part 1: the new-tab app — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: PRP-019–026, PRP-027 Part 1 (the new-tab app, `assets/apps/newtab.rkb`). Part 2 (empty tabs run it) waits on Lugha's `include_bytes` (DECISION-038). Waiting on kivuli: DECISION-036, 037.
