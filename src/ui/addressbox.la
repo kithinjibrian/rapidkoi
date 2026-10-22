@@ -8,7 +8,7 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.frame, ui.icons, ui.tokens, ui.themes
  * Used by: ui.header
  */
-import kivuli { View, Align, Border, Radius, Shadow, State, Text, When, image };
+import kivuli { View, Align, Border, Radius, Shadow, State, Styling, Text, When, image, row };
 import kivuli.ui {
     input_group,
     group_input,
@@ -24,12 +24,14 @@ import ui.icons { Icon, icon };
 import ui.shield { facts, look_colour, card };
 import ui.settings;
 import ui.tokens {
+    SPACE_XS,
     SPACE_SM,
     ADDRESS_HEIGHT,
     CIRCLE,
     ADDRESS_WIDTH,
     ADDRESS_ICON,
     square,
+    padding,
     at_least,
     margin_y,
     flush_y,
@@ -89,7 +91,7 @@ public fun field(m: Model): View<Msg> {
                 ]).align(Align.Center),
             ],
             Msg.Shield(Some(ShieldPage.Main)),
-        ).tooltip("Site information");
+        ).style(round()).tooltip("Site information");
         start.push(
             ui_popover(
                 shield_button,
@@ -106,7 +108,7 @@ public fun field(m: Model): View<Msg> {
         let gear = group_button_with(
             [image(icon(Icon.Settings, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
             Msg.TogglePanel,
-        ).tooltip("Site settings");
+        ).style(round()).tooltip("Site settings");
         start.push(
             ui_popover(
                 gear,
@@ -116,6 +118,12 @@ public fun field(m: Model): View<Msg> {
             ),
         );
     }
+    // The shield and ⚙ side by side, their round hovers touching: kivuli.ui
+    // puts 8 px between a group's add-ons, too far apart for the owner
+    // (session 145).
+    if start.len > 1 {
+        start = [row(start)];
+    }
     let mut end: View<Msg>[] = [];
     if let App(p) = page {
         let tip = if is_pinned(m, p.path) { "Unpin" } else { "Pin" };
@@ -123,7 +131,7 @@ public fun field(m: Model): View<Msg> {
             group_button_with(
                 [image(icon(Icon.Star, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
                 Msg.TogglePin,
-            ).tooltip(tip),
+            ).style(round()).tooltip(tip),
         );
     }
     // A pill, as the owner asked (sessions 75, 121): GTK caps a radius at half
@@ -140,3 +148,13 @@ public fun field(m: Model): View<Msg> {
     ]);
     box.align(Align.Center)
 }
+
+/**
+ * The address box's icon buttons: a round hover, `SPACE_XS` around the icon,
+ * so each is a circle the box's height (session 145). kivuli.ui's own is a
+ * wider rounded rectangle.
+ */
+fun round(): Styling[] = [
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    padding(SPACE_XS),
+];

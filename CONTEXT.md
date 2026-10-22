@@ -5236,12 +5236,39 @@ src/ui/cards.la, src/ui/tokens.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
-## SESSION 145 — 2026-10-22 — Round hovers and a tighter start in the address box — open
+## SESSION 145 — 2026-10-22 — Round hovers and a tighter start in the address box — closed
 
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: the address box's icons should hover round, not square, and the shield and ⚙ should sit closer. The shield, ⚙ and ☆ buttons take `round()` (`CIRCLE` radius, `SPACE_XS` padding: a 28 px circle); the shield and ⚙ go into one `row` with no gap instead of kivuli.ui's 8 px between add-ons. Check, build and fmt ok.
+- Earlier in the conversation: the new `settings.svg` escaped into `icons.svg(Settings)`. Left uncommitted with the owner's asset change; its paths carry `fill="white" style="fill: var(--fillg)"`, which `recolour` doesn't touch.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/addressbox.la, docs/DESIGN.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None (layout).
+
+### DECISIONS MADE
+
+- Address box icon buttons: circles, `SPACE_XS` around the icon; no gap between the shield and ⚙.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's look and test run; the settings icon's fills.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022); card rows 12 px above and below (session 144). Waiting for the owner's look and test run. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield and its card (PRP-021), site settings (PRP-022); card rows 12 px above and below (session 144); round icon hovers in the address box (session 145). Waiting for the owner's look and test run. Next pieces of the redesign: the sidebar's contents (tabs), the new tab as a bundled app, the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.
