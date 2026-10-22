@@ -5443,6 +5443,16 @@ src/ui/frame_looks.la (new), src/ui/themes.la, src/ui/layout.la, src/ui/header.l
 
 ---
 
+## SESSION 151 — 2026-10-22 — Build PRP-024: empty tabs, ⌂ as the app's home — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar (PRP-019–023); themes split (session 150). Next: build PRP-024 (empty tabs, ⌂ as the app's home), approved. Waiting on kivuli: DECISION-036, 037.
