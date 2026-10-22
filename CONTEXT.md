@@ -6044,3 +6044,6 @@ guest/rust/rapidkoi/src/abi.rs, guest/rust/newtab/src/lib.rs, scripts/newtab.sh,
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031; contract 3 (open for step B). Awaiting the owner's test runs. Next: the parked empty "Where you left off" bug, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
+
+## SESSION 170 — 2026-10-22 — The new tab empty at launch — open
+Branch: prp-017-kivuli_0_17
