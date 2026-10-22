@@ -3,7 +3,7 @@
 // Fixture guests; no display.
 import rapidkoi.shell { Model, start, with_pages, update, title_of };
 import rapidkoi.ui.layout { view };
-import rapidkoi.window.window { card };
+import rapidkoi.window.window { card, page_of };
 import rapidkoi.window.actions { Msg, Confirm, PanelPage };
 import rapidkoi.window.tabs { AppPage, open_module, state_of };
 import rapidkoi.ui.render;
@@ -41,13 +41,19 @@ fun page(m: Model, id: i64): AppPage {
 
 fun add(id: i64): Msg = Msg.Tab(id, render.Msg.Event(t("add"), None));
 
+fun on_home(m: Model): bool = match page_of(m) {
+    Home => true,
+    App(_) => false,
+};
+
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
 @test
-fun booting_without_an_app_shows_home_with_no_tabs() {
+fun booting_without_an_app_shows_one_empty_tab() {
     let (m, _) = start(["./main"], None);
-    assert_eq(m.tabs.len, 0);
-    assert_eq(m.current, None);
+    // PRP-024: the window always has a tab; an empty one to start.
+    assert_eq((m.tabs.len, m.blanks.len), (0, 1));
+    assert(on_home(m));
     assert_eq(title_of(m), "Rapidkoi");
 }
 
@@ -79,12 +85,12 @@ fun a_crash_stays_in_its_tab_and_restart_brings_it_back() {
 }
 
 @test
-fun new_tab_and_home_show_home_and_keep_every_app() {
+fun new_tab_and_home_show_an_empty_tab_and_keep_every_app() {
     let m = step(step(two(), add(0)), Msg.NewTab);
-    assert_eq(m.current, None);
+    assert(on_home(m));
     assert_eq(m.tabs.len, 2);
     let home = step(step(m, Msg.Select(1)), Msg.Home);
-    assert_eq(home.current, None);
+    assert(on_home(home));
     assert_eq(home.tabs.len, 2);
     // The app kept its state while home showed.
     assert_eq(state_of(page(home, 0)), Some(envelope(t("add"), None)));
@@ -104,7 +110,8 @@ fun a_closed_app_reopens_with_its_state() {
     let home = step(closed, Msg.Home);
     // Tab 1 is still open and was visited last, so it's the card; close it too.
     let both = step(step(home, Msg.Select(1)), Msg.CloseTab(1));
-    assert_eq(both.current, None);
+    // The empty tab from Home is what's left (PRP-024).
+    assert(on_home(both));
     assert_eq(card(both).map(fun(c) = c.msg), Some(Msg.Continue));
     let back = step(both, Msg.Continue);
     assert_eq(back.tabs.len, 1);

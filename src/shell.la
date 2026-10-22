@@ -56,7 +56,8 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
         None => empty,
     };
     if argv.len < 2 {
-        return (remembered, Cmd.focus("address"));
+        // The window always has a tab: an empty one to start (PRP-024).
+        return (window.new_blank(remembered), Cmd.focus("address"));
     }
     let at = mark(remembered);
     let (placed, cmd) = navigate.open_file(remembered, argv[1]);
@@ -137,7 +138,9 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     // Choosing a tab, from the address box's suggestions too, closes them.
     Select(id) => (window.show_tab(Model { draft: "", ..m }, id), Cmd.none()),
     // Home isn't a tab: + and ⌂ both show it, keeping every app open.
-    NewTab | Home => (window.go_home(m), Cmd.focus("address")),
+    // + adds an empty tab; Home shows one, the current if it's empty (PRP-024).
+    NewTab => (window.new_blank(m), Cmd.focus("address")),
+    Home => (window.go_home(m), Cmd.focus("address")),
     CloseTab(id) => (window.close(m, id), Cmd.none()),
     Draft(text) => (Model { draft: text, notice: None, ..m }, Cmd.none()),
     Go => navigate.go(m),

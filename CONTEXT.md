@@ -5443,16 +5443,45 @@ src/ui/frame_looks.la (new), src/ui/themes.la, src/ui/layout.la, src/ui/header.l
 
 ---
 
-## SESSION 151 — 2026-10-22 — Build PRP-024: empty tabs, ⌂ as the app's home — open
+## SESSION 151 — 2026-10-22 — Build PRP-024: empty tabs, ⌂ as the app's home — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+The owner approved PRP-024 (and the themes split, session 150).
+- Tests first: `test/tabs_empty.la` (8: a fresh window's one empty tab; + adds more; opening fills the empty tab; a pin and Continue fill it, from an app tab a pin opens its own; closing picks a neighbour, the last leaves one empty; × and Ctrl+W on an empty tab; creation order; Home shows an empty tab and keeps "where you left off"). Updated: `test/shell.la` (home is `page_of == Home` on an empty tab, not `current == None`), `loading.la`, `menus.la`, `header.la` (⌂ disabled), `sidebar.la` and `layout.la` (+ is "Add a tab"). Not run: the owner's.
+- `window.la`: `Model.blanks`; `new_blank`, `is_blank`, `order` (every tab's id in creation order), `slot` (the id the next app takes: the current empty tab's); `add_tab` fills the current empty tab in place; `go_home` shows an empty tab (the current if empty); `close` handles empty tabs, picks neighbours in creation order and leaves an empty tab when the last closes; `used_last` falls back to the last app on an empty tab.
+- `navigate.la`: `open_file` and `reopen` open into `slot(m)`. `shell.la`: `NewTab` → `new_blank`; `start` with no app opens one empty tab.
+- `sidebar.la`: unpinned tabs, app and empty, in creation order; an empty tab is `tab-new-symbolic` "New tab", ringed with its × when current, a Close menu; + is "Add a tab"; the × is one `close_button`. `header.la`: ⌂ disabled "Home (comes with links)".
+- `lughac check` clean; every test file type-checks; fmt clean; build ok.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/window/window.la, src/window/navigate.la, src/shell.la, src/ui/sidebar.la, src/ui/header.la
+test/tabs_empty.la (new); test/shell.la, test/loading.la, test/menus.la, test/header.la, test/sidebar.la, test/layout.la
+docs/DESIGN.md, CLAUDE.md, CHANGELOG.md, PRPs/prp-024-empty_tabs.md, CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- test/tabs_empty.la (8).
+
+### DECISIONS MADE
+
+- Empty tabs are real tabs; ⌂ is the app's home (disabled until links).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The owner's test run and look.
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar (PRP-019–023); themes split (session 150). Next: build PRP-024 (empty tabs, ⌂ as the app's home), approved. Waiting on kivuli: DECISION-036, 037.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: header bar, shield, site settings, sidebar, empty tabs (PRP-019–024). Waiting for the owner's test run and look. Waiting on kivuli: group hover (DECISION-036), a fitting scroll and scroll-to (DECISION-037). Next ideas: the new tab as a bundled app (DECISION-027), the address box's suggestions, apps' content on `kivuli.ui`, 👤 and ☰.

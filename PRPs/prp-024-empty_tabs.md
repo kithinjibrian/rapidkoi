@@ -51,14 +51,14 @@ This reverses "home isn't a tab" (the old rail's design): an empty tab is the ho
 ## TESTS TO WRITE
 
 `test/tabs_empty.la`:
-- [ ] A fresh window has one empty tab, current; the sidebar shows it ("New tab"), no app.
-- [ ] + (`NewTab`) twice: two more empty tabs, the last current.
-- [ ] Opening a file from an empty tab fills that tab: same id, no extra tab; from an app tab it replaces that app as today.
-- [ ] Opening a pin and Continue from an empty tab fill it.
-- [ ] Closing an empty tab selects a neighbour; closing the last tab leaves one empty tab.
-- [ ] Ctrl+W and the × close the current empty tab.
-- [ ] Unpinned tabs, app and empty, show in creation order.
-- [ ] `Home` on an empty tab stays; on an app tab it opens a new empty tab.
+- [x] A fresh window has one empty tab, current; the sidebar shows it ("New tab"), no app.
+- [x] + (`NewTab`) twice: two more empty tabs, the last current.
+- [x] Opening a file from an empty tab fills that tab: same id, no extra tab; from an app tab it replaces that app as today.
+- [x] Opening a pin and Continue from an empty tab fill it.
+- [x] Closing an empty tab selects a neighbour; closing the last tab leaves one empty tab.
+- [x] Ctrl+W and the × close the current empty tab.
+- [x] Unpinned tabs, app and empty, show in creation order.
+- [x] `Home` on an empty tab stays; on an app tab it opens a new empty tab.
 
 `test/header.la`: ⌂ is disabled, "Home (comes with links)".
 Existing tests that read home as `current == None` follow: home is now `page_of(m) == Home` on an empty tab.
@@ -71,8 +71,8 @@ Existing tests that read home as `current == None` follow: home is now `page_of(
 - [ ] + adds empty tabs to the sidebar; typing an address in one opens the app there; closing works; the window is never tabless
 - [ ] ⌂ disabled with its tooltip
 - [ ] The tests above and `lughac test test/` pass (the owner runs them)
-- [ ] `lughac build src/main.la -o main`; `lughac fmt --check src test` clean; no file over 500 lines
-- [ ] DESIGN.md, CHANGELOG.md updated
+- [x] `lughac build src/main.la -o main`; `lughac fmt --check src test` clean; no file over 500 lines
+- [x] DESIGN.md, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user: `./main`: one empty tab in the sidebar, ringed. + twice: three. Type `rapidkoi://quote.dafifi.net` in the last: it becomes the quote app in place. Close tabs down to none: one empty tab remains. ⌂ greyed: "Home (comes with links)".

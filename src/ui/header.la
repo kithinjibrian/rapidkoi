@@ -65,7 +65,9 @@ public fun start(m: Model): View<Msg>[] = match page_of(m) {
 /** ← back, ⌂ home, → forward. */
 fun navigation(m: Model): View<Msg>[] = [
     tool(m.theme, Icon.Back, "Back (comes with links)", None),
-    tool(m.theme, Icon.Home, "Home", Some(Msg.Home)),
+    // The app's own home screen (the owner, session 148): it needs routes,
+    // as back and forward do (PRP-024).
+    tool(m.theme, Icon.Home, "Home (comes with links)", None),
     tool(m.theme, Icon.Forward, "Forward (comes with links)", None),
 ];
 

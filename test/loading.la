@@ -99,7 +99,8 @@ fun the_spinner_turns_and_the_time_shows_after_3_s() {
 fun everything_else_works_while_it_loads() {
     let (m, _) = opening();
     let home = step(m, Msg.Home);
-    assert_eq((home.current, home.tabs.len), (None, 1));
+    // An empty tab beside the loading one (PRP-024).
+    assert_eq((home.blanks.len, home.tabs.len), (1, 1));
     let back = step(home, Msg.Select(m.tabs[0].id));
     assert_eq(loading(back), true);
     let (more, cmd) = update(Model { draft: ADDRESS, ..step(back, Msg.NewTab) }, Msg.Go);

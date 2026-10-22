@@ -27,9 +27,11 @@ public struct Model {
     ring: Keyring,
     /** Where the window remembers things; `None` (tests, no home) saves nothing. */
     store: Option<Store>,
-    /** The open apps, in rail order. */
+    /** The open apps (their order of creation is their ids'; `order` merges them with the empty tabs). */
     public tabs: Tab[],
-    /** The current tab's id; `None` while home shows. */
+    /** The empty tabs' ids (PRP-024): tabs showing the new-tab page, one id sequence with the app tabs. */
+    public blanks: i64[],
+    /** The current tab's id, app or empty; `None` only before the first tab exists. */
     public current: Option<i64>,
     next: i64,
     /** The address box's text. */
@@ -84,6 +86,7 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         ring: keyring(),
         store: None,
         tabs: made,
+        blanks: [],
         current: if made.len > 0 { Some(0) } else { None },
         next: made.len,
         draft: "",
@@ -180,8 +183,9 @@ public fun card(m: Model): Option<Card> {
  *     used_last(m)
  */
 public fun used_last(m: Model): Option<LeftOff> {
-    let open = match m.current {
-        Some(id) => app(m, id),
+    // On an empty tab, as on home before it, the last app visited counts.
+    let open = match m.current.and_then(fun(id: i64) = app(m, id)) {
+        Some(a) => Some(a),
         None => m.last.and_then(fun(id: i64) = app(m, id)),
     };
     match open {
@@ -193,20 +197,85 @@ public fun used_last(m: Model): Option<LeftOff> {
 }
 
 /**
- * Shows home; the app stays open in its tab and becomes "where you left off".
+ * Shows an empty tab (PRP-024): the current one if it's empty, else a new
+ * one. The app that was showing stays open in its tab and becomes "where
+ * you left off".
  *
  * Example:
  *     go_home(m)
  */
-public fun go_home(m: Model): Model = Model {
-    current: None,
-    last: if m.current.is_some() { m.current } else { m.last },
-    draft: "",
-    editing: false,
-    panel: None,
-    confirm: None,
-    notice: None,
-    ..m,
+public fun go_home(m: Model): Model = match m.current {
+    Some(id) if is_blank(m, id) => Model {
+        draft: "",
+        editing: false,
+        panel: None,
+        confirm: None,
+        notice: None,
+        ..m,
+    },
+    _ => new_blank(m),
+};
+
+/**
+ * Opens a new empty tab and shows it (PRP-024): + and Ctrl+T.
+ *
+ * Example:
+ *     new_blank(m)
+ */
+public fun new_blank(m: Model): Model {
+    let mut more = m.blanks;
+    more.push(m.next);
+    Model {
+        blanks: more,
+        current: Some(m.next),
+        next: m.next + 1,
+        // The app that was showing is the one to go back to.
+        last: match m.current {
+            Some(id) if app(m, id).is_some() => Some(id),
+            _ => m.last,
+        },
+        draft: "",
+        editing: false,
+        panel: None,
+        confirm: None,
+        notice: None,
+        ..m,
+    }
+}
+
+/**
+ * Says whether `id` is an empty tab.
+ *
+ * Example:
+ *     is_blank(m, 3)
+ */
+public fun is_blank(m: Model, id: i64): bool = m.blanks.any(fun(b: i64) = b == id);
+
+/**
+ * Returns every tab's id, app and empty, in the order they were made.
+ *
+ * Example:
+ *     order(m)
+ */
+public fun order(m: Model): i64[] {
+    let mut all: i64[] = m.tabs.map(fun(t: Tab) = t.id);
+    for b of m.blanks {
+        all.push(b);
+    }
+    all.sort();
+    all
+}
+
+/**
+ * Returns the id the next app placed will take: the current empty tab's,
+ * which it fills, else a new one.
+ *
+ * Example:
+ *     slot(m)
+ */
+public fun slot(m: Model): i64 = match m.current {
+    Some(id) if is_blank(m, id) => id,
+    _ => m.next,
 };
 
 /**
@@ -215,7 +284,7 @@ public fun go_home(m: Model): Model = Model {
  * Example:
  *     show_tab(m, 2)
  */
-public fun show_tab(m: Model, id: i64): Model = if app(m, id).is_some() {
+public fun show_tab(m: Model, id: i64): Model = if app(m, id).is_some() || is_blank(m, id) {
     Model { current: Some(id), editing: false, notice: None, confirm: None, ..m }
 } else {
     m
@@ -233,35 +302,49 @@ public fun with_tab(m: Model, id: i64, f: fun(AppPage): AppPage): Model = Model 
 };
 
 /**
- * Closes a tab; its app becomes "where you left off". The tab to its right
- * (or left) becomes current; with none left, home shows.
+ * Closes a tab, app or empty; an app becomes "where you left off". The tab
+ * after it in creation order (else the one before) becomes current; closing
+ * the last tab leaves one empty tab (PRP-024).
  *
  * Example:
  *     close(m, 2)
  */
 public fun close(m: Model, id: i64): Model {
+    let all = order(m);
     let mut at = -1;
-    let mut left = m.left_off;
-    let mut kept: Tab[] = [];
-    for t of m.tabs {
-        if t.id == id {
-            at = kept.len;
-            left = Some(leave(t.page));
-        } else {
-            kept.push(t);
+    let mut i = 0;
+    while i < all.len {
+        if all[i] == id {
+            at = i;
         }
+        i = i + 1;
     }
     if at < 0 {
         return m;
     }
+    let left = match app(m, id) {
+        Some(a) => Some(leave(a)),
+        None => m.left_off,
+    };
+    let rest = all.filter(fun(x: i64) = x != id);
     let current: Option<i64> = if m.current != Some(id) {
         m.current
-    } else if kept.len == 0 {
+    } else if rest.len == 0 {
         None
     } else {
-        Some(kept[if at < kept.len { at } else { kept.len - 1 }].id)
+        Some(rest[if at < rest.len { at } else { rest.len - 1 }])
     };
-    Model { tabs: kept, current: current, left_off: left, panel: None, confirm: None, ..m }
+    let closed = Model {
+        tabs: m.tabs.filter(fun(t: Tab) = t.id != id),
+        blanks: m.blanks.filter(fun(b: i64) = b != id),
+        current: current,
+        left_off: left,
+        panel: None,
+        confirm: None,
+        ..m,
+    };
+    // The window always has a tab.
+    if rest.len == 0 { new_blank(closed) } else { closed }
 }
 
 /**
@@ -331,8 +414,18 @@ public fun pin(m: Model): Model = match page_of(m) {
 public fun is_pinned(m: Model, path: string): bool = m.pinned.any(fun(p: Pin) = p.path == path);
 
 fun add_tab(m: Model, page: AppPage): Model {
+    let id = slot(m);
     let mut more = m.tabs;
-    more.push(Tab { id: m.next, page: page });
+    more.push(Tab { id: id, page: page });
+    // An app opened from an empty tab fills it: its id and its place (PRP-024).
+    if id != m.next {
+        return Model {
+            tabs: more,
+            blanks: m.blanks.filter(fun(b: i64) = b != id),
+            current: Some(id),
+            ..m,
+        };
+    }
     Model { tabs: more, current: Some(m.next), next: m.next + 1, ..m }
 }
 

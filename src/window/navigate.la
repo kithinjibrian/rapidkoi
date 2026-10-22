@@ -24,7 +24,7 @@ import trust.verify { separate };
 import net.loads { begin, resumed };
 import kivuli { Cmd };
 import window.actions { Msg };
-import window.window { Model, page_of, with_tab, add_tab, app };
+import window.window { Model, page_of, with_tab, add_tab, app, slot };
 import net.address { is_address, parse };
 
 /**
@@ -65,7 +65,8 @@ public fun go(m: Model): (Model, Cmd<Msg>) {
 public fun open_file(m: Model, path: string): (Model, Cmd<Msg>) {
     let placed = match m.current {
         Some(id) if app(m, id).is_some() => (Model { left_off: app(m, id).map(leave), ..m }, id),
-        _ => (add_tab(m, failed_page(path, "")), m.next),
+        // A new tab, or the current empty tab, filled in place (PRP-024).
+        _ => (add_tab(m, failed_page(path, "")), slot(m)),
     };
     let (base, id) = placed;
     let tidy = Model { draft: "", editing: false, notice: None, ..base };
@@ -88,8 +89,8 @@ public fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
     // state comes back from states/. Kept until it runs: a failed load
     // leaves Continue in place.
     Some(l) => {
+        let id = slot(m);
         let tab = add_tab(m, failed_page(l.path, ""));
-        let id = m.next;
         if is_address(l.path) && parse(l.path).is_ok() {
             return begin(tab, id, l.path, false, None, []);
         }

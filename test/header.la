@@ -42,7 +42,8 @@ fun back_home_forward_in_that_order() {
     let start = header.start(window(plain()));
     assert_eq(start.len, 3);
     assert_eq(is_disabled(start[0], "Back (comes with links)"), Ok(true));
-    assert_eq(click(start[1], "Home"), Ok(Msg.Home));
+    // The app's home: it needs routes (PRP-024).
+    assert_eq(is_disabled(start[1], "Home (comes with links)"), Ok(true));
     assert_eq(is_disabled(start[2], "Forward (comes with links)"), Ok(true));
 }
 

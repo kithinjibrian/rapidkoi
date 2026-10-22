@@ -60,7 +60,7 @@ fun only_the_current_app_has_a_close_button() {
 @test
 fun plus_opens_a_new_tab() {
     let v = sidebar.view(two());
-    assert_eq(click(v, "New tab"), Ok(Msg.NewTab));
+    assert_eq(click(v, "Add a tab"), Ok(Msg.NewTab));
     assert_eq(press(v, "Ctrl+T"), Ok(Msg.NewTab));
 }
 

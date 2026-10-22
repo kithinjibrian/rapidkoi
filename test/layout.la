@@ -34,7 +34,7 @@ fun the_sidebar_and_no_notice_above_the_page() {
     let v = layout.view(busy());
     assert(!texts(v).any(fun(s: string) = s == "Something happened"));
     // The sidebar (PRP-023): its apps and +.
-    assert_eq(click(v, "New tab"), Ok(Msg.NewTab));
+    assert_eq(click(v, "Add a tab"), Ok(Msg.NewTab));
     assert_eq(pick(v, "a", "Close"), Ok(Msg.OnTab(0, TabAction.Close)));
 }
 

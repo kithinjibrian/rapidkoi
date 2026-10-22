@@ -271,7 +271,7 @@ public fun load_settings(path: string): Settings { … }
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
 ├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only), and nine folders (PRP-018):
-│                        window/   window.la (the Model, and changes that open nothing: tabs, home, pins, left off), actions.la (the shell's Msg), tabs.la (Page, Tab, Pin; an app page's life),
+│                        window/   window.la (the Model, and changes that open nothing: app and empty tabs, pins, left off), actions.la (the shell's Msg), tabs.la (Page, Tab, Pin; an app page's life),
 │                                  leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), navigate.la (opening: the address box, files, addresses, Continue, Reload)
 │                        ui/       layout.la (pure: the frame: header bar, sidebar, content area), addressbox.la (pure: the address box), suggestions.la (pure: what the box will suggest; Card, matches),
 │                                  content.la (pure: the current app), header.la (pure: the header bar), shield.la (pure: the shield's facts, look and card), settings.la (pure: site settings' card and the confirm dialog), sidebar.la (pure: the apps down the right), cards.la (pure: the pieces both cards share), icons.la (Rapidkoi's Iconsax icons as text, recoloured), frame.la (pure: names, the trust marker, the changed-key question), render.la (pure: Node → kivuli View; error screens),
