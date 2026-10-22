@@ -6169,3 +6169,6 @@ PRPs/prp-032-no_back_forward.md, CONTEXT.md
 
 
 
+
+## SESSION 175 — 2026-10-23 — Build PRP-032: no back, home or forward in the frame — open
+Branch: prp-017-kivuli_0_17
