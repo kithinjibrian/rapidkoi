@@ -1,13 +1,14 @@
-// Rapidkoi's own icons (PRP-019): the Iconsax SVGs compiled in, and each
-// drawn in a theme colour. Reads assets/icons/; no display.
-import rapidkoi.ui.icons { Icon, ALL, svg, file, icon, recolour };
+// Rapidkoi's own icons (PRP-019): the Iconsax SVGs built in from
+// assets/icons/ (PRP-029), each drawn in a theme colour. No display.
+import rapidkoi.ui.icons { Icon, ALL, svg, icon, recolour };
 import kivuli { Image };
 
 @test
-fun every_icon_is_its_file_in_assets() {
+fun every_icon_is_an_svg_recolouring_can_colour() {
     for i of ALL {
-        // A missing file reads as "", which no icon is.
-        assert_eq(read_file("assets/icons/{file(i)}").unwrap_or(""), svg(i));
+        assert(svg(i).starts_with("<svg"));
+        // Iconsax ships them white: the colour recolour swaps.
+        assert(svg(i).contains("#ffffff"));
     }
 }
 

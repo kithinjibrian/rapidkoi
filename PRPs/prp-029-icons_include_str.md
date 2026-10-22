@@ -39,17 +39,17 @@ From chat with the owner (session 162; Lugha milestone 128). Nothing changes on 
 ## TESTS TO WRITE
 
 `test/icons.la`:
-- [ ] Every icon in `ALL` starts with `<svg` and holds `#ffffff` (so `recolour` has something to colour).
-- [ ] The existing recolour and image-key tests stay.
+- [x] Every icon in `ALL` starts with `<svg` and holds `#ffffff` (so `recolour` has something to colour).
+- [x] The existing recolour and image-key tests stay.
 
 ## ROLLBACK PLAN
 
 - Branch: `prp-017-kivuli_0_17`; `git revert` the commit.
 
 ## ACCEPTANCE CRITERIA
-- [ ] No SVG text left in `src/ui/icons.la`
+- [x] No SVG text left in `src/ui/icons.la`
 - [ ] `lughac test test/icons.la` passes (the owner runs it); build ok; fmt clean
-- [ ] CLAUDE.md, CHANGELOG.md updated
+- [x] CLAUDE.md, CHANGELOG.md updated
 
 ## VALIDATION
 - `lughac check src/main.la`, `lughac test test/icons.la`

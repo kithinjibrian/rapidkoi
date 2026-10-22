@@ -41,6 +41,7 @@ Never deleted. Older entries are never modified.
 - Rapidkoi's new-tab app (PRP-027 Part 1): `guest/rust/newtab`, showing the wordmark, packed unsigned into `assets/apps/newtab.rkb` by `scripts/newtab.sh`. Empty tabs run it once Lugha can embed files (DECISION-038).
 - The sidebar on kivuli 0.54 (PRP-028): every open tab shows its × while hovered; + sits right after the last tab until they scroll; the current tab is scrolled into view when it changes.
 - Empty tabs run the new-tab app, built into `./main` with Lugha's `include_bytes` (PRP-027 Part 2).
+- Rapidkoi's icons are built in from `assets/icons/` with `include_str` (PRP-029): the files are the only copy.
 
 ### Changed
 - The redesign begins (on the `redesign` branch, DECISION-027): the window shows only the bare frame, an empty header bar with the window controls, an empty sidebar on the right and an empty content area (PRP-014). Tabs, the bar, home and the info panel are hidden until later redesign PRPs bring each back, in the frame or as a bundled app.

@@ -278,7 +278,7 @@ public fun load_settings(path: string): Settings { … }
 │                        window/   window.la (the Model, and changes that open nothing: app and empty tabs, pins, left off), actions.la (the shell's Msg), tabs.la (Page, Tab, Pin; an app page's life),
 │                                  leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), navigate.la (opening: the address box, files, addresses, Continue, Reload), newtab.la (the new-tab app, built in with include_bytes)
 │                        ui/       layout.la (pure: the frame: header bar, sidebar, content area), addressbox.la (pure: the address box), suggestions.la (pure: what the box will suggest; Card, matches),
-│                                  content.la (pure: the current app; the new-tab app on the empty tab), header.la (pure: the header bar), shield.la (pure: the shield's facts, look and card), settings.la (pure: site settings' card and the confirm dialog), sidebar.la (pure: the apps down the right), cards.la (pure: the pieces both cards share), icons.la (Rapidkoi's Iconsax icons as text, recoloured), frame.la (pure: names, the trust marker, the changed-key question), render.la (pure: Node → kivuli View; error screens),
+│                                  content.la (pure: the current app; the new-tab app on the empty tab), header.la (pure: the header bar), shield.la (pure: the shield's facts, look and card), settings.la (pure: site settings' card and the confirm dialog), sidebar.la (pure: the apps down the right), cards.la (pure: the pieces both cards share), icons.la (Rapidkoi's Iconsax icons, built in from assets/icons/, recoloured), frame.la (pure: names, the trust marker, the changed-key question), render.la (pure: Node → kivuli View; error screens),
 │                                  tokens.la (DESIGN.md tokens and style helpers), themes.la (every colour, as kivuli style values; dark first; the content's looks), frame_looks.la (the frame's looks: header, sidebar, window controls, tooltips)
 │                        guest/    guest.la (a running guest: store, limits, calling convention), running.la (init and opened events, messages, answers, view), limits.la (every limit),
 │                                  contract.la (pure: CBOR ↔ contract; re-exports nodes' types), nodes.la (the decoded types), props.la (reading one node's props), placeholders.la (pure: {FIRST_NAME}), effects.la (answering what apps ask for)
@@ -295,7 +295,7 @@ public fun load_settings(path: string): Settings { … }
 ├── guest/rust/        — Cargo workspace: rapidkoi (contract 2 for Rust: View builder, App trait, export!, Request, SignIn), counter (the demo), quote (the network demo), newtab (Rapidkoi's new tab, PRP-027)
 ├── assets/apps/       — newtab.rkb: the new-tab app, packed unsigned by scripts/newtab.sh and committed; built into ./main by src/window/newtab.la (repack, then rebuild ./main)
 ├── scripts/           — newtab.sh: build and pack the new-tab app
-├── assets/icons/      — the Iconsax SVGs; `src/ui/icons.la` holds each as text (a test keeps them equal), so change both together
+├── assets/icons/      — the Iconsax SVGs, the only copy: `src/ui/icons.la` builds each in with include_str (PRP-029); change a file, then rebuild
 ├── examples/quote/    — the network demo's rapidkoi.toml, its server (server.la: the signed site, sign-in, /quote) and Dockerfile (the VM)
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)
 ├── docs/

@@ -5842,9 +5842,27 @@ PRPs/prp-029-icons_include_str.md, CONTEXT.md
 
 ---
 
+## SESSION 164 — 2026-10-22 — Build PRP-029: icons through include_str — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- `src/ui/icons.la`: `svg(i)` is one `include_str("../../assets/icons/<file>")` per icon; no SVG text left (112 → 111 lines). `test/icons.la`: the equality test replaced by "every icon starts with <svg and holds #ffffff".
+- `lughac check`, `fmt --check` clean, `./main` builds. Tests not run (the owner runs them). CLAUDE.md, CHANGELOG.md, the PRP.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/icons.la, test/icons.la, CLAUDE.md, CHANGELOG.md, PRPs/prp-029-icons_include_str.md, CONTEXT.md
+```
+
+### STILL OPEN AT CLOSE
+
+- The owner's test runs of PRP-027, 028, 029.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes` (milestone 128). Built: PRP-019–028. PRP-029 (icons through `include_str`) written, awaiting approval. Awaiting the owner's test runs.
-
-## SESSION 164 — 2026-10-22 — Build PRP-029: icons through include_str — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`/`include_str` (milestone 128). Built: PRP-019–029. Awaiting the owner's test runs. Nothing else queued.
