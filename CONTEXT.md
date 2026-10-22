@@ -5689,9 +5689,27 @@ docs/specs/lugha-include-bytes.md, DECISIONS.md (DECISION-038), CONTEXT.md
 
 ---
 
+## SESSION 158 — 2026-10-22 — PRP-027: the bundled new-tab app — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner chose: the embedded new-tab bundle is unsigned, trusted because it's part of `./main`.
+- Wrote `PRPs/prp-027-newtab_app.md`: Part 1 now (a Rust crate `guest/rust/newtab` showing "Rapidkoi" as a title, packed unsigned by `scripts/newtab.sh` into a committed `assets/apps/newtab.rkb`); Part 2 when Lugha has `include_bytes` (DECISION-038): empty tabs run it. Awaiting approval. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-027-newtab_app.md, CONTEXT.md
+```
+
+### STILL OPEN AT CLOSE
+
+- The owner's approval of PRP-027.
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: PRP-019–026. Discovery for the bundled new-tab app: a Rust app showing a text wordmark, embedded in `./main` once Lugha has `include_bytes` (DECISION-038, requested). Open: whether it's signed. Waiting on kivuli: DECISION-036, 037.
-
-## SESSION 158 — 2026-10-22 — PRP-027: the bundled new-tab app — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: PRP-019–026. PRP-027 (the bundled new-tab app) is written, awaiting approval: build Part 1 once approved; Part 2 waits on Lugha's `include_bytes` (DECISION-038). Waiting on kivuli: DECISION-036, 037.
