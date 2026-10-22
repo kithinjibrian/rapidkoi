@@ -12,18 +12,8 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-### DECISION-039 — Contract 3, and whether contract 2 apps keep running
+(none)
 
-**Status:** open
-**Raised:** 2026-10-22 — Session 166 (PRP-030: the new tab's reads, `on_resume`, and the `on_` event names on the wire, `docs/specs/app-events.md`)
-
-**Question:** PRP-030 changes the guest contract: new event names on the wire, a new event (`on_resume`) and new asks. That is contract 3 (CLAUDE.md: any change is a decision and a bump). Two parts:
-1. Does contract 3 start with PRP-030 (A), with step B (images, wrapping rows, an accent style) added to it before any app outside this repository targets it, or does B make contract 4?
-2. Does Rapidkoi keep running contract 2 apps (the counter and quote published on the test VM), speaking both versions, or refuse them ("This app needs an older version of Rapidkoi") and republish ours at 3?
-
-**Recommendation:** 1: contract 3 starts with A and is still open to B; no app outside this repository targets it until B lands. 2: keep running contract 2: published bundles can't be recompiled (CLAUDE.md architecture rule 6), and the difference is small (event names, three missing asks).
-
----
 
 ## DEFERRED — Acknowledged, not yet needed
 
@@ -249,6 +239,24 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-039 — Contract 3, and whether contract 2 apps keep running
+
+**Status:** resolved
+**Resolved:** 2026-10-22 — Session 167 (the owner approved PRP-030 and its recommendations: "approved")
+**Raised:** 2026-10-22 — Session 166 (PRP-030: the new tab's reads, `on_resume`, and the `on_` event names on the wire, `docs/specs/app-events.md`)
+
+**Question:** PRP-030 changes the guest contract: new event names on the wire, a new event (`on_resume`) and new asks. That is contract 3 (CLAUDE.md: any change is a decision and a bump). Two parts:
+1. Does contract 3 start with PRP-030 (A), with step B (images, wrapping rows, an accent style) added to it before any app outside this repository targets it, or does B make contract 4?
+2. Does Rapidkoi keep running contract 2 apps (the counter and quote published on the test VM), speaking both versions, or refuse them ("This app needs an older version of Rapidkoi") and republish ours at 3?
+
+**Recommendation:** 1: contract 3 starts with A and is still open to B; no app outside this repository targets it until B lands. 2: keep running contract 2: published bundles can't be recompiled (CLAUDE.md architecture rule 6), and the difference is small (event names, three missing asks).
+
+---
+
+**Outcome:** contract 3 starts with PRP-030 (A) and stays open for step B; no app outside this repository targets it until B lands. Rapidkoi keeps running contract 2 apps: it speaks both, by the version each module exports.
+
+---
 
 ### DECISION-035 — The window controls (kivuli)
 

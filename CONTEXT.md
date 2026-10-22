@@ -5927,3 +5927,6 @@ docs/specs/app-events.md, PRPs/prp-030-newtab_reads.md, DECISIONS.md, CONTEXT.md
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`/`include_str`. Built: PRP-019–029; session 165 fixed the owner's 10 failures (awaiting the re-run). PRP-030 (the new tab reads pins and where you left off; `on_resume`; contract 3) is written. Blocked on DECISION-039 and the owner's security review. Then step B (contract 3 drawing: images, wrapping rows, accent) and C (the left-off preview).
+
+## SESSION 167 — 2026-10-22 — Build PRP-030: permissions, the new tab's reads, on_resume, contract 3 — open
+Branch: prp-017-kivuli_0_17
