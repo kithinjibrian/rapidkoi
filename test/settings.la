@@ -31,6 +31,7 @@ fun signed(): AppPage = AppPage {
         banners: [],
         servers: ["api.acme.com"],
         permissions: [],
+        controls: None,
     }),
     trust: Some(Trust {
         host: "notes.acme.com",

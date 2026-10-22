@@ -26,6 +26,70 @@ public enum Tier {
     Any,
 }
 
+/** What the person lets an app do with a permission it declared (PRP-031). */
+public enum Setting {
+    /** Answered at once. */
+    Allowed,
+    /** Rapidkoi asks the person first; the app waits. */
+    Ask,
+    /** Answered with nothing; the app keeps running. */
+    Blocked,
+}
+
+/** Every setting, in the order the Permissions page offers them. */
+public const SETTINGS: Setting[] = [Setting.Allowed, Setting.Ask, Setting.Blocked];
+
+/**
+ * Returns a permission's setting until the person changes it: built-in
+ * ones are allowed, since being built in is the grant (the owner, session 168).
+ *
+ * Example:
+ *     default_of(Permission.ReadPins)
+ */
+public fun default_of(p: Permission): Setting = match tier_of(p) {
+    BuiltIn => Setting.Allowed,
+    Any => Setting.Ask,
+};
+
+/**
+ * Returns a setting's name, as the people file keeps it.
+ *
+ * Example:
+ *     setting_name(Setting.Blocked)
+ */
+public fun setting_name(s: Setting): string = match s {
+    Allowed => "allowed",
+    Ask => "ask",
+    Blocked => "blocked",
+};
+
+/**
+ * Returns a setting in words, as the Permissions page shows it.
+ *
+ * Example:
+ *     setting_words(Setting.Ask)
+ */
+public fun setting_words(s: Setting): string = match s {
+    Allowed => "Always allowed",
+    Ask => "Needs approval",
+    Blocked => "Blocked",
+};
+
+/**
+ * Reads a setting's name; `None` for one this Rapidkoi doesn't know.
+ *
+ * Example:
+ *     parse_setting("ask")
+ */
+public fun parse_setting(name: string): Option<Setting> {
+    for s of SETTINGS {
+        if setting_name(s) == name {
+            return Some(s);
+        }
+    }
+    None
+}
+
 /** Why a manifest's permissions can't be read. */
 public enum PermissionError {
     /** A name this Rapidkoi doesn't know (a newer one might). */
@@ -69,6 +133,30 @@ public fun words_of(p: Permission): string = match p {
     ReadPins => "reading your pins",
     ReadLeftOff => "reading where you left off",
     OpenApps => "opening your apps",
+};
+
+/**
+ * Returns a permission as a row's label: "Reading your pins".
+ *
+ * Example:
+ *     label_of(Permission.ReadPins)
+ */
+public fun label_of(p: Permission): string = match p {
+    ReadPins => "Reading your pins",
+    ReadLeftOff => "Reading where you left off",
+    OpenApps => "Opening your apps",
+};
+
+/**
+ * Returns what an app asking for a permission wants to do: "read your pins".
+ *
+ * Example:
+ *     "{app} wants to {wish_of(p)}"
+ */
+public fun wish_of(p: Permission): string = match p {
+    ReadPins => "read your pins",
+    ReadLeftOff => "read where you left off",
+    OpenApps => "open your apps",
 };
 
 /**

@@ -4,6 +4,14 @@ import rapidkoi.bundles.permissions {
     Permission,
     PermissionError,
     Tier,
+    Setting,
+    default_of,
+    setting_name,
+    setting_words,
+    parse_setting,
+    label_of,
+    wish_of,
+    SETTINGS,
     name_of,
     tier_of,
     words_of,
@@ -24,6 +32,8 @@ fun each_permission_has_its_name_tier_and_words() {
     assert_eq(words_of(Permission.ReadPins), "reading your pins");
     assert_eq(words_of(Permission.ReadLeftOff), "reading where you left off");
     assert_eq(words_of(Permission.OpenApps), "opening your apps");
+    assert_eq(label_of(Permission.ReadLeftOff), "Reading where you left off");
+    assert_eq(wish_of(Permission.ReadPins), "read your pins");
 }
 
 @test
@@ -35,4 +45,20 @@ fun a_list_parses_in_order() {
 @test
 fun an_unknown_name_is_named() {
     assert_eq(parse(["read_pins", "camera"]), Err(PermissionError.Unknown("camera")));
+}
+
+@test
+fun each_setting_has_its_name_and_words() {
+    // PRP-031: the person decides; built-in permissions start allowed.
+    for p of ALL {
+        assert_eq(default_of(p), Setting.Allowed);
+    }
+    assert_eq(SETTINGS.map(fun(s: Setting) = setting_name(s)), ["allowed", "ask", "blocked"]);
+    assert_eq(SETTINGS.map(fun(s: Setting) = setting_words(s)), [
+        "Always allowed",
+        "Needs approval",
+        "Blocked",
+    ]);
+    assert_eq(parse_setting("ask"), Some(Setting.Ask));
+    assert_eq(parse_setting("sometimes"), None);
 }

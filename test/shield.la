@@ -29,6 +29,7 @@ fun manifest(): Manifest = Manifest {
     banners: [],
     servers: [],
     permissions: [],
+    controls: None,
 };
 
 /** Notes at `path`, signed by notes.acme.com's key in `standing`. */

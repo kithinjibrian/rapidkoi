@@ -1,7 +1,7 @@
 //! Rapidkoi's new tab (PRP-027, PRP-030): the app every empty tab runs,
 //! built into `./main`. It shows the wordmark, where you left off with
-//! Continue, and your pins, asking Rapidkoi for them each time it's opened
-//! or shown again. Its manifest declares the built-in permissions
+//! Continue, and your pins, asking Rapidkoi for them each time it's opened,
+//! shown again, or told they changed (PRP-031). Its manifest declares the built-in permissions
 //! `read_pins`, `read_left_off` and `open_apps` (`scripts/newtab.sh`).
 //! Text and buttons only until contract 3 can draw images (step B).
 //!
@@ -45,7 +45,7 @@ fn read() -> Vec<Ask> {
 impl App for NewTab {
     fn handle(self, event: Event) -> (Self, Vec<Ask>) {
         match event {
-            Event::Opened | Event::Resume => (self, read()),
+            Event::Opened | Event::Resume | Event::Change => (self, read()),
             Event::Data { msg, cbor } if msg == "pins" => (
                 NewTab { pins: Place::list(&cbor).unwrap_or_default().into_iter().map(Shown::from).collect(), ..self },
                 vec![],
@@ -100,9 +100,10 @@ mod tests {
     }
 
     #[test]
-    fn it_reads_on_open_and_on_resume() {
+    fn it_reads_on_open_resume_and_change() {
         assert_eq!(NewTab::default().handle(Event::Opened).1, read());
         assert_eq!(NewTab::default().handle(Event::Resume).1, read());
+        assert_eq!(NewTab::default().handle(Event::Change).1, read());
     }
 
     #[test]

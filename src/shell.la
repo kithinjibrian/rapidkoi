@@ -12,10 +12,10 @@ import wasmtime { Engine };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm, TabAction, PinAction };
 import window.tabs { AppPage, Tab, Pin, handle, is_loading, to_front };
 import net.loads;
-import guest.effects { answer_all };
+import guest.effects { answer_all, approve, left_behind, tell_changes };
 import net.requests;
 import people.account { on_account, forget_account };
-import people.access { on_access, looked, news };
+import people.access { on_access, looked, news, set_permission };
 public import window.window { Model, with_pages, title_of };
 import window.navigate;
 import window.newtab;
@@ -118,11 +118,16 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     } else {
         handled
     };
+    // An approval whose page went to the back is a no (PRP-031).
+    let (decided, denied) = left_behind(next);
     // What a v2 app asked for is answered before anything is drawn or saved:
-    // what on_resume asked for too.
-    let (answered, sends) = answer_all(resumed(m, next));
+    // what on_resume and on_change asked for too.
+    let (answered, sends) = answer_all(tell_changes(m, resumed(m, decided)));
     // What each app declares, and "New" cleared once its Access page is left.
-    (persist(m, news(looked(m, answered)), at), both(both(cmd, sends), into_view(m, answered)))
+    (
+        persist(m, news(looked(m, answered)), at),
+        both(both(both(cmd, denied), sends), into_view(m, answered)),
+    )
 }
 
 /**
@@ -200,6 +205,8 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     },
     OpenPinned(path) => navigate.open_pin(m, path),
     Continue => navigate.reopen(Model { draft: "", editing: false, ..m }),
+    Approve(a) => approve(m, a),
+    SetPermission(name, s) => (set_permission(m, name, s), Cmd.none()),
     TogglePanel => (
         Model {
             panel: if m.panel.is_some() { None } else { Some(PanelPage.Main) },

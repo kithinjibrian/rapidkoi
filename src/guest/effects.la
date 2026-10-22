@@ -13,17 +13,18 @@
  * Used by: shell
  */
 import people.identity { Master, master, public_key, sign_in, reason as identity_reason };
-import people.people { person };
-import window.tabs { AppPage, Tab, Screen, handle };
-import window.window { Model, with_tab };
+import people.people { Grant, person, setting_of, with_setting };
+import window.tabs { AppPage, Tab, Screen, handle, changed };
+import window.window { Model, with_tab, is_blank };
 import guest.contract { Effect, reply };
 import cbor { Value };
 import kivuli { Cmd };
-import window.actions { Msg };
+import window.actions { Msg, Approval, Answer };
 import net.requests;
 import ui.render;
 import guest.home { pins_of, left_off_of, pin_msg, continue_msg };
-import bundles.permissions { Permission, name_of, words_of };
+import bundles.permissions { Permission, Setting, name_of, words_of };
+import people.access { key_of };
 import bundles.bundle { Manifest };
 import net.network { Reply };
 
@@ -129,69 +130,215 @@ fun answer_slot(m: Model, slot: Slot): (Model, Cmd<Msg>[]) {
             return (stopped, sends);
         }
         let ask = p.asks[0];
-        // Reaching for what it didn't declare stops it (the owner, session 166).
+        let mut grant = true;
         if let Some(wanted) = needed(ask) {
+            // Reaching for what it didn't declare stops it (the owner, session 166).
             if !holds(p, wanted) {
                 let why = "This app asked for {words_of(wanted)} without declaring it";
                 return (put(at, slot, fun(page: AppPage) = stop(page, why)), sends);
             }
+            match setting_of(at.people, key_of(p), wanted) {
+                Allowed => (),
+                Blocked => {
+                    grant = false;
+                }
+                // Your answer first (PRP-031). One dialog at a time: until
+                // it's answered, this page's asks wait, and any other
+                // page's that need approval wait too.
+                Ask => {
+                    // Only the page in front asks you; one behind waits until it's shown.
+                    if at.approval.is_none() && in_front(at, slot) {
+                        let tab = match slot {
+                            InTab(id) => Some(id),
+                            NewTab => None,
+                        };
+                        at = Model {
+                            approval: Some(Approval { tab: tab, permission: wanted, app: p.name }),
+                            ..at,
+                        };
+                    }
+                    return (at, sends);
+                }
+            }
         }
-        let rest: Effect[] = [];
-        let mut later = rest;
-        for i in 1..p.asks.len {
-            later.push(p.asks[i]);
+        let (next, cmds) = answer_head(at, slot, p, grant);
+        at = next;
+        for c of cmds {
+            sends.push(c);
         }
-        let (got, value, msg) = match ask {
-            Fetch(msg, r) => match slot {
-                InTab(id) => {
-                    let (held, now, send) = requests.ask(at, id, msg, r);
-                    sends.push(send);
-                    (held, now, msg)
-                }
-                // The new tab has no server of its own to reach.
-                NewTab => (at, Some(reply(Reply.Failed("The new tab can't make requests"))), msg),
-            },
-            Pins(msg) => (at, Some(pins_of(at)), msg),
-            LeftOff(msg) => (at, Some(left_off_of(at)), msg),
-            // Opening is the window's own message, after this update: one
-            // tab per app and the empty tab, as for a click (PRP-026).
-            OpenPin(msg, index) => {
-                if let Some(open) = pin_msg(at, index) {
-                    sends.push(Cmd.after(0, open));
-                }
-                (at, None, msg)
-            }
-            Continue(msg) => {
-                if let Some(open) = continue_msg(at) {
-                    sends.push(Cmd.after(0, open));
-                }
-                (at, None, msg)
-            }
-            Identity(msg) => {
-                let (held, v) = respond(at, p, ask);
-                (held, Some(v), msg)
-            }
-            Sign(msg, _) => {
-                let (held, v) = respond(at, p, ask);
-                (held, Some(v), msg)
-            }
-        };
-        at = match value {
-            // The answer may ask again: those come after the ones still waiting.
-            Some(v) => put(got, slot, fun(page: AppPage) {
-                let next = handle(AppPage { asks: [], ..page }, render.Msg.Answer(msg, v));
-                let mut queue = later;
-                for a of next.asks {
-                    queue.push(a);
-                }
-                AppPage { asks: queue, ..next }
-            }),
-            // Sent, or nothing to answer: a request's answer comes when its result arrives.
-            None => put(got, slot, fun(page: AppPage) = AppPage { asks: later, ..page }),
-        };
         answered += 1;
     }
     (at, sends)
+}
+
+/**
+ * Answers a page's first ask and moves on to the rest: `grant` false
+ * answers a permission's ask as blocked (pins `[]`, nothing left off,
+ * nothing opened). An answer may ask again: those come after the ones
+ * still waiting.
+ */
+fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>[]) {
+    let mut sends: Cmd<Msg>[] = [];
+    let ask = p.asks[0];
+    let rest: Effect[] = [];
+    let mut later = rest;
+    for i in 1..p.asks.len {
+        later.push(p.asks[i]);
+    }
+    let (got, value, msg) = match ask {
+        Fetch(msg, r) => match slot {
+            InTab(id) => {
+                let (held, now, send) = requests.ask(m, id, msg, r);
+                sends.push(send);
+                (held, now, msg)
+            }
+            // The new tab has no server of its own to reach.
+            NewTab => (m, Some(reply(Reply.Failed("The new tab can't make requests"))), msg),
+        },
+        Pins(msg) => (m, Some(if grant { pins_of(m) } else { Value.Array([]) }), msg),
+        LeftOff(msg) => (m, Some(if grant { left_off_of(m) } else { Value.Null }), msg),
+        // Opening is the window's own message, after this update: one tab
+        // per app and the empty tab, as for a click (PRP-026).
+        OpenPin(msg, index) => {
+            if grant {
+                if let Some(open) = pin_msg(m, index) {
+                    sends.push(Cmd.after(0, open));
+                }
+            }
+            (m, None, msg)
+        }
+        Continue(msg) => {
+            if grant {
+                if let Some(open) = continue_msg(m) {
+                    sends.push(Cmd.after(0, open));
+                }
+            }
+            (m, None, msg)
+        }
+        Identity(msg) => {
+            let (held, v) = respond(m, p, ask);
+            (held, Some(v), msg)
+        }
+        Sign(msg, _) => {
+            let (held, v) = respond(m, p, ask);
+            (held, Some(v), msg)
+        }
+    };
+    let done = match value {
+        Some(v) => put(got, slot, fun(page: AppPage) {
+            let next = handle(AppPage { asks: [], ..page }, render.Msg.Answer(msg, v));
+            let mut queue = later;
+            for a of next.asks {
+                queue.push(a);
+            }
+            AppPage { asks: queue, ..next }
+        }),
+        // Sent, or nothing to answer: a request's answer comes when its result arrives.
+        None => put(got, slot, fun(page: AppPage) = AppPage { asks: later, ..page }),
+    };
+    (done, sends)
+}
+
+/**
+ * Tells the page in front that something it may read changed while it
+ * stayed there (`on_change`, PRP-031): your pins, where you left off (for
+ * a permission it holds that isn't blocked), or one of its own permission
+ * settings. A page that just came to the front heard `on_resume` instead.
+ *
+ * @param before the model before this update
+ * @param after the model after it
+ * @returns `after`, the page in front told when something moved
+ *
+ * Example:
+ *     tell_changes(m, next)
+ */
+public fun tell_changes(before: Model, after: Model): Model {
+    let id = match after.current {
+        Some(id) if before.current == Some(id) => id,
+        _ => {
+            return after;
+        }
+    };
+    let slot = if is_blank(after, id) { Slot.NewTab } else { Slot.InTab(id) };
+    let p = match get(after, slot) {
+        Some(p) => p,
+        None => {
+            return after;
+        }
+    };
+    let key = key_of(p);
+    let reads = fun(wanted: Permission): bool = holds(p, wanted) && setting_of(
+        after.people,
+        key,
+        wanted,
+    ) != Setting.Blocked;
+    let mine = fun(m: Model): Grant[] = m.people.grants.filter(fun(g: Grant) = g.app == key);
+    let moved = reads(Permission.ReadPins) && pins_of(before) != pins_of(after) || reads(
+        Permission.ReadLeftOff,
+    ) && left_off_of(before) != left_off_of(after) || mine(before) != mine(after);
+    if moved { put(after, slot, changed) } else { after }
+}
+
+/** Whether a page is the one you're looking at: its tab, or the new tab on the empty tab. */
+fun in_front(m: Model, slot: Slot): bool = match slot {
+    InTab(id) => m.current == Some(id),
+    NewTab => m.current.map(fun(id: i64) = is_blank(m, id)).unwrap_or(false),
+};
+
+/**
+ * Answers a waiting approval with Don't allow once its page isn't in
+ * front any more: switching tabs is a no (PRP-031).
+ *
+ * Example:
+ *     let (m, sent) = left_behind(next);
+ */
+public fun left_behind(m: Model): (Model, Cmd<Msg>) = match m.approval {
+    Some(a) => {
+        let slot = match a.tab {
+            Some(id) => Slot.InTab(id),
+            None => Slot.NewTab,
+        };
+        if in_front(m, slot) { (m, Cmd.none()) } else { approve(m, Answer.Deny) }
+    }
+    None => (m, Cmd.none()),
+};
+
+/**
+ * Carries out your answer to the approval dialog (PRP-031): answers the
+ * waiting ask (Deny as blocked), and Always allow allows it from now on.
+ * The asks after it are `answer_all`'s, as usual.
+ *
+ * @param m the model, its `approval` waiting
+ * @param a your answer
+ * @returns the model with the dialog closed; what answering it sends
+ *
+ * Example:
+ *     approve(m, Answer.Once)
+ */
+public fun approve(m: Model, a: Answer): (Model, Cmd<Msg>) {
+    let waiting = match m.approval {
+        Some(w) => w,
+        None => {
+            return (m, Cmd.none());
+        }
+    };
+    let slot = match waiting.tab {
+        Some(id) => Slot.InTab(id),
+        None => Slot.NewTab,
+    };
+    let cleared = Model { approval: None, ..m };
+    let p = match get(cleared, slot) {
+        Some(p) if p.asks.len > 0 => p,
+        _ => {
+            return (cleared, Cmd.none());
+        }
+    };
+    let folks = match a {
+        Always => with_setting(cleared.people, key_of(p), waiting.permission, Setting.Allowed),
+        _ => cleared.people,
+    };
+    let (next, sends) = answer_head(Model { people: folks, ..cleared }, slot, p, a != Answer.Deny);
+    (next, if sends.len == 0 { Cmd.none() } else { Cmd.batch(sends) })
 }
 
 /**

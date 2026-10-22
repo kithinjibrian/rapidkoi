@@ -243,7 +243,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - It started with PRP-030 and stays open for step B (images, wrapping rows, an accent style); nothing outside this repository targets it until then.
 - Rapidkoi keeps running contract 2 apps, by the version each module exports.
 - A manifest's `permissions` list what an app reaches, fine grained. A built-in permission is only for bytes compiled into `./main`, decided by where the bytes came from, never by the manifest. An external app declaring one doesn't run; an app asking for one it didn't declare is stopped.
-- Apps pull Rapidkoi's data (asks answered by events), never pushed.
+- Apps pull Rapidkoi's data (asks answered by events), never pushed; `on_resume` and `on_change` say when to ask again.
+- Each declared permission is the person's to set (PRP-031): Always allowed (built-in ones' default), Needs approval (Rapidkoi's own dialog; Allow once is one ask), or Blocked (answered with nothing, the app runs on). A built-in app's manifest `controls` choose its address icons and card rows.
 
 **Why:** The owner (sessions 165–167): the new tab reads your pins and where you left off without the shell drawing it (decision 19), and permissions cover it cleanly.
 

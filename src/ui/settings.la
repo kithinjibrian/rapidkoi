@@ -1,12 +1,14 @@
 /**
  * Site settings, pure (PRP-022): the card behind ⚙. The app (icon, name,
  * version, description), then sections of rows that open pages: Account
- * (Public key, Identity; signed apps only), App settings (Servers), App data
- * (State); and Forget this app at the bottom. Start over, start over as
+ * (Public key, Identity; signed apps only), App settings (Servers, and
+ * Permissions for an app declaring any, PRP-031), App data (State); and
+ * Forget this app at the bottom. A built-in app's `controls` choose which
+ * rows show. Start over, start over as
  * someone new, and Forget ask first in a dialog over the window. Only
  * Rapidkoi draws these; the logic is PRP-011's and PRP-012's.
  *
- * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, window.window, people.account, people.access, people.identity, trust.keys, guest.nodes, ui.cards, ui.tokens, ui.themes
+ * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, window.window, people.account, people.access, people.identity, trust.keys, guest.nodes, ui.cards, ui.grants, ui.tokens, ui.themes
  * Used by: ui.addressbox, ui.layout
  */
 import kivuli { View, Align, Dialog, column, row, spacer, text };
@@ -19,7 +21,7 @@ import kivuli.ui {
     dialog_footer,
     input as ui_input,
 };
-import window.actions { Msg, PanelPage, Confirm, NameScope, NamePart };
+import window.actions { Msg, PanelPage, Confirm, NameScope, NamePart, Answer };
 import window.tabs { AppPage, state_of };
 import window.window { Model, page_of };
 import people.account { Account, account_of };
@@ -30,6 +32,7 @@ import guest.nodes { ButtonLook };
 import ui.cards { sized, choice, detail, sentence, line, identity as app_head };
 import ui.tokens { SPACE_XS, SPACE_SM, gap };
 import ui.themes { Theme, body, dim, group, button as button_look };
+import ui.grants;
 
 /**
  * Builds site settings' card on a page, for an app page.
@@ -47,10 +50,11 @@ public fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
     let you = account_of(m, p);
     let reach = access_of(m, p);
     let shown = match page {
-        Main => front(t, p, you, reach),
+        Main => front(m, p, you, reach),
         Key => detail(t, "Public key", Msg.PanelBack, key_page(m, t, p, you)),
         Account => detail(t, "Identity", Msg.PanelBack, identity_page(t, you)),
         Access => detail(t, "Servers", Msg.PanelBack, servers_page(t, reach)),
+        Permissions => detail(t, "Permissions", Msg.PanelBack, grants.page(m, t, p)),
         State => detail(t, "State", Msg.PanelBack, [
             line(t, "Size", size(saved(p))),
             ui_button("Clear and start over…", Msg.Ask(Confirm.StartOver)).style(
@@ -68,10 +72,16 @@ public fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
  * Example:
  *     page.dialog(settings.dialog(m))
  */
-public fun dialog(m: Model): Option<Dialog<Msg>> = match m.confirm {
-    Some(_) => Some(ui_dialog(Msg.Cancel, [dialog_view(m)])),
-    None => None,
-};
+public fun dialog(m: Model): Option<Dialog<Msg>> {
+    // An app waiting for your approval first (PRP-031): closing it is Don't allow.
+    if m.approval.is_some() {
+        return Some(ui_dialog(Msg.Approve(Answer.Deny), [dialog_view(m)]));
+    }
+    match m.confirm {
+        Some(_) => Some(ui_dialog(Msg.Cancel, [dialog_view(m)])),
+        None => None,
+    }
+}
 
 /**
  * Returns what the dialog shows while an action is asked about: its question
@@ -81,6 +91,9 @@ public fun dialog(m: Model): Option<Dialog<Msg>> = match m.confirm {
  *     dialog_view(m)
  */
 public fun dialog_view(m: Model): View<Msg> {
+    if let Some(q) = grants.question(m) {
+        return q;
+    }
     let t = m.theme;
     let name = match page_of(m) {
         App(p) => p.name,
@@ -119,8 +132,10 @@ public fun dialog_view(m: Model): View<Msg> {
     ])
 }
 
-/** The card's main page: the app, its sections, and Forget. */
-fun front(t: Theme, p: AppPage, you: Account, reach: Access): View<Msg> {
+/** The card's main page: the app, its sections, and Forget; a built-in app's `controls` choose. */
+fun front(m: Model, p: AppPage, you: Account, reach: Access): View<Msg> {
+    let t = m.theme;
+    let shows = fun(row: string): bool = grants.shows_row(p, row);
     let mut parts: View<Msg>[] = [app_head(t, p, p.manifest.map(fun(x) = x.version))];
     if let Some(d) = p.manifest.and_then(fun(x) = x.description) {
         parts.push(sentence(t, d));
@@ -128,38 +143,60 @@ fun front(t: Theme, p: AppPage, you: Account, reach: Access): View<Msg> {
     parts.push(separator());
     // An unsigned app can't have an account: no section rather than a dead one.
     if let Some(x) = you.person {
-        parts.push(
-            section(t, "Account", [
+        let mut rows: View<Msg>[] = [];
+        if shows("account.public_key") {
+            rows.push(
                 choice(
                     t,
                     "Public key",
                     Some(you.label.unwrap_or("Not signed in yet")),
                     Msg.PanelGo(PanelPage.Key),
                 ),
+            );
+        }
+        if shows("account.identity") {
+            rows.push(
                 choice(
                     t,
                     "Identity",
                     Some(if x.signed_out { "Signed out" } else { "Signed in" }),
                     Msg.PanelGo(PanelPage.Account),
                 ),
+            );
+        }
+        if rows.len > 0 {
+            parts.push(section(t, "Account", rows));
+        }
+    }
+    let mut app_rows: View<Msg>[] = [];
+    if shows("app_settings.servers") {
+        app_rows.push(
+            choice(t, "Servers", Some(servers_summary(reach)), Msg.PanelGo(PanelPage.Access)),
+        );
+    }
+    // Only an app that declares permissions has a Permissions row (PRP-031).
+    if let Some(said) = grants.summary(m, p) {
+        if shows("app_settings.permissions") {
+            app_rows.push(choice(t, "Permissions", Some(said), Msg.PanelGo(PanelPage.Permissions)));
+        }
+    }
+    if app_rows.len > 0 {
+        parts.push(section(t, "App settings", app_rows));
+    }
+    if shows("app_data.state") {
+        parts.push(
+            section(t, "App data", [
+                choice(t, "State", Some(size(saved(p))), Msg.PanelGo(PanelPage.State)),
             ]),
         );
     }
-    parts.push(
-        section(t, "App settings", [
-            choice(t, "Servers", Some(servers_summary(reach)), Msg.PanelGo(PanelPage.Access)),
-        ]),
-    );
-    parts.push(
-        section(t, "App data", [
-            choice(t, "State", Some(size(saved(p))), Msg.PanelGo(PanelPage.State)),
-        ]),
-    );
-    parts.push(
-        ui_button("Forget this app…", Msg.Ask(Confirm.Forget)).style(
-            button_look(t, ButtonLook.Danger),
-        ),
-    );
+    if shows("forget") {
+        parts.push(
+            ui_button("Forget this app…", Msg.Ask(Confirm.Forget)).style(
+                button_look(t, ButtonLook.Danger),
+            ),
+        );
+    }
     column(parts).style([gap(SPACE_SM)])
 }
 

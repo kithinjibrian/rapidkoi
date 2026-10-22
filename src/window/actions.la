@@ -10,6 +10,7 @@ import ui.render;
 import net.fetching { Fetched };
 import net.network { Reply };
 import cbor { Value };
+import bundles.permissions { Permission, Setting };
 
 /** A message to the shell. */
 public enum Msg {
@@ -37,6 +38,10 @@ public enum Msg {
     OpenPinned(string),
     /** Reopen where the person left off. */
     Continue,
+    /** The approval dialog's answer (PRP-031). */
+    Approve(Answer),
+    /** The Permissions page: the card's app's permission, by name, set to this. */
+    SetPermission(string, Setting),
     /** Show or hide the app info panel. */
     TogglePanel,
     /** Pin the current app, or unpin it if it's pinned (☆ in the bar). */
@@ -147,6 +152,28 @@ public enum PanelPage {
     Access,
     /** State: what it saved, and clearing it. */
     State,
+    /** Permissions: what it declared, a setting each (PRP-031). */
+    Permissions,
+}
+
+/** An app's ask waiting for the person (PRP-031): Rapidkoi's own dialog. */
+public struct Approval {
+    /** The asking page's tab; `None` for the new tab. */
+    public tab: Option<i64>,
+    /** What it asked to do. */
+    public permission: Permission,
+    /** The app's name, for the dialog. */
+    public app: string,
+}
+
+/** The approval dialog's buttons. */
+public enum Answer {
+    /** Answer this ask; the next one asks again. */
+    Once,
+    /** Answer it, and allow it from now on. */
+    Always,
+    /** Answer it with nothing, as blocked does, this once. */
+    Deny,
 }
 
 /** A destructive action waiting for "yes". */

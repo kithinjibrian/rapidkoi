@@ -23,6 +23,7 @@ fun sample(): Bundle = Bundle {
         banners: [],
         servers: ["api.acme.com"],
         permissions: [],
+        controls: None,
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [("icon.png", png(32, 32))],

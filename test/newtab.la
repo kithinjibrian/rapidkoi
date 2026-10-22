@@ -1,7 +1,7 @@
 // Rapidkoi's new-tab app (PRP-027): the bundle built into ./main, run in
 // the empty tab. Fixture guests stand in for it where a test needs another
 // app; no display.
-import rapidkoi.bundles.bundle { Bundle, Manifest, read, write };
+import rapidkoi.bundles.bundle { Bundle, Manifest, Controls, read, write };
 import rapidkoi.bundles.loader { Origin, from_bytes, why };
 import rapidkoi.trust.verify { keyring };
 import rapidkoi.window.newtab { BUNDLE, open };
@@ -30,10 +30,16 @@ fun the_built_in_bundle_is_unsigned_and_named() {
     let b = read(BUNDLE).unwrap();
     assert_eq((b.manifest.name, b.manifest.version, b.manifest.contract), ("New tab", "0.1.0", 3));
     assert_eq(b.manifest.permissions, ["read_pins", "read_left_off", "open_apps"]);
+    assert_eq(
+        b.manifest.controls,
+        Some(Controls { address: ["settings", "share"], settings: ["app_settings.permissions"] }),
+    );
 }
 
 /** A bundle declaring `permissions`, with a module too small to compile: the checks come first. */
-fun declaring(permissions: string[]): u8[] = write(Bundle {
+fun declaring(permissions: string[]): u8[] = declaring_all(permissions, None);
+
+fun declaring_all(permissions: string[], controls: Option<Controls>): u8[] = write(Bundle {
     manifest: Manifest {
         contract: 3,
         name: "Sneaky",
@@ -44,6 +50,7 @@ fun declaring(permissions: string[]): u8[] = write(Bundle {
         banners: [],
         servers: [],
         permissions: permissions,
+        controls: controls,
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [],
@@ -124,4 +131,11 @@ fun a_stopped_new_tab_leaves_the_area_empty() {
 fun with_no_new_tab_the_area_is_empty() {
     let m = step(with_pages(Engine.new(), []), Msg.NewTab);
     assert(!shows(m, "Rapidkoi"));
+}
+
+@test
+fun only_a_built_in_app_chooses_its_controls() {
+    // PRP-031: a site can't hide the shield or dress up as Rapidkoi's own page.
+    let hiding = declaring_all([], Some(Controls { address: [], settings: [] }));
+    assert_eq(refusal(hiding, Origin.External), "This app asks to change Rapidkoi's own controls");
 }

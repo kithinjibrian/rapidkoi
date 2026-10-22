@@ -44,6 +44,7 @@ fun manifest(servers: string[]): Manifest = Manifest {
     banners: [],
     servers: servers,
     permissions: [],
+    controls: None,
 };
 
 /** Notes declaring `servers`, signed by HOST when `signed`, from `path`. */

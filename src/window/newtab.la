@@ -12,6 +12,9 @@ import bundles.loader { Origin, Refusal, from_bytes };
 import trust.verify { keyring };
 import window.tabs { AppPage, from_loaded };
 
+/** The new tab's path and settings key: no host or file, so a name of its own (PRP-031). */
+public const NEWTAB_KEY: string = "builtin:newtab";
+
 /** The new-tab app's bundle, as built into the program. */
 public const BUNDLE: u8[] = include_bytes("../../assets/apps/newtab.rkb");
 
@@ -28,5 +31,6 @@ public fun open(engine: Engine): Result<AppPage, Refusal> {
     // An empty keyring: the bundle is unsigned, so nothing is looked up.
     // Built in: the only bytes that may hold built-in permissions (PRP-030).
     let l = from_bytes(engine, keyring(), "newtab.rkb", BUNDLE, Origin.BuiltIn)?;
-    Ok(from_loaded(engine, l, "newtab"))
+    // Its path is its key for your permission settings (`access.key_of`).
+    Ok(from_loaded(engine, l, NEWTAB_KEY))
 }

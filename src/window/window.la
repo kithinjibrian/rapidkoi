@@ -14,7 +14,7 @@ import net.dialing { Network };
 import people.people { People, nobody };
 import people.identity { Master };
 import net.address { parse };
-import window.actions { Msg, PanelPage, ShieldPage, Confirm };
+import window.actions { Msg, PanelPage, ShieldPage, Confirm, Approval };
 import window.tabs { Page, Tab, Pin, AppPage, state_of };
 import window.leftoff { LeftOff, leave, snapshot };
 import ui.suggestions { Card };
@@ -47,6 +47,8 @@ public struct Model {
     public shield: Option<ShieldPage>,
     /** A destructive action waiting for "yes". */
     public confirm: Option<Confirm>,
+    /** An app's ask waiting for your approval (PRP-031). */
+    public approval: Option<Approval>,
     /** Pinned apps, remembered across restarts by `saving`. */
     public pinned: Pin[],
     /** The last app tab visited before home, if it's still open. */
@@ -98,6 +100,7 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         panel: None,
         shield: None,
         confirm: None,
+        approval: None,
         pinned: [],
         last: None,
         left_off: None,

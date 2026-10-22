@@ -1,7 +1,7 @@
 // The pack command: flags in, a `.rkb` out, or a clear error. Writes only
 // under test/tmp/ (gitignored) and cleans up.
 import rapidkoi.commands.pack { make };
-import rapidkoi.bundles.bundle { read, asset };
+import rapidkoi.bundles.bundle { Controls, read, asset };
 import std.fs;
 import support { png as png_of };
 
@@ -94,6 +94,28 @@ fun permissions_are_declared_with_a_flag() {
     assert_eq(
         make([m, "--name", "M", "--version", "0.1.0", "--permission", "Pins!", "-o", out]),
         Err("This bundle's \"permissions\" lists \"Pins!\", which isn't a permission name"),
+    );
+}
+
+@test
+fun controls_are_declared_with_a_flag() {
+    // PRP-031: scripts/newtab.sh chooses the new tab's ⚙ and share this way.
+    let out = path("ctl.rkb");
+    let m = module("ctl");
+    let flags = [m, "--name", "M", "--version", "0.1.0", "--control", "address=settings"];
+    assert_eq(
+        make(flags + ["--control", "settings=app_settings.permissions", "-o", out]).is_ok(),
+        true,
+    );
+    let b = read(read_bytes(out).unwrap()).unwrap();
+    assert_eq(
+        b.manifest.controls,
+        Some(Controls { address: ["settings"], settings: ["app_settings.permissions"] }),
+    );
+    fs.remove_file(out).unwrap();
+    assert_eq(
+        make([m, "--name", "M", "--version", "0.1.0", "--control", "header=menu", "-o", out]),
+        Err("--control takes address=ICON or settings=ROW"),
     );
 }
 

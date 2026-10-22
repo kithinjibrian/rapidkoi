@@ -2,7 +2,8 @@
  * Events by contract version (PRP-030, `docs/specs/app-events.md`), pure:
  * what Rapidkoi sends a guest's `handle`, named as its contract names it.
  * Contract 3 names them `on_` on the wire; contract 2 keeps its own
- * (`contract.lifecycle`, `envelope`, `answer`) and has no `on_resume`.
+ * (`contract.lifecycle`, `envelope`, `answer`) and has no `on_resume` or
+ * `on_change`.
  *
  * Depends on: cbor, guest.contract
  * Used by: guest.running, window.tabs
@@ -18,6 +19,8 @@ public enum Happened {
     Open,
     /** Back to the front while running (contract 3). */
     Resume,
+    /** Something it may read changed while it's in front (contract 3, PRP-031). */
+    Change,
     /** One of its own messages, and an input's text. */
     Message(Value, Option<string>),
     /** Rapidkoi's reply to what it asked for: bytes, null, or a request's reply. */
@@ -41,6 +44,7 @@ public fun event_for(h: Happened, version: i32): Option<u8[]> {
             Init => Some(lifecycle("init")),
             Open => Some(lifecycle("opened")),
             Resume => None,
+            Change => None,
             Message(msg, text) => Some(envelope(msg, text)),
             Answer(msg, value) => Some(answer(msg, value)),
         };
@@ -49,6 +53,7 @@ public fun event_for(h: Happened, version: i32): Option<u8[]> {
         Init => named("on_init", []),
         Open => named("on_open", []),
         Resume => named("on_resume", []),
+        Change => named("on_change", []),
         Message(msg, text) => {
             let mut fields = [field("msg", msg)];
             if let Some(s) = text {

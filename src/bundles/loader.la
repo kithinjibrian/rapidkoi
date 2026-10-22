@@ -220,7 +220,11 @@ fun from_opened(
     if m.contract < OLDEST_CONTRACT as i64 || m.contract > CONTRACT_VERSION as i64 {
         return Err(newer);
     }
-    // Before compiling: a refused app's module is never touched.
+    // Before compiling: a refused app's module is never touched. A site
+    // choosing Rapidkoi's own controls could hide the shield (PRP-031).
+    if m.controls.is_some() && origin == Origin.External {
+        return Err(Refusal.Failed(m.name, "This app asks to change Rapidkoi's own controls"));
+    }
     let held = parse_permissions(m.permissions).map_err(fun(_: PermissionError) = newer)?;
     for p of held {
         if tier_of(p) == Tier.BuiltIn && origin == Origin.External {

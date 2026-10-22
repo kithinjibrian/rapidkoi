@@ -13,6 +13,7 @@ On the wire, every event is named `on_` and a verb in snake case: `on_init`, `on
 | `on_init` | A fresh start, before anything else: the first open, a Restart after a crash, a new build that changed its state version, Start over. | Makes its first state. | `init` |
 | `on_open` | Every time it starts up, fresh or from saved state: Continue, a pin, an address, Rapidkoi restarting, Reload with a new build. Right after `on_init` on a fresh start. | Asks for what it needs: its key, its data, its server's news. | `opened` |
 | `on_resume` | It comes to the front while already running: its tab is clicked or switched back to, or the tab in front of it closes. The new tab gets it each time the empty tab is shown. Never right after `on_open`. | Refreshes what may have changed while it was away. | new |
+| `on_change` | Something it may read changed while it's in front: your pins or where you left off (for a permission it holds that isn't blocked), or one of its own permission settings (PRP-031). Never right after `on_resume`. | Asks again. | new |
 | `on_pause` | It goes to the back while still running: another tab, or the empty tab, becomes current. | Stops what's only worth doing while seen. | new, later |
 | `on_message` | You clicked or typed in its screen. Carries its own message, and an input's text. | Changes its state. | `message` |
 | `on_answer` | Rapidkoi replies to something it asked for: its key, a signature, the new tab's pins and where you left off. | Takes the reply into its state. | `answer` |
@@ -37,7 +38,7 @@ On the wire, every event is named `on_` and a verb in snake case: `on_init`, `on
 ## Changing the contract
 
 - Contract 2's `event` field holds `init`, `opened`, `message` and `answer`. Contract 3 uses the names above on the wire, and splits `answer` into `on_answer`, `on_response` and `on_fail`.
-- An app that doesn't know an event changes nothing (the Rust library already says "more kinds will come"), so `on_resume` and `on_pause` break no published app.
+- An app that doesn't know an event changes nothing (the Rust library already says "more kinds will come"), so `on_resume`, `on_change` and `on_pause` break no published app.
 - DECISION-039 records the bump; contract 2 apps keep their names and get no `on_resume`.
 
 ## Open

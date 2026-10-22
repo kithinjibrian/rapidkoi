@@ -15,9 +15,20 @@ import data.remembered { Unreadable };
 import bundles.rules { check_host };
 import net.network { check_server };
 import guest.limits { MAX_SERVERS };
+import bundles.permissions {
+    Permission,
+    Setting,
+    name_of,
+    default_of,
+    setting_name,
+    parse_setting,
+};
 
 /** The longest name part, in characters. */
 public const MAX_NAME: i64 = 64;
+
+/** The people file's format: 3 adds permission settings (PRP-031). */
+public const FORMAT: i64 = 3;
 
 /** The most apps the file holds. */
 public const MAX_PEOPLE: i64 = 10_000;
@@ -57,6 +68,18 @@ public struct People {
     public last: string,
     /** The apps you've signed in to or changed settings for. */
     public apps: Person[],
+    /** The permission settings you changed from their defaults (PRP-031). */
+    public grants: Grant[],
+}
+
+/** One permission setting you chose for one app. */
+public struct Grant {
+    /** The app: `builtin:<file>` for one built into `./main`. */
+    public app: string,
+    /** The permission's name (`read_pins`). */
+    public permission: string,
+    /** What you chose. */
+    public setting: Setting,
 }
 
 /**
@@ -65,7 +88,7 @@ public struct People {
  * Example:
  *     nobody()
  */
-public fun nobody(): People = People { first: "", last: "", apps: [] };
+public fun nobody(): People = People { first: "", last: "", apps: [], grants: [] };
 
 /**
  * Returns you to one app: its saved settings, or the defaults (generation
@@ -148,7 +171,7 @@ public fun name_in(p: People, host: string, origin: u8[]): (string, string) {
  */
 public fun people_file(p: People): u8[] = encode(
     Value.Map([
-        entry("format", Value.int(2)),
+        entry("format", Value.int(FORMAT)),
         entry("kind", Value.Text("rapidkoi people")),
         entry("first", Value.Text(p.first)),
         entry("last", Value.Text(p.last)),
@@ -167,6 +190,18 @@ public fun people_file(p: People): u8[] = encode(
                         entry("off", names(x.off)),
                         entry("seen", names(x.seen)),
                         entry("fresh", names(x.fresh)),
+                    ]),
+                ),
+            ),
+        ),
+        entry(
+            "grants",
+            Value.Array(
+                p.grants.map(
+                    fun(g: Grant) = Value.Map([
+                        entry("app", Value.Text(g.app)),
+                        entry("permission", Value.Text(g.permission)),
+                        entry("setting", Value.Text(setting_name(g.setting))),
                     ]),
                 ),
             ),
@@ -193,7 +228,7 @@ public fun read_people(bytes: u8[]): Result<People, Unreadable> {
         return Err(bad("it isn't Rapidkoi's people file"));
     }
     let format = whole(v, "format");
-    if format > 2 {
+    if format > FORMAT {
         return Err(Unreadable.Newer(format));
     }
     if format < 1 {
@@ -241,7 +276,71 @@ public fun read_people(bytes: u8[]): Result<People, Unreadable> {
             fresh: servers(x, "fresh", format)?,
         });
     }
-    Ok(People { first: first, last: last, apps: apps })
+    Ok(People { first: first, last: last, apps: apps, grants: grants_of(v, format)? })
+}
+
+/**
+ * Returns the setting you chose for an app's permission, or its default.
+ *
+ * @param p everything in the people file
+ * @param app the app's key: `builtin:<file>` for a built-in app
+ * @param permission the permission
+ * @returns the setting
+ *
+ * Example:
+ *     setting_of(people, "builtin:newtab", Permission.ReadPins)
+ */
+public fun setting_of(p: People, app: string, permission: Permission): Setting {
+    for g of p.grants {
+        if g.app == app && g.permission == name_of(permission) {
+            return g.setting;
+        }
+    }
+    default_of(permission)
+}
+
+/**
+ * Sets an app's permission; a setting back at its default isn't kept.
+ *
+ * Example:
+ *     with_setting(people, "builtin:newtab", Permission.ReadPins, Setting.Blocked)
+ */
+public fun with_setting(p: People, app: string, permission: Permission, s: Setting): People {
+    let name = name_of(permission);
+    let mut kept = p.grants.filter(fun(g: Grant) = !(g.app == app && g.permission == name));
+    if s != default_of(permission) {
+        kept.push(Grant { app: app, permission: name, setting: s });
+    }
+    People { grants: kept, ..p }
+}
+
+/** The permission settings (format 3; none before): each app key, permission name and setting. */
+fun grants_of(v: Value, format: i64): Result<Grant[], Unreadable> {
+    if format < 3 {
+        return Ok([]);
+    }
+    let items = match v.get("grants") {
+        Some(Array(xs)) if xs.len <= MAX_PEOPLE => xs,
+        _ => {
+            return Err(Unreadable.Broken("its permission settings aren't a list"));
+        }
+    };
+    let mut out: Grant[] = [];
+    for g of items {
+        let (app, permission) = match (text(g, "app"), text(g, "permission")) {
+            (Some(a), Some(p)) if a.len >= 1 && a.len <= 256 && p.len >= 1 && p.len <= 32 => (a, p),
+            _ => {
+                return Err(
+                    Unreadable.Broken("a permission setting doesn't name its app and permission"),
+                );
+            }
+        };
+        let setting = text(g, "setting").and_then(fun(n: string) = parse_setting(n)).ok_or(
+            Unreadable.Broken("a permission setting isn't allowed, ask or blocked"),
+        )?;
+        out.push(Grant { app: app, permission: permission, setting: setting });
+    }
+    Ok(out)
 }
 
 /**

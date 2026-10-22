@@ -2,18 +2,28 @@
 // sign-in signatures, for signed apps only, as you've chosen in the Account
 // page. An echo guest's state becomes the answer it got, so each test reads
 // exactly what Rapidkoi sent. Writes only under test/tmp/.
-import rapidkoi.shell { Model, with_pages };
+import rapidkoi.shell { Model, with_pages, update };
 import rapidkoi.ui.layout { view };
 import rapidkoi.guest.effects { answer_all };
 import rapidkoi.data.saving { restore };
 import rapidkoi.window.tabs { AppPage, Pin, Screen, open_module, state_of, with_saved };
-import rapidkoi.window.actions { Msg };
+import rapidkoi.window.actions { Msg, Approval, Answer };
+import rapidkoi.bundles.permissions { Permission, Setting };
+import rapidkoi.people.access { key_of };
 import rapidkoi.bundles.bundle { Manifest };
 import rapidkoi.guest.home { pins_of, left_off_of };
 import kivuli { Cmd };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.people.identity { master, public_key, sign_in_message };
-import rapidkoi.people.people { People, Person, person, with_person };
+import rapidkoi.people.people {
+    People,
+    Person,
+    person,
+    with_person,
+    nobody,
+    with_setting,
+    setting_of,
+};
 import rapidkoi.guest.contract { answer };
 import rapidkoi.data.store { Store, store_at };
 import cbor { Value, Entry, encode, decode, Limits };
@@ -175,7 +185,10 @@ fun greeting(): AppPage {
 fun an_app_shows_your_name_without_knowing_it() {
     let engine = Engine.new();
     let m = with_pages(engine, [greeting()]);
-    let named = Model { people: People { first: "Brian", last: "Kithinji", apps: [] }, ..m };
+    let named = Model {
+        people: People { first: "Brian", last: "Kithinji", apps: [], grants: [] },
+        ..m,
+    };
     assert_eq(texts(view(named)).any(fun(x: string) = x == "Hello, Brian Kithinji!"), true);
     // No name set: nothing in its place.
     assert_eq(texts(view(m)).any(fun(x: string) = x == "Hello,  !"), true);
@@ -221,7 +234,7 @@ fun a_resumed_app_asks_again_when_opened() {
 }
 
 /** A v2 echo page asking `kind` at init, its manifest declaring `permissions` (PRP-030). */
-fun holding(kind: string, extra: (string, Value)[], permissions: string[]): AppPage {
+fun holding(kind: string, extra: (string, Value)[], declared: string[]): AppPage {
     let mut fields = [("kind", t(kind)), ("msg", t("got"))];
     for e of extra {
         fields.push(e);
@@ -236,7 +249,8 @@ fun holding(kind: string, extra: (string, Value)[], permissions: string[]): AppP
             icon: None,
             banners: [],
             servers: [],
-            permissions: permissions,
+            permissions: declared,
+            controls: None,
         }),
         ..page([kv(fields)], false),
     }
@@ -303,4 +317,65 @@ fun open_pin_and_continue_open_through_the_window() {
     // Nothing left off: Continue opens nothing.
     let (_, none) = asked(holding("continue", [], ["open_apps"]));
     assert_eq(later(none), []);
+}
+
+/** `asked`, with the person's setting for `p`'s permission. */
+fun set(p: AppPage, permission: Permission, s: Setting): (Model, Cmd<Msg>) = answer_all(Model {
+    pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }],
+    people: with_setting(nobody(), key_of(p), permission, s),
+    ..with_pages(Engine.new(), [p]),
+});
+
+@test
+fun blocked_answers_with_nothing_and_the_app_runs_on() {
+    // PRP-031: the person decides; blocking isn't the app's failure.
+    let (m, _) = set(holding("pins", [], ["read_pins"]), Permission.ReadPins, Setting.Blocked);
+    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), Value.Array([]))));
+    let (left, _) = set(
+        holding("left_off", [], ["read_left_off"]),
+        Permission.ReadLeftOff,
+        Setting.Blocked,
+    );
+    assert_eq(state_of(left.tabs[0].page), Some(answer(t("got"), Value.Null)));
+    let (_, c) = set(
+        holding("open_pin", [("index", Value.int(0))], ["open_apps"]),
+        Permission.OpenApps,
+        Setting.Blocked,
+    );
+    assert_eq(later(c), []);
+}
+
+@test
+fun needs_approval_waits_for_the_person() {
+    let p = holding("pins", [], ["read_pins"]);
+    let (m, _) = set(p, Permission.ReadPins, Setting.Ask);
+    assert_eq(
+        m.approval,
+        Some(Approval { tab: Some(0), permission: Permission.ReadPins, app: "notes" }),
+    );
+    assert_eq(m.tabs[0].page.asks.len, 1);
+    // Allow once: answered; the setting stays.
+    let (once, _) = update(m, Msg.Approve(Answer.Once));
+    assert_eq(state_of(once.tabs[0].page), Some(answer(t("got"), pins_of(once))));
+    assert_eq(
+        (once.approval, setting_of(once.people, key_of(p), Permission.ReadPins)),
+        (None, Setting.Ask),
+    );
+    // Always allow: answered, and allowed from now on.
+    let (always, _) = update(m, Msg.Approve(Answer.Always));
+    assert_eq(state_of(always.tabs[0].page), Some(answer(t("got"), pins_of(always))));
+    assert_eq(setting_of(always.people, key_of(p), Permission.ReadPins), Setting.Allowed);
+    // Don't allow: answered as blocked.
+    let (deny, _) = update(m, Msg.Approve(Answer.Deny));
+    assert_eq(state_of(deny.tabs[0].page), Some(answer(t("got"), Value.Array([]))));
+    assert_eq(deny.approval, None);
+}
+
+@test
+fun leaving_the_page_is_dont_allow() {
+    let p = holding("pins", [], ["read_pins"]);
+    let (m, _) = set(p, Permission.ReadPins, Setting.Ask);
+    let (left, _) = update(m, Msg.NewTab);
+    assert_eq(left.approval, None);
+    assert_eq(state_of(left.tabs[0].page), Some(answer(t("got"), Value.Array([]))));
 }

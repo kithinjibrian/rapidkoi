@@ -107,7 +107,7 @@ You set this on a **Permissions** page reached from the settings card's **App se
 - [ ] Pinning or closing an app from the sidebar while the new tab is in front updates it at once (`on_change`)
 - [ ] An external app with `controls` doesn't run, with its reason
 - [ ] `lughac test test/` and `cargo test` pass (the owner runs them); build ok; fmt clean; no file over 500 lines
-- [ ] DESIGN.md, CHANGELOG.md, CLAUDE.md, `docs/specs/app-events.md` updated
+- [x] DESIGN.md, CHANGELOG.md, CLAUDE.md, `docs/specs/app-events.md` updated
 
 ## VALIDATION
 - For the user:
@@ -115,6 +115,14 @@ You set this on a **Permissions** page reached from the settings card's **App se
   2. Set "Reading your pins" to Needs approval, then go to an app and back with +: the dialog asks. Allow once shows your pins; the next + asks again.
   3. Set it to Blocked: Pinned disappears.
   4. Pin an app from the sidebar's menu while on the new tab: it appears under Pinned at once.
+
+## AMENDMENTS (session 169, while building)
+
+- **Settings are `People.grants`,** a list of `{app, permission, setting}`, not a `Person` field. `Person` is keyed by a host and a 32-byte key, which a built-in app doesn't have. The people file's format is 3; format 2 reads with every permission at its default.
+- **An app's key** (`access.key_of`) is a signed app's host, else its path. The new tab's path is `builtin:newtab` (`newtab.NEWTAB_KEY`).
+- **Only the page in front asks you.** A page behind with an ask that needs approval waits until it's shown, and leaving the page is Don't allow (`effects.left_behind`).
+- **The UI is `src/ui/grants.la`** (the summary, the page, `shows_row`, `shows_icon`, the dialog's content), with tests in `test/grants.la`. `test/permissions.la` was already `bundles/permissions.la`'s.
+- **Wording:** the row labels ("Reading your pins") and the dialog's ("read your pins") are `label_of` and `wish_of` in `bundles/permissions.la`.
 
 ## LATER (parked by the owner, session 168)
 

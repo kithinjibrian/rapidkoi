@@ -9,7 +9,7 @@
  * Used by: main
  */
 import std.fs;
-import bundles.bundle { Bundle, Manifest, write, reason };
+import bundles.bundle { Bundle, Manifest, Controls, write, reason };
 import guest.limits { CONTRACT_VERSION };
 import std.env;
 import commands.publish { pack_project };
@@ -26,6 +26,7 @@ struct Request {
     assets: (string, string)[],
     servers: string[],
     permissions: string[],
+    controls: Option<Controls>,
     out: string,
     force: bool,
 }
@@ -103,6 +104,7 @@ public fun make(args: string[]): Result<string, string> {
         banners: banners,
         servers: r.servers,
         permissions: r.permissions,
+        controls: r.controls,
     };
     let bytes = write(Bundle { manifest: manifest, module: module, assets: assets }).map_err(
         reason,
@@ -127,6 +129,8 @@ fun parse(args: string[]): Result<Request, string> {
     let mut assets: (string, string)[] = [];
     let mut servers: string[] = [];
     let mut permissions: string[] = [];
+    let mut address: string[] = [];
+    let mut settings: string[] = [];
     let mut out: Option<string> = None;
     let mut force = false;
     let mut i = 0;
@@ -167,6 +171,15 @@ fun parse(args: string[]): Result<Request, string> {
             servers.push(v);
         } else if a == "--permission" {
             permissions.push(v);
+        } else if a == "--control" {
+            let (part, name) = pair(v, "--control takes address=ICON or settings=ROW")?;
+            if part == "address" {
+                address.push(name);
+            } else if part == "settings" {
+                settings.push(name);
+            } else {
+                return Err("--control takes address=ICON or settings=ROW");
+            }
         } else if a == "-o" {
             out = Some(v);
         } else {
@@ -187,6 +200,11 @@ fun parse(args: string[]): Result<Request, string> {
         assets: assets,
         servers: servers,
         permissions: permissions,
+        controls: if address.len + settings.len > 0 {
+            Some(Controls { address: address, settings: settings })
+        } else {
+            None
+        },
         out: out.ok_or("-o is required")?,
         force: force,
     })

@@ -85,6 +85,7 @@ fun an_unsigned_server_gives_its_bundle() {
         banners: [],
         servers: [],
         permissions: [],
+        controls: None,
     };
     write_bytes(
         file,

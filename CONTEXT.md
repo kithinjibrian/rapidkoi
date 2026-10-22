@@ -6003,9 +6003,44 @@ PRPs/prp-031-permission_settings.md, CONTEXT.md
 
 ---
 
+## SESSION 169 — 2026-10-22 — Build PRP-031: permission settings, approval, controls, on_change — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "build" (PRP-031 approved, and with it the security review of the approval dialog and settings).
+- Settings:
+  - `Setting` (Allowed, Ask, Blocked) in `bundles/permissions.la`.
+  - `People.grants` in the people file, format 3. The app key is `access.key_of`: a signed app's host, or the path. The new tab's path is `builtin:newtab`.
+- `controls`: `Manifest.controls` (address icons, settings rows) and their rules. The loader refuses an external app with them. `pack --control`.
+- Answering (`effects.la`):
+  - The answering loop is split out (`answer_head`) and checks the setting. Blocked answers with nothing; Ask raises `Model.approval`, for the page in front only.
+  - `approve` (Once, Always, Deny). `left_behind`: leaving the page is Don't allow.
+  - `tell_changes`: `on_change`.
+- `on_change` is in `events.la`, `tabs.changed` and the Rust library (`Event::Change`). The new tab reads on it.
+- UI:
+  - `ui/grants.la`: summary, page, `shows_row`, `shows_icon`, the question.
+  - The settings card's App settings holds Servers and Permissions, with rows filtered by `controls`. The approval dialog comes first in `settings.dialog`.
+  - The empty tab's address box shows ⚙ and share as the new tab's `controls` say.
+- The new tab was repacked with its controls; `./main` rebuilt. `lugha.lock` untouched.
+- Every test file checks, fmt is clean, the wasm builds, and `cargo test --no-run` compiles. Tests not run (the owner runs them).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/bundles/{permissions, bundle, loader}.la, src/people/{people, access}.la, src/guest/{effects, events}.la, src/window/{actions, window, tabs, newtab}.la,
+src/ui/{grants (new), settings, addressbox}.la, src/shell.la, src/commands/pack.la, test/{grants (new), permissions, people, bundle, newtab, pack, effects, shell, events, settings + Manifest literals}.la,
+guest/rust/rapidkoi/src/abi.rs, guest/rust/newtab/src/lib.rs, scripts/newtab.sh, assets/apps/newtab.rkb, docs/specs/app-events.md, docs/DESIGN.md, CHANGELOG.md, CLAUDE.md, MEMORY.md, PRPs/prp-031-permission_settings.md, CONTEXT.md
+```
+
+### STILL OPEN AT CLOSE
+
+- The owner's runs (sessions 165, 167, 169): `lughac test test/`, `cargo test`, a look in a window.
+- The parked bug: "Where you left off" empty after the quote closed (PRP-031 LATER).
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–030; contract 3 (open for step B). PRP-031 (permission settings: Always allowed / Needs approval / Blocked, the approval dialog, built-in `controls`, `on_change`) is written and awaiting approval. Then: the parked empty "Where you left off" bug, step B (contract 3's drawing), C (the left-off preview).
-
-## SESSION 169 — 2026-10-22 — Build PRP-031: permission settings, approval, controls, on_change — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031; contract 3 (open for step B). Awaiting the owner's test runs. Next: the parked empty "Where you left off" bug, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).

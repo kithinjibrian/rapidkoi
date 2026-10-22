@@ -11,7 +11,8 @@
 import window.actions { Msg };
 import window.tabs { AppPage, Page };
 import window.window { Model, page_of };
-import people.people { Person, person, with_person, known };
+import people.people { Person, person, with_person, known, with_setting };
+import bundles.permissions { Setting, parse };
 import net.requests { allowed };
 
 /** What the Access page shows for one app. */
@@ -176,3 +177,43 @@ fun listed(a: Access): string[] {
 }
 
 fun has(xs: string[], s: string): bool = xs.any(fun(x: string) = x == s);
+
+/**
+ * Returns the key your permission settings for an app are kept under
+ * (PRP-031): a signed app's host, else where it came from (`builtin:newtab`
+ * for the new tab).
+ *
+ * Example:
+ *     key_of(page)
+ */
+public fun key_of(p: AppPage): string = match p.trust {
+    Some(t) => t.host,
+    None => p.path,
+};
+
+/**
+ * Sets a permission for the app whose settings card is open (PRP-031): the
+ * current tab's app, or the new tab on the empty tab. A name it doesn't
+ * know, or no app, changes nothing.
+ *
+ * Example:
+ *     set_permission(m, "read_pins", Setting.Blocked)
+ */
+public fun set_permission(m: Model, name: string, s: Setting): Model {
+    let p = match page_of(m) {
+        App(a) => a,
+        Home => match m.newtab {
+            Some(n) => n,
+            None => {
+                return m;
+            }
+        },
+    };
+    match parse([name]) {
+        Ok(found) if found.len == 1 => Model {
+            people: with_setting(m.people, key_of(p), found[0], s),
+            ..m,
+        },
+        _ => m,
+    }
+}

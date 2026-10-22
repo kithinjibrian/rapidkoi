@@ -29,6 +29,7 @@ import ui.frame { marker_note, file_of };
 import ui.icons { Icon, icon };
 import ui.shield { facts, look_colour, card };
 import ui.settings;
+import ui.grants { shows_icon };
 import ui.tokens {
     SPACE_XS,
     SPACE_SM,
@@ -112,10 +113,15 @@ public fun field(m: Model): View<Msg> {
             ),
         );
     }
-    if let App(p) = page {
-        // Site settings, right of the shield (PRP-020): its card hangs from
-        // ⚙ while `m.panel` says it's open (PRP-022). A click outside or
-        // Escape closes it, as ⚙ does.
+    // Site settings, right of the shield (PRP-020): its card hangs from ⚙
+    // while `m.panel` says it's open (PRP-022). A click outside or Escape
+    // closes it, as ⚙ does. On the empty tab, the new tab's card, if its
+    // `controls` show ⚙ (PRP-031).
+    let settled = match page {
+        App(p) => Some(p),
+        Home => if shows_icon(m.newtab, "settings") { m.newtab } else { None },
+    };
+    if let Some(p) = settled {
         let gear = group_button_with(
             [image(icon(Icon.Settings, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
             Msg.TogglePanel,
@@ -136,13 +142,21 @@ public fun field(m: Model): View<Msg> {
         start = [row(start)];
     }
     // Share on every tab, greyed until links can share an app's screen (the
-    // owner's icon, session 154); pin after it on an app.
-    let mut end: View<Msg>[] = [
-        group_button_with(
-            [image(icon(Icon.Share, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
-            Msg.Home,
-        ).disabled(true).style(round()).align(Align.Center).tooltip("Share (comes with links)"),
-    ];
+    // owner's icon, session 154); pin after it on an app. The empty tab's
+    // as the new tab's `controls` say (PRP-031).
+    let mut end: View<Msg>[] = [];
+    let sharing = match page {
+        App(_) => true,
+        Home => shows_icon(m.newtab, "share"),
+    };
+    if sharing {
+        end.push(
+            group_button_with(
+                [image(icon(Icon.Share, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
+                Msg.Home,
+            ).disabled(true).style(round()).align(Align.Center).tooltip("Share (comes with links)"),
+        );
+    }
     if let App(p) = page {
         let tip = if is_pinned(m, p.path) { "Unpin" } else { "Pin" };
         end.push(

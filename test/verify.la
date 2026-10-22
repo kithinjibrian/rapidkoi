@@ -55,6 +55,7 @@ fun app(version: string): Bundle = Bundle {
         banners: [],
         servers: [],
         permissions: [],
+        controls: None,
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [],

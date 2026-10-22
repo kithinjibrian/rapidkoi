@@ -5,6 +5,9 @@ import rapidkoi.shell { Model, start, with_pages, update, title_of };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.window { card, page_of };
 import rapidkoi.window.actions { Msg, Confirm, PanelPage };
+import rapidkoi.bundles.bundle { Manifest };
+import rapidkoi.bundles.permissions { Permission, Setting };
+import rapidkoi.people.people { nobody, with_setting };
 import rapidkoi.window.tabs { AppPage, open_module, state_of };
 import rapidkoi.ui.render;
 import rapidkoi.guest.contract { envelope };
@@ -327,4 +330,50 @@ fun the_new_tab_hears_on_resume_when_the_empty_tab_shows() {
     let m = Model { newtab: Some(app(engine, "newtab", echo_v3())), ..two_v3() };
     let home = step(m, Msg.NewTab);
     assert_eq(home.newtab.and_then(fun(p: AppPage) = state_of(p)), v3(Happened.Resume));
+}
+
+/** A contract 3 echo app on tab 0, current, declaring `permissions`. */
+fun reading(declared: string[]): Model {
+    let engine = Engine.new();
+    let p = app(engine, "a", echo_v3());
+    let declared = AppPage {
+        manifest: Some(Manifest {
+            contract: 3,
+            name: "a",
+            version: "1.0.0",
+            description: None,
+            state_version: 1,
+            icon: None,
+            banners: [],
+            servers: [],
+            permissions: declared,
+            controls: None,
+        }),
+        ..p,
+    };
+    with_pages(engine, [declared, app(engine, "b", echo_v3())])
+}
+
+@test
+fun the_page_in_front_hears_on_change() {
+    // PRP-031: pinning it while it's in front changes your pins.
+    let m = reading(["read_pins"]);
+    let pinned = step(m, Msg.TogglePin);
+    assert_eq(last_event(pinned, 0), v3(Happened.Change));
+    // Without the permission, nothing to tell.
+    let blind = step(reading([]), Msg.TogglePin);
+    assert_eq(last_event(blind, 0), v3(Happened.Open));
+    // Blocked: nothing it can read moved.
+    let blocked = Model {
+        people: with_setting(nobody(), "a.wasm", Permission.ReadPins, Setting.Blocked),
+        ..m,
+    };
+    assert_eq(last_event(step(blocked, Msg.TogglePin), 0), v3(Happened.Open));
+}
+
+@test
+fun its_own_setting_changing_is_a_change() {
+    let m = reading(["read_pins"]);
+    let set = step(m, Msg.SetPermission("read_pins", Setting.Ask));
+    assert_eq(last_event(set, 0), v3(Happened.Change));
 }

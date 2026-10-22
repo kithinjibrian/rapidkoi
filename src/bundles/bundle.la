@@ -45,7 +45,36 @@ public struct Manifest {
     public servers: string[],
     /** What it may reach (PRP-030), by name; signed in format 2. Known and allowed is the loader's call. */
     public permissions: string[],
+    /** The frame it shows (PRP-031): only an app built into `./main` may choose. */
+    public controls: Option<Controls>,
 }
+
+/**
+ * Which of Rapidkoi's own controls a built-in app shows (PRP-031): Rapidkoi
+ * still draws each one and decides what it does.
+ */
+public struct Controls {
+    /** Icons in the address box: `settings`, `share`. */
+    public address: string[],
+    /** Rows in its settings card: a group (`app_settings`) or one row (`app_settings.permissions`). */
+    public settings: string[],
+}
+
+/** The address box's icons a built-in app may show. */
+public const ADDRESS_ICONS: string[] = ["settings", "share"];
+
+/** The settings card's groups and rows, as `controls` names them. */
+public const SETTINGS_ROWS: string[] = [
+    "account",
+    "account.public_key",
+    "account.identity",
+    "app_settings",
+    "app_settings.servers",
+    "app_settings.permissions",
+    "app_data",
+    "app_data.state",
+    "forget",
+];
 
 /** An app, unpacked. */
 public struct Bundle {
@@ -143,6 +172,17 @@ fun manifest_fields(m: Manifest): Entry[] {
         entry("permissions", Value.Array(m.permissions.map(fun(n: string) = Value.Text(n)))),
         entry("prerendered", Value.Array([])),
     ];
+    if let Some(c) = m.controls {
+        fields.push(
+            entry(
+                "controls",
+                Value.Map([
+                    entry("address", Value.Array(c.address.map(fun(n: string) = Value.Text(n)))),
+                    entry("settings", Value.Array(c.settings.map(fun(n: string) = Value.Text(n)))),
+                ]),
+            ),
+        );
+    }
     if let Some(d) = m.description {
         fields.push(entry("description", Value.Text(d)));
     }
@@ -194,6 +234,9 @@ fun check(b: Bundle): Result<(), BundleError> {
         }
     }
     check_permissions(m.permissions)?;
+    if let Some(c) = m.controls {
+        check_controls(c)?;
+    }
     rules.check_sizes(b.module.len, b.assets.len)?;
     for a of b.assets {
         rules.check_asset(a.0, a.1)?;
@@ -258,7 +301,52 @@ fun manifest_of(m: Value): Result<Manifest, BundleError> {
         banners: banners,
         servers: servers,
         permissions: permissions,
+        controls: controls_of(m)?,
     })
+}
+
+/** A manifest's `controls`, if it has them: two lists of names. */
+fun controls_of(m: Value): Result<Option<Controls>, BundleError> {
+    let given = match m.get("controls") {
+        None => {
+            return Ok(None);
+        }
+        Some(Map(_)) => m.get("controls").unwrap(),
+        Some(_) => {
+            return Err(
+                BundleError.Wrong("controls", "must map address and settings to lists of names"),
+            );
+        }
+    };
+    let shape = BundleError.Wrong("controls", "must map address and settings to lists of names");
+    let address = names_of(given, "address", ADDRESS_ICONS.len).map_err(fun(_) = shape)?;
+    let settings = names_of(given, "settings", SETTINGS_ROWS.len).map_err(fun(_) = shape)?;
+    Ok(Some(Controls { address: address, settings: settings }))
+}
+
+/** Each control a known one, named once. */
+fun check_controls(c: Controls): Result<(), BundleError> {
+    let mut seen: string[] = [];
+    for n of c.address {
+        if !ADDRESS_ICONS.any(fun(k: string) = k == n) {
+            return Err(BundleError.Wrong("controls", "names \"{n}\", which isn't an address icon"));
+        }
+        if seen.any(fun(s: string) = s == n) {
+            return Err(BundleError.Wrong("controls", "names \"{n}\" twice"));
+        }
+        seen.push(n);
+    }
+    let mut rows: string[] = [];
+    for n of c.settings {
+        if !SETTINGS_ROWS.any(fun(k: string) = k == n) {
+            return Err(BundleError.Wrong("controls", "names \"{n}\", which isn't a settings row"));
+        }
+        if rows.any(fun(s: string) = s == n) {
+            return Err(BundleError.Wrong("controls", "names \"{n}\" twice"));
+        }
+        rows.push(n);
+    }
+    Ok(())
 }
 
 /**
