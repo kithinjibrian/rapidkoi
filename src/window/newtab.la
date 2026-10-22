@@ -8,7 +8,7 @@
  * Used by: shell
  */
 import wasmtime { Engine };
-import bundles.loader { Refusal, from_bytes };
+import bundles.loader { Origin, Refusal, from_bytes };
 import trust.verify { keyring };
 import window.tabs { AppPage, from_loaded };
 
@@ -26,6 +26,7 @@ public const BUNDLE: u8[] = include_bytes("../../assets/apps/newtab.rkb");
  */
 public fun open(engine: Engine): Result<AppPage, Refusal> {
     // An empty keyring: the bundle is unsigned, so nothing is looked up.
-    let l = from_bytes(engine, keyring(), "newtab.rkb", BUNDLE)?;
+    // Built in: the only bytes that may hold built-in permissions (PRP-030).
+    let l = from_bytes(engine, keyring(), "newtab.rkb", BUNDLE, Origin.BuiltIn)?;
     Ok(from_loaded(engine, l, "newtab"))
 }

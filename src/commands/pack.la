@@ -25,6 +25,7 @@ struct Request {
     banners: (string, string)[],
     assets: (string, string)[],
     servers: string[],
+    permissions: string[],
     out: string,
     force: bool,
 }
@@ -101,6 +102,7 @@ public fun make(args: string[]): Result<string, string> {
         icon: icon,
         banners: banners,
         servers: r.servers,
+        permissions: r.permissions,
     };
     let bytes = write(Bundle { manifest: manifest, module: module, assets: assets }).map_err(
         reason,
@@ -124,6 +126,7 @@ fun parse(args: string[]): Result<Request, string> {
     let mut banners: (string, string)[] = [];
     let mut assets: (string, string)[] = [];
     let mut servers: string[] = [];
+    let mut permissions: string[] = [];
     let mut out: Option<string> = None;
     let mut force = false;
     let mut i = 0;
@@ -162,6 +165,8 @@ fun parse(args: string[]): Result<Request, string> {
             assets.push(pair(v, "--asset takes NAME=FILE")?);
         } else if a == "--server" {
             servers.push(v);
+        } else if a == "--permission" {
+            permissions.push(v);
         } else if a == "-o" {
             out = Some(v);
         } else {
@@ -181,6 +186,7 @@ fun parse(args: string[]): Result<Request, string> {
         banners: banners,
         assets: assets,
         servers: servers,
+        permissions: permissions,
         out: out.ok_or("-o is required")?,
         force: force,
     })

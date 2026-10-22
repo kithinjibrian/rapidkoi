@@ -26,6 +26,7 @@ fun bundle_file(tag: string, version: string): string {
         icon: None,
         banners: [],
         servers: [],
+        permissions: [],
     };
     write_bytes(
         p,

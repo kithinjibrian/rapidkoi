@@ -25,7 +25,8 @@ import trust.verify {
 import net.fetching { Fetched, fetch_app };
 import net.dialing { Network };
 import net.address { Address, is_address, parse, url, shown };
-import guest.limits { MAX_BUNDLE, FETCH_TIMEOUT_MS, CONTRACT_VERSION };
+import guest.limits { MAX_BUNDLE, FETCH_TIMEOUT_MS, CONTRACT_VERSION, OLDEST_CONTRACT };
+import bundles.permissions { Tier, PermissionError, parse as parse_permissions, tier_of, words_of };
 import std.http { Limits };
 
 /** An app ready to start: what to call it, its manifest if it has one, and its compiled module. */
@@ -40,6 +41,18 @@ public struct Loaded {
     public module: Module,
     /** Who signed it and how far that's trusted; `None` when unsigned. */
     public trust: Option<Trust>,
+}
+
+/**
+ * Where an app's bytes came from (PRP-030): only bytes compiled into
+ * `./main` may hold a built-in permission. Never read from the manifest,
+ * which can't vouch for itself.
+ */
+public enum Origin {
+    /** Compiled into `./main` (`window/newtab.la`). */
+    BuiltIn,
+    /** Any file or address. */
+    External,
 }
 
 /** Why an app wasn't loaded. */
@@ -84,7 +97,7 @@ public fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Ref
         let module = compile(engine, bytes).map_err(fun(e) = Refusal.Failed(file, reason(e)))?;
         return Ok(Loaded { name: file, manifest: None, icon: None, module: module, trust: None });
     }
-    from_bundle(engine, ring, file, bytes)
+    from_bundle(engine, ring, file, bytes, Origin.External)
 }
 
 /**
@@ -139,9 +152,9 @@ public fun from_fetched(
 ): Result<Loaded, Refusal> = match f {
     Signed(v, r, _) => {
         record(ring, r);
-        from_opened(engine, v.trust.host, v.opened, Some(v.trust))
+        from_opened(engine, v.trust.host, v.opened, Some(v.trust), Origin.External)
     }
-    Unsigned(name, bytes) => from_bundle(engine, ring, name, bytes),
+    Unsigned(name, bytes) => from_bundle(engine, ring, name, bytes, Origin.External),
     Refused(r) => Err(r),
 };
 
@@ -167,22 +180,30 @@ public fun current(ring: Keyring, f: Fetched): bool = match f {
  * @param ring the keys trusted, for a signed bundle
  * @param file what to call it in a refusal
  * @param bytes the bundle's bytes
+ * @param origin where they came from: `BuiltIn` only for bytes compiled into `./main`
  * @returns the app; or why not
  *
  * Example:
- *     from_bytes(engine, keyring(), "newtab.rkb", BUNDLE)
+ *     from_bytes(engine, keyring(), "newtab.rkb", BUNDLE, Origin.BuiltIn)
  */
 public fun from_bytes(
     engine: Engine,
     ring: Keyring,
     file: string,
     bytes: u8[],
-): Result<Loaded, Refusal> = from_bundle(engine, ring, file, bytes);
+    origin: Origin,
+): Result<Loaded, Refusal> = from_bundle(engine, ring, file, bytes, origin);
 
-fun from_bundle(engine: Engine, ring: Keyring, file: string, bytes: u8[]): Result<Loaded, Refusal> {
+fun from_bundle(
+    engine: Engine,
+    ring: Keyring,
+    file: string,
+    bytes: u8[],
+    origin: Origin,
+): Result<Loaded, Refusal> {
     let o = read_any(bytes).map_err(fun(e) = Refusal.Failed(file, bundle_reason(e)))?;
     let trust = o.signed.map(fun(s) = standing_of(ring, s));
-    from_opened(engine, file, o, trust)
+    from_opened(engine, file, o, trust, origin)
 }
 
 /** A checked bundle's module compiled. */
@@ -191,11 +212,25 @@ fun from_opened(
     file: string,
     o: Opened,
     trust: Option<Trust>,
+    origin: Origin,
 ): Result<Loaded, Refusal> {
     let b = o.bundle;
     let m = b.manifest;
-    if m.contract != CONTRACT_VERSION as i64 {
-        return Err(Refusal.Failed(m.name, "This app needs a newer version of Rapidkoi"));
+    let newer = Refusal.Failed(m.name, "This app needs a newer version of Rapidkoi");
+    if m.contract < OLDEST_CONTRACT as i64 || m.contract > CONTRACT_VERSION as i64 {
+        return Err(newer);
+    }
+    // Before compiling: a refused app's module is never touched.
+    let held = parse_permissions(m.permissions).map_err(fun(_: PermissionError) = newer)?;
+    for p of held {
+        if tier_of(p) == Tier.BuiltIn && origin == Origin.External {
+            return Err(
+                Refusal.Failed(
+                    m.name,
+                    "This app asks for something only Rapidkoi's own apps can have: {words_of(p)}",
+                ),
+            );
+        }
     }
     let module = compile(engine, b.module).map_err(fun(e) = Refusal.Failed(m.name, reason(e)))?;
     let icon = match m.icon {

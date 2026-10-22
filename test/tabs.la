@@ -93,6 +93,7 @@ fun rkb(tag: string, speaks: i64): string {
         icon: None,
         banners: [],
         servers: [],
+        permissions: [],
     };
     // An empty module: it compiles, then stops for want of `memory`.
     let bytes = write(Bundle {
@@ -116,7 +117,7 @@ fun opening_a_bundle_uses_its_manifest() {
 
 @test
 fun a_bundle_for_a_newer_contract_says_so() {
-    let p = open_path(Engine.new(), keyring(), rkb("newer", 3));
+    let p = open_path(Engine.new(), keyring(), rkb("newer", 4));
     assert_eq(reason_of(p), "This app needs a newer version of Rapidkoi");
     assert_eq(p.name, "Bundled");
 }

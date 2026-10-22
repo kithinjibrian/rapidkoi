@@ -22,6 +22,7 @@ fun sample(): Bundle = Bundle {
         icon: Some("icon.png"),
         banners: [],
         servers: ["api.acme.com"],
+        permissions: [],
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [("icon.png", png(32, 32))],
@@ -66,6 +67,18 @@ fun a_signed_bundle_round_trips() {
 fun format_1_still_reads_unsigned() {
     let o = read_any(write(sample()).unwrap()).unwrap();
     assert_eq(o.signed.is_none(), true);
+}
+
+@test
+fun permissions_are_signed_with_the_manifest() {
+    // A changed permission is a changed manifest byte: the signature breaks
+    // (a_changed_byte_anywhere_is_refused).
+    let declared = Bundle {
+        manifest: Manifest { permissions: ["read_pins"], ..sample().manifest },
+        ..sample(),
+    };
+    let o = read_any(write_signed(declared, key("a.example")).unwrap()).unwrap();
+    assert_eq(o.bundle.manifest.permissions, ["read_pins"]);
 }
 
 @test

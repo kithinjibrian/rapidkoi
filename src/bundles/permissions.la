@@ -1,0 +1,100 @@
+/**
+ * Permissions (PRP-030), pure: what an app's manifest says it needs, by
+ * name, and who may hold each. A built-in permission is only for an app
+ * compiled into `./main`; an `Any` one is for every app (none yet). Fine
+ * grained: one per thing an app can reach (the owner, session 166).
+ *
+ * Depends on: nothing
+ * Used by: bundles.loader, guest.effects, window.tabs
+ */
+
+/** Something an app may reach, declared in its manifest. */
+public enum Permission {
+    /** Your pins: name, place and icon. */
+    ReadPins,
+    /** The app you left off: name, place, icon and screen title. */
+    ReadLeftOff,
+    /** Opening one of your pins, or where you left off. */
+    OpenApps,
+}
+
+/** Who may hold a permission. */
+public enum Tier {
+    /** Only an app compiled into `./main`. */
+    BuiltIn,
+    /** Any app that declares it. */
+    Any,
+}
+
+/** Why a manifest's permissions can't be read. */
+public enum PermissionError {
+    /** A name this Rapidkoi doesn't know (a newer one might). */
+    Unknown(string),
+}
+
+/** Every permission, in the order they're listed. */
+public const ALL: Permission[] = [Permission.ReadPins, Permission.ReadLeftOff, Permission.OpenApps];
+
+/**
+ * Returns a permission's name, as a manifest lists it.
+ *
+ * Example:
+ *     name_of(Permission.ReadPins)
+ */
+public fun name_of(p: Permission): string = match p {
+    ReadPins => "read_pins",
+    ReadLeftOff => "read_left_off",
+    OpenApps => "open_apps",
+};
+
+/**
+ * Returns who may hold a permission.
+ *
+ * Example:
+ *     tier_of(Permission.OpenApps)
+ */
+public fun tier_of(p: Permission): Tier = match p {
+    ReadPins => Tier.BuiltIn,
+    ReadLeftOff => Tier.BuiltIn,
+    OpenApps => Tier.BuiltIn,
+};
+
+/**
+ * Returns what a permission lets an app do, in words for a sentence.
+ *
+ * Example:
+ *     "This app asks for something only Rapidkoi's own apps can have: {words_of(p)}"
+ */
+public fun words_of(p: Permission): string = match p {
+    ReadPins => "reading your pins",
+    ReadLeftOff => "reading where you left off",
+    OpenApps => "opening your apps",
+};
+
+/**
+ * Reads a manifest's permission names.
+ *
+ * @param names the names, as the bundle's rules let them through
+ * @returns the permissions in order; `Err(Unknown)` naming the first one this Rapidkoi doesn't know
+ *
+ * Example:
+ *     parse(manifest.permissions)
+ */
+public fun parse(names: string[]): Result<Permission[], PermissionError> {
+    let mut out: Permission[] = [];
+    for n of names {
+        let mut found: Option<Permission> = None;
+        for p of ALL {
+            if name_of(p) == n {
+                found = Some(p);
+            }
+        }
+        match found {
+            Some(p) => out.push(p),
+            None => {
+                return Err(PermissionError.Unknown(n));
+            }
+        }
+    }
+    Ok(out)
+}

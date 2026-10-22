@@ -82,6 +82,22 @@ fun the_simplest_pack() {
 }
 
 @test
+fun permissions_are_declared_with_a_flag() {
+    // PRP-030: scripts/newtab.sh declares the new tab's this way.
+    let out = path("perm.rkb");
+    let m = module("perm");
+    let flags = [m, "--name", "M", "--version", "0.1.0", "--permission", "read_pins"];
+    assert_eq(make(flags + ["--permission", "open_apps", "-o", out]).is_ok(), true);
+    let b = read(read_bytes(out).unwrap()).unwrap();
+    assert_eq(b.manifest.permissions, ["read_pins", "open_apps"]);
+    fs.remove_file(out).unwrap();
+    assert_eq(
+        make([m, "--name", "M", "--version", "0.1.0", "--permission", "Pins!", "-o", out]),
+        Err("This bundle's \"permissions\" lists \"Pins!\", which isn't a permission name"),
+    );
+}
+
+@test
 fun pack_errors_are_plain() {
     let m = module("errors");
     let out = path("e.rkb");

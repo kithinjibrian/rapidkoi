@@ -1,0 +1,38 @@
+// Permissions (PRP-030): their names on the wire, their tiers, and reading
+// a manifest's list. Pure; no display.
+import rapidkoi.bundles.permissions {
+    Permission,
+    PermissionError,
+    Tier,
+    name_of,
+    tier_of,
+    words_of,
+    parse,
+    ALL,
+};
+
+@test
+fun each_permission_has_its_name_tier_and_words() {
+    assert_eq(ALL.map(fun(p: Permission) = name_of(p)), [
+        "read_pins",
+        "read_left_off",
+        "open_apps",
+    ]);
+    for p of ALL {
+        assert_eq(tier_of(p), Tier.BuiltIn);
+    }
+    assert_eq(words_of(Permission.ReadPins), "reading your pins");
+    assert_eq(words_of(Permission.ReadLeftOff), "reading where you left off");
+    assert_eq(words_of(Permission.OpenApps), "opening your apps");
+}
+
+@test
+fun a_list_parses_in_order() {
+    assert_eq(parse(["open_apps", "read_pins"]), Ok([Permission.OpenApps, Permission.ReadPins]));
+    assert_eq(parse([]), Ok([]));
+}
+
+@test
+fun an_unknown_name_is_named() {
+    assert_eq(parse(["read_pins", "camera"]), Err(PermissionError.Unknown("camera")));
+}

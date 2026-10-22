@@ -234,6 +234,7 @@ public fun bundle_of(p: Project): Result<Bundle, string> {
             icon: icon,
             banners: banners,
             servers: p.servers,
+            permissions: [],
         },
         module: load(p.module)?,
         assets: assets,

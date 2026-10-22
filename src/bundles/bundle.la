@@ -16,6 +16,8 @@ import guest.limits {
     MAX_BANNER_WIDTH,
     MAX_BANNER_HEIGHT,
     MAX_SERVERS,
+    MAX_PERMISSIONS,
+    MAX_PERMISSION_NAME,
 };
 public import bundles.rules { BundleError, reason };
 import net.network { check_server };
@@ -41,6 +43,8 @@ public struct Manifest {
     public banners: (string, string)[],
     /** The servers it may reach besides its own host (PRP-012); signed in format 2. */
     public servers: string[],
+    /** What it may reach (PRP-030), by name; signed in format 2. Known and allowed is the loader's call. */
+    public permissions: string[],
 }
 
 /** An app, unpacked. */
@@ -136,7 +140,7 @@ fun manifest_fields(m: Manifest): Entry[] {
             Value.Map(m.banners.map(fun(p: (string, string)) = entry(p.0, Value.Text(p.1)))),
         ),
         entry("servers", Value.Array(m.servers.map(fun(n: string) = Value.Text(n)))),
-        entry("permissions", Value.Array([])),
+        entry("permissions", Value.Array(m.permissions.map(fun(n: string) = Value.Text(n)))),
         entry("prerendered", Value.Array([])),
     ];
     if let Some(d) = m.description {
@@ -189,6 +193,7 @@ fun check(b: Bundle): Result<(), BundleError> {
             return Err(BundleError.Wrong("servers", "lists \"{name}\", which isn't a server name"));
         }
     }
+    check_permissions(m.permissions)?;
     rules.check_sizes(b.module.len, b.assets.len)?;
     for a of b.assets {
         rules.check_asset(a.0, a.1)?;
@@ -241,7 +246,7 @@ fun manifest_of(m: Value): Result<Manifest, BundleError> {
             }
         }
     }
-    empty(m, "permissions")?;
+    let permissions = names_of(m, "permissions", MAX_PERMISSIONS)?;
     empty(m, "prerendered")?;
     Ok(Manifest {
         contract: whole(m, "contract")?,
@@ -252,7 +257,63 @@ fun manifest_of(m: Value): Result<Manifest, BundleError> {
         icon: maybe_text(m, "icon")?,
         banners: banners,
         servers: servers,
+        permissions: permissions,
     })
+}
+
+/**
+ * A manifest's list of names (`permissions`), counted before anything is
+ * copied out; each name's own rules are `check_permissions`'.
+ */
+fun names_of(m: Value, field: string, most: i64): Result<string[], BundleError> {
+    let given = match m.get(field) {
+        Some(Array(xs)) => xs,
+        None => [],
+        Some(_) => {
+            return Err(BundleError.Wrong(field, "must be a list of names"));
+        }
+    };
+    if given.len > most {
+        return Err(BundleError.Wrong(field, "lists too many ({given.len}; at most {most})"));
+    }
+    let mut out: string[] = [];
+    for v of given {
+        match v {
+            Text(n) => out.push(n),
+            _ => {
+                return Err(BundleError.Wrong(field, "must be a list of names"));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/** Permission names: lowercase letters and `_`, 1 to `MAX_PERMISSION_NAME` bytes, each once. */
+fun check_permissions(names: string[]): Result<(), BundleError> {
+    if names.len > MAX_PERMISSIONS {
+        return Err(
+            BundleError.Wrong(
+                "permissions",
+                "lists too many ({names.len}; at most {MAX_PERMISSIONS})",
+            ),
+        );
+    }
+    let mut seen: string[] = [];
+    for n of names {
+        let shaped = n.len >= 1 && n.len <= MAX_PERMISSION_NAME && n.chars().all(
+            fun(c: char) = c >= 'a' && c <= 'z' || c == '_',
+        );
+        if !shaped {
+            return Err(
+                BundleError.Wrong("permissions", "lists \"{n}\", which isn't a permission name"),
+            );
+        }
+        if seen.any(fun(s: string) = s == n) {
+            return Err(BundleError.Wrong("permissions", "lists \"{n}\" twice"));
+        }
+        seen.push(n);
+    }
+    Ok(())
 }
 
 fun assets_of(root: Value): Result<(string, u8[])[], BundleError> {

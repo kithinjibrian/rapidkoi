@@ -1,8 +1,8 @@
 // Rapidkoi's new-tab app (PRP-027): the bundle built into ./main, run in
 // the empty tab. Fixture guests stand in for it where a test needs another
 // app; no display.
-import rapidkoi.bundles.bundle { read };
-import rapidkoi.bundles.loader { from_bytes };
+import rapidkoi.bundles.bundle { Bundle, Manifest, read, write };
+import rapidkoi.bundles.loader { Origin, from_bytes, why };
 import rapidkoi.trust.verify { keyring };
 import rapidkoi.window.newtab { BUNDLE, open };
 import rapidkoi.window.tabs { failed_page };
@@ -28,18 +28,73 @@ fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == 
 fun the_built_in_bundle_is_unsigned_and_named() {
     // Format 1 is the unsigned format: read refuses a signed bundle.
     let b = read(BUNDLE).unwrap();
-    assert_eq((b.manifest.name, b.manifest.version, b.manifest.contract), ("New tab", "0.1.0", 2));
+    assert_eq((b.manifest.name, b.manifest.version, b.manifest.contract), ("New tab", "0.1.0", 3));
+    assert_eq(b.manifest.permissions, ["read_pins", "read_left_off", "open_apps"]);
+}
+
+/** A bundle declaring `permissions`, with a module too small to compile: the checks come first. */
+fun declaring(permissions: string[]): u8[] = write(Bundle {
+    manifest: Manifest {
+        contract: 3,
+        name: "Sneaky",
+        version: "1.0.0",
+        description: None,
+        state_version: 1,
+        icon: None,
+        banners: [],
+        servers: [],
+        permissions: permissions,
+    },
+    module: [0, 97, 115, 109, 1, 0, 0, 0],
+    assets: [],
+}).unwrap();
+
+fun refusal(bytes: u8[], origin: Origin): string = match from_bytes(
+    Engine.new(),
+    keyring(),
+    "x.rkb",
+    bytes,
+    origin,
+) {
+    Err(r) => why(r),
+    Ok(_) => "ok",
+};
+
+@test
+fun the_same_bytes_from_outside_are_refused() {
+    // PRP-030: built-in is where the bytes came from, never what they say.
+    assert_eq(
+        refusal(BUNDLE, Origin.External),
+        "This app asks for something only Rapidkoi's own apps can have: reading your pins",
+    );
+    assert_eq(
+        refusal(declaring(["open_apps"]), Origin.External),
+        "This app asks for something only Rapidkoi's own apps can have: opening your apps",
+    );
+}
+
+@test
+fun an_unknown_permission_needs_a_newer_rapidkoi() {
+    assert_eq(
+        refusal(declaring(["camera"]), Origin.BuiltIn),
+        "This app needs a newer version of Rapidkoi",
+    );
+    assert_eq(
+        refusal(declaring(["camera"]), Origin.External),
+        "This app needs a newer version of Rapidkoi",
+    );
 }
 
 @test
 fun it_opens_and_runs() {
     let p = open(Engine.new()).unwrap();
     assert_eq((p.name, p.trust.is_none()), ("New tab", true));
+    assert_eq(p.manifest.map(fun(m: Manifest) = m.permissions.len), Some(3));
 }
 
 @test
 fun from_bytes_refuses_what_isnt_a_bundle() {
-    assert(from_bytes(Engine.new(), keyring(), "x.rkb", [1, 2, 3]).is_err());
+    assert(from_bytes(Engine.new(), keyring(), "x.rkb", [1, 2, 3], Origin.BuiltIn).is_err());
 }
 
 @test

@@ -64,6 +64,7 @@ fun plain(): u8[] = write(Bundle {
         icon: None,
         banners: [],
         servers: [],
+        permissions: [],
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [],

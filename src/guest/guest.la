@@ -22,6 +22,7 @@ import wasmtime {
 };
 import guest.limits {
     CONTRACT_VERSION,
+    OLDEST_CONTRACT,
     MAX_MODULE,
     MEMORY_BYTES,
     MAX_STATE,
@@ -127,7 +128,8 @@ fun start(engine: Engine, store: Store, module: Module): Result<Guest, GuestErro
     };
     let g = Guest { store: store, instance: instance, memory: memory, version: 0 };
     match g.call("rapidkoi_version", [])? {
-        I32(v) if v == CONTRACT_VERSION => Ok(Guest { version: v, ..g }),
+        // Every contract from the oldest still run to the newest (DECISION-039).
+        I32(v) if v >= OLDEST_CONTRACT && v <= CONTRACT_VERSION => Ok(Guest { version: v, ..g }),
         I32(v) => Err(GuestError.Version(v)),
         I64(_) => Err(GuestError.WrongExport("rapidkoi_version")),
     }
