@@ -48,20 +48,20 @@ From chat with the owner (sessions 173–174). The header's ← and → go, and 
 ## TESTS TO WRITE
 
 `test/header.la`:
-- [ ] The header's start is empty on an app page and on an empty tab: no Back, Home or Forward button.
-- [ ] Account and menu are still there (unchanged tests).
+- [x] The header's start is empty on an app page and on an empty tab: no Back, Home or Forward button.
+- [x] Account and menu are still there (unchanged tests).
 
 ## ROLLBACK PLAN
 
 - Branch: `prp-017-kivuli_0_17`; `git revert` the commit.
 
 ## ACCEPTANCE CRITERIA
-- [ ] No ←, ⌂ or → in the header on any tab
+- [x] No ←, ⌂ or → in the header on any tab
 - [ ] `lughac test test/` passes (the owner runs it); build ok; fmt clean
-- [ ] DECISIONS.md, MEMORY.md, CLAUDE.md, DESIGN.md, CHANGELOG.md updated
+- [x] DECISIONS.md, MEMORY.md, CLAUDE.md, DESIGN.md, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user: `./main`, open an app: the header starts with the address box; no ←, ⌂ or →.
 
-## TO CONFIRM ON APPROVAL
-- ⌂ goes too. The owner said "drop back and forward"; ⌂ was the app's own home, which is the same kind of in-app navigation.
+## CONFIRMED ON APPROVAL
+- ⌂ goes too (the owner, session 175: "yes drop home too").

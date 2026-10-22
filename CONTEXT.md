@@ -6162,13 +6162,31 @@ PRPs/prp-032-no_back_forward.md, CONTEXT.md
 
 ---
 
+## SESSION 175 — 2026-10-23 — Build PRP-032: no back, home or forward in the frame — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "yes drop home too, build it".
+- `src/ui/header.la`: `start` and `navigation` removed; the bar's start is empty. `test/header.la`: no Back, Home or Forward on an app page, an empty tab, or a fresh window.
+- DECISION-041 (resolved); MEMORY.md decision 22, and decision 4 amended; CLAUDE.md KNOWN ISSUES; DESIGN.md; CHANGELOG.md.
+- The Back, Forward and Home icons stay (the cards use Back and Forward; Home is kept for later).
+- fmt clean, build ok. Tests not run (the owner runs them).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/ui/header.la, test/header.la, DECISIONS.md, MEMORY.md, CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, PRPs/prp-032-no_back_forward.md, CONTEXT.md
+```
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Waiting on kivuli: DECISION-040 (a drop-down in a popover). Awaiting the owner's test runs. PRP-032 (no back/forward in the frame) written, awaiting approval (and whether ⌂ goes). Then step B (images, wrapping rows, accent), and links' own discovery. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Waiting on kivuli: DECISION-040 (a drop-down in a popover). Awaiting the owner's test runs. Built: PRP-032 (no ← ⌂ → in the frame). Next: step B (images, wrapping rows, accent), and links' own discovery. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
 
 
 
 
 
-## SESSION 175 — 2026-10-23 — Build PRP-032: no back, home or forward in the frame — open
-Branch: prp-017-kivuli_0_17

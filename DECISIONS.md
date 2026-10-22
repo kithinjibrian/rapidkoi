@@ -254,6 +254,18 @@ Rules:
 
 ## RESOLVED
 
+### DECISION-041 — No back or forward in the frame
+
+**Status:** resolved
+**Raised:** 2026-10-23 — Session 173 (step B's discovery: do apps have pages?)
+**Resolved:** 2026-10-23 — Session 175 (the owner: "okay drop back and forward", "yes drop home too")
+
+**Question:** Should the frame have ← and → (and ⌂, the app's home), and so should apps declare pages, push a stack, or report positions for Rapidkoi to follow?
+
+**Outcome:** No. In-app navigation is the app's own UI; Rapidkoi keeps only a cross-app return ("‹ Mail") for when a link opens another app, built with links. ←, ⌂ and → leave the header (PRP-032). MEMORY.md decision 22; decision 4 amended.
+
+---
+
 ### DECISION-039 — Contract 3, and whether contract 2 apps keep running
 
 **Status:** resolved

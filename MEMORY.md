@@ -45,6 +45,8 @@ Read this at the start of every session before writing any code.
 
 **Rules out:** Guests drawing their own widgets or touching GTK; guests reaching any resource except through the shell; work from a later build-path step before the earlier ones are done.
 
+**Amended (DECISION-041, session 175):** the vision's "navigate with back and forward, which follow each app's routes" is dropped. See decision 22.
+
 ---
 
 ### 5. Screen state in the model, app data in SQLite (DECISION-004)
@@ -249,6 +251,14 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 **Why:** The owner (sessions 165–167): the new tab reads your pins and where you left off without the shell drawing it (decision 19), and permissions cover it cleanly.
 
 **Rules out:** A site holding a built-in permission; identifying Rapidkoi's own apps by name or manifest; pushing data to apps.
+
+### 22. No back or forward in the frame (DECISION-041, PRP-032)
+
+**Decision:** The frame has no ←, ⌂ or →. Moving between an app's screens is the app's own UI (as on iOS); Rapidkoi doesn't model an app's pages, routes or stack. Rapidkoi keeps only what apps can't do: a way back to the app you came from when a link opened another ("‹ Mail"), built with links between apps.
+
+**Why:** The owner (sessions 173–175), from first principles: browsers own back and forward because their pages are untrusted documents from many sites that can't see each other. Rapidkoi gives each app one tab, and apps can draw their own buttons. Forward is rarely used anywhere.
+
+**Rules out:** Frame back/forward; a route table in the manifest for navigation's sake. Links still need apps to open at a place and say where they are when shared; that's links' own question (build step 2).
 
 ---
 

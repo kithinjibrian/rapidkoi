@@ -1,6 +1,6 @@
 /**
- * The header bar, pure (PRP-019): ← back, ⌂ home, → forward; the address
- * box; 👤 account and ☰ menu; then GTK's window controls, styled as ghost
+ * The header bar, pure (PRP-019): the address box; 👤 account and ☰ menu;
+ * then GTK's window controls, styled as ghost
  * buttons like the rest (`WindowControls.look()`). Every icon is one
  * of Rapidkoi's own (`ui/icons.la`) in the theme's text colour, on a
  * `kivuli.ui` ghost icon button. What isn't built yet is shown disabled,
@@ -12,7 +12,7 @@
 import kivuli { View, Align, Bar, header_bar, image };
 import kivuli.ui { Button, WindowControls, button_with as ui_button_with };
 import window.actions { Msg };
-import window.window { Model, page_of };
+import window.window { Model };
 import ui.addressbox;
 import ui.icons { Icon, icon };
 import ui.tokens { HEADER_ICON, SPACE_XS, square, margin_x };
@@ -46,30 +46,11 @@ public fun bar(m: Model): Bar<Msg> {
     for x of window_controls(m.theme) {
         look.push(x);
     }
-    header_bar(start(m), addressbox.field(m), packed).style(look)
+    // Nothing at the start: moving around inside an app is the app's own
+    // UI, so the frame has no back, home or forward (PRP-032).
+    let none: View<Msg>[] = [];
+    header_bar(none, addressbox.field(m), packed).style(look)
 }
-
-/**
- * Returns the bar's start, in order: ← back, ⌂ home, → forward, on an app
- * page; nothing on home, where there's nowhere to go back from or home to
- * (the owner, session 110). Back and forward wait for links (build step 2).
- *
- * Example:
- *     header.start(m)
- */
-public fun start(m: Model): View<Msg>[] = match page_of(m) {
-    Home => [],
-    App(_) => navigation(m),
-};
-
-/** ← back, ⌂ home, → forward. */
-fun navigation(m: Model): View<Msg>[] = [
-    tool(m.theme, Icon.Back, "Back (comes with links)", None),
-    // The app's own home screen (the owner, session 148): it needs routes,
-    // as back and forward do (PRP-024).
-    tool(m.theme, Icon.Home, "Home (comes with links)", None),
-    tool(m.theme, Icon.Forward, "Forward (comes with links)", None),
-];
 
 /**
  * Returns the bar's end, before the window controls, in order: 👤 account
