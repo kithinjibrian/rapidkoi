@@ -91,7 +91,7 @@ public fun field(m: Model): View<Msg> {
                 ]).align(Align.Center),
             ],
             Msg.Shield(Some(ShieldPage.Main)),
-        ).style(round()).tooltip("Site information");
+        ).style(round()).align(Align.Center).tooltip("Site information");
         start.push(
             ui_popover(
                 shield_button,
@@ -108,7 +108,7 @@ public fun field(m: Model): View<Msg> {
         let gear = group_button_with(
             [image(icon(Icon.Settings, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
             Msg.TogglePanel,
-        ).style(round()).tooltip("Site settings");
+        ).style(round()).align(Align.Center).tooltip("Site settings");
         start.push(
             ui_popover(
                 gear,
@@ -131,7 +131,7 @@ public fun field(m: Model): View<Msg> {
             group_button_with(
                 [image(icon(Icon.Star, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
                 Msg.TogglePin,
-            ).style(round()).tooltip(tip),
+            ).style(round()).align(Align.Center).tooltip(tip),
         );
     }
     // A pill, as the owner asked (sessions 75, 121): GTK caps a radius at half
@@ -150,11 +150,12 @@ public fun field(m: Model): View<Msg> {
 }
 
 /**
- * The address box's icon buttons: a round hover, `SPACE_XS` around the icon,
- * so each is a circle the box's height (session 145). kivuli.ui's own is a
- * wider rounded rectangle.
+ * The address box's icon buttons: circles exactly the box's inner height,
+ * `SPACE_XS` around the icon, hovering round (session 145). A size alone left
+ * them ovals: the group stretched them, so the size is capped too.
  */
 fun round(): Styling[] = [
     Border { radius: Radius.All(CIRCLE), ..Border.theme() },
     padding(SPACE_XS),
+    square(ADDRESS_HEIGHT - 2 * EDGE_WIDTH),
 ];

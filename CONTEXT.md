@@ -5242,7 +5242,7 @@ Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- The owner: the address box's icons should hover round, not square, and the shield and ⚙ should sit closer. The shield, ⚙ and ☆ buttons take `round()` (`CIRCLE` radius, `SPACE_XS` padding: a 28 px circle); the shield and ⚙ go into one `row` with no gap instead of kivuli.ui's 8 px between add-ons. Check, build and fmt ok.
+- The owner: the address box's icons should hover round, not square, and the shield and ⚙ should sit closer. The shield, ⚙ and ☆ buttons take `round()` (`CIRCLE` radius, `SPACE_XS` padding: a 28 px circle); the shield and ⚙ go into one `row` with no gap instead of kivuli.ui's 8 px between add-ons. Check, build and fmt ok. They showed as ovals (the group stretched them), so `round()` also caps them at `square(ADDRESS_HEIGHT - 2 * EDGE_WIDTH)`, 28 × 28, centred.
 - Earlier in the conversation: the new `settings.svg` escaped into `icons.svg(Settings)`. Left uncommitted with the owner's asset change; its paths carry `fill="white" style="fill: var(--fillg)"`, which `recolour` doesn't touch.
 
 ### FILES CREATED OR MODIFIED
