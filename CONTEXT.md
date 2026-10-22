@@ -5900,3 +5900,6 @@ src/shell.la, src/window/navigate.la, test/{counter,addressbox,shell,tabs_empty,
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`/`include_str`. Built: PRP-019–029. Session 165 fixed the 10 failures of the owner's full run; awaiting the re-run.
+
+## SESSION 166 — 2026-10-22 — PRP-030: the new tab reads pins and where you left off — open
+Branch: prp-017-kivuli_0_17
