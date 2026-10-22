@@ -5655,16 +5655,40 @@ PRPs/prp-026-one_tab_per_app.md, docs/DESIGN.md, CHANGELOG.md, CONTEXT.md
 
 ---
 
-## SESSION 157 — 2026-10-22 — The bundled new tab: the Lugha request for embedding files — open
+## SESSION 157 — 2026-10-22 — The bundled new tab: the Lugha request for embedding files — closed
 
 Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- In progress.
+- From chat: the owner wants the new tab as an app shipped with Rapidkoi, showing just the logo. Chose: a text wordmark for now (contract 2 has no images; a real logo needs contract 3, later); "the correct way" (a Rust app, packed as a bundle); embedded in `./main` (A) over a resources folder (B).
+- Lugha can't embed a file at compile time: wrote `docs/specs/lugha-include-bytes.md` (`include_bytes`/`include_str`, paths inside the package, a compile-time constant), DECISION-038 (deferred).
+- Asked next: whether an embedded bundle needs signing at all. No code.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/specs/lugha-include-bytes.md, DECISIONS.md (DECISION-038), CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- The new tab: a Rust app, a text wordmark for now, embedded in the binary once Lugha can.
+
+### PENDING DECISIONS OPENED
+
+- DECISION-038 (deferred): Lugha's `include_bytes`.
+
+### STILL OPEN AT CLOSE
+
+- Signing the bundled app or not; then PRP-027 (the new-tab app).
 
 ---
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: PRP-019–026 (header bar, shield, site settings, sidebar, empty tabs, one address field with share, one tab per app). Waiting for the owner's test run and look. Waiting on kivuli: DECISION-036, 037.
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: PRP-019–026. Discovery for the bundled new-tab app: a Rust app showing a text wordmark, embedded in `./main` once Lugha has `include_bytes` (DECISION-038, requested). Open: whether it's signed. Waiting on kivuli: DECISION-036, 037.
