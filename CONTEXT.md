@@ -5765,3 +5765,6 @@ PRPs/prp-028-sidebar_kivuli_0_54.md, CONTEXT.md
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54 is out (Rapidkoi still on 0.51). Built: PRP-019–026, PRP-027 Part 1. PRP-028 (sidebar: × on hover, + after the last tab, scroll into view) is written, awaiting approval. PRP-027 Part 2 waits on Lugha's `include_bytes` (DECISION-038).
+
+## SESSION 161 — 2026-10-22 — Build PRP-028: the sidebar with kivuli 0.54 — open
+Branch: prp-017-kivuli_0_17
