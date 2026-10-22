@@ -5924,9 +5924,55 @@ docs/specs/app-events.md, PRPs/prp-030-newtab_reads.md, DECISIONS.md, CONTEXT.md
 
 ---
 
+## SESSION 167 — 2026-10-22 — Build PRP-030: permissions, the new tab's reads, on_resume, contract 3 — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner, in chat:
+  - Permissions in the manifest, with built-in ones for Rapidkoi's own apps only. An external app declaring one fails on screen.
+  - Fine grained.
+  - An undeclared ask stops the app.
+  - Error screens stay Rapidkoi's own (not an app).
+- Then "approved": the PRP, the security review of the capability, and DECISION-039's recommendations. DECISION-039 resolved (MEMORY.md decision 21).
+- Phase 1, permissions (commit c8dcae1):
+  - `bundles/permissions.la`, and the manifest's `permissions` rules.
+  - `loader.Origin`: built-in or external, decided at load.
+  - Contracts 2 and 3 accepted.
+  - `pack --permission`.
+- Phase 2, the wire:
+  - `guest/events.la`: `event_for` names events by contract.
+  - Four asks: `pins`, `left_off`, `open_pin`, `continue`.
+- Phase 3, answering:
+  - `guest/home.la`: the reads.
+  - `effects.la`: answers any slot, a tab or the new tab, behind the permissions.
+  - `shell.resumed`: `on_resume` to a tab brought back, and to the new tab when the empty tab shows.
+- Phase 4, Rust:
+  - The library speaks contract 3 (`Event::Resume`, `Event::Data`, the new asks, `Place`).
+  - The new tab reads on open and resume, and shows where you left off with Continue and a button per pin.
+  - Repacked with its three permissions (65 KB); `./main` rebuilt.
+- Every test file checks, `fmt --check` is clean, the wasm builds and `cargo test --no-run` compiles. Tests not run (the owner runs them).
+- `lughac build` once dropped a line from `lugha.lock`. It was restored with `git checkout`, never read, and the rebuild left it unchanged.
+- Amendments recorded in the PRP: permissions read from the vetted manifest, no `AppPage` field; events in their own module; opening through `Cmd.after(0, msg)`.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/bundles/{permissions.la (new), bundle.la, loader.la}, src/guest/{events.la, home.la (new), contract.la, nodes.la, running.la, effects.la, guest.la, limits.la},
+src/window/{tabs.la, newtab.la}, src/shell.la, src/commands/pack.la, src/commands/publish.la,
+test/{permissions, events, home (new), bundle, signing, pack, newtab, contract, effects, shell, guest, tabs, support, + Manifest literals}.la,
+guest/rust/rapidkoi/src/{abi.rs, lib.rs, home.rs (new)}, guest/rust/newtab/src/lib.rs, scripts/newtab.sh, assets/apps/newtab.rkb,
+DECISIONS.md, MEMORY.md, CLAUDE.md, docs/specs/app-events.md, docs/DESIGN.md, CHANGELOG.md, PRPs/prp-030-newtab_reads.md, CONTEXT.md
+```
+
+### STILL OPEN AT CLOSE
+
+- The owner's runs: `lughac test test/`, `cargo test --manifest-path guest/rust/Cargo.toml`, and a look at the new tab.
+- Step B (contract 3's drawing: images, wrapping rows, accent) and C (the left-off preview).
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`/`include_str`. Built: PRP-019–029; session 165 fixed the owner's 10 failures (awaiting the re-run). PRP-030 (the new tab reads pins and where you left off; `on_resume`; contract 3) is written. Blocked on DECISION-039 and the owner's security review. Then step B (contract 3 drawing: images, wrapping rows, accent) and C (the left-off preview).
-
-## SESSION 167 — 2026-10-22 — Build PRP-030: permissions, the new tab's reads, on_resume, contract 3 — open
-Branch: prp-017-kivuli_0_17
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–030; contract 3 (open for step B), contract 2 still runs. Awaiting the owner's test runs (sessions 165 and 167). Next: step B, contract 3's drawing (images, wrapping rows, an accent style), then C (the left-off preview).

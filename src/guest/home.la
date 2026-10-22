@@ -1,0 +1,116 @@
+/**
+ * What the new tab reads (PRP-030), pure: your pins and where you left
+ * off, as the `pins` and `left_off` answers, and what `open_pin` and
+ * `continue` open. Names, places (a host, or a file's name alone), icons
+ * and a screen title: never a path, state, keys or trust.
+ *
+ * Depends on: cbor, guest.limits, net.address, window.window, window.tabs, window.actions
+ * Used by: guest.effects
+ */
+import cbor { Value, Entry };
+import guest.limits { MAX_PLACES, MAX_PLACE_ICON };
+import net.address { is_address, parse, shown };
+import window.window { Model, card };
+import window.tabs { Pin, AppPage, Tab };
+import window.actions { Msg };
+
+/**
+ * Returns where an app lives, as the new tab may show it: a site's host,
+ * or a local app's file name without its folders.
+ *
+ * Example:
+ *     place_of("rapidkoi://quote.dafifi.net")
+ */
+public fun place_of(path: string): string {
+    if is_address(path) {
+        if let Ok(a) = parse(path) {
+            return shown(a);
+        }
+    }
+    let parts = path.split("/");
+    parts[parts.len - 1]
+}
+
+/**
+ * Returns the `pins` answer: up to `MAX_PLACES` maps `{name, place, icon?}`,
+ * in the sidebar's order.
+ *
+ * Example:
+ *     pins_of(m)
+ */
+public fun pins_of(m: Model): Value {
+    let mut out: Value[] = [];
+    for p of m.pinned {
+        if out.len >= MAX_PLACES {
+            break;
+        }
+        out.push(Value.Map(fields(p.name, p.path, p.icon, None)));
+    }
+    Value.Array(out)
+}
+
+/**
+ * Returns the `left_off` answer: `{name, place, icon?, title?}` for the app
+ * used last (open in a tab, or closed and remembered), or null.
+ *
+ * Example:
+ *     left_off_of(m)
+ */
+public fun left_off_of(m: Model): Value {
+    if let Some(id) = m.last {
+        if let Some(a) = page(m, id) {
+            return Value.Map(fields(a.name, a.path, a.icon, a.title));
+        }
+    }
+    match m.left_off {
+        Some(l) => Value.Map(fields(l.name, l.path, l.icon, l.title)),
+        None => Value.Null,
+    }
+}
+
+/**
+ * Returns what `open_pin(index)` opens: your pin at `index` as the pins
+ * are now, or nothing when there's no such pin.
+ *
+ * Example:
+ *     pin_msg(m, 0)
+ */
+public fun pin_msg(m: Model, index: i64): Option<Msg> = if index >= 0 && index < m.pinned.len {
+    Some(Msg.OpenPinned(m.pinned[index].path))
+} else {
+    None
+};
+
+/**
+ * Returns what `continue` does: the "where you left off" card's own action
+ * (its tab, or Continue), or nothing when there's none.
+ *
+ * Example:
+ *     continue_msg(m)
+ */
+public fun continue_msg(m: Model): Option<Msg> = card(m).map(fun(c) = c.msg);
+
+/** One place's fields; an icon past `MAX_PLACE_ICON` is left out. */
+fun fields(name: string, path: string, icon: Option<u8[]>, title: Option<string>): Entry[] {
+    let mut out = [entry("name", Value.Text(name)), entry("place", Value.Text(place_of(path)))];
+    if let Some(i) = icon {
+        if i.len <= MAX_PLACE_ICON {
+            out.push(entry("icon", Value.Bytes(i)));
+        }
+    }
+    if let Some(s) = title {
+        out.push(entry("title", Value.Text(s)));
+    }
+    out
+}
+
+fun entry(k: string, v: Value): Entry = Entry { key: Value.Text(k), value: v };
+
+fun page(m: Model, id: i64): Option<AppPage> {
+    for t of m.tabs {
+        if t.id == id {
+            return Some(t.page);
+        }
+    }
+    None
+}

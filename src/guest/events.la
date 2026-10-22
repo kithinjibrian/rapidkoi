@@ -1,0 +1,81 @@
+/**
+ * Events by contract version (PRP-030, `docs/specs/app-events.md`), pure:
+ * what Rapidkoi sends a guest's `handle`, named as its contract names it.
+ * Contract 3 names them `on_` on the wire; contract 2 keeps its own
+ * (`contract.lifecycle`, `envelope`, `answer`) and has no `on_resume`.
+ *
+ * Depends on: cbor, guest.contract
+ * Used by: guest.running, window.tabs
+ */
+import cbor { Value, Entry, encode };
+import guest.contract { lifecycle, envelope, answer };
+
+/** Something that happened, for an app. */
+public enum Happened {
+    /** A fresh start: make a first state. */
+    Init,
+    /** Every start, fresh or from saved state. */
+    Open,
+    /** Back to the front while running (contract 3). */
+    Resume,
+    /** One of its own messages, and an input's text. */
+    Message(Value, Option<string>),
+    /** Rapidkoi's reply to what it asked for: bytes, null, or a request's reply. */
+    Answer(Value, Value),
+}
+
+/**
+ * Encodes an event as the app's contract names it.
+ *
+ * @param h what happened
+ * @param version the contract the guest exports (2 or 3)
+ * @returns the event's bytes; `None` when that contract has no such event
+ *     (contract 2 has no resume)
+ *
+ * Example:
+ *     event_for(Happened.Resume, g.version)
+ */
+public fun event_for(h: Happened, version: i32): Option<u8[]> {
+    if version < 3 {
+        return match h {
+            Init => Some(lifecycle("init")),
+            Open => Some(lifecycle("opened")),
+            Resume => None,
+            Message(msg, text) => Some(envelope(msg, text)),
+            Answer(msg, value) => Some(answer(msg, value)),
+        };
+    }
+    Some(match h {
+        Init => named("on_init", []),
+        Open => named("on_open", []),
+        Resume => named("on_resume", []),
+        Message(msg, text) => {
+            let mut fields = [field("msg", msg)];
+            if let Some(s) = text {
+                fields.push(field("value", Value.Text(s)));
+            }
+            named("on_message", fields)
+        }
+        // A request's reply is its own event in contract 3: a response, or why it failed.
+        Answer(msg, value) => named(
+            if value.get("status").is_some() {
+                "on_response"
+            } else if value.get("error").is_some() {
+                "on_fail"
+            } else {
+                "on_answer"
+            },
+            [field("msg", msg), field("value", value)],
+        ),
+    })
+}
+
+fun field(name: string, v: Value): Entry = Entry { key: Value.Text(name), value: v };
+
+fun named(event: string, fields: Entry[]): u8[] {
+    let mut all = [field("event", Value.Text(event))];
+    for f of fields {
+        all.push(f);
+    }
+    encode(Value.Map(all))
+}

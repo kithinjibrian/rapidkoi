@@ -1,6 +1,6 @@
 # App events
 
-What Rapidkoi tells an app, and when. A draft from chat with the owner (session 165): names and moments for contract 3. Nothing here is built yet.
+What Rapidkoi tells an app, and when: contract 3 (PRP-030, from chat with the owner, sessions 165–166). Built in session 167, except `on_pause`.
 
 ## The rule for names
 
@@ -15,7 +15,7 @@ On the wire, every event is named `on_` and a verb in snake case: `on_init`, `on
 | `on_resume` | It comes to the front while already running: its tab is clicked or switched back to, or the tab in front of it closes. The new tab gets it each time the empty tab is shown. Never right after `on_open`. | Refreshes what may have changed while it was away. | new |
 | `on_pause` | It goes to the back while still running: another tab, or the empty tab, becomes current. | Stops what's only worth doing while seen. | new, later |
 | `on_message` | You clicked or typed in its screen. Carries its own message, and an input's text. | Changes its state. | `message` |
-| `on_answer` | Rapidkoi replies to something it asked for: its key, a signature, and, once A is built, the new tab's pins and where you left off. | Takes the reply into its state. | `answer` |
+| `on_answer` | Rapidkoi replies to something it asked for: its key, a signature, the new tab's pins and where you left off. | Takes the reply into its state. | `answer` |
 | `on_response` | A request it sent came back, whatever the status (a redirect too). | Reads the reply. | `answer` with a reply |
 | `on_fail` | A request wasn't sent or didn't come back. Carries Rapidkoi's sentence why. | Says so, or tries again. | `answer` with an error |
 
@@ -38,7 +38,7 @@ On the wire, every event is named `on_` and a verb in snake case: `on_init`, `on
 
 - Contract 2's `event` field holds `init`, `opened`, `message` and `answer`. Contract 3 uses the names above on the wire, and splits `answer` into `on_answer`, `on_response` and `on_fail`.
 - An app that doesn't know an event changes nothing (the Rust library already says "more kinds will come"), so `on_resume` and `on_pause` break no published app.
-- A DECISIONS.md entry records the names and the bump.
+- DECISION-039 records the bump; contract 2 apps keep their names and get no `on_resume`.
 
 ## Open
 

@@ -1,24 +1,31 @@
 /**
- * Answering what contract v2 apps ask for (PRP-011): their public key,
- * sign-in signatures over their verified host, and requests (PRP-012,
- * through `requests`). Only signed apps get them,
- * by their host and origin key, and only while you're signed in to them;
- * everything else is answered with nothing. Each answer goes back through
- * the app's `update`, which may ask again, up to `MAX_ANSWERS` in a row.
+ * Answering what apps ask for (PRP-011): their public key, sign-in
+ * signatures over their verified host, and requests (PRP-012, through
+ * `requests`). Only signed apps get keys and signatures, by their host and
+ * origin key, and only while you're signed in to them; everything else is
+ * answered with nothing. The new tab's asks (PRP-030: your pins, where you
+ * left off, opening them) need the permission each names, which only an
+ * app built into `./main` can hold; an app asking for one it didn't
+ * declare is stopped. Each answer goes back through the app's `update`,
+ * which may ask again, up to `MAX_ANSWERS` in a row.
  *
- * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, ui.render, net.requests, window.actions
+ * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, bundles.permissions, ui.render, net.requests, window.actions
  * Used by: shell
  */
 import people.identity { Master, master, public_key, sign_in, reason as identity_reason };
 import people.people { person };
 import window.tabs { AppPage, Tab, Screen, handle };
 import window.window { Model, with_tab };
-import guest.contract { Effect };
+import guest.contract { Effect, reply };
 import cbor { Value };
 import kivuli { Cmd };
 import window.actions { Msg };
 import net.requests;
 import ui.render;
+import guest.home { pins_of, left_off_of, pin_msg, continue_msg };
+import bundles.permissions { Permission, name_of, words_of };
+import bundles.bundle { Manifest };
+import net.network { Reply };
 
 /** The most answers in a row for one app before it's stopped: an app that keeps asking. */
 public const MAX_ANSWERS: i64 = 32;
@@ -37,25 +44,70 @@ public const MAX_ANSWERS: i64 = 32;
 public fun answer_all(m: Model): (Model, Cmd<Msg>) {
     let mut at = m;
     let mut sends: Cmd<Msg>[] = [];
+    let mut slots: Slot[] = [];
     for t of m.tabs {
         if t.page.asks.len > 0 {
-            let (next, cmds) = answer_tab(at, t.id);
-            at = next;
-            for c of cmds {
-                sends.push(c);
-            }
+            slots.push(Slot.InTab(t.id));
+        }
+    }
+    // The new tab runs outside the tabs (PRP-027), and is answered too.
+    if m.newtab.map(fun(p: AppPage) = p.asks.len > 0).unwrap_or(false) {
+        slots.push(Slot.NewTab);
+    }
+    for slot of slots {
+        let (next, cmds) = answer_slot(at, slot);
+        at = next;
+        for c of cmds {
+            sends.push(c);
         }
     }
     (at, if sends.len == 0 { Cmd.none() } else { Cmd.batch(sends) })
 }
 
-/** One tab's effects, in order, and whatever the answers ask for after them. */
-fun answer_tab(m: Model, id: i64): (Model, Cmd<Msg>[]) {
+/** Where a page that asks lives: a tab, or the new tab. */
+enum Slot {
+    InTab(i64),
+    NewTab,
+}
+
+fun get(m: Model, slot: Slot): Option<AppPage> = match slot {
+    InTab(id) => find(m, id),
+    NewTab => m.newtab,
+};
+
+fun put(m: Model, slot: Slot, f: fun(AppPage): AppPage): Model = match slot {
+    InTab(id) => with_tab(m, id, f),
+    NewTab => Model { newtab: m.newtab.map(f), ..m },
+};
+
+/** Whether a page's manifest declares `p`: the loader let it through only if it may hold it. */
+fun holds(page: AppPage, p: Permission): bool = page.manifest.map(
+    fun(m: Manifest) = m.permissions.any(fun(n: string) = n == name_of(p)),
+).unwrap_or(false);
+
+/** The permission an ask needs, if any. */
+fun needed(ask: Effect): Option<Permission> = match ask {
+    Pins(_) => Some(Permission.ReadPins),
+    LeftOff(_) => Some(Permission.ReadLeftOff),
+    OpenPin(_, _) => Some(Permission.OpenApps),
+    Continue(_) => Some(Permission.OpenApps),
+    _ => None,
+};
+
+/** A page stopped with `why`, its asks dropped. */
+fun stop(page: AppPage, why: string): AppPage = AppPage {
+    screen: Screen.Stopped(why, true),
+    asks: [],
+    ..page,
+};
+
+/** One page's effects, in order, and whatever the answers ask for after them. */
+fun answer_slot(m: Model, slot: Slot): (Model, Cmd<Msg>[]) {
     let mut at = m;
     let mut sends: Cmd<Msg>[] = [];
     let mut answered = 0;
     while true {
-        let p = match find(at, id) {
+        let p = match get(at, slot) {
             Some(p) => p,
             None => {
                 return (at, sends);
@@ -66,31 +118,54 @@ fun answer_tab(m: Model, id: i64): (Model, Cmd<Msg>[]) {
         }
         if answered >= MAX_ANSWERS {
             // It keeps asking: stop it, like any app that won't settle.
-            let stopped = with_tab(
+            let stopped = put(
                 at,
-                id,
-                fun(page: AppPage) = AppPage {
-                    screen: Screen.Stopped(
-                        "This app asked Rapidkoi for too many things at once",
-                        true,
-                    ),
-                    asks: [],
-                    ..page,
-                },
+                slot,
+                fun(page: AppPage) = stop(
+                    page,
+                    "This app asked Rapidkoi for too many things at once",
+                ),
             );
             return (stopped, sends);
         }
         let ask = p.asks[0];
+        // Reaching for what it didn't declare stops it (the owner, session 166).
+        if let Some(wanted) = needed(ask) {
+            if !holds(p, wanted) {
+                let why = "This app asked for {words_of(wanted)} without declaring it";
+                return (put(at, slot, fun(page: AppPage) = stop(page, why)), sends);
+            }
+        }
         let rest: Effect[] = [];
         let mut later = rest;
         for i in 1..p.asks.len {
             later.push(p.asks[i]);
         }
         let (got, value, msg) = match ask {
-            Fetch(msg, r) => {
-                let (held, now, send) = requests.ask(at, id, msg, r);
-                sends.push(send);
-                (held, now, msg)
+            Fetch(msg, r) => match slot {
+                InTab(id) => {
+                    let (held, now, send) = requests.ask(at, id, msg, r);
+                    sends.push(send);
+                    (held, now, msg)
+                }
+                // The new tab has no server of its own to reach.
+                NewTab => (at, Some(reply(Reply.Failed("The new tab can't make requests"))), msg),
+            },
+            Pins(msg) => (at, Some(pins_of(at)), msg),
+            LeftOff(msg) => (at, Some(left_off_of(at)), msg),
+            // Opening is the window's own message, after this update: one
+            // tab per app and the empty tab, as for a click (PRP-026).
+            OpenPin(msg, index) => {
+                if let Some(open) = pin_msg(at, index) {
+                    sends.push(Cmd.after(0, open));
+                }
+                (at, None, msg)
+            }
+            Continue(msg) => {
+                if let Some(open) = continue_msg(at) {
+                    sends.push(Cmd.after(0, open));
+                }
+                (at, None, msg)
             }
             Identity(msg) => {
                 let (held, v) = respond(at, p, ask);
@@ -103,7 +178,7 @@ fun answer_tab(m: Model, id: i64): (Model, Cmd<Msg>[]) {
         };
         at = match value {
             // The answer may ask again: those come after the ones still waiting.
-            Some(v) => with_tab(got, id, fun(page: AppPage) {
+            Some(v) => put(got, slot, fun(page: AppPage) {
                 let next = handle(AppPage { asks: [], ..page }, render.Msg.Answer(msg, v));
                 let mut queue = later;
                 for a of next.asks {
@@ -111,8 +186,8 @@ fun answer_tab(m: Model, id: i64): (Model, Cmd<Msg>[]) {
                 }
                 AppPage { asks: queue, ..next }
             }),
-            // Sent: its answer comes when the result arrives.
-            None => with_tab(got, id, fun(page: AppPage) = AppPage { asks: later, ..page }),
+            // Sent, or nothing to answer: a request's answer comes when its result arrives.
+            None => put(got, slot, fun(page: AppPage) = AppPage { asks: later, ..page }),
         };
         answered += 1;
     }
@@ -144,7 +219,7 @@ fun respond(m: Model, p: AppPage, ask: Effect): (Model, Value) {
     let made = match ask {
         Identity(_) => public_key(mm, t.host, t.origin, x.generation),
         Sign(_, challenge) => sign_in(mm, t.host, t.origin, x.generation, challenge),
-        Fetch(_, _) => {
+        _ => {
             return (held, Value.Null);
         }
     };

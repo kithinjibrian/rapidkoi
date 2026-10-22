@@ -80,38 +80,38 @@ All three permissions are built-in.
 ## TESTS TO WRITE
 
 `test/permissions.la` (new, pure):
-- [ ] Each permission's name and tier; parsing a list; an unknown name.
+- [x] Each permission's name and tier; parsing a list; an unknown name.
 
 `test/bundle.la`, `test/signing.la`:
-- [ ] Permissions round-trip; a bad name, more than 16, a repeat are refused; old bundles with `[]` still read; a changed permission breaks a signed bundle.
+- [x] Permissions round-trip; a bad name, more than 16, a repeat are refused; old bundles with `[]` still read; a changed permission breaks a signed bundle.
 
 `test/loader.la` (or `test/newtab.la`):
-- [ ] The built-in new tab loads with its three permissions.
-- [ ] The same bytes loaded as an external file are refused, naming the permission; an unknown permission is refused as "needs a newer version".
+- [x] The built-in new tab loads with its three permissions.
+- [x] The same bytes loaded as an external file are refused, naming the permission; an unknown permission is refused as "needs a newer version".
 
 `test/pack.la`:
-- [ ] `--permission` writes them; a bad name is a plain error.
+- [x] `--permission` writes them; a bad name is a plain error.
 
 `test/home.la` (new, pure):
-- [ ] `pins_of`: names, places (a host for an address, a bare file name for a path with folders), icons; at most 64; the sidebar's order.
-- [ ] `left_off_of`: with a title, without one, none.
+- [x] `pins_of`: names, places (a host for an address, a bare file name for a path with folders), icons; at most 64; the sidebar's order.
+- [x] `left_off_of`: with a title, without one, none.
 
 `test/effects.la`:
-- [ ] The new tab's `pins` and `left_off` asks are answered with the values above.
-- [ ] An app without the permission asking `pins`, `left_off`, `open_pin` or `continue` is stopped with its sentence; nothing is answered or opened.
-- [ ] `open_pin(i)` opens pin `i` in the empty tab; an index past the end opens nothing; `continue` opens where you left off; with none, nothing.
+- [x] The new tab's `pins` and `left_off` asks are answered with the values above.
+- [x] An app without the permission asking `pins`, `left_off`, `open_pin` or `continue` is stopped with its sentence; nothing is answered or opened.
+- [x] `open_pin(i)` opens pin `i` in the empty tab; an index past the end opens nothing; `continue` opens where you left off; with none, nothing.
 
 `test/contract.la`:
-- [ ] Contract 3's events encode with the `on_` names; contract 3's new asks decode; a malformed `open_pin` is a contract error.
-- [ ] Contract 2 as DECISION-039 says (still runs with its old names, or is refused with a sentence).
+- [x] Contract 3's events encode with the `on_` names; contract 3's new asks decode; a malformed `open_pin` is a contract error.
+- [x] Contract 2 as DECISION-039 says (still runs with its old names, or is refused with a sentence).
 
 `test/shell.la`:
-- [ ] Selecting a background app's tab sends it `on_resume` (an echo fixture records it); selecting the current tab doesn't; opening doesn't (only `on_open`).
-- [ ] Showing the empty tab sends the new tab `on_resume`.
+- [x] Selecting a background app's tab sends it `on_resume` (an echo fixture records it); selecting the current tab doesn't; opening doesn't (only `on_open`).
+- [x] Showing the empty tab sends the new tab `on_resume`.
 
 `guest/rust` (`cargo test`):
-- [ ] The new tab asks for pins and where you left off on `on_open` and `on_resume`; draws Continue only with a left-off app; one button per pin sending `open_pin(i)`.
-- [ ] `Places` decodes Rapidkoi's answers; a malformed one is none.
+- [x] The new tab asks for pins and where you left off on `on_open` and `on_resume`; draws Continue only with a left-off app; one button per pin sending `open_pin(i)`.
+- [x] `Places` decodes Rapidkoi's answers; a malformed one is none.
 
 ## ROLLBACK PLAN
 
@@ -120,9 +120,19 @@ All three permissions are built-in.
 ## ACCEPTANCE CRITERIA
 - [ ] The new tab shows where you left off with Continue, and your pins; each opens its app in the empty tab
 - [ ] Pinning an app, then going back to the new tab, shows it there (`on_resume`)
-- [ ] An external app declaring a built-in permission shows why it didn't run; one asking without declaring is stopped
+- [x] An external app declaring a built-in permission shows why it didn't run; one asking without declaring is stopped
 - [ ] `lughac test test/` and `cargo test` pass (the owner runs them); build ok; fmt clean; no file over 500 lines
-- [ ] DECISIONS.md, `docs/specs/app-events.md`, CLAUDE.md, DESIGN.md, CHANGELOG.md updated
+- [x] DECISIONS.md, `docs/specs/app-events.md`, CLAUDE.md, DESIGN.md, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user: `./main`, open the counter and quote, pin the quote, close the counter. + : the new tab shows the counter under where you left off with Continue, and the quote under Pinned. Continue opens the counter in that tab; + again, then the quote's button opens the quote.
+
+## AMENDMENTS (session 167, while building)
+
+- **No `AppPage.permissions`:** a page holds a permission when its manifest lists it. The loader refused every external bundle declaring a built-in one, so the manifest is already vetted (`effects.holds`). Same rule, without touching every page literal.
+- **The events live in `src/guest/events.la`** (`Happened`, `event_for(h, version)`), not in `contract.la`, which keeps contract 2's encoders. Their tests are `test/events.la`, which keeps `test/contract.la` under 500 lines.
+- **Opening is the window's own message:** `open_pin` and `continue` send `OpenPinned(path)`, or the "where you left off" card's own message (`Select(id)` or `Continue`), through `Cmd.after(0, …)`. One tab per app and the empty tab apply as for a click. "Where you left off" is the card's app: the last one visited while it's open, else the last closed.
+- **The new asks decode for any contract;** the permission is the gate. A contract 2 app asking for one is stopped like any other.
+- **The new tab asking to fetch** is answered at once with a failure: it has no server.
+- **Rust:** a structured answer (pins, where you left off) arrives as `Event::Data { msg, cbor }`, read with `Place::list` and `Place::one`. Continue is `Ask::continue_left_off` (`continue` is a Rust keyword).
+- **Icons in answers** are at most `MAX_PLACE_ICON` (64 KB); a larger one is left out.

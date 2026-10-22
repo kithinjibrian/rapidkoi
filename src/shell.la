@@ -10,7 +10,7 @@
 import kivuli { View, Cmd, Sub };
 import wasmtime { Engine };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm, TabAction, PinAction };
-import window.tabs { AppPage, Tab, Pin, handle, is_loading };
+import window.tabs { AppPage, Tab, Pin, handle, is_loading, to_front };
 import net.loads;
 import guest.effects { answer_all };
 import net.requests;
@@ -118,8 +118,9 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     } else {
         handled
     };
-    // What a v2 app asked for is answered before anything is drawn or saved.
-    let (answered, sends) = answer_all(next);
+    // What a v2 app asked for is answered before anything is drawn or saved:
+    // what on_resume asked for too.
+    let (answered, sends) = answer_all(resumed(m, next));
     // What each app declares, and "New" cleared once its Access page is left.
     (persist(m, news(looked(m, answered)), at), both(both(cmd, sends), into_view(m, answered)))
 }
@@ -132,6 +133,23 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
 fun into_view(before: Model, after: Model): Cmd<Msg> = match after.current {
     Some(id) => if before.current != Some(id) { Cmd.scroll_to("tab-{id}") } else { Cmd.none() },
     None => Cmd.none(),
+};
+
+/**
+ * Tells the page now at the front that it's back (`on_resume`, PRP-030),
+ * when the current tab changed to one that was already there: an app tab
+ * that existed before this update, or the empty tab, whose page is the new
+ * tab's. A page just opened heard `on_open` instead.
+ */
+fun resumed(before: Model, after: Model): Model = match after.current {
+    Some(id) if before.current != Some(id) => if window.is_blank(after, id) {
+        Model { newtab: after.newtab.map(to_front), ..after }
+    } else if before.tabs.any(fun(t: Tab) = t.id == id) {
+        window.with_tab(after, id, to_front)
+    } else {
+        after
+    },
+    _ => after,
 };
 
 /** The page the window shows: its tab and its app's path; `None` on home. */

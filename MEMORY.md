@@ -236,6 +236,21 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
+### 21. Contract 3, and built-in permissions (DECISION-039, PRP-030)
+
+**Decision:**
+- Contract 3 names events `on_` on the wire (`on_init`, `on_open`, `on_resume`, `on_message`, `on_answer`, `on_response`, `on_fail`; `docs/specs/app-events.md`). Snake case is for the wire only; libraries name them as they like.
+- It started with PRP-030 and stays open for step B (images, wrapping rows, an accent style); nothing outside this repository targets it until then.
+- Rapidkoi keeps running contract 2 apps, by the version each module exports.
+- A manifest's `permissions` list what an app reaches, fine grained. A built-in permission is only for bytes compiled into `./main`, decided by where the bytes came from, never by the manifest. An external app declaring one doesn't run; an app asking for one it didn't declare is stopped.
+- Apps pull Rapidkoi's data (asks answered by events), never pushed.
+
+**Why:** The owner (sessions 165–167): the new tab reads your pins and where you left off without the shell drawing it (decision 19), and permissions cover it cleanly.
+
+**Rules out:** A site holding a built-in permission; identifying Rapidkoi's own apps by name or manifest; pushing data to apps.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working

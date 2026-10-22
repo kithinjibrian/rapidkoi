@@ -103,6 +103,12 @@ public const REQUEST_TIMEOUT_MS: i64 = 30_000;
 /** The most servers a manifest may declare. */
 public const MAX_SERVERS: i64 = 32;
 
+/** The most pins the new tab is told about (PRP-030). */
+public const MAX_PLACES: i64 = 64;
+
+/** The largest icon handed to the new tab, in bytes; a bigger one is left out. */
+public const MAX_PLACE_ICON: i64 = 64 * 1024;
+
 /** The most permissions a manifest may declare (PRP-030). */
 public const MAX_PERMISSIONS: i64 = 16;
 

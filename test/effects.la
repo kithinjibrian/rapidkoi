@@ -6,7 +6,11 @@ import rapidkoi.shell { Model, with_pages };
 import rapidkoi.ui.layout { view };
 import rapidkoi.guest.effects { answer_all };
 import rapidkoi.data.saving { restore };
-import rapidkoi.window.tabs { AppPage, open_module, state_of, with_saved };
+import rapidkoi.window.tabs { AppPage, Pin, Screen, open_module, state_of, with_saved };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.bundles.bundle { Manifest };
+import rapidkoi.guest.home { pins_of, left_off_of };
+import kivuli { Cmd };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.people.identity { master, public_key, sign_in_message };
 import rapidkoi.people.people { People, Person, person, with_person };
@@ -214,4 +218,89 @@ fun a_resumed_app_asks_again_when_opened() {
     let pk = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
     assert_eq(got(m), answer(t("me"), Value.Bytes(pk)));
     clean(s.dir);
+}
+
+/** A v2 echo page asking `kind` at init, its manifest declaring `permissions` (PRP-030). */
+fun holding(kind: string, extra: (string, Value)[], permissions: string[]): AppPage {
+    let mut fields = [("kind", t(kind)), ("msg", t("got"))];
+    for e of extra {
+        fields.push(e);
+    }
+    AppPage {
+        manifest: Some(Manifest {
+            contract: 2,
+            name: "notes",
+            version: "1.0.0",
+            description: None,
+            state_version: 1,
+            icon: None,
+            banners: [],
+            servers: [],
+            permissions: permissions,
+        }),
+        ..page([kv(fields)], false),
+    }
+}
+
+/** A window with your pins showing `p`, its effects answered: the model and the commands. */
+fun asked(p: AppPage): (Model, Cmd<Msg>) = answer_all(Model {
+    pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }],
+    ..with_pages(Engine.new(), [p]),
+});
+
+fun stopped_why(m: Model): string = match m.tabs[0].page.screen {
+    Stopped(why, _) => why,
+    _ => "running",
+};
+
+/** Every message a command sends after a delay. */
+fun later(c: Cmd<Msg>): Msg[] = match c {
+    After(_, msg) => [msg],
+    Batch(cs) => {
+        let mut all: Msg[] = [];
+        for inner of cs {
+            for msg of later(inner) {
+                all.push(msg);
+            }
+        }
+        all
+    }
+    _ => [],
+};
+
+@test
+fun a_holder_reads_your_pins_and_where_you_left_off() {
+    let (m, _) = asked(holding("pins", [], ["read_pins"]));
+    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), pins_of(m))));
+    let (left, _) = asked(holding("left_off", [], ["read_left_off"]));
+    assert_eq(state_of(left.tabs[0].page), Some(answer(t("got"), left_off_of(left))));
+}
+
+@test
+fun asking_without_declaring_stops_the_app() {
+    // The owner, session 166: reaching for what it didn't declare is a failure on screen.
+    let (m, c) = asked(holding("pins", [], ["read_left_off"]));
+    assert_eq(stopped_why(m), "This app asked for reading your pins without declaring it");
+    let (left, _) = asked(holding("left_off", [], []));
+    assert_eq(
+        stopped_why(left),
+        "This app asked for reading where you left off without declaring it",
+    );
+    let (open, sent) = asked(holding("open_pin", [("index", Value.int(0))], ["read_pins"]));
+    assert_eq(stopped_why(open), "This app asked for opening your apps without declaring it");
+    assert_eq(later(sent), []);
+    let (cont, _) = asked(holding("continue", [], []));
+    assert_eq(stopped_why(cont), "This app asked for opening your apps without declaring it");
+    assert_eq(later(c), []);
+}
+
+@test
+fun open_pin_and_continue_open_through_the_window() {
+    let (_, c) = asked(holding("open_pin", [("index", Value.int(0))], ["open_apps"]));
+    assert_eq(later(c), [Msg.OpenPinned("rapidkoi://quote.dafifi.net")]);
+    let (_, past) = asked(holding("open_pin", [("index", Value.int(1))], ["open_apps"]));
+    assert_eq(later(past), []);
+    // Nothing left off: Continue opens nothing.
+    let (_, none) = asked(holding("continue", [], ["open_apps"]));
+    assert_eq(later(none), []);
 }

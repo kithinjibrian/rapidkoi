@@ -8,10 +8,11 @@ import rapidkoi.window.actions { Msg, Confirm, PanelPage };
 import rapidkoi.window.tabs { AppPage, open_module, state_of };
 import rapidkoi.ui.render;
 import rapidkoi.guest.contract { envelope };
+import rapidkoi.guest.events { Happened, event_for };
 import kivuli { Cmd };
 import kivuli.testing { texts, type_into };
 import wasmtime { Engine, Module };
-import support { t, fixed, echo, crashing, titled_tree, result_of };
+import support { t, fixed, echo, echo_v3, crashing, titled_tree, result_of };
 
 fun app(engine: Engine, name: string, wat: string): AppPage = open_module(
     name,
@@ -286,4 +287,44 @@ fun nothing_scrolls_when_the_current_tab_stays() {
     let m = two();
     assert_eq(scrolled(m, Msg.Draft("rapid")), []);
     assert_eq(scrolled(m, Msg.Select(0)), []);
+}
+
+/** Two contract 3 echo apps, tabs 0 and 1, tab 0 current: each one's state is the last event it got. */
+fun two_v3(): Model {
+    let engine = Engine.new();
+    with_pages(engine, [app(engine, "a", echo_v3()), app(engine, "b", echo_v3())])
+}
+
+fun last_event(m: Model, id: i64): Option<u8[]> = state_of(page(m, id));
+
+fun v3(h: Happened): Option<u8[]> = event_for(h, 3);
+
+@test
+fun a_tab_brought_back_hears_on_resume() {
+    // PRP-030: back to the front while running.
+    let m = two_v3();
+    assert_eq(last_event(m, 1), v3(Happened.Open));
+    let back = step(m, Msg.Select(1));
+    assert_eq(last_event(back, 1), v3(Happened.Resume));
+    // The tab that was current, and selecting it again, hear nothing.
+    assert_eq(last_event(back, 0), v3(Happened.Open));
+    assert_eq(last_event(step(back, Msg.Select(1)), 1), v3(Happened.Resume));
+    // Closing the tab in front brings the other back.
+    let closed = step(back, Msg.CloseTab(1));
+    assert_eq(last_event(closed, 0), v3(Happened.Resume));
+}
+
+@test
+fun a_contract_2_app_hears_nothing_when_brought_back() {
+    let m = two();
+    let before = state_of(page(m, 1));
+    assert_eq(state_of(page(step(m, Msg.Select(1)), 1)), before);
+}
+
+@test
+fun the_new_tab_hears_on_resume_when_the_empty_tab_shows() {
+    let engine = Engine.new();
+    let m = Model { newtab: Some(app(engine, "newtab", echo_v3())), ..two_v3() };
+    let home = step(m, Msg.NewTab);
+    assert_eq(home.newtab.and_then(fun(p: AppPage) = state_of(p)), v3(Happened.Resume));
 }

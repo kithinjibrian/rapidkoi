@@ -42,6 +42,7 @@ Never deleted. Older entries are never modified.
 - The sidebar on kivuli 0.54 (PRP-028): every open tab shows its × while hovered; + sits right after the last tab until they scroll; the current tab is scrolled into view when it changes.
 - Empty tabs run the new-tab app, built into `./main` with Lugha's `include_bytes` (PRP-027 Part 2).
 - Rapidkoi's icons are built in from `assets/icons/` with `include_str` (PRP-029): the files are the only copy.
+- Contract 3 and permissions (PRP-030): events named `on_` on the wire, `on_resume` when an app's tab comes back to the front, and a manifest's `permissions`. Built-in ones only for apps compiled into `./main`; an external app declaring one doesn't run, and one asking undeclared is stopped. The new tab reads your pins and where you left off, with Continue and a button per pin. `./main pack --permission`. Contract 2 apps still run.
 
 ### Changed
 - The redesign begins (on the `redesign` branch, DECISION-027): the window shows only the bare frame, an empty header bar with the window controls, an empty sidebar on the right and an empty content area (PRP-014). Tabs, the bar, home and the info panel are hidden until later redesign PRPs bring each back, in the frame or as a bundled app.

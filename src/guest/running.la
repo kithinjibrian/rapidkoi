@@ -9,15 +9,8 @@
  * Used by: window.tabs
  */
 import guest.guest { Guest, open, reason };
-import guest.contract {
-    Described,
-    ContractError,
-    Effect,
-    Update,
-    read_tree,
-    read_update,
-    lifecycle,
-};
+import guest.contract { Described, ContractError, Effect, Update, read_tree, read_update };
+import guest.events { Happened, event_for };
 import window.tabs { Screen, Program };
 
 /**
@@ -30,14 +23,14 @@ fun start(p: Program, saved: Option<u8[]>): (Screen, Effect[]) = match open(p.en
     Ok(g) => {
         let (state, first) = match saved {
             Some(state) => (state, []),
-            None => match settle(g, [], lifecycle("init"), "init") {
+            None => match settle(g, [], always(Happened.Init, g), "init") {
                 Ok(u) => (u.state, u.effects),
                 Err(why) => {
                     return (Screen.Stopped(why, true), []);
                 }
             },
         };
-        match settle(g, state, lifecycle("opened"), "opened") {
+        match settle(g, state, always(Happened.Open, g), "opened") {
             Err(why) => (Screen.Stopped(why, true), []),
             Ok(u) => {
                 let mut asks = first;
@@ -49,6 +42,26 @@ fun start(p: Program, saved: Option<u8[]>): (Screen, Effect[]) = match open(p.en
         }
     }
 };
+
+/** An event every contract has, named for `g`'s. */
+fun always(h: Happened, g: Guest): u8[] = event_for(h, g.version).expect(
+    "every contract has init, open, message and answer",
+);
+
+/**
+ * Sends an event, named for the guest's contract, to its `handle`, then
+ * renders the new state. Contract 2 has no resume: nothing is called.
+ *
+ * @returns the screen and what it asked for; `None` when the guest's
+ *     contract has no such event
+ *
+ * Example:
+ *     happen(g, state, Happened.Resume)
+ */
+public fun happen(g: Guest, state: u8[], h: Happened): Option<(Screen, Effect[])> = event_for(
+    h,
+    g.version,
+).map(fun(event: u8[]) = step(g, state, event));
 
 /** Sends one event (a message or an answer) to the guest's `handle`, then renders the new state. */
 fun step(g: Guest, state: u8[], event: u8[]): (Screen, Effect[]) = match settle(

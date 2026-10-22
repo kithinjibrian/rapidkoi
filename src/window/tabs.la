@@ -14,10 +14,11 @@ import bundles.bundle { Manifest };
 import bundles.loader { Loaded, Refusal, load, why };
 import net.address;
 import trust.verify { Trust, Change, Keyring };
-import guest.contract { Described, ContractError, Effect, read_tree, envelope, answer };
+import guest.contract { Described, ContractError, Effect, read_tree };
+import guest.events { Happened };
 import ui.render { Msg };
 import window.leftoff { LeftOff };
-import guest.running { start, step };
+import guest.running { start, happen };
 
 /** What an app page shows. */
 public enum Screen {
@@ -235,15 +236,9 @@ fun open_program(name: string, path: string, program: Program): AppPage {
  *     handle(page, Msg.Restart)
  */
 public fun handle(p: AppPage, msg: Msg): AppPage = match (p.screen, msg) {
-    (Running(g, state, _), Event(value, text)) => {
-        let (screen, asks) = step(g, state, envelope(value, text));
-        titled(AppPage { screen: screen, asks: asks, ..p })
-    },
+    (Running(g, state, _), Event(value, text)) => sent(p, g, state, Happened.Message(value, text)),
     // Rapidkoi's answer to an effect: sent to `update` like an event.
-    (Running(g, state, _), Answer(msg, value)) => {
-        let (screen, asks) = step(g, state, answer(msg, value));
-        titled(AppPage { screen: screen, asks: asks, ..p })
-    },
+    (Running(g, state, _), Answer(msg, value)) => sent(p, g, state, Happened.Answer(msg, value)),
     // Events and answers only reach a running screen; otherwise, ignore them.
     (_, Event(_, _)) => p,
     (_, Answer(_, _)) => p,
@@ -257,6 +252,28 @@ public fun handle(p: AppPage, msg: Msg): AppPage = match (p.screen, msg) {
             None => p,
         }
     }
+};
+
+/**
+ * Tells a running page it's back at the front (`on_resume`, PRP-030): its
+ * tab became current again, or, for the new tab, the empty tab is shown.
+ * A contract 2 app, or a page not running, is left as it is.
+ *
+ * @param p the page
+ * @returns the page after the event, with whatever it asked for
+ *
+ * Example:
+ *     to_front(page)
+ */
+public fun to_front(p: AppPage): AppPage = match p.screen {
+    Running(g, state, _) => sent(p, g, state, Happened.Resume),
+    _ => p,
+};
+
+/** `p` after `h`, if its contract has it; any failure stops it. */
+fun sent(p: AppPage, g: Guest, state: u8[], h: Happened): AppPage = match happen(g, state, h) {
+    Some((screen, asks)) => titled(AppPage { screen: screen, asks: asks, ..p }),
+    None => p,
 };
 
 /**

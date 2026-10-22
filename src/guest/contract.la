@@ -107,8 +107,10 @@ fun read_state(bytes: u8[]): Result<u8[], ContractError> {
 
 /**
  * Reads what the guest's `handle` returned: the state and what it asks
- * for, checked (at most `MAX_EFFECTS`; `identity` and `sign` only; a
- * challenge of 1 to `MAX_CHALLENGE` bytes; every one with a `msg`).
+ * for, checked (at most `MAX_EFFECTS`; `identity`, `sign`, `fetch`, and
+ * PRP-030's `pins`, `left_off`, `open_pin` and `continue`, whose
+ * permissions `effects` checks; a challenge of 1 to `MAX_CHALLENGE` bytes;
+ * every one with a `msg`).
  *
  * @returns the update; `Err(TooLong)`, `Err(Decode)`, or `Err(Invalid)`
  *
@@ -137,6 +139,19 @@ public fun read_update(bytes: u8[]): Result<Update, ContractError> {
         let kind = e.get("kind").map(fun(k: Value) = k.as_text().unwrap_or("")).unwrap_or("");
         if kind == "identity" {
             effects.push(Effect.Identity(msg));
+        } else if kind == "pins" {
+            effects.push(Effect.Pins(msg));
+        } else if kind == "left_off" {
+            effects.push(Effect.LeftOff(msg));
+        } else if kind == "continue" {
+            effects.push(Effect.Continue(msg));
+        } else if kind == "open_pin" {
+            match e.get("index").map(fun(i: Value) = i.as_i64()) {
+                Some(Some(i)) if i >= 0 => effects.push(Effect.OpenPin(msg, i)),
+                _ => {
+                    return Err(nodes.invalid("update", "an open_pin needs an index of 0 or more"));
+                }
+            }
         } else if kind == "fetch" {
             effects.push(Effect.Fetch(msg, fetch_of(e)?));
         } else if kind == "sign" {

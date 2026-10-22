@@ -94,6 +94,14 @@ public enum Effect {
     Sign(Value, u8[]),
     /** A request to one of its servers (PRP-012), shaped but not yet allowed; answered with `msg`. */
     Fetch(Value, Request),
+    /** Your pins (PRP-030, needs `read_pins`); answered with `msg`. */
+    Pins(Value),
+    /** Where you left off (needs `read_left_off`); answered with `msg`. */
+    LeftOff(Value),
+    /** Open your pin at this index, as your pins are now (needs `open_apps`); not answered. */
+    OpenPin(Value, i64),
+    /** Open where you left off (needs `open_apps`); not answered. */
+    Continue(Value),
 }
 
 /** What a contract v2 `init` or `update` returned: the new state and what it asks for. */
