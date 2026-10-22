@@ -52,7 +52,7 @@ public const CARD_WIDTH: i64 = 360;
 /** The app's icon at the top of the shield's card, in pixels: every icon's 20 (the owner, session 136). */
 public const CARD_ICON: i64 = 20;
 /** The current app's ring in the sidebar, in pixels. */
-public const RING_WIDTH: i64 = 2;
+public const RING_WIDTH: i64 = 1;
 /** The sidebar's × button, in pixels (square). */
 public const TAB_CLOSE: i64 = 16;
 /** The × inside it, in pixels. */

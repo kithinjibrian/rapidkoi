@@ -80,7 +80,13 @@ public fun sidebar(t: Theme): Styling[] = frame(t);
 public fun app_button(t: Theme): Styling[] = [
     Button.ghost(),
     Button.icon(),
-    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    // A clear ring as wide as the current app's, so ringing one only
+    // colours it and its icon doesn't shift (the owner, session 161).
+    Border {
+        all: Side { width: Width.Px(RING_WIDTH), color: paint(t.clear), ..Side.theme() },
+        radius: Radius.All(CIRCLE),
+        ..Border.theme()
+    },
     When(State.Hover, [Background { color: paint(t.frame_hover), ..Background.theme() }]),
 ];
 

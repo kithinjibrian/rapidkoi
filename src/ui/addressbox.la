@@ -8,7 +8,20 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.frame, ui.icons, ui.tokens, ui.themes
  * Used by: ui.header
  */
-import kivuli { View, Align, Border, Radius, Shadow, State, Styling, When, image, row };
+import kivuli {
+    View,
+    Align,
+    Border,
+    Radius,
+    Shadow,
+    Side,
+    State,
+    Styling,
+    When,
+    Width,
+    image,
+    row,
+};
 import kivuli.ui { input_group, group_input, group_button_with, popover as ui_popover };
 import window.actions { Msg, ShieldPage, PanelPage };
 import window.window { Model, page_of, is_pinned };
@@ -160,10 +173,16 @@ public fun field(m: Model): View<Msg> {
 /**
  * The address box's icon buttons: circles exactly the box's inner height,
  * `SPACE_XS` around the icon, hovering round (session 145). A size alone left
- * them ovals: the group stretched them, so the size is capped too.
+ * them ovals: the group stretched them, so the size is capped too. No
+ * focus ring: the box's own edge shows the focus is in it (the owner,
+ * session 161: a ring inside a ring).
  */
 fun round(): Styling[] = [
     Border { radius: Radius.All(CIRCLE), ..Border.theme() },
     padding(SPACE_XS),
     square(ADDRESS_HEIGHT - 2 * EDGE_WIDTH),
+    When(State.Focus, [
+        Shadow.off(),
+        Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() },
+    ]),
 ];
