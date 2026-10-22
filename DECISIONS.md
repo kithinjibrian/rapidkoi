@@ -25,7 +25,7 @@ Rules:
 
 **Question:** After a pick in a `ui.dropdown` inside a `popover`, a click inside the window and Escape no longer close the popover. Only a click on another surface does, and kivuli's model and the widget drift apart. kivuli 0.54, no Rapidkoi code in the repro.
 
-**Meanwhile:** no workaround. The card still closes with ⚙ or a click outside the window (CLAUDE.md KNOWN ISSUES). Session 171's `ClosePanel` stays: it's how a popover's on_close should read anyway (the shield's does), not a fix for this.
+**Meanwhile:** no workaround. The card still closes with ⚙ or a click outside the window (CLAUDE.md KNOWN ISSUES). Session 171's `ClosePanel` stays: it's how a popover's on_close should read anyway (the shield's does), not a fix for this. Session 171's "approvals wait while a card is open" stays as a rule of its own (the owner left it to me, session 173: no dialog over the settings you're changing), not as a fix for this.
 
 **Revisit when:** kivuli fixes it; then check ⚙'s Permissions page closes normally after a pick.
 

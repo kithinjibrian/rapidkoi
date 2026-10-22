@@ -147,8 +147,9 @@ fun answer_slot(m: Model, slot: Slot): (Model, Cmd<Msg>[]) {
                 // page's that need approval wait too.
                 Ask => {
                     // Only the page in front asks you; one behind waits until
-                    // it's shown. Not over a card you're in (the settings you
-                    // may be changing): asked once it closes (session 171).
+                    // it's shown. Never over a card you're in, the settings
+                    // you may be changing: asked once it closes (the owner's
+                    // call, session 173).
                     let calm = at.panel.is_none() && at.shield.is_none();
                     if at.approval.is_none() && in_front(at, slot) && calm {
                         let tab = match slot {
