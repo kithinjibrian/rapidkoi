@@ -5377,6 +5377,16 @@ src/ui/sidebar.la, src/ui/layout.la, docs/DESIGN.md, CONTEXT.md
 
 ---
 
+## SESSION 149 — 2026-10-22 — PRP-024: empty tabs, and ⌂ as the app's home — open
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- In progress.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli is at 0.51. Built: the header bar (PRP-019), the shield (PRP-021), site settings (PRP-022), the sidebar (PRP-023; scrolling, + at the bottom). `src/ui/themes.la` is 539 lines: split once the owner approves (proposed: the frame's looks into `src/ui/frame_looks.la`). Waiting on kivuli: group hover (DECISION-036), a fitting scroll and `Cmd.scroll_to` (DECISION-037); requests in `docs/specs/`.
