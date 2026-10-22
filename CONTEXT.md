@@ -5275,7 +5275,7 @@ Branch: prp-017-kivuli_0_17
 
 ### WHAT WAS DONE
 
-- The owner: a black background on tooltips. New theme colour `tooltip` (`#000000`) and `themes.tooltips(t)`: `Inside(Part.Tooltip, …)` with that background and the theme's `text`, given on the root after `.dialog` (GTK hangs tooltips beside the root, so only its style reaches them). Build and fmt ok.
+- The owner: a black background on tooltips. New theme colour `tooltip` (`#000000`) and `themes.tooltips(t)`: `Inside(Part.Tooltip, …)` with that background and the theme's `text`, given on the root after `.dialog` (GTK hangs tooltips beside the root, so only its style reaches them). Then padded `SPACE_MD` at the sides, `SPACE_SM` above and below, corners `BUTTON_RADIUS`. Build and fmt ok.
 
 ### FILES CREATED OR MODIFIED
 
@@ -5289,7 +5289,7 @@ src/ui/themes.la, src/ui/layout.la, docs/DESIGN.md, CONTEXT.md
 
 ### DECISIONS MADE
 
-- Tooltips: black, the theme's text colour.
+- Tooltips: black, the theme's text colour, 12 × 8 padding, 6 px corners.
 
 ### PENDING DECISIONS OPENED
 

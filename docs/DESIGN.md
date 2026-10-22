@@ -27,7 +27,7 @@ Dark is first and the default (the frame and page are the owner's colours, 2026-
 | `accent` / `accent_hover`, `on_accent` | `#ff7700` / `#ff8c2e`, `#161616` | **Rapidkoi's brand colour** (the owner, session 111): primary buttons, focus rings, a focused field's edge; dark text on it (white reads at 2.66:1) |
 | `danger` / `danger_hover`, `on_danger` | `#c01c28` / `#d42c38`, `#ffffff` | danger buttons |
 | `subtle_hover` | `#ffffff14` | subtle buttons under the pointer (transparent at rest) |
-| `tooltip` | `#000000` | behind every tooltip's text (`tooltips(t)` on the root, session 146) |
+| `tooltip` | `#000000` | behind every tooltip's text (`tooltips(t)` on the root, padded `SPACE_MD` × `SPACE_SM`, rounded `BUTTON_RADIUS`, session 146) |
 | `clear` | `#00000000` | nothing: the click-catching layer |
 
 **Looks** are functions in `ui/themes.la` returning `Styling[]`: `frame`, `page`, `field`, `address`, `suggestions`, `clear`, `body`, `dim`, `title`, `heading`, `button(t, kind)`.

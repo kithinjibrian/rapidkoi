@@ -42,8 +42,11 @@ import ui.tokens {
     CIRCLE,
     HEADER_ICON,
     SPACE_XS,
+    SPACE_SM,
+    SPACE_MD,
     margin_x,
     padding,
+    padding_xy,
 };
 
 /** One theme: a name, and a colour per part (`#rrggbb` or `#rrggbbaa`). Hex values live only here. */
@@ -324,7 +327,9 @@ public fun window_controls(t: Theme): Styling[] = [
 ];
 
 /**
- * Returns every tooltip's look: the theme's text on `tooltip`. GTK shows a
+ * Returns every tooltip's look: the theme's text on `tooltip`, padded
+ * `SPACE_MD` at the sides and `SPACE_SM` above and below, its corners
+ * rounded `BUTTON_RADIUS` (session 146). GTK shows a
  * tooltip in its own window beside the root, so only the root's style
  * reaches it (kivuli's `Part.Tooltip`).
  *
@@ -335,6 +340,8 @@ public fun tooltips(t: Theme): Styling[] = [
     Inside(Part.Tooltip, [
         Background { color: paint(t.tooltip), ..Background.theme() },
         Text { color: paint(t.text), ..Text.theme() },
+        padding_xy(SPACE_MD, SPACE_SM),
+        Border { radius: Radius.All(BUTTON_RADIUS), ..Border.theme() },
     ]),
 ];
 
