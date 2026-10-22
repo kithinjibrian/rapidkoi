@@ -18,6 +18,19 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-036 — A × on any hovered app needs a parent hover (kivuli)
+
+**Status:** deferred (requested from kivuli: `docs/specs/kivuli-group-hover.md`)
+**Raised:** 2026-10-22 — Session 145 (the owner: "add a x when one hovers on any app")
+
+**Question:** kivuli 0.51 styles a node only by its own state, so a × inside an app's sidebar button can't appear while the button is hovered. kivuli needs a group hover (`.group()` and `State.GroupHover`, as Tailwind's `group-hover`; GTK's CSS has `.parent:hover .child`).
+
+**Meanwhile:** the × shows on the active app only; right-click Close and Ctrl+W close any (PRP-023). Not a silent workaround: once kivuli has group hover, the × goes on every app, shown on hover.
+
+**Revisit when:** kivuli ships group hover; bump and move the ×.
+
+---
+
 ### DECISION-034 — A picture's `.size(n)` doesn't cap it (kivuli)
 
 **Status:** deferred (reported; Rapidkoi uses kivuli's documented exact `Sizing` meanwhile)
