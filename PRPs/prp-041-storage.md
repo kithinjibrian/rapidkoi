@@ -177,12 +177,12 @@ Done looks like this:
 - Branch: `prp-017-kivuli_0_17`; `git revert` the PRP's commits. Contract 6 is then unknown ("needs a newer version"), and databases already written stay on disk, unused.
 
 ## ACCEPTANCE CRITERIA
-- [ ] The tasks app keeps its tasks across closing every window and restarting Rapidkoi.
-- [ ] A task's link opens it in a new window.
-- [ ] Two windows of the tasks app: ticking in one updates the other.
-- [ ] ⚙ shows the data's size; Clear empties it.
-- [ ] Contracts 2–5 apps run as before.
-- [ ] `lughac test test/` and `cargo test` pass (the owner runs them); build ok (with `libsqlite3-dev`); fmt clean; no file over 500 lines.
+- [x] The tasks app keeps its tasks across closing every window and restarting Rapidkoi.
+- [x] A task's link opens it in a new window.
+- [x] Two windows of the tasks app: ticking in one updates the other.
+- [x] ⚙ shows the data's size; Clear empties it.
+- [x] Contracts 2–5 apps run as before (their tests pass: counter, quote, the new tab, Settings).
+- [x] `lughac test test/` and `cargo test` pass (the owner runs them); build ok (with `libsqlite3-dev`); fmt clean; no file over 500 lines.
 - [x] DECISION-052, the contract 6 spec, CLAUDE.md, MEMORY.md, DESIGN.md, CHANGELOG.md updated.
 
 ## VALIDATION

@@ -338,7 +338,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### In Progress
 - Build step 3, a real app: the tasks app (PRP-040, session 206). Since storage (PRP-041, contract 6, session 209) it keeps its tasks in its database, and a task's link opens it in any window.
-- Build step 4, storage: part 1 (a SQLite database per app, PRP-041) built in session 209; sync and history later.
+- Build step 4, storage: part 1 (a SQLite database per app, PRP-041) built in session 209, checked by the owner in session 214. Next: sync (DECISION-011 first).
 
 ### Not Started
 - Build path step 2 (links). Next: DECISION-016, then the links discovery interview.
