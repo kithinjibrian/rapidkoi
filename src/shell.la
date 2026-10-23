@@ -12,7 +12,7 @@ import wasmtime { Engine };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm, TabAction, PinAction };
 import window.tabs { AppPage, Tab, Pin, handle, is_loading, to_front };
 import net.loads;
-import guest.effects { answer_all, approve, left_behind, tell_changes };
+import guest.effects { answer_all, approve, left_behind, tell_changes, tell_prefs };
 import net.requests;
 import people.account { on_account, forget_account };
 import people.access { on_access, looked, news, set_permission };
@@ -144,7 +144,16 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     // What a v2 app asked for is answered before anything is drawn or saved:
     // what on_resume and on_change asked for too.
     // The instance now in front is the one its app reopens to (PRP-033).
-    let (answered, sends) = answer_all(tell_changes(m, resumed(m, touched(m, decided))));
+    let told = tell_prefs(m, tell_changes(m, resumed(m, touched(m, decided))));
+    let (first, asked) = answer_all(told);
+    // The Settings app's change lands while answering: every app is told
+    // then, and what they ask in turn answered (PRP-038).
+    let (answered, again) = if first.prefs != told.prefs {
+        answer_all(tell_prefs(told, first))
+    } else {
+        (first, Cmd.none())
+    };
+    let sends = both(asked, again);
     // What each app declares, and "New" cleared once its Access page is left.
     (
         persist(m, news(looked(m, answered)), at),

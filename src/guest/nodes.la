@@ -234,6 +234,10 @@ public enum Effect {
     Session(Value),
     /** Restore your last session (needs `restore_session`); not answered. */
     RestoreSession(Value),
+    /** The person's choices: theme, more contrast, text size (PRP-038, any app); answered with `msg`. */
+    Preferences(Value),
+    /** Change one of them (needs `change_settings`): its name and value; not answered. */
+    SetPreference(Value, string, Value),
 }
 
 /** What a contract v2 `init` or `update` returned: the new state and what it asks for. */

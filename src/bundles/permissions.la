@@ -18,6 +18,8 @@ public enum Permission {
     OpenApps,
     /** Reading and restoring your last session (PRP-035). */
     RestoreSession,
+    /** Changing Rapidkoi's settings: light or dark, contrast, text size (PRP-038). */
+    ChangeSettings,
 }
 
 /** Who may hold a permission. */
@@ -104,6 +106,7 @@ public const ALL: Permission[] = [
     Permission.ReadLeftOff,
     Permission.OpenApps,
     Permission.RestoreSession,
+    Permission.ChangeSettings,
 ];
 
 /**
@@ -117,6 +120,7 @@ public fun name_of(p: Permission): string = match p {
     ReadLeftOff => "read_left_off",
     OpenApps => "open_apps",
     RestoreSession => "restore_session",
+    ChangeSettings => "change_settings",
 };
 
 /**
@@ -130,6 +134,7 @@ public fun tier_of(p: Permission): Tier = match p {
     ReadLeftOff => Tier.BuiltIn,
     OpenApps => Tier.BuiltIn,
     RestoreSession => Tier.BuiltIn,
+    ChangeSettings => Tier.BuiltIn,
 };
 
 /**
@@ -143,6 +148,7 @@ public fun words_of(p: Permission): string = match p {
     ReadLeftOff => "reading where you left off",
     OpenApps => "opening your apps",
     RestoreSession => "restoring your last session",
+    ChangeSettings => "changing Rapidkoi's settings",
 };
 
 /**
@@ -156,6 +162,7 @@ public fun label_of(p: Permission): string = match p {
     ReadLeftOff => "Reading where you left off",
     OpenApps => "Opening your apps",
     RestoreSession => "Restoring your last session",
+    ChangeSettings => "Changing Rapidkoi's settings",
 };
 
 /**
@@ -169,6 +176,7 @@ public fun wish_of(p: Permission): string = match p {
     ReadLeftOff => "read where you left off",
     OpenApps => "open your apps",
     RestoreSession => "restore your last session",
+    ChangeSettings => "change Rapidkoi's settings",
 };
 
 /**

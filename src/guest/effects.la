@@ -15,7 +15,8 @@
 import people.identity { Master, master, public_key, sign_in, reason as identity_reason };
 import people.people { Grant, person, setting_of, with_setting };
 import window.tabs { AppPage, Tab, Screen, handle, changed };
-import window.window { Model, with_tab, is_blank };
+import window.window { Model, with_tab, is_blank, with_prefs };
+import data.preferences { prefs_value, apply };
 import guest.contract { Effect, reply };
 import cbor { Value };
 import kivuli { Cmd };
@@ -94,6 +95,7 @@ fun needed(ask: Effect): Option<Permission> = match ask {
     Continue(_) => Some(Permission.OpenApps),
     Session(_) => Some(Permission.RestoreSession),
     RestoreSession(_) => Some(Permission.RestoreSession),
+    SetPreference(_, _, _) => Some(Permission.ChangeSettings),
     _ => None,
 };
 
@@ -229,6 +231,21 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
             }
             (m, None, msg)
         }
+        // Open to every app (PRP-038): three coarse values, never colours.
+        Preferences(msg) => (m, Some(prefs_value(m.prefs)), msg),
+        // Only Rapidkoi's Settings app: applied at once; a bad one stops it.
+        SetPreference(msg, name, v) => {
+            if !grant {
+                (m, None, msg)
+            } else {
+                match apply(m.prefs, name, v) {
+                    Ok(next) => (with_prefs(m, next), None, msg),
+                    Err(why) => {
+                        return (put(m, slot, fun(page: AppPage) = stop(page, why)), sends);
+                    }
+                }
+            }
+        }
         Identity(msg) => {
             let (held, v) = respond(m, p, ask);
             (held, Some(v), msg)
@@ -293,6 +310,25 @@ public fun tell_changes(before: Model, after: Model): Model {
         Permission.RestoreSession,
     ) && session_of(before) != session_of(after) || mine(before) != mine(after);
     if moved { put(after, slot, changed) } else { after }
+}
+
+/**
+ * Tells every running app the person's choices changed (`on_change`,
+ * PRP-038): light or dark, contrast or text size. Any app may read them,
+ * so every one is told, in front or not.
+ *
+ * Example:
+ *     tell_prefs(m, next)
+ */
+public fun tell_prefs(before: Model, after: Model): Model {
+    if before.prefs == after.prefs {
+        return after;
+    }
+    let mut at = after;
+    for t of after.tabs {
+        at = with_tab(at, t.id, changed);
+    }
+    Model { newtab: at.newtab.map(changed), ..at }
 }
 
 /** Whether a page is the one you're looking at: its tab, or the new tab on the empty tab. */

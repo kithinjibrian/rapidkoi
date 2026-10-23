@@ -176,6 +176,20 @@ public fun read_update_of(bytes: u8[], version: i32): Result<Update, ContractErr
             effects.push(Effect.Session(msg));
         } else if kind == "restore_session" {
             effects.push(Effect.RestoreSession(msg));
+        } else if kind == "preferences" {
+            effects.push(Effect.Preferences(msg));
+        } else if kind == "set_preference" {
+            // What the value may be is `preferences.apply`'s question, once it's allowed.
+            match (e.get("name"), e.get("value")) {
+                (Some(Text(n)), Some(v)) if n.len <= 32 => effects.push(
+                    Effect.SetPreference(msg, n, v),
+                ),
+                _ => {
+                    return Err(
+                        nodes.invalid("update", "a set_preference needs a name and a value"),
+                    );
+                }
+            }
         } else if kind == "open_pin" {
             match e.get("index").map(fun(i: Value) = i.as_i64()) {
                 Some(Some(i)) if i >= 0 => effects.push(Effect.OpenPin(msg, i)),
