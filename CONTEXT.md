@@ -10829,3 +10829,6 @@ Branch: prp-017-kivuli_0_17
   - **Rapidkoi:** `data/databases.la`, `data/queries.la`, the ⚙ Data row, Forget.
   - **The Rust library** and **the tasks app** move their data into the database.
 - No code.
+
+## SESSION 209 — 2026-10-24 — Build PRP-041: storage (contract 6) — open
+Branch: prp-017-kivuli_0_17
