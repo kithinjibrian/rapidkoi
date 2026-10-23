@@ -10345,15 +10345,7 @@ Branch: prp-017-kivuli_0_17
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Waiting on kivuli: DECISION-040 (a drop-down in a popover). Awaiting the owner's test runs. Built: PRP-032 (no ← ⌂ → in the frame). Built: PRP-033 (named instances); the counter on the VM republished at contract 3 (session 178). PRP-034 (restore open instances at launch) written, awaiting approval. Waiting on kivuli: DECISION-042 (several windows), DECISION-043 (window width for the strip). Uncommitted chat tweaks await the owner. Step B mostly dissolved (no pictures for apps yet; pins stay in the sidebar, a dock). Later: step B (images, wrapping rows, accent), and links' own discovery. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
-
-
-
-
-
-
-
-
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Next, asked first: republish the counter and quote on the VM at contract 4 with the landing page (outward-facing); then PRP-037, cross-app links. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
 
 ## SESSION 180 — 2026-10-23 — The strip and dock tweaks from chat (committed) — closed
 
@@ -10597,5 +10589,29 @@ Branch: prp-017-kivuli_0_17
   - `rapidkoi://` of the same shape is the hand-off; registering it with the desktop is its own PRP.
 - To confirm: fall back to the current version with a notice; the address box shows the full link. No code.
 
-## SESSION 193 — 2026-10-23 — Build PRP-036: links (contract 4) — open
+## SESSION 193 — 2026-10-23 — Build PRP-036: links (contract 4) — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "yes approved, build it." (contract 4 reviewed); approved splitting `tabs.la` (`window/restarts.la`).
+- Addresses (`net/address.la`): links parsed (`/@version`, `?fields`, percent-decoded, every limit) and written (`link_of`); `without_link`; an `http://` link names the site.
+- Contract 4 (`guest/contract.la`, `guest/links.la`, `guest/running.la`): a state of named fields, `link` in `handle`'s result, the address's fields read after every event (a list stops the app), a link's fields set after `on_init` by name and kind.
+- Windows (`window/tabs.la`, `navigate.la`, `net/loads.la`, `data/remembered.la`): `AppPage.link` and `fields`; a link with fields opens a new window; the version through `verify.check_site_at` (listed, withdrawn, or the current one with a notice); kept through Reload and Restore and in the `open` file.
+- The address box shows the whole link (`ui/frame.address_of`).
+- The landing page (`commands/landing.la`): `publish` writes `site/index.html`; `serve` answers every other path with it.
+- Rust: `rapidkoi-derive` (`#[derive(State)]`), `State`, `Field`, `Simple`, `Next`; the library speaks contract 4; the counter links its count; quote and the new tab migrated; `newtab.rkb` repacked; `./main` rebuilt.
+- Docs: DECISION-047 (clipboard, `docs/specs/kivuli-clipboard.md`), DECISION-048 (contract 4), `docs/specs/contract-4.md`, `app-events.md`, CLAUDE.md, MEMORY.md (decision 24), DESIGN.md, CHANGELOG.md, PRP amendments.
+- Every test file checks, fmt is clean, the build and `cargo test --no-run` succeed. Tests not run (the owner runs them).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/net/{address, fetching, loads}.la, src/guest/{contract, links (new), running, nodes, limits, guest}.la,
+src/window/{tabs, restarts (new), navigate, instances, newtab}.la, src/data/{remembered, saving}.la, src/trust/verify.la,
+src/ui/{frame, addressbox}.la, src/commands/{landing (new), publish, serve}.la,
+test/{links (new), landing (new), address, verify, remembered, restore, frame, serve, publish, support, tabs, effects, guest, newtab, header}.la,
+guest/rust/{rapidkoi-derive (new), rapidkoi, counter, quote, newtab}, assets/apps/newtab.rkb,
+DECISIONS.md, MEMORY.md, CLAUDE.md, CHANGELOG.md, docs/DESIGN.md, docs/specs/{contract-4, kivuli-clipboard, app-events}.md, PRPs/prp-036-links.md, CONTEXT.md
+```

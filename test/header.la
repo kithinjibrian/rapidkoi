@@ -112,7 +112,7 @@ fun share_waits_greyed_on_every_tab_and_pin_is_for_apps() {
     let app_page = window(plain());
     let empty = step(window(plain()), Msg.NewTab);
     for m of [app_page, empty] {
-        assert_eq(is_disabled(addressbox.field(m), "Share (comes with links)"), Ok(true));
+        assert_eq(is_disabled(addressbox.field(m), "Share (coming soon)"), Ok(true));
     }
     assert_eq(click(addressbox.field(app_page), "Pin"), Ok(Msg.TogglePin));
     assert(click(addressbox.field(empty), "Pin").is_err());

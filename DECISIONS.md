@@ -26,6 +26,19 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-047 — Share needs a clipboard command (kivuli)
+
+**Status:** deferred (requested: `docs/specs/kivuli-clipboard.md`)
+**Raised:** 2026-10-23 — Session 193 (PRP-036: links)
+
+**Question:** Share should copy the window's link. kivuli 0.54 has no command that writes to the clipboard, and rapidkoi never touches GTK itself (architecture rule 2).
+
+**Meanwhile:** share stays disabled. The address box shows the full link, and its text can be selected and copied. No workaround.
+
+**Revisit when:** kivuli offers a clipboard command; then share copies `address_of(page)`.
+
+---
+
 ### DECISION-046 — Persistent storage: localStorage-style keys, a log underneath
 
 **Status:** deferred (build path step 4; links and a real app come first, the owner, session 190)
@@ -320,6 +333,28 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-048 — Contract 4: a state of named fields, and links
+
+**Status:** resolved
+**Raised:** 2026-10-23 — Session 191 (PRP-036: links, chat with the owner)
+**Resolved:** 2026-10-23 — Session 193 (the owner approved PRP-036, the contract 4 review included: "yes approved, build it.")
+
+**Question:** For a link to carry part of a window's state, Rapidkoi has to read it. Contract 3's state is sealed bytes. Do links read named fields (a new contract), or does the app hand Rapidkoi the link's values itself?
+
+**Outcome:** contract 4 (the owner: "yes named fields, contract 4"), `docs/specs/contract-4.md`.
+- A window's state is a CBOR map with text keys at the top level.
+- `handle`'s result may carry `link`: a list of top-level field names, or null to clear them. Absent keeps them. The values are always read from the state, never given twice.
+- Only simple values go in an address (numbers, text, true/false; null leaves a field out). Anything else stops the app.
+- Opening a link sets its fields in the fresh state after `on_init`, only where that name holds the same kind of value, then sends `on_open`.
+- A link is `https://host/@version?name=value`: the app's own domain, the version in the path, the app's fields in the query.
+- Contracts 2 and 3 still run, unchanged and without links (DECISION-039).
+
+**Rationale:** the owner's choices in chat, sessions 190–192 (PRP-036's WHY). Step B (images, wrapping rows, an accent style), meant for contract 3, hasn't landed: whether it now goes into contract 4 before any app outside this repository targets it, or makes contract 5, is the owner's call when step B is planned.
+
+**Copied to MEMORY.md:** yes
+
+---
 
 ### DECISION-041 — No back or forward in the frame
 

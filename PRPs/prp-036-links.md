@@ -94,25 +94,25 @@ Press Add three times and the address box shows that. Open it in Rapidkoi, and a
 ## TESTS TO WRITE
 
 `test/address.la`:
-- [ ] `https://host/@1.2.0?count=3&filter=work` parses (and `rapidkoi://` and `http://localhost:…` of the same shape); limits; a bad name; a bad version; `host@1.2.0` is refused.
+- [x] `https://host/@1.2.0?count=3&filter=work` parses (and `rapidkoi://` and `http://localhost:…` of the same shape); limits; a bad name; a bad version; `host@1.2.0` is refused.
 
 `test/publish.la`:
-- [ ] Publishing writes `site/index.html` with the app's name and an Open in Rapidkoi address; `serve` returns it for any path.
+- [x] Publishing writes `site/index.html` with the app's name and an Open in Rapidkoi address; `serve` returns it for any path.
 
 `test/links.la` (new):
-- [ ] The address after an event shows the named fields' current values.
-- [ ] Absent keeps the list; null clears it; a non-simple field stops the app.
-- [ ] Opening a link: a new window; fields set when the fresh state has them with the same kind; others ignored; a bare address of an open app still switches.
-- [ ] The link's version: that build is opened when listed; a withdrawn one is refused; one no longer listed opens the current version with a notice.
-- [ ] Reload and Restore keep the window's link.
-- [ ] Contract 3 apps: no links, unchanged.
+- [x] The address after an event shows the named fields' current values.
+- [x] Absent keeps the list; null clears it; a non-simple field stops the app.
+- [x] Opening a link: a new window; fields set when the fresh state has them with the same kind; others ignored; a bare address of an open app still switches.
+- [x] The link's version: that build is opened when listed; a withdrawn one is refused; one no longer listed opens the current version with a notice.
+- [x] Reload and Restore keep the window's link.
+- [x] Contract 3 apps: no links, unchanged.
 
 `test/contract.la`, `test/events.la`:
-- [ ] Contract 4's state as a map; `link` in the result.
+- [x] Contract 4's state as a map; `link` in the result.
 
 `guest/rust` (`cargo test`):
-- [ ] `#[derive(State)]` round-trips; only simple fields get link names (a `Vec` field doesn't compile as a link: a compile-fail test).
-- [ ] `Next` builds the result; the counter's link follows its count.
+- [x] `#[derive(State)]` round-trips; only simple fields get link names (a `Vec` field doesn't compile as a link: a compile-fail test).
+- [x] `Next` builds the result; the counter's link follows its count.
 
 ## ROLLBACK PLAN
 
@@ -122,7 +122,7 @@ Press Add three times and the address box shows that. Open it in Rapidkoi, and a
 - [ ] Add three times: the address box shows `counter…/?count=3`; opening that address gives a new window at 3
 - [ ] Contract 2 and 3 apps run as before
 - [ ] `lughac test test/` and `cargo test` pass (the owner runs them); build ok; fmt clean; no file over 500 lines
-- [ ] DECISIONS.md (contract 4, DECISION-047), docs, CHANGELOG.md updated
+- [x] DECISIONS.md (contract 4, DECISION-047), docs, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user:
@@ -133,3 +133,16 @@ Press Add three times and the address box shows that. Open it in Rapidkoi, and a
 ## CONFIRMED ON APPROVAL (the owner, session 193: "yes approved, build it", the contract 4 review included)
 - A link whose version is no longer listed opens the current version, applies its fields as usual, and shows "This link was made with Counter 0.3.0; opened 0.5.0".
 - The address box shows the full link, version included.
+
+## AMENDMENTS (session 193, while building)
+
+- **`tabs.la` split** (the owner approved, FILE SIZE RULE): `resume`, `with_saved` and `load_again` moved unchanged to `src/window/restarts.la`.
+- **`AppPage.fields`** beside `AppPage.link`: the named fields' current values, read after every event, so the address box doesn't decode the state while drawing.
+- **Where the tests went:** contract 4's result in `test/links.la` (`test/contract.la` is at the limit); the version in `test/verify.la` (`check_site_at`); the `open` file in `test/remembered.la`; the address box in `test/frame.la` (`address_of`); the landing page in `test/landing.la`, `test/publish.la` and `test/serve.la`.
+- **`Next::link(field)`** is chainable, one field at a time, so fields of different types can go together. `Next::from((state, asks))` is the pair form, keeping the address as it was: quote and the new tab use it.
+- **A null field in the fresh state takes nothing from a link:** its kind isn't known. So an `Option` field that starts as `None` can't be set by a link.
+- **`http://localhost:PORT` links** name the site, not a bundle: an `http://` address with no path is fetched like `rapidkoi://`, so the development link the box shows opens again when pasted.
+- **The landing page** says "You need Rapidkoi to open it." There's no address to get Rapidkoi from yet.
+- **Share's tooltip** is "Share (coming soon)" (it said "comes with links").
+- **DECISION-048** records contract 4. Where step B goes (contract 4 or 5) is the owner's call when it's planned.
+

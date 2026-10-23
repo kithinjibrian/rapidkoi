@@ -1,6 +1,6 @@
 # App events
 
-What Rapidkoi tells an app, and when: contract 3 (PRP-030, from chat with the owner, sessions 165–166). Built in session 167, except `on_pause`.
+What Rapidkoi tells an app, and when: contract 3 (PRP-030, from chat with the owner, sessions 165–166). Built in session 167, except `on_pause`. Contract 4 (PRP-036, `contract-4.md`) keeps these events; a link's fields are set in the state before `on_open`.
 
 ## The rule for names
 
@@ -11,7 +11,7 @@ On the wire, every event is named `on_` and a verb in snake case: `on_init`, `on
 | Event | When Rapidkoi sends it | What the app does with it | Today |
 |---|---|---|---|
 | `on_init` | A fresh start, before anything else: the first open, a Restart after a crash, a new build that changed its state version, Start over. | Makes its first state. | `init` |
-| `on_open` | Every time it starts up, fresh or from saved state: Continue, a pin, an address, Rapidkoi restarting, Reload with a new build. Right after `on_init` on a fresh start. | Asks for what it needs: its key, its data, its server's news. | `opened` |
+| `on_open` | Every time it starts up, fresh or from saved state: Continue, a pin, an address, a link, Rapidkoi restarting, Reload with a new build. Right after `on_init` on a fresh start (contract 4: after a link's fields are set). | Asks for what it needs: its key, its data, its server's news. Checks a link's fields mean something. | `opened` |
 | `on_resume` | It comes to the front while already running: its tab is clicked or switched back to, or the tab in front of it closes. The new tab gets it each time the empty tab is shown. Never right after `on_open`. | Refreshes what may have changed while it was away. | new |
 | `on_change` | Something it may read changed while it's in front: your pins or where you left off (for a permission it holds that isn't blocked), or one of its own permission settings (PRP-031). Never right after `on_resume`. | Asks again. | new |
 | `on_pause` | It goes to the back while still running: another tab, or the empty tab, becomes current. | Stops what's only worth doing while seen. | new, later |

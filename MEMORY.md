@@ -274,6 +274,18 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Amended (session 189, the owner: "devs are going to treat state like persistent storage"):** every window is the same, and state lives with its window. Closing any window deletes its state; an app opened anew starts fresh; only Restore brings a saved window back. What should last belongs in storage (build step 4). Session 188's special first window is undone. Continue's meaning is parked (DECISION-044).
 
+### 24. Links and contract 4 (DECISION-048, PRP-036)
+
+**Decision:**
+- A link is preserved state in text: `https://host/@version?field=value`, a real web address on the app's own domain. The version is in the path (never `host@version`, a web login); Rapidkoi's parts live in the path (`@`, `~` reserved), the app's fields in the query.
+- A window's state is named fields (contract 4). After each event the app names which fields go in its address (`link`); their values are always read from the state. Only simple values: numbers, text, true/false.
+- Opening a link with fields opens a new window of its app at that version (while listed), fields set in the fresh state where they fit by name and kind, then `on_open`. A bare address of an open app switches to it.
+- The address box shows the whole link. `./main publish` writes a landing page every other path on the site serves.
+
+**Why:** The owner (sessions 190–193): which fields go out is chosen when the new state is returned, never declared up front; naming fields (not values) leaves one place for them to diverge from.
+
+**Rules out:** Apps writing their own URLs; fields at the struct's definition; lists or maps in an address; a shared Rapidkoi domain for links. Cross-app links come next (proposed PRP-037).
+
 ---
 
 ## CURRENT PROJECT STATE

@@ -155,7 +155,7 @@ public fun field(m: Model): View<Msg> {
             group_button_with(
                 [image(icon(Icon.Share, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
                 Msg.Home,
-            ).disabled(true).style(round()).align(Align.Center).tooltip("Share (comes with links)"),
+            ).disabled(true).style(round()).align(Align.Center).tooltip("Share (coming soon)"),
         );
     }
     if let App(p) = page {
