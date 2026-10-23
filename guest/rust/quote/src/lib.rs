@@ -5,7 +5,13 @@
 //! `guest/rust/` (set `QUOTE_SERVER` for another server than
 //! `http://localhost:8000`), then pack and serve it from `examples/quote/`.
 
-use rapidkoi::{button, column, header, text, App, Ask, Event, Next, Progress, Request, SignIn, Space, State, View};
+use rapidkoi::{button, column, header, text, App, Ask, Event, Message, Next, Progress, Request, SignIn, Space, State, View};
+
+/// What the quote's screen sends.
+#[derive(Debug, Clone, PartialEq, Message)]
+enum Msg {
+    Again,
+}
 
 /// The app's own server: where it was published.
 const SERVER: &str = match option_env!("QUOTE_SERVER") {
@@ -46,18 +52,20 @@ impl Quote {
 }
 
 impl App for Quote {
-    fn handle(self, event: Event) -> Next<Self> {
+    type Msg = Msg;
+
+    fn handle(self, event: Event<Msg>) -> Next<Self> {
         // Nothing of the quote's goes in its address.
         self.step(event).into()
     }
 
-    fn view(&self) -> View {
+    fn view(&self) -> View<Msg> {
         self.screen()
     }
 }
 
 impl Quote {
-    fn step(mut self, event: Event) -> (Self, Vec<Ask>) {
+    fn step(mut self, event: Event<Msg>) -> (Self, Vec<Ask>) {
         match self.signing_in.on(&event) {
             Progress::Asks(asks) => return (self, asks),
             Progress::SignedIn(token) => {
@@ -70,7 +78,7 @@ impl Quote {
         }
         match event {
             Event::Opened => self.start(),
-            Event::Message { msg, .. } if msg == "again" => self.start(),
+            Event::Message { msg: Msg::Again, .. } => self.start(),
             Event::Response { msg, status, headers, body } if msg == "quote" => {
                 if status != 200 {
                     return (Quote { problem: Some(format!("The server answered {}", status)), ..self }, vec![]);
@@ -83,7 +91,7 @@ impl Quote {
         }
     }
 
-    fn screen(&self) -> View {
+    fn screen(&self) -> View<Msg> {
         let mut parts = vec![
             text("Quote of the day").title(),
             text(self.quote.as_deref().unwrap_or("Fetching today's quote…")),
@@ -96,7 +104,7 @@ impl Quote {
         if let Some(p) = &self.problem {
             parts.push(text(p));
         }
-        parts.push(button("Try again").on_press("again"));
+        parts.push(button("Try again").on_press(Msg::Again));
         column(parts).spacing(Space::Md).screen_title("Quote")
     }
 }

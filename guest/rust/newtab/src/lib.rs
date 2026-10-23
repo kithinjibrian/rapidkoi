@@ -8,7 +8,16 @@
 //! Build and pack: `scripts/newtab.sh`, which writes `assets/apps/newtab.rkb`.
 
 use minicbor::{Decode, Encode};
-use rapidkoi::{button, column, row, text, App, Ask, Event, Next, Place, Session, Space, State, View};
+use rapidkoi::{button, column, row, text, App, Ask, Event, Message, Next, Place, Session, Space, State, View};
+
+/// What the new tab's screen sends.
+#[derive(Debug, Clone, PartialEq, Message)]
+enum Msg {
+    Restore,
+    Continue,
+    /// Open the pin at this place in the list.
+    Pin(u32),
+}
 
 /// What the new tab shows of one app.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
@@ -43,18 +52,20 @@ fn read() -> Vec<Ask> {
 }
 
 impl App for NewTab {
-    fn handle(self, event: Event) -> Next<Self> {
+    type Msg = Msg;
+
+    fn handle(self, event: Event<Msg>) -> Next<Self> {
         // The new tab has no address of its own to put fields in.
         self.step(event).into()
     }
 
-    fn view(&self) -> View {
+    fn view(&self) -> View<Msg> {
         self.screen()
     }
 }
 
 impl NewTab {
-    fn step(self, event: Event) -> (Self, Vec<Ask>) {
+    fn step(self, event: Event<Msg>) -> (Self, Vec<Ask>) {
         match event {
             Event::Opened | Event::Resume | Event::Change => (self, read()),
             Event::Data { msg, cbor } if msg == "pins" => (
@@ -70,20 +81,17 @@ impl NewTab {
             // Nothing left off, or no session to restore.
             Event::Answer { msg, .. } if msg == "left" => (NewTab { left: None, ..self }, vec![]),
             Event::Answer { msg, .. } if msg == "session" => (NewTab { session: None, ..self }, vec![]),
-            Event::Message { msg, .. } if msg == "restore" => (self, vec![Ask::restore_session("restore")]),
-            Event::Message { msg, .. } if msg == "continue" => (self, vec![Ask::continue_left_off("continue")]),
-            Event::Message { msg, .. } => match msg.strip_prefix("pin:").and_then(|i| i.parse::<u32>().ok()) {
-                Some(i) => (self, vec![Ask::open_pin("open", i)]),
-                None => (self, vec![]),
-            },
+            Event::Message { msg: Msg::Restore, .. } => (self, vec![Ask::restore_session("restore")]),
+            Event::Message { msg: Msg::Continue, .. } => (self, vec![Ask::continue_left_off("continue")]),
+            Event::Message { msg: Msg::Pin(i), .. } => (self, vec![Ask::open_pin("open", i)]),
             _ => (self, vec![]),
         }
     }
 
-    fn screen(&self) -> View {
+    fn screen(&self) -> View<Msg> {
         let mut parts = vec![text("Rapidkoi").title()];
         if let Some(n) = self.session {
-            parts.push(button(&format!("Restore previous session ({})", n)).primary().on_press("restore"));
+            parts.push(button(&format!("Restore previous session ({})", n)).primary().on_press(Msg::Restore));
         }
         if let Some(l) = &self.left {
             parts.push(
@@ -96,13 +104,13 @@ impl NewTab {
                         _ => &l.place,
                     })
                     .dim(),
-                    button("Continue").primary().on_press("continue"),
+                    button("Continue").primary().on_press(Msg::Continue),
                 ])
                 .spacing(Space::Sm),
             );
         }
         if !self.pins.is_empty() {
-            let buttons = self.pins.iter().enumerate().map(|(i, p)| button(&p.name).on_press(&format!("pin:{}", i)));
+            let buttons = self.pins.iter().enumerate().map(|(i, p)| button(&p.name).on_press(Msg::Pin(i as u32)));
             parts.push(column([text("Pinned").heading(), row(buttons).spacing(Space::Sm)]).spacing(Space::Sm));
         }
         column(parts).spacing(Space::Lg)
@@ -119,8 +127,8 @@ mod tests {
         Shown { name: name.into(), place: format!("{}.example", name), title: None }
     }
 
-    fn message(msg: &str) -> Vec<Ask> {
-        NewTab::default().step(Event::Message { msg: msg.into(), value: None }).1
+    fn message(msg: Msg) -> Vec<Ask> {
+        NewTab::default().step(Event::Message { msg, value: None }).1
     }
 
     #[test]
@@ -146,13 +154,13 @@ mod tests {
                     text("Where you left off").heading(),
                     text("Quote"),
                     text("Quote.example").dim(),
-                    button("Continue").primary().on_press("continue"),
+                    button("Continue").primary().on_press(Msg::Continue),
                 ])
                 .spacing(Space::Sm),
             ])
             .spacing(Space::Lg)
         );
-        assert_eq!(message("continue"), vec![Ask::continue_left_off("continue")]);
+        assert_eq!(message(Msg::Continue), vec![Ask::continue_left_off("continue")]);
     }
 
     #[test]
@@ -164,14 +172,13 @@ mod tests {
                 text("Rapidkoi").title(),
                 column([
                     text("Pinned").heading(),
-                    row([button("Quote").on_press("pin:0"), button("Counter").on_press("pin:1")]).spacing(Space::Sm),
+                    row([button("Quote").on_press(Msg::Pin(0)), button("Counter").on_press(Msg::Pin(1))]).spacing(Space::Sm),
                 ])
                 .spacing(Space::Sm),
             ])
             .spacing(Space::Lg)
         );
-        assert_eq!(message("pin:1"), vec![Ask::open_pin("open", 1)]);
-        assert_eq!(message("pin:x"), vec![]);
+        assert_eq!(message(Msg::Pin(1)), vec![Ask::open_pin("open", 1)]);
     }
 
     #[test]
@@ -180,10 +187,10 @@ mod tests {
         let t = NewTab { session: Some(2), ..NewTab::default() };
         assert_eq!(
             t.view(),
-            column([text("Rapidkoi").title(), button("Restore previous session (2)").primary().on_press("restore")])
+            column([text("Rapidkoi").title(), button("Restore previous session (2)").primary().on_press(Msg::Restore)])
                 .spacing(Space::Lg)
         );
-        assert_eq!(message("restore"), vec![Ask::restore_session("restore")]);
+        assert_eq!(message(Msg::Restore), vec![Ask::restore_session("restore")]);
         let (t, _) = t.step(Event::Answer { msg: "session".into(), value: None });
         assert_eq!(t.session, None);
     }
