@@ -40,6 +40,16 @@ public enum Msg {
     Continue,
     /** The approval dialog's answer (PRP-031). */
     Approve(Answer),
+    /** Another instance of the current app (PRP-033): the strip's +. */
+    NewInstance,
+    /** Ask for a new name for this instance: its menu's Rename…. */
+    RenameInstance(i64),
+    /** The rename dialog's text. */
+    InstanceName(string),
+    /** Rename: apply the name typed, if it's allowed. */
+    ConfirmRename,
+    /** Close every instance of this tab's app: the dock's menu. */
+    CloseApp(i64),
     /** The Permissions page: the card's app's permission, by name, set to this. */
     SetPermission(string, Setting),
     /** Show or hide the app info panel: ⚙. */

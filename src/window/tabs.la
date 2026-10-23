@@ -78,6 +78,15 @@ public struct AppPage {
     public in_flight: i64,
     /** What's on screen. */
     public screen: Screen,
+    /**
+     * Which instance of its app this is (PRP-033): "" for the first, then
+     * "2", "3"… Stable: its saved state is kept under it, whatever it's called.
+     */
+    public instance: string,
+    /** The name the person gave this instance, if they renamed it. */
+    public label: Option<string>,
+    /** When it was last the current tab, as a count: the app's last-used instance has the highest. */
+    public seen: i64,
 }
 
 /** What the window shows: home, or the current tab's app. */
@@ -222,6 +231,9 @@ fun open_program(name: string, path: string, program: Program): AppPage {
         load: 0,
         in_flight: 0,
         screen: screen,
+        instance: "",
+        label: None,
+        seen: 0,
     })
 }
 
@@ -337,6 +349,10 @@ public fun resume(l: LeftOff): AppPage = match l.program {
             load: 0,
             in_flight: 0,
             screen: screen,
+            // The same instance, under its name (PRP-033).
+            instance: l.instance,
+            label: l.label,
+            seen: 0,
         })
     }
     None => failed(l.name, l.path, "This app couldn't be reopened"),
@@ -451,6 +467,9 @@ fun failed(name: string, path: string, why: string): AppPage = AppPage {
     load: 0,
     in_flight: 0,
     screen: Screen.Stopped(why, false),
+    instance: "",
+    label: None,
+    seen: 0,
 };
 
 /**

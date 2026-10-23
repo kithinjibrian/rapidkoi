@@ -18,6 +18,7 @@ import people.account { on_account, forget_account };
 import people.access { on_access, looked, news, set_permission };
 public import window.window { Model, with_pages, title_of };
 import window.navigate;
+import window.instances { close_instance, close_app, start_rename, confirm_rename, touched };
 import window.newtab;
 import data.saving { session_store, restore, persist, mark, forgotten };
 import data.store { Store };
@@ -135,7 +136,8 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     let (decided, denied) = left_behind(next);
     // What a v2 app asked for is answered before anything is drawn or saved:
     // what on_resume and on_change asked for too.
-    let (answered, sends) = answer_all(tell_changes(m, resumed(m, decided)));
+    // The instance now in front is the one its app reopens to (PRP-033).
+    let (answered, sends) = answer_all(tell_changes(m, resumed(m, touched(m, decided))));
     // What each app declares, and "New" cleared once its Access page is left.
     (
         persist(m, news(looked(m, answered)), at),
@@ -201,7 +203,16 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     // + adds an empty tab; Home shows one, the current if it's empty (PRP-024).
     NewTab => (window.new_blank(m), Cmd.focus("address")),
     Home => (window.go_home(m), Cmd.focus("address")),
-    CloseTab(id) => (window.close(m, id), Cmd.none()),
+    // One of several instances closes to another of the same app (PRP-033).
+    CloseTab(id) => (close_instance(m, id), Cmd.none()),
+    CloseApp(id) => (close_app(m, id), Cmd.none()),
+    NewInstance => navigate.new_instance(m),
+    RenameInstance(id) => (start_rename(m, id), Cmd.none()),
+    InstanceName(typed) => (
+        Model { renaming: m.renaming.map(fun(r: (i64, string)) = (r.0, typed)), ..m },
+        Cmd.none(),
+    ),
+    ConfirmRename => (confirm_rename(m), Cmd.none()),
     // Typing in the field starts editing: on an app, what's typed replaces
     // its address in the box until Enter or Dismiss (PRP-025).
     Draft(text) => (Model { draft: text, editing: true, notice: None, ..m }, Cmd.none()),
@@ -237,7 +248,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     PanelGo(page) => (Model { panel: Some(page), confirm: None, ..m }, Cmd.none()),
     PanelBack => (Model { panel: Some(PanelPage.Main), confirm: None, ..m }, Cmd.none()),
     Ask(c) => (Model { confirm: Some(c), ..m }, Cmd.none()),
-    Cancel => (Model { confirm: None, ..m }, Cmd.none()),
+    Cancel => (Model { confirm: None, renaming: None, ..m }, Cmd.none()),
     StartOver => match m.current {
         Some(id) => (
             Model {

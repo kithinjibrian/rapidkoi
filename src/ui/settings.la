@@ -33,6 +33,7 @@ import ui.cards { sized, choice, detail, sentence, line, identity as app_head };
 import ui.tokens { SPACE_XS, SPACE_SM, gap };
 import ui.themes { Theme, body, dim, group, button as button_look };
 import ui.grants;
+import ui.strip;
 
 /**
  * Builds site settings' card on a page, for an app page.
@@ -73,6 +74,10 @@ public fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
  *     page.dialog(settings.dialog(m))
  */
 public fun dialog(m: Model): Option<Dialog<Msg>> {
+    // Renaming an instance (PRP-033): closing it is Cancel.
+    if m.renaming.is_some() {
+        return Some(ui_dialog(Msg.Cancel, [dialog_view(m)]));
+    }
     // An app waiting for your approval first (PRP-031): closing it is Don't allow.
     if m.approval.is_some() {
         return Some(ui_dialog(Msg.Approve(Answer.Deny), [dialog_view(m)]));
@@ -91,6 +96,9 @@ public fun dialog(m: Model): Option<Dialog<Msg>> {
  *     dialog_view(m)
  */
 public fun dialog_view(m: Model): View<Msg> {
+    if m.renaming.is_some() {
+        return strip.rename_view(m);
+    }
     if let Some(q) = grants.question(m) {
         return q;
     }

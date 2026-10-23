@@ -30,6 +30,10 @@ public struct LeftOff {
     /** Which signed app it is, when read back from disk (no `trust` then). */
     signer: Option<(string, u8[])>,
     program: Option<Program>,
+    /** Which instance of its app it was (PRP-033): "" for the first. */
+    public instance: string,
+    /** The name the person gave that instance, if any. */
+    public label: Option<string>,
 }
 
 /**
@@ -53,6 +57,8 @@ public fun leave(p: AppPage): LeftOff {
         trust: p.trust,
         signer: None,
         program: p.program,
+        instance: p.instance,
+        label: p.label,
     };
     close_page(p);
     left
@@ -76,6 +82,8 @@ public fun snapshot(p: AppPage): LeftOff = LeftOff {
     trust: p.trust,
     signer: None,
     program: None,
+    instance: p.instance,
+    label: p.label,
 };
 
 /**
@@ -113,6 +121,21 @@ public fun recalled(
     trust: None,
     signer: signer,
     program: None,
+    instance: "",
+    label: None,
+};
+
+/**
+ * The same left-off, as one instance of its app (PRP-033): what the
+ * left-off file read back.
+ *
+ * Example:
+ *     as_instance(recalled(…), "2", Some("Work"))
+ */
+public fun as_instance(l: LeftOff, instance: string, label: Option<string>): LeftOff = LeftOff {
+    instance: instance,
+    label: label,
+    ..l,
 };
 
 /**

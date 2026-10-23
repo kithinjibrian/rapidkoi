@@ -18,6 +18,19 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-042 — Several Rapidkoi windows (kivuli)
+
+**Status:** deferred (requested: `docs/specs/kivuli-several-windows.md`)
+**Raised:** 2026-10-23 — Session 177 (PRP-033; the owner: people who want two instances side by side "can open multiple windows")
+
+**Question:** A second `./main` only raises the first window (DECISION-014): kivuli makes the GTK application single-instance. Should kivuli support several windows in one program (one model, a view per window), or let a second launch run separately?
+
+**Meanwhile:** one window; instances are switched in the header's strip. Panes were weighed and deferred by the owner (session 176).
+
+**Revisit when:** kivuli offers several windows; then a "New window" for an instance.
+
+---
+
 ### DECISION-040 — A drop-down inside a popover breaks the popover's dismissal (kivuli)
 
 **Status:** deferred (reported: `docs/specs/kivuli-dropdown-in-popover.md`)

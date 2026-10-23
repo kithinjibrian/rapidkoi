@@ -50,13 +50,30 @@ public fun state_name(host: string, key: u8[]): string = hex(
 );
 
 /**
+ * Returns the file name for one instance of an app (PRP-033): the first
+ * instance's ("") is `state_name`'s, so the state apps always had is
+ * theirs; the others hash the instance's key in too.
+ *
+ * Example:
+ *     instance_name("notes.acme.com", key, "2")
+ */
+public fun instance_name(host: string, key: u8[], instance: string): string = if instance == "" {
+    state_name(host, key)
+} else {
+    hex(sha256(encode(Value.Array([Value.Text(host), Value.Bytes(key), Value.Text(instance)]))))
+};
+
+/**
  * Encodes a state file.
  *
  * Example:
  *     state_file(saved)
  */
-public fun state_file(sv: Saved): u8[] = encode(
-    Value.Map([
+public fun state_file(sv: Saved): u8[] = state_file_in(sv, "");
+
+/** A state file for one instance: the first instance's names none. */
+fun state_file_in(sv: Saved, instance: string): u8[] {
+    let mut fields = [
         entry("format", Value.int(FORMAT)),
         entry("kind", Value.Text("rapidkoi state")),
         entry("host", Value.Text(sv.host)),
@@ -64,8 +81,12 @@ public fun state_file(sv: Saved): u8[] = encode(
         entry("state_version", Value.int(sv.state_version)),
         entry("state", Value.Bytes(sv.state)),
         entry("used", Value.int(sv.used)),
-    ]),
-);
+    ];
+    if instance != "" {
+        fields.push(entry("instance", Value.Text(instance)));
+    }
+    encode(Value.Map(fields))
+}
 
 /**
  * Reads a state file, which must be for `host` and `key`.
@@ -73,7 +94,19 @@ public fun state_file(sv: Saved): u8[] = encode(
  * Example:
  *     read_state(bytes, "notes.acme.com", key)?
  */
-public fun read_state(bytes: u8[], host: string, key: u8[]): Result<Saved, Unreadable> {
+public fun read_state(
+    bytes: u8[],
+    host: string,
+    key: u8[],
+): Result<Saved, Unreadable> = read_state_in(bytes, host, key, "");
+
+/** A state file, which must be for `host`, `key` and `instance`. */
+fun read_state_in(
+    bytes: u8[],
+    host: string,
+    key: u8[],
+    instance: string,
+): Result<Saved, Unreadable> {
     let bounds = Limits { max_depth: 2, max_items: 32, max_bytes: MAX_FILE, max_string: MAX_FILE };
     let v = decode(bytes, bounds).map_err(fun(e) = Unreadable.Broken("not CBOR ({e})"))?;
     let format = v.get("format").map(fun(n: Value) = n.as_i64().unwrap_or(-1)).unwrap_or(-1);
@@ -86,7 +119,10 @@ public fun read_state(bytes: u8[], host: string, key: u8[]): Result<Saved, Unrea
     let found_host = text(v, "host").unwrap_or("");
     let found_key = blob(v, "key").unwrap_or([]);
     // Named for one identity, holding another's: never hand it over.
-    if found_host != host || !equal(found_key, key) || check_host(found_host).is_err() {
+    let found_instance = text(v, "instance").unwrap_or("");
+    if found_host != host || !equal(found_key, key) || check_host(
+        found_host,
+    ).is_err() || found_instance != instance {
         return Err(Unreadable.Broken("it's another app's state"));
     }
     let state = blob(v, "state").ok_or(Unreadable.Broken("it has no state"))?;
@@ -107,11 +143,19 @@ public fun read_state(bytes: u8[], host: string, key: u8[]): Result<Saved, Unrea
  * Example:
  *     keep(s, Saved { …, used: time.now_ms() })?
  */
-public fun keep(s: Store, sv: Saved): Result<(), StoreError> {
+public fun keep(s: Store, sv: Saved): Result<(), StoreError> = keep_in(s, sv, "");
+
+/**
+ * Saves one instance's state (PRP-033), as `keep` saves the first's.
+ *
+ * Example:
+ *     keep_in(s, saved, "2")?
+ */
+public fun keep_in(s: Store, sv: Saved, instance: string): Result<(), StoreError> {
     // The data folder first, so it's made owner-only before states/ inside it.
     ensure(s)?;
     let sub = folder(s);
-    save(sub, state_name(sv.host, sv.key), state_file(sv))?;
+    save(sub, instance_name(sv.host, sv.key, instance), state_file_in(sv, instance))?;
     let names = files(sub);
     if names.len <= MAX_APPS {
         return Ok(());
@@ -146,11 +190,29 @@ public fun keep(s: Store, sv: Saved): Result<(), StoreError> {
  * Example:
  *     saved_state(s, trust.host, trust.key)
  */
-public fun saved_state(s: Store, host: string, key: u8[]): Recalled<Saved> = recall(
+public fun saved_state(s: Store, host: string, key: u8[]): Recalled<Saved> = saved_state_in(
+    s,
+    host,
+    key,
+    "",
+);
+
+/**
+ * Reads one instance's saved state (PRP-033), as `saved_state` reads the first's.
+ *
+ * Example:
+ *     saved_state_in(s, trust.host, trust.key, page.instance)
+ */
+public fun saved_state_in(
+    s: Store,
+    host: string,
+    key: u8[],
+    instance: string,
+): Recalled<Saved> = recall(
     folder(s),
-    state_name(host, key),
+    instance_name(host, key, instance),
     MAX_FILE,
-    fun(b: u8[]) = read_state(b, host, key),
+    fun(b: u8[]) = read_state_in(b, host, key, instance),
 );
 
 /**
@@ -165,24 +227,61 @@ public fun drop_state(s: Store, host: string, key: u8[]): Result<(), StoreError>
 );
 
 /**
- * Moves an app's state to its new key after a rotation its old key
- * signed. Nothing saved: nothing to do.
+ * Removes every instance's saved state for an app (Forget, PRP-033).
+ *
+ * Example:
+ *     drop_app(s, trust.host, trust.key)?
+ */
+public fun drop_app(s: Store, host: string, key: u8[]): Result<(), StoreError> {
+    for instance of saved_instances(s, host, key) {
+        remove(folder(s), instance_name(host, key, instance))?;
+    }
+    Ok(())
+}
+
+/**
+ * Moves an app's state, every instance's, to its new key after a
+ * rotation its old key signed. Nothing saved: nothing to do.
  *
  * Example:
  *     move_state(s, host, old, new)?
  */
-public fun move_state(
-    s: Store,
-    host: string,
-    old: u8[],
-    new: u8[],
-): Result<(), StoreError> = match saved_state(s, host, old) {
-    Read(sv) => {
-        keep(s, Saved { key: new, ..sv })?;
-        drop_state(s, host, old)
+public fun move_state(s: Store, host: string, old: u8[], new: u8[]): Result<(), StoreError> {
+    for instance of saved_instances(s, host, old) {
+        if let Read(sv) = saved_state_in(s, host, old, instance) {
+            keep_in(s, Saved { key: new, ..sv }, instance)?;
+            remove(folder(s), instance_name(host, old, instance))?;
+        }
     }
-    _ => Ok(()),
-};
+    Ok(())
+}
+
+/** The instances of an app with a state file: each file read for its host, key and instance. */
+fun saved_instances(s: Store, host: string, key: u8[]): string[] {
+    let sub = folder(s);
+    let mut out: string[] = [];
+    for n of files(sub) {
+        if let Ok(b) = read_bytes("{sub.dir}/{n}") {
+            let bounds = Limits {
+                max_depth: 2,
+                max_items: 32,
+                max_bytes: MAX_FILE,
+                max_string: MAX_FILE,
+            };
+            if let Ok(v) = decode(b, bounds) {
+                let mine = text(v, "host") == Some(host) && blob(v, "key").map(
+                    fun(k: u8[]) = equal(k, key),
+                ).unwrap_or(false);
+                // Only a file named for what it holds counts.
+                let instance = text(v, "instance").unwrap_or("");
+                if mine && n == instance_name(host, key, instance) {
+                    out.push(instance);
+                }
+            }
+        }
+    }
+    out
+}
 
 fun folder(s: Store): Store = store_at("{s.dir}/states");
 

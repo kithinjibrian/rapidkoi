@@ -123,6 +123,31 @@ public fun tab_close(t: Theme): Styling[] = [
 ];
 
 /**
+ * Returns the look of one instance in the header's strip (PRP-033): a
+ * ghost pill in the frame's text, washed on hover; the current one ringed
+ * in the accent, as the sidebar's current app is.
+ *
+ * Example:
+ *     ui.button(name, Msg.Select(id)).style(instance_chip(t, true))
+ */
+public fun instance_chip(t: Theme, current: bool): Styling[] {
+    let mut look: Styling[] = [
+        Button.ghost(),
+        Text { color: paint(t.on_frame), ..Text.theme() },
+        Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+        padding_xy(SPACE_MD, SPACE_XS),
+        margin_x(SPACE_XS),
+        When(State.Hover, [Background { color: paint(t.frame_hover), ..Background.theme() }]),
+    ];
+    if current {
+        for x of app_current(t) {
+            look.push(x);
+        }
+    }
+    look
+}
+
+/**
  * Returns the look of a × on a tab that isn't current (PRP-028): the ×'s
  * look, hidden until the pointer is over its tab or the focus is in it.
  *

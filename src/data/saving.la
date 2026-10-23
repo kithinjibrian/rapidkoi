@@ -10,7 +10,7 @@
  */
 import std.env;
 import std.time;
-import data.states { Saved, keep, drop_state, move_state };
+import data.states { Saved, move_state, keep_in, drop_app };
 import people.people { People, Person, nobody, people_file, read_people, MAX_PEOPLE_FILE };
 import people.identity { existing, reason as identity_reason };
 import data.store {
@@ -241,7 +241,8 @@ public fun persist(before: Model, after: Model, at: Mark): Model {
                     state: state,
                     used: time.now_ms(),
                 };
-                if let Some(e) = problem(keep(s, sv), STATE) {
+                // Under its instance (PRP-033): the first's is the file it always was.
+                if let Some(e) = problem(keep_in(s, sv, l.instance), STATE) {
                     failed.push(e);
                 }
             }
@@ -280,7 +281,8 @@ public fun forgotten(before: Model, after: Model): Model {
         }
     };
     match signer_of(l) {
-        Some((host, key)) => match problem(drop_state(s, host, key), STATE) {
+        // Every instance's (PRP-033).
+        Some((host, key)) => match problem(drop_app(s, host, key), STATE) {
             Some(e) => Model { notice: Some(e), ..after },
             None => after,
         },
@@ -330,15 +332,15 @@ fun problem(r: Result<(), StoreError>, p: Part): Option<string> = match r {
  * program, which isn't comparable. The state is compared by its bytes;
  * it's at most `MAX_STATE`, and only when there is a left-off.
  */
-fun mine(l: Option<LeftOff>): Option<(Option<(string, u8[])>, Option<u8[]>, i64)> = l.map(
-    fun(x: LeftOff) = (signer_of(x), x.state, x.state_version),
+fun mine(l: Option<LeftOff>): Option<(Option<(string, u8[])>, Option<u8[]>, i64, string)> = l.map(
+    fun(x: LeftOff) = (signer_of(x), x.state, x.state_version, x.instance),
 );
 
 /** Which app it is, as `left-off` records it. */
 fun which(
     l: Option<LeftOff>,
-): Option<(string, string, Option<string>, Option<(string, u8[])>)> = l.map(
-    fun(x: LeftOff) = (x.name, x.path, x.title, signer_of(x)),
+): Option<(string, string, Option<string>, Option<(string, u8[])>, string, Option<string>)> = l.map(
+    fun(x: LeftOff) = (x.name, x.path, x.title, signer_of(x), x.instance, x.label),
 );
 
 fun say_to(notes: Ref<string[]>, s: string) = notes.update(fun(all: string[]) {

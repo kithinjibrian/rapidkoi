@@ -13,7 +13,7 @@ import cbor { Value, Entry, Limits, decode, encode };
 import data.store { Store, StoreError, load, set_aside, reason as store_reason };
 import trust.verify { Identity };
 import window.tabs { Pin };
-import window.leftoff { LeftOff, recalled, signer_of };
+import window.leftoff { LeftOff, recalled, signer_of, as_instance };
 import bundles.rules { check_host, check_asset, check_role };
 import guest.limits { MAX_ICON_PX };
 
@@ -234,6 +234,13 @@ public fun left_file(l: LeftOff): u8[] {
         fields.push(entry("host", Value.Text(host)));
         fields.push(entry("key", Value.Bytes(key)));
     }
+    // Which instance (PRP-033); the first's names none, as before.
+    if l.instance != "" {
+        fields.push(entry("instance", Value.Text(l.instance)));
+    }
+    if let Some(n) = l.label {
+        fields.push(entry("label", Value.Text(n)));
+    }
     file("left-off", "app", Value.Map(fields))
 }
 
@@ -262,7 +269,23 @@ public fun read_left(bytes: u8[]): Result<LeftOff, Unreadable> {
             Some((host, key))
         }
     };
-    Ok(recalled(name, path, text(v, "title"), icon(blob(v, "icon")), signer))
+    let instance = text(v, "instance").unwrap_or("");
+    // A key Rapidkoi gave: "" or a number from 2, short.
+    let numbered = instance.len <= 4 && instance.chars().all(fun(c: char) = c >= '0' && c <= '9');
+    if !numbered || instance == "0" || instance == "1" {
+        return Err(Unreadable.Broken("the app's instance isn't one Rapidkoi gave"));
+    }
+    let label = text(v, "label");
+    if label.map(fun(n: string) = n == "" || n.char_count() > 64).unwrap_or(false) {
+        return Err(Unreadable.Broken("the app's instance name is empty or too long"));
+    }
+    Ok(
+        as_instance(
+            recalled(name, path, text(v, "title"), icon(blob(v, "icon")), signer),
+            instance,
+            label,
+        ),
+    )
 }
 
 /** A broken file set aside: Broken with where it went, or Failed when it couldn't be moved. */

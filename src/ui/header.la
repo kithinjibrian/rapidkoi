@@ -1,5 +1,6 @@
 /**
- * The header bar, pure (PRP-019): the address box; 👤 account and ☰ menu;
+ * The header bar, pure (PRP-019): the current app's instances (PRP-033);
+ * the address box; 👤 account and ☰ menu;
  * then GTK's window controls, styled as ghost
  * buttons like the rest (`WindowControls.look()`). Every icon is one
  * of Rapidkoi's own (`ui/icons.la`) in the theme's text colour, on a
@@ -14,6 +15,7 @@ import kivuli.ui { Button, WindowControls, button_with as ui_button_with };
 import window.actions { Msg };
 import window.window { Model };
 import ui.addressbox;
+import ui.strip;
 import ui.icons { Icon, icon };
 import ui.tokens { HEADER_ICON, SPACE_XS, square, margin_x };
 import ui.themes { Theme };
@@ -46,10 +48,9 @@ public fun bar(m: Model): Bar<Msg> {
     for x of window_controls(m.theme) {
         look.push(x);
     }
-    // Nothing at the start: moving around inside an app is the app's own
-    // UI, so the frame has no back, home or forward (PRP-032).
-    let none: View<Msg>[] = [];
-    header_bar(none, addressbox.field(m), packed).style(look)
+    // The start is the current app's instances (PRP-033), where ← ⌂ → were:
+    // moving around inside an app is the app's own UI (PRP-032).
+    header_bar([strip.view(m)], addressbox.field(m), packed).style(look)
 }
 
 /**

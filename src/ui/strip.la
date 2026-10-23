@@ -1,0 +1,131 @@
+/**
+ * The header's instance strip and the rename dialog (PRP-033), pure: the
+ * current app's instances where ← ⌂ → were, the one in front ringed, each
+ * with a menu (Rename…, Close); + for another; ⋯ for those that don't fit.
+ * A single instance shows only +; an empty tab, nothing.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.window, window.instances, window.tabs, ui.tokens, ui.themes, ui.frame_looks
+ * Used by: ui.header, ui.settings
+ */
+import kivuli { View, Align, MenuEntry, column, row, text, icon, item, menu_separator };
+import kivuli.ui {
+    button as ui_button,
+    button_with as ui_button_with,
+    dropdown_menu,
+    dialog_header,
+    dialog_footer,
+    input as ui_input,
+};
+import window.actions { Msg };
+import window.window { Model, is_blank };
+import window.instances { display_name, instances_of, rename_problem };
+import window.tabs { Tab };
+import guest.nodes { ButtonLook };
+import ui.tokens { HEADER_ICON };
+import ui.themes { dim, button as button_look };
+import ui.frame_looks { app_button, instance_chip };
+
+/** The most instances shown in the strip before the rest go behind ⋯. */
+public const MAX_STRIP: i64 = 4;
+
+/**
+ * Builds the strip for the header's start.
+ *
+ * @param m the model: the current tab and its app's instances
+ * @returns the strip's row (empty on an empty tab)
+ *
+ * Example:
+ *     header_bar([strip.view(m)], …)
+ */
+public fun view(m: Model): View<Msg> {
+    let t = m.theme;
+    let none: View<Msg>[] = [];
+    let id = match m.current {
+        Some(id) if !is_blank(m, id) => id,
+        _ => {
+            return row(none);
+        }
+    };
+    let plus = ui_button_with([icon("list-add-symbolic").size(HEADER_ICON)], Msg.NewInstance).style(
+        app_button(t),
+    ).tooltip("New instance").align(Align.Center);
+    let all = instances_of(m, id);
+    if all.len < 2 {
+        return row([plus]);
+    }
+    // The one in front always shows: it takes the last place if it would
+    // otherwise be behind ⋯.
+    let mut shown: Tab[] = [];
+    let mut hidden: Tab[] = [];
+    for x of all {
+        if shown.len < MAX_STRIP {
+            shown.push(x);
+        } else {
+            hidden.push(x);
+        }
+    }
+    if hidden.any(fun(x: Tab) = x.id == id) {
+        let last = shown[shown.len - 1];
+        shown = shown.filter(fun(x: Tab) = x.id != last.id);
+        for x of hidden {
+            if x.id == id {
+                shown.push(x);
+            }
+        }
+        hidden = hidden.filter(fun(x: Tab) = x.id != id);
+        hidden.push(last);
+    }
+    let mut parts: View<Msg>[] = shown.map(
+        fun(x: Tab) = ui_button(display_name(x.page), Msg.Select(x.id)).style(
+            instance_chip(t, x.id == id),
+        ).menu([
+            item("Rename…", Msg.RenameInstance(x.id)),
+            menu_separator(),
+            item("Close", Msg.CloseTab(x.id)),
+        ]).align(Align.Center),
+    );
+    if hidden.len > 0 {
+        let entries: MenuEntry<Msg>[] = hidden.map(
+            fun(x: Tab) = item(display_name(x.page), Msg.Select(x.id)),
+        );
+        parts.push(
+            dropdown_menu(
+                ui_button("⋯", Msg.NewInstance).style(instance_chip(t, false)),
+                entries,
+            ).align(Align.Center),
+        );
+    }
+    parts.push(plus);
+    row(parts)
+}
+
+/**
+ * Builds the rename dialog's content while an instance is being renamed:
+ * the name, why it can't be used if so, Cancel and Rename.
+ *
+ * Example:
+ *     ui_dialog(Msg.Cancel, [strip.rename_view(m)])
+ */
+public fun rename_view(m: Model): View<Msg> {
+    let t = m.theme;
+    let typed = m.renaming.map(fun(r: (i64, string)) = r.1).unwrap_or("");
+    let problem = rename_problem(m);
+    let mut parts: View<Msg>[] = [
+        dialog_header("Rename instance", ""),
+        ui_input(typed, fun(s: string) = Msg.InstanceName(s)).placeholder("Name").name(
+            "Name",
+        ).on_submit(Msg.ConfirmRename),
+    ];
+    if let Some(why) = problem {
+        parts.push(text(why).style(dim(t)).align(Align.Start));
+    }
+    parts.push(
+        dialog_footer([
+            ui_button("Cancel", Msg.Cancel).style(button_look(t, ButtonLook.Normal)),
+            ui_button("Rename", Msg.ConfirmRename).style(
+                button_look(t, ButtonLook.Primary),
+            ).disabled(problem.is_some()),
+        ]),
+    );
+    column(parts)
+}

@@ -260,6 +260,14 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** Frame back/forward; a route table in the manifest for navigation's sake. Links still need apps to open at a place and say where they are when shared; that's links' own question (build step 2).
 
+### 23. Named instances (PRP-033)
+
+**Decision:** An app can be open more than once. Each instance is a tab with its own state, a stable key ("" for the first, then "2", "3"…) under which a signed app's state is saved, and a name: the app's name and number until the person renames it. The sidebar is a dock, one entry per app (its last-used instance) with a count. The header's start, where ← ⌂ → were, is the current app's instance strip. A pin is the app (it opens the last-used instance); where you left off is an instance. Instances don't share data until storage (build step 4).
+
+**Why:** The owner (sessions 175–177): people need the same app on different screens. Several tabs per app crowd the dock, and titles change with the screen, so they can't name an instance. Panes are deferred; side by side waits on several windows (DECISION-042).
+
+**Rules out:** Naming instances from screen titles; an instance's state keyed by its name (renaming would move it).
+
 ---
 
 ## CURRENT PROJECT STATE

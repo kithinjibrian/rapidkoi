@@ -27,10 +27,11 @@ import kivuli {
 import kivuli.ui { Button, button_with as ui_button_with, separator };
 import window.actions { Msg, TabAction, PinAction };
 import window.tabs { Tab, Pin, AppPage };
-import window.window { Model, order as tab_order };
+import window.window { Model, order as tab_order, open_tab_of };
+import window.instances { instances_of };
 import ui.frame { label, initial, icon_of };
 import ui.tokens { SPACE_XS, HEADER_ICON, TAB_CLOSE, TAB_CLOSE_ICON, gap, square };
-import ui.themes { Theme, heading };
+import ui.themes { Theme, heading, dim };
 import ui.frame_looks { app_button, app_current, tab_close, tab_close_on_hover };
 
 /**
@@ -56,7 +57,11 @@ public fun view(m: Model): View<Msg> {
     let mut rest: View<Msg>[] = [];
     for id of order(m) {
         match tab_by_id(m, id) {
-            Some(tab) => if !m.pinned.any(fun(p: Pin) = p.path == tab.page.path) {
+            // A dock: one entry per app, its last-used instance's (PRP-033).
+            Some(tab) => if !m.pinned.any(fun(p: Pin) = p.path == tab.page.path) && open_tab_of(
+                m,
+                tab.page.path,
+            ) == Some(tab.id) {
                 rest.push(open_app(m, tab, false));
             },
             None => rest.push(empty_tab(m, id)),
@@ -112,20 +117,22 @@ fun empty_tab(m: Model, id: i64): View<Msg> {
     with_close(t, id, button, "New tab", current)
 }
 
-/** The open tab showing `path`, if one does. */
-fun tab_of(m: Model, path: string): Option<Tab> {
-    for tab of m.tabs {
-        if tab.page.path == path {
-            return Some(tab);
-        }
-    }
-    None
-}
+/** The open tab showing `path`, if one does: its last-used instance (PRP-033). */
+fun tab_of(m: Model, path: string): Option<Tab> = match open_tab_of(m, path) {
+    Some(id) => tab_by_id(m, id),
+    None => None,
+};
 
-/** An open app: its icon, the ring when it's current, its ×, and its menu. */
+/**
+ * An open app, as one entry however many instances it has (PRP-033): its
+ * icon, the ring when one of them is current, its ×, a count past one, and
+ * its menu. The current entry's × (Ctrl+W) closes the instance in front;
+ * another's, and the menu's Close, close every instance.
+ */
 fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
     let t = m.theme;
-    let current = m.current == Some(tab.id);
+    let all = instances_of(m, tab.id);
+    let current = all.any(fun(x: Tab) = m.current == Some(x.id));
     let mut look = app_button(t);
     if current {
         for x of app_current(t) {
@@ -136,12 +143,25 @@ fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
         [face(t, tab.page.name, tab.page.path, tab.page.icon)],
         Msg.Select(tab.id),
     ).style(look).tooltip(label(tab.page)).menu([
-        item("Close", Msg.OnTab(tab.id, TabAction.Close)),
+        if all.len > 1 {
+            item("Close all", Msg.CloseApp(tab.id))
+        } else {
+            item("Close", Msg.OnTab(tab.id, TabAction.Close))
+        },
         item(if pinned { "Unpin" } else { "Pin" }, Msg.OnTab(tab.id, TabAction.TogglePin)),
         menu_separator(),
         item("Forget this app…", Msg.OnTab(tab.id, TabAction.Forget)),
     ]);
-    with_close(t, tab.id, button, tab.page.name, current)
+    let closing = if current {
+        Msg.CloseTab(m.current.unwrap_or(tab.id))
+    } else {
+        Msg.CloseApp(tab.id)
+    };
+    let mut layers = [close_button(t, closing, tab.page.name, current)];
+    if all.len > 1 {
+        layers.push(text("{all.len}").style(dim(t)).place(Align.End, Align.End));
+    }
+    overlay(button, layers).style([Group.mark()]).name("tab-{tab.id}").align(Align.Center)
 }
 
 /**
@@ -155,16 +175,15 @@ fun with_close(
     button: View<Msg>,
     name: string,
     current: bool,
-): View<Msg> = overlay(button, [close_button(t, id, name, current)]).style([Group.mark()]).name(
-    "tab-{id}",
-).align(Align.Center);
+): View<Msg> = overlay(button, [close_button(t, Msg.CloseTab(id), name, current)]).style([
+    Group.mark(),
+]).name("tab-{id}").align(Align.Center);
 
 /** A tab's ×: always shown on the current tab, with Ctrl+W; on the others, while hovered. */
-fun close_button(t: Theme, id: i64, name: string, current: bool): View<Msg> {
-    let x = ui_button_with(
-        [icon("window-close-symbolic").size(TAB_CLOSE_ICON)],
-        Msg.CloseTab(id),
-    ).tooltip("Close {name}").place(Align.End, Align.Start);
+fun close_button(t: Theme, closing: Msg, name: string, current: bool): View<Msg> {
+    let x = ui_button_with([icon("window-close-symbolic").size(TAB_CLOSE_ICON)], closing).tooltip(
+        "Close {name}",
+    ).place(Align.End, Align.Start);
     // One Ctrl+W in the window: the current tab's.
     if current { x.style(tab_close(t)).shortcut("Ctrl+W") } else { x.style(tab_close_on_hover(t)) }
 }

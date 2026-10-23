@@ -30,7 +30,7 @@ import net.fetching { Fetched, fetch_app };
 import net.dialing { Network };
 import bundles.loader { Refusal, from_fetched, current };
 import trust.verify { known_for, moves };
-import data.states { saved_state, move_state };
+import data.states { saved_state_in, move_state };
 import data.remembered { Recalled };
 import data.store { Store };
 import net.address { parse, shown };
@@ -84,7 +84,14 @@ public fun begin(
         fun(): Fetched = fetch_app(a, known, net, FETCH_TIMEOUT_MS),
         fun(f: Fetched) = Msg.Fetched(id, number, f),
     );
-    (Model { loads: number, now: now, ..with_tab(m, id, fun(_: AppPage) = page) }, task)
+    // The tab's instance waits for its app under its name (PRP-033).
+    let waiting = fun(old: AppPage) = AppPage {
+        instance: old.instance,
+        label: old.label,
+        seen: old.seen,
+        ..page,
+    };
+    (Model { loads: number, now: now, ..with_tab(m, id, waiting) }, task)
 }
 
 /**
@@ -120,7 +127,13 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
     }
     let (page, notice) = match from_fetched(m.engine, m.ring, f) {
         Ok(l) => {
-            let fresh = from_loaded(m.engine, l, p.path);
+            // The instance it was loading for, with that instance's state.
+            let fresh = AppPage {
+                instance: p.instance,
+                label: p.label,
+                seen: p.seen,
+                ..from_loaded(m.engine, l, p.path),
+            };
             for k of pending.kept {
                 close_page(k);
             }
@@ -180,7 +193,12 @@ public fun resumed(m: Model, page: AppPage): (AppPage, Option<string>) = match (
     m.store,
     page.trust,
 ) {
-    (Some(s), Some(t)) => match saved_state(arrived(s, m, t.host, t.key), t.host, t.key) {
+    (Some(s), Some(t)) => match saved_state_in(
+        arrived(s, m, t.host, t.key),
+        t.host,
+        t.key,
+        page.instance,
+    ) {
         Read(sv) => {
             let (p, over) = with_saved(page, sv.state, sv.state_version);
             (

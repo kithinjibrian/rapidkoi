@@ -14,7 +14,7 @@ import rapidkoi.data.remembered {
 };
 import rapidkoi.trust.verify { Identity };
 import rapidkoi.window.tabs { Pin };
-import rapidkoi.window.leftoff { LeftOff, recalled, signer_of };
+import rapidkoi.window.leftoff { LeftOff, recalled, signer_of, as_instance };
 import rapidkoi.data.store { Store, store_at, save };
 import cbor { Value, Entry, encode };
 import std.fs;
@@ -106,6 +106,18 @@ fun pins_round_trip_and_a_bad_icon_drops_only_the_icon() {
             Pin { name: "Junk", path: "junk.rkb", icon: None },
         ]),
     );
+}
+
+@test
+fun where_you_left_off_keeps_its_instance() {
+    // PRP-033: Continue reopens that instance, under its name.
+    let l = as_instance(recalled("Notes", "notes.wasm", None, None, None), "2", Some("Work"));
+    let back = read_left(left_file(l)).unwrap();
+    assert_eq((back.instance, back.label), ("2", Some("Work")));
+    let first = read_left(left_file(recalled("Notes", "notes.wasm", None, None, None))).unwrap();
+    assert_eq((first.instance, first.label), ("", None));
+    let odd = as_instance(recalled("Notes", "notes.wasm", None, None, None), "../x", None);
+    assert_eq(broken(read_left(left_file(odd))), "the app's instance isn't one Rapidkoi gave");
 }
 
 @test

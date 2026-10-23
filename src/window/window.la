@@ -49,6 +49,8 @@ public struct Model {
     public confirm: Option<Confirm>,
     /** An app's ask waiting for your approval (PRP-031). */
     public approval: Option<Approval>,
+    /** The instance being renamed and the name typed so far (PRP-033). */
+    public renaming: Option<(i64, string)>,
     /** Pinned apps, remembered across restarts by `saving`. */
     public pinned: Pin[],
     /** The last app tab visited before home, if it's still open. */
@@ -101,6 +103,7 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         shield: None,
         confirm: None,
         approval: None,
+        renaming: None,
         pinned: [],
         last: None,
         left_off: None,
@@ -282,18 +285,22 @@ public fun same_app(a: string, b: string): bool = match (parse(a), parse(b)) {
 };
 
 /**
- * Returns the tab already showing the app at `path`, loading or running.
+ * Returns the tab already showing the app at `path`, loading or running:
+ * its last-used instance when it has several (PRP-033).
  *
  * Example:
  *     open_tab_of(m, "counter.wasm")
  */
 public fun open_tab_of(m: Model, path: string): Option<i64> {
+    let mut found: Option<Tab> = None;
     for t of m.tabs {
-        if same_app(t.page.path, path) {
-            return Some(t.id);
+        if same_app(t.page.path, path) && found.map(
+            fun(f: Tab) = t.page.seen > f.page.seen,
+        ).unwrap_or(true) {
+            found = Some(t);
         }
     }
-    None
+    found.map(fun(t: Tab) = t.id)
 }
 
 /**

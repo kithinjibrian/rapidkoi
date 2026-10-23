@@ -6213,9 +6213,43 @@ PRPs/prp-033-named_instances.md, CONTEXT.md
 
 ---
 
+## SESSION 177 — 2026-10-23 — Build PRP-033: named instances — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: approved as proposed ("a. yes"): a pin is the app, and where you left off is an instance; numbered names, no asking on +.
+- The model:
+  - `AppPage.instance` (a stable key: "", "2"…), `.label` (the person's name) and `.seen` (last used). Carried by `leave`/`snapshot`/`resume`, `LeftOff` (`as_instance`), background loads, and reloads.
+  - `window/instances.la`: `display_name`, `instances_of`, `next_instance`, `touched`, renaming, `close_instance`, `close_app`, `another`.
+  - `navigate.new_instance`. `open_tab_of` now gives the last-used instance. `open_file` into an app tab resets it to a first instance.
+- Saving:
+  - `states.la`: `instance_name`, `keep_in`, `saved_state_in`, `drop_app`; `move_state` moves every instance. The first instance's file is unchanged.
+  - `saving.la` saves under the instance and Forget drops all. The left-off file stores the instance and label.
+- UI:
+  - `ui/strip.la`: the header's strip and the rename dialog.
+  - `frame_looks.instance_chip`.
+  - The sidebar is a dock: one entry per app, with a count. Its × and Close all as amended.
+  - `settings.dialog` shows the rename dialog.
+- Messages: `NewInstance`, `RenameInstance`, `InstanceName`, `ConfirmRename`, `CloseApp`. `CloseTab` stays within the app.
+- `another` moved out of `tabs.la` to keep it at 491 lines (it went to 520).
+- DECISION-042 (deferred, kivuli: several windows) with `docs/specs/kivuli-several-windows.md`; MEMORY.md decision 23; CLAUDE.md, DESIGN.md, CHANGELOG.md; PRP amendments.
+- Every test file checks, fmt is clean, build ok. Tests not run (the owner runs them).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/window/{instances (new), tabs, window, navigate, leftoff, actions}.la, src/net/loads.la, src/data/{states, saving, remembered}.la,
+src/ui/{strip (new), header, settings, sidebar, frame_looks}.la, src/shell.la, test/{instances (new), states, remembered}.la,
+DECISIONS.md, MEMORY.md, CLAUDE.md, docs/DESIGN.md, docs/specs/kivuli-several-windows.md, CHANGELOG.md, PRPs/prp-033-named_instances.md, CONTEXT.md
+```
+
+---
+
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Waiting on kivuli: DECISION-040 (a drop-down in a popover). Awaiting the owner's test runs. Built: PRP-032 (no ← ⌂ → in the frame). PRP-033 (named instances) written, awaiting approval. Step B mostly dissolved (no pictures for apps yet; pins stay in the sidebar, a dock). Later: step B (images, wrapping rows, accent), and links' own discovery. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Waiting on kivuli: DECISION-040 (a drop-down in a popover). Awaiting the owner's test runs. Built: PRP-032 (no ← ⌂ → in the frame). Built: PRP-033 (named instances); waiting on kivuli for several windows (DECISION-042). Step B mostly dissolved (no pictures for apps yet; pins stay in the sidebar, a dock). Later: step B (images, wrapping rows, accent), and links' own discovery. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
 
 
 
@@ -6223,5 +6257,3 @@ PRPs/prp-033-named_instances.md, CONTEXT.md
 
 
 
-## SESSION 177 — 2026-10-23 — Build PRP-033: named instances — open
-Branch: prp-017-kivuli_0_17

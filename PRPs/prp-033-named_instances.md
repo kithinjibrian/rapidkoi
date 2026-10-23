@@ -81,21 +81,21 @@ Panes and several windows come later, on top of this (the owner: "laying the bed
 ## TESTS TO WRITE
 
 `test/instances.la` (new):
-- [ ] `next_name`: "Notes", then "Notes 2", "Notes 3"; a closed "Notes 2" is reused.
-- [ ] **+** makes a new instance of the current app, current, with the next name; its guest is its own (an event reaches only it).
-- [ ] The strip lists the current app's instances in creation order, the current one marked; **+**; nothing on the empty tab.
-- [ ] Rename: the dialog opens pre-filled; a new name applies; an empty, too-long or taken name doesn't, with its reason; Cancel closes it.
-- [ ] Opening an open app (the address box, a pin, Continue) switches to its last-used instance; only **+** makes another.
-- [ ] Closing the last instance closes the app (left off); closing one of several shows a neighbour of the same app.
+- [x] `next_name`: "Notes", then "Notes 2", "Notes 3"; a closed "Notes 2" is reused.
+- [x] **+** makes a new instance of the current app, current, with the next name; its guest is its own (an event reaches only it).
+- [x] The strip lists the current app's instances in creation order, the current one marked; **+**; nothing on the empty tab.
+- [x] Rename: the dialog opens pre-filled; a new name applies; an empty, too-long or taken name doesn't, with its reason; Cancel closes it.
+- [x] Opening an open app (the address box, a pin, Continue) switches to its last-used instance; only **+** makes another.
+- [x] Closing the last instance closes the app (left off); closing one of several shows a neighbour of the same app.
 
 `test/sidebar.la`:
-- [ ] One entry per app with several instances, its count shown; clicking it shows the last-used instance; its × closes every instance.
+- [x] One entry per app with several instances, its count shown; clicking it shows the last-used instance; its × closes every instance.
 
 `test/states.la`:
-- [ ] Each instance's state round-trips under its own name. The first instance's file name is today's.
+- [x] Each instance's state round-trips under its own name. The first instance's file name is today's.
 
 `test/leftoff.la` (or `test/saving.la`):
-- [ ] Where you left off keeps the instance's name; Continue reopens that instance with its state.
+- [x] Where you left off keeps the instance's name; Continue reopens that instance with its state.
 
 ## ROLLBACK PLAN
 
@@ -106,7 +106,7 @@ Panes and several windows come later, on top of this (the owner: "laying the bed
 - [ ] Instances can be renamed; names and states survive closing and Continue
 - [ ] The sidebar shows one entry per app, with a count
 - [ ] `lughac test test/` passes (the owner runs it); build ok; fmt clean; no file over 500 lines
-- [ ] DECISIONS.md (DECISION-042), MEMORY.md, DESIGN.md, CLAUDE.md, CHANGELOG.md updated
+- [x] DECISIONS.md (DECISION-042), MEMORY.md, DESIGN.md, CLAUDE.md, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user:
@@ -118,3 +118,12 @@ Panes and several windows come later, on top of this (the owner: "laying the bed
 ## CONFIRMED ON APPROVAL (the owner, session 177: "a. yes")
 - A pin is the app (it opens the last-used instance); where you left off is an instance.
 - Default names are numbered ("Notes", "Notes 2"), renamed by the person; Rapidkoi doesn't ask for a name on **+**.
+
+## AMENDMENTS (session 177, while building)
+
+- **A stable key, separate from the name:** `AppPage.instance` ("" for the first, then "2", "3"…) keys the instance's saved state, and `AppPage.label` is the name the person gave. That way renaming never moves a file. `display_name` shows the label, or the app's name and number. The fields sit on `AppPage`, not `Tab`, so leaving, saving and background loads carry them. `AppPage.seen` marks the last-used instance.
+- **A new instance starts from the app's compiled program** (`instances.another`), as Restart does: no reload from disk or the network.
+- **The UI module is `src/ui/strip.la`** (`strip.view`, `strip.rename_view`). `test/instances.la` imports `window.instances` too, and two imports can't share a name.
+- **The dock's ×:** the current entry's × (Ctrl+W) closes the instance in front, so one Ctrl+W meaning holds. Another entry's ×, and the menu's "Close all" (for more than one instance), close every instance. There's no `SelectInstance`: the strip sends `Select(id)`.
+- **States:** `instance_name`, `keep_in`, `saved_state_in`, `drop_app` (Forget drops every instance), and `move_state` moves every instance on a rotation. The first instance's file is unchanged.
+- **The left-off file** stores `instance` (when not "") and `label`, and a read checks them.

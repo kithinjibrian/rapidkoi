@@ -1,0 +1,215 @@
+/**
+ * Named instances (PRP-033): an app open more than once, each instance a
+ * tab with its own state, a stable key ("" for the first, then "2", "3"…)
+ * and a name (its app's name and number, until the person renames it).
+ * Which instance was used last, renaming, closing one or all, and starting
+ * another from an app's compiled program (`another`; `navigate.new_instance`
+ * opens it in a tab). Calls a guest only in `another`; never draws.
+ *
+ * Depends on: window.window, window.tabs, guest.running
+ * Used by: window.navigate, ui.strip, ui.sidebar, shell
+ */
+import window.window { Model, close, same_app, show_tab, with_tab, is_blank };
+import window.tabs { AppPage, Tab, Program, titled };
+import guest.running { start };
+
+/** The longest name an instance can be given. */
+public const MAX_INSTANCE_NAME: i64 = 64;
+
+/**
+ * Returns an instance's name: the one the person gave it, else its app's
+ * name, numbered after the first ("Notes", "Notes 2").
+ *
+ * Example:
+ *     display_name(page)
+ */
+public fun display_name(p: AppPage): string = match p.label {
+    Some(l) => l,
+    None => if p.instance == "" { p.name } else { "{p.name} {p.instance}" },
+};
+
+/**
+ * Returns the instances of the app in tab `id`, in the order they were
+ * opened; none for an empty tab.
+ *
+ * Example:
+ *     instances_of(m, m.current.unwrap_or(-1))
+ */
+public fun instances_of(m: Model, id: i64): Tab[] {
+    let mut path: Option<string> = None;
+    for t of m.tabs {
+        if t.id == id {
+            path = Some(t.page.path);
+        }
+    }
+    match path {
+        Some(p) => m.tabs.filter(fun(t: Tab) = same_app(t.page.path, p)),
+        None => [],
+    }
+}
+
+/**
+ * Returns the key for another instance of the app at `path`: "" when its
+ * first isn't open, else the lowest number from 2 not in use.
+ *
+ * Example:
+ *     next_instance(m, "notes.wasm")
+ */
+public fun next_instance(m: Model, path: string): string {
+    let used = m.tabs.filter(fun(t: Tab) = same_app(t.page.path, path)).map(
+        fun(t: Tab) = t.page.instance,
+    );
+    if !used.any(fun(k: string) = k == "") {
+        return "";
+    }
+    let mut n = 2;
+    while used.any(fun(k: string) = k == "{n}") {
+        n += 1;
+    }
+    "{n}"
+}
+
+/**
+ * Marks the tab now current as used last, when the current tab changed:
+ * opening its app again shows this instance (PRP-033).
+ *
+ * Example:
+ *     touched(m, next)
+ */
+public fun touched(before: Model, after: Model): Model = match after.current {
+    Some(id) if before.current != Some(id) && !is_blank(after, id) => {
+        let mut most = 0;
+        for t of after.tabs {
+            if t.page.seen > most {
+                most = t.page.seen;
+            }
+        }
+        with_tab(after, id, fun(p: AppPage) = AppPage { seen: most + 1, ..p })
+    }
+    _ => after,
+};
+
+/**
+ * Opens the rename dialog for an instance, its name filled in.
+ *
+ * Example:
+ *     start_rename(m, 3)
+ */
+public fun start_rename(m: Model, id: i64): Model {
+    for t of m.tabs {
+        if t.id == id {
+            return Model { renaming: Some((id, display_name(t.page))), ..m };
+        }
+    }
+    m
+}
+
+/**
+ * Says why the name typed can't be used, or nothing when it can: empty,
+ * longer than `MAX_INSTANCE_NAME` characters, or another instance of the
+ * same app is already called that.
+ *
+ * Example:
+ *     rename_problem(m)
+ */
+public fun rename_problem(m: Model): Option<string> {
+    let (id, typed) = match m.renaming {
+        Some(r) => r,
+        None => {
+            return None;
+        }
+    };
+    let name = typed.trim();
+    if name == "" {
+        return Some("Give it a name");
+    }
+    if name.char_count() > MAX_INSTANCE_NAME {
+        return Some("At most 64 characters");
+    }
+    let taken = instances_of(m, id).any(fun(t: Tab) = t.id != id && display_name(t.page) == name);
+    if taken {
+        return Some("Another instance is called that");
+    }
+    None
+}
+
+/**
+ * Applies the name typed and closes the dialog, if the name can be used;
+ * otherwise leaves the dialog open, saying why.
+ *
+ * Example:
+ *     confirm_rename(m)
+ */
+public fun confirm_rename(m: Model): Model = match (m.renaming, rename_problem(m)) {
+    (Some((id, typed)), None) => Model {
+        renaming: None,
+        ..with_tab(m, id, fun(p: AppPage) = AppPage { label: Some(typed.trim()), ..p }),
+    },
+    _ => m,
+};
+
+/**
+ * Closes one instance. Closing the one in front shows another instance of
+ * the same app, the one used last, rather than a neighbour; the last one
+ * closes the app.
+ *
+ * Example:
+ *     close_instance(m, 3)
+ */
+public fun close_instance(m: Model, id: i64): Model {
+    let others = instances_of(m, id).filter(fun(t: Tab) = t.id != id);
+    let closed = close(m, id);
+    if m.current != Some(id) || others.len == 0 {
+        return closed;
+    }
+    let mut next = others[0];
+    for t of others {
+        if t.page.seen > next.page.seen {
+            next = t;
+        }
+    }
+    show_tab(closed, next.id)
+}
+
+/**
+ * Closes every instance of the app in tab `id`: the dock's Close.
+ *
+ * Example:
+ *     close_app(m, 0)
+ */
+public fun close_app(m: Model, id: i64): Model {
+    let mut at = m;
+    for t of instances_of(m, id) {
+        at = close(at, t.id);
+    }
+    at
+}
+
+/**
+ * Starts another instance of a page's app (PRP-033): the same compiled
+ * program, fresh, in a store of its own, under `instance`. Nothing for a
+ * page with no program (still loading, or never loaded).
+ *
+ * @param p the page whose app to start again
+ * @param instance the new instance's key ("2", "3"…)
+ * @returns the new page, or `None`
+ *
+ * Example:
+ *     another(page, "2")
+ */
+public fun another(p: AppPage, instance: string): Option<AppPage> = p.program.map(fun(
+    prog: Program,
+) {
+    let (screen, asks) = start(prog, None);
+    titled(AppPage {
+        screen: screen,
+        asks: asks,
+        title: None,
+        load: 0,
+        in_flight: 0,
+        instance: instance,
+        label: None,
+        seen: 0,
+        ..p,
+    })
+});

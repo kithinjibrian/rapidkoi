@@ -19,6 +19,7 @@ import window.tabs {
     state_version_of,
     failed_page,
 };
+import window.instances { next_instance, another };
 import window.leftoff { leave, compiled };
 import trust.verify { separate };
 import net.loads { begin, resumed };
@@ -79,7 +80,15 @@ public fun open_file(m: Model, path: string): (Model, Cmd<Msg>) {
         return (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none());
     }
     let placed = match m.current {
-        Some(id) if app(m, id).is_some() => (Model { left_off: app(m, id).map(leave), ..m }, id),
+        // The app in this tab gives way to the new one, which starts as its
+        // first instance: the old one's name and key don't carry over.
+        Some(id) if app(m, id).is_some() => (
+            Model {
+                left_off: app(m, id).map(leave),
+                ..with_tab(m, id, fun(_: AppPage) = failed_page(path, "")),
+            },
+            id,
+        ),
         // A new tab, or the current empty tab, filled in place (PRP-024).
         _ => (add_tab(m, failed_page(path, "")), slot(m)),
     };
@@ -90,6 +99,31 @@ public fun open_file(m: Model, path: string): (Model, Cmd<Msg>) {
     }
     let (page, said) = resumed(tidy, open_path(m.engine, m.ring, path));
     (Model { notice: said, ..with_tab(tidy, id, fun(_: AppPage) = page) }, Cmd.none())
+}
+
+/**
+ * Opens another instance of the current app (PRP-033): the strip's +. It
+ * starts fresh from the app's compiled program, in a new tab, under the
+ * next number; a signed app's instance picks up its own saved state.
+ * Nothing on an empty tab, or for an app that isn't running yet.
+ *
+ * Example:
+ *     new_instance(m)
+ */
+public fun new_instance(m: Model): (Model, Cmd<Msg>) {
+    let p = match page_of(m) {
+        App(a) => a,
+        Home => {
+            return (m, Cmd.none());
+        }
+    };
+    match another(p, next_instance(m, p.path)) {
+        Some(fresh) => {
+            let (page, said) = resumed(m, fresh);
+            (Model { notice: said, ..add_tab(m, page) }, Cmd.none())
+        }
+        None => (m, Cmd.none()),
+    }
 }
 
 /**
@@ -166,7 +200,9 @@ public fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
         } else {
             None
         };
-        (Model { notice: notice, ..with_tab(m, id, fun(_: AppPage) = page) }, Cmd.none())
+        // Reloaded, it's still the same instance.
+        let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
+        (Model { notice: notice, ..with_tab(m, id, fun(_: AppPage) = same) }, Cmd.none())
     }
     _ => (m, Cmd.none()),
 };

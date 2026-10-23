@@ -11,6 +11,10 @@ import rapidkoi.data.states {
     saved_state,
     drop_state,
     move_state,
+    instance_name,
+    keep_in,
+    saved_state_in,
+    drop_app,
 };
 import rapidkoi.data.remembered { Unreadable, Recalled };
 import rapidkoi.data.store { Store, store_at, save };
@@ -143,5 +147,50 @@ fun past_the_cap_the_app_used_longest_ago_goes() {
         Read(_) => {}
         _ => panic("expected the next oldest kept"),
     }
+    clean(s.dir);
+}
+
+fun read_ok(r: Recalled<Saved>): Option<u8[]> = match r {
+    Read(sv) => Some(sv.state),
+    _ => None,
+};
+
+@test
+fun each_instance_keeps_its_own_state() {
+    // PRP-033: the first instance's file is the one apps always had.
+    let s = folder("instances");
+    let sv = saved("notes.acme.com", 1, 10);
+    assert_eq(instance_name("notes.acme.com", [1; 32], ""), state_name("notes.acme.com", [1; 32]));
+    assert(instance_name("notes.acme.com", [1; 32], "2") != state_name("notes.acme.com", [1; 32]));
+    keep(s, sv).unwrap();
+    keep_in(s, Saved { state: [9], ..sv }, "2").unwrap();
+    assert_eq(read_ok(saved_state(s, "notes.acme.com", [1; 32])), Some([1, 1]));
+    assert_eq(read_ok(saved_state_in(s, "notes.acme.com", [1; 32], "2")), Some([9]));
+    assert_eq(read_ok(saved_state_in(s, "notes.acme.com", [1; 32], "3")), None);
+    clean(s.dir);
+}
+
+@test
+fun forgetting_an_app_drops_every_instance() {
+    let s = folder("drop-app");
+    let sv = saved("notes.acme.com", 1, 10);
+    keep(s, sv).unwrap();
+    keep_in(s, sv, "2").unwrap();
+    keep(s, saved("mail.acme.com", 2, 10)).unwrap();
+    drop_app(s, "notes.acme.com", [1; 32]).unwrap();
+    assert_eq(read_ok(saved_state(s, "notes.acme.com", [1; 32])), None);
+    assert_eq(read_ok(saved_state_in(s, "notes.acme.com", [1; 32], "2")), None);
+    assert_eq(read_ok(saved_state(s, "mail.acme.com", [2; 32])), Some([2, 2]));
+    clean(s.dir);
+}
+
+@test
+fun a_rotation_moves_every_instance() {
+    let s = folder("move-instances");
+    let sv = saved("notes.acme.com", 1, 10);
+    keep_in(s, Saved { state: [7], ..sv }, "2").unwrap();
+    move_state(s, "notes.acme.com", [1; 32], [5; 32]).unwrap();
+    assert_eq(read_ok(saved_state_in(s, "notes.acme.com", [5; 32], "2")), Some([7]));
+    assert_eq(read_ok(saved_state_in(s, "notes.acme.com", [1; 32], "2")), None);
     clean(s.dir);
 }

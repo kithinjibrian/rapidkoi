@@ -1,0 +1,150 @@
+// Named instances (PRP-033): an app open more than once, each instance
+// with its own name and state; the header's strip; renaming; the dock's
+// one entry per app. Fixture guests; no display.
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.window.instances { display_name, instances_of, next_instance };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.tabs { AppPage, Tab, open_module, state_of };
+import rapidkoi.ui.strip;
+import rapidkoi.ui.sidebar;
+import rapidkoi.guest.contract { envelope };
+import rapidkoi.ui.render;
+import kivuli.testing { click, pick, texts, type_into };
+import wasmtime { Engine, Module };
+import support { t, echo };
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+/** Notes (tab 0, current) and Mail (tab 1). */
+fun two(): Model {
+    let engine = Engine.new();
+    with_pages(engine, [app(engine, "notes"), app(engine, "mail")])
+}
+
+fun names(m: Model): string[] = instances_of(m, m.current.unwrap()).map(
+    fun(x: Tab) = display_name(x.page),
+);
+
+fun add(id: i64): Msg = Msg.Tab(id, render.Msg.Event(t("add"), None));
+
+@test
+fun plus_opens_another_instance_of_the_current_app() {
+    let m = step(two(), Msg.NewInstance);
+    assert_eq(m.tabs.len, 3);
+    assert_eq(names(m), ["notes", "notes 2"]);
+    // The new one is current, and its own guest: an event reaches only it.
+    let id = m.current.unwrap();
+    let echoed = step(m, add(id));
+    assert_eq(state_of(echoed.tabs[2].page), Some(envelope(t("add"), None)));
+    assert_eq(state_of(echoed.tabs[0].page), Some([]));
+}
+
+@test
+fun numbers_count_up_and_reuse_the_lowest_free() {
+    let m = step(step(two(), Msg.NewInstance), Msg.NewInstance);
+    assert_eq(names(m), ["notes", "notes 2", "notes 3"]);
+    let fewer = step(m, Msg.CloseTab(m.tabs[2].id));
+    assert_eq(next_instance(fewer, "notes.wasm"), "2");
+}
+
+@test
+fun the_strip_shows_the_current_apps_instances() {
+    let m = step(two(), Msg.NewInstance);
+    let v = strip.view(m);
+    assert_eq(click(v, "notes"), Ok(Msg.Select(0)));
+    assert_eq(click(v, "notes 2"), Ok(Msg.Select(m.current.unwrap())));
+    assert_eq(click(v, "New instance"), Ok(Msg.NewInstance));
+    // Mail isn't one of them.
+    assert(click(v, "mail").is_err());
+    assert_eq(pick(v, "notes 2", "Rename…"), Ok(Msg.RenameInstance(m.current.unwrap())));
+    assert_eq(pick(v, "notes 2", "Close"), Ok(Msg.CloseTab(m.current.unwrap())));
+}
+
+@test
+fun one_instance_shows_only_plus_and_the_empty_tab_nothing() {
+    let v = strip.view(two());
+    assert_eq(click(v, "New instance"), Ok(Msg.NewInstance));
+    assert(click(v, "notes").is_err());
+    let home = strip.view(step(two(), Msg.NewTab));
+    assert(click(home, "New instance").is_err());
+}
+
+@test
+fun renaming_an_instance() {
+    let m = step(two(), Msg.NewInstance);
+    let id = m.current.unwrap();
+    let asked = step(m, Msg.RenameInstance(id));
+    assert_eq(asked.renaming, Some((id, "notes 2")));
+    let v = strip.rename_view(asked);
+    assert_eq(type_into(v, "Name", "Work"), Ok(Msg.InstanceName("Work")));
+    let named = step(step(asked, Msg.InstanceName("Work")), Msg.ConfirmRename);
+    assert_eq(named.renaming, None);
+    assert_eq(names(named), ["notes", "Work"]);
+    // Cancel leaves it as it was.
+    assert_eq(names(step(step(asked, Msg.InstanceName("Home")), Msg.Cancel)), ["notes", "notes 2"]);
+}
+
+@test
+fun a_name_must_be_new_and_short() {
+    let m = step(two(), Msg.NewInstance);
+    let asked = step(m, Msg.RenameInstance(m.current.unwrap()));
+    let long = many(65);
+    for (bad, why) of [
+        ("", "Give it a name"),
+        ("notes", "Another instance is called that"),
+        (long, "At most 64 characters"),
+    ] {
+        let typed = step(asked, Msg.InstanceName(bad));
+        assert(texts(strip.rename_view(typed)).any(fun(s: string) = s == why));
+        // Not applied: the dialog stays.
+        assert_eq(step(typed, Msg.ConfirmRename).renaming.is_some(), true);
+    }
+}
+
+@test
+fun opening_an_open_app_shows_its_last_used_instance() {
+    let m = step(two(), Msg.NewInstance);
+    let second = m.current.unwrap();
+    // Away to mail, then notes is asked for again (a pin, the address box).
+    let away = step(m, Msg.Select(1));
+    let back = step(away, Msg.OpenPinned("notes.wasm"));
+    assert_eq((back.current, back.tabs.len), (Some(second), 3));
+}
+
+@test
+fun the_dock_shows_one_entry_per_app_with_a_count() {
+    let m = step(two(), Msg.NewInstance);
+    let v = sidebar.view(m);
+    assert(texts(v).any(fun(s: string) = s == "2"));
+    // One notes entry: it shows the last-used instance.
+    assert_eq(click(v, "notes"), Ok(Msg.Select(m.current.unwrap())));
+}
+
+@test
+fun closing_one_of_several_stays_in_the_app() {
+    let m = step(two(), Msg.NewInstance);
+    let closed = step(m, Msg.CloseTab(m.current.unwrap()));
+    assert_eq((closed.tabs.len, closed.current), (2, Some(0)));
+    // Close all, from the dock's menu: every instance.
+    let all = step(m, Msg.CloseApp(0));
+    assert_eq(all.tabs.len, 1);
+    assert_eq(display_name(all.tabs[0].page), "mail");
+}
+
+fun many(n: i64): string {
+    let mut s = "";
+    for _ in 0..n {
+        s = s + "x";
+    }
+    s
+}
