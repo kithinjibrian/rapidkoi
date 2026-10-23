@@ -8,7 +8,7 @@
 //! Build and pack: `scripts/newtab.sh`, which writes `assets/apps/newtab.rkb`.
 
 use minicbor::{Decode, Encode};
-use rapidkoi::{button, column, row, text, App, Ask, Event, Place, Session, Space, View};
+use rapidkoi::{button, column, row, text, App, Ask, Event, Next, Place, Session, Space, State, View};
 
 /// What the new tab shows of one app.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
@@ -27,16 +27,13 @@ impl From<Place> for Shown {
     }
 }
 
-#[derive(Default, Encode, Decode)]
+#[derive(Default, State)]
 struct NewTab {
     /// Your pins, as last read.
-    #[n(0)]
     pins: Vec<Shown>,
     /// Where you left off, as last read.
-    #[n(1)]
     left: Option<Shown>,
     /// How many windows the last session had, if there's one to restore (PRP-035).
-    #[n(2)]
     session: Option<u32>,
 }
 
@@ -46,7 +43,18 @@ fn read() -> Vec<Ask> {
 }
 
 impl App for NewTab {
-    fn handle(self, event: Event) -> (Self, Vec<Ask>) {
+    fn handle(self, event: Event) -> Next<Self> {
+        // The new tab has no address of its own to put fields in.
+        self.step(event).into()
+    }
+
+    fn view(&self) -> View {
+        self.screen()
+    }
+}
+
+impl NewTab {
+    fn step(self, event: Event) -> (Self, Vec<Ask>) {
         match event {
             Event::Opened | Event::Resume | Event::Change => (self, read()),
             Event::Data { msg, cbor } if msg == "pins" => (
@@ -72,7 +80,7 @@ impl App for NewTab {
         }
     }
 
-    fn view(&self) -> View {
+    fn screen(&self) -> View {
         let mut parts = vec![text("Rapidkoi").title()];
         if let Some(n) = self.session {
             parts.push(button(&format!("Restore previous session ({})", n)).primary().on_press("restore"));
@@ -112,14 +120,14 @@ mod tests {
     }
 
     fn message(msg: &str) -> Vec<Ask> {
-        NewTab::default().handle(Event::Message { msg: msg.into(), value: None }).1
+        NewTab::default().step(Event::Message { msg: msg.into(), value: None }).1
     }
 
     #[test]
     fn it_reads_on_open_resume_and_change() {
-        assert_eq!(NewTab::default().handle(Event::Opened).1, read());
-        assert_eq!(NewTab::default().handle(Event::Resume).1, read());
-        assert_eq!(NewTab::default().handle(Event::Change).1, read());
+        assert_eq!(NewTab::default().step(Event::Opened).1, read());
+        assert_eq!(NewTab::default().step(Event::Resume).1, read());
+        assert_eq!(NewTab::default().step(Event::Change).1, read());
     }
 
     #[test]
@@ -176,14 +184,14 @@ mod tests {
                 .spacing(Space::Lg)
         );
         assert_eq!(message("restore"), vec![Ask::restore_session("restore")]);
-        let (t, _) = t.handle(Event::Answer { msg: "session".into(), value: None });
+        let (t, _) = t.step(Event::Answer { msg: "session".into(), value: None });
         assert_eq!(t.session, None);
     }
 
     #[test]
     fn nothing_left_off_clears_it() {
         let t = NewTab { left: Some(shown("Quote")), pins: vec![], session: None };
-        let (t, _) = t.handle(Event::Answer { msg: "left".into(), value: None });
+        let (t, _) = t.step(Event::Answer { msg: "left".into(), value: None });
         assert_eq!(t.left, None);
     }
 }

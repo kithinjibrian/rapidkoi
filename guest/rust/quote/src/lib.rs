@@ -5,8 +5,7 @@
 //! `guest/rust/` (set `QUOTE_SERVER` for another server than
 //! `http://localhost:8000`), then pack and serve it from `examples/quote/`.
 
-use minicbor::{Decode, Encode};
-use rapidkoi::{button, column, header, text, App, Ask, Event, Progress, Request, SignIn, Space, View};
+use rapidkoi::{button, column, header, text, App, Ask, Event, Next, Progress, Request, SignIn, Space, State, View};
 
 /// The app's own server: where it was published.
 const SERVER: &str = match option_env!("QUOTE_SERVER") {
@@ -14,21 +13,17 @@ const SERVER: &str = match option_env!("QUOTE_SERVER") {
     None => "http://localhost:8000",
 };
 
-#[derive(Default, Encode, Decode)]
+#[derive(Default, State)]
 struct Quote {
     /// The day's quote, once it arrives.
-    #[n(0)]
     quote: Option<String>,
     /// Who the server says you are ("User 4f9a"), once signed in.
-    #[n(1)]
     who: Option<String>,
-    /// The session token the server gave; kept in the state, never by Rapidkoi.
-    #[n(2)]
+    /// The session token the server gave; kept in the state, never by
+    /// Rapidkoi, and never in the address.
     token: Option<String>,
     /// Why the last step didn't work, as Rapidkoi or the server said it.
-    #[n(3)]
     problem: Option<String>,
-    #[n(4)]
     signing_in: SignIn,
 }
 
@@ -51,7 +46,18 @@ impl Quote {
 }
 
 impl App for Quote {
-    fn handle(mut self, event: Event) -> (Self, Vec<Ask>) {
+    fn handle(self, event: Event) -> Next<Self> {
+        // Nothing of the quote's goes in its address.
+        self.step(event).into()
+    }
+
+    fn view(&self) -> View {
+        self.screen()
+    }
+}
+
+impl Quote {
+    fn step(mut self, event: Event) -> (Self, Vec<Ask>) {
         match self.signing_in.on(&event) {
             Progress::Asks(asks) => return (self, asks),
             Progress::SignedIn(token) => {
@@ -77,7 +83,7 @@ impl App for Quote {
         }
     }
 
-    fn view(&self) -> View {
+    fn screen(&self) -> View {
         let mut parts = vec![
             text("Quote of the day").title(),
             text(self.quote.as_deref().unwrap_or("Fetching today's quote…")),
@@ -103,7 +109,7 @@ mod tests {
 
     #[test]
     fn opening_signs_in_and_fetches() {
-        let (q, asks) = Quote::default().handle(Event::Opened);
+        let (q, asks) = Quote::default().step(Event::Opened);
         assert_eq!(asks.len(), 3);
         assert_eq!(asks[2], Ask::fetch("quote", Request::get("http://localhost:8000/quote")));
         let got = Event::Response {
@@ -112,14 +118,14 @@ mod tests {
             headers: vec![("x-signed-in".into(), "User 4f9a".into())],
             body: b"Make it work.".to_vec(),
         };
-        let (q, _) = q.handle(got);
+        let (q, _) = q.step(got);
         assert_eq!((q.quote.as_deref(), q.who.as_deref()), (Some("Make it work."), Some("User 4f9a")));
     }
 
     #[test]
     fn a_refusal_shows() {
         let off = Event::Failed { msg: "quote".into(), error: "You turned off localhost:8000 for Quote".into() };
-        let (q, _) = Quote::default().handle(off);
+        let (q, _) = Quote::default().step(off);
         assert_eq!(q.problem.as_deref(), Some("You turned off localhost:8000 for Quote"));
     }
 }
