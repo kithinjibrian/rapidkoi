@@ -115,6 +115,6 @@ Panes and several windows come later, on top of this (the owner: "laying the bed
   3. Switch between them in the strip: each keeps its count.
   4. Right-click "Counter 2" → Rename… → "Work". The sidebar shows one Counter with "2".
 
-## TO CONFIRM ON APPROVAL (proposed, session 175)
+## CONFIRMED ON APPROVAL (the owner, session 177: "a. yes")
 - A pin is the app (it opens the last-used instance); where you left off is an instance.
 - Default names are numbered ("Notes", "Notes 2"), renamed by the person; Rapidkoi doesn't ask for a name on **+**.

@@ -6222,3 +6222,6 @@ PRPs/prp-033-named_instances.md, CONTEXT.md
 
 
 
+
+## SESSION 177 — 2026-10-23 — Build PRP-033: named instances — open
+Branch: prp-017-kivuli_0_17
