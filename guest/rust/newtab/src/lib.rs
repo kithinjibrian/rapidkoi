@@ -67,7 +67,7 @@ impl App for NewTab {
 impl NewTab {
     fn step(self, event: Event<Msg>) -> (Self, Vec<Ask>) {
         match event {
-            Event::Opened | Event::Resume | Event::Change => (self, read()),
+            Event::Opened | Event::Resume | Event::Change { .. } => (self, read()),
             Event::Data { msg, cbor } if msg == "pins" => (
                 NewTab { pins: Place::list(&cbor).unwrap_or_default().into_iter().map(Shown::from).collect(), ..self },
                 vec![],
@@ -135,7 +135,7 @@ mod tests {
     fn it_reads_on_open_resume_and_change() {
         assert_eq!(NewTab::default().step(Event::Opened).1, read());
         assert_eq!(NewTab::default().step(Event::Resume).1, read());
-        assert_eq!(NewTab::default().step(Event::Change).1, read());
+        assert_eq!(NewTab::default().step(Event::Change { tables: vec![] }).1, read());
     }
 
     #[test]

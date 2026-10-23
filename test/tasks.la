@@ -1,14 +1,18 @@
 // End to end: the tasks app (guest/rust/tasks, PRP-040), build step 3,
-// driven through the window with no display. Skipped unless it's been
-// built (CLAUDE.md COMMANDS), so the suite never needs Rust.
-import rapidkoi.shell { Model, start, update };
+// driven through the window with no display, its tasks in a real database
+// under test/tmp/ (PRP-041). Skipped unless it's been built (CLAUDE.md
+// COMMANDS), so the suite never needs Rust.
+import rapidkoi.shell { Model, start, update, with_pages };
+import rapidkoi.guest.effects { answer_all };
+import rapidkoi.data.store { store_at };
 import rapidkoi.ui.layout { view };
 import rapidkoi.ui.content { app_view };
 import rapidkoi.window.window { page_of };
-import rapidkoi.window.tabs { AppPage, open_module_at };
+import rapidkoi.window.tabs { open_module_at };
 import rapidkoi.window.actions { Msg };
 import kivuli.testing { click, submit, type_into, texts };
 import wasmtime { Engine, Module };
+import support { settle };
 import std.fs;
 
 const TASKS: string = "guest/rust/target/wasm32-unknown-unknown/release/tasks.wasm";
@@ -21,15 +25,35 @@ fun built() {
     }
 }
 
-fun started(): Model {
-    built();
-    let (m, _) = start(["./main", TASKS], None);
-    m
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
 }
 
+/** The data folder for test `name`, emptied. */
+fun folder(name: string): string {
+    let dir = "test/tmp/tasks-{name}";
+    clean(dir);
+    dir
+}
+
+/** The app opened in a window whose data folder is `dir`, its first reads done. */
+fun started(dir: string): Model {
+    built();
+    let (m, c) = start(["./main", TASKS], Some(store_at(dir)));
+    settle(m, c, update)
+}
+
+/** One message, and every call to the database it leads to. */
 fun step(m: Model, msg: Msg): Model {
-    let (next, _) = update(m, msg);
-    next
+    let (next, c) = update(m, msg);
+    settle(next, c, update)
 }
 
 fun press(m: Model, label: string): Model = step(m, click(view(m), label).unwrap());
@@ -51,7 +75,8 @@ fun fields(m: Model): (string, string)[] = m.tabs[0].page.fields;
 
 @test
 fun adding_ticking_and_filtering() {
-    let mut m = started();
+    let dir = folder("adding");
+    let mut m = started(dir);
     assert_eq(has(m, "No tasks yet"), true);
     m = add(add(m, "Buy milk"), "Pay rent");
     assert_eq(
@@ -64,11 +89,13 @@ fun adding_ticking_and_filtering() {
     m = press(m, "Open");
     assert_eq((has(m, "Buy milk"), has(m, "Pay rent")), (false, true));
     assert_eq(fields(m), [("page", "list"), ("list.filter", "open")]);
+    clean(dir);
 }
 
 @test
 fun a_task_has_its_own_screen_and_link_and_delete_asks() {
-    let mut m = add(started(), "Pay rent");
+    let dir = folder("screen");
+    let mut m = add(started(dir), "Pay rent");
     m = press(m, "Pay rent");
     assert_eq(fields(m), [("page", "task"), ("editor.task", "1")]);
     m = press(m, "Delete");
@@ -80,27 +107,46 @@ fun a_task_has_its_own_screen_and_link_and_delete_asks() {
         (has(m, "No tasks yet"), fields(m)),
         (true, [("page", "list"), ("list.filter", "all")]),
     );
+    clean(dir);
 }
 
-/** A new window of the app, opened from a link's fields. */
-fun opened_with(link: (string, string)[]): AppPage {
+/** A new window of the app on the same data folder, opened from a link's fields. */
+fun opened_with(dir: string, link: (string, string)[]): Model {
     built();
     let engine = Engine.new();
     let module = Module.new(engine, read_bytes(TASKS).unwrap()).unwrap();
-    open_module_at("Tasks", TASKS, engine, module, link)
+    let page = open_module_at("Tasks", TASKS, engine, module, link);
+    let m = Model { store: Some(store_at(dir)), ..with_pages(engine, [page]) };
+    let (asked, c) = answer_all(m);
+    settle(asked, c, update)
 }
 
 @test
 fun a_link_opens_a_new_window_where_it_says() {
+    let dir = folder("link");
+    let first = add(started(dir), "Pay rent");
     // The filter comes back from the link.
-    assert_eq(opened_with([("page", "list"), ("list.filter", "done")]).fields, [
+    assert_eq(fields(opened_with(dir, [("page", "list"), ("list.filter", "done")])), [
         ("page", "list"),
         ("list.filter", "done"),
     ]);
-    // A task's link in a new window: its tasks live in the other window's
-    // state until storage (step 4), so this one lands on its list.
-    assert_eq(opened_with([("page", "task"), ("editor.task", "1")]).fields, [
+    // A task's link: the task is in the app's database, so the new window shows it.
+    let other = opened_with(dir, [("page", "task"), ("editor.task", "1")]);
+    assert_eq(fields(other), [("page", "task"), ("editor.task", "1")]);
+    // A task that isn't there lands on the list.
+    assert_eq(fields(opened_with(dir, [("page", "task"), ("editor.task", "9")])), [
         ("page", "list"),
         ("list.filter", "all"),
     ]);
+    assert_eq(has(first, "Pay rent"), true);
+    clean(dir);
+}
+
+@test
+fun tasks_outlive_the_window() {
+    let dir = folder("outlive");
+    let _ = add(started(dir), "Buy milk");
+    // A whole new start on the same data folder.
+    assert_eq(has(started(dir), "Buy milk"), true);
+    clean(dir);
 }

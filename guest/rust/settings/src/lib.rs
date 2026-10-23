@@ -46,7 +46,7 @@ impl App for Settings {
 
     fn handle(self, event: Event<Msg>) -> Next<Self> {
         match event {
-            Event::Opened | Event::Resume | Event::Change => Next::state(self).ask(Ask::preferences("prefs")),
+            Event::Opened | Event::Resume | Event::Change { .. } => Next::state(self).ask(Ask::preferences("prefs")),
             Event::Data { msg, cbor } if msg == "prefs" => match Prefs::read(&cbor) {
                 Some(p) => Next::state(Settings {
                     read: true,
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn it_reads_on_open_and_on_every_change() {
-        for e in [Event::Opened, Event::Resume, Event::Change] {
+        for e in [Event::Opened, Event::Resume, Event::Change { tables: vec![] }] {
             assert_eq!(Settings::default().handle(e).asks(), &[Ask::preferences("prefs")]);
         }
     }
