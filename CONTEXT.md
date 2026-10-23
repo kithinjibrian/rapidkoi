@@ -10771,3 +10771,6 @@ Branch: prp-017-kivuli_0_17
   - newtab and settings repacked; `./main` rebuilt.
 - Docs: contract-5.md (paths, messages, closed), CLAUDE.md, MEMORY.md (decision 25 amended), DECISIONS.md, CHANGELOG.md, PRP amendments.
 - Checks: every test file checks, fmt is clean, the build and `cargo test --no-run` succeed. Tests not run (the owner runs them).
+
+## SESSION 205 — 2026-10-24 — PRP-040: the tasks app (build step 3) — open
+Branch: prp-017-kivuli_0_17
