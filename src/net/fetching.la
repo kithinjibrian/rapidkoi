@@ -55,7 +55,8 @@ public enum Fetched {
 public fun fetch_app(a: Address, known: Identity[], net: Network, timeout_ms: i64): Fetched {
     let host = shown(a);
     let fail = fun(why: string) = Fetched.Refused(Refusal.Failed(host, why));
-    if !a.http {
+    // An http:// address naming no file is a site's own (a link, PRP-036).
+    if !a.http || a.route == "/" {
         // A site with a key is verified; without one, only a plain-HTTP
         // development server on this machine may serve an unsigned bundle.
         // A link's version opens while the site lists it (PRP-036).

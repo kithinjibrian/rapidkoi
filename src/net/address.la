@@ -321,12 +321,13 @@ public fun site_url(
 
 /**
  * Returns the URL a bundle is fetched from: the well-known bundle path for
- * `rapidkoi://`, the address itself for `http://`.
+ * `rapidkoi://`, the address itself for `http://` naming a file (an
+ * `http://` link names none: it's the site's own address, PRP-036).
  *
  * Example:
  *     url(a)
  */
-public fun url(a: Address): string = if a.http {
+public fun url(a: Address): string = if a.http && a.route != "/" {
     "http://{a.host}:{a.port}{a.route}"
 } else {
     site_url(a, "/.well-known/rapidkoi/app.rkb")

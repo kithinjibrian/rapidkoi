@@ -158,3 +158,19 @@ fun times(s: string, n: i64): string {
     }
     parts.join("")
 }
+
+@test
+fun a_site_answers_every_other_path_with_its_landing_page() {
+    // PRP-036: every link to the app lands somewhere in a browser.
+    let (dir, build) = site_dir("site-landing");
+    write_file("{dir}/index.html", "<!doctype html><title>Notes</title>").unwrap();
+    for path of ["/", "/@1.0.0", "/anything/else"] {
+        let r = handle(dir, 8000, request("GET", path));
+        assert_eq((r.status, r.text()), (200, Ok("<!doctype html><title>Notes</title>")));
+        assert_eq(r.header("content-type"), Some("text/html; charset=utf-8"));
+    }
+    // Rapidkoi's own files are still only its own.
+    assert_eq(handle(dir, 8000, request("GET", "/.well-known/rapidkoi/other")).status, 404);
+    fs.remove_file("{dir}/index.html").unwrap();
+    remove_site(dir, build);
+}

@@ -1,0 +1,70 @@
+/**
+ * The landing page (PRP-036), pure: what a browser shows at an app's
+ * address, or at any link to it, when it isn't opened in Rapidkoi. `publish`
+ * writes it as the site's `index.html` and `serve` answers every path
+ * outside Rapidkoi's own files with it. Everything the project says is
+ * escaped; the one script only points "Open in Rapidkoi" at the link the
+ * browser was given.
+ *
+ * Used by: commands.publish
+ */
+
+/**
+ * Builds the landing page for an app.
+ *
+ * @param name the app's name
+ * @param description what it says about itself, if anything
+ * @param publisher who signed it: "host · key xxxx-…"
+ * @param host the host it's published at, the address's own
+ * @returns the page, as HTML
+ *
+ * Example:
+ *     landing_page("Counter", Some("Counts"), "counter.dafifi.net · key ab12-…", "counter.dafifi.net")
+ */
+public fun landing_page(
+    name: string,
+    description: Option<string>,
+    publisher: string,
+    host: string,
+): string {
+    let about = match description {
+        Some(d) => "<p>{escape(d)}</p>",
+        None => "",
+    };
+    [
+        "<!doctype html>",
+        "<html lang=\"en\"><head><meta charset=\"utf-8\">",
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+        "<title>{escape(name)}</title>",
+        // Rapidkoi's accent, with dark text on it (the brand).
+        "<style>body{{font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;color:#1c1c1c;background:#fafafa}}",
+        "a.open{{display:inline-block;padding:.6rem 1.2rem;border-radius:.5rem;background:#ff7700;color:#1c1c1c;text-decoration:none;font-weight:600}}",
+        ".dim{{color:#666}}</style></head><body>",
+        "<h1>{escape(name)}</h1>",
+        about,
+        "<p class=\"dim\">{escape(publisher)}</p>",
+        "<p><a class=\"open\" id=\"open\" href=\"rapidkoi://{escape(host)}/\">Open in Rapidkoi</a></p>",
+        "<p class=\"dim\">You need Rapidkoi to open it.</p>",
+        // The link the browser was given, as a rapidkoi:// address of the same shape.
+        "<script>document.getElementById(\"open\").href=\"rapidkoi://\"+location.host+location.pathname+location.search;</script>",
+        "</body></html>",
+        "",
+    ].join("\n")
+}
+
+/** Text made safe inside HTML, in text and in a quoted attribute. */
+fun escape(s: string): string {
+    let mut out = "";
+    for c of s.chars() {
+        let one = "{c}";
+        out = out + match one {
+            "&" => "&amp;",
+            "<" => "&lt;",
+            ">" => "&gt;",
+            "\"" => "&quot;",
+            "'" => "&#39;",
+            _ => one,
+        };
+    }
+    out
+}

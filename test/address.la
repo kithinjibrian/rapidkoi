@@ -42,6 +42,11 @@ fun what_each_one_fetches() {
         "http://localhost:8000/.well-known/rapidkoi/app.rkb",
     );
     assert_eq(url(ok("http://127.0.0.1:9000/x.rkb")), "http://127.0.0.1:9000/x.rkb");
+    // An http:// link names no bundle: it's the site's own address (PRP-036).
+    assert_eq(
+        url(ok("http://localhost:8000/@0.3.0?count=3")),
+        "http://localhost:8000/.well-known/rapidkoi/app.rkb",
+    );
     assert_eq(shown(ok("rapidkoi://localhost:8000/a")), "localhost:8000");
 }
 

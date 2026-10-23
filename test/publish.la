@@ -196,3 +196,14 @@ fun contains(hay: u8[], needle: u8[]): bool {
     }
     false
 }
+
+@test
+fun publishing_writes_the_landing_page() {
+    // PRP-036: a link opened in a browser lands on the app's page.
+    let dir = project("landing", "1.0.0", 3);
+    publish_site(dir).unwrap();
+    let page = read_file("{dir}/site/index.html").unwrap();
+    assert_eq(page.contains("<title>Notes</title>"), true);
+    assert_eq(page.contains("href=\"rapidkoi://localhost:8000/\""), true);
+    done(dir);
+}

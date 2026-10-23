@@ -2,7 +2,7 @@
  * The `keygen` and `publish` commands, and `pack` from `rapidkoi.toml`.
  * Publishing writes a static site: `.well-known/rapidkoi/` holds the public
  * key file, the signed index, and each kept version as
- * `builds/<sha256 hex>.rkb`. It builds only on an index that verifies with
+ * `builds/<sha256 hex>.rkb`; `index.html` is the landing page (PRP-036). It builds only on an index that verifies with
  * the project's key, writes nothing outside the site folder, and never
  * writes or prints the secret key.
  *
@@ -38,6 +38,7 @@ import trust.index {
 };
 import guest.limits { CONTRACT_VERSION };
 import bundles.bundle { Bundle, Manifest, write, reason as bundle_reason };
+import commands.landing { landing_page };
 
 /** Where a site keeps Rapidkoi's files, under its root. */
 public const WELL_KNOWN: string = ".well-known/rapidkoi";
@@ -142,6 +143,16 @@ public fun publish_site(dir: string): Result<string, string> {
     put("{root}/builds/{hex(sha)}.rkb", bytes)?;
     put("{root}/index", sign_index(kept, key).map_err(index_reason)?)?;
     put("{root}/key", key_file(KeyFile { host: key.host, key: key.public_key, rotations: [] }))?;
+    // What a browser shows at the app's address and at every link (PRP-036).
+    let page = landing_page(
+        p.name,
+        p.description,
+        "{key.host} · key {fingerprint(key.public_key)}",
+        key.host,
+    );
+    write_file("{p.site}/index.html", page).map_err(
+        fun(e: string) = "can't write {p.site}/index.html: {e}",
+    )?;
     for h of gone {
         let file = "{root}/builds/{hex(h)}.rkb";
         if fs.exists(file) {

@@ -4,8 +4,8 @@
  * `./main serve SITE/` serves a folder `publish` wrote. It listens on
  * 127.0.0.1 only. A bundle is re-read (and re-checked) on every request, so
  * a repack needs no restart. A site serves its key, its index and builds
- * named by 64 lowercase hex digits, nothing else: no other request path
- * reaches the disk.
+ * named by 64 lowercase hex digits, and its landing page for every other
+ * path (PRP-036), nothing else: no other request path reaches the disk.
  *
  * Depends on: std.http, std.fs, bundles.signing, bundles.bundle
  * Used by: main
@@ -123,11 +123,11 @@ public fun handle(file: string, port: i64, r: Request): Response {
     if r.method != "GET" {
         return http.text(405, "Only GET");
     }
-    if r.path == "/" {
-        return http.text(200, "Rapidkoi development server: open rapidkoi://localhost:{port}");
-    }
     if fs.is_dir(file) {
         return site(file, r.path);
+    }
+    if r.path == "/" {
+        return http.text(200, "Rapidkoi development server: open rapidkoi://localhost:{port}");
     }
     if r.path != BUNDLE_PATH {
         return http.text(404, "Not here: Rapidkoi fetches {BUNDLE_PATH}");
@@ -155,7 +155,18 @@ public fun handle(file: string, port: i64, r: Request): Response {
  * Rapidkoi checks it. Only three kinds of name are ever looked up.
  */
 fun site(dir: string, path: string): Response {
-    let name = if path.starts_with(SITE_PATH) { path.slice(SITE_PATH.len, path.len) } else { "" };
+    // Any other path is a link to the app, or its address: the landing page (PRP-036).
+    if !path.starts_with(SITE_PATH) {
+        return match read_bytes("{dir}/index.html") {
+            Ok(bytes) => Response {
+                status: 200,
+                headers: #{"content-type": "text/html; charset=utf-8"},
+                body: bytes,
+            },
+            Err(_) => http.text(404, "Not here: this site has no landing page"),
+        };
+    }
+    let name = path.slice(SITE_PATH.len, path.len);
     let kind = if name == "key" || name == "index" {
         "application/cbor"
     } else if is_build(name) {
