@@ -61,8 +61,10 @@ public fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
  */
 public fun newtab_view(m: Model): View<Msg> = match m.newtab {
     Some(p) => match p.screen {
-        // It sends nothing; were it to, Home on an empty tab changes nothing.
-        Running(_, _, d) => screen(d.root, m.theme).map(fun(_: render.Msg) = Msg.Home),
+        // Its own messages go to it alone, as a tab's go to its app.
+        Running(_, _, d) => screen(d.root, m.theme).map(
+            fun(inner: render.Msg) = Msg.FromNewTab(inner),
+        ),
         _ => column([]),
     },
     None => column([]),

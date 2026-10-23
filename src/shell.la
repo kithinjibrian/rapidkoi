@@ -226,6 +226,12 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     // One of several instances closes to another of the same app (PRP-033).
     CloseTab(id) => (close_instance(m, id), Cmd.none()),
     CloseApp(id) => (close_app(m, id), Cmd.none()),
+    // The new tab's own clicks (session 185): what it asks for is answered
+    // after, as for any app.
+    FromNewTab(inner) => (
+        Model { newtab: m.newtab.map(fun(p: AppPage) = handle(p, inner)), ..m },
+        Cmd.none(),
+    ),
     // The new tab's Restore (PRP-035): the last session's windows, added.
     RestoreSession => match m.previous {
         Some(o) => navigate.reopen_all(Model { previous: None, ..m }, o),

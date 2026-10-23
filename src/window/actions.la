@@ -52,6 +52,8 @@ public enum Msg {
     CloseApp(i64),
     /** Restore the last session (PRP-035): the new tab's button. */
     RestoreSession,
+    /** A message from the new tab's own screen (a click, typing), for it alone (session 185). */
+    FromNewTab(render.Msg),
     /** The Permissions page: the card's app's permission, by name, set to this. */
     SetPermission(string, Setting),
     /** Show or hide the app info panel: ⚙. */

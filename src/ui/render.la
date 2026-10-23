@@ -126,9 +126,11 @@ fun styled_text(s: string, style: TextStyle, t: Theme): View<Msg> {
 fun button_of(label: string, look: ButtonLook, msg: Option<Value>, t: Theme): View<Msg> {
     let style = button_look(t, look);
     match msg {
-        Some(m) => button(label, Msg.Event(m, None)).style(style),
+        // At its own width, not the column's (session 185): a button
+        // stretched across the page reads as a bar, not a button.
+        Some(m) => button(label, Msg.Event(m, None)).style(style).align(Align.Start),
         // kivuli: a button without a message is disabled; any placeholder
         // message works, since `.disabled(true)` removes it.
-        None => button(label, Msg.Restart).disabled(true).style(style),
+        None => button(label, Msg.Restart).disabled(true).style(style).align(Align.Start),
     }
 }

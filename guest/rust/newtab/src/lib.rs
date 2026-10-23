@@ -82,7 +82,12 @@ impl App for NewTab {
                 column([
                     text("Where you left off").heading(),
                     text(&l.name),
-                    text(l.title.as_deref().unwrap_or(&l.place)).dim(),
+                    // Its screen's title, unless that only repeats its name: then where it lives.
+                    text(match l.title.as_deref() {
+                        Some(t) if t != l.name => t,
+                        _ => &l.place,
+                    })
+                    .dim(),
                     button("Continue").primary().on_press("continue"),
                 ])
                 .spacing(Space::Sm),

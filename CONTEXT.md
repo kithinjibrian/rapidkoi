@@ -6618,5 +6618,14 @@ Branch: prp-017-kivuli_0_17
 ---
 
 
-## SESSION 185 — 2026-10-23 — The new tab's buttons do nothing; buttons stretch — open
+## SESSION 185 — 2026-10-23 — The new tab's buttons do nothing; buttons stretch — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner's screenshot: the new tab "super ugly", and none of its buttons work.
+- Bug (mine, since PRP-030): `content.newtab_view` mapped every new-tab message to `Msg.Home`, from when it had no buttons. Now `Msg.FromNewTab(render.Msg)` goes to the new tab's page (`tabs.handle`), and its asks are answered as usual. Test: `test/restore.la` `the_new_tabs_restore_button_restores`.
+- `render.button_of`: app buttons at their natural width (`.align(Align.Start)`), not stretched across the column, for every app.
+- The new tab: the line under where you left off shows the screen's title only when it isn't the app's name; otherwise where it lives. Repacked; `./main` rebuilt.
+- Checks, fmt and build pass. Tests not run (the owner runs them). The new tab's layout itself awaits the owner's design direction.

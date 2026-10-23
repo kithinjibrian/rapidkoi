@@ -6,6 +6,9 @@
 // tab, its name and its place are what's checked). Writes only under
 // test/tmp/.
 import rapidkoi.shell { Model, start, update };
+import rapidkoi.ui.layout { view };
+import kivuli { Cmd };
+import kivuli.testing { click };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.instances { display_name };
 import rapidkoi.window.tabs { Tab };
@@ -189,4 +192,30 @@ fun dropping_it_deletes_its_extra_windows_and_keeps_the_apps_data() {
     step(step(m, Msg.Draft(module_of(s))), Msg.Go);
     assert_eq((has_state(s, ""), has_state(s, "2")), (true, false));
     clean("test/tmp/restore-drop-states");
+}
+
+/** Every message a command sends after a delay. */
+fun later(c: Cmd<Msg>): Msg[] = match c {
+    After(_, msg) => [msg],
+    Batch(cs) => {
+        let mut all: Msg[] = [];
+        for inner of cs {
+            for msg of later(inner) {
+                all.push(msg);
+            }
+        }
+        all
+    }
+    _ => [],
+};
+
+@test
+fun the_new_tabs_restore_button_restores() {
+    // Session 185: the new tab's own buttons reach it (they were dropped).
+    let s = with_session("button");
+    let (m, _) = start(["./main"], Some(s));
+    let pressed = click(view(m), "Restore previous session (2)").unwrap();
+    let (_, c) = update(m, pressed);
+    assert_eq(later(c), [Msg.RestoreSession]);
+    clean("test/tmp/restore-button");
 }
