@@ -84,12 +84,14 @@ public fun bar(m: Model): Bar<Msg> {
  */
 public fun end(m: Model): View<Msg>[] = [
     tool(m.theme, Icon.Account, "Account (coming soon)", None),
+    // Centred down the bar as the button inside is: the popover around it
+    // otherwise sits at the bar's top (the owner's screenshot, session 202).
     ui_popover(
         tool(m.theme, Icon.Menu, "Menu", Some(Msg.Menu(!m.menu))),
         m.menu,
         menu_card(m.theme),
         Msg.Menu(false),
-    ),
+    ).align(Align.Center),
 ];
 
 /**

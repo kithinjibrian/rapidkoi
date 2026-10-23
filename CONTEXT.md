@@ -10728,5 +10728,10 @@ Branch: prp-017-kivuli_0_17
 - Docs: contract-5.md, app-events.md, DESIGN.md, CLAUDE.md, MEMORY.md (decision 25 amended), CHANGELOG.md, PRP amendments.
 - Checks: every test file checks, fmt is clean, the build and `cargo test --no-run` succeed. Tests not run (the owner runs them).
 
-## SESSION 202 — 2026-10-24 — Centre ☰ in the header bar — open
+## SESSION 202 — 2026-10-24 — Centre ☰ in the header bar — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner's screenshot: ☰ sat higher than 👤. The popover around it (PRP-038) wasn't centred down the bar; `header.end` now centres it. Build ok; to check by eye.
