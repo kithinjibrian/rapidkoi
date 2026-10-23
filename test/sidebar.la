@@ -48,12 +48,13 @@ fun a_pin_opens_unless_its_app_is_open_already() {
 
 @test
 fun every_open_tab_has_a_close_button() {
-    // Shown on hover, but always there (PRP-028).
+    // Shown on hover, but always there (PRP-028). The current app's closes
+    // the window in front; another's closes all of that app's (PRP-033).
     let v = sidebar.view(two());
     assert_eq(click(v, "Close notes"), Ok(Msg.CloseTab(0)));
-    assert_eq(click(v, "Close todo"), Ok(Msg.CloseTab(1)));
+    assert_eq(click(v, "Close todo"), Ok(Msg.CloseApp(1)));
     let home = sidebar.view(step(two(), Msg.NewTab));
-    assert_eq(click(home, "Close notes"), Ok(Msg.CloseTab(0)));
+    assert_eq(click(home, "Close notes"), Ok(Msg.CloseApp(0)));
 }
 
 @test
