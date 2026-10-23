@@ -286,6 +286,18 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** Apps writing their own URLs; fields at the struct's definition; lists or maps in an address; a shared Rapidkoi domain for links. Cross-app links come next (proposed PRP-037).
 
+### 25. Apps style themselves; Rapidkoi is the engine (DECISION-049, PRP-037)
+
+**Decision:**
+- The person always controls bigger text, light/dark and contrast, less motion, knowing which app they're in, and using any app without seeing it or a mouse. Apps follow by default; an emergency switch forces it (PRP-038).
+- Apps style freely through one door (`style`), within what Rapidkoi can draw. Rapidkoi's names (colours, sizes, spacing, corners) follow the person, and the app never learns their values. Nothing about looks goes in the manifest.
+- Contract 5 carries boxes, texts, typing boxes, styles and roles (AccessKit's names). Widgets live in the Rust library, the framework; the contract gains only what an app can't build without painting.
+- State is a tree with one owner per piece, others holding IDs; links will be paths into it (PRP-039).
+
+**Why:** the owner (sessions 197–198), from the goals: the developer wants their look, the person wants apps that work for them. Research: the Extensible Web Manifesto, Flutter's layers, the first rule of ARIA, AccessKit.
+
+**Rules out:** apps never setting colours (DECISION-031's app rule); a component per app subject; looks in the manifest.
+
 ---
 
 ## CURRENT PROJECT STATE

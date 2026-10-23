@@ -10345,7 +10345,7 @@ Branch: prp-017-kivuli_0_17
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Counter 0.4.0 and quote 0.2.0 are live on the VM at contract 4 with landing pages (session 195), to be opened in Rapidkoi by the owner. The address box shows `https://` links (session 197, undoing 196). Next: the owner reviews PRP-037 (contract 5 part 1: primitives, styling, roles) and the split into PRP-037 to PRP-040 (DECISION-049). Cross-app links move after the tasks app. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Counter 0.4.0 and quote 0.2.0 are live on the VM at contract 4 with landing pages (session 195), to be opened in Rapidkoi by the owner. The address box shows `https://` links (session 197, undoing 196). Built: PRP-037 (contract 5 part 1: primitives, styling, roles, session 199), awaiting the owner's test runs: `lughac test test/` (start with `styles`, `roles`, `tree5`, `paint`, `render`, `guest`, `tabs`, `newtab`) and `cargo test --manifest-path guest/rust/Cargo.toml` (doc tests too), then by eye: the counter, quote and the new tab as before; `guest/rust/styled`. Next: PRP-038 (the person's controls), then PRP-039 (composing: link paths, nested state, typed messages), then PRP-040 (the tasks app). Waiting on kivuli: DECISION-050 (accessible roles) too. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
 
 ## SESSION 180 — 2026-10-23 — The strip and dock tweaks from chat (committed) — closed
 
@@ -10667,5 +10667,23 @@ Branch: prp-017-kivuli_0_17
 - Wrote `PRPs/prp-037-contract_5_styling_and_roles.md` (contract 5 part 1), with the split: PRP-038 the person's controls, PRP-039 composing (link paths, nested named state, typed messages), PRP-040 the tasks app.
 - DECISION-049 (apps style themselves; contract 5), DECISION-050 (kivuli accessible roles, `docs/specs/kivuli-accessible-roles.md`). Awaiting the owner's approval of PRP-037 and the split. No code.
 
-## SESSION 199 — 2026-10-23 — Build PRP-037: contract 5 part 1 (primitives, styling, roles) — open
+## SESSION 199 — 2026-10-23 — Build PRP-037: contract 5 part 1 (primitives, styling, roles) — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "yes approved, build it" (PRP-037 and the split into PRP-037 to PRP-040).
+- Shell: `guest/styles.la` (the style map, checked), `guest/roles.la`, `guest/tree5.la` (contract 5's screens), contract 5's nodes in `guest/nodes.la`, `ui/paint.la` (a look resolved against the theme and tokens, then kivuli styles), `ui/render.la` (boxes, pressable boxes, texts, typing boxes with Enter and several lines), `CONTRACT_VERSION` 5, `CORNER_SMALL`.
+- Rust: `raw` (primitives, `.style`, roles), `style` (the values), widgets rebuilt on them (`button`, `checkbox`, `tabs`, `spacer`, `text_area`), `export!` reports 5; the counter, quote and the new tab compile unchanged; `guest/rust/styled` (new); `newtab.rkb` repacked; `./main` rebuilt.
+- Docs: `docs/specs/contract-5.md`, CLAUDE.md (design rule for apps' content, stack, tree), MEMORY.md (decision 25), DESIGN.md, CHANGELOG.md, DECISION-049 copied, PRP amendments.
+- Every test file checks, fmt is clean, the build and `cargo test --no-run` succeed. Tests not run (the owner runs them).
+
+### FILES CREATED OR MODIFIED
+
+```
+src/guest/{styles, roles, tree5 (new), nodes, running, limits, placeholders, guest}.la, src/ui/{paint (new), render, tokens}.la,
+test/{styles, roles, tree5, paint (new), render, guest, tabs, newtab}.la,
+guest/rust/{rapidkoi/src/{raw, style (new), view, lib, abi}.rs, styled (new), Cargo.toml}, assets/apps/newtab.rkb,
+docs/specs/contract-5.md, CLAUDE.md, MEMORY.md, DECISIONS.md, docs/DESIGN.md, CHANGELOG.md, PRPs/prp-037-contract_5_styling_and_roles.md, CONTEXT.md
+```

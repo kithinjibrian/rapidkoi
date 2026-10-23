@@ -137,40 +137,40 @@ The request is written as `docs/specs/kivuli-accessible-roles.md`. When it lands
 ## TESTS TO WRITE
 
 `test/styles.la` (new):
-- [ ] Every key and value kind reads: names, px, rem, the three colour forms, state looks.
-- [ ] Each bad value says why: out of range, an unknown name, a nested state look, a nested mix, over 32 keys.
-- [ ] An unknown key is ignored.
+- [x] Every key and value kind reads: names, px, rem, the three colour forms, state looks.
+- [x] Each bad value says why: out of range, an unknown name, a nested state look, a nested mix, over 32 keys.
+- [x] An unknown key is ignored.
 
 `test/roles.la` (new):
-- [ ] Each role and state reads; an unknown role is refused; `checked` on a role without it is refused.
+- [x] Each role and state reads; an unknown role is refused; `checked` on a role without it is refused.
 
 `test/paint.la` (new):
-- [ ] Rapidkoi's names become the theme's values.
-- [ ] A raw colour stays as written.
-- [ ] A mix computes.
-- [ ] Sizes become tokens and px.
-- [ ] State looks become `When(…)`.
+- [x] Rapidkoi's names become the theme's values.
+- [x] A raw colour stays as written.
+- [x] A mix computes.
+- [x] Sizes become tokens and px.
+- [x] State looks become `When(…)`.
 
 `test/render.la`:
-- [ ] A pressable box is a button that sends its message (`kivuli.testing`: click by label).
+- [x] A pressable box is a button that sends its message (`kivuli.testing`: click by label).
 - [ ] `grow` expands.
 - [ ] A several-line input is a text area.
-- [ ] `on_submit` sends.
+- [x] `on_submit` sends.
 
 `test/contract.la` (at its limit, so in `test/tree5.la`):
-- [ ] A contract 5 tree reads.
+- [x] A contract 5 tree reads.
 - [ ] Contract 4's kinds in a contract 5 tree are refused.
-- [ ] Limits apply.
+- [x] Limits apply.
 
 `test/guest.la`, `test/tabs.la`:
-- [ ] Contract 5 runs.
-- [ ] 6 is refused.
-- [ ] Contracts 2–4 unchanged.
+- [x] Contract 5 runs.
+- [x] 6 is refused.
+- [x] Contracts 2–4 unchanged.
 
 `guest/rust` (`cargo test`):
-- [ ] The raw builders encode exactly the spec's CBOR.
-- [ ] `button(…).primary()`, `checkbox`, `tabs` and `spacer` build the expected boxes, styles and roles.
-- [ ] `.style([...])` on a widget layers over its defaults.
+- [x] The raw builders encode exactly the spec's CBOR.
+- [x] `button(…).primary()`, `checkbox`, `tabs` and `spacer` build the expected boxes, styles and roles.
+- [x] `.style([...])` on a widget layers over its defaults.
 - [ ] The counter's, quote's and the new tab's views encode as contract 5.
 
 ## ROLLBACK PLAN
@@ -182,7 +182,7 @@ The request is written as `docs/specs/kivuli-accessible-roles.md`. When it lands
 - [ ] A pressable box works by click, Tab plus Enter, and Space.
 - [ ] Contracts 2–4 apps run as before.
 - [ ] `lughac test test/` and `cargo test` pass (the owner runs them); build ok; fmt clean; no file over 500 lines.
-- [ ] DECISIONS.md (049, 050), CLAUDE.md's DESIGN RULE, `docs/specs/contract-5.md`, DESIGN.md, MEMORY.md, CHANGELOG.md updated.
+- [x] DECISIONS.md (049, 050), CLAUDE.md's DESIGN RULE, `docs/specs/contract-5.md`, DESIGN.md, MEMORY.md, CHANGELOG.md updated.
 
 ## VALIDATION
 - `lughac fmt --check src test`, `lughac test test/`, `lughac build src/main.la -o main`, `cargo test --manifest-path guest/rust/Cargo.toml`
@@ -190,3 +190,17 @@ The request is written as `docs/specs/kivuli-accessible-roles.md`. When it lands
   1. Rebuild the counter and open it: same look, now contract 5.
   2. Open a small styled example, kept in `guest/rust/` for this PRP: a green rounded button and an `accent` one. Each looks as written.
   3. Tab to Add and press Space: it counts.
+
+## AMENDMENTS (session 199, while building)
+
+- **Props stay under `props`:** a node is `{kind, props, children}` as in earlier contracts, with `style`, `role`, `checked`, `on_press` and the rest inside `props`. The sketch above put them beside `kind`.
+- **Earlier kinds in a contract 5 tree** (`button`, `column`, `row`) are shown as unsupported placeholders, like any unknown kind, rather than refused, so the one rule for unknown kinds holds.
+- **Text size in points, not pixels:** `{ "pt": 6–72 }`, as Rapidkoi's own tokens and kivuli measure text. `body` and `small` are 1× and 0.875× the body size, so they follow a text size setting (PRP-038).
+- **Corners:** a new token `CORNER_SMALL` (4); `medium` is `BUTTON_RADIUS`, `large` is `PAGE_RADIUS`.
+- **The `checked` look** is laid over the base by Rapidkoi when `checked: true`, since GTK's `:checked` doesn't reach a pressable box. `selected` has no state look: the app knows which tab is selected and styles it.
+- **A widget button with nothing to send** is written as `on_press: null, disabled: true`, so it shows disabled, as `button()` without `on_press` did before.
+- **Tabs send `"{msg}:{key}"`** (`tabs(items, selected, msg)`): a press carries no value of its own.
+- **`.restyle_text(…)`** styles the text inside a widget (a button's label colour).
+- **Not tested:** `grow` and the several-line box. kivuli.testing finds a text area only by `.name`, and doesn't expose `expand`. Both are in the styled example to check by eye.
+- **The styled example** is `guest/rust/styled`: the library's button in the app's own green with round corners, one in Rapidkoi's accent, and a card built from a bare box.
+

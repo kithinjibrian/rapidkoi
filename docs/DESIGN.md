@@ -101,3 +101,15 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 - No numbers in a `Spacing`, `Sizing`, `Font` or `Border` other than the tokens above.
 - No colours outside `src/ui/themes.la`; nothing follows the desktop theme; apps never get colours.
 - Icons are theme icon names, preferably `…-symbolic`.
+
+## Apps' own looks (contract 5, PRP-037, DECISION-049)
+
+- Apps style their content themselves through `style` (`docs/specs/contract-5.md`). Rapidkoi's own screens keep the rules above.
+- Rapidkoi's names resolve as follows (`src/ui/paint.la`):
+  - **Colours:** `background` = `page`, `surface` = `control`, `text` = `text`, `text_dim` = `dim`, `accent`, `on_accent`, `border` = `edge`, `danger`, `on_danger`.
+  - **Spacing:** `xs`–`xl` = the `SPACE_*` tokens.
+  - **Corners:** `small` = `CORNER_SMALL` (4), `medium` = `BUTTON_RADIUS` (6), `large` = `PAGE_RADIUS` (12), `round` = `CIRCLE`.
+  - **Text:** `title` = `TEXT_TITLE`, `heading` = `TEXT_HEADING`; `body` and `small` are 1× and 0.875× the body size, as `rem` is.
+- A pressable box starts bare (no fill, edge or shadow) with an accent ring on focus; a text starts in `text`; a typing box in the field look.
+- An app can draw lookalikes of Rapidkoi's screens inside its content. The address, the shield and Rapidkoi's dialogs live in the frame and above the content, where apps can't draw.
+

@@ -366,7 +366,7 @@ Rules:
 
 **Rationale:** goals first (session 198): the developer wants an app that looks and behaves their way; the person wants apps that work for them. The research (the Extensible Web Manifesto, Flutter's layers, the first rule of ARIA, AccessKit) shaped the engine-and-framework split.
 
-**Copied to MEMORY.md:** on PRP-037's approval
+**Copied to MEMORY.md:** yes (decision 25)
 
 ---
 
