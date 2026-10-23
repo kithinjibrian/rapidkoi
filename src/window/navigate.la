@@ -11,6 +11,7 @@
 import std.fs;
 import window.tabs {
     AppPage,
+    Tab,
     open_path,
     close_page,
     resume,
@@ -147,6 +148,14 @@ public fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
     let mut tasks: Cmd<Msg>[] = [];
     let mut ids: i64[] = [];
     for t of o.tabs {
+        // Restore adds (PRP-035): a window already open just stays.
+        let already = at.tabs.filter(
+            fun(x: Tab) = same_app(x.page.path, t.path) && x.page.instance == t.instance,
+        );
+        if already.len > 0 {
+            ids.push(already[0].id);
+            continue;
+        }
         let named = fun(p: AppPage) = AppPage {
             instance: t.instance,
             label: t.label,

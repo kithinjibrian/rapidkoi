@@ -25,6 +25,7 @@ fun each_permission_has_its_name_tier_and_words() {
         "read_pins",
         "read_left_off",
         "open_apps",
+        "restore_session",
     ]);
     for p of ALL {
         assert_eq(tier_of(p), Tier.BuiltIn);
@@ -34,6 +35,9 @@ fun each_permission_has_its_name_tier_and_words() {
     assert_eq(words_of(Permission.OpenApps), "opening your apps");
     assert_eq(label_of(Permission.ReadLeftOff), "Reading where you left off");
     assert_eq(wish_of(Permission.ReadPins), "read your pins");
+    // PRP-035.
+    assert_eq(words_of(Permission.RestoreSession), "restoring your last session");
+    assert_eq(wish_of(Permission.RestoreSession), "restore your last session");
 }
 
 @test

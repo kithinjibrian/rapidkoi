@@ -240,6 +240,47 @@ public fun drop_app(s: Store, host: string, key: u8[]): Result<(), StoreError> {
 }
 
 /**
+ * Removes one instance's saved state (PRP-035): a closed extra window's.
+ *
+ * Example:
+ *     drop_state_in(s, trust.host, trust.key, "2")?
+ */
+public fun drop_state_in(
+    s: Store,
+    host: string,
+    key: u8[],
+    instance: string,
+): Result<(), StoreError> = remove(folder(s), instance_name(host, key, instance));
+
+/**
+ * Removes an instance's saved state for a host, whatever its key (PRP-035):
+ * a dropped session knows its windows by address, not by key.
+ *
+ * Example:
+ *     drop_host_instance(s, "notes.acme.com", "2")?
+ */
+public fun drop_host_instance(s: Store, host: string, instance: string): Result<(), StoreError> {
+    let sub = folder(s);
+    for n of files(sub) {
+        if let Ok(b) = read_bytes("{sub.dir}/{n}") {
+            let bounds = Limits {
+                max_depth: 2,
+                max_items: 32,
+                max_bytes: MAX_FILE,
+                max_string: MAX_FILE,
+            };
+            if let Ok(v) = decode(b, bounds) {
+                let named = text(v, "instance").unwrap_or("");
+                if text(v, "host") == Some(host) && named == instance && instance != "" {
+                    remove(sub, n)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/**
  * Moves an app's state, every instance's, to its new key after a
  * rotation its old key signed. Nothing saved: nothing to do.
  *

@@ -21,7 +21,7 @@ import window.navigate;
 import window.pins;
 import window.instances { close_instance, close_app, start_rename, confirm_rename, touched };
 import window.newtab;
-import data.saving { session_store, restore, restore_open, persist, mark, forgotten };
+import data.saving { session_store, restore, restore_open, persist, mark, forgotten, drop_session };
 import data.store { Store };
 import ui.render;
 import ui.layout;
@@ -71,17 +71,20 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     // 2 and 3. The new tab's app, once for the window, now that what it
     // reads is there; without it the empty tab is just empty (PRP-027).
     let ready = Model { newtab: newtab.open(engine).ok(), ..restored };
-    // 2 and 3. What was open when Rapidkoi closed, reopened in its tabs
-    // before anything else is opened (PRP-034).
-    let (remembered, reloads) = match open {
-        Some(o) if o.tabs.len > 0 => navigate.reopen_all(ready, o),
-        _ => (ready, Cmd.none()),
+    // What was open when Rapidkoi closed is kept as the last session, for
+    // the new tab's "Restore previous session": nothing reopens on its own
+    // (PRP-035).
+    let remembered = Model {
+        previous: match open {
+            Some(o) if o.tabs.len > 0 => Some(o),
+            _ => None,
+        },
+        ..ready,
     };
+    let reloads: Cmd<Msg> = Cmd.none();
     if argv.len < 2 {
-        // Launch lands on the new tab, reopened apps waiting in the dock
-        // (the owner, session 182); new_blank makes the one that was in
-        // front the one to go back to. It clears the notice line; what
-        // restoring said still shows.
+        // Launch lands on the new tab (the owner, sessions 182–183). It
+        // clears the notice line; what restoring said still shows.
         let window_ = Model { notice: remembered.notice, ..window.new_blank(remembered) };
         // 4. What the apps asked for when they opened: the new tab's your
         // pins and where you left off, so the first screen shows them.
@@ -142,8 +145,15 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     } else {
         handled
     };
+    // Opening anything else drops the last session (PRP-035): Restore is
+    // offered only until then.
+    let moved_on = if m.previous.is_some() && next.previous.is_some() && next.tabs.len > m.tabs.len {
+        drop_session(next)
+    } else {
+        next
+    };
     // An approval whose page went to the back is a no (PRP-031).
-    let (decided, denied) = left_behind(next);
+    let (decided, denied) = left_behind(moved_on);
     // What a v2 app asked for is answered before anything is drawn or saved:
     // what on_resume and on_change asked for too.
     // The instance now in front is the one its app reopens to (PRP-033).
@@ -216,6 +226,11 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     // One of several instances closes to another of the same app (PRP-033).
     CloseTab(id) => (close_instance(m, id), Cmd.none()),
     CloseApp(id) => (close_app(m, id), Cmd.none()),
+    // The new tab's Restore (PRP-035): the last session's windows, added.
+    RestoreSession => match m.previous {
+        Some(o) => navigate.reopen_all(Model { previous: None, ..m }, o),
+        None => (m, Cmd.none()),
+    },
     NewInstance => navigate.new_instance(m),
     RenameInstance(id) => (start_rename(m, id), Cmd.none()),
     InstanceName(typed) => (

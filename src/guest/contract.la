@@ -145,6 +145,10 @@ public fun read_update(bytes: u8[]): Result<Update, ContractError> {
             effects.push(Effect.LeftOff(msg));
         } else if kind == "continue" {
             effects.push(Effect.Continue(msg));
+        } else if kind == "session" {
+            effects.push(Effect.Session(msg));
+        } else if kind == "restore_session" {
+            effects.push(Effect.RestoreSession(msg));
         } else if kind == "open_pin" {
             match e.get("index").map(fun(i: Value) = i.as_i64()) {
                 Some(Some(i)) if i >= 0 => effects.push(Effect.OpenPin(msg, i)),

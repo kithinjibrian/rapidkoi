@@ -336,7 +336,7 @@ Update this tree when modules are added.
 - **Placeholders until kivuli and PRP-003 catch up (DECISION-018), each to be replaced, never extended:**
   - Opening a file means typing its path into the box, since there's no file dialog.
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
-  - Search is in memory only. Unsigned apps' state lasts only for the session (PRP-007 amendment 2): reopened at launch, they start fresh (PRP-034).
+  - Search is in memory only. Unsigned apps' state lasts only for the session (PRP-007 amendment 2): restored with the last session, they start fresh (PRP-035).
   - Share, account and the menu are shown disabled. There's no back, home or forward: in-app navigation is the app's own (DECISION-041).
   - Notifications and Data are placeholder pages until notifications and app data exist.
   - Remote apps open by host name over HTTPS only, signed only, with no redirects followed (PRP-009); plain http and unsigned bundles are for this machine's development servers. Loads run in the background (PRP-008), but a DNS lookup, a TLS handshake and compiling a module still briefly hold the window (kivuli's note). Reload is manual; there's no live reload yet.

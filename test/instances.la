@@ -12,6 +12,13 @@ import rapidkoi.ui.render;
 import kivuli.testing { click, pick, texts, type_into };
 import wasmtime { Engine, Module };
 import support { t, echo };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.data.saving { restore };
+import rapidkoi.data.store { store_at };
+import rapidkoi.data.states { saved_state_in };
+import rapidkoi.data.remembered { Recalled };
+import rapidkoi.window.leftoff { LeftOff };
+import std.fs;
 
 fun app(engine: Engine, name: string): AppPage = open_module(
     name,
@@ -167,4 +174,63 @@ fun many(n: i64): string {
         s = s + "x";
     }
     s
+}
+
+/** Notes, signed by notes.acme.com, in a window saving to `dir`. */
+fun signed_window(dir: string): Model {
+    clean_dir(dir);
+    let engine = Engine.new();
+    let p = AppPage {
+        trust: Some(Trust {
+            host: "notes.acme.com",
+            key: [3; 32],
+            standing: Standing.Verified,
+            build: [0; 32],
+            separate: false,
+            since: 0,
+            origin: [3; 32],
+        }),
+        ..app(engine, "notes"),
+    };
+    restore(with_pages(engine, [p]), store_at(dir))
+}
+
+fun clean_dir(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean_dir("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun kept(dir: string, instance: string): bool = match saved_state_in(
+    store_at(dir),
+    "notes.acme.com",
+    [3; 32],
+    instance,
+) {
+    Read(_) => true,
+    _ => false,
+};
+
+@test
+fun closing_a_window_ends_it_and_the_apps_data_stays() {
+    // PRP-035: an extra instance's state goes with it; the first's is the app's data.
+    let dir = "test/tmp/instances-close";
+    let two = step(step(signed_window(dir), add(0)), Msg.NewInstance);
+    let second = two.current.unwrap();
+    let echoed = step(two, add(second));
+    assert_eq((kept(dir, ""), kept(dir, "2")), (true, true));
+    // The first window closes; the app's data stays with it.
+    let first_gone = step(echoed, Msg.CloseTab(0));
+    assert_eq(kept(dir, ""), true);
+    // Then the last, an extra one: its state goes, and the app (not that
+    // window) is where you left off.
+    let gone = step(first_gone, Msg.CloseTab(second));
+    assert_eq((kept(dir, ""), kept(dir, "2")), (true, false));
+    assert_eq(gone.left_off.map(fun(l: LeftOff) = l.instance), Some(""));
+    clean_dir(dir);
 }

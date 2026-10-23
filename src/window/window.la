@@ -16,7 +16,8 @@ import people.identity { Master };
 import net.address { parse };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm, Approval };
 import window.tabs { Page, Tab, Pin, AppPage, state_of };
-import window.leftoff { LeftOff, leave, snapshot };
+import window.leftoff { LeftOff, leave, snapshot, as_app };
+import data.remembered { Open };
 import ui.suggestions { Card };
 import ui.frame { icon_of };
 import ui.themes { Theme, DARK };
@@ -51,6 +52,8 @@ public struct Model {
     public approval: Option<Approval>,
     /** The instance being renamed and the name typed so far (PRP-033). */
     public renaming: Option<(i64, string)>,
+    /** The last session, until it's restored or something else is opened (PRP-035). */
+    public previous: Option<Open>,
     /** Pinned apps, remembered across restarts by `saving`. */
     public pinned: Pin[],
     /** The last app tab visited before home, if it's still open. */
@@ -104,6 +107,7 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         confirm: None,
         approval: None,
         renaming: None,
+        previous: None,
         pinned: [],
         last: None,
         left_off: None,
@@ -201,7 +205,9 @@ public fun used_last(m: Model): Option<LeftOff> {
     match open {
         // A page that isn't running (its file gone, its server down) never
         // replaces a remembered app's state with nothing.
-        Some(a) if state_of(a).is_some() || m.left_off.is_none() => Some(snapshot(a)),
+        Some(a) if state_of(a).is_some() || m.left_off.is_none() => Some(
+            if a.instance == "" { snapshot(a) } else { as_app(snapshot(a)) },
+        ),
         _ => m.left_off,
     }
 }
@@ -382,8 +388,10 @@ public fun close(m: Model, id: i64): Model {
     if at < 0 {
         return m;
     }
+    // Where you left off is the app (PRP-035): an extra window's own state
+    // goes with it, so its app is continued from its data.
     let left = match app(m, id) {
-        Some(a) => Some(leave(a)),
+        Some(a) => Some(if a.instance == "" { leave(a) } else { as_app(leave(a)) }),
         None => m.left_off,
     };
     let rest = all.filter(fun(x: i64) = x != id);

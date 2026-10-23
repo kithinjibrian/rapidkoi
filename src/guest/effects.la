@@ -22,7 +22,7 @@ import kivuli { Cmd };
 import window.actions { Msg, Approval, Answer };
 import net.requests;
 import ui.render;
-import guest.home { pins_of, left_off_of, pin_msg, continue_msg };
+import guest.home { pins_of, left_off_of, pin_msg, continue_msg, session_of };
 import bundles.permissions { Permission, Setting, name_of, words_of };
 import people.access { key_of };
 import bundles.bundle { Manifest };
@@ -92,6 +92,8 @@ fun needed(ask: Effect): Option<Permission> = match ask {
     LeftOff(_) => Some(Permission.ReadLeftOff),
     OpenPin(_, _) => Some(Permission.OpenApps),
     Continue(_) => Some(Permission.OpenApps),
+    Session(_) => Some(Permission.RestoreSession),
+    RestoreSession(_) => Some(Permission.RestoreSession),
     _ => None,
 };
 
@@ -219,6 +221,14 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
             }
             (m, None, msg)
         }
+        Session(msg) => (m, Some(if grant { session_of(m) } else { Value.Null }), msg),
+        // Restoring is the window's own message, as opening is.
+        RestoreSession(msg) => {
+            if grant {
+                sends.push(Cmd.after(0, Msg.RestoreSession));
+            }
+            (m, None, msg)
+        }
         Identity(msg) => {
             let (held, v) = respond(m, p, ask);
             (held, Some(v), msg)
@@ -279,7 +289,9 @@ public fun tell_changes(before: Model, after: Model): Model {
     let mine = fun(m: Model): Grant[] = m.people.grants.filter(fun(g: Grant) = g.app == key);
     let moved = reads(Permission.ReadPins) && pins_of(before) != pins_of(after) || reads(
         Permission.ReadLeftOff,
-    ) && left_off_of(before) != left_off_of(after) || mine(before) != mine(after);
+    ) && left_off_of(before) != left_off_of(after) || reads(
+        Permission.RestoreSession,
+    ) && session_of(before) != session_of(after) || mine(before) != mine(after);
     if moved { put(after, slot, changed) } else { after }
 }
 

@@ -102,6 +102,10 @@ public enum Effect {
     OpenPin(Value, i64),
     /** Open where you left off (needs `open_apps`); not answered. */
     Continue(Value),
+    /** Your last session, if there's one to restore (PRP-035, needs `restore_session`); answered with `msg`. */
+    Session(Value),
+    /** Restore your last session (needs `restore_session`); not answered. */
+    RestoreSession(Value),
 }
 
 /** What a contract v2 `init` or `update` returned: the new state and what it asks for. */

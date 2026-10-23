@@ -50,6 +50,8 @@ public enum Msg {
     ConfirmRename,
     /** Close every instance of this tab's app: the dock's menu. */
     CloseApp(i64),
+    /** Restore the last session (PRP-035): the new tab's button. */
+    RestoreSession,
     /** The Permissions page: the card's app's permission, by name, set to this. */
     SetPermission(string, Setting),
     /** Show or hide the app info panel: ⚙. */

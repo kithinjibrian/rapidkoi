@@ -8,7 +8,7 @@
 //! Build and pack: `scripts/newtab.sh`, which writes `assets/apps/newtab.rkb`.
 
 use minicbor::{Decode, Encode};
-use rapidkoi::{button, column, row, text, App, Ask, Event, Place, Space, View};
+use rapidkoi::{button, column, row, text, App, Ask, Event, Place, Session, Space, View};
 
 /// What the new tab shows of one app.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
@@ -35,11 +35,14 @@ struct NewTab {
     /// Where you left off, as last read.
     #[n(1)]
     left: Option<Shown>,
+    /// How many windows the last session had, if there's one to restore (PRP-035).
+    #[n(2)]
+    session: Option<u32>,
 }
 
 /// Each time it's opened or back at the front: what may have changed.
 fn read() -> Vec<Ask> {
-    vec![Ask::pins("pins"), Ask::left_off("left")]
+    vec![Ask::pins("pins"), Ask::left_off("left"), Ask::session("session")]
 }
 
 impl App for NewTab {
@@ -53,8 +56,13 @@ impl App for NewTab {
             Event::Data { msg, cbor } if msg == "left" => {
                 (NewTab { left: Place::one(&cbor).map(Shown::from), ..self }, vec![])
             }
-            // Nothing left off.
+            Event::Data { msg, cbor } if msg == "session" => {
+                (NewTab { session: Session::read(&cbor).map(|s| s.count), ..self }, vec![])
+            }
+            // Nothing left off, or no session to restore.
             Event::Answer { msg, .. } if msg == "left" => (NewTab { left: None, ..self }, vec![]),
+            Event::Answer { msg, .. } if msg == "session" => (NewTab { session: None, ..self }, vec![]),
+            Event::Message { msg, .. } if msg == "restore" => (self, vec![Ask::restore_session("restore")]),
             Event::Message { msg, .. } if msg == "continue" => (self, vec![Ask::continue_left_off("continue")]),
             Event::Message { msg, .. } => match msg.strip_prefix("pin:").and_then(|i| i.parse::<u32>().ok()) {
                 Some(i) => (self, vec![Ask::open_pin("open", i)]),
@@ -66,6 +74,9 @@ impl App for NewTab {
 
     fn view(&self) -> View {
         let mut parts = vec![text("Rapidkoi").title()];
+        if let Some(n) = self.session {
+            parts.push(button(&format!("Restore previous session ({})", n)).primary().on_press("restore"));
+        }
         if let Some(l) = &self.left {
             parts.push(
                 column([
@@ -113,7 +124,7 @@ mod tests {
 
     #[test]
     fn continue_shows_only_with_somewhere_to_continue() {
-        let t = NewTab { left: Some(shown("Quote")), pins: vec![] };
+        let t = NewTab { left: Some(shown("Quote")), pins: vec![], session: None };
         assert_eq!(
             t.view(),
             column([
@@ -133,7 +144,7 @@ mod tests {
 
     #[test]
     fn each_pin_opens_by_its_place_in_the_list() {
-        let t = NewTab { left: None, pins: vec![shown("Quote"), shown("Counter")] };
+        let t = NewTab { left: None, pins: vec![shown("Quote"), shown("Counter")], session: None };
         assert_eq!(
             t.view(),
             column([
@@ -151,8 +162,22 @@ mod tests {
     }
 
     #[test]
+    fn restore_shows_only_with_a_session() {
+        // PRP-035.
+        let t = NewTab { session: Some(2), ..NewTab::default() };
+        assert_eq!(
+            t.view(),
+            column([text("Rapidkoi").title(), button("Restore previous session (2)").primary().on_press("restore")])
+                .spacing(Space::Lg)
+        );
+        assert_eq!(message("restore"), vec![Ask::restore_session("restore")]);
+        let (t, _) = t.handle(Event::Answer { msg: "session".into(), value: None });
+        assert_eq!(t.session, None);
+    }
+
+    #[test]
     fn nothing_left_off_clears_it() {
-        let t = NewTab { left: Some(shown("Quote")), pins: vec![] };
+        let t = NewTab { left: Some(shown("Quote")), pins: vec![], session: None };
         let (t, _) = t.handle(Event::Answer { msg: "left".into(), value: None });
         assert_eq!(t.left, None);
     }

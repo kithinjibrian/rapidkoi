@@ -458,6 +458,8 @@ fun the_new_tabs_asks_decode() {
             ask("left_off", []),
             ask("open_pin", [("index", Value.int(2))]),
             ask("continue", []),
+            ask("session", []),
+            ask("restore_session", []),
         ]),
     ).unwrap();
     assert_eq(u.effects, [
@@ -465,6 +467,8 @@ fun the_new_tabs_asks_decode() {
         Effect.LeftOff(t("got")),
         Effect.OpenPin(t("got"), 2),
         Effect.Continue(t("got")),
+        Effect.Session(t("got")),
+        Effect.RestoreSession(t("got")),
     ]);
 }
 

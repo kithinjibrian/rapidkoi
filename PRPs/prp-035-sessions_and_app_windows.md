@@ -63,20 +63,20 @@ From chat with the owner (session 183), from the basics up, replacing PRP-034's 
 ## TESTS TO WRITE
 
 `test/restore.la`:
-- [ ] Launch with a saved session: no instance reopened, the empty tab current, `previous` holding it.
-- [ ] The new tab's `restore_session` reopens it all (names, order, the one in front); `previous` is cleared.
-- [ ] Opening something else first drops it: `previous` cleared, its extra instances' state files deleted, first instances' kept.
-- [ ] Restore adds: an app opened before Restore stays, with no second window for an instance already open.
+- [x] Launch with a saved session: no instance reopened, the empty tab current, `previous` holding it.
+- [x] The new tab's `restore_session` reopens it all (names, order, the one in front); `previous` is cleared.
+- [x] Opening something else first drops it: `previous` cleared, its extra instances' state files deleted, first instances' kept.
+- [x] Restore adds: an app opened before Restore stays, with no second window for an instance already open.
 
 `test/instances.la`:
-- [ ] Closing an extra instance deletes its saved state; closing the first keeps the app's data.
-- [ ] Closing the app's last instance leaves the app in where you left off; reopening it gives one window from the app's data.
+- [x] Closing an extra instance deletes its saved state; closing the first keeps the app's data.
+- [x] Closing the app's last instance leaves the app in where you left off; reopening it gives one window from the app's data.
 
 `test/effects.la`, `test/permissions.la`:
-- [ ] `session` and `restore_session` need `restore_session`; the answer's count and names; null with no previous session.
+- [x] `session` and `restore_session` need `restore_session`; the answer's count and names; null with no previous session.
 
 `guest/rust` (`cargo test`):
-- [ ] The new tab shows "Restore previous session" only when there's a session; the button asks to restore.
+- [x] The new tab shows "Restore previous session" only when there's a session; the button asks to restore.
 
 ## ROLLBACK PLAN
 
@@ -87,7 +87,7 @@ From chat with the owner (session 183), from the basics up, replacing PRP-034's 
 - [ ] Closing an extra instance ends it; the app's data survives every window; a reopened app is where you last were
 - [ ] A crash, then launch, offers the same Restore
 - [ ] `lughac test test/` and `cargo test` pass (the owner runs them); build ok; fmt clean; no file over 500 lines
-- [ ] DESIGN.md, CLAUDE.md, MEMORY.md, CHANGELOG.md updated
+- [x] DESIGN.md, CLAUDE.md, MEMORY.md, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user:
@@ -98,3 +98,12 @@ From chat with the owner (session 183), from the basics up, replacing PRP-034's 
 ## CONFIRMED ON APPROVAL (the owner, session 184: "yes approved", the security review and the split included)
 - Restore is offered until something else is opened (as Firefox does), not for the whole session.
 - Restore adds to what's already open; an instance already open just stays.
+
+## AMENDMENTS (session 184, while building)
+
+- **`Msg.RestoreSession`** exists after all: the new tab's `restore_session` ask sends it with `Cmd.after(0, …)`, as `open_pin` sends `OpenPinned`. Restoring is window work, done in `update`.
+- **Dropping the session** is `saving.drop_session`, run when a message adds a tab while `previous` is set. Its extra windows' state is found by host (`states.drop_host_instance`), since a path doesn't carry the key.
+- **An app named on the command line is part of launch:** it doesn't drop the session. That's the case where "Restore adds" applies; otherwise opening anything drops it first.
+- **Where you left off is the app:** `leftoff.as_app` (first instance, no state or program of its own) when an extra window closes or is the one used last, so its state never overwrites the app's data.
+- **A closed extra window's state** is deleted in `persist` (`states.drop_state_in`).
+- **`src/data/saving.la` is at 500 lines,** at the limit: the next change there needs a split first.

@@ -268,7 +268,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** Naming instances from screen titles; an instance's state keyed by its name (renaming would move it).
 
-**Amended (PRP-034, session 181):** what's open is saved (`open` file) and reopened at launch, always, with no question; every open signed instance's state is saved as it changes.
+**Amended (PRP-034, session 181):** what's open is saved (`open` file), and every open signed instance's state as it changes.
+
+**Amended (PRP-035, session 184), from the basics with the owner:** launch always lands on the new tab, which offers "Restore previous session" until something else is opened; Restore adds. An instance is a window onto its app: it lives as long as it's open, and an extra window's state goes when it closes. An app's data (its first window's state) outlives every window; a closed app reopens where you last were. A crash leaves what a quit does.
 
 ---
 

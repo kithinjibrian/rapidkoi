@@ -10,7 +10,7 @@
  */
 import std.env;
 import std.time;
-import data.states { Saved, move_state, keep_in, drop_app };
+import data.states { Saved, move_state, keep_in, drop_app, drop_state_in, drop_host_instance };
 import people.people { People, Person, nobody, people_file, read_people, MAX_PEOPLE_FILE };
 import people.identity { existing, reason as identity_reason };
 import data.store {
@@ -44,6 +44,7 @@ import data.remembered {
 import trust.verify { keyring, keyring_of, identities, changes, moves };
 import window.window { Model, used_last };
 import window.tabs { Tab, state_of, state_version_of };
+import net.address { parse, shown };
 import window.leftoff { LeftOff, signer_of };
 
 /** How the notices name one remembered file. */
@@ -250,6 +251,21 @@ public fun persist(before: Model, after: Model, at: Mark): Model {
             failed.push(e);
         }
     }
+    // A closed extra window ends there: its own state goes with it; the
+    // first window's is the app's data (PRP-035).
+    for t of before.tabs {
+        let gone = !after.tabs.any(fun(a: Tab) = a.id == t.id);
+        if let Some(tr) = t.page.trust {
+            if gone && t.page.instance != "" {
+                if let Some(e) = problem(
+                    drop_state_in(s, tr.host, tr.key, t.page.instance),
+                    STATE,
+                ) {
+                    failed.push(e);
+                }
+            }
+        }
+    }
     // Every open signed instance's state as it changes, so each reopens as
     // it was (PRP-034); the one used last is also kept below, as before.
     for t of after.tabs {
@@ -444,4 +460,41 @@ public fun restore_open(m: Model, s: Store): (Model, Option<Open>) {
         (n, false) => n,
     };
     (Model { store: Some(held.get()), notice: notice, ..m }, open)
+}
+
+/**
+ * Drops the last session (PRP-035): something else was opened, so Restore
+ * isn't offered any more. Its extra windows' saved states go with it; each
+ * app's data (its first window's) stays, as do pins, trust and settings.
+ *
+ * @param m the window, its `previous` still set
+ * @returns the window with no last session (and a notice if a file couldn't be removed)
+ *
+ * Example:
+ *     drop_session(m)
+ */
+public fun drop_session(m: Model): Model {
+    let cleared = Model { previous: None, ..m };
+    let (s, o) = match (m.store, m.previous) {
+        (Some(s), Some(o)) => (s, o),
+        _ => {
+            return cleared;
+        }
+    };
+    let mut failed: string[] = [];
+    for t of o.tabs {
+        // Only signed apps keep state, and they're opened by address; one
+        // open again now isn't dropped.
+        let open_now = m.tabs.any(
+            fun(x: Tab) = x.page.path == t.path && x.page.instance == t.instance,
+        );
+        if t.instance != "" && !open_now {
+            if let Ok(a) = parse(t.path) {
+                if let Some(e) = problem(drop_host_instance(s, shown(a), t.instance), STATE) {
+                    failed.push(e);
+                }
+            }
+        }
+    }
+    if failed.len == 0 { cleared } else { Model { notice: Some(failed.join(" · ")), ..cleared } }
 }

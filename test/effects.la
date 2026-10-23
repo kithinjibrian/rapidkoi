@@ -11,7 +11,8 @@ import rapidkoi.window.actions { Msg, Approval, Answer, PanelPage };
 import rapidkoi.bundles.permissions { Permission, Setting };
 import rapidkoi.people.access { key_of };
 import rapidkoi.bundles.bundle { Manifest };
-import rapidkoi.guest.home { pins_of, left_off_of };
+import rapidkoi.guest.home { pins_of, left_off_of, session_of };
+import rapidkoi.data.remembered { Open, OpenTab };
 import kivuli { Cmd };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.people.identity { master, public_key, sign_in_message };
@@ -394,4 +395,25 @@ fun an_approval_waits_while_a_card_is_open() {
     assert_eq((open.approval, open.tabs[0].page.asks.len), (None, 1));
     let (closed, _) = update(open, Msg.ClosePanel);
     assert_eq(closed.approval.is_some(), true);
+}
+
+@test
+fun the_new_tab_reads_and_restores_the_last_session() {
+    // PRP-035: behind restore_session, like the other built-in reads.
+    let o = Open {
+        tabs: [OpenTab { path: "a.wasm", instance: "", label: None, seen: 0 }],
+        current: None,
+    };
+    let (m, _) = answer_all(Model {
+        previous: Some(o),
+        ..with_pages(Engine.new(), [holding("session", [], ["restore_session"])]),
+    });
+    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), session_of(m))));
+    let (_, c) = asked(holding("restore_session", [], ["restore_session"]));
+    assert_eq(later(c), [Msg.RestoreSession]);
+    let (refused, _) = asked(holding("restore_session", [], ["open_apps"]));
+    assert_eq(
+        stopped_why(refused),
+        "This app asked for restoring your last session without declaring it",
+    );
 }

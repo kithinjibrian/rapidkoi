@@ -90,6 +90,31 @@ public fun pin_msg(m: Model, index: i64): Option<Msg> = if index >= 0 && index <
  */
 public fun continue_msg(m: Model): Option<Msg> = card(m).map(fun(c) = c.msg);
 
+/**
+ * Returns the `session` answer (PRP-035): how many windows the last
+ * session had and the apps they were of (each app once, by place), or null
+ * when there's none to restore.
+ *
+ * Example:
+ *     session_of(m)
+ */
+public fun session_of(m: Model): Value = match m.previous {
+    Some(o) if o.tabs.len > 0 => {
+        let mut apps: string[] = [];
+        for t of o.tabs {
+            let p = place_of(t.path);
+            if !apps.any(fun(a: string) = a == p) {
+                apps.push(p);
+            }
+        }
+        Value.Map([
+            entry("count", Value.int(o.tabs.len)),
+            entry("apps", Value.Array(apps.map(fun(a: string) = Value.Text(a)))),
+        ])
+    }
+    _ => Value.Null,
+};
+
 /** One place's fields; an icon past `MAX_PLACE_ICON` is left out. */
 fun fields(name: string, path: string, icon: Option<u8[]>, title: Option<string>): Entry[] {
     let mut out = [entry("name", Value.Text(name)), entry("place", Value.Text(place_of(path)))];

@@ -9,7 +9,7 @@ set -eu
 cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown -p newtab
 ./main pack guest/rust/target/wasm32-unknown-unknown/release/newtab.wasm \
     --name "New tab" --version 0.1.0 \
-    --permission read_pins --permission read_left_off --permission open_apps \
+    --permission read_pins --permission read_left_off --permission open_apps --permission restore_session \
     --control address=settings --control address=share \
     --control settings=app_settings.permissions \
     -o assets/apps/newtab.rkb --force

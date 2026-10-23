@@ -1,3 +1,5 @@
+> **Superseded in part by PRP-035 (session 184):** nothing reopens at launch on its own; the saved session is offered by the new tab's "Restore previous session".
+
 ## FEATURE: Rapidkoi reopens the instances you had open when it was closed: each app's instances, their names, their state, and which one was in front.
 
 ## OBJECTIVE
