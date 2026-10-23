@@ -327,7 +327,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - **The info panel and bar actions (PRP-005), merged in session 27:** the owner's panel sketch; ⟳ keeps state; ☆ pins. 121 Lugha tests.
 
 ### In Progress
-- Nothing.
+- Build step 3, a real app: the tasks app (PRP-040, session 206), on contract 5. A task's link opens it only in its own window until storage (step 4).
 
 ### Not Started
 - Build path step 2 (links). Next: DECISION-016, then the links discovery interview.

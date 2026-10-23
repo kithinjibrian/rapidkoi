@@ -104,19 +104,19 @@ Done looks like this. Open the tasks app:
 ## TESTS TO WRITE
 
 `guest/rust/tasks` (`cargo test`):
-- [ ] Adding trims and refuses an empty title; IDs grow.
-- [ ] Toggling flips done.
-- [ ] The filter shows the right tasks, and an unknown filter means All.
-- [ ] Opening a task links `page` and `editor.task`; Back links the list's.
-- [ ] Delete goes to confirm; Cancel returns; Confirm removes the task and returns to the list.
-- [ ] A link to a missing task lands on the list (`on_open`).
-- [ ] Title and notes are cut at their limits.
+- [x] Adding trims and refuses an empty title; IDs grow.
+- [x] Toggling flips done.
+- [x] The filter shows the right tasks, and an unknown filter means All.
+- [x] Opening a task links `page` and `editor.task`; Back links the list's.
+- [x] Delete goes to confirm; Cancel returns; Confirm removes the task and returns to the list.
+- [x] A link to a missing task lands on the list (`on_open`).
+- [x] Title and notes are cut at their limits.
 
 `test/tasks.la` (skips until built):
-- [ ] Add two tasks with Enter; tick one; pick Open: only the other shows, and the address has `list.filter=open`.
-- [ ] Open a task: its screen, the address has `editor.task=…`.
-- [ ] Delete asks; Delete removes it.
-- [ ] That task's link opened in a new window shows the same task.
+- [x] Add two tasks with Enter; tick one; pick Open: only the other shows, and the address has `list.filter=open`.
+- [x] Open a task: its screen, the address has `editor.task=…`.
+- [x] Delete asks; Delete removes it.
+- [x] That task's link opened in a new window shows the same task.
 
 ## ROLLBACK PLAN
 - Branch: `prp-017-kivuli_0_17`; `git revert` the PRP's commits (the app is new and self-contained).
@@ -124,7 +124,7 @@ Done looks like this. Open the tasks app:
 ## ACCEPTANCE CRITERIA
 - [ ] Everything in OBJECTIVE works by eye, in dark and light, at 100% and 150%.
 - [ ] `lughac test test/` and `cargo test` pass (the owner runs them); fmt clean; build ok.
-- [ ] Docs and CHANGELOG.md updated; any gap found recorded in DECISIONS.md.
+- [x] Docs and CHANGELOG.md updated; any gap found recorded in DECISIONS.md.
 
 ## VALIDATION
 - `cargo test --manifest-path guest/rust/Cargo.toml`, `lughac test test/tasks.la`
@@ -136,3 +136,16 @@ Done looks like this. Open the tasks app:
   ./main rapidkoi://localhost:8001
   ```
   Add, tick, filter, open, delete; copy the address into a new tab.
+
+## AMENDMENTS (session 206, while building)
+
+- **A task's link opens that task only in its own window, for now.**
+  - A link opens a new window, which starts fresh, and its tasks live in the first window's state until storage (step 4). So in a new window, `editor.task=2` finds no task 2 and the app lands on its list, as its `on_open` rule says. The filter's link (`list.filter=open`) works anywhere.
+  - "Copy the address into a new tab: the same task" in OBJECTIVE and VALIDATION waits for storage. `test/tasks.la` checks what's true today.
+  - This is the first real evidence for step 4: a link to data needs the data to outlive the window.
+- **The tick on the list has no visible words:** the row's title opens the task, so the tick is a bare checkbox labelled for screen readers (`label`).
+  - kivuli.testing can't find a button by that label (DECISION-050), so the end-to-end test ticks a task through its own screen's Done.
+  - The library's unit tests cover the list's tick.
+- **The state's ID field is `last_id`** (the last ID given), so IDs start at 1.
+- **No library gaps found** besides strikethrough (contract 5 has none, as agreed) and screen-reader labels (DECISION-050).
+

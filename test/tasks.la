@@ -1,0 +1,106 @@
+// End to end: the tasks app (guest/rust/tasks, PRP-040), build step 3,
+// driven through the window with no display. Skipped unless it's been
+// built (CLAUDE.md COMMANDS), so the suite never needs Rust.
+import rapidkoi.shell { Model, start, update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.ui.content { app_view };
+import rapidkoi.window.window { page_of };
+import rapidkoi.window.tabs { AppPage, open_module_at };
+import rapidkoi.window.actions { Msg };
+import kivuli.testing { click, submit, type_into, texts };
+import wasmtime { Engine, Module };
+import std.fs;
+
+const TASKS: string = "guest/rust/target/wasm32-unknown-unknown/release/tasks.wasm";
+
+fun built() {
+    if !fs.is_file(TASKS) {
+        skip(
+            "build guest/rust first: cargo build --release --target wasm32-unknown-unknown -p tasks",
+        );
+    }
+}
+
+fun started(): Model {
+    built();
+    let (m, _) = start(["./main", TASKS], None);
+    m
+}
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun press(m: Model, label: string): Model = step(m, click(view(m), label).unwrap());
+
+fun add(m: Model, title: string): Model {
+    let typed = step(m, type_into(view(m), "What needs doing?", title).unwrap());
+    step(typed, submit(view(typed), "What needs doing?").unwrap())
+}
+
+/** The app's texts: its page alone, not the frame. */
+fun shown(m: Model): string[] = match page_of(m) {
+    App(a) => texts(app_view(m.current.unwrap_or(-1), a, m)),
+    Home => [],
+};
+
+fun has(m: Model, s: string): bool = shown(m).any(fun(x: string) = x == s);
+
+fun fields(m: Model): (string, string)[] = m.tabs[0].page.fields;
+
+@test
+fun adding_ticking_and_filtering() {
+    let mut m = started();
+    assert_eq(has(m, "No tasks yet"), true);
+    m = add(add(m, "Buy milk"), "Pay rent");
+    assert_eq(
+        (has(m, "Buy milk"), has(m, "Pay rent"), has(m, "2 open · 0 done")),
+        (true, true, true),
+    );
+    // Tick Buy milk on its own screen, then back.
+    m = press(press(press(m, "Buy milk"), "Done"), "‹ Tasks");
+    assert_eq(has(m, "1 open · 1 done"), true);
+    m = press(m, "Open");
+    assert_eq((has(m, "Buy milk"), has(m, "Pay rent")), (false, true));
+    assert_eq(fields(m), [("page", "list"), ("list.filter", "open")]);
+}
+
+@test
+fun a_task_has_its_own_screen_and_link_and_delete_asks() {
+    let mut m = add(started(), "Pay rent");
+    m = press(m, "Pay rent");
+    assert_eq(fields(m), [("page", "task"), ("editor.task", "1")]);
+    m = press(m, "Delete");
+    assert_eq(has(m, "Delete \"Pay rent\"?"), true);
+    m = press(m, "Cancel");
+    assert_eq(fields(m), [("page", "task"), ("editor.task", "1")]);
+    m = press(press(m, "Delete"), "Delete");
+    assert_eq(
+        (has(m, "No tasks yet"), fields(m)),
+        (true, [("page", "list"), ("list.filter", "all")]),
+    );
+}
+
+/** A new window of the app, opened from a link's fields. */
+fun opened_with(link: (string, string)[]): AppPage {
+    built();
+    let engine = Engine.new();
+    let module = Module.new(engine, read_bytes(TASKS).unwrap()).unwrap();
+    open_module_at("Tasks", TASKS, engine, module, link)
+}
+
+@test
+fun a_link_opens_a_new_window_where_it_says() {
+    // The filter comes back from the link.
+    assert_eq(opened_with([("page", "list"), ("list.filter", "done")]).fields, [
+        ("page", "list"),
+        ("list.filter", "done"),
+    ]);
+    // A task's link in a new window: its tasks live in the other window's
+    // state until storage (step 4), so this one lands on its list.
+    assert_eq(opened_with([("page", "task"), ("editor.task", "1")]).fields, [
+        ("page", "list"),
+        ("list.filter", "all"),
+    ]);
+}

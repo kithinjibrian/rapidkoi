@@ -198,6 +198,11 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
 ./main pack            # one .rkb from rapidkoi.toml, signed when it has a host and a key
 ./main serve site/     # serves the site; ./main rapidkoi://localhost:8000 opens it verified
 
+# The tasks app (PRP-040, build step 3): build, pack, serve, open
+cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown -p tasks
+./main pack guest/rust/target/wasm32-unknown-unknown/release/tasks.wasm --name Tasks --version 0.1.0 -o tasks.rkb
+./main serve tasks.rkb --port 8001                                     # then: ./main rapidkoi://localhost:8001 (the user's)
+
 # The network demo (PRP-012): the quote app and its Lugha server, in examples/quote/
 cd examples/quote && ../../main keygen && ../../main publish && cd ../..
 lughac test examples/quote/server.la                                   # the server's own tests
@@ -295,8 +300,8 @@ public fun load_settings(path: string): Settings { … }
 │                        commands/ pack.la (`./main pack`), publish.la (`keygen`, `publish`), serve.la (`./main serve`: a bundle or a site), landing.la (pure: the landing page a browser shows)
 │                        Imports name the folder (`import ui.layout;` binds `layout`). They run one way: guest.nodes ← props ← contract ← ui.tokens ← themes ← render ← window.tabs ← actions ← ui.frame ← suggestions ← window.window ← ui.content, addressbox ← layout ← shell ← main
 ├── test/              — @test files, flat, each named for the module it tests (DECISION-033), support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
-│                        counter.la (end to end with the Rust counter; skips until it's built)
-├── guest/rust/        — Cargo workspace: rapidkoi (contract 5 for Rust: raw primitives, style, widgets, typed messages (Message, View<M>, .map), App trait, State (nested), Next, Field paths (then), export!, Request, SignIn, Place), rapidkoi-derive (#[derive(State)]), styled (contract 5's styling shown), settings (Rapidkoi's Settings, PRP-038), counter (the demo: its count in its address), quote (the network demo), newtab (Rapidkoi's new tab, PRP-027)
+│                        counter.la, tasks.la (end to end with the Rust counter and tasks app; each skips until it's built)
+├── guest/rust/        — Cargo workspace: rapidkoi (contract 5 for Rust: raw primitives, style, widgets, typed messages (Message, View<M>, .map), App trait, State (nested), Next, Field paths (then), export!, Request, SignIn, Place), rapidkoi-derive (#[derive(State)]), styled (contract 5's styling shown), settings (Rapidkoi's Settings, PRP-038), tasks (the real app, build step 3, PRP-040), counter (the demo: its count in its address), quote (the network demo), newtab (Rapidkoi's new tab, PRP-027)
 ├── assets/apps/       — newtab.rkb and settings.rkb: Rapidkoi's built-in apps, packed unsigned by scripts/newtab.sh and scripts/settings.sh and committed; built into ./main by src/window/newtab.la and settings_app.la (repack, then rebuild ./main)
 ├── scripts/           — newtab.sh, settings.sh: build and pack the built-in apps (their --permission and --control flags)
 ├── assets/icons/      — the Iconsax SVGs, the only copy: `src/ui/icons.la` builds each in with include_str (PRP-029); change a file, then rebuild
