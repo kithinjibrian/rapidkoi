@@ -53,6 +53,21 @@ fun a_database_is_named_by_a_hash_never_the_address() {
     assert_eq(a == path_for(s, signed("tasks.example.com")).unwrap(), true);
     let local = path_for(s, failed_page("rapidkoi://localhost:8000", "")).unwrap();
     assert_eq(local.contains("localhost"), false);
+    // A local server is one app however its address is written: by host and port.
+    for same of [
+        "http://localhost:8000",
+        "rapidkoi://localhost:8000/",
+        "http://localhost:8000/app.rkb",
+    ] {
+        assert_eq(path_for(s, failed_page(same, "")).unwrap() == local, true);
+    }
+    assert_eq(path_for(s, failed_page("rapidkoi://localhost:8001", "")).unwrap() != local, true);
+    // A file is its full path, never mistaken for an address.
+    let file = path_for(s, failed_page("/home/a/tasks.rkb", "")).unwrap();
+    assert_eq(
+        file != local && file == path_for(s, failed_page("/home/a/tasks.rkb", "")).unwrap(),
+        true,
+    );
     // Rapidkoi's own apps keep nothing.
     assert_eq(path_for(s, failed_page("builtin:newtab", "")).is_none(), true);
 }

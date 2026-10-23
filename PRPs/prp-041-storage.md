@@ -203,3 +203,4 @@ Done looks like this:
 - **The Rust library dropped `Eq`** from `Ask`, `Event` and `Progress`: `Value` holds floats. `PartialEq` stays, so tests compare as before.
 - **The tasks app** writes title and notes as you type, one `UPDATE` each, and keeps its copy in step at once; every write's answer reads the list again.
 - **Built-in bundles** (`newtab.rkb`, `settings.rkb`) are repacked for contract 6 (their code changed only in `Event::Change { .. }`).
+- **A local server's database is named by its host and port** (session 213, the owner: "yes, name it by host and port"), not by the address as typed: `rapidkoi://localhost:8001`, `http://localhost:8001` and `http://localhost:8001/app.rkb` are one app's data. A file stays its full path.

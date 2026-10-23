@@ -6,7 +6,7 @@
  * as SQL from an app must be (`lugha-sqlite`'s `Guard.untrusted()`).
  * `call`, `size_of` and `clear` touch the disk: run them in a task.
  *
- * Depends on: sqlite, cbor, std.fs, std.crypto, data.store, guest.nodes, guest.limits, trust.keys, window.tabs
+ * Depends on: sqlite, cbor, std.fs, std.crypto, data.store, guest.nodes, guest.limits, trust.keys, window.tabs, net.address
  * Used by: data.queries, shell
  */
 import sqlite { Database, Guard, Kind, SqliteError };
@@ -18,6 +18,7 @@ import guest.nodes { Query };
 import guest.limits { DATABASE_BYTES, QUERY_MS, MAX_SQL, MAX_SQL_VALUE, MAX_ANSWER };
 import trust.keys { hex };
 import window.tabs { AppPage };
+import net.address { parse };
 
 /** One call an app asked for: a read of one statement, or a write of several as one transaction. */
 public enum Call {
@@ -35,8 +36,8 @@ public enum Queried {
 
 /**
  * Returns where an app's database lives: `databases/<sha256>.db` in the
- * data folder, by its host and origin key when signed, else its address
- * or file. Rapidkoi's own apps keep none.
+ * data folder, by its host and origin key when signed, else its local
+ * server's host and port or its file's path. Rapidkoi's own apps keep none.
  *
  * Example:
  *     path_for(store, page)
@@ -54,7 +55,13 @@ public fun path_for(s: Store, p: AppPage): Option<string> {
             if p.path.starts_with("builtin:") {
                 return None;
             }
-            "local\n{p.path}".to_bytes()
+            // A development server is one app however its address is
+            // written (`rapidkoi://`, `http://`, a bundle's path): by host
+            // and port, so typing it another way finds the same data.
+            match parse(p.path) {
+                Ok(a) => "local\n{a.host}:{a.port}".to_bytes(),
+                Err(_) => "file\n{p.path}".to_bytes(),
+            }
         }
     };
     Some("{s.dir}/databases/{hex(sha256(name))}.db")

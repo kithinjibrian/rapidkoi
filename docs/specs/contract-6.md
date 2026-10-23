@@ -5,7 +5,7 @@ PRP-041, DECISION-052. Contract 5 (`contract-5.md`) plus storage: every app gets
 ## Whose database
 
 - A signed app: one database for its host and origin key.
-- A local development app: one for its address, or its file's full path.
+- A local development app: one for its server's host and port (however the address is written: `rapidkoi://`, `http://`, a bundle's path), or its file's full path.
 - Built-in apps: none. Their asks are answered `on_fail`: "The new tab keeps no data", or "This app can't keep data here" for Settings.
 
 The file is `databases/<sha256 hex>.db` in Rapidkoi's data folder, so no app's name or address becomes a path. It lasts until the person clears it (⚙ → Data → Clear…) or forgets the app. No permission is asked: like the web's storage, it stays on this device and no other app can see it.
