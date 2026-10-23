@@ -10782,3 +10782,6 @@ Branch: prp-017-kivuli_0_17
   - scope: three screens and one list; no due dates, reordering or search; local only;
   - look: Rapidkoi's names only; done tasks dimmed, since there's no strikethrough in contract 5.
 - Wrote `PRPs/prp-040-tasks_app.md`. No code.
+
+## SESSION 206 — 2026-10-24 — Build PRP-040: the tasks app — open
+Branch: prp-017-kivuli_0_17
