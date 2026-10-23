@@ -250,12 +250,13 @@ public fun persist(before: Model, after: Model, at: Mark): Model {
             failed.push(e);
         }
     }
-    // A closed extra window ends there: its own state goes with it; the
-    // first window's is the app's data (PRP-035).
+    // A closed window ends there, whichever it is: its state goes with it.
+    // What should last belongs in storage, not a window's state (the
+    // owner, session 189).
     for t of before.tabs {
         let gone = !after.tabs.any(fun(a: Tab) = a.id == t.id);
         if let Some(tr) = t.page.trust {
-            if gone && t.page.instance != "" {
+            if gone {
                 if let Some(e) = problem(
                     drop_state_in(s, tr.host, tr.key, t.page.instance),
                     STATE,
@@ -286,26 +287,9 @@ public fun persist(before: Model, after: Model, at: Mark): Model {
             }
         }
     }
-    // The app used last, open or closed: quitting at any moment keeps it.
+    // Which app was used last, open or closed, for where you left off.
     let left = used_last(after);
     let was = used_last(before);
-    if let Some(l) = left {
-        if let (Some((host, key)), Some(state)) = (signer_of(l), l.state) {
-            if mine(left) != mine(was) {
-                let sv = Saved {
-                    host: host,
-                    key: key,
-                    state_version: l.state_version,
-                    state: state,
-                    used: time.now_ms(),
-                };
-                // Under its instance (PRP-033): the first's is the file it always was.
-                if let Some(e) = problem(keep_in(s, sv, l.instance), STATE) {
-                    failed.push(e);
-                }
-            }
-        }
-    }
     // Which app that was: only a signed one can be continued after a
     // restart; an unsigned one leaves the file as it was.
     let signed = left.map(fun(l: LeftOff) = signer_of(l).is_some()).unwrap_or(true);
@@ -384,15 +368,6 @@ fun problem(r: Result<(), StoreError>, p: Part): Option<string> = match r {
     Err(e) => Some("Rapidkoi couldn't save {p.noun}: {store_reason(e)}"),
     Ok(()) => None,
 };
-
-/**
- * What's saved of a left-off, to compare: a page left holds a compiled
- * program, which isn't comparable. The state is compared by its bytes;
- * it's at most `MAX_STATE`, and only when there is a left-off.
- */
-fun mine(l: Option<LeftOff>): Option<(Option<(string, u8[])>, Option<u8[]>, i64, string)> = l.map(
-    fun(x: LeftOff) = (signer_of(x), x.state, x.state_version, x.instance),
-);
 
 /** Which app it is, as `left-off` records it. */
 fun which(

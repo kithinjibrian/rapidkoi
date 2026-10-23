@@ -47,6 +47,12 @@ public struct Pending {
     public saved: Option<(u8[], i64)>,
     /** The page this replaces (⟳), kept running until the new one is ready or refused. */
     public kept: AppPage[],
+    /**
+     * Whether this load restores a window from the last session (PRP-035):
+     * only then is the app's saved state picked up; anything opened anew
+     * starts fresh (session 189).
+     */
+    public resume: bool,
 }
 
 /** A compiled app, kept so Restart and Continue can start it again. */
@@ -175,7 +181,7 @@ public fun failed_page(path: string, why: string): AppPage = failed(
  * @param pending when it started, and what to do on arrival
  *
  * Example:
- *     loading("rapidkoi://localhost:8000", 3, Pending { started: now, again: false, saved: None, kept: [] })
+ *     loading("rapidkoi://localhost:8000", 3, Pending { started: now, again: false, saved: None, kept: [], resume: false })
  */
 public fun loading(path: string, number: i64, pending: Pending): AppPage = AppPage {
     name: address.parse(path).map(fun(a) = address.shown(a)).unwrap_or(path),

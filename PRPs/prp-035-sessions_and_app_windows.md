@@ -115,3 +115,7 @@ From chat with the owner (session 183), from the basics up, replacing PRP-034's 
   - Built as `src/data/sessions.la` (`begin_session`, `restored`, the `previous` file); `saving.drop_session` removed.
 - **Session 187:** "the current wins" is per app, not per window (the owner: an app with 3 windows in the old session and 1 now came back with all 3). An app open now keeps only its current windows; an app that isn't open comes back with all of its own. `navigate.reopen_all`.
 - **Session 188:** the first instance is the app, so it can't be closed on its own: no × or Close in the strip, and `instances.close_instance` on it closes every window (the dock's × or Ctrl+W on it close the app).
+- **Session 189 (the owner: "devs are going to treat state like persistent storage"):** every window is the same, and its state lives with it.
+  - Closing any window deletes its state, and an app opened anew starts fresh. Only Restore brings a saved window back: `loads.begin_restoring`, `Pending.resume`.
+  - Session 188's special first window and `leftoff.as_app` are undone.
+  - Continue's meaning is parked: DECISION-044.

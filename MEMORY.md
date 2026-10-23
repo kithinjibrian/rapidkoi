@@ -270,7 +270,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Amended (PRP-034, session 181):** what's open is saved (`open` file), and every open signed instance's state as it changes.
 
-**Amended (PRP-035, session 184), from the basics with the owner:** launch always lands on the new tab, which offers "Restore previous session" all session; Restore stacks it under the current session; the current wins per app (an app open now keeps only its current windows, session 187). Unrestored, it's replaced at the next launch by the session after it, unless that one was empty (session 186). An instance is a window onto its app: it lives as long as it's open, and an extra window's state goes when it closes. An app's data (its first window's state) outlives every window; a closed app reopens where you last were. A crash leaves what a quit does. The first instance is the app itself: it can't be closed on its own, and closing it closes every window (session 188).
+**Amended (PRP-035, session 184), from the basics with the owner:** launch always lands on the new tab, which offers "Restore previous session" all session; Restore stacks it under the current session; the current wins per app (an app open now keeps only its current windows, session 187). Unrestored, it's replaced at the next launch by the session after it, unless that one was empty (session 186). An instance is a window onto its app: it lives as long as it's open, and an extra window's state goes when it closes. An app's data (its first window's state) outlives every window; a closed app reopens where you last were. A crash leaves what a quit does.
+
+**Amended (session 189, the owner: "devs are going to treat state like persistent storage"):** every window is the same, and state lives with its window. Closing any window deletes its state; an app opened anew starts fresh; only Restore brings a saved window back. What should last belongs in storage (build step 4). Session 188's special first window is undone. Continue's meaning is parked (DECISION-044).
 
 ---
 

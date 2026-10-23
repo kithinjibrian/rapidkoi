@@ -12,7 +12,15 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-(none)
+### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
+
+**Status:** open (parked by the owner, session 189)
+**Raised:** 2026-10-23 — Session 189
+
+**Question:** State lives with its window (the owner, session 189): closing a window deletes its state, and an app opened anew starts fresh. Continue used to reopen the last closed app with its state. Should it become a browser's "reopen closed tab" (the last closed window with its state, this run only, held in memory), or go?
+
+**Meanwhile:** Continue works as it did within a run (a window closed this run is held in memory with its state). After a restart it reopens the app fresh, since its state file is gone. Not redesigned until the owner decides.
+
 
 ---
 

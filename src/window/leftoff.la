@@ -149,20 +149,3 @@ public fun signer_of(l: LeftOff): Option<(string, u8[])> = match l.trust {
     Some(t) => Some((t.host, t.key)),
     None => l.signer,
 };
-
-/**
- * The app a left-off window belongs to (PRP-035): its first instance, with
- * no state or program of its own, so Continue opens it again from the
- * app's data (a signed app's saved state). An extra window's own state
- * isn't the app's.
- *
- * Example:
- *     as_app(leave(page))
- */
-public fun as_app(l: LeftOff): LeftOff = LeftOff {
-    instance: "",
-    label: None,
-    state: None,
-    program: None,
-    ..l,
-};

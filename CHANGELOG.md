@@ -49,6 +49,7 @@ Never deleted. Older entries are never modified.
 - Reopening what was open (PRP-034): closing Rapidkoi keeps its open instances, their names, their order and the one in front. Starting again reopens them, signed ones with their state (now saved for every open signed instance as it changes), unsigned ones fresh. Continue to an app that's open again shows it.
 - Sessions and app windows (PRP-035): launch lands on the new tab with "Restore previous session", which brings back the last session's windows as they were. Opening anything else drops it. Closing an extra window ends it; an app's data outlives its windows, and a closed app reopens where you last were. The new tab's `restore_session` permission (built-in). `window/pins.la` split from `window.la`.
 - Sessions, the owner's model: "Restore previous session" stays on offer all session and stacks the old session under the current one. An unrestored one is replaced at the next launch by the session after it, unless that was empty.
+- State lives with its window (session 189): every window is the same; closing one deletes its state; opening an app anew starts fresh; only Restore brings a saved window back.
 
 ### Changed
 - The redesign begins (on the `redesign` branch, DECISION-027): the window shows only the bare frame, an empty header bar with the window controls, an empty sidebar on the right and an empty content area (PRP-014). Tabs, the bar, home and the info panel are hidden until later redesign PRPs bring each back, in the frame or as a bundled app.

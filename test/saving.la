@@ -228,16 +228,18 @@ fun pins_survive_a_restart_for_every_app() {
 }
 
 @test
-fun a_signed_app_resumes_by_address_and_by_continue() {
+fun a_signed_window_comes_back_only_by_restore() {
     let s = folder("signed");
     let dir = site_of(18755, counter(), 1);
     // Count to 2, then the window just goes away (no close).
     let m = add(add(started(s, ["./main", "rapidkoi://localhost:18755"])));
     assert_eq(shows(m, "Count: 2"), true);
-    // Opened by its address after a restart: the same state.
-    assert_eq(shows(started(s, ["./main", "rapidkoi://localhost:18755"]), "Count: 2"), true);
-    // By Continue too.
-    assert_eq(shows(step(started(s, ["./main"]), Msg.Continue), "Count: 2"), true);
+    // State lives with its window (session 189): restored with the last
+    // session, it's as it was.
+    assert_eq(shows(step(started(s, ["./main"]), Msg.RestoreSession), "Count: 2"), true);
+    // Opened anew by its address, it starts fresh: what should last
+    // belongs in storage.
+    assert_eq(shows(started(s, ["./main", "rapidkoi://localhost:18755"]), "Count: 0"), true);
     done(dir, s);
 }
 
@@ -286,7 +288,8 @@ fun a_rotation_keeps_the_state() {
             rotations: [rotate(old, new.public_key).unwrap()],
         }),
     ).unwrap();
-    let after = started(s, ["./main", "rapidkoi://localhost:18757"]);
+    // Restored after the rotation: the window's state followed its key.
+    let after = step(started(s, ["./main"]), Msg.RestoreSession);
     assert_eq(
         (marks(after, "localhost:18757 · verified (development)"), shows(after, "Count: 1")),
         (true, true),
@@ -316,7 +319,7 @@ fun a_changed_state_version_starts_over() {
     add(started(s, ["./main", "rapidkoi://localhost:18758"]));
     write_toml(dir, 18758, counter(), "2.0.0", 2);
     publish_site(dir).unwrap();
-    let after = started(s, ["./main", "rapidkoi://localhost:18758"]);
+    let after = step(started(s, ["./main"]), Msg.RestoreSession);
     assert_eq(shows(after, "Count: 0"), true);
     assert_eq(after.notice, Some("Counter's saved state changed shape, so it started over"));
     done(dir, s);

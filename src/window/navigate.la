@@ -24,7 +24,7 @@ import window.instances { next_instance, another };
 import data.remembered { Open };
 import window.leftoff { LeftOff, leave, compiled };
 import trust.verify { separate };
-import net.loads { begin, resumed };
+import net.loads { begin, begin_restoring, resumed };
 import kivuli { Cmd };
 import window.actions { Msg };
 import window.window {
@@ -100,14 +100,16 @@ public fun open_file(m: Model, path: string): (Model, Cmd<Msg>) {
     if is_address(path) && parse(path).is_ok() {
         return begin(tidy, id, path, false, None, []);
     }
-    let (page, said) = resumed(tidy, open_path(m.engine, m.ring, path));
-    (Model { notice: said, ..with_tab(tidy, id, fun(_: AppPage) = page) }, Cmd.none())
+    // A new window starts fresh: state lives with its window, and only
+    // Restore brings a saved one back (session 189).
+    let page = open_path(m.engine, m.ring, path);
+    (with_tab(tidy, id, fun(_: AppPage) = page), Cmd.none())
 }
 
 /**
  * Opens another instance of the current app (PRP-033): the strip's +. It
  * starts fresh from the app's compiled program, in a new tab, under the
- * next number; a signed app's instance picks up its own saved state.
+ * next number.
  * Nothing on an empty tab, or for an app that isn't running yet.
  *
  * Example:
@@ -121,10 +123,8 @@ public fun new_instance(m: Model): (Model, Cmd<Msg>) {
         }
     };
     match another(p, next_instance(m, p.path)) {
-        Some(fresh) => {
-            let (page, said) = resumed(m, fresh);
-            (Model { notice: said, ..add_tab(m, page) }, Cmd.none())
-        }
+        // Fresh, as every new window is (session 189).
+        Some(fresh) => (add_tab(m, fresh), Cmd.none()),
         None => (m, Cmd.none()),
     }
 }
@@ -166,7 +166,7 @@ public fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
             // Its tab first, under its name; begin keeps the instance (loads).
             let placed = add_tab(at, named(failed_page(t.path, "")));
             let id = placed.current.unwrap_or(-1);
-            let (loading, task) = begin(placed, id, t.path, false, None, []);
+            let (loading, task) = begin_restoring(placed, id, t.path);
             at = loading;
             tasks.push(task);
         } else {

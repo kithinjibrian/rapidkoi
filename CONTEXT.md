@@ -6759,6 +6759,518 @@ Branch: prp-017-kivuli_0_17
 
 ---
 
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Waiting on kivuli: DECISION-040 (a drop-down in a popover). Awaiting the owner's test runs. Built: PRP-032 (no ← ⌂ → in the frame). Built: PRP-033 (named instances); the counter on the VM republished at contract 3 (session 178). PRP-034 (restore open instances at launch) written, awaiting approval. Waiting on kivuli: DECISION-042 (several windows), DECISION-043 (window width for the strip). Uncommitted chat tweaks await the owner. Step B mostly dissolved (no pictures for apps yet; pins stay in the sidebar, a dock). Later: step B (images, wrapping rows, accent), and links' own discovery. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
@@ -6928,5 +7440,24 @@ Branch: prp-017-kivuli_0_17
 - Tests: `test/instances.la` updated. DESIGN.md, MEMORY.md, PRP-035 amendment.
 - Checks, fmt and build pass. Tests not run (the owner runs them).
 
-## SESSION 189 — 2026-10-23 — Every window the same; state lives with its window — open
+## SESSION 189 — 2026-10-23 — Every window the same; state lives with its window — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner took back session 188 ("devs are going to treat state like persistent storage"): every window is the same.
+- Confirmed:
+  1. All windows closable.
+  2. Closing any window deletes its state; reopening an app starts fresh.
+  3. Session restore unchanged.
+- Parked: what Continue means (DECISION-044, open).
+- Opening is always fresh (`navigate.open_file`, `new_instance`). Only Restore brings state back: files via `resumed`; addresses via `loads.begin_restoring` / `Pending.resume`, since the key isn't known until the load arrives.
+- `persist` deletes any closed signed window's state, and no longer saves the last-used app's state (open windows' states are saved per window). `saving.mine` removed.
+- Undone: the strip's special first pill, `close_instance`'s first-window rule, `leftoff.as_app`.
+- Tests updated: `test/instances.la`, `test/saving.la` (restart via Restore; opening anew is fresh).
+- DECISIONS.md (044), MEMORY.md, CLAUDE.md, DESIGN.md, CHANGELOG.md, PRP-035.
+- Checks, fmt and build pass. Tests not run (the owner runs them).
+
+---
+

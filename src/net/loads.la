@@ -23,6 +23,7 @@ import window.tabs {
     failed_page,
     state_of,
     with_saved,
+    Screen,
 };
 import window.leftoff { LeftOff };
 import window.window { Model, with_tab, app };
@@ -75,6 +76,7 @@ public fun begin(
         again: again,
         saved: saved,
         kept: kept,
+        resume: false,
     });
     let known = known_for(m.ring, shown(a));
     // Plain data for the task: the window's network is always the system's
@@ -93,6 +95,24 @@ public fun begin(
     };
     (Model { loads: number, now: now, ..with_tab(m, id, waiting) }, task)
 }
+
+/**
+ * Begins loading a window restored from the last session (PRP-035): as
+ * `begin`, marked so its saved state is picked up when it arrives.
+ *
+ * Example:
+ *     begin_restoring(m, id, "rapidkoi://counter.dafifi.net")
+ */
+public fun begin_restoring(m: Model, id: i64, path: string): (Model, Cmd<Msg>) {
+    let (began, task) = begin(m, id, path, false, None, []);
+    (restoring(began, id), task)
+}
+
+/** Tab `id`'s load, marked as restoring. */
+fun restoring(m: Model, id: i64): Model = with_tab(m, id, fun(p: AppPage) = match p.screen {
+    Loading(x) => AppPage { screen: Screen.Loading(Pending { resume: true, ..x }), ..p },
+    _ => p,
+});
 
 /**
  * Takes a background load's result: ignored when stale; loaded again once
@@ -118,7 +138,8 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
     };
     if !current(m.ring, f) {
         if !pending.again {
-            return begin(m, id, p.path, true, pending.saved, pending.kept);
+            let (again, task) = begin(m, id, p.path, true, pending.saved, pending.kept);
+            return (if pending.resume { restoring(again, id) } else { again }, task);
         }
         let host = p.name;
         close_page(p);
@@ -150,7 +171,10 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
                         },
                     )
                 }
-                None => resumed(m, fresh),
+                // A window restored from the last session picks up its
+                // saved state; anything opened anew starts fresh: state
+                // lives with its window (session 189).
+                None => if pending.resume { resumed(m, fresh) } else { (fresh, None) },
             }
         }
         // A changed key asks first; a page being reloaded waits for the answer.

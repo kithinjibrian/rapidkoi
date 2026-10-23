@@ -131,8 +131,7 @@ public fun view(m: Model): View<Msg> {
 
 /**
  * One instance in the strip: its coloured circle and name, showing it; its
- * menu (Rename…, Close); and its ×, shown while the pill is hovered. The
- * first has neither × nor Close: it's the app (session 188).
+ * menu (Rename…, Close); and its ×, shown while the pill is hovered.
  */
 fun chip(m: Model, x: Tab, current: bool): View<Msg> {
     let t = m.theme;
@@ -169,12 +168,7 @@ fun chip(m: Model, x: Tab, current: bool): View<Msg> {
         ],
         Msg.Select(x.id),
     ).style(bare(t) + flush).tooltip(name);
-    // The first instance is the app itself (the owner, session 188): it
-    // closes only with the app, from the dock, so it has no × or Close.
-    if x.page.instance == "" {
-        let first = face.menu([item("Rename…", Msg.RenameInstance(x.id))]).align(Align.Center);
-        return row([first]).style(instance_chip(t, current)).align(Align.Center);
-    }
+    // Every window is the same (the owner, session 189): each closes on its own.
     let named = face.menu([
         item("Rename…", Msg.RenameInstance(x.id)),
         menu_separator(),
