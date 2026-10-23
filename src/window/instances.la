@@ -151,12 +151,19 @@ public fun confirm_rename(m: Model): Model = match (m.renaming, rename_problem(m
 /**
  * Closes one instance. Closing the one in front shows another instance of
  * the same app, the one used last, rather than a neighbour; the last one
- * closes the app.
+ * closes the app. The first instance is the app: closing it closes every
+ * window (session 188).
  *
  * Example:
  *     close_instance(m, 3)
  */
 public fun close_instance(m: Model, id: i64): Model {
+    // The first instance is the app itself (the owner, session 188):
+    // closing it is closing the app, every window.
+    let first = m.tabs.any(fun(t: Tab) = t.id == id && t.page.instance == "");
+    if first {
+        return close_app(m, id);
+    }
     let others = instances_of(m, id).filter(fun(t: Tab) = t.id != id);
     let closed = close(m, id);
     if m.current != Some(id) || others.len == 0 {

@@ -77,7 +77,10 @@ fun the_strip_shows_the_current_apps_instances() {
     assert_eq(pick(v, "notes 2", "Close"), Ok(Msg.CloseTab(m.current.unwrap())));
     // Its × too, shown on hover.
     assert_eq(click(v, "Close notes 2"), Ok(Msg.CloseTab(m.current.unwrap())));
-    assert_eq(click(v, "Close notes"), Ok(Msg.CloseTab(0)));
+    // The first is the app itself (session 188): no × and no Close of its own.
+    assert(click(v, "Close notes").is_err());
+    assert(pick(v, "notes", "Close").is_err());
+    assert_eq(pick(v, "notes", "Rename…"), Ok(Msg.RenameInstance(0)));
 }
 
 @test
@@ -224,13 +227,14 @@ fun closing_a_window_ends_it_and_the_apps_data_stays() {
     let second = two.current.unwrap();
     let echoed = step(two, add(second));
     assert_eq((kept(dir, ""), kept(dir, "2")), (true, true));
-    // The first window closes; the app's data stays with it.
-    let first_gone = step(echoed, Msg.CloseTab(0));
-    assert_eq(kept(dir, ""), true);
-    // Then the last, an extra one: its state goes, and the app (not that
-    // window) is where you left off.
-    let gone = step(first_gone, Msg.CloseTab(second));
-    assert_eq((kept(dir, ""), kept(dir, "2")), (true, false));
+    // An extra window closes on its own: its state goes, the app's stays.
+    let one = step(echoed, Msg.CloseTab(second));
+    assert_eq((one.tabs.len, kept(dir, ""), kept(dir, "2")), (1, true, false));
+    // Closing the first window is closing the app (session 188): every
+    // window goes, and the app is where you left off.
+    let again = step(step(one, Msg.Select(0)), Msg.NewInstance);
+    let gone = step(again, Msg.CloseTab(0));
+    assert_eq((gone.tabs.len, kept(dir, "")), (0, true));
     assert_eq(gone.left_off.map(fun(l: LeftOff) = l.instance), Some(""));
     clean_dir(dir);
 }

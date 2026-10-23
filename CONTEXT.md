@@ -6916,5 +6916,14 @@ Branch: prp-017-kivuli_0_17
 - Tests: `test/restore.la` updated, plus `the_current_session_wins_per_app`.
 - DESIGN.md, MEMORY.md, PRP-035 amendment. Checks, fmt and build pass. Tests not run (the owner runs them).
 
-## SESSION 188 — 2026-10-23 — The first instance can't be closed on its own — open
+## SESSION 188 — 2026-10-23 — The first instance can't be closed on its own — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: the first instance came back no matter what. It's the app's data, so (the owner's choice) it's not closable on its own.
+- `ui/strip.la`: the first pill has no × and no Close (Rename stays).
+- `instances.close_instance`: closing the first closes every window of the app.
+- Tests: `test/instances.la` updated. DESIGN.md, MEMORY.md, PRP-035 amendment.
+- Checks, fmt and build pass. Tests not run (the owner runs them).
