@@ -8508,3 +8508,6 @@ DECISIONS.md, CONTEXT.md
 ---
 
 
+
+## SESSION 191 — 2026-10-23 — PRP-036: links and state as named fields (contract 4) — open
+Branch: prp-017-kivuli_0_17
