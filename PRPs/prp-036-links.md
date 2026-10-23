@@ -130,6 +130,6 @@ Press Add three times and the address box shows that. Open it in Rapidkoi, and a
   2. Copy it from the box, **+** for a new tab, and paste it: a second window at 3.
   3. Open the same address in a web browser: the landing page.
 
-## TO CONFIRM ON APPROVAL (proposed, session 192)
+## CONFIRMED ON APPROVAL (the owner, session 193: "yes approved, build it", the contract 4 review included)
 - A link whose version is no longer listed opens the current version, applies its fields as usual, and shows "This link was made with Counter 0.3.0; opened 0.5.0".
 - The address box shows the full link, version included.

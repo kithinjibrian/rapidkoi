@@ -10596,3 +10596,6 @@ Branch: prp-017-kivuli_0_17
   - `publish` writes a landing page (`index.html`) served for any path.
   - `rapidkoi://` of the same shape is the hand-off; registering it with the desktop is its own PRP.
 - To confirm: fall back to the current version with a notice; the address box shows the full link. No code.
+
+## SESSION 193 — 2026-10-23 — Build PRP-036: links (contract 4) — open
+Branch: prp-017-kivuli_0_17
