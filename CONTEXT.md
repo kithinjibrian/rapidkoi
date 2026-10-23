@@ -10748,3 +10748,6 @@ Branch: prp-017-kivuli_0_17
   - typed messages as shown (`type Msg`, `#[derive(Message)]`, `.map`, `String` still a message);
   - nested link fields chained (`App::editor.then(Editor::task)`).
 - Wrote `PRPs/prp-039-composing_apps.md`. Contract 5 closes with it. No code.
+
+## SESSION 204 — 2026-10-24 — Build PRP-039: composing apps — open
+Branch: prp-017-kivuli_0_17
