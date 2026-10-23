@@ -6273,3 +6273,6 @@ Branch: prp-017-kivuli_0_17
   - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
 - Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
 - Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — open
+Branch: prp-017-kivuli_0_17
