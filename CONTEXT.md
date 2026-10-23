@@ -10345,7 +10345,7 @@ Branch: prp-017-kivuli_0_17
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Counter 0.4.0 and quote 0.2.0 are live on the VM at contract 4 with landing pages (session 195), to be opened in Rapidkoi by the owner. The address box shows `https://` links (session 197, undoing 196). Built: PRP-037 (contract 5 part 1: primitives, styling, roles, session 199), awaiting the owner's test runs: `lughac test test/` (start with `styles`, `roles`, `tree5`, `paint`, `render`, `guest`, `tabs`, `newtab`) and `cargo test --manifest-path guest/rust/Cargo.toml` (doc tests too), then by eye: the counter, quote and the new tab as before; `guest/rust/styled`. Next: PRP-038 (the person's controls), then PRP-039 (composing: link paths, nested state, typed messages), then PRP-040 (the tasks app). Waiting on kivuli: DECISION-050 (accessible roles) too. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Counter 0.4.0 and quote 0.2.0 are live on the VM at contract 4 with landing pages (session 195), to be opened in Rapidkoi by the owner. The address box shows `https://` links (session 197, undoing 196). Built: PRP-037 (contract 5 part 1: primitives, styling, roles, session 199), awaiting the owner's test runs: `lughac test test/` (start with `styles`, `roles`, `tree5`, `paint`, `render`, `guest`, `tabs`, `newtab`) and `cargo test --manifest-path guest/rust/Cargo.toml` (doc tests too), then by eye: the counter, quote and the new tab as before; `guest/rust/styled`. Next: the owner reviews PRP-038 (written session 200), then PRP-039 (composing: link paths, nested state, typed messages), then PRP-040 (the tasks app). Waiting on kivuli: DECISION-050 (accessible roles) too. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
 
 ## SESSION 180 — 2026-10-23 — The strip and dock tweaks from chat (committed) — closed
 
@@ -10688,5 +10688,17 @@ guest/rust/{rapidkoi/src/{raw, style (new), view, lib, abi}.rs, styled (new), Ca
 docs/specs/contract-5.md, CLAUDE.md, MEMORY.md, DECISIONS.md, docs/DESIGN.md, CHANGELOG.md, PRPs/prp-037-contract_5_styling_and_roles.md, CONTEXT.md
 ```
 
-## SESSION 200 — 2026-10-24 — PRP-038: the person's controls (settings, themes, text size, the per-app switch) — open
+## SESSION 200 — 2026-10-24 — PRP-038: the person's controls (settings, themes, text size, the per-app switch) — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- From chat with the owner:
+  - ☰ holds Settings, About and Quit.
+  - Settings is a built-in app.
+  - More contrast is a switch.
+  - Text size sets the base, with spacing names following, 80–200%.
+  - Apps read theme, contrast and text size without permission.
+  - The per-app switch is Use my colours and Use my text size.
+- Wrote `PRPs/prp-038-the_persons_controls.md`, with a split of `themes.la` into `ui/schemes.la` to approve with it. No code.
