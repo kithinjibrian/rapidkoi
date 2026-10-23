@@ -6629,3 +6629,6 @@ Branch: prp-017-kivuli_0_17
 - `render.button_of`: app buttons at their natural width (`.align(Align.Start)`), not stretched across the column, for every app.
 - The new tab: the line under where you left off shows the screen's title only when it isn't the app's name; otherwise where it lives. Repacked; `./main` rebuilt.
 - Checks, fmt and build pass. Tests not run (the owner runs them). The new tab's layout itself awaits the owner's design direction.
+
+## SESSION 186 — 2026-10-23 — Sessions as the owner described: previous kept all session, replaced at the next launch — open
+Branch: prp-017-kivuli_0_17
