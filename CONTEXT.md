@@ -10891,5 +10891,15 @@ Both check, fmt clean; the owner's rerun: 18 of 18. Every Lugha test passes now.
 test/{tabs, sidebar}.la, guest/rust/rapidkoi/src/style.rs, CONTEXT.md
 ```
 
-## SESSION 212 — 2026-10-24 — Tasks gone after closing and restarting (PRP-041 check 1) — open
+## SESSION 212 — 2026-10-24 — Tasks gone after closing and restarting (PRP-041 check 1) — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+The owner, checking PRP-041 by eye: after closing the app and restarting, its tasks were gone.
+- Rapidkoi's data folder has no `databases/` at all: nothing was ever written.
+- The served `tasks.rkb` was packed at 01:07, before the tasks app moved to storage (its wasm rebuilt at 02:38): its manifest says contract 5 and it holds no `sql_batch`. It was the old in-memory app, so this isn't a bug in PRP-041.
+- Next: repack `tasks.rkb` from the current wasm, serve it again, and redo the checks.
+- Noted, not changed: a local address's database is named by the path as typed (without its link), so `rapidkoi://localhost:8001` and `http://localhost:8001` would be two databases. The address box writes back the scheme it was given, so copying a link keeps it. Offered to the owner as a fix (name it by host and port).
+- No code.
