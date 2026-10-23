@@ -10656,3 +10656,6 @@ Branch: prp-017-kivuli_0_17
 
 - The owner: "let's just use https. using rapidkoi is egoistical".
 - Session 196's change undone (`address.link_of`, its tests, DESIGN.md, MEMORY.md, CHANGELOG.md, the contract 4 spec, restored as before it); a test added that a `rapidkoi://` address is written as `https://`. PRP-036 amendment. Checked, fmt clean, `./main` rebuilt. Not run (the owner runs them).
+
+## SESSION 198 — 2026-10-23 — PRP-037: contract 5 (styling, roles, link paths) and the Rust library — open
+Branch: prp-017-kivuli_0_17
