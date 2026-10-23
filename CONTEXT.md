@@ -10852,3 +10852,6 @@ src/window/{tabs, actions, restarts}.la, src/ui/settings.la, test/{sqlasks, data
 guest/rust/rapidkoi/src/{storage (new), abi, lib, signin}.rs, guest/rust/{tasks, settings, newtab}/src/lib.rs, assets/apps/{newtab, settings}.rkb,
 docs/specs/{contract-6 (new), app-events}.md, DECISIONS.md, CLAUDE.md, MEMORY.md, docs/DESIGN.md, CHANGELOG.md, PRPs/prp-041-storage.md, .llmignore, .claude/settings.json, CONTEXT.md
 ```
+
+## SESSION 210 — 2026-10-24 — Fix the 8 older failing tests — open
+Branch: prp-017-kivuli_0_17
