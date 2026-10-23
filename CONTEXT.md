@@ -6190,3 +6190,6 @@ src/ui/header.la, test/header.la, DECISIONS.md, MEMORY.md, CLAUDE.md, docs/DESIG
 
 
 
+
+## SESSION 176 — 2026-10-23 — PRP-033: named instances — open
+Branch: prp-017-kivuli_0_17
