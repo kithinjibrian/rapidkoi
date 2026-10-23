@@ -142,8 +142,9 @@ public const MAX_LINK_QUERY: i64 = 4096;
 
 /**
  * Writes a link (PRP-036): the address's scheme and host, `/@version` when
- * given, then the fields, each encoded. Remote apps are always `https://`,
- * so a link is a real web address on the app's own domain.
+ * given, then the fields, each encoded. Rapidkoi's own scheme,
+ * `rapidkoi://`, for every remote app (the owner, session 196); the same
+ * link as `https://` still opens, and is the site's web address.
  *
  * @param a the app's address
  * @param version the running version, if known
@@ -154,15 +155,9 @@ public const MAX_LINK_QUERY: i64 = 4096;
  *     link_of(a, Some("0.3.0"), [("count", "3")])
  */
 public fun link_of(a: Address, version: Option<string>, fields: (string, string)[]): string {
-    let scheme = if a.remote {
-        "https"
-    } else if a.http {
-        "http"
-    } else if a.secure {
-        "https"
-    } else {
-        "rapidkoi"
-    };
+    // On this machine, rapidkoi:// means plain HTTP: a development server's
+    // http:// or https:// stays as it was opened.
+    let scheme = if a.http { "http" } else if a.secure && !a.remote { "https" } else { "rapidkoi" };
     let v = match version {
         Some(x) => "/@{x}",
         None => "",

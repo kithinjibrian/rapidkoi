@@ -145,4 +145,4 @@ Press Add three times and the address box shows that. Open it in Rapidkoi, and a
 - **The landing page** says "You need Rapidkoi to open it." There's no address to get Rapidkoi from yet.
 - **Share's tooltip** is "Share (coming soon)" (it said "comes with links").
 - **DECISION-048** records contract 4. Where step B goes (contract 4 or 5) is the owner's call when it's planned.
-
+- **Session 196 (the owner: "regression. you should use rapidkoi in the browser not https"):** the address box writes links as `rapidkoi://host/@version?fields`. The `https://` form is still the site's web address (the landing page) and opens when pasted. A development server opened as `http://`, or over TLS on this machine, keeps its scheme, since `rapidkoi://` there means plain HTTP.

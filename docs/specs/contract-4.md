@@ -35,7 +35,7 @@ https://counter.dafifi.net/@0.3.0?count=3
 - `/@MAJOR.MINOR.PATCH` is the version: `host@version` would be a web login, so it's never there.
 - Rapidkoi's own parts live in the path (`@`; `~` is reserved). The app's fields live in the query, percent-encoded.
 - Limits: 16 fields, a 64-byte name, a 1 KB value, 4 KB of query.
-- The address box shows the whole link, the running version written in.
+- The address box shows the whole link, the running version written in, as `rapidkoi://` (the owner, session 196). Only a development server opened as `http://` or over TLS on this machine keeps its scheme.
 
 ## Opening a link
 

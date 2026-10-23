@@ -154,13 +154,20 @@ fun a_bad_link_says_why() {
 
 @test
 fun a_link_is_written_back_the_same_way() {
+    // Rapidkoi writes its own scheme (the owner, session 196), however the
+    // address was typed; a pasted https:// link still opens.
     let a = ok("https://counter.dafifi.net");
     assert_eq(
         link_of(a, Some("0.3.0"), [("count", "3")]),
-        "https://counter.dafifi.net/@0.3.0?count=3",
+        "rapidkoi://counter.dafifi.net/@0.3.0?count=3",
     );
-    assert_eq(link_of(a, Some("0.3.0"), []), "https://counter.dafifi.net/@0.3.0");
-    assert_eq(link_of(a, None, [("q", "a b&c")]), "https://counter.dafifi.net/?q=a%20b%26c");
+    assert_eq(link_of(a, Some("0.3.0"), []), "rapidkoi://counter.dafifi.net/@0.3.0");
+    assert_eq(link_of(a, None, [("q", "a b&c")]), "rapidkoi://counter.dafifi.net/?q=a%20b%26c");
+    // A development server over TLS keeps https://: rapidkoi:// on this machine is plain HTTP.
+    assert_eq(
+        link_of(ok("https://localhost:8443"), Some("1.0.0"), []),
+        "https://localhost:8443/@1.0.0",
+    );
     let local = ok("rapidkoi://localhost:8000");
     assert_eq(
         link_of(local, Some("1.0.0"), [("count", "3")]),
