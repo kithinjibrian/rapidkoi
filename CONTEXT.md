@@ -6470,3 +6470,6 @@ PRPs/prp-035-sessions_and_app_windows.md, CONTEXT.md
 
 ---
 
+
+## SESSION 184 — 2026-10-23 — Build PRP-035: sessions and app windows — open
+Branch: prp-017-kivuli_0_17

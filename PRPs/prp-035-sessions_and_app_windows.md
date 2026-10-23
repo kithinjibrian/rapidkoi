@@ -95,6 +95,6 @@ From chat with the owner (session 183), from the basics up, replacing PRP-034's 
   2. `./main`: the new tab, with "Restore previous session (2)". Click it: both back, at 3 and 1.
   3. Quit, `./main`, and type an address instead: the session is dropped. Open the counter: one window at 3.
 
-## TO CONFIRM ON APPROVAL (proposed, session 183)
+## CONFIRMED ON APPROVAL (the owner, session 184: "yes approved", the security review and the split included)
 - Restore is offered until something else is opened (as Firefox does), not for the whole session.
 - Restore adds to what's already open; an instance already open just stays.
