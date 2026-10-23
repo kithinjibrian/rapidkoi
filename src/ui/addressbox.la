@@ -24,7 +24,8 @@ import kivuli {
 };
 import kivuli.ui { input_group, group_input, group_button_with, popover as ui_popover };
 import window.actions { Msg, ShieldPage, PanelPage };
-import window.window { Model, page_of, is_pinned };
+import window.window { Model, page_of };
+import window.pins { is_pinned };
 import ui.frame { marker_note, file_of };
 import ui.icons { Icon, icon };
 import ui.shield { facts, look_colour, card };

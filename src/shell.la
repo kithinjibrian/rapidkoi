@@ -18,6 +18,7 @@ import people.account { on_account, forget_account };
 import people.access { on_access, looked, news, set_permission };
 public import window.window { Model, with_pages, title_of };
 import window.navigate;
+import window.pins;
 import window.instances { close_instance, close_app, start_rename, confirm_rename, touched };
 import window.newtab;
 import data.saving { session_store, restore, restore_open, persist, mark, forgotten };
@@ -253,7 +254,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     // Closing only, never a toggle: a popover may say it closed more than
     // once, and a toggle reopened it over everything (session 171).
     ClosePanel => (Model { panel: None, confirm: None, ..m }, Cmd.none()),
-    TogglePin => (window.toggle_pin(m), Cmd.none()),
+    TogglePin => (pins.toggle_pin(m), Cmd.none()),
     PanelGo(page) => (Model { panel: Some(page), confirm: None, ..m }, Cmd.none()),
     PanelBack => (Model { panel: Some(PanelPage.Main), confirm: None, ..m }, Cmd.none()),
     Ask(c) => (Model { confirm: Some(c), ..m }, Cmd.none()),
@@ -268,7 +269,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         ),
         None => (m, Cmd.none()),
     },
-    Forget => (forget_account(m, forgotten(m, window.forget(m))), Cmd.none()),
+    Forget => (forget_account(m, forgotten(m, pins.forget(m))), Cmd.none()),
     FocusSearch => (m, Cmd.focus("address")),
     Reload => navigate.reload(m),
     KeepMine => (navigate.keep_mine(m), Cmd.none()),
@@ -296,7 +297,7 @@ fun on_tab(m: Model, id: i64, action: TabAction): (Model, Cmd<Msg>) {
     let at = window.show_tab(m, id);
     match action {
         Reload => navigate.reload(at),
-        TogglePin => (window.toggle_pin(at), Cmd.none()),
+        TogglePin => (pins.toggle_pin(at), Cmd.none()),
         // About this app is the shield's card now (PRP-022).
         About => (
             Model { shield: Some(ShieldPage.Main), panel: None, confirm: None, ..at },
