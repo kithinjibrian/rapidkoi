@@ -10903,3 +10903,6 @@ The owner, checking PRP-041 by eye: after closing the app and restarting, its ta
 - Next: repack `tasks.rkb` from the current wasm, serve it again, and redo the checks.
 - Noted, not changed: a local address's database is named by the path as typed (without its link), so `rapidkoi://localhost:8001` and `http://localhost:8001` would be two databases. The address box writes back the scheme it was given, so copying a link keeps it. Offered to the owner as a fix (name it by host and port).
 - No code.
+
+## SESSION 213 — 2026-10-24 — A local address's database by host and port — open
+Branch: prp-017-kivuli_0_17
