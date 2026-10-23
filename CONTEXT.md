@@ -6306,3 +6306,6 @@ From chat with the owner (sessions 177–179), committed at the owner's word ("c
   - ⋯ is the Iconsax `3-dots-more.svg` (`Icon.More`), bare, set apart.
 - DECISION-043 (deferred, kivuli): the strip can't adapt to the window's width. Request: `docs/specs/kivuli-fit-or-window-width.md`; CLAUDE.md KNOWN ISSUES.
 - Tests: `test/instances.la`, `test/sidebar.la`, `test/themes.la`. Not run (the owner runs them).
+
+## SESSION 181 — 2026-10-23 — Build PRP-034: restore open instances at launch — open
+Branch: prp-017-kivuli_0_17

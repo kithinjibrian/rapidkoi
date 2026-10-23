@@ -96,6 +96,6 @@ The dock and the strip look as you left them.
   3. Open the quote too. Quit.
   4. `./main`: Counter (3), Work (1) and Quote are back, the same one in front.
 
-## TO CONFIRM ON APPROVAL (proposed)
+## CONFIRMED ON APPROVAL (the owner, session 181: "commit them, then build it")
 - **Always restore**, with no "restore your tabs?" question and no setting yet: closing the window keeps your place, as Continue does. A setting can come with the menu.
 - **Save every open signed instance's state when it changes.** That's more writes than today, which saves only the one used last. Each is a small file in the data folder, written safely.
