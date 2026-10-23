@@ -26,6 +26,39 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-046 — Persistent storage: localStorage-style keys, a log underneath
+
+**Status:** deferred (build path step 4; links and a real app come first, the owner, session 190)
+**Raised:** 2026-10-23 — Session 190 (chat with the owner)
+
+**Question:** What do apps use to keep data for good, now that a window's state goes with it (session 189)?
+
+**Direction agreed in chat:**
+- For the app: three requests, like the web's `localStorage`: `set(key, value)`, `get(key)` (the answer comes as an event), `remove(key)`. Like IndexedDB rather than `localStorage`, nothing ever blocks: the app asks, and Rapidkoi writes afterwards.
+- Underneath: Rapidkoi keeps every `set` as an entry in a per-app log, plus the current value. The app never sees the log; it's what sync (step 4), live sessions (5) and history (6) build on. It also tells the app's other windows when a value changes.
+- Queries (search, sort) only if the real app (step 3) shows the need.
+
+**Revisit when:** build path step 4, after links (step 2) and a real app (step 3).
+
+---
+
+### DECISION-045 — Apps keep nothing between calls: by convention, checked in development
+
+**Status:** deferred (to settle before live sessions or developer tools, the owner, session 190)
+**Raised:** 2026-10-23 — Session 190 (chat with the owner)
+
+**Question:** A Rapidkoi app can't cause side effects (nothing is plugged in; it hands back requests), but its memory stays alive while its window is open, so it can keep hidden variables between calls. Restore, Reload, history and live sessions rebuild an app from its state, and hidden variables make them misbehave. Enforce "nothing kept between calls"?
+
+**Direction agreed:** by convention, as React does with StrictMode.
+- The Rust library keeps everything in the app's `State`, and the docs say so.
+- A development check: for apps run locally (`./main serve`, a localhost address), each call runs twice on a fresh copy, with a clear warning when the answers differ.
+- Published apps run as now, at no cost.
+- Full enforcement (a fresh copy per call, or resetting memory) was weighed and not chosen: it costs speed, though it would also free an idle window's memory.
+
+**Revisit when:** live sessions (step 5) or developer tools.
+
+---
+
 ### DECISION-043 — The instance strip can't adapt to the window's width (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-fit-or-window-width.md`)
