@@ -6366,3 +6366,6 @@ CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, MEMORY.md, PRPs/prp-034-restore_open_in
 
 ---
 
+
+## SESSION 182 — 2026-10-23 — Launch lands on the new tab — open
+Branch: prp-017-kivuli_0_17
