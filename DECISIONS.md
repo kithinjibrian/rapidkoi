@@ -366,6 +366,27 @@ Rules:
 
 ---
 
+### DECISION-052 — Contract 6: storage
+
+**Status:** resolved
+**Raised:** 2026-10-24 — Session 208
+**Resolved:** 2026-10-24 — Session 208 (the owner approved PRP-041: "yes approved, build it")
+
+**Question:** How does an app reach its database (DECISION-046) through the guest contract?
+
+**Outcome:** Contract 6 is contract 5 plus two asks and a field (`docs/specs/contract-6.md`):
+- `sql` `{msg, sql, params, max_rows?}`, answered `on_answer {columns, rows, cut}` or `on_fail {error}`;
+- `sql_batch` `{msg, steps: [{sql, params}]}`, one transaction, answered `on_answer {changes, last_rowid}` or `on_fail`;
+- `on_change` gains `tables` when another window of the same app changed its data.
+- Bounds: SQL 100 KB, 999 parameters, a value 4 MB, 10,000 rows or 4 MB an answer (cut past it), 100 steps; 100 MB a database, 1 s a call, 256 MB of SQLite memory for all.
+- Every call runs in a `Cmd.task`, guarded by lugha-sqlite's `Guard.untrusted()`. Contracts 2–5 run unchanged, without storage. Built-in apps get no database.
+
+**Rationale:** PRP-041. The asks follow `fetch`'s shape (a msg, answered later), so apps learn one pattern.
+
+**Copied to MEMORY.md:** yes (decision 26, amended)
+
+---
+
 ### DECISION-051 — SQLite comes through a new package, lugha-sqlite
 
 **Status:** resolved

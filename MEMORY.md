@@ -320,6 +320,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** A key/value store as the only storage; holding transactions open between events; pasting values into SQL text.
 
+**Amended (PRP-041, DECISION-052, session 209):** contract 6 carries it: the `sql` and `sql_batch` asks, answered `on_answer`/`on_fail`, and `on_change`'s `tables`. Each call runs in a task. ⚙'s Data row shows the size and clears it; Forget removes it. The tasks app keeps its tasks there, so a task's link opens it in any window.
+
 ---
 
 ## CURRENT PROJECT STATE
@@ -335,7 +337,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - **The info panel and bar actions (PRP-005), merged in session 27:** the owner's panel sketch; ⟳ keeps state; ☆ pins. 121 Lugha tests.
 
 ### In Progress
-- Build step 3, a real app: the tasks app (PRP-040, session 206), on contract 5. A task's link opens it only in its own window until storage (step 4).
+- Build step 3, a real app: the tasks app (PRP-040, session 206). Since storage (PRP-041, contract 6, session 209) it keeps its tasks in its database, and a task's link opens it in any window.
+- Build step 4, storage: part 1 (a SQLite database per app, PRP-041) built in session 209; sync and history later.
 
 ### Not Started
 - Build path step 2 (links). Next: DECISION-016, then the links discovery interview.

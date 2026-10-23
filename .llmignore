@@ -20,3 +20,4 @@ lugha.lock
 ../lugha-gtk/
 ../lugha-wasmtime/
 ../lugha-cbor/
+../lugha-sqlite/

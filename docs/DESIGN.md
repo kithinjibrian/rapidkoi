@@ -125,5 +125,6 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
   - Theme as tabs (Dark, Light);
   - More contrast as a checkbox;
   - Text size as `−` `N%` `+`, disabled at 80 and 200.
+- **⚙'s card** has a Data row (PRP-041): the app's data size (`KB`/`MB`), and its page's "Clear…" asks first ("Clear {name}'s data?", Clear in danger).
 - **⚙'s card** has two switches under App settings, Use my colours and Use my text size, for apps whose `controls` allow `app_settings.looks` (any app without `controls`).
 

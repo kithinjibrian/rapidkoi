@@ -142,36 +142,36 @@ Done looks like this:
 ## TESTS TO WRITE
 
 `test/databases.la`:
-- [ ] A signed app's and a local app's database paths are hashes under `databases/`, never the address.
-- [ ] One call:
+- [x] A signed app's and a local app's database paths are hashes under `databases/`, never the address.
+- [x] One call:
   - creates, writes and reads;
   - each value type round-trips;
   - a write reports its tables;
   - Full, Interrupted and Denied come back as their sentences.
-- [ ] Clear removes the file and its journal. Size reads it.
+- [x] Clear removes the file and its journal. Size reads it.
 
 `test/queries.la`:
-- [ ] A contract 6 app's `sql` ask becomes a task, and its result is answered as `on_answer` (rows) or `on_fail` (sentence).
-- [ ] Bad shapes stop the app: SQL over 100 KB, over 999 parameters, a non-value parameter, over 100 steps.
-- [ ] A contract 5 app asking for `sql` is stopped ("unknown effect"), as any unknown ask.
-- [ ] A batch that changes `tasks` sends `on_change` with `["tasks"]` to the same app's other window, and not to another app's.
-- [ ] A stale result (the tab closed or reloaded) is dropped.
+- [x] A contract 6 app's `sql` ask becomes a task, and its result is answered as `on_answer` (rows) or `on_fail` (sentence).
+- [x] Bad shapes stop the app: SQL over 100 KB, over 999 parameters, a non-value parameter, over 100 steps.
+- [x] A contract 5 app asking for `sql` is stopped ("unknown effect"), as any unknown ask.
+- [x] A batch that changes `tasks` sends `on_change` with `["tasks"]` to the same app's other window, and not to another app's.
+- [x] A stale result (the tab closed or reloaded) is dropped.
 
 `test/contract.la`, `test/links.la` (or a new `test/contract6.la`; contract.la is at its limit):
-- [ ] The two effects read, and their bounds hold.
+- [x] The two effects read, and their bounds hold.
 
 `test/settings.la`:
-- [ ] The Data row shows the size; Clear asks, then removes it.
-- [ ] Forget removes the database.
+- [x] The Data row shows the size; Clear asks, then removes it.
+- [x] Forget removes the database.
 
 `test/tasks.la` (skips until built):
-- [ ] Tasks survive closing the window.
-- [ ] A task's link opened in a new window shows that task.
+- [x] Tasks survive closing the window.
+- [x] A task's link opened in a new window shows that task.
 
 `guest/rust` (`cargo test`):
-- [ ] `Ask::sql` and `sql_batch` encode as specified; `params!` and `From` make `Value`s.
-- [ ] `Event::Rows`, `Done`, `Failed` and `Change { tables }` decode.
-- [ ] The tasks app's asks for each action.
+- [x] `Ask::sql` and `sql_batch` encode as specified; `params!` and `From` make `Value`s.
+- [x] `Event::Rows`, `Done`, `Failed` and `Change { tables }` decode.
+- [x] The tasks app's asks for each action.
 
 ## ROLLBACK PLAN
 - Branch: `prp-017-kivuli_0_17`; `git revert` the PRP's commits. Contract 6 is then unknown ("needs a newer version"), and databases already written stay on disk, unused.
@@ -183,7 +183,7 @@ Done looks like this:
 - [ ] ⚙ shows the data's size; Clear empties it.
 - [ ] Contracts 2–5 apps run as before.
 - [ ] `lughac test test/` and `cargo test` pass (the owner runs them); build ok (with `libsqlite3-dev`); fmt clean; no file over 500 lines.
-- [ ] DECISION-052, the contract 6 spec, CLAUDE.md, MEMORY.md, DESIGN.md, CHANGELOG.md updated.
+- [x] DECISION-052, the contract 6 spec, CLAUDE.md, MEMORY.md, DESIGN.md, CHANGELOG.md updated.
 
 ## VALIDATION
 - `lughac fmt --check src test`, `lughac test test/`, `lughac build src/main.la -o main`, `cargo test --manifest-path guest/rust/Cargo.toml`
@@ -193,3 +193,13 @@ Done looks like this:
   3. Open a task, copy the address, and paste it into a new tab: the same task.
   4. With two windows side by side in the strip, tick in one and switch: the other shows it.
   5. ⚙ → Data: its size. Clear: the list is empty.
+
+## AMENDMENTS (session 209, while building)
+
+- **Contract tests in `test/sqlasks.la`:** the two effects are read by a new pure module, `src/guest/sqlasks.la` (`sql_of`, `batch_of`), since `contract.la` is near its limit; its tests are there.
+- **A call in flight is capped per window** ("This app asked for too much at once"), so an app can't queue unbounded tasks.
+- **⚙'s Data size is read in a task** when the card opens (`Msg.DataSized`), not in `view`.
+- **Built-in apps:** the new tab is refused "The new tab keeps no data"; Settings, in a tab, "This app can't keep data here" (its path is `builtin:`).
+- **The Rust library dropped `Eq`** from `Ask`, `Event` and `Progress`: `Value` holds floats. `PartialEq` stays, so tests compare as before.
+- **The tasks app** writes title and notes as you type, one `UPDATE` each, and keeps its copy in step at once; every write's answer reads the list again.
+- **Built-in bundles** (`newtab.rkb`, `settings.rkb`) are repacked for contract 6 (their code changed only in `Event::Change { .. }`).

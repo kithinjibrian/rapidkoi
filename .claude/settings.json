@@ -10,7 +10,8 @@
       "Edit(../kivuli/**)",
       "Edit(../lugha-gtk/**)",
       "Edit(../lugha-wasmtime/**)",
-      "Edit(../lugha-cbor/**)"
+      "Edit(../lugha-cbor/**)",
+      "Edit(../lugha-sqlite/**)"
     ]
   },
     "attribution": {
