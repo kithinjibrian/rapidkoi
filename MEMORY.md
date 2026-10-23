@@ -312,6 +312,14 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - Messages are typed per part (`#[derive(Message)]`, `View<M>`, `.map`), with `String` still allowed.
 - Contract 5 is closed.
 
+### 26. Storage: SQL, a database per app (DECISION-046, DECISION-051)
+
+**Decision:** Each app gets its own SQLite database on the device. Apps send SQL with parameters and get rows back as events; a write is a batch in one transaction. Other windows hear `on_change` with the changed tables. A window copies what it asked for into its state, and the database stays the truth. Signed apps keep it until Forget; local development apps keep theirs too. SQLite's own guardrails apply: authorizer, progress handler, limits. It comes through a new package, `lugha-sqlite`, built first.
+
+**Why:** The owner (session 207): a real database is a selling point for offline apps. Researched: WebSQL's end was a standards rule, and SQLite's compatibility is promised through 2050.
+
+**Rules out:** A key/value store as the only storage; holding transactions open between events; pasting values into SQL text.
+
 ---
 
 ## CURRENT PROJECT STATE

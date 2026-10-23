@@ -52,21 +52,6 @@ Rules:
 
 ---
 
-### DECISION-046 — Persistent storage: localStorage-style keys, a log underneath
-
-**Status:** deferred (build path step 4; links and a real app come first, the owner, session 190)
-**Raised:** 2026-10-23 — Session 190 (chat with the owner)
-
-**Question:** What do apps use to keep data for good, now that a window's state goes with it (session 189)?
-
-**Direction agreed in chat:**
-- For the app: three requests, like the web's `localStorage`: `set(key, value)`, `get(key)` (the answer comes as an event), `remove(key)`. Like IndexedDB rather than `localStorage`, nothing ever blocks: the app asks, and Rapidkoi writes afterwards.
-- Underneath: Rapidkoi keeps every `set` as an entry in a per-app log, plus the current value. The app never sees the log; it's what sync (step 4), live sessions (5) and history (6) build on. It also tells the app's other windows when a value changes.
-- Queries (search, sort) only if the real app (step 3) shows the need.
-
-**Revisit when:** build path step 4, after links (step 2) and a real app (step 3).
-
----
 
 ### DECISION-045 — Apps keep nothing between calls: by convention, checked in development
 
@@ -346,6 +331,54 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-046 — Persistent storage: SQL, a database per app
+
+**Status:** resolved
+**Raised:** 2026-10-23 — Session 190 (chat with the owner)
+**Resolved:** 2026-10-24 — Session 207, from chat after PRP-040 (the owner: "yes go sql-first", "all six as they are", "i'm good with that", "package first then storage prp")
+
+**Question:** What do apps use to keep data for good, now that a window's state goes with it (session 189)? Session 190 leaned to localStorage-style keys with a log underneath.
+
+**Outcome:**
+- **SQL-first** (the owner: a real database is a selling point for offline apps). Each app gets its own SQLite database on this device.
+  - Its own SQL; values only as parameters.
+  - A read is one statement. A write is a batch run as one transaction, with nothing held open between events.
+  - Answers come back as events, run in the background, capped at 10,000 rows or 4 MB.
+  - Other windows of the app get `on_change` with the names of the changed tables.
+  - Values are SQLite's own types, carried as CBOR.
+- **The split** stays as agreed: window state is what you're looking at (per window, in the link); the database is what the app knows (per app, shared, kept). A window copies the rows it asked for into its state.
+- **Who and how long:**
+  - signed apps: one database each, by host and origin key, until Forget or Clear;
+  - unsigned local development apps: one per address or file, kept;
+  - built-in apps: none yet.
+- **Limits:** 100 MB, 1 s per query or batch. No permission dialog.
+- **Guardrails, all SQLite's own:** an authorizer (no `ATTACH`, no extensions, no dangerous `PRAGMA`s), a progress handler (time), `SQLITE_DBCONFIG_DEFENSIVE`, `sqlite3_limit`, `sqlite3_hard_heap_limit64` (memory), and `max_page_count` (size).
+- **Later:** the change log (history, undo, sync), from SQLite's session extension. Apps never see it, so adding it changes nothing for them.
+
+**Rationale:**
+- WebSQL was dropped for lack of independent implementations, a web standards rule that doesn't bind a single Rapidkoi ([Wikipedia](https://en.wikipedia.org/wiki/Web_SQL_Database)).
+- SQLite promises its SQL, C API and file format through 2050 ([sqlite.org/lts](https://sqlite.org/lts.html)).
+- The guardrails are SQLite's own security guidance.
+- Weak spots, noted: the update hook names only a table and a rowid; sync between devices (changesets, cr-sqlite) is real work.
+
+**Copied to MEMORY.md:** yes (decision 26)
+
+---
+
+### DECISION-051 — SQLite comes through a new package, lugha-sqlite
+
+**Status:** resolved
+**Raised:** 2026-10-24 — Session 207
+**Resolved:** 2026-10-24 — Session 207 (the owner: "package first then storage prp")
+
+**Question:** Where do the SQLite bindings live?
+
+**Outcome:** Its own package, `lugha-sqlite` (package `sqlite`, `../lugha-sqlite`, later `github.com/kithinjibrian/lugha-sqlite`), generic like lugha-wasmtime and lugha-cbor (CLAUDE.md: bindings to a C library are their own package). It's built first, under its own rules, then Rapidkoi's storage PRP. It links the system's `libsqlite3`, whose session extension, authorizer, progress handler and heap limit are all present here; building it needs `libsqlite3-dev` (the owner installs it). Publishing the repository is asked first.
+
+**Copied to MEMORY.md:** yes (decision 26)
+
+---
 
 ### DECISION-049 — Apps style themselves; contract 5 carries primitives, styles and roles
 
