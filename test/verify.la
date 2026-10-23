@@ -16,6 +16,7 @@ import rapidkoi.trust.verify {
     changes,
     moves,
     check_site,
+    check_site_at,
     record,
     known_for,
     reason,
@@ -423,4 +424,45 @@ fun an_app_s_origin_is_its_first_key_kept_through_rotations() {
     separate(ring, Change { host: HOST, old: new.public_key, new: other.public_key });
     let them = verify_site(ring, HOST, getter(fresh(other, "1.0.0"))).unwrap();
     assert_eq(them.trust.origin, other.public_key);
+}
+
+/** A site listing 1.0.0 and 1.1.0 (current), with 1.0.0 withdrawn when `why` is given. */
+fun two_versions(k: SecretKey, why: Option<string>): Site {
+    let s = Site { files: Ref.new([]) };
+    let mut ix = Index { host: HOST, sequence: 0, current: "", versions: [] };
+    for v of ["1.0.0", "1.1.0"] {
+        let bytes = write_signed(app(v), k).unwrap();
+        ix = add(ix, v, sha256(bytes), bytes.len).unwrap();
+        put(s, "{SITE}/builds/{hex(sha256(bytes))}.rkb", bytes);
+    }
+    if let Some(w) = why {
+        ix = withdraw(ix, "1.0.0", w).unwrap();
+    }
+    put(s, "{SITE}/index", sign_index(ix, k).unwrap());
+    put(s, "{SITE}/key", key_file(KeyFile { host: HOST, key: k.public_key, rotations: [] }));
+    s
+}
+
+fun opened_at(s: Site, wanted: Option<string>): string = match check_site_at(
+    [],
+    HOST,
+    getter(s),
+    wanted,
+) {
+    Ok((v, _)) => v.opened.bundle.manifest.version,
+    Err(e) => reason(e),
+};
+
+@test
+fun a_link_opens_the_version_it_names_while_it_is_listed() {
+    // PRP-036: listed opens it; no longer listed opens the current one.
+    let s = two_versions(key(HOST), None);
+    assert_eq(opened_at(s, Some("1.0.0")), "1.0.0");
+    assert_eq(opened_at(s, Some("0.9.0")), "1.1.0");
+    assert_eq(opened_at(s, None), "1.1.0");
+    let withdrawn = two_versions(key(HOST), Some("Broken saves"));
+    assert_eq(
+        opened_at(withdrawn, Some("1.0.0")),
+        "Version 1.0.0 was withdrawn by its publisher: Broken saves",
+    );
 }

@@ -16,6 +16,8 @@ import window.tabs { Pin };
 import window.leftoff { LeftOff, recalled, signer_of, as_instance };
 import bundles.rules { check_host, check_asset, check_role };
 import guest.limits { MAX_ICON_PX };
+import guest.links { read_link };
+import net.address { MAX_LINK_FIELDS };
 
 /** The format the pins, left-off and state files are written in. */
 public const FORMAT: i64 = 1;
@@ -57,6 +59,8 @@ public struct OpenTab {
     public label: Option<string>,
     /** When it was last in front, as a count. */
     public seen: i64,
+    /** The fields its address named (PRP-036), in order. */
+    public link: string[],
 }
 
 /** What was open when Rapidkoi closed: its instances in order, and which was in front. */
@@ -335,6 +339,9 @@ public fun open_file(o: Open): u8[] = encode(Value.Map([
         if let Some(l) = t.label {
             fields.push(entry("label", Value.Text(l)));
         }
+        if t.link.len > 0 {
+            fields.push(entry("link", Value.Array(t.link.map(fun(n: string) = Value.Text(n)))));
+        }
         Value.Map(fields)
     }))),
     entry("current", match o.current {
@@ -352,7 +359,8 @@ public fun open_file(o: Open): u8[] = encode(Value.Map([
  *     read_open(bytes)?
  */
 public fun read_open(bytes: u8[]): Result<Open, Unreadable> {
-    let v = root(bytes, "open", 4, 8 * MAX_OPEN + 16, MAX_OPEN_FILE)?;
+    // A tab's link is one level deeper, and up to 16 names more.
+    let v = root(bytes, "open", 5, (8 + MAX_LINK_FIELDS) * MAX_OPEN + 16, MAX_OPEN_FILE)?;
     let items = match v.get("tabs") {
         Some(Array(xs)) => xs,
         _ => {
@@ -380,7 +388,21 @@ public fun read_open(bytes: u8[]): Result<Open, Unreadable> {
             return Err(Unreadable.Broken("an instance is listed twice"));
         }
         let seen = x.get("seen").and_then(fun(n: Value) = n.as_i64()).unwrap_or(0);
-        found.push(OpenTab { path: path, instance: instance, label: label, seen: seen });
+        // Read back as an app's result is (PRP-036); none before links.
+        let link = match read_link(x.get("link")) {
+            Ok(Set(names)) => names,
+            Ok(_) => [],
+            Err(_) => {
+                return Err(Unreadable.Broken("a tab's link isn't field names"));
+            }
+        };
+        found.push(OpenTab {
+            path: path,
+            instance: instance,
+            label: label,
+            seen: seen,
+            link: link,
+        });
     }
     let current = match v.get("current") {
         Some(Null) | None => None,

@@ -102,6 +102,7 @@ fun open_pin_is_checked_against_the_pins_now() {
 fun the_last_session_is_its_size_and_its_apps() {
     // PRP-035: what "Restore previous session" will bring back.
     let tab = fun(path: string, instance: string) = OpenTab {
+        link: [],
         path: path,
         instance: instance,
         label: None,

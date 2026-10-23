@@ -242,6 +242,24 @@ public fun check_site(
     known_all: Identity[],
     host: string,
     get: fun(string): Result<(i64, u8[]), string>,
+): Result<(Verified, Record), VerifyError> = check_site_at(known_all, host, get, None);
+
+/**
+ * Verifies a site as `check_site` does, at the version a link names
+ * (PRP-036): that build while the index still lists it, refused if it was
+ * withdrawn; the current one when it's no longer listed.
+ *
+ * @param wanted the link's version, if it names one
+ * @returns the build and its trust, and what to record; or the first check that failed
+ *
+ * Example:
+ *     check_site_at(known_for(ring, host), host, fetcher, Some("1.4.0"))?
+ */
+public fun check_site_at(
+    known_all: Identity[],
+    host: string,
+    get: fun(string): Result<(i64, u8[]), string>,
+    wanted: Option<string>,
 ): Result<(Verified, Record), VerifyError> {
     // 1. The key.
     let fetched = get("{SITE}/key");
@@ -273,9 +291,15 @@ public fun check_site(
     if ix.sequence < seen {
         return Err(VerifyError.Older(ix.sequence, seen));
     }
-    let v = first(ix.versions, fun(v: Version) = v.version == ix.current).ok_or(
-        VerifyError.NoCurrent(ix.current),
-    )?;
+    let listed = wanted.and_then(
+        fun(w: string) = first(ix.versions, fun(v: Version) = v.version == w),
+    );
+    let v = match listed {
+        Some(v) => v,
+        None => first(ix.versions, fun(v: Version) = v.version == ix.current).ok_or(
+            VerifyError.NoCurrent(ix.current),
+        )?,
+    };
     if let Some(why) = v.withdrawn {
         return Err(VerifyError.Withdrawn(v.version, why));
     }

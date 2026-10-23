@@ -406,6 +406,7 @@ public fun open_of(m: Model): Open {
                 instance: t.page.instance,
                 label: t.page.label,
                 seen: t.page.seen,
+                link: t.page.link,
             },
         ),
         current: current,

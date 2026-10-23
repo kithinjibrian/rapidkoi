@@ -231,6 +231,7 @@ fun trust_format_1_still_reads_with_no_date() {
 }
 
 fun tab(path: string, instance: string, label: Option<string>, seen: i64): OpenTab = OpenTab {
+    link: [],
     path: path,
     instance: instance,
     label: label,
@@ -249,6 +250,14 @@ fun the_open_tabs_round_trip() {
         current: Some(1),
     };
     assert_eq(read_open(open_file(o)).unwrap() == o, true);
+    // A window keeps the fields its address names (PRP-036).
+    let linked = Open {
+        tabs: [
+            OpenTab { link: ["count", "filter"], ..tab("rapidkoi://localhost:8000", "", None, 1) },
+        ],
+        current: Some(0),
+    };
+    assert_eq(read_open(open_file(linked)).unwrap() == linked, true);
     let none = Open { tabs: [], current: None };
     assert_eq(read_open(open_file(none)).unwrap() == none, true);
 }
@@ -270,6 +279,11 @@ fun a_bad_open_file_is_broken_naming_why() {
         current: None,
     };
     assert_eq(broken(read_open(open_file(twice))), "an instance is listed twice");
+    let named = fun(names: string[]) = broken(
+        read_open(one(OpenTab { link: names, ..tab("a.wasm", "", None, 0) })),
+    );
+    assert_eq(named(["Count"]), "a tab's link isn't field names");
+    assert_eq(named(["count", "count"]), "a tab's link isn't field names");
     let off = Open { tabs: [tab("a.wasm", "", None, 0)], current: Some(3) };
     assert_eq(broken(read_open(open_file(off))), "the tab in front isn't one of them");
     let mut many: OpenTab[] = [];

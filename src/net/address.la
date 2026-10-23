@@ -168,8 +168,29 @@ public fun link_of(a: Address, version: Option<string>, fields: (string, string)
         None => "",
     };
     let q = fields.map(fun(f: (string, string)) = "{f.0}={encode_value(f.1)}").join("&");
-    let tail = if q == "" { "" } else { if v == "" { "/?{q}" } else { "?{q}" } };
-    "{scheme}://{authority(a)}{v}{tail}"
+    // A development server's bundle keeps its own path (`http://…/counter.rkb`).
+    let path = v + if a.route == "/" { "" } else { a.route };
+    let tail = if q == "" { "" } else { if path == "" { "/?{q}" } else { "?{q}" } };
+    "{scheme}://{authority(a)}{path}{tail}"
+}
+
+/**
+ * Returns an address without a link's parts: its `/@version` and its
+ * fields. A window is kept, pinned and reopened under this.
+ *
+ * Example:
+ *     without_link("https://counter.dafifi.net/@0.3.0?count=3")
+ */
+public fun without_link(text: string): string {
+    let q = find(text, "?");
+    let base = if q < 0 { text } else { text.slice(0, q) };
+    let at = find(base, "/@");
+    if at < 0 {
+        return base;
+    }
+    let after = base.slice(at + 2, base.len);
+    let end = find(after, "/");
+    base.slice(0, at) + if end < 0 { "" } else { after.slice(end, after.len) }
 }
 
 /** `/@1.2.0[/rest]` → the version and the rest; any other path → no version. */

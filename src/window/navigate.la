@@ -15,7 +15,7 @@ import window.instances { next_instance, another };
 import data.remembered { Open };
 import window.leftoff { LeftOff, leave, compiled };
 import trust.verify { separate };
-import net.loads { begin, begin_restoring, resumed };
+import net.loads { begin, begin_link, begin_restoring, resumed };
 import kivuli { Cmd };
 import window.actions { Msg };
 import window.window {
@@ -30,7 +30,7 @@ import window.window {
     go_home,
     same_app,
 };
-import net.address { is_address, parse };
+import net.address { is_address, parse, without_link };
 
 /**
  * Opens what the address box says: a local file or development address,
@@ -61,14 +61,29 @@ public fun go(m: Model): (Model, Cmd<Msg>) {
 /**
  * Opens a local app file or address: in a new tab from home, or in place
  * of the current tab's app (which becomes "where you left off"). A file
- * opens at once; an address loads in the background (PRP-008).
+ * opens at once; an address loads in the background (PRP-008). A link
+ * (PRP-036) opens at its version; one with fields always in a new window.
  *
  * @returns the model, and the load's task for an address
  *
  * Example:
  *     open_file(m, "counter.wasm")
  */
-public fun open_file(m: Model, path: string): (Model, Cmd<Msg>) {
+public fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
+    // A link (PRP-036) is its app's address with a version and fields.
+    let (path, version, fields) = match parse(text) {
+        Ok(a) if is_address(text) => (without_link(text), a.version, a.fields),
+        _ => (text, None, []),
+    };
+    // A link's fields always open a new window, beside what's open.
+    if fields.len > 0 {
+        let placed = add_tab(m, AppPage {
+            instance: next_instance(m, path),
+            ..failed_page(path, ""),
+        });
+        let tidy = Model { draft: "", editing: false, notice: None, ..placed };
+        return begin_link(tidy, placed.current.unwrap_or(-1), path, version, fields);
+    }
     // One tab per app (PRP-026): an app already open is shown, not started twice.
     if let Some(id) = open_tab_of(m, path) {
         return (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none());
@@ -89,7 +104,7 @@ public fun open_file(m: Model, path: string): (Model, Cmd<Msg>) {
     let (base, id) = placed;
     let tidy = Model { draft: "", editing: false, notice: None, ..base };
     if is_address(path) && parse(path).is_ok() {
-        return begin(tidy, id, path, false, None, []);
+        return begin_link(tidy, id, path, version, []);
     }
     // A new window starts fresh: state lives with its window, and only
     // Restore brings a saved one back (session 189).
@@ -151,6 +166,7 @@ public fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
             instance: t.instance,
             label: t.label,
             seen: t.seen,
+            link: t.link,
             ..p,
         };
         if is_address(t.path) && parse(t.path).is_ok() {
@@ -161,7 +177,7 @@ public fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
             at = loading;
             tasks.push(task);
         } else {
-            let (page, said) = resumed(at, named(open_path(at.engine, at.ring, t.path)));
+            let (page, said) = resumed(at, named(open_path(at.engine, at.ring, t.path)), t.link);
             let notice = match (at.notice, said) {
                 (Some(a), Some(b)) => Some("{a} · {b}"),
                 (Some(a), None) => Some(a),
@@ -212,7 +228,8 @@ public fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
         if is_address(l.path) && parse(l.path).is_ok() {
             return begin(tab, id, l.path, false, None, []);
         }
-        let (page, notice) = resumed(tab, open_path(m.engine, m.ring, l.path));
+        let opened = open_path(m.engine, m.ring, l.path);
+        let (page, notice) = resumed(tab, opened, opened.link);
         let left = if state_of(page).is_some() { None } else { Some(l) };
         (
             Model { left_off: left, notice: notice, ..with_tab(tab, id, fun(_: AppPage) = page) },

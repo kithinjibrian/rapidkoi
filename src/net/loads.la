@@ -34,7 +34,7 @@ import trust.verify { known_for, moves };
 import data.states { saved_state_in, move_state };
 import data.remembered { Recalled };
 import data.store { Store };
-import net.address { parse, shown };
+import net.address { Address, parse, shown };
 import window.actions { Msg };
 import guest.limits { FETCH_TIMEOUT_MS };
 
@@ -58,8 +58,35 @@ public fun begin(
     again: bool,
     saved: Option<(u8[], i64)>,
     kept: AppPage[],
+): (Model, Cmd<Msg>) = begin_at(m, id, path, again, saved, kept, None, []);
+
+/**
+ * Begins loading a link (PRP-036): as `begin`, at the version it names
+ * while its site lists it, with its fields set in the app's first state.
+ *
+ * Example:
+ *     begin_link(m, id, "rapidkoi://localhost:8000", Some("1.0.0"), [("count", "3")])
+ */
+public fun begin_link(
+    m: Model,
+    id: i64,
+    path: string,
+    version: Option<string>,
+    link: (string, string)[],
+): (Model, Cmd<Msg>) = begin_at(m, id, path, false, None, [], version, link);
+
+/** `begin`, with a link's version and fields. */
+fun begin_at(
+    m: Model,
+    id: i64,
+    path: string,
+    again: bool,
+    saved: Option<(u8[], i64)>,
+    kept: AppPage[],
+    version: Option<string>,
+    link: (string, string)[],
 ): (Model, Cmd<Msg>) {
-    let a = match parse(path) {
+    let parsed = match parse(path) {
         Ok(a) => a,
         // Callers parse first; an address that doesn't is shown as a stopped page.
         Err(e) => {
@@ -69,6 +96,8 @@ public fun begin(
             );
         }
     };
+    // The link's version goes with the address to the task; its fields wait for the app.
+    let a = Address { version: version, ..parsed };
     let number = m.loads + 1;
     let now = time.now_ms();
     let page = loading(path, number, Pending {
@@ -77,6 +106,8 @@ public fun begin(
         saved: saved,
         kept: kept,
         resume: false,
+        version: version,
+        link: link,
     });
     let known = known_for(m.ring, shown(a));
     // Plain data for the task: the window's network is always the system's
@@ -86,11 +117,13 @@ public fun begin(
         fun(): Fetched = fetch_app(a, known, net, FETCH_TIMEOUT_MS),
         fun(f: Fetched) = Msg.Fetched(id, number, f),
     );
-    // The tab's instance waits for its app under its name (PRP-033).
+    // The tab's instance waits for its app under its name (PRP-033), with
+    // the fields its address named.
     let waiting = fun(old: AppPage) = AppPage {
         instance: old.instance,
         label: old.label,
         seen: old.seen,
+        link: old.link,
         ..page,
     };
     (Model { loads: number, now: now, ..with_tab(m, id, waiting) }, task)
@@ -138,7 +171,16 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
     };
     if !current(m.ring, f) {
         if !pending.again {
-            let (again, task) = begin(m, id, p.path, true, pending.saved, pending.kept);
+            let (again, task) = begin_at(
+                m,
+                id,
+                p.path,
+                true,
+                pending.saved,
+                pending.kept,
+                pending.version,
+                pending.link,
+            );
             return (if pending.resume { restoring(again, id) } else { again }, task);
         }
         let host = p.name;
@@ -153,7 +195,14 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
                 instance: p.instance,
                 label: p.label,
                 seen: p.seen,
-                ..from_loaded(m.engine, l, p.path, []),
+                ..from_loaded(m.engine, l, p.path, pending.link),
+            };
+            // A link's version no longer listed opened the current one (PRP-036).
+            let instead = match (pending.version, fresh.manifest) {
+                (Some(v), Some(mf)) if mf.version != v => Some(
+                    "This link was made with {fresh.name} {v}; opened {mf.version}",
+                ),
+                _ => None,
             };
             for k of pending.kept {
                 close_page(k);
@@ -174,7 +223,7 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
                 // A window restored from the last session picks up its
                 // saved state; anything opened anew starts fresh: state
                 // lives with its window (session 189).
-                None => if pending.resume { resumed(m, fresh) } else { (fresh, None) },
+                None => if pending.resume { resumed(m, fresh, p.link) } else { (fresh, instead) },
             }
         }
         // A changed key asks first; a page being reloaded waits for the answer.
@@ -208,12 +257,13 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
  * whatever route opened it, the same host and key pick up the same state
  * (PRP-007 amendment 2). Unsigned pages are left as they are.
  *
+ * @param link the fields the window's address named, kept with its state (PRP-036)
  * @returns the page, and a notice (a changed state shape, a broken file)
  *
  * Example:
- *     resumed(m, page)
+ *     resumed(m, page, page.link)
  */
-public fun resumed(m: Model, page: AppPage): (AppPage, Option<string>) = match (
+public fun resumed(m: Model, page: AppPage, link: string[]): (AppPage, Option<string>) = match (
     m.store,
     page.trust,
 ) {
@@ -224,7 +274,7 @@ public fun resumed(m: Model, page: AppPage): (AppPage, Option<string>) = match (
         page.instance,
     ) {
         Read(sv) => {
-            let (p, over) = with_saved(page, sv.state, sv.state_version);
+            let (p, over) = with_saved(AppPage { link: link, ..page }, sv.state, sv.state_version);
             (
                 p,
                 if over {

@@ -4,6 +4,7 @@ import rapidkoi.net.address {
     Address,
     AddressError,
     parse,
+    without_link,
     url,
     site_url,
     shown,
@@ -160,4 +161,23 @@ fun a_link_is_written_back_the_same_way() {
         link_of(local, Some("1.0.0"), [("count", "3")]),
         "rapidkoi://localhost:8000/@1.0.0?count=3",
     );
+    // A development server's bundle keeps its own path, after the version.
+    assert_eq(
+        link_of(ok("http://localhost:8000/counter.rkb"), Some("1.0.0"), [("count", "3")]),
+        "http://localhost:8000/@1.0.0/counter.rkb?count=3",
+    );
+}
+
+@test
+fun a_window_is_kept_under_its_address_without_the_link() {
+    assert_eq(
+        without_link("https://counter.dafifi.net/@0.3.0?count=3"),
+        "https://counter.dafifi.net",
+    );
+    assert_eq(without_link("rapidkoi://localhost:8000?count=3"), "rapidkoi://localhost:8000");
+    assert_eq(
+        without_link("http://localhost:8000/@1.0.0/counter.rkb?count=3"),
+        "http://localhost:8000/counter.rkb",
+    );
+    assert_eq(without_link("rapidkoi://localhost:8000"), "rapidkoi://localhost:8000");
 }

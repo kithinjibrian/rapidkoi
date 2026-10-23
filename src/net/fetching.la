@@ -18,7 +18,7 @@ import trust.verify {
     Record,
     Identity,
     VerifyError,
-    check_site,
+    check_site_at,
     reason as verify_reason,
 };
 import bundles.loader { Refusal };
@@ -58,7 +58,14 @@ public fun fetch_app(a: Address, known: Identity[], net: Network, timeout_ms: i6
     if !a.http {
         // A site with a key is verified; without one, only a plain-HTTP
         // development server on this machine may serve an unsigned bundle.
-        match check_site(known, host, fun(p: string) = get(a, site_url(a, p), net, timeout_ms)) {
+        // A link's version opens while the site lists it (PRP-036).
+        let fetched = check_site_at(
+            known,
+            host,
+            fun(p: string) = get(a, site_url(a, p), net, timeout_ms),
+            a.version,
+        );
+        match fetched {
             Ok((v, r)) => {
                 return Fetched.Signed(v, r, known);
             }

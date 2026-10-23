@@ -4,10 +4,14 @@
 // Pure; no guest, no display.
 import rapidkoi.guest.contract { LinkChange, read_update_of };
 import rapidkoi.guest.links { fields_in, with_link };
-import rapidkoi.window.tabs { AppPage, open_module_at, handle, state_of };
+import rapidkoi.window.tabs { AppPage, Pending, open_module_at, handle, state_of };
 import rapidkoi.ui.render { Msg };
 import wasmtime { Engine, Module };
 import cbor { Value, encode };
+import rapidkoi.shell { Model, start, update };
+import rapidkoi.window.actions { Msg as AppMsg };
+import rapidkoi.net.fetching { Fetched };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
 import support { t, kv, linking, echo_v3 };
 
 fun result(state: Value, link: Option<Value>): u8[] {
@@ -194,4 +198,80 @@ fun contract_3_apps_have_no_links() {
     );
     let next = handle(p, Msg.Event(t("add"), None));
     assert_eq((next.link, next.fields, stopped(next)), ([], [], "running"));
+}
+
+const SITE_ADDRESS: string = "rapidkoi://localhost:18779";
+
+fun going(m: Model, text: string): Model {
+    let (next, _) = update(Model { draft: text, ..m }, AppMsg.Go);
+    next
+}
+
+fun pending_of(p: AppPage): Option<Pending> = match p.screen {
+    Loading(x) => Some(x),
+    _ => None,
+};
+
+/** A format 1 bundle named Plain at `version`, as an unsigned server would send. */
+fun plain(version: string): u8[] = write(Bundle {
+    manifest: Manifest {
+        contract: 4,
+        name: "Plain",
+        version: version,
+        description: None,
+        state_version: 1,
+        icon: None,
+        banners: [],
+        servers: [],
+        permissions: [],
+        controls: None,
+    },
+    module: [0, 97, 115, 109, 1, 0, 0, 0],
+    assets: [],
+}).unwrap();
+
+@test
+fun a_link_opens_a_new_window_and_a_bare_address_switches() {
+    let (home, _) = start(["./main"], None);
+    let first = going(home, SITE_ADDRESS);
+    assert_eq(first.tabs.len, 1);
+    // The bare address of an open app shows it.
+    assert_eq(going(first, SITE_ADDRESS).tabs.len, 1);
+    // A link with fields is a new window of the same app, kept under its address.
+    let linked = going(first, "{SITE_ADDRESS}/@1.0.0?count=3");
+    assert_eq(linked.tabs.len, 2);
+    let p = linked.tabs[1].page;
+    assert_eq((p.path, p.instance, linked.current), (SITE_ADDRESS, "2", Some(linked.tabs[1].id)));
+    let x = pending_of(p).unwrap();
+    assert_eq((x.version, x.link), (Some("1.0.0"), [("count", "3")]));
+    // A broken link says why, and opens nothing.
+    let bad = going(first, "{SITE_ADDRESS}/@1.0?count=3");
+    assert_eq((bad.tabs.len, bad.notice), (1, Some("A link's version must be like 1.4.0")));
+}
+
+@test
+fun a_version_no_longer_there_opens_the_current_one_with_a_notice() {
+    let (home, _) = start(["./main"], None);
+    let m = going(home, "{SITE_ADDRESS}/@0.3.0?count=3");
+    let p = m.tabs[0].page;
+    let arrived = step_with(
+        m,
+        AppMsg.Fetched(m.tabs[0].id, p.load, Fetched.Unsigned("localhost:18779", plain("0.5.0"))),
+    );
+    assert_eq(arrived.notice, Some("This link was made with Plain 0.3.0; opened 0.5.0"));
+    let n = going(home, "{SITE_ADDRESS}/@0.5.0?count=3");
+    let same = step_with(
+        n,
+        AppMsg.Fetched(
+            n.tabs[0].id,
+            n.tabs[0].page.load,
+            Fetched.Unsigned("localhost:18779", plain("0.5.0")),
+        ),
+    );
+    assert_eq(same.notice, None);
+}
+
+fun step_with(m: Model, msg: AppMsg): Model {
+    let (next, _) = update(m, msg);
+    next
 }
