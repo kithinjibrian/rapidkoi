@@ -26,6 +26,19 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-050 — Screen readers need accessible roles from kivuli
+
+**Status:** deferred (requested: `docs/specs/kivuli-accessible-roles.md`)
+**Raised:** 2026-10-23 — Session 198 (PRP-037: roles in contract 5)
+
+**Question:** Contract 5 lets any node say what it is (`role`, `checked`, `selected`, `label`), so a library-built checkbox can read as "Buy milk, checkbox, ticked". kivuli 0.54 can't set a GTK accessible role, state or label on a node.
+
+**Meanwhile:** roles drive what Rapidkoi does itself: focus, pressing by keyboard, the `Checked` look. A screen reader hears what GTK infers from the widget. No workaround through visible text.
+
+**Revisit when:** kivuli sets accessible roles and states; then they're passed through with no contract change.
+
+---
+
 ### DECISION-047 — Share needs a clipboard command (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-clipboard.md`)
@@ -333,6 +346,29 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-049 — Apps style themselves; contract 5 carries primitives, styles and roles
+
+**Status:** resolved (the direction; PRP-037 to PRP-039 carry it out on approval)
+**Raised:** 2026-10-23 — Session 197 (chat with the owner: a real app needs more than five node kinds)
+**Resolved:** 2026-10-23 — Sessions 197–198 (the owner, step by step: "let people style their apps however they want"; the manifest theme "is an overreach"; apps ask for Rapidkoi's colours by name)
+
+**Question:** How do apps describe and style their screens, now that a real app is next (step 3), and what stays in the person's hands?
+
+**Outcome:**
+- **The person always controls five things:** bigger text; light or dark and contrast; less motion; knowing which app they're in; using any app without seeing it or without a mouse. Apps follow by default (Rapidkoi's names, roles); a per-app emergency switch forces it as a last resort.
+- **Apps style themselves freely,** through one door (`style`, kivuli's categories), within what Rapidkoi can draw. This replaces DECISION-031's "apps never set colours". The desktop's GTK theme stays ignored, and the frame stays Rapidkoi's.
+- **Rapidkoi's names** (colours, text sizes, fonts, spacing, corners) are used without the app learning their values. Raw values are allowed and don't follow the person. Apps may read preferences they need to decide something.
+- **Nothing about looks goes in the manifest.**
+- **Rapidkoi is the engine, the Rust library is the framework:** the contract has boxes, text, styles, roles from AccessKit's list, and what an app can't build without painting (typing, scrolling and long lists, things on top, pictures, pickers). Widgets live in the library.
+- **State is a tree with one owner per piece; other parts hold IDs.** Link fields become paths into it (`editor.task=42`); pages stay the app's own.
+- **This is contract 5,** built in PRP-037 to PRP-039 and open until the last lands. That settles DECISION-048's step B question: B's drawing goes into 5 as real apps need it. Contract 4 stays as it is.
+
+**Rationale:** goals first (session 198): the developer wants an app that looks and behaves their way; the person wants apps that work for them. The research (the Extensible Web Manifesto, Flutter's layers, the first rule of ARIA, AccessKit) shaped the engine-and-framework split.
+
+**Copied to MEMORY.md:** on PRP-037's approval
+
+---
 
 ### DECISION-048 — Contract 4: a state of named fields, and links
 
