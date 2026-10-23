@@ -10625,3 +10625,6 @@ Branch: prp-017-kivuli_0_17
 - The owner: "yes" to republishing the counter and quote on the VM at contract 4 with landing pages.
 - Counter 0.4.0 (contract 4) published locally in `~/rapidkoi-sites/counter.dafifi.net/` (build `a1c079f0…`, sequence 3, `site/index.html` written).
 - Stopped: the permission classifier refused writes to the VM, and then the quote build for the site. The remote steps are handed to the owner (copy the build, the landing page, then the index; nginx answers every other path with `index.html`; quote rebuilt, published, server rebuilt so it serves the landing page). Nothing on the VM was changed.
+
+## SESSION 195 — 2026-10-23 — Finish republishing the counter and quote at contract 4 — open
+Branch: prp-017-kivuli_0_17
