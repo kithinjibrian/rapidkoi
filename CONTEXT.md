@@ -10345,7 +10345,7 @@ Branch: prp-017-kivuli_0_17
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Republishing on the VM (session 194) is half done: counter 0.4.0 is published locally and waits to be copied up, with the nginx change; quote is not built yet. Both were stopped by permissions: the owner runs those steps or allows them. Then PRP-037, cross-app links. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Counter 0.4.0 and quote 0.2.0 are live on the VM at contract 4 with landing pages (session 195), to be opened in Rapidkoi by the owner. Then PRP-037, cross-app links. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
 
 ## SESSION 180 — 2026-10-23 — The strip and dock tweaks from chat (committed) — closed
 
@@ -10626,5 +10626,13 @@ Branch: prp-017-kivuli_0_17
 - Counter 0.4.0 (contract 4) published locally in `~/rapidkoi-sites/counter.dafifi.net/` (build `a1c079f0…`, sequence 3, `site/index.html` written).
 - Stopped: the permission classifier refused writes to the VM, and then the quote build for the site. The remote steps are handed to the owner (copy the build, the landing page, then the index; nginx answers every other path with `index.html`; quote rebuilt, published, server rebuilt so it serves the landing page). Nothing on the VM was changed.
 
-## SESSION 195 — 2026-10-23 — Finish republishing the counter and quote at contract 4 — open
+## SESSION 195 — 2026-10-23 — Finish republishing the counter and quote at contract 4 — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "try again"; the VM steps went through.
+- Counter 0.4.0 (contract 4) live at counter.dafifi.net: build, `index.html`, then the index. nginx now answers every path outside `.well-known` with the landing page (anything else under `.well-known` stays 404). Backups on the VM: `sites/counter-index.bak-0.3.0`, `nginx.conf.bak-before-landing`.
+- Quote 0.2.0 (contract 4) live at quote.dafifi.net: built with `QUOTE_SERVER=https://quote.dafifi.net`, published, the server rebuilt (it serves the landing page through `serve`'s handler), the container recreated, the index last. Backups: `sites/quote-index.bak-0.1.0`, `quote/quote-server.bak-0.1.0`.
+- Checked over HTTPS: `/`, `/@0.4.0?count=3` and `/@0.2.0` give the landing pages; key, index and `/quote` answer as before. Not opened in Rapidkoi (the owner's).
