@@ -10921,3 +10921,6 @@ The owner, on session 212's note: "yes, name it by host and port".
 ```
 src/data/databases.la, test/databases.la, docs/specs/contract-6.md, PRPs/prp-041-storage.md, CONTEXT.md
 ```
+
+## SESSION 214 — 2026-10-24 — PRP-041 checked by the owner — open
+Branch: prp-017-kivuli_0_17
