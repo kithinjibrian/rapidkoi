@@ -10801,3 +10801,6 @@ Branch: prp-017-kivuli_0_17
 - Found: a task's link can't open that task in another window until storage (step 4), since its tasks live in its window. Recorded in PRP-040's amendments.
 - Docs: CLAUDE.md (commands, tree), MEMORY.md (in progress: step 3), CHANGELOG.md.
 - Checks: fmt is clean, the tasks wasm builds, `cargo test --no-run` succeeds. Tests not run (the owner runs them).
+
+## SESSION 207 — 2026-10-24 — Storage decided: SQL-first (DECISION-046), the lugha-sqlite package (DECISION-051) — open
+Branch: prp-017-kivuli_0_17
