@@ -10580,5 +10580,19 @@ PRPs/prp-036-links.md, CONTEXT.md
 ---
 
 
-## SESSION 192 — 2026-10-23 — PRP-036 amended: links are web addresses on the app's domain, with the version — open
+## SESSION 192 — 2026-10-23 — PRP-036 amended: links are web addresses on the app's domain, with the version — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner:
+  - the version goes in links by default;
+  - a link must be a valid web address;
+  - it uses the app's own domain (a), not a shared one.
+- PRP-036 amended:
+  - Shape: `https://host/@version?fields`. The version is in the path, since `host@version` is a web login.
+  - The version that's listed opens; withdrawn ones are refused.
+  - `publish` writes a landing page (`index.html`) served for any path.
+  - `rapidkoi://` of the same shape is the hand-off; registering it with the desktop is its own PRP.
+- To confirm: fall back to the current version with a notice; the address box shows the full link. No code.

@@ -1,13 +1,14 @@
-## FEATURE: Links (build path step 2): a window's state is named fields Rapidkoi can read (contract 4); after each event the app names which fields go in the address; opening such a link opens a new window with those fields set.
+## FEATURE: Links (build path step 2): a window's state is named fields Rapidkoi can read (contract 4); after each event the app names which fields go in the address; a link is a real web address on the app's own domain, carrying the version, and opening it opens a new window at that version with those fields set.
 
 ## OBJECTIVE
-From chat with the owner (sessions 190–191), from the basics. A link is an app's address plus the part of a window's state the app chooses to show, as text:
+From chat with the owner (sessions 190–192), from the basics. A link is an app's address, the version it was made with, and the part of a window's state the app chooses to show, as text. It's a real web address on the app's own domain, so it works anywhere it's pasted:
 
 ```
-rapidkoi://counter.dafifi.net/?count=3
+https://counter.dafifi.net/@0.3.0?count=3
+        └──── the app ────┘└ver─┘└ the app's fields ┘
 ```
 
-Press Add three times and the address box shows that. Open it, and a new counter window starts at 3. The developer decides, in the same line that returns the new state, which fields go out; their values are always read from the state, so the address can't drift from it. Only simple values (numbers, text, true/false) can go in a link.
+Press Add three times and the address box shows that. Open it in Rapidkoi, and a new counter window starts at 3, in version 0.3.0. Open it in a browser without Rapidkoi, and the site shows a small page: the app, its publisher, "Open in Rapidkoi", and how to get Rapidkoi. The developer decides, in the same line that returns the new state, which fields go out; their values are always read from the state, so the address can't drift from it. Only simple values (numbers, text, true/false) can go in a link.
 
 ## WHY (the owner's decisions, recorded)
 
@@ -17,6 +18,10 @@ Press Add three times and the address box shows that. Open it, and a new counter
 - **A link opens a new window** (the owner).
 - **Simple values only** (the owner), enforced by the Rust library at compile time and by Rapidkoi at run time.
 - **State as named fields, contract 4** (the owner): Rapidkoi has to read the fields to build the address. Contract 3 stays sealed bytes, so published contract 3 apps keep working (rule 6).
+- **The version, by default** (the owner): a link's fields belong to the state of the version that made it.
+- **A valid web address, on the app's own domain** (the owner: "a rapidkoi link should also be a valid http link"; option a, not a shared Rapidkoi domain).
+  - The version sits in the path (`/@0.3.0`), because `host@version` means a login in a web address, which is broken and a phishing trick.
+  - Rapidkoi's own parts live in the path (`@` for the version; `~` reserved, as the vision has it). The app's fields live in the query, so they can never collide.
 
 ## CONTEXT
 
@@ -32,9 +37,12 @@ Press Add three times and the address box shows that. Open it, and a new counter
     - `on_open` comes after Rapidkoi has set the link's fields in the fresh state. The app checks them there (its "not found" is its own).
     - Contracts 2 and 3 run unchanged, with no links.
   - **Rapidkoi** (`src/guest/`, `src/net/address.la`, `src/window/`):
-    - Parses `?name=value&…` after an address, within limits (16 fields, a 64-byte name, a 1024-byte value, 4 KB in all).
-    - Builds the address after each event from the named fields' current values, checking each is a simple value (number, text, bool, null).
-    - Shows `host/?count=3` in the address box.
+    - Parses `https://host/@version?name=value&…` (and `http://localhost:port/…` for development, and `rapidkoi://` of the same shape), within limits:
+      - 16 fields, a 64-byte name, a 1024-byte value, 4 KB in all;
+      - a version that's MAJOR.MINOR.PATCH.
+    - Builds the address after each event from the named fields' current values, checking each is a simple value (number, text, bool, null), with the running version written in by default.
+    - Shows the full link in the address box: what you see is what you'd share.
+    - **Opens the version the link names** when the signed site still lists it: its index keeps the last few builds, verified as today. A withdrawn version is refused, as today.
     - Opens a link in a **new window**: a link with fields always opens a new window. A bare address of an open app still switches to it.
     - Sets fields from the link only where the fresh state (after `on_init`) has that name with a value of the same kind. Anything else is ignored.
     - `AppPage.link: string[]`: the window's current link fields, kept with the window (and in the `open` file, so Restore keeps its address).
@@ -42,6 +50,7 @@ Press Add three times and the address box shows that. Open it, and a new counter
     - `#[derive(State)]` encodes the struct as named fields and generates its link fields (only simple-typed fields).
     - `Next::state(s)`, `.link(&[Counter::count])`, `.no_link()` and `.ask(…)` replace the `(state, asks)` pair. The old form keeps working for contract 3 apps.
     - The library speaks contract 4.
+  - **The landing page** (`src/commands/publish.la`): `./main publish` also writes `site/index.html`, the app's name, description and publisher, with **Open in Rapidkoi** (a `rapidkoi://` address of the same shape) and how to get Rapidkoi. It's served for any path on the app's domain, so every link lands somewhere in a browser. `./main serve` serves it too.
   - **The apps:** the counter uses links (`?count=3`); quote and the new tab move to contract 4. Republishing the counter and quote on the VM is a separate step, asked first (outward-facing).
   - **The share button** stays disabled: kivuli has no clipboard command. That's DECISION-047, with a request at `docs/specs/kivuli-clipboard.md`. The address box's text can be selected and copied meanwhile.
   - Docs: DESIGN.md (the address shows the link), CLAUDE.md (stack: contract 4), MEMORY.md (a links decision), CHANGELOG.md.
@@ -60,7 +69,9 @@ Press Add three times and the address box shows that. Open it, and a new counter
 ### Must NOT Do
 - Cross-app links: an app opening another's link, the `open_apps` permission for external apps (always ask), the "‹ Mail" return. Those are the next PRP (proposed: PRP-037).
 - Copying to the clipboard (DECISION-047).
-- The web form (`https://open.rapidkoi.app/…`), `@version` links.
+- A shared Rapidkoi domain for links (not chosen: links live on the app's own domain).
+- Registering `rapidkoi://` with the desktop, so the landing page's button opens Rapidkoi (OS integration: its own PRP). Until then, a link is opened by pasting it into Rapidkoi.
+- Changing the VM's web servers to serve the landing page (asked first, with the republish).
 - Merge into `redesign` or `main` (session 90).
 
 ## MODEL AND MESSAGES
@@ -83,12 +94,16 @@ Press Add three times and the address box shows that. Open it, and a new counter
 ## TESTS TO WRITE
 
 `test/address.la`:
-- [ ] `?count=3&filter=work` parses; limits; a bad name.
+- [ ] `https://host/@1.2.0?count=3&filter=work` parses (and `rapidkoi://` and `http://localhost:…` of the same shape); limits; a bad name; a bad version; `host@1.2.0` is refused.
+
+`test/publish.la`:
+- [ ] Publishing writes `site/index.html` with the app's name and an Open in Rapidkoi address; `serve` returns it for any path.
 
 `test/links.la` (new):
 - [ ] The address after an event shows the named fields' current values.
 - [ ] Absent keeps the list; null clears it; a non-simple field stops the app.
 - [ ] Opening a link: a new window; fields set when the fresh state has them with the same kind; others ignored; a bare address of an open app still switches.
+- [ ] The link's version: that build is opened when listed; a withdrawn one is refused; one no longer listed opens the current version with a notice.
 - [ ] Reload and Restore keep the window's link.
 - [ ] Contract 3 apps: no links, unchanged.
 
@@ -110,4 +125,11 @@ Press Add three times and the address box shows that. Open it, and a new counter
 - [ ] DECISIONS.md (contract 4, DECISION-047), docs, CHANGELOG.md updated
 
 ## VALIDATION
-- For the user: `./main`, open the local counter (rebuilt, contract 4), Add ×3: the address shows `?count=3`. Copy it from the box, then **+** for a new tab and paste it: a second window at 3.
+- For the user:
+  1. `./main`, open the local counter (rebuilt, contract 4), Add ×3: the address shows `http://localhost:8000/@0.3.0?count=3`.
+  2. Copy it from the box, **+** for a new tab, and paste it: a second window at 3.
+  3. Open the same address in a web browser: the landing page.
+
+## TO CONFIRM ON APPROVAL (proposed, session 192)
+- A link whose version is no longer listed opens the current version, applies its fields as usual, and shows "This link was made with Counter 0.3.0; opened 0.5.0".
+- The address box shows the full link, version included.
