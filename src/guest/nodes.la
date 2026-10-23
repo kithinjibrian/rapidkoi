@@ -238,6 +238,20 @@ public enum Effect {
     Preferences(Value),
     /** Change one of them (needs `change_settings`): its name and value; not answered. */
     SetPreference(Value, string, Value),
+    /** One statement against the app's database (contract 6, PRP-041); answered with rows or why not. */
+    Sql(Value, Query),
+    /** Statements run as one transaction; answered with what changed or why not. */
+    SqlBatch(Value, Query[]),
+}
+
+/** One statement an app asks its database to run (PRP-041), its shape checked. */
+public struct Query {
+    /** The SQL: one statement, values as `?`. */
+    public sql: string,
+    /** The values, in order: numbers, text, bytes, true/false or null. */
+    public params: Value[],
+    /** The most rows to answer with (a read). */
+    public max_rows: i64,
 }
 
 /** What a contract v2 `init` or `update` returned: the new state and what it asks for. */

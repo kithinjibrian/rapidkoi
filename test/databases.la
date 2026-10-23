@@ -1,0 +1,171 @@
+// Each app's database (PRP-041): where it lives, one call run as a task
+// runs it, its size, and Clear. Real SQLite files under test/tmp/.
+import rapidkoi.data.databases { Call, Queried, path_for, call, size_of, clear };
+import rapidkoi.data.store { store_at };
+import rapidkoi.guest.contract { Query };
+import rapidkoi.guest.limits { MAX_ROWS };
+import rapidkoi.window.tabs { AppPage, failed_page };
+import rapidkoi.trust.verify { Trust, Standing };
+import cbor { Value };
+import support { t, kv };
+import std.fs;
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun q(sql: string, params: Value[]): Query = Query { sql: sql, params: params, max_rows: MAX_ROWS };
+
+fun signed(host: string): AppPage = AppPage {
+    trust: Some(Trust {
+        host: host,
+        key: [1; 32],
+        standing: Standing.Verified,
+        build: [2; 32],
+        separate: false,
+        since: 0,
+        origin: [3; 32],
+    }),
+    ..failed_page("rapidkoi://{host}", ""),
+};
+
+fun db(name: string): string {
+    let dir = "test/tmp/databases-{name}";
+    clean(dir);
+    path_for(store_at(dir), failed_page("rapidkoi://localhost:8000", "")).unwrap()
+}
+
+@test
+fun a_database_is_named_by_a_hash_never_the_address() {
+    let s = store_at("test/tmp/databases-paths");
+    let a = path_for(s, signed("tasks.example.com")).unwrap();
+    assert_eq(a.starts_with("test/tmp/databases-paths/databases/") && a.ends_with(".db"), true);
+    assert_eq(a.contains("tasks.example.com"), false);
+    // Another app, another file; the same app, the same file.
+    assert_eq(a != path_for(s, signed("notes.example.com")).unwrap(), true);
+    assert_eq(a == path_for(s, signed("tasks.example.com")).unwrap(), true);
+    let local = path_for(s, failed_page("rapidkoi://localhost:8000", "")).unwrap();
+    assert_eq(local.contains("localhost"), false);
+    // Rapidkoi's own apps keep nothing.
+    assert_eq(path_for(s, failed_page("builtin:newtab", "")).is_none(), true);
+}
+
+@test
+fun one_call_writes_and_reads_every_value_type() {
+    let path = db("values");
+    let made = call(
+        path,
+        Call.Write([
+            q("CREATE TABLE t (i INTEGER, r REAL, s TEXT, b BLOB, n, f INTEGER)", []),
+            q("INSERT INTO t VALUES (?, ?, ?, ?, ?, ?)", [
+                Value.int(-7),
+                Value.Float(2.5),
+                t("héllo"),
+                Value.Bytes([0, 9]),
+                Value.Null,
+                Value.Bool(true),
+            ]),
+        ]),
+    );
+    match made {
+        Answer(v, tables) => {
+            assert_eq(v.get("changes") == Some(Value.int(1)), true);
+            assert_eq(tables, ["t"]);
+        }
+        Failed(why) => panic(why),
+    }
+    match call(path, Call.Read(q("SELECT i, r, s, b, n, f FROM t", []))) {
+        Answer(v, tables) => {
+            assert_eq(
+                v.get("columns") == Some(
+                    Value.Array([t("i"), t("r"), t("s"), t("b"), t("n"), t("f")]),
+                ),
+                true,
+            );
+            let row = Value.Array([
+                Value.int(-7),
+                Value.Float(2.5),
+                t("héllo"),
+                Value.Bytes([0, 9]),
+                Value.Null,
+                Value.int(1),
+            ]);
+            assert_eq(v.get("rows") == Some(Value.Array([row])), true);
+            assert_eq((v.get("cut") == Some(Value.Bool(false)), tables.len), (true, 0));
+        }
+        Failed(why) => panic(why),
+    }
+    assert_eq(size_of(path) > 0, true);
+    clear(path).unwrap();
+    assert_eq((fs.exists(path), size_of(path)), (false, 0));
+}
+
+@test
+fun failures_come_back_as_sentences() {
+    let path = db("failures");
+    let refused = call(path, Call.Read(q("ATTACH DATABASE 'x.db' AS x", [])));
+    assert_eq(
+        match refused {
+            Failed(why) => why == "This app's SQL asked for something apps can't do",
+            _ => false,
+        },
+        true,
+    );
+    let slow = call(
+        path,
+        Call.Read(
+            q(
+                "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n) SELECT count(*) FROM n",
+                [],
+            ),
+        ),
+    );
+    assert_eq(
+        match slow {
+            Failed(why) => why == "This app's query took longer than a second",
+            _ => false,
+        },
+        true,
+    );
+    // The app's own SQL error is SQLite's words about its own SQL.
+    assert_eq(
+        match call(path, Call.Read(q("SELEC 1", []))) {
+            Failed(why) => why.contains("syntax error"),
+            _ => false,
+        },
+        true,
+    );
+    clear(path).unwrap();
+}
+
+@test
+fun a_batch_is_all_or_nothing() {
+    let path = db("batch");
+    call(path, Call.Write([q("CREATE TABLE t (x UNIQUE)", [])]));
+    let failed = call(
+        path,
+        Call.Write([q("INSERT INTO t VALUES (1)", []), q("INSERT INTO t VALUES (1)", [])]),
+    );
+    assert_eq(
+        match failed {
+            Failed(_) => true,
+            _ => false,
+        },
+        true,
+    );
+    match call(path, Call.Read(q("SELECT count(*) FROM t", []))) {
+        Answer(v, _) => assert_eq(
+            v.get("rows") == Some(Value.Array([Value.Array([Value.int(0)])])),
+            true,
+        ),
+        Failed(why) => panic(why),
+    }
+    clear(path).unwrap();
+}

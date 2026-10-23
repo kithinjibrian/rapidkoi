@@ -14,6 +14,10 @@ import window.tabs { AppPage, Tab, Pin, handle, is_loading, to_front };
 import net.loads;
 import guest.effects { answer_all, approve, left_behind, tell_changes, tell_prefs };
 import net.requests;
+import data.queries;
+import data.databases;
+import sqlite;
+import guest.limits { SQLITE_HEAP };
 import people.account { on_account, forget_account };
 import people.access { on_access, looked, news, set_permission };
 import people.people { with_looks };
@@ -64,6 +68,8 @@ public fun boot(argv: string[]): (Model, Cmd<Msg>) = match session_store() {
  */
 public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     let engine = Engine.new();
+    // Every app's database shares SQLite's memory: one cap for all (PRP-041).
+    sqlite.heap_limit(SQLITE_HEAP);
     // 1. Restore.
     let empty = with_pages(engine, []);
     // The session that just ended becomes the previous one, for the new
@@ -269,7 +275,8 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
             confirm: None,
             ..m,
         },
-        Cmd.none(),
+        // Opening it: its app's data's size, read in a task (PRP-041).
+        if m.panel.is_none() { sizing(m) } else { Cmd.none() },
     ),
     // Closing only, never a toggle: a popover may say it closed more than
     // once, and a toggle reopened it over everything (session 171).
@@ -298,13 +305,45 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         ),
         None => (m, Cmd.none()),
     },
-    Forget => (forget_account(m, forgotten(m, pins.forget(m))), Cmd.none()),
+    Forget => {
+        // Its database goes with it (PRP-041); a failure is the notice.
+        let said = match m.current {
+            Some(id) => data_cleared(m, id),
+            None => None,
+        };
+        let gone = forget_account(m, forgotten(m, pins.forget(m)));
+        (Model { notice: if said.is_some() { said } else { gone.notice }, ..gone }, Cmd.none())
+    }
     FocusSearch => (m, Cmd.focus("address")),
     Reload => navigate.reload(m),
     KeepMine => (navigate.keep_mine(m), Cmd.none()),
     SeparateApp => navigate.separate_app(m),
     Fetched(id, number, f) => loads.arrive(m, id, number, f),
     Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
+    Queried(id, load, msg, got) => (queries.arrive(m, id, load, msg, got), Cmd.none()),
+    DataSized(id, n) => (
+        window.with_tab(m, id, fun(a: AppPage) = AppPage { data_size: Some(n), ..a }),
+        Cmd.none(),
+    ),
+    // Everything the app keeps: its database, then its window starts fresh (PRP-041).
+    ClearData => match m.current {
+        Some(id) => (
+            Model {
+                confirm: None,
+                notice: data_cleared(m, id),
+                ..window.with_tab(
+                    m,
+                    id,
+                    fun(a: AppPage) = AppPage {
+                        data_size: Some(0),
+                        ..handle(a, render.Msg.Restart),
+                    },
+                ),
+            },
+            Cmd.none(),
+        ),
+        None => (m, Cmd.none()),
+    },
     ToggleServer(server) => (on_access(m, server), Cmd.none()),
     Tick(now) => (Model { now: now, ..m }, Cmd.none()),
     OnTab(id, action) => on_tab(m, id, action),
@@ -360,3 +399,35 @@ fun on_pin(m: Model, path: string, action: PinAction): (Model, Cmd<Msg>) = match
  *     view(m)
  */
 public fun view(m: Model): View<Msg> = layout.view(m);
+
+/**
+ * Removes tab `id`'s app's database (PRP-041): a file in Rapidkoi's own
+ * data folder, as saving's are. Returns why, when it couldn't.
+ */
+fun data_cleared(m: Model, id: i64): Option<string> = match (
+    m.store,
+    m.tabs.iter().find(fun(t: Tab) = t.id == id),
+) {
+    (Some(s), Some(t)) => match databases.path_for(s, t.page) {
+        Some(path) => match databases.clear(path) {
+            Ok(()) => None,
+            Err(why) => Some(why),
+        },
+        None => None,
+    },
+    _ => None,
+};
+
+/** A task reading the current app's database's size for its ⚙ card; nothing when it keeps none. */
+fun sizing(m: Model): Cmd<Msg> = match (m.store, m.current) {
+    (Some(s), Some(id)) => match m.tabs.iter().find(fun(t: Tab) = t.id == id).and_then(
+        fun(t: Tab) = databases.path_for(s, t.page),
+    ) {
+        Some(path) => Cmd.task(
+            fun(): i64 = databases.size_of(path),
+            fun(n: i64) = Msg.DataSized(id, n),
+        ),
+        None => Cmd.none(),
+    },
+    _ => Cmd.none(),
+};

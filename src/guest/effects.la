@@ -22,6 +22,8 @@ import cbor { Value };
 import kivuli { Cmd };
 import window.actions { Msg, Approval, Answer };
 import net.requests;
+import data.queries;
+import data.databases { Call };
 import ui.render;
 import guest.home { pins_of, left_off_of, pin_msg, continue_msg, session_of };
 import bundles.permissions { Permission, Setting, name_of, words_of };
@@ -202,6 +204,23 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
             }
             // The new tab has no server of its own to reach.
             NewTab => (m, Some(reply(Reply.Failed("The new tab can't make requests"))), msg),
+        },
+        // Its own database (contract 6, PRP-041): a task, answered when it arrives.
+        Sql(msg, q) => match slot {
+            InTab(id) => {
+                let (held, now, send) = queries.ask(m, id, msg, Call.Read(q));
+                sends.push(send);
+                (held, now, msg)
+            }
+            NewTab => (m, Some(reply(Reply.Failed("The new tab keeps no data"))), msg),
+        },
+        SqlBatch(msg, steps) => match slot {
+            InTab(id) => {
+                let (held, now, send) = queries.ask(m, id, msg, Call.Write(steps));
+                sends.push(send);
+                (held, now, msg)
+            }
+            NewTab => (m, Some(reply(Reply.Failed("The new tab keeps no data"))), msg),
         },
         Pins(msg) => (m, Some(if grant { pins_of(m) } else { Value.Array([]) }), msg),
         LeftOff(msg) => (m, Some(if grant { left_off_of(m) } else { Value.Null }), msg),

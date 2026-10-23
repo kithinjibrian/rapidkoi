@@ -54,6 +54,7 @@ public fun resume(l: LeftOff): AppPage = match l.program {
             seen: 0,
             link: [],
             fields: [],
+            data_size: None,
         }, start(prog, l.state, []))
     }
     None => failed(l.name, l.path, "This app couldn't be reopened"),

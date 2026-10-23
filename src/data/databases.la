@@ -1,0 +1,263 @@
+/**
+ * Each app's database (PRP-041, contract 6): where it lives in the data
+ * folder, one call run against it, its size, and Clear. A file is named by
+ * a hash of the app (its host and origin key, or its local address or
+ * file), so nothing an app says becomes a path. Every connection is guarded
+ * as SQL from an app must be (`lugha-sqlite`'s `Guard.untrusted()`).
+ * `call`, `size_of` and `clear` touch the disk: run them in a task.
+ *
+ * Depends on: sqlite, cbor, std.fs, std.crypto, data.store, guest.nodes, guest.limits, trust.keys, window.tabs
+ * Used by: data.queries, shell
+ */
+import sqlite { Database, Guard, Kind, SqliteError };
+import cbor { Value, Entry };
+import std.fs;
+import std.crypto { sha256 };
+import data.store { Store };
+import guest.nodes { Query };
+import guest.limits { DATABASE_BYTES, QUERY_MS, MAX_SQL, MAX_SQL_VALUE, MAX_ANSWER };
+import trust.keys { hex };
+import window.tabs { AppPage };
+
+/** One call an app asked for: a read of one statement, or a write of several as one transaction. */
+public enum Call {
+    Read(Query),
+    Write(Query[]),
+}
+
+/** What a call came to: the app's answer and the tables it changed, or why not. */
+public enum Queried {
+    /** `{columns, rows, cut}` for a read, `{changes, last_rowid}` for a write; the tables changed. */
+    Answer(Value, string[]),
+    /** The sentence the app gets. */
+    Failed(string),
+}
+
+/**
+ * Returns where an app's database lives: `databases/<sha256>.db` in the
+ * data folder, by its host and origin key when signed, else its address
+ * or file. Rapidkoi's own apps keep none.
+ *
+ * Example:
+ *     path_for(store, page)
+ */
+public fun path_for(s: Store, p: AppPage): Option<string> {
+    let name: u8[] = match p.trust {
+        Some(t) => {
+            let mut b = "signed\n{t.host}\n".to_bytes();
+            for x of t.origin {
+                b.push(x);
+            }
+            b
+        }
+        None => {
+            if p.path.starts_with("builtin:") {
+                return None;
+            }
+            "local\n{p.path}".to_bytes()
+        }
+    };
+    Some("{s.dir}/databases/{hex(sha256(name))}.db")
+}
+
+/**
+ * Runs one call against the database at `path`, made if missing: guarded,
+ * bounded, closed after. Safe to run in a task; never call it from `update`.
+ *
+ * @returns the answer and the tables changed, or the app's sentence why not
+ *
+ * Example:
+ *     call(path, Call.Read(query))
+ */
+public fun call(path: string, c: Call): Queried {
+    if let Err(why) = folder_of(path) {
+        return Queried.Failed(why);
+    }
+    let db = match Database.open(path) {
+        Ok(d) => d,
+        Err(e) => {
+            return Queried.Failed(sentence(e));
+        }
+    };
+    let guard = Guard {
+        time_limit_ms: QUERY_MS,
+        max_bytes: DATABASE_BYTES,
+        max_sql: MAX_SQL,
+        max_value: MAX_SQL_VALUE,
+        ..Guard.untrusted(),
+    };
+    if let Err(e) = db.guard(guard) {
+        db.close();
+        return Queried.Failed(sentence(e));
+    }
+    let tables: Ref<string[]> = Ref.new([]);
+    db.on_change(fun(table: string, _rowid: i64) {
+        if !tables.get().any(fun(x: string) = x == table) {
+            tables.update(fun(xs: string[]) {
+                let mut next = xs;
+                next.push(table);
+                next
+            });
+        }
+    });
+    let outcome = match c {
+        Read(q) => read(db, q),
+        Write(steps) => write(db, steps),
+    };
+    db.close();
+    match outcome {
+        Ok(v) => Queried.Answer(v, tables.get()),
+        Err(why) => Queried.Failed(why),
+    }
+}
+
+/**
+ * Returns how big an app's database is, in bytes: 0 when it has none.
+ * Reads the file; run it in a task.
+ *
+ * Example:
+ *     size_of(path)
+ */
+public fun size_of(path: string): i64 {
+    if !fs.exists(path) {
+        return 0;
+    }
+    match Database.open_read_only(path) {
+        Ok(db) => {
+            let count = number(db.query("PRAGMA page_count", [], 1));
+            let size = number(db.query("PRAGMA page_size", [], 1));
+            db.close();
+            count * size
+        }
+        Err(_) => 0,
+    }
+}
+
+/**
+ * Removes an app's database and the files SQLite keeps beside it. Nothing
+ * there is nothing to do.
+ *
+ * Example:
+ *     clear(path)?
+ */
+public fun clear(path: string): Result<(), string> {
+    for f of [path, "{path}-journal", "{path}-wal", "{path}-shm"] {
+        if fs.exists(f) {
+            fs.remove_file(f).map_err(
+                fun(e: string) = "Rapidkoi couldn't remove this app's data: {e}",
+            )?;
+        }
+    }
+    Ok(())
+}
+
+/** The data folder's `databases/`, made if missing. */
+fun folder_of(path: string): Result<(), string> {
+    let parts = path.split("/");
+    let mut dir: string[] = [];
+    for i in 0..parts.len - 1 {
+        dir.push(parts[i]);
+    }
+    fs.make_dirs(dir.join("/")).map_err(
+        fun(e: string) = "Rapidkoi couldn't make a place for this app's data: {e}",
+    )?;
+    Ok(())
+}
+
+/** One statement, its rows answered up to `max_rows` and `MAX_ANSWER` bytes. */
+fun read(db: Database, q: Query): Result<Value, string> {
+    let rows = db.query(q.sql, cells(q.params)?, q.max_rows).map_err(sentence)?;
+    let mut out: Value[] = [];
+    let mut bytes = 0;
+    let mut cut = rows.cut;
+    for row of rows.values {
+        let values = row.map(value_of);
+        bytes += row.map(size).iter().sum();
+        if bytes > MAX_ANSWER {
+            cut = true;
+            break;
+        }
+        out.push(Value.Array(values));
+    }
+    Ok(
+        Value.Map([
+            entry("columns", Value.Array(rows.columns.map(fun(c: string) = Value.Text(c)))),
+            entry("rows", Value.Array(out)),
+            entry("cut", Value.Bool(cut)),
+        ]),
+    )
+}
+
+/** Statements as one transaction: what changed, or the first failure (nothing kept). */
+fun write(db: Database, steps: Query[]): Result<Value, string> {
+    let mut batch: (string, sqlite.Value[])[] = [];
+    for s of steps {
+        batch.push((s.sql, cells(s.params)?));
+    }
+    let ran = db.batch(batch).map_err(sentence)?;
+    Ok(
+        Value.Map([
+            entry("changes", Value.int(ran.changes)),
+            entry("last_rowid", Value.int(ran.last_rowid)),
+        ]),
+    )
+}
+
+/** The app's values as SQLite's: true and false are 1 and 0, as SQLite keeps them. */
+fun cells(params: Value[]): Result<sqlite.Value[], string> {
+    let mut out: sqlite.Value[] = [];
+    for p of params {
+        out.push(match p {
+            Unsigned(_) | Negative(_) => match p.as_i64() {
+                Some(n) => sqlite.Value.Integer(n),
+                None => {
+                    return Err("This app's number is too large for its data");
+                }
+            },
+            Float(x) => sqlite.Value.Real(x),
+            Bool(b) => sqlite.Value.Integer(if b { 1 } else { 0 }),
+            Text(s) => sqlite.Value.Text(s),
+            Bytes(b) => sqlite.Value.Bytes(b),
+            _ => sqlite.Value.Null,
+        });
+    }
+    Ok(out)
+}
+
+/** SQLite's value as the app's. */
+fun value_of(c: sqlite.Value): Value = match c {
+    Integer(n) => Value.int(n),
+    Real(x) => Value.Float(x),
+    Text(s) => Value.Text(s),
+    Bytes(b) => Value.Bytes(b),
+    Null => Value.Null,
+};
+
+/** About how many bytes a value takes in an answer. */
+fun size(c: sqlite.Value): i64 = match c {
+    Text(s) => s.len + 9,
+    Bytes(b) => b.len + 9,
+    _ => 9,
+};
+
+/** The first column of a one-row answer, as a number; 0 otherwise. */
+fun number(r: Result<sqlite.Rows, SqliteError>): i64 = match r {
+    Ok(rows) if rows.values.len > 0 => match rows.values[0][0] {
+        Integer(n) => n,
+        _ => 0,
+    },
+    _ => 0,
+};
+
+/** The sentence an app gets for a failure. */
+fun sentence(e: SqliteError): string = match e.kind {
+    Full => "This app has no room left (100 MB)",
+    Interrupted => "This app's query took longer than a second",
+    Denied => "This app's SQL asked for something apps can't do",
+    TooBig => "This app's SQL or a value is too long",
+    Busy => "This app's data is busy; try again",
+    // Its own SQL's mistake, in SQLite's words.
+    _ => e.message,
+};
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };

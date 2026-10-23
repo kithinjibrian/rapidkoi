@@ -34,8 +34,10 @@ public import guest.nodes {
     Effect,
     Update,
     LinkChange,
+    Query,
 };
 import guest.links { read_link };
+import guest.sqlasks { sql_of, batch_of };
 
 /**
  * Decodes a screen description into a tree and its title.
@@ -180,6 +182,10 @@ public fun read_update_of(bytes: u8[], version: i32): Result<Update, ContractErr
             effects.push(Effect.Session(msg));
         } else if kind == "restore_session" {
             effects.push(Effect.RestoreSession(msg));
+        } else if kind == "sql" && version >= 6 {
+            effects.push(Effect.Sql(msg, sql_of(e)?));
+        } else if kind == "sql_batch" && version >= 6 {
+            effects.push(Effect.SqlBatch(msg, batch_of(e)?));
         } else if kind == "preferences" {
             effects.push(Effect.Preferences(msg));
         } else if kind == "set_preference" {

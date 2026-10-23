@@ -57,9 +57,10 @@ public fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
         Account => detail(t, "Identity", Msg.PanelBack, identity_page(t, you)),
         Access => detail(t, "Servers", Msg.PanelBack, servers_page(t, reach)),
         Permissions => detail(t, "Permissions", Msg.PanelBack, grants.page(m, t, p)),
-        State => detail(t, "State", Msg.PanelBack, [
-            line(t, "Size", size(saved(p))),
-            ui_button("Clear and start over…", Msg.Ask(Confirm.StartOver)).style(
+        // Everything the app keeps here: its window's state and its database (PRP-041).
+        State => detail(t, "Data", Msg.PanelBack, [
+            line(t, "Size", kept(p)),
+            ui_button("Clear…", Msg.Ask(Confirm.ClearData)).style(
                 button_look(t, ButtonLook.Danger),
             ),
         ]),
@@ -134,6 +135,12 @@ public fun dialog_view(m: Model): View<Msg> {
             "What it saved on this device will be cleared.",
             "Start over",
             Msg.StartOver,
+        ),
+        Some(ClearData) => (
+            "Clear {name}'s data?",
+            "Everything it keeps on this device will be removed.",
+            "Clear",
+            Msg.ClearData,
         ),
         Some(StartOverIdentity) => (
             "Become someone new to {name}?",
@@ -232,7 +239,7 @@ fun front(m: Model, p: AppPage, you: Account, reach: Access): View<Msg> {
     if shows("app_data.state") {
         parts.push(
             section(t, "App data", [
-                choice(t, "State", Some(size(saved(p))), Msg.PanelGo(PanelPage.State)),
+                choice(t, "Data", Some(kept(p)), Msg.PanelGo(PanelPage.State)),
             ]),
         );
     }
@@ -386,6 +393,9 @@ fun servers_summary(a: Access): string {
     let off = all.filter(fun(s: string) = a.off.any(fun(o: string) = o == s)).len;
     if off == 0 { "{all.len} {noun}" } else { "{all.len} {noun}, {off} off" }
 }
+
+/** What the app keeps here, in words: its state and its database, once its size is known. */
+fun kept(p: AppPage): string = size(saved(p) + p.data_size.unwrap_or(0));
 
 /** How many bytes the app saved: its state, 0 for none. */
 fun saved(p: AppPage): i64 = match state_of(p) {

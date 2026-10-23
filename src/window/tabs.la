@@ -101,6 +101,8 @@ public struct AppPage {
     public link: string[],
     /** Those fields' current values, as the address shows them. */
     public fields: (string, string)[],
+    /** How big its app's database is, in bytes, once asked for its ⚙ card (PRP-041). */
+    public data_size: Option<i64>,
 }
 
 /** What the window shows: home, or the current tab's app. */
@@ -271,6 +273,7 @@ fun open_program(name: string, path: string, program: Program, link: (string, st
             seen: 0,
             link: [],
             fields: [],
+            data_size: None,
         },
         start(program, None, link),
     )
@@ -328,6 +331,18 @@ public fun to_front(p: AppPage): AppPage = match p.screen {
  */
 public fun changed(p: AppPage): AppPage = match p.screen {
     Running(g, state, _) => sent(p, g, state, Happened.Change),
+    _ => p,
+};
+
+/**
+ * Tells a running page its data changed in another of its windows
+ * (`on_change` with the tables, PRP-041). Before contract 6, nothing.
+ *
+ * Example:
+ *     data_changed(page, ["tasks"])
+ */
+public fun data_changed(p: AppPage, tables: string[]): AppPage = match p.screen {
+    Running(g, state, _) => sent(p, g, state, Happened.DataChanged(tables)),
     _ => p,
 };
 
@@ -425,6 +440,7 @@ fun failed(name: string, path: string, why: string): AppPage = AppPage {
     seen: 0,
     link: [],
     fields: [],
+    data_size: None,
 };
 
 /**

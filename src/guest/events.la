@@ -21,6 +21,8 @@ public enum Happened {
     Resume,
     /** Something it may read changed while it's in front (contract 3, PRP-031). */
     Change,
+    /** Its data changed in another of its windows: these tables (contract 6, PRP-041). */
+    DataChanged(string[]),
     /** One of its own messages, and an input's text. */
     Message(Value, Option<string>),
     /** Rapidkoi's reply to what it asked for: bytes, null, or a request's reply. */
@@ -45,6 +47,7 @@ public fun event_for(h: Happened, version: i32): Option<u8[]> {
             Open => Some(lifecycle("opened")),
             Resume => None,
             Change => None,
+            DataChanged(_) => None,
             Message(msg, text) => Some(envelope(msg, text)),
             Answer(msg, value) => Some(answer(msg, value)),
         };
@@ -54,6 +57,15 @@ public fun event_for(h: Happened, version: i32): Option<u8[]> {
         Open => named("on_open", []),
         Resume => named("on_resume", []),
         Change => named("on_change", []),
+        // Only contract 6 has storage to change; earlier ones never hear of it.
+        DataChanged(tables) => {
+            if version < 6 {
+                return None;
+            }
+            named("on_change", [
+                field("tables", Value.Array(tables.map(fun(n: string) = Value.Text(n)))),
+            ])
+        }
         Message(msg, text) => {
             let mut fields = [field("msg", msg)];
             if let Some(s) = text {
