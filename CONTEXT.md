@@ -6904,3 +6904,6 @@ Branch: prp-017-kivuli_0_17
 
 ---
 
+
+## SESSION 187 — 2026-10-23 — Restore: the current session wins per app — open
+Branch: prp-017-kivuli_0_17
