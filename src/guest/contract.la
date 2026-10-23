@@ -152,7 +152,11 @@ public fun read_update(bytes: u8[]): Result<Update, ContractError> = read_update
  */
 public fun read_update_of(bytes: u8[], version: i32): Result<Update, ContractError> {
     let (value, state) = read_state(bytes, version)?;
-    let link = if version >= 4 { read_link(value.get("link"))? } else { LinkChange.Keep };
+    let link = if version >= 4 {
+        read_link(value.get("link"), version >= 5)?
+    } else {
+        LinkChange.Keep
+    };
     let items = match value.get("effects") {
         Some(Array(xs)) => xs,
         _ => [],

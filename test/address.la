@@ -140,7 +140,7 @@ fun a_bad_link_says_why() {
     );
     assert_eq(
         why("https://counter.dafifi.net/?Count=3"),
-        "A link's field names are lowercase letters, digits and _",
+        "A link's field names are lowercase letters, digits and _, joined by .",
     );
     assert_eq(why("https://counter.dafifi.net/?count=3&count=4"), "A link names count twice");
     let mut many = "https://counter.dafifi.net/?";
@@ -190,4 +190,26 @@ fun a_window_is_kept_under_its_address_without_the_link() {
         "http://localhost:8000/counter.rkb",
     );
     assert_eq(without_link("rapidkoi://localhost:8000"), "rapidkoi://localhost:8000");
+}
+
+@test
+fun a_link_s_fields_can_be_paths() {
+    // PRP-039: a name can reach inside the state, through named fields only.
+    let a = ok("https://tasks.example.com/@1.0.0?page=task&editor.task=42");
+    assert_eq(a.fields, [("page", "task"), ("editor.task", "42")]);
+    assert_eq(ok("rapidkoi://localhost:8000?a.b.c.d=1").fields, [("a.b.c.d", "1")]);
+    for bad of ["?editor..task=1", "?.task=1", "?task.=1", "?editor.Task=1"] {
+        assert_eq(
+            why("https://tasks.example.com/{bad}"),
+            "A link's field names are lowercase letters, digits and _, joined by .",
+        );
+    }
+    assert_eq(
+        why("https://tasks.example.com/?a.b.c.d.e=1"),
+        "A link's field paths are at most 4 deep",
+    );
+    assert_eq(
+        link_of(ok("https://tasks.example.com"), Some("1.0.0"), [("editor.task", "42")]),
+        "https://tasks.example.com/@1.0.0?editor.task=42",
+    );
 }

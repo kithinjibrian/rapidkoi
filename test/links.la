@@ -275,3 +275,61 @@ fun step_with(m: Model, msg: AppMsg): Model {
     let (next, _) = update(m, msg);
     next
 }
+
+@test
+fun contract_5_links_name_paths_and_contract_4_s_don_t() {
+    // PRP-039.
+    let state = kv([("editor", kv([("task", Value.int(42))]))]);
+    let u = read_update_of(result(state, Some(names(["editor.task"]))), 5).unwrap();
+    assert_eq(u.link, LinkChange.Set(["editor.task"]));
+    assert_eq(read_update_of(result(state, Some(names(["editor.task"]))), 4).is_err(), true);
+    assert_eq(read_update_of(result(state, Some(names(["a.b.c.d.e"]))), 5).is_err(), true);
+}
+
+@test
+fun a_path_is_read_through_named_fields_only() {
+    let state = encode(
+        kv([
+            ("page", t("task")),
+            ("editor", kv([("task", Value.int(42)), ("draft", kv([("title", t("Pay rent"))]))])),
+            ("list", kv([("tasks", Value.Array([kv([("id", Value.int(1))])]))])),
+        ]),
+    );
+    assert_eq(
+        fields_in(state, [
+            "page",
+            "editor.task",
+            "editor.draft.title",
+            "list.tasks.id",
+            "nowhere.x",
+        ]),
+        Ok([("page", "task"), ("editor.task", "42"), ("editor.draft.title", "Pay rent")]),
+    );
+    // A path ending on a list is still a list in the address: it stops the app.
+    assert_eq(fields_in(state, ["list.tasks"]), Err("This app put a list in its address"));
+}
+
+@test
+fun a_path_is_set_only_where_the_fresh_state_has_it() {
+    let fresh = encode(
+        kv([("editor", kv([("task", Value.int(0)), ("title", t(""))])), ("list", Value.Array([]))]),
+    );
+    let set = with_link(fresh, [
+        ("editor.task", "42"),
+        ("editor.title", "Pay rent"),
+        ("editor.gone", "1"),
+        ("list.x", "1"),
+        ("nowhere.x", "1"),
+    ]);
+    assert_eq(
+        set,
+        encode(
+            kv([
+                ("editor", kv([("task", Value.int(42)), ("title", t("Pay rent"))])),
+                ("list", Value.Array([])),
+            ]),
+        ),
+    );
+    // Another kind at the end leaves it.
+    assert_eq(with_link(fresh, [("editor.task", "forty")]), fresh);
+}

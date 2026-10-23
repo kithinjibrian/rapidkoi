@@ -134,6 +134,46 @@ public const MAX_LINK_FIELDS: i64 = 16;
 /** The longest field name in a link, in bytes. */
 public const MAX_LINK_NAME: i64 = 64;
 
+/** How deep a link field's path may reach (PRP-039): `a.b.c.d`. */
+public const MAX_LINK_DEPTH: i64 = 4;
+
+/**
+ * Checks a link field's name: 1 to 64 bytes of lowercase letters, digits
+ * and `_`; with `paths` (contract 5, PRP-039), up to `MAX_LINK_DEPTH` such
+ * segments joined by `.`.
+ *
+ * @returns `Ok`, or why not as a sentence
+ *
+ * Example:
+ *     name_ok("editor.task", true)
+ */
+public fun name_ok(name: string, paths: bool): Result<(), string> {
+    let words = if paths {
+        "A link's field names are lowercase letters, digits and _, joined by ."
+    } else {
+        "A link's field names are lowercase letters, digits and _"
+    };
+    if name.len < 1 || name.len > MAX_LINK_NAME {
+        return Err(words);
+    }
+    let segments = name.split(".");
+    if !paths && segments.len > 1 {
+        return Err(words);
+    }
+    let plain = segments.all(
+        fun(s: string) = s.len >= 1 && s.chars().all(
+            fun(c: char) = c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_',
+        ),
+    );
+    if !plain {
+        return Err(words);
+    }
+    if segments.len > MAX_LINK_DEPTH {
+        return Err("A link's field paths are at most {MAX_LINK_DEPTH} deep");
+    }
+    Ok(())
+}
+
 /** The longest field value in a link, in bytes, decoded. */
 public const MAX_LINK_VALUE: i64 = 1024;
 
@@ -229,13 +269,9 @@ fun fields_of(query: string): Result<(string, string)[], AddressError> {
         let eq = find(p, "=");
         let name = if eq < 0 { p } else { p.slice(0, eq) };
         let raw = if eq < 0 { "" } else { p.slice(eq + 1, p.len) };
-        let named = name.len >= 1 && name.len <= MAX_LINK_NAME && name.chars().all(
-            fun(c: char) = c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_',
-        );
-        if !named {
-            return Err(
-                AddressError.BadLink("A link's field names are lowercase letters, digits and _"),
-            );
+        // Any app's link may carry paths: whether they reach anything is the app's state's to say.
+        if let Err(why) = name_ok(name, true) {
+            return Err(AddressError.BadLink(why));
         }
         if out.any(fun(f: (string, string)) = f.0 == name) {
             return Err(AddressError.BadLink("A link names {name} twice"));
