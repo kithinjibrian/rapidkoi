@@ -10890,3 +10890,6 @@ Both check, fmt clean; the owner's rerun: 18 of 18. Every Lugha test passes now.
 ```
 test/{tabs, sidebar}.la, guest/rust/rapidkoi/src/style.rs, CONTEXT.md
 ```
+
+## SESSION 212 — 2026-10-24 — Tasks gone after closing and restarting (PRP-041 check 1) — open
+Branch: prp-017-kivuli_0_17
