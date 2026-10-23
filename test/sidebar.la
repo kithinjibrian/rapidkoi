@@ -100,3 +100,12 @@ fun each_app_has_its_menu() {
         Ok(Msg.OnPin("mail.wasm", PinAction.Forget)),
     );
 }
+
+@test
+fun the_docks_count_stops_at_nine() {
+    // PRP-033: past nine instances it reads 9+.
+    assert_eq(
+        (sidebar.count_text(2), sidebar.count_text(9), sidebar.count_text(10)),
+        ("2", "9", "9+"),
+    );
+}

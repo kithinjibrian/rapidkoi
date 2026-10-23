@@ -68,6 +68,8 @@ public struct Theme {
     public faint: string,
     /** What a control on the gradient turns under the pointer. */
     public frame_hover: string,
+    /** Instances' dots, in turn (PRP-033): the first instance's, the second's… */
+    public instances: string[],
     /** Buttons that delete or discard. */
     public danger: string,
     /** A danger button under the pointer or pressed. */
@@ -107,6 +109,9 @@ public const DARK: Theme = Theme {
     faint: "#8c8c8c",
     // A faint white wash: a window control under the pointer, on the frame.
     frame_hover: "#ffffff26",
+    // Instances' dots (the owner, session 177): the brand orange first,
+    // then hues that tell apart on the dark frame.
+    instances: ["#ff7700", "#4c9aff", "#36b37e", "#b37feb", "#ff2e63", "#ffc400"],
     danger: "#c01c28",
     danger_hover: "#d42c38",
     on_danger: "#ffffff",
@@ -392,3 +397,16 @@ public fun flat(colour: string): Styling[] = [
     Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() },
     Shadow.off(),
 ];
+
+/**
+ * Returns an instance's dot colour (PRP-033), chosen by its stable key so
+ * renaming keeps it: the first instance ("") takes the first colour, "2"
+ * the second, and they go round.
+ *
+ * Example:
+ *     instance_colour(t, page.instance)
+ */
+public fun instance_colour(t: Theme, key: string): string {
+    let n = if key == "" { 1 } else { parse_i64(key).unwrap_or(1) };
+    t.instances[(n - 1) % t.instances.len]
+}

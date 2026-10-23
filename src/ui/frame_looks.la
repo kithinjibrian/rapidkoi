@@ -21,6 +21,10 @@ import kivuli {
     Inside,
     Part,
     Effects,
+    TextAlign,
+    Group,
+    Spacing,
+    Edges,
 };
 import kivuli.ui { Button };
 import ui.tokens {
@@ -36,6 +40,8 @@ import ui.tokens {
     padding,
     padding_xy,
     no_padding,
+    square,
+    INSTANCE_CHIP,
 };
 import ui.themes { Theme, paint, flat };
 
@@ -123,19 +129,30 @@ public fun tab_close(t: Theme): Styling[] = [
 ];
 
 /**
- * Returns the look of one instance in the header's strip (PRP-033): a
- * ghost pill in the frame's text, washed on hover; the current one ringed
- * in the accent, as the sidebar's current app is.
+ * Returns the look of one instance in the header's strip (PRP-033): a thin
+ * pill in the frame's text, washed on hover, the one in front ringed in
+ * the accent as the sidebar's current app is. The pill is a group: its ×
+ * shows while it's hovered.
  *
  * Example:
- *     ui.button(name, Msg.Select(id)).style(instance_chip(t, true))
+ *     row([name, close]).style(instance_chip(t, true))
  */
 public fun instance_chip(t: Theme, current: bool): Styling[] {
     let mut look: Styling[] = [
-        Button.ghost(),
+        Group.mark(),
         Text { color: paint(t.on_frame), ..Text.theme() },
         Border { radius: Radius.All(CIRCLE), ..Border.theme() },
-        padding_xy(SPACE_MD, SPACE_XS),
+        // Thinner than a button: exactly this high (the owner, session 177).
+        Sizing {
+            min_height: Width.Px(INSTANCE_CHIP),
+            max_height: Width.Px(INSTANCE_CHIP),
+            ..Sizing.theme()
+        },
+        // The circle sits flush at the start; room only after the ×.
+        Spacing {
+            padding: Edges { right: Width.Px(SPACE_XS), ..Edges.theme() },
+            ..Spacing.theme()
+        },
         margin_x(SPACE_XS),
         When(State.Hover, [Background { color: paint(t.frame_hover), ..Background.theme() }]),
     ];
@@ -146,6 +163,37 @@ public fun instance_chip(t: Theme, current: bool): Styling[] {
     }
     look
 }
+
+/**
+ * Returns the look of an instance's coloured circle (PRP-033): as tall as
+ * its pill (the owner, session 177), in `colour`, one of the theme's
+ * `instances`.
+ *
+ * Example:
+ *     column(none).style(instance_dot(instance_colour(t, page.instance)))
+ */
+public fun instance_dot(colour: string): Styling[] = [
+    Background { color: paint(colour), ..Background.theme() },
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    square(INSTANCE_CHIP),
+];
+
+/**
+ * Returns the look of the dock's count (PRP-033): a small round badge in
+ * the accent, the number dark on it (the brand colour takes dark text).
+ *
+ * Example:
+ *     text("2").style(count_badge(t))
+ */
+public fun count_badge(t: Theme): Styling[] = [
+    Background { color: paint(t.accent), ..Background.theme() },
+    // kivuli starts a label's text at its left; the badge centres it.
+    Text { color: paint(t.on_accent), align: TextAlign.Center, ..Text.theme() },
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    Sizing { min_width: Width.Px(TAB_CLOSE), min_height: Width.Px(TAB_CLOSE), ..Sizing.theme() },
+    // No padding: the minimum size rounds one digit; more widen it.
+    no_padding(),
+];
 
 /**
  * Returns the look of a × on a tab that isn't current (PRP-028): the ×'s

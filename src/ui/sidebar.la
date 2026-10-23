@@ -30,9 +30,9 @@ import window.tabs { Tab, Pin, AppPage };
 import window.window { Model, order as tab_order, open_tab_of };
 import window.instances { instances_of };
 import ui.frame { label, initial, icon_of };
-import ui.tokens { SPACE_XS, HEADER_ICON, TAB_CLOSE, TAB_CLOSE_ICON, gap, square };
-import ui.themes { Theme, heading, dim };
-import ui.frame_looks { app_button, app_current, tab_close, tab_close_on_hover };
+import ui.tokens { SPACE_XS, SPACE_SM, HEADER_ICON, TAB_CLOSE, TAB_CLOSE_ICON, gap, square };
+import ui.themes { Theme, heading };
+import ui.frame_looks { app_button, app_current, tab_close, tab_close_on_hover, count_badge };
 
 /**
  * Builds the sidebar's apps and +, top to bottom.
@@ -79,7 +79,8 @@ public fun view(m: Model): View<Msg> {
     ).tooltip("Add a tab").shortcut("Ctrl+T").align(Align.Center);
     // Chrome's way: + right after the last app, at the bottom once they
     // scroll. No spacer: a fitting scroll takes no spare room.
-    column([scroll_fit(column(all).style([gap(SPACE_XS)])), plus]).style([gap(SPACE_XS)])
+    // Room between apps, so each sits apart in the dock (the owner, session 178).
+    column([scroll_fit(column(all).style([gap(SPACE_SM)])), plus]).style([gap(SPACE_SM)])
 }
 
 /**
@@ -159,10 +160,19 @@ fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
     };
     let mut layers = [close_button(t, closing, tab.page.name, current)];
     if all.len > 1 {
-        layers.push(text("{all.len}").style(dim(t)).place(Align.End, Align.End));
+        layers.push(text(count_text(all.len)).style(count_badge(t)).place(Align.End, Align.End));
     }
     overlay(button, layers).style([Group.mark()]).name("tab-{tab.id}").align(Align.Center)
 }
+
+/**
+ * Returns the dock's count of an app's instances, as its badge shows it:
+ * up to 9, then "9+", so the badge stays small.
+ *
+ * Example:
+ *     count_text(12)
+ */
+public fun count_text(n: i64): string = if n > 9 { "9+" } else { "{n}" };
 
 /**
  * A tab's button with its × over the top-right corner, named `tab-{id}` so

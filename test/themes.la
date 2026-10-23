@@ -16,6 +16,7 @@ import rapidkoi.ui.themes {
     title,
     heading,
     button,
+    instance_colour,
 };
 import rapidkoi.ui.frame_looks {
     frame,
@@ -100,4 +101,14 @@ fun the_frame_is_flat_grey_with_white_icons() {
     assert_eq(DARK.frame, "#242424");
     assert_eq((DARK.accent, DARK.accent_end), ("#ff7700", "#ff2e63"));
     assert_eq(DARK.on_frame, "#ffffff");
+}
+
+@test
+fun each_instance_keeps_its_colour() {
+    // PRP-033: by its stable key, so a renamed instance keeps its colour.
+    let c = DARK.instances;
+    assert_eq(instance_colour(DARK, ""), c[0]);
+    assert_eq(instance_colour(DARK, "2"), c[1]);
+    assert_eq(instance_colour(DARK, "{c.len + 1}"), c[0]);
+    assert_eq(instance_colour(DARK, "x"), c[0]);
 }

@@ -18,6 +18,19 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-043 — The instance strip can't adapt to the window's width (kivuli)
+
+**Status:** deferred (requested: `docs/specs/kivuli-fit-or-window-width.md`)
+**Raised:** 2026-10-23 — Session 177 (the owner's screenshot: a narrower window shifts the address box and won't shrink further; "keep taking off instances and putting them in the more menu")
+
+**Question:** For the strip to move pills into ⋯ as the window narrows, Rapidkoi needs the window's width, or a kivuli row that shows what fits and reports the rest. kivuli 0.54 has neither.
+
+**Meanwhile:** the strip is a fixed `STRIP_WIDTH` (520) with at most three pills. A narrower window shifts the address box and can't shrink past it (CLAUDE.md KNOWN ISSUES). No workaround.
+
+**Revisit when:** kivuli offers either; then the strip shows as many pills as fit.
+
+---
+
 ### DECISION-042 — Several Rapidkoi windows (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-several-windows.md`)

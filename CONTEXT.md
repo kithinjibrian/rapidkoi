@@ -6290,3 +6290,19 @@ Branch: prp-017-kivuli_0_17
 
 
 
+
+## SESSION 180 — 2026-10-23 — The strip and dock tweaks from chat (committed) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+From chat with the owner (sessions 177–179), committed at the owner's word ("commit them"):
+- **The dock's count:** an accent badge, the number centred and dark, up to 9 then "9+" (`sidebar.count_text`).
+- **The dock:** apps `SPACE_SM` apart.
+- **The strip:**
+  - Each instance is a thin pill (`INSTANCE_CHIP` 26): a coloured circle as tall as the pill (the theme's `instances`, picked by the instance's key), its name in white in every state, cut with "…" past `INSTANCE_NAME_WIDTH`, and an × on hover.
+  - The strip is always `STRIP_WIDTH` (520) wide, with at most three pills, so the address box doesn't move. A single instance shows its pill.
+  - ⋯ is the Iconsax `3-dots-more.svg` (`Icon.More`), bare, set apart.
+- DECISION-043 (deferred, kivuli): the strip can't adapt to the window's width. Request: `docs/specs/kivuli-fit-or-window-width.md`; CLAUDE.md KNOWN ISSUES.
+- Tests: `test/instances.la`, `test/sidebar.la`, `test/themes.la`. Not run (the owner runs them).

@@ -330,6 +330,7 @@ Update this tree when modules are added.
 - **A missing `update`, `alloc` or `view` export is only found on its first call**, not at load: lugha-wasmtime can't list exports yet (DECISION-017). The error screen still shows.
 - **A second `./main other.wasm` raises the first window** instead of opening the app: kivuli makes GTK single-instance (DECISION-014). So there's one window, and instances can't be side by side yet (DECISION-042).
 - **Instances don't share data** until storage (build step 4): each is the app with its own whole state (PRP-033).
+- **The instance strip doesn't adapt to the window** (DECISION-043, kivuli): it's a fixed 520 px with at most three pills, so in a narrower window the address box shifts, and the window can't shrink past the strip.
 - **After a pick in ⚙'s Permissions page, the card doesn't close on a click inside the window or Escape** (DECISION-040, kivuli): ⚙ again, or a click outside the window, closes it.
 - **No Ctrl+K for the address box**: kivuli gives shortcuts to buttons only, and the address is one field now (PRP-025).
 - **Placeholders until kivuli and PRP-003 catch up (DECISION-018), each to be replaced, never extended:**

@@ -57,6 +57,15 @@ public const RING_WIDTH: i64 = 1;
 public const TAB_CLOSE: i64 = 16;
 /** The × inside it, in pixels. */
 public const TAB_CLOSE_ICON: i64 = 10;
+/** An instance's pill in the header's strip: its height, thinner than a button's (PRP-033). */
+public const INSTANCE_CHIP: i64 = 26;
+/** The longest an instance's name shows in its pill before "…" (PRP-033). */
+public const INSTANCE_NAME_WIDTH: i64 = 88;
+/**
+ * The header's instance strip, always this wide (PRP-033): three pills, ⋯
+ * and +, so the address box never moves as instances come and go.
+ */
+public const STRIP_WIDTH: i64 = 520;
 /** A radius past half of any box Rapidkoi rounds: a circle, or a pill. */
 public const CIRCLE: i64 = 999;
 /** A button's and a text field's corners, in pixels. */
