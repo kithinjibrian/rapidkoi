@@ -16,6 +16,7 @@ import guest.effects { answer_all, approve, left_behind, tell_changes, tell_pref
 import net.requests;
 import people.account { on_account, forget_account };
 import people.access { on_access, looked, news, set_permission };
+import people.people { with_looks };
 public import window.window { Model, with_pages, title_of };
 import window.navigate;
 import window.pins;
@@ -274,6 +275,15 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     // once, and a toggle reopened it over everything (session 171).
     ClosePanel => (Model { panel: None, confirm: None, ..m }, Cmd.none()),
     TogglePin => (pins.toggle_pin(m), Cmd.none()),
+    // ☰ (PRP-038): Settings, About Rapidkoi, Quit.
+    Menu(open) => (Model { menu: open, ..m }, Cmd.none()),
+    OpenSettings => (navigate.open_settings(Model { menu: false, ..m }), Cmd.none()),
+    About(open) => (Model { about: open, menu: false, ..m }, Cmd.none()),
+    Quit => (m, Cmd.quit()),
+    OwnLooks(key, colours, text_size) => (
+        Model { people: with_looks(m.people, key, colours, text_size), ..m },
+        Cmd.none(),
+    ),
     PanelGo(page) => (Model { panel: Some(page), confirm: None, ..m }, Cmd.none()),
     PanelBack => (Model { panel: Some(PanelPage.Main), confirm: None, ..m }, Cmd.none()),
     Ask(c) => (Model { confirm: Some(c), ..m }, Cmd.none()),

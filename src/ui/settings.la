@@ -25,13 +25,14 @@ import window.actions { Msg, PanelPage, Confirm, NameScope, NamePart, Answer };
 import window.tabs { AppPage, state_of };
 import window.window { Model, page_of };
 import people.account { Account, account_of };
-import people.access { Access, access_of };
+import people.access { Access, access_of, key_of };
+import people.people { looks_of };
 import people.identity { public_key };
 import trust.keys { fingerprint };
 import guest.nodes { ButtonLook };
 import ui.cards { sized, choice, detail, sentence, line, identity as app_head };
-import ui.tokens { SPACE_XS, SPACE_SM, gap };
-import ui.themes { Theme, body, dim, group, button as button_look };
+import ui.tokens { SPACE_XS, SPACE_SM, SPACE_MD, gap, padding_xy };
+import ui.themes { Theme, body, dim, title, group, button as button_look };
 import ui.grants;
 import ui.strip;
 
@@ -82,11 +83,18 @@ public fun dialog(m: Model): Option<Dialog<Msg>> {
     if m.approval.is_some() {
         return Some(ui_dialog(Msg.Approve(Answer.Deny), [dialog_view(m)]));
     }
+    // About Rapidkoi (PRP-038): closing it is all it does.
+    if m.about {
+        return Some(ui_dialog(Msg.About(false), [dialog_view(m)]));
+    }
     match m.confirm {
         Some(_) => Some(ui_dialog(Msg.Cancel, [dialog_view(m)])),
         None => None,
     }
 }
+
+/** What Rapidkoi is, in its version: About's dialog. */
+public const RAPIDKOI_VERSION: string = "0.1.0";
 
 /**
  * Returns what the dialog shows while an action is asked about: its question
@@ -101,6 +109,13 @@ public fun dialog_view(m: Model): View<Msg> {
     }
     if let Some(q) = grants.question(m) {
         return q;
+    }
+    if m.about {
+        let t = m.theme;
+        return column([
+            text("Rapidkoi").style(title(t)).align(Align.Start),
+            text(RAPIDKOI_VERSION).style(dim(t)).align(Align.Start),
+        ]).style([gap(SPACE_SM)]);
     }
     let t = m.theme;
     let name = match page_of(m) {
@@ -188,6 +203,29 @@ fun front(m: Model, p: AppPage, you: Account, reach: Access): View<Msg> {
             app_rows.push(choice(t, "Permissions", Some(said), Msg.PanelGo(PanelPage.Permissions)));
         }
     }
+    // The person's last word over the app's looks (PRP-038).
+    if shows("app_settings.looks") {
+        let key = key_of(p);
+        let (colours, text_size) = looks_of(m.people, key);
+        app_rows.push(
+            switch_row(
+                t,
+                "Use my colours",
+                "use_my_colours",
+                colours,
+                fun(on: bool) = Msg.OwnLooks(key, on, text_size),
+            ),
+        );
+        app_rows.push(
+            switch_row(
+                t,
+                "Use my text size",
+                "use_my_text_size",
+                text_size,
+                fun(on: bool) = Msg.OwnLooks(key, colours, on),
+            ),
+        );
+    }
     if app_rows.len > 0 {
         parts.push(section(t, "App settings", app_rows));
     }
@@ -207,6 +245,19 @@ fun front(m: Model, p: AppPage, you: Account, reach: Access): View<Msg> {
     }
     column(parts).style([gap(SPACE_SM)])
 }
+
+/** A row with a switch at its end, found by `name`. */
+fun switch_row(
+    t: Theme,
+    label: string,
+    name: string,
+    on: bool,
+    toggle: fun(bool): Msg,
+): View<Msg> = row([
+    text(label).style(body(t)).align(Align.Center),
+    spacer(),
+    switch(on, toggle).name(name).align(Align.Center),
+]).style([gap(SPACE_SM), padding_xy(SPACE_SM, SPACE_MD)]);
 
 /** A section: a dim heading over its rows in one rounded group. */
 fun section(t: Theme, title: string, rows: View<Msg>[]): View<Msg> = column([

@@ -12,6 +12,8 @@ import kivuli { View };
 import kivuli.testing { click, flip, texts, type_into };
 import wasmtime { Engine, Module };
 import support { echo };
+import rapidkoi.people.people { looks_of };
+import rapidkoi.people.access { key_of };
 
 fun plain(): AppPage {
     let engine = Engine.new();
@@ -154,4 +156,17 @@ fun only_one_card_is_open_at_a_time() {
     assert_eq((shield_open.panel, shield_open.shield), (None, Some(ShieldPage.Main)));
     let back = step(shield_open, Msg.TogglePanel);
     assert_eq((back.panel, back.shield), (Some(PanelPage.Main), None));
+}
+
+@test
+fun the_card_switches_an_app_to_your_colours_and_text_size() {
+    // PRP-038: the person's last word over an app's looks, per app.
+    let m = step(window(plain()), Msg.TogglePanel);
+    let v = card(m, PanelPage.Main);
+    assert_eq(shows(v, "Use my colours") && shows(v, "Use my text size"), true);
+    let on = flip(v, "use_my_colours").unwrap();
+    let after = step(m, on);
+    assert_eq(looks_of(after.people, key_of(after.tabs[0].page)), (true, false));
+    let both = step(after, flip(card(after, PanelPage.Main), "use_my_text_size").unwrap());
+    assert_eq(looks_of(both.people, key_of(both.tabs[0].page)), (true, true));
 }

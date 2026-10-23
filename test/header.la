@@ -7,7 +7,8 @@ import rapidkoi.ui.layout;
 import rapidkoi.window.actions { Msg, ShieldPage };
 import rapidkoi.window.tabs { AppPage, open_module };
 import rapidkoi.trust.verify { Trust, Standing };
-import kivuli.testing { click, is_disabled, type_into };
+import kivuli.testing { click, is_disabled, type_into, texts };
+import rapidkoi.ui.settings;
 import wasmtime { Engine, Module };
 import support { echo };
 
@@ -55,11 +56,33 @@ fun no_back_home_or_forward_on_any_tab() {
 }
 
 @test
-fun account_then_menu_wait_greyed_out() {
-    let end = header.end(window(plain()));
+fun account_waits_and_the_menu_opens_its_card() {
+    let m = window(plain());
+    let end = header.end(m);
     assert_eq(end.len, 2);
     assert_eq(is_disabled(end[0], "Account (coming soon)"), Ok(true));
-    assert_eq(is_disabled(end[1], "Menu (coming soon)"), Ok(true));
+    // PRP-038: ☰ opens Settings, About Rapidkoi and Quit.
+    assert_eq(click(end[1], "Menu"), Ok(Msg.Menu(true)));
+    let card = header.menu_card(m.theme);
+    assert_eq(texts(card), ["Settings", "About Rapidkoi", "Quit"]);
+    assert_eq(click(card, "Settings"), Ok(Msg.OpenSettings));
+    assert_eq(click(card, "About Rapidkoi"), Ok(Msg.About(true)));
+    assert_eq(click(card, "Quit"), Ok(Msg.Quit));
+}
+
+@test
+fun quit_quits_and_about_shows_the_version() {
+    let (_, c) = update(window(plain()), Msg.Quit);
+    assert_eq(
+        match c {
+            Quit => true,
+            _ => false,
+        },
+        true,
+    );
+    let (about, _) = update(window(plain()), Msg.About(true));
+    assert_eq(texts(settings.dialog_view(about)), ["Rapidkoi", "0.1.0"]);
+    assert_eq(about.menu, false);
 }
 
 @test

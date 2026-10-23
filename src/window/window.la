@@ -67,6 +67,10 @@ public struct Model {
     public theme: Theme,
     /** What the person chose in Settings (PRP-038). */
     public prefs: Prefs,
+    /** Whether ☰'s card is open. */
+    public menu: bool,
+    /** Whether the About dialog is shown. */
+    public about: bool,
     /** The last loading tick, in milliseconds since 1970: how long a load has taken. */
     public now: i64,
     /** The last load number given out (PRP-008). */
@@ -117,6 +121,8 @@ public fun with_pages(engine: Engine, pages: AppPage[]): Model {
         notice: None,
         theme: DARK,
         prefs: DEFAULT_PREFS,
+        menu: false,
+        about: false,
         now: 0,
         loads: 0,
         network: Network { ca_file: None, hosts: [] },

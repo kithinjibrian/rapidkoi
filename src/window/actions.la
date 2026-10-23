@@ -52,6 +52,16 @@ public enum Msg {
     CloseApp(i64),
     /** Restore the last session (PRP-035): the new tab's button. */
     RestoreSession,
+    /** ☰'s card open or closed (PRP-038). */
+    Menu(bool),
+    /** Open Rapidkoi's Settings app in a tab, or show its tab. */
+    OpenSettings,
+    /** The About dialog shown or closed. */
+    About(bool),
+    /** Close Rapidkoi. */
+    Quit,
+    /** An app's key, Use my colours, Use my text size: its ⚙ card's switches. */
+    OwnLooks(string, bool, bool),
     /** A message from the new tab's own screen (a click, typing), for it alone (session 185). */
     FromNewTab(render.Msg),
     /** The Permissions page: the card's app's permission, by name, set to this. */

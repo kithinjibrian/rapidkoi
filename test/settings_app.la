@@ -1,0 +1,69 @@
+// Rapidkoi's Settings (PRP-038): the built-in app ☰ opens, the one that may
+// change the person's choices, and those choices remembered across
+// restarts. The real bundle built into ./main; no display. Writes only
+// under test/tmp/.
+import rapidkoi.shell { Model, with_pages, start, update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.settings_app { SETTINGS_KEY, BUNDLE };
+import rapidkoi.bundles.bundle { read };
+import rapidkoi.data.store { Store, store_at };
+import kivuli.testing { click, texts };
+import wasmtime { Engine };
+import std.fs;
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+@test
+fun the_built_in_bundle_may_change_settings() {
+    let b = read(BUNDLE).unwrap();
+    assert_eq((b.manifest.name, b.manifest.permissions), ("Settings", ["change_settings"]));
+}
+
+@test
+fun the_menu_opens_settings_once() {
+    let m = step(with_pages(Engine.new(), []), Msg.OpenSettings);
+    assert_eq(m.tabs.len, 1);
+    assert_eq(m.tabs[0].page.path, SETTINGS_KEY);
+    assert_eq(texts(view(m)).any(fun(s: string) = s == "Text size"), true);
+    // Again: its tab is shown, not a second one.
+    assert_eq(step(m, Msg.OpenSettings).tabs.len, 1);
+}
+
+@test
+fun its_controls_change_the_person_s_choices_at_once() {
+    let m = step(with_pages(Engine.new(), []), Msg.OpenSettings);
+    let light = step(m, click(view(m), "Light").unwrap());
+    assert_eq((light.prefs.light, light.theme.name), (true, "light"));
+    let bigger = step(light, click(view(light), "+").unwrap());
+    assert_eq((bigger.prefs.text_size, bigger.theme.scale), (110, 1.1));
+    // The app read the change back: its view says so.
+    assert_eq(texts(view(bigger)).any(fun(s: string) = s == "110%"), true);
+}
+
+@test
+fun choices_are_remembered_across_restarts() {
+    let dir = "test/tmp/settings-app";
+    clean(dir);
+    let s = store_at(dir);
+    let (m, _) = start(["./main"], Some(s));
+    let opened = step(m, Msg.OpenSettings);
+    step(opened, click(view(opened), "Light").unwrap());
+    let (again, _) = start(["./main"], Some(s));
+    assert_eq((again.prefs.light, again.theme.name), (true, "light"));
+    clean(dir);
+}

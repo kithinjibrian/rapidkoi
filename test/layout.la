@@ -66,6 +66,6 @@ fun account_and_menu_wait_greyed_out_on_home_and_on_apps() {
     for m of [home, busy()] {
         let v = layout.view(m);
         assert_eq(is_disabled(v, "Account (coming soon)"), Ok(true));
-        assert_eq(is_disabled(v, "Menu (coming soon)"), Ok(true));
+        assert_eq(is_disabled(v, "Menu"), Ok(false));
     }
 }

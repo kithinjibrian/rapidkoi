@@ -31,6 +31,8 @@ import window.window {
     same_app,
 };
 import net.address { is_address, parse, without_link };
+import window.settings_app;
+import bundles.loader { why };
 
 /**
  * Opens what the address box says: a local file or development address,
@@ -169,7 +171,12 @@ public fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
             link: t.link,
             ..p,
         };
-        if is_address(t.path) && parse(t.path).is_ok() {
+        if t.path == settings_app.SETTINGS_KEY {
+            // Rapidkoi's own Settings comes back built in, never from a file (PRP-038).
+            if let Ok(page) = settings_app.open(at.engine) {
+                at = add_tab(at, named(page));
+            }
+        } else if is_address(t.path) && parse(t.path).is_ok() {
             // Its tab first, under its name; begin keeps the instance (loads).
             let placed = add_tab(at, named(failed_page(t.path, "")));
             let id = placed.current.unwrap_or(-1);
@@ -258,6 +265,15 @@ fun instance_open(m: Model, l: LeftOff): Option<i64> {
  *     reload(m)
  */
 public fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
+    (Some(id), App(a)) if a.path == settings_app.SETTINGS_KEY => match settings_app.open(m.engine) {
+        // Built in: started again as it is, its settings read afresh.
+        Ok(page) => {
+            close_page(a);
+            let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
+            (with_tab(m, id, fun(_: AppPage) = same), Cmd.none())
+        }
+        Err(_) => (m, Cmd.none()),
+    },
     (Some(id), App(a)) => {
         let saved = state_of(a).map(fun(st: u8[]) = (st, state_version_of(a)));
         if is_address(a.path) && parse(a.path).is_ok() {
@@ -328,3 +344,20 @@ public fun separate_app(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of
     },
     _ => (m, Cmd.none()),
 };
+
+/**
+ * Opens Rapidkoi's Settings app (PRP-038): its tab when it's open, else a
+ * new one. If it can't start, why is the notice.
+ *
+ * Example:
+ *     open_settings(m)
+ */
+public fun open_settings(m: Model): Model {
+    if let Some(id) = open_tab_of(m, settings_app.SETTINGS_KEY) {
+        return show_tab(m, id);
+    }
+    match settings_app.open(m.engine) {
+        Ok(page) => add_tab(m, page),
+        Err(r) => Model { notice: Some(why(r)), ..m },
+    }
+}
