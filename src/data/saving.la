@@ -35,9 +35,15 @@ import data.remembered {
     trust_file,
     pins_file,
     left_file,
+    Open,
+    OpenTab,
+    MAX_OPEN_FILE,
+    open_file,
+    read_open,
 };
 import trust.verify { keyring, keyring_of, identities, changes, moves };
 import window.window { Model, used_last };
+import window.tabs { Tab, state_of, state_version_of };
 import window.leftoff { LeftOff, signer_of };
 
 /** How the notices name one remembered file. */
@@ -86,6 +92,15 @@ const PEOPLE: Part = Part {
     file: "people",
     noun: "your sign-in settings",
     title: "Your sign-in settings",
+    verb: "were",
+    it: "them",
+    after: "",
+};
+
+const OPEN: Part = Part {
+    file: "open",
+    noun: "your open apps",
+    title: "Your open apps",
     verb: "were",
     it: "them",
     after: "",
@@ -228,6 +243,34 @@ public fun persist(before: Model, after: Model, at: Mark): Model {
             failed.push(e);
         }
     }
+    // What's open, to reopen at launch (PRP-034): saved as it changes.
+    let open = open_of(after);
+    if open != open_of(before) {
+        if let Some(e) = problem(save(s, OPEN.file, open_file(open)), OPEN) {
+            failed.push(e);
+        }
+    }
+    // Every open signed instance's state as it changes, so each reopens as
+    // it was (PRP-034); the one used last is also kept below, as before.
+    for t of after.tabs {
+        if let (Some(tr), Some(state)) = (t.page.trust, state_of(t.page)) {
+            let was = before.tabs.filter(fun(b: Tab) = b.id == t.id).map(
+                fun(b: Tab) = state_of(b.page),
+            );
+            if was.len == 0 || was[0] != Some(state) {
+                let sv = Saved {
+                    host: tr.host,
+                    key: tr.key,
+                    state_version: state_version_of(t.page),
+                    state: state,
+                    used: time.now_ms(),
+                };
+                if let Some(e) = problem(keep_in(s, sv, t.page.instance), STATE) {
+                    failed.push(e);
+                }
+            }
+        }
+    }
     // The app used last, open or closed: quitting at any moment keeps it.
     let left = used_last(after);
     let was = used_last(before);
@@ -348,3 +391,57 @@ fun say_to(notes: Ref<string[]>, s: string) = notes.update(fun(all: string[]) {
     next.push(s);
     next
 });
+
+/**
+ * Returns what's open, as the open file keeps it (PRP-034): the app tabs
+ * in the order they were made, each with its instance, name and when it
+ * was last in front, and which is in front (none on an empty tab).
+ *
+ * Example:
+ *     open_of(m)
+ */
+public fun open_of(m: Model): Open {
+    let mut current: Option<i64> = None;
+    let mut i = 0;
+    for t of m.tabs {
+        if m.current == Some(t.id) {
+            current = Some(i);
+        }
+        i += 1;
+    }
+    Open {
+        tabs: m.tabs.map(
+            fun(t: Tab) = OpenTab {
+                path: t.page.path,
+                instance: t.page.instance,
+                label: t.page.label,
+                seen: t.page.seen,
+            },
+        ),
+        current: current,
+    }
+}
+
+/**
+ * Reads the open file into what to reopen (PRP-034): a broken one is set
+ * aside and a newer one left alone, each with a notice, as for pins.
+ *
+ * @param m the window, its data folder restored
+ * @param s the data folder
+ * @returns the window with any notice, and what was open (`None` when nothing was saved or it couldn't be read)
+ *
+ * Example:
+ *     let (m, open) = restore_open(restore(m, s), s);
+ */
+public fun restore_open(m: Model, s: Store): (Model, Option<Open>) {
+    let notes: Ref<string[]> = Ref.new([]);
+    let held: Ref<Store> = Ref.new(m.store.unwrap_or(s));
+    let open = settle(recall(s, OPEN.file, MAX_OPEN_FILE, read_open), OPEN, notes, held);
+    let said = notes.get();
+    let notice = match (m.notice, said.len > 0) {
+        (Some(a), true) => Some("{a} · {said.join(" · ")}"),
+        (None, true) => Some(said.join(" · ")),
+        (n, false) => n,
+    };
+    (Model { store: Some(held.get()), notice: notice, ..m }, open)
+}

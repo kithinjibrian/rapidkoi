@@ -20,7 +20,7 @@ public import window.window { Model, with_pages, title_of };
 import window.navigate;
 import window.instances { close_instance, close_app, start_rename, confirm_rename, touched };
 import window.newtab;
-import data.saving { session_store, restore, persist, mark, forgotten };
+import data.saving { session_store, restore, restore_open, persist, mark, forgotten };
 import data.store { Store };
 import ui.render;
 import ui.layout;
@@ -63,21 +63,36 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     let engine = Engine.new();
     // 1. Restore.
     let empty = with_pages(engine, []);
-    let restored = match s {
-        Some(st) => restore(empty, st),
-        None => empty,
+    let (restored, open) = match s {
+        Some(st) => restore_open(restore(empty, st), st),
+        None => (empty, None),
     };
     // 2 and 3. The new tab's app, once for the window, now that what it
     // reads is there; without it the empty tab is just empty (PRP-027).
-    let remembered = Model { newtab: newtab.open(engine).ok(), ..restored };
+    let ready = Model { newtab: newtab.open(engine).ok(), ..restored };
+    // 2 and 3. What was open when Rapidkoi closed, reopened in its tabs
+    // before anything else is opened (PRP-034).
+    let (remembered, reloads) = match open {
+        Some(o) if o.tabs.len > 0 => navigate.reopen_all(ready, o),
+        _ => (ready, Cmd.none()),
+    };
     if argv.len < 2 {
-        // The window always has a tab: an empty one to start (PRP-024).
+        // The window always has a tab: an empty one when nothing reopened (PRP-024).
         // new_blank clears the notice line; what restoring said still shows.
-        let blank = Model { notice: remembered.notice, ..window.new_blank(remembered) };
-        // 4. What the new tab asked for when it opened: your pins and where
-        // you left off, so the first screen shows them.
-        let (answered, sends) = answer_all(blank);
-        return (answered, both(Cmd.focus("address"), sends));
+        let window_ = if remembered.tabs.len == 0 {
+            Model { notice: remembered.notice, ..window.new_blank(remembered) }
+        } else {
+            remembered
+        };
+        // 4. What the apps asked for when they opened: the new tab's your
+        // pins and where you left off, so the first screen shows them.
+        let (answered, sends) = answer_all(window_);
+        let focus: Cmd<Msg> = if remembered.tabs.len == 0 {
+            Cmd.focus("address")
+        } else {
+            Cmd.none()
+        };
+        return (answered, both(both(focus, reloads), sends));
     }
     let at = mark(remembered);
     // 2 and 3: the app's tab, and the app in it.
@@ -91,7 +106,7 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
         (Some(a), None) => Some(a),
         (None, b) => b,
     };
-    (Model { notice: notice, ..opened }, both(cmd, sends))
+    (Model { notice: notice, ..opened }, both(both(reloads, cmd), sends))
 }
 
 /**

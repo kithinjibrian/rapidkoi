@@ -65,19 +65,19 @@ The dock and the strip look as you left them.
 ## TESTS TO WRITE
 
 `test/remembered.la`:
-- [ ] The open file round-trips: paths, instances, labels, seen, current.
-- [ ] A bad path, instance, label, more than 64 tabs, a repeated (app, instance), and a newer format are each refused.
+- [x] The open file round-trips: paths, instances, labels, seen, current.
+- [x] A bad path, instance, label, more than 64 tabs, a repeated (app, instance), and a newer format are each refused.
 
 `test/saving.la`:
-- [ ] Opening, closing, renaming and switching instances saves the open file; nothing else changing writes nothing.
-- [ ] Every open signed instance's state is saved when it changes.
-- [ ] A broken open file is set aside with a notice.
+- [x] Opening, closing, renaming and switching instances saves the open file; nothing else changing writes nothing.
+- [x] Every open signed instance's state is saved when it changes.
+- [x] A broken open file is set aside with a notice.
 
 `test/shell.la` (or `test/restore.la`):
-- [ ] Starting on a data folder with an open file reopens its tabs: the same instances, names and current one, in order.
-- [ ] A signed instance comes back with its state; an unsigned one comes back fresh.
-- [ ] A file that's gone reopens as a failed page; the others still open.
-- [ ] With `./main app` and restored tabs: the restored tabs, then the app (switched to if it's already open).
+- [x] Starting on a data folder with an open file reopens its tabs: the same instances, names and current one, in order.
+- [x] A signed instance comes back with its state; an unsigned one comes back fresh.
+- [x] A file that's gone reopens as a failed page; the others still open.
+- [x] With `./main app` and restored tabs: the restored tabs, then the app (switched to if it's already open).
 
 ## ROLLBACK PLAN
 
@@ -87,7 +87,7 @@ The dock and the strip look as you left them.
 - [ ] Quit with several instances open; start again: they're all back, named, the same one in front
 - [ ] Signed instances keep their state; a missing file shows why in its tab
 - [ ] `lughac test test/` passes (the owner runs it); build ok; fmt clean; no file over 500 lines
-- [ ] CLAUDE.md, DESIGN.md, CHANGELOG.md updated
+- [x] CLAUDE.md, DESIGN.md, CHANGELOG.md updated
 
 ## VALIDATION
 - For the user:
@@ -99,3 +99,10 @@ The dock and the strip look as you left them.
 ## CONFIRMED ON APPROVAL (the owner, session 181: "commit them, then build it")
 - **Always restore**, with no "restore your tabs?" question and no setting yet: closing the window keeps your place, as Continue does. A setting can come with the menu.
 - **Save every open signed instance's state when it changes.** That's more writes than today, which saves only the one used last. Each is a small file in the data folder, written safely.
+
+## AMENDMENTS (session 181, while building)
+
+- **Reading the open file is `saving.restore_open`, called by `start`, not a `Model` field:** `window.la` is at 499 lines, and what's restored is only needed at launch.
+- **`navigate.reopen_all`** rebuilds the tabs: a file through `open_path` and `resumed`, an address through `begin`, which keeps the instance (PRP-033). The one saved as in front is current.
+- **Continue switches** to the left-off instance when it's open again (`navigate.instance_open`), since reopening at launch can bring it back: still one tab per app. `test/restore.la` `continue_to_an_app_already_reopened_shows_it`.
+- **Tests:** `test/restore.la` (new) for launching and saving; the open file's format in `test/remembered.la`. Saving tests that restart in the same folder now see their tabs reopened, which they allow.

@@ -1,0 +1,156 @@
+// Reopening what was open at launch (PRP-034): the open file is saved as
+// tabs open, close, are renamed or switched; starting again reopens them,
+// with their names and the one in front. A minimal module on disk stands
+// in for each app (it stops for want of memory, which is fine here: the
+// tab, its name and its place are what's checked). Writes only under
+// test/tmp/.
+import rapidkoi.shell { Model, start, update };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.instances { display_name };
+import rapidkoi.window.tabs { Tab };
+import rapidkoi.data.store { Store, store_at, save };
+import rapidkoi.data.remembered { Open, OpenTab, open_file, read_open, left_file };
+import rapidkoi.window.leftoff { recalled };
+import std.fs;
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+/** A clean data folder, with a minimal module beside it at `{dir}/m.wasm`. */
+fun folder(name: string): Store {
+    let dir = "test/tmp/restore-{name}";
+    clean(dir);
+    fs.make_dirs(dir).unwrap();
+    write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    store_at("{dir}/data")
+}
+
+fun module_of(s: Store): string = "{s.dir}/../m.wasm";
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun saved(s: Store): Option<Open> = match read_bytes("{s.dir}/open") {
+    Ok(b) => read_open(b).ok(),
+    Err(_) => None,
+};
+
+fun names(m: Model): string[] = m.tabs.map(fun(t: Tab) = display_name(t.page));
+
+@test
+fun what_is_open_is_saved_as_it_changes() {
+    let s = folder("saves");
+    let (m, _) = start(["./main", module_of(s)], Some(s));
+    let first = saved(s).unwrap();
+    assert_eq((first.tabs.len, first.current), (1, Some(0)));
+    // Typing changes nothing open: nothing is written.
+    fs.remove_file("{s.dir}/open").unwrap();
+    let typed = step(m, Msg.Draft("x"));
+    assert_eq(saved(s).is_none(), true);
+    // Closing the only tab saves an empty list.
+    let closed = step(typed, Msg.CloseTab(typed.tabs[0].id));
+    assert_eq(saved(s).unwrap().tabs.len, 0);
+    assert_eq(closed.tabs.len, 0);
+    clean("test/tmp/restore-saves");
+}
+
+@test
+fun starting_again_reopens_them_in_order_with_their_names() {
+    let s = folder("reopen");
+    let path = module_of(s);
+    let o = Open {
+        tabs: [
+            OpenTab { path: path, instance: "", label: None, seen: 1 },
+            OpenTab { path: path, instance: "2", label: Some("Work"), seen: 2 },
+        ],
+        current: Some(1),
+    };
+    fs.make_dirs(s.dir).unwrap();
+    save(s, "open", open_file(o)).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    assert_eq(names(m), ["m", "Work"]);
+    assert_eq(m.current, Some(m.tabs[1].id));
+    // No empty tab besides: the window has its tabs.
+    assert_eq(m.blanks.len, 0);
+    clean("test/tmp/restore-reopen");
+}
+
+@test
+fun a_tab_that_cant_come_back_says_why_and_the_rest_open() {
+    let s = folder("gone");
+    let o = Open {
+        tabs: [
+            OpenTab {
+                path: "test/tmp/restore-gone/missing.wasm",
+                instance: "",
+                label: None,
+                seen: 1,
+            },
+            OpenTab { path: module_of(s), instance: "", label: None, seen: 2 },
+        ],
+        current: Some(0),
+    };
+    fs.make_dirs(s.dir).unwrap();
+    save(s, "open", open_file(o)).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    assert_eq(m.tabs.len, 2);
+    clean("test/tmp/restore-gone");
+}
+
+@test
+fun a_broken_open_file_is_set_aside_with_a_notice() {
+    let s = folder("broken");
+    fs.make_dirs(s.dir).unwrap();
+    save(s, "open", [1, 2, 3]).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    assert_eq(m.notice.unwrap_or("").contains("open apps"), true);
+    assert_eq(m.blanks.len, 1);
+    clean("test/tmp/restore-broken");
+}
+
+@test
+fun an_app_named_at_launch_opens_after_the_restored_ones() {
+    let s = folder("named");
+    let o = Open {
+        tabs: [OpenTab { path: module_of(s), instance: "", label: None, seen: 1 }],
+        current: Some(0),
+    };
+    fs.make_dirs(s.dir).unwrap();
+    save(s, "open", open_file(o)).unwrap();
+    // The same app: switched to, not opened twice.
+    let (m, _) = start(["./main", module_of(s)], Some(s));
+    assert_eq(m.tabs.len, 1);
+    clean("test/tmp/restore-named");
+}
+
+@test
+fun continue_to_an_app_already_reopened_shows_it() {
+    // Restored and left off both: Continue switches, never a second copy.
+    let s = folder("continue");
+    let o = Open {
+        tabs: [OpenTab { path: module_of(s), instance: "", label: None, seen: 1 }],
+        current: Some(0),
+    };
+    fs.make_dirs(s.dir).unwrap();
+    save(s, "open", open_file(o)).unwrap();
+    save(
+        s,
+        "left-off",
+        left_file(recalled("m", module_of(s), None, None, Some(("localhost:9", [3; 32])))),
+    ).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    let home = step(m, Msg.NewTab);
+    let back = step(home, Msg.Continue);
+    assert_eq((back.tabs.len, back.current), (1, Some(m.tabs[0].id)));
+    clean("test/tmp/restore-continue");
+}

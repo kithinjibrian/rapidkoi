@@ -268,6 +268,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** Naming instances from screen titles; an instance's state keyed by its name (renaming would move it).
 
+**Amended (PRP-034, session 181):** what's open is saved (`open` file) and reopened at launch, always, with no question; every open signed instance's state is saved as it changes.
+
 ---
 
 ## CURRENT PROJECT STATE

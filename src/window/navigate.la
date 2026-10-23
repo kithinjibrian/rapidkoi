@@ -20,7 +20,8 @@ import window.tabs {
     failed_page,
 };
 import window.instances { next_instance, another };
-import window.leftoff { leave, compiled };
+import data.remembered { Open };
+import window.leftoff { LeftOff, leave, compiled };
 import trust.verify { separate };
 import net.loads { begin, resumed };
 import kivuli { Cmd };
@@ -35,6 +36,7 @@ import window.window {
     open_tab_of,
     show_tab,
     go_home,
+    same_app,
 };
 import net.address { is_address, parse };
 
@@ -127,6 +129,56 @@ public fun new_instance(m: Model): (Model, Cmd<Msg>) {
 }
 
 /**
+ * Reopens what was open when Rapidkoi closed (PRP-034), each in its own
+ * tab in the order saved: a file opened again, an address loading in the
+ * background, each as the same instance under the same name, a signed one
+ * from its saved state. The one that was in front is current. One that
+ * can't come back shows why in its tab.
+ *
+ * @param m the window, its data folder restored and no tabs yet
+ * @param o what was open
+ * @returns the window with its tabs, and the background loads
+ *
+ * Example:
+ *     reopen_all(m, open)
+ */
+public fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
+    let mut at = m;
+    let mut tasks: Cmd<Msg>[] = [];
+    let mut ids: i64[] = [];
+    for t of o.tabs {
+        let named = fun(p: AppPage) = AppPage {
+            instance: t.instance,
+            label: t.label,
+            seen: t.seen,
+            ..p,
+        };
+        if is_address(t.path) && parse(t.path).is_ok() {
+            // Its tab first, under its name; begin keeps the instance (loads).
+            let placed = add_tab(at, named(failed_page(t.path, "")));
+            let id = placed.current.unwrap_or(-1);
+            let (loading, task) = begin(placed, id, t.path, false, None, []);
+            at = loading;
+            tasks.push(task);
+        } else {
+            let (page, said) = resumed(at, named(open_path(at.engine, at.ring, t.path)));
+            let notice = match (at.notice, said) {
+                (Some(a), Some(b)) => Some("{a} · {b}"),
+                (Some(a), None) => Some(a),
+                (None, b) => b,
+            };
+            at = Model { notice: notice, ..add_tab(at, page) };
+        }
+        ids.push(at.current.unwrap_or(-1));
+    }
+    let front = match o.current {
+        Some(i) if i < ids.len => Some(ids[i]),
+        _ => at.current,
+    };
+    (Model { current: front, ..at }, if tasks.len == 0 { Cmd.none() } else { Cmd.batch(tasks) })
+}
+
+/**
  * Opens a pinned app: its tab when it's open (PRP-026), else in the empty
  * tab (a new one when there's none).
  *
@@ -145,6 +197,11 @@ public fun open_pin(m: Model, path: string): (Model, Cmd<Msg>) = match open_tab_
  *     reopen(m)
  */
 public fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
+    // Already open again (reopened at launch, PRP-034): shown, not started twice.
+    Some(l) if instance_open(m, l).is_some() => (
+        show_tab(m, instance_open(m, l).unwrap_or(-1)),
+        Cmd.none(),
+    ),
     Some(l) if compiled(l) => (Model { left_off: None, ..add_tab(m, resume(l)) }, Cmd.none()),
     // Remembered from an earlier run: open its path again; a signed app's
     // state comes back from states/. Kept until it runs: a failed load
@@ -164,6 +221,16 @@ public fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
     }
     None => (m, Cmd.none()),
 };
+
+/** The tab showing a left-off's app as the same instance, if one is open. */
+fun instance_open(m: Model, l: LeftOff): Option<i64> {
+    for t of m.tabs {
+        if same_app(t.page.path, l.path) && t.page.instance == l.instance {
+            return Some(t.id);
+        }
+    }
+    None
+}
 
 /**
  * ⟳ Reload: loads the current app again from its file or server and

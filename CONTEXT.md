@@ -6279,6 +6279,38 @@ Branch: prp-017-kivuli_0_17
 
 ---
 
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
+
+## SESSION 179 — 2026-10-23 — PRP-034: restore open instances at launch — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: unclosed instances are lost on restart.
+- Wrote `PRPs/prp-034-restore_open_instances.md`:
+  - an `open` file (paths, instances, labels, seen, current), checked as hostile input;
+  - saving it when the open tabs change, and saving every open signed instance's state;
+  - restoring at launch step 2, in order and with the current one; unsigned apps come back fresh.
+- To confirm: always restore (no question, no setting yet); save every signed instance's state on change.
+- No code. Still uncommitted from chat: the strip and badge tweaks, the dock spacing, DECISION-043 and its request.
+
+---
+
 ## NEXT SESSION START POINT
 
 **Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142).** kivuli 0.54, lughac with `include_bytes`. Built: PRP-019–031, the launch order (session 170), and the approval-dialog fix (session 171). `lugha.lock` is modified by lughac and uncommitted, awaiting the owner. Waiting on kivuli: DECISION-040 (a drop-down in a popover). Awaiting the owner's test runs. Built: PRP-032 (no ← ⌂ → in the frame). Built: PRP-033 (named instances); the counter on the VM republished at contract 3 (session 178). PRP-034 (restore open instances at launch) written, awaiting approval. Waiting on kivuli: DECISION-042 (several windows), DECISION-043 (window width for the strip). Uncommitted chat tweaks await the owner. Step B mostly dissolved (no pictures for apps yet; pins stay in the sidebar, a dock). Later: step B (images, wrapping rows, accent), and links' own discovery. Next: check whether the parked "where you left off" bug is gone, then step B (contract 3's drawing: images, wrapping rows, accent), then C (the left-off preview).
@@ -6307,5 +6339,30 @@ From chat with the owner (sessions 177–179), committed at the owner's word ("c
 - DECISION-043 (deferred, kivuli): the strip can't adapt to the window's width. Request: `docs/specs/kivuli-fit-or-window-width.md`; CLAUDE.md KNOWN ISSUES.
 - Tests: `test/instances.la`, `test/sidebar.la`, `test/themes.la`. Not run (the owner runs them).
 
-## SESSION 181 — 2026-10-23 — Build PRP-034: restore open instances at launch — open
+## SESSION 181 — 2026-10-23 — Build PRP-034: restore open instances at launch — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "commit them, then build it": session 180 committed the chat tweaks; PRP-034 approved as proposed (always restore; save every signed instance's state).
+- `data/remembered.la`: the `open` file (`Open`, `OpenTab`, `open_file`, `read_open`, `MAX_OPEN` 64, every field checked).
+- `data/saving.la`:
+  - `OPEN`, `open_of`, `restore_open`.
+  - `persist` saves the open file when it changes, and every open signed instance's state when it changes (`keep_in`).
+- `window/navigate.la`:
+  - `reopen_all`: files reopen, addresses load in the background, each keeps its instance, name and seen; the current one is restored.
+  - `reopen` (Continue) switches to an instance that's open again.
+- `shell.start`: launch step 2 reopens what was open before anything else. The empty tab appears only when nothing reopened; a named app opens after.
+- Tests: `test/restore.la` (new) and `test/remembered.la`. Every test file checks, fmt is clean, build ok. Tests not run (the owner runs them).
+- CLAUDE.md (known issues, tree), DESIGN.md (launching), CHANGELOG.md, MEMORY.md (decision 23 amended), PRP amendments.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/data/{remembered, saving}.la, src/window/navigate.la, src/shell.la, test/{restore (new), remembered}.la,
+CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, MEMORY.md, PRPs/prp-034-restore_open_instances.md, CONTEXT.md
+```
+
+---
+

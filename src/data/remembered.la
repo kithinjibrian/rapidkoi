@@ -38,6 +38,35 @@ public const MAX_PINS_FILE: i64 = 32 * 1024 * 1024;
 /** The left-off file's cap in bytes: a name, a path and an icon. */
 public const MAX_LEFT_FILE: i64 = 8 * 1024 * 1024;
 
+/** The most tabs the open file lists (PRP-034). */
+public const MAX_OPEN: i64 = 64;
+
+/** The open file's cap in bytes: paths and names, no icons. */
+public const MAX_OPEN_FILE: i64 = 1024 * 1024;
+
+/** The longest path the open file keeps. */
+const MAX_OPEN_PATH: i64 = 4096;
+
+/** One instance that was open when Rapidkoi closed (PRP-034). */
+public struct OpenTab {
+    /** Where its app came from: a file or an address, as opened. */
+    public path: string,
+    /** Its instance's key: "" for the first, then "2", "3"… */
+    public instance: string,
+    /** The name the person gave it, if any. */
+    public label: Option<string>,
+    /** When it was last in front, as a count. */
+    public seen: i64,
+}
+
+/** What was open when Rapidkoi closed: its instances in order, and which was in front. */
+public struct Open {
+    /** The open instances, in the order their tabs were made. */
+    public tabs: OpenTab[],
+    /** The index in `tabs` of the one in front; `None` on an empty tab. */
+    public current: Option<i64>,
+}
+
 /** Why a file's bytes can't be used. */
 public enum Unreadable {
     /** Damaged or not Rapidkoi's: why, naming the field. */
@@ -287,6 +316,88 @@ public fun read_left(bytes: u8[]): Result<LeftOff, Unreadable> {
         ),
     )
 }
+
+/**
+ * Encodes the open file (PRP-034): what was open, to reopen at launch.
+ *
+ * Example:
+ *     save(s, "open", open_file(o))?
+ */
+public fun open_file(o: Open): u8[] = encode(Value.Map([
+    entry("format", Value.int(FORMAT)),
+    entry("kind", Value.Text("rapidkoi open")),
+    entry("tabs", Value.Array(o.tabs.map(fun(t: OpenTab) {
+        let mut fields = [
+            entry("path", Value.Text(t.path)),
+            entry("instance", Value.Text(t.instance)),
+            entry("seen", Value.int(t.seen)),
+        ];
+        if let Some(l) = t.label {
+            fields.push(entry("label", Value.Text(l)));
+        }
+        Value.Map(fields)
+    }))),
+    entry("current", match o.current {
+        Some(i) => Value.int(i),
+        None => Value.Null,
+    }),
+]));
+
+/**
+ * Reads the open file, every field checked: at most `MAX_OPEN` tabs, each
+ * a path, an instance key Rapidkoi gave, a name of 1–64 characters, no
+ * instance twice, and the tab in front one of them.
+ *
+ * Example:
+ *     read_open(bytes)?
+ */
+public fun read_open(bytes: u8[]): Result<Open, Unreadable> {
+    let v = root(bytes, "open", 4, 8 * MAX_OPEN + 16, MAX_OPEN_FILE)?;
+    let items = match v.get("tabs") {
+        Some(Array(xs)) => xs,
+        _ => {
+            return Err(Unreadable.Broken("its tabs aren't a list"));
+        }
+    };
+    if items.len > MAX_OPEN {
+        return Err(Unreadable.Broken("it lists more than 64 tabs"));
+    }
+    let mut found: OpenTab[] = [];
+    for x of items {
+        let path = text(x, "path").unwrap_or("");
+        if path == "" || path.len > MAX_OPEN_PATH {
+            return Err(Unreadable.Broken("a tab's path is empty or too long"));
+        }
+        let instance = text(x, "instance").unwrap_or("");
+        if !is_instance(instance) {
+            return Err(Unreadable.Broken("a tab's instance isn't one Rapidkoi gave"));
+        }
+        let label = text(x, "label");
+        if label.map(fun(n: string) = n == "" || n.char_count() > 64).unwrap_or(false) {
+            return Err(Unreadable.Broken("a tab's name is empty or too long"));
+        }
+        if found.any(fun(t: OpenTab) = t.path == path && t.instance == instance) {
+            return Err(Unreadable.Broken("an instance is listed twice"));
+        }
+        let seen = x.get("seen").and_then(fun(n: Value) = n.as_i64()).unwrap_or(0);
+        found.push(OpenTab { path: path, instance: instance, label: label, seen: seen });
+    }
+    let current = match v.get("current") {
+        Some(Null) | None => None,
+        Some(n) => match n.as_i64() {
+            Some(i) if i >= 0 && i < found.len => Some(i),
+            _ => {
+                return Err(Unreadable.Broken("the tab in front isn't one of them"));
+            }
+        },
+    };
+    Ok(Open { tabs: found, current: current })
+}
+
+/** An instance key Rapidkoi gives: "" for the first, else a number from 2, at most four digits. */
+fun is_instance(k: string): bool = k == "" || k.len <= 4 && k.chars().all(
+    fun(c: char) = c >= '0' && c <= '9',
+) && k != "0" && k != "1" && !k.starts_with("0");
 
 /** A broken file set aside: Broken with where it went, or Failed when it couldn't be moved. */
 fun aside<T>(s: Store, name: string, why: string): Recalled<T> = match set_aside(s, name) {

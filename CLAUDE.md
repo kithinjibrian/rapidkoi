@@ -286,7 +286,7 @@ public fun load_settings(path: string): Settings { … }
 │                        trust/    keys.la (secret keys: keygen, read, fingerprints), index.la (the signed index and public key file, rotations), verify.la (opening a signed site: every check, the keyring)
 │                        net/      network.la (pure: which requests an app may make), requests.la (apps' requests, in tasks), dialing.la (lookups, refusing local addresses; Network),
 │                                  fetching.la (a background load's work), loads.la (begin a load, take its result), address.la (pure: local development addresses)
-│                        data/     store.la (the data folder: safe writes, bounded reads), remembered.la (the trust, pins and left-off files), states.la (each signed app's state), saving.la (restore at start, save on every change)
+│                        data/     store.la (the data folder: safe writes, bounded reads), remembered.la (the trust, pins, left-off and open files), states.la (each signed app's state), saving.la (restore at start, save on every change)
 │                        people/   identity.la (the master secret, per-app keys, sign-ins), people.la (sign-in settings and your name), account.la (an app's account: the model side), access.la (what an app can reach: the model side)
 │                        commands/ pack.la (`./main pack`), publish.la (`keygen`, `publish`), serve.la (`./main serve`: a bundle or a site)
 │                        Imports name the folder (`import ui.layout;` binds `layout`). They run one way: guest.nodes ← props ← contract ← ui.tokens ← themes ← render ← window.tabs ← actions ← ui.frame ← suggestions ← window.window ← ui.content, addressbox ← layout ← shell ← main
@@ -336,7 +336,7 @@ Update this tree when modules are added.
 - **Placeholders until kivuli and PRP-003 catch up (DECISION-018), each to be replaced, never extended:**
   - Opening a file means typing its path into the box, since there's no file dialog.
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
-  - Search is in memory only. Open tabs aren't restored on launch yet (the next PRP). Unsigned apps' state lasts only for the session (PRP-007 amendment 2).
+  - Search is in memory only. Unsigned apps' state lasts only for the session (PRP-007 amendment 2): reopened at launch, they start fresh (PRP-034).
   - Share, account and the menu are shown disabled. There's no back, home or forward: in-app navigation is the app's own (DECISION-041).
   - Notifications and Data are placeholder pages until notifications and app data exist.
   - Remote apps open by host name over HTTPS only, signed only, with no redirects followed (PRP-009); plain http and unsigned bundles are for this machine's development servers. Loads run in the background (PRP-008), but a DNS lookup, a TLS handshake and compiling a module still briefly hold the window (kivuli's note). Reload is manual; there's no live reload yet.
