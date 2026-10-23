@@ -27,8 +27,8 @@ import bundles.permissions {
 /** The longest name part, in characters. */
 public const MAX_NAME: i64 = 64;
 
-/** The people file's format: 3 adds permission settings (PRP-031). */
-public const FORMAT: i64 = 3;
+/** The people file's format: 3 adds permission settings (PRP-031), 4 each app's look switches (PRP-038). */
+public const FORMAT: i64 = 4;
 
 /** The most apps the file holds. */
 public const MAX_PEOPLE: i64 = 10_000;
@@ -70,6 +70,18 @@ public struct People {
     public apps: Person[],
     /** The permission settings you changed from their defaults (PRP-031). */
     public grants: Grant[],
+    /** The apps you switched to your colours or text size (PRP-038). */
+    public looks: OwnLooks[],
+}
+
+/** The person's switch for one app's looks (PRP-038). */
+public struct OwnLooks {
+    /** The app's key, as for permissions. */
+    public app: string,
+    /** Use my colours. */
+    public colours: bool,
+    /** Use my text size. */
+    public text_size: bool,
 }
 
 /** One permission setting you chose for one app. */
@@ -88,7 +100,7 @@ public struct Grant {
  * Example:
  *     nobody()
  */
-public fun nobody(): People = People { first: "", last: "", apps: [], grants: [] };
+public fun nobody(): People = People { first: "", last: "", apps: [], grants: [], looks: [] };
 
 /**
  * Returns you to one app: its saved settings, or the defaults (generation
@@ -206,6 +218,18 @@ public fun people_file(p: People): u8[] = encode(
                 ),
             ),
         ),
+        entry(
+            "looks",
+            Value.Array(
+                p.looks.map(
+                    fun(l: OwnLooks) = Value.Map([
+                        entry("app", Value.Text(l.app)),
+                        entry("colours", Value.Bool(l.colours)),
+                        entry("text_size", Value.Bool(l.text_size)),
+                    ]),
+                ),
+            ),
+        ),
     ]),
 );
 
@@ -276,7 +300,13 @@ public fun read_people(bytes: u8[]): Result<People, Unreadable> {
             fresh: servers(x, "fresh", format)?,
         });
     }
-    Ok(People { first: first, last: last, apps: apps, grants: grants_of(v, format)? })
+    Ok(People {
+        first: first,
+        last: last,
+        apps: apps,
+        grants: grants_of(v, format)?,
+        looks: looks_in(v, format)?,
+    })
 }
 
 /**
@@ -312,6 +342,63 @@ public fun with_setting(p: People, app: string, permission: Permission, s: Setti
         kept.push(Grant { app: app, permission: name, setting: s });
     }
     People { grants: kept, ..p }
+}
+
+/**
+ * Returns an app's look switches: Use my colours, Use my text size.
+ *
+ * Example:
+ *     looks_of(people, "notes.acme.com")
+ */
+public fun looks_of(p: People, app: string): (bool, bool) {
+    for l of p.looks {
+        if l.app == app {
+            return (l.colours, l.text_size);
+        }
+    }
+    (false, false)
+}
+
+/**
+ * Sets an app's look switches; both off isn't kept.
+ *
+ * Example:
+ *     with_looks(people, "notes.acme.com", true, false)
+ */
+public fun with_looks(p: People, app: string, colours: bool, text_size: bool): People {
+    let mut kept = p.looks.filter(fun(l: OwnLooks) = l.app != app);
+    if colours || text_size {
+        kept.push(OwnLooks { app: app, colours: colours, text_size: text_size });
+    }
+    People { looks: kept, ..p }
+}
+
+/** Each app's look switches (format 4; none before). */
+fun looks_in(v: Value, format: i64): Result<OwnLooks[], Unreadable> {
+    if format < 4 {
+        return Ok([]);
+    }
+    let items = match v.get("looks") {
+        Some(Array(xs)) if xs.len <= MAX_PEOPLE => xs,
+        _ => {
+            return Err(Unreadable.Broken("its look switches aren't a list"));
+        }
+    };
+    let mut out: OwnLooks[] = [];
+    for l of items {
+        let app = match text(l, "app") {
+            Some(a) if a.len >= 1 && a.len <= 256 => a,
+            _ => {
+                return Err(Unreadable.Broken("a look switch doesn't name its app"));
+            }
+        };
+        out.push(OwnLooks {
+            app: app,
+            colours: flag(l, "colours").unwrap_or(false),
+            text_size: flag(l, "text_size").unwrap_or(false),
+        });
+    }
+    Ok(out)
 }
 
 /** The permission settings (format 3; none before): each app key, permission name and setting. */

@@ -188,7 +188,7 @@ fun an_app_shows_your_name_without_knowing_it() {
     let engine = Engine.new();
     let m = with_pages(engine, [greeting()]);
     let named = Model {
-        people: People { first: "Brian", last: "Kithinji", apps: [], grants: [] },
+        people: People { first: "Brian", last: "Kithinji", apps: [], grants: [], looks: [] },
         ..m,
     };
     assert_eq(texts(view(named)).any(fun(x: string) = x == "Hello, Brian Kithinji!"), true);

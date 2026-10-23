@@ -1,0 +1,104 @@
+/**
+ * The person's choices (PRP-038): the `preferences` file (light or dark,
+ * more contrast, text size), read as hostile input; what every app may
+ * read of them (three coarse values, never colours); and a change asked for
+ * by Rapidkoi's Settings app, checked.
+ *
+ * Depends on: cbor, ui.schemes, data.remembered
+ * Used by: data.saving, guest.effects
+ */
+import cbor { Value, Entry, encode };
+import ui.schemes { Prefs, DEFAULT_PREFS, MIN_TEXT_SIZE, MAX_TEXT_SIZE };
+import data.remembered { Unreadable, root };
+
+/** The file's cap in bytes: three small fields. */
+public const MAX_PREFS_FILE: i64 = 4096;
+
+/**
+ * Encodes the preferences file.
+ *
+ * Example:
+ *     save(s, "preferences", prefs_file(m.prefs))?
+ */
+public fun prefs_file(p: Prefs): u8[] = encode(
+    Value.Map([
+        entry("format", Value.int(1)),
+        entry("kind", Value.Text("rapidkoi preferences")),
+        entry("light", Value.Bool(p.light)),
+        entry("more_contrast", Value.Bool(p.more_contrast)),
+        entry("text_size", Value.int(p.text_size)),
+    ]),
+);
+
+/**
+ * Reads the preferences file. A field missing or of the wrong kind is its
+ * default, so one bad value never costs the others.
+ *
+ * @returns the choices; `Err(Broken)` for a file that isn't Rapidkoi's
+ *     preferences, `Err(Newer)` for a newer Rapidkoi's
+ *
+ * Example:
+ *     read_prefs(bytes)?
+ */
+public fun read_prefs(bytes: u8[]): Result<Prefs, Unreadable> {
+    let v = root(bytes, "preferences", 2, 32, MAX_PREFS_FILE)?;
+    let flag = fun(field: string, otherwise: bool): bool = match v.get(field) {
+        Some(Bool(b)) => b,
+        _ => otherwise,
+    };
+    let size = match v.get("text_size").and_then(fun(n: Value) = n.as_i64()) {
+        Some(n) if valid_size(n) => n,
+        _ => DEFAULT_PREFS.text_size,
+    };
+    Ok(Prefs {
+        light: flag("light", DEFAULT_PREFS.light),
+        more_contrast: flag("more_contrast", DEFAULT_PREFS.more_contrast),
+        text_size: size,
+    })
+}
+
+/**
+ * What an app reads (the `preferences` ask, open to every app): the theme,
+ * more contrast and the text size, nothing else.
+ *
+ * Example:
+ *     prefs_value(m.prefs)
+ */
+public fun prefs_value(p: Prefs): Value = Value.Map([
+    entry("theme", Value.Text(if p.light { "light" } else { "dark" })),
+    entry("more_contrast", Value.Bool(p.more_contrast)),
+    entry("text_size", Value.int(p.text_size)),
+]);
+
+/**
+ * Applies one change the Settings app asked for (`set_preference`).
+ *
+ * @param p the choices now
+ * @param name `theme`, `more_contrast` or `text_size`
+ * @param v its new value: `"dark"` or `"light"`, true or false, 80–200 in steps of 10
+ * @returns the new choices; `Err` with the sentence that stops the app
+ *
+ * Example:
+ *     apply(m.prefs, "text_size", Value.int(120))?
+ */
+public fun apply(p: Prefs, name: string, v: Value): Result<Prefs, string> = match name {
+    "theme" => match v.as_text() {
+        Some("dark") => Ok(Prefs { light: false, ..p }),
+        Some("light") => Ok(Prefs { light: true, ..p }),
+        _ => Err("theme must be dark or light"),
+    },
+    "more_contrast" => match v {
+        Bool(b) => Ok(Prefs { more_contrast: b, ..p }),
+        _ => Err("more_contrast must be true or false"),
+    },
+    "text_size" => match v.as_i64() {
+        Some(n) if valid_size(n) => Ok(Prefs { text_size: n, ..p }),
+        _ => Err("text_size must be 80 to 200, in steps of 10"),
+    },
+    _ => Err("there's no preference called {name}"),
+};
+
+/** 80 to 200, in steps of 10. */
+fun valid_size(n: i64): bool = n >= MIN_TEXT_SIZE && n <= MAX_TEXT_SIZE && n % 10 == 0;
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };

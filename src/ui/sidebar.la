@@ -215,5 +215,6 @@ fun face(t: Theme, name: string, path: string, bytes: Option<u8[]>): View<Msg> =
     bytes,
 ) {
     Some(img) => image(img).style([square(HEADER_ICON)]).align(Align.Center),
-    None => text(initial(name)).style(heading(t)).align(Align.Center),
+    // The dock keeps its size whatever the text size (PRP-038).
+    None => text(initial(name)).style(heading(Theme { scale: 1.0, ..t })).align(Align.Center),
 };

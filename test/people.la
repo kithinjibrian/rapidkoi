@@ -13,6 +13,8 @@ import rapidkoi.people.people {
     setting_of,
     with_setting,
     known,
+    looks_of,
+    with_looks,
 };
 import rapidkoi.data.remembered { Unreadable };
 import rapidkoi.bundles.permissions { Permission, Setting };
@@ -110,7 +112,7 @@ fun bad_server_lists_are_broken() {
 
 @test
 fun settings_round_trip_and_forgetting_removes_one_app() {
-    let mut ps = People { first: "Brian", last: "Kithinji", apps: [], grants: [] };
+    let mut ps = People { first: "Brian", last: "Kithinji", apps: [], grants: [], looks: [] };
     ps = with_person(ps, Person {
         generation: 2,
         auto: false,
@@ -127,7 +129,7 @@ fun settings_round_trip_and_forgetting_removes_one_app() {
 
 @test
 fun an_app_s_own_name_wins_else_the_one_for_every_app() {
-    let mut ps = People { first: "Brian", last: "Kithinji", apps: [], grants: [] };
+    let mut ps = People { first: "Brian", last: "Kithinji", apps: [], grants: [], looks: [] };
     assert_eq(name_in(ps, HOST, [1; 32]), ("Brian", "Kithinji"));
     ps = with_person(ps, Person { first: "Bee", ..person(ps, HOST, [1; 32]) });
     // Only the first name is overridden here: the last stays the one for every app.
@@ -149,9 +151,9 @@ fun bad_files_are_broken_naming_the_field() {
     );
     assert_eq(broken(read_people(long)), "a name is longer than 64 characters");
     let newer = encode(
-        Value.Map([entry("format", Value.int(4)), entry("kind", Value.Text("rapidkoi people"))]),
+        Value.Map([entry("format", Value.int(5)), entry("kind", Value.Text("rapidkoi people"))]),
     );
-    assert_eq(broken(read_people(newer)), "newer 4");
+    assert_eq(broken(read_people(newer)), "newer 5");
 }
 
 fun many(n: i64): string {
@@ -225,4 +227,35 @@ fun bad_permission_settings_are_broken() {
         broken(read_people(with_grants(Value.Text("x")))),
         "its permission settings aren't a list",
     );
+}
+
+@test
+fun an_app_s_own_looks_switches_round_trip() {
+    // PRP-038: Use my colours, Use my text size, per app; off by default.
+    let mut ps = nobody();
+    assert_eq(looks_of(ps, "notes.acme.com"), (false, false));
+    ps = with_looks(ps, "notes.acme.com", true, false);
+    ps = with_looks(ps, "builtin:newtab", true, true);
+    let back = read_people(people_file(ps)).unwrap();
+    assert_eq(
+        (looks_of(back, "notes.acme.com"), looks_of(back, "builtin:newtab")),
+        ((true, false), (true, true)),
+    );
+    // Both off: nothing kept.
+    assert_eq(with_looks(back, "notes.acme.com", false, false).looks.len, 1);
+}
+
+@test
+fun format_3_reads_with_both_switches_off() {
+    let old = encode(
+        Value.Map([
+            entry("format", Value.int(3)),
+            entry("kind", Value.Text("rapidkoi people")),
+            entry("first", Value.Text("")),
+            entry("last", Value.Text("")),
+            entry("apps", Value.Array([])),
+            entry("grants", Value.Array([])),
+        ]),
+    );
+    assert_eq(read_people(old).unwrap().looks.len, 0);
 }

@@ -132,16 +132,57 @@ public fun align_of(p: Place): Align = match p {
     Stretch => Align.Fill,
 };
 
+/** The person's switch for one app (PRP-038): force their colours, their text size, or both. */
+public struct Own {
+    /** Use my colours: the app's own colours become Rapidkoi's. */
+    public colours: bool,
+    /** Use my text size: the app's raw points and pixels scale too. */
+    public text_size: bool,
+}
+
+/** Neither forced: the app as it styled itself. */
+public const AS_STYLED: Own = Own { colours: false, text_size: false };
+
 /**
- * Resolves a look against the theme. The `checked` look isn't a state here:
- * `ui.render` lays it over the base when the node is checked, since
- * Rapidkoi, not GTK, knows it is.
+ * Resolves a look against the theme, as the app styled it.
  *
  * Example:
  *     resolve(look, m.theme)
  */
-public fun resolve(l: Look, t: Theme): Drawn {
+public fun resolve(l: Look, t: Theme): Drawn = resolve_for(l, t, AS_STYLED, false);
+
+/**
+ * Resolves a look against the theme and the person's switch for the app.
+ * Rapidkoi's sizes (`title`, `heading`, `xs`–`xl`) follow the text size;
+ * raw points and pixels do only with Use my text size. With Use my colours,
+ * the app's own colours become Rapidkoi's: text `text`, edges `border`, a
+ * pressable box's fill `surface`, other fills none, no shadow; its named
+ * colours are the person's already. The `checked` look isn't a state here:
+ * `ui.render` lays it over the base when the node is checked.
+ *
+ * Example:
+ *     resolve_for(look, m.theme, own, true)
+ */
+public fun resolve_for(l: Look, t: Theme, own: Own, pressable: bool): Drawn {
     let paint = fun(c: Colour) = colour_of(c, t);
+    // The app's own colour, or Rapidkoi's `name` in its place when forced.
+    let forced = fun(c: Colour, name: string): Option<Paint> = match c {
+        Named(_) => Some(paint(c)),
+        _ => if own.colours {
+            if name == "" { None } else { Some(paint(Colour.Named(name))) }
+        } else {
+            Some(paint(c))
+        },
+    };
+    let scaled = fun(n: i64, rapidkoi_s: bool): i64 = if rapidkoi_s || own.text_size {
+        (n as f64 * t.scale + 0.5) as i64
+    } else {
+        n
+    };
+    let space = fun(m: Measure): i64 = match m {
+        Named(_) => scaled(space_of(m), true),
+        Px(n) => scaled(n, false),
+    };
     let mut states: (State, Drawn)[] = [];
     for (name, inner) of l.states {
         let state = match name {
@@ -152,32 +193,37 @@ public fun resolve(l: Look, t: Theme): Drawn {
             _ => None,
         };
         if let Some(s) = state {
-            states.push((s, resolve(inner, t)));
+            states.push((s, resolve_for(inner, t, own, pressable)));
         }
     }
+    let edge = fun(b: (i64, Colour)): Option<(i64, Paint)> = forced(b.1, "border").map(
+        fun(p: Paint) = (b.0, p),
+    );
     Drawn {
-        background: l.background.map(paint),
-        color: l.color.map(paint),
-        border: l.border.map(fun(b: (i64, Colour)) = (b.0, paint(b.1))),
-        outline: l.outline.map(fun(b: (i64, Colour)) = (b.0, paint(b.1))),
+        background: l.background.and_then(
+            fun(c: Colour) = forced(c, if pressable { "surface" } else { "" }),
+        ),
+        color: l.color.and_then(fun(c: Colour) = forced(c, "text")),
+        border: l.border.and_then(edge),
+        outline: l.outline.and_then(edge),
         corner: l.corner.map(corner_of),
-        gap: l.gap.map(space_of),
-        padding: l.padding.map(fun(p: (Measure, Measure)) = (space_of(p.0), space_of(p.1))),
+        gap: l.gap.map(space),
+        padding: l.padding.map(fun(p: (Measure, Measure)) = (space(p.0), space(p.1))),
         width: l.width,
         height: l.height,
         min_width: l.min_width,
         max_width: l.max_width,
         min_height: l.min_height,
         max_height: l.max_height,
-        shadow: l.shadow,
+        shadow: if own.colours { l.shadow.map(fun(_: string) = "none") } else { l.shadow },
         opacity: l.opacity,
         size: l.size.map(fun(s: TextSize) = match s {
-            Pt(n) => Size.Pt(n),
+            Pt(n) => Size.Pt(scaled(n, false)),
             // Relative to the body size, so body text and rem follow it.
             Rem(x) => Size.Scale(x),
             Named(n) => match n {
-                "title" => Size.Pt(TEXT_TITLE),
-                "heading" => Size.Pt(TEXT_HEADING),
+                "title" => Size.Pt(scaled(TEXT_TITLE, true)),
+                "heading" => Size.Pt(scaled(TEXT_HEADING, true)),
                 "small" => Size.Scale(0.875),
                 _ => Size.Scale(1.0),
             },

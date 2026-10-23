@@ -47,7 +47,8 @@ public fun sized(content: View<Msg>): View<Msg> = column([content]).style([exact
 public fun identity(t: Theme, p: AppPage, under: Option<string>): View<Msg> {
     let face: View<Msg> = match icon_of(p.path, p.icon) {
         Some(img) => image(img).style([square(CARD_ICON)]).align(Align.Center),
-        None => text(initial(p.name)).style(heading(t)).align(Align.Center),
+        // The card's icon keeps its size whatever the text size (PRP-038).
+        None => text(initial(p.name)).style(heading(Theme { scale: 1.0, ..t })).align(Align.Center),
     };
     let mut names: View<Msg>[] = [text(p.name).style(heading(t))];
     if let Some(u) = under {

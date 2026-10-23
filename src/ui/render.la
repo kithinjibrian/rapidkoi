@@ -43,7 +43,7 @@ import ui.themes {
     paint as theme_paint,
     button as button_look,
 };
-import ui.paint { resolve, styles_of, align_of };
+import ui.paint { Own, AS_STYLED, resolve_for, styles_of, align_of };
 
 /** What the shell's window sends its `update`. */
 public enum Msg {
@@ -65,7 +65,16 @@ public enum Msg {
  * Example:
  *     screen(tree, m.theme)
  */
-public fun screen(n: Node, t: Theme): View<Msg> = match n {
+public fun screen(n: Node, t: Theme): View<Msg> = screen_as(n, t, AS_STYLED);
+
+/**
+ * Builds the kivuli view of a decoded tree with the person's switch for
+ * its app (PRP-038): their colours, their text size, or both, forced.
+ *
+ * Example:
+ *     screen_as(tree, m.theme, own)
+ */
+public fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
     Text(s, style) => styled_text(s, style, t),
     Button(label, look, msg) => button_of(label, look, msg, t),
     Input(value, hint, Some(msg)) => input(
@@ -78,23 +87,23 @@ public fun screen(n: Node, t: Theme): View<Msg> = match n {
         fun(s: string) = Msg.Event(Value.Null, Some(s)),
     ).placeholder(hint).disabled(true).style(field(t)),
     // The contract's padding was kivuli 0.10's `.padding`: room outside the node.
-    Column(spacing, padding, kids) => column(kids.map(fun(k: Node) = screen(k, t))).style([
+    Column(spacing, padding, kids) => column(kids.map(fun(k: Node) = screen_as(k, t, own))).style([
         gap(pixels(spacing)),
         margin(pixels(padding)),
     ]),
-    Row(spacing, padding, kids) => row(kids.map(fun(k: Node) = screen(k, t))).style([
+    Row(spacing, padding, kids) => row(kids.map(fun(k: Node) = screen_as(k, t, own))).style([
         gap(pixels(spacing)),
         margin(pixels(padding)),
     ]),
     Unsupported(kind) => text("Unsupported component: {kind}").style(dim(t)).align(Align.Start),
-    Boxed(look, facts, press, kids) => boxed(look, facts, press, kids, t),
+    Boxed(look, facts, press, kids) => boxed(look, facts, press, kids, t, own),
     Words(s, look, facts) => placed(
-        text(s).style(body(t) + drawn(look, facts, t)),
+        text(s).style(body(t) + drawn(look, facts, t, own, false)),
         look,
         Align.Start,
     ),
     Field(typing, look) => placed(
-        typing_box(typing, t).style(field(t) + drawn(look, facts_none(), t)),
+        typing_box(typing, t).style(field(t) + drawn(look, facts_none(), t, own, false)),
         look,
         Align.Fill,
     ),
@@ -107,20 +116,27 @@ public fun screen(n: Node, t: Theme): View<Msg> = match n {
  * GTK button look, DECISION-031) but a focus ring, so the keyboard's place
  * always shows; the app's style goes over it.
  */
-fun boxed(look: Look, facts: Facts, press: Option<Value>, kids: Node[], t: Theme): View<Msg> {
-    let inside = kids.map(fun(k: Node) = screen(k, t));
+fun boxed(
+    look: Look,
+    facts: Facts,
+    press: Option<Value>,
+    kids: Node[],
+    t: Theme,
+    own: Own,
+): View<Msg> {
+    let inside = kids.map(fun(k: Node) = screen_as(k, t, own));
     let layout = match look.direction {
         Row => row(inside),
         Column => column(inside),
     };
     let spaced = match look.gap {
         Some(_) => {
-            let g: Styling[] = [gap(resolve(look, t).gap.unwrap_or(0))];
+            let g: Styling[] = [gap(resolve_for(look, t, own, false).gap.unwrap_or(0))];
             layout.style(g)
         }
         None => layout,
     };
-    let styles = drawn(Look { gap: None, ..look }, facts, t);
+    let styles = drawn(Look { gap: None, ..look }, facts, t, own, press.is_some());
     match press {
         Some(m) => {
             let pressed = button_with(spaced, Msg.Event(m, None)).style(bare(t) + styles);
@@ -150,15 +166,15 @@ fun bare(t: Theme): Styling[] = [
 ];
 
 /** A look's styles, with the `checked` look laid over when the node is checked. */
-fun drawn(look: Look, facts: Facts, t: Theme): Styling[] {
-    let base = styles_of(resolve(look, t));
+fun drawn(look: Look, facts: Facts, t: Theme, own: Own, pressable: bool): Styling[] {
+    let base = styles_of(resolve_for(look, t, own, pressable));
     if facts.checked != Some(true) {
         return base;
     }
     let mut out = base;
     for (name, inner) of look.states {
         if name == "checked" {
-            for s of styles_of(resolve(inner, t)) {
+            for s of styles_of(resolve_for(inner, t, own, pressable)) {
                 out.push(s);
             }
         }

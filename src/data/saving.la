@@ -8,6 +8,8 @@
  * Depends on: std.env, std.time, data.store, data.states, people.people, people.identity, data.remembered, trust.verify, window.window, window.leftoff
  * Used by: shell
  */
+import data.preferences { MAX_PREFS_FILE, read_prefs, prefs_file };
+import ui.schemes { DEFAULT_PREFS, theme_for };
 import std.env;
 import std.time;
 import data.states { Saved, move_state, keep_in, drop_app, drop_state_in };
@@ -106,6 +108,15 @@ const OPEN: Part = Part {
     after: "",
 };
 
+const PREFS: Part = Part {
+    file: "preferences",
+    noun: "your settings",
+    title: "Your settings",
+    verb: "were",
+    it: "them",
+    after: "",
+};
+
 const LEFT: Part = Part {
     file: "left-off",
     noun: "where you left off",
@@ -170,8 +181,17 @@ public fun restore(m: Model, s: Store): Model {
             None
         }
     };
+    // Light or dark, contrast and text size (PRP-038): the defaults when unread.
+    let prefs = settle(
+        recall(s, PREFS.file, MAX_PREFS_FILE, read_prefs),
+        PREFS,
+        notes,
+        held,
+    ).unwrap_or(DEFAULT_PREFS);
     let said = notes.get();
     Model {
+        prefs: prefs,
+        theme: theme_for(prefs),
         ring: if ids.len == 0 { keyring() } else { keyring_of(ids) },
         pinned: pins,
         left_off: left,
@@ -222,6 +242,11 @@ public fun persist(before: Model, after: Model, at: Mark): Model {
     let mut failed: string[] = [];
     if after.pinned != before.pinned {
         if let Some(e) = problem(save(s, PINS.file, pins_file(after.pinned)), PINS) {
+            failed.push(e);
+        }
+    }
+    if after.prefs != before.prefs {
+        if let Some(e) = problem(save(s, PREFS.file, prefs_file(after.prefs)), PREFS) {
             failed.push(e);
         }
     }

@@ -1,7 +1,7 @@
 // Contract 5's looks drawn (PRP-037), pure: Rapidkoi's names become the
 // theme's values, raw ones stay as written, and state looks become `When`.
-import rapidkoi.ui.paint { Drawn, colour_of, resolve, space_of, corner_of };
-import rapidkoi.ui.themes { DARK };
+import rapidkoi.ui.paint { Drawn, Own, colour_of, resolve, resolve_for, space_of, corner_of };
+import rapidkoi.ui.themes { Theme, DARK };
 import rapidkoi.ui.tokens { SPACE_MD, TEXT_TITLE, BUTTON_RADIUS, CIRCLE };
 import rapidkoi.guest.nodes { Colour, Measure, TextSize, Look };
 import rapidkoi.guest.styles { plain };
@@ -81,4 +81,69 @@ fun a_look_resolves_to_what_is_drawn() {
     );
     // The checked look is drawn by Rapidkoi when the node is checked, not as a state.
     assert_eq(resolve(Look { states: [("checked", l)], ..l }, DARK).states.len, 0);
+}
+
+@test
+fun text_size_scales_rapidkoi_s_sizes_not_raw_ones() {
+    // PRP-038: at 150%, Rapidkoi's names grow; raw points and pixels are the app's.
+    let big = Theme { scale: 1.5, ..DARK };
+    let l = plain();
+    let d = resolve(
+        Look {
+            size: Some(TextSize.Named("title")),
+            gap: Some(Measure.Named("md")),
+            padding: Some((Measure.Px(10), Measure.Named("sm"))),
+            ..l,
+        },
+        big,
+    );
+    assert_eq(d.size == Some(Size.Pt(27)), true);
+    assert_eq(d.gap, Some(18));
+    assert_eq(d.padding, Some((10, 12)));
+    let raw = Look { size: Some(TextSize.Pt(12)), ..l };
+    assert_eq(resolve(raw, big).size == Some(Size.Pt(12)), true);
+    // Use my text size: raw sizes follow too.
+    let mine = Own { colours: false, text_size: true };
+    assert_eq(resolve_for(raw, big, mine, false).size == Some(Size.Pt(18)), true);
+    assert_eq(
+        resolve_for(
+            Look { padding: Some((Measure.Px(10), Measure.Px(4))), ..l },
+            big,
+            mine,
+            false,
+        ).padding,
+        Some((15, 6)),
+    );
+}
+
+@test
+fun use_my_colours_replaces_the_app_s_own() {
+    let mine = Own { colours: true, text_size: false };
+    let l = plain();
+    let green = Colour.Raw(46, 125, 50, 255);
+    let look = Look {
+        background: Some(green),
+        color: Some(Colour.Mix(green, Colour.Named("text"), 0.5)),
+        border: Some((2, green)),
+        shadow: Some("lg"),
+        states: [("hover", Look { background: Some(green), ..l })],
+        ..l,
+    };
+    let boxy = resolve_for(look, DARK, mine, false);
+    assert_eq(boxy.background.is_none(), true);
+    assert_eq(boxy.color == Some(Paint.Color(hex(DARK.text))), true);
+    assert_eq(boxy.border == Some((2, Paint.Color(hex(DARK.edge)))), true);
+    assert_eq(boxy.shadow, Some("none"));
+    assert_eq(boxy.states[0].1.background.is_none(), true);
+    // A pressable box keeps a fill, so it still looks pressable.
+    assert_eq(
+        resolve_for(look, DARK, mine, true).background == Some(Paint.Color(hex(DARK.control))),
+        true,
+    );
+    // Rapidkoi's names are already the person's: they stay.
+    let named = Look { background: Some(Colour.Named("accent")), ..l };
+    assert_eq(
+        resolve_for(named, DARK, mine, false).background == Some(Paint.Color(hex(DARK.accent))),
+        true,
+    );
 }
