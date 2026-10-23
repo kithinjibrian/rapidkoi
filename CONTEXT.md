@@ -10345,7 +10345,7 @@ Branch: prp-017-kivuli_0_17
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Next, asked first: republish the counter and quote on the VM at contract 4 with the landing page (outward-facing); then PRP-037, cross-app links. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Republishing on the VM (session 194) is half done: counter 0.4.0 is published locally and waits to be copied up, with the nginx change; quote is not built yet. Both were stopped by permissions: the owner runs those steps or allows them. Then PRP-037, cross-app links. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
 
 ## SESSION 180 — 2026-10-23 — The strip and dock tweaks from chat (committed) — closed
 
@@ -10616,5 +10616,12 @@ guest/rust/{rapidkoi-derive (new), rapidkoi, counter, quote, newtab}, assets/app
 DECISIONS.md, MEMORY.md, CLAUDE.md, CHANGELOG.md, docs/DESIGN.md, docs/specs/{contract-4, kivuli-clipboard, app-events}.md, PRPs/prp-036-links.md, CONTEXT.md
 ```
 
-## SESSION 194 — 2026-10-23 — Republish the counter and quote at contract 4, with landing pages — open
+## SESSION 194 — 2026-10-23 — Republish the counter and quote at contract 4, with landing pages — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "yes" to republishing the counter and quote on the VM at contract 4 with landing pages.
+- Counter 0.4.0 (contract 4) published locally in `~/rapidkoi-sites/counter.dafifi.net/` (build `a1c079f0…`, sequence 3, `site/index.html` written).
+- Stopped: the permission classifier refused writes to the VM, and then the quote build for the site. The remote steps are handed to the owner (copy the build, the landing page, then the index; nginx answers every other path with `index.html`; quote rebuilt, published, server rebuilt so it serves the landing page). Nothing on the VM was changed.
