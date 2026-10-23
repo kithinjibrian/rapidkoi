@@ -1,8 +1,6 @@
 # Contract 5: boxes, texts, styles and roles
 
-PRP-037 (part 1 of contract 5; PRP-038 and PRP-039 complete it), DECISION-049. Contract 4 (`contract-4.md`) with a new screen description: apps build every screen from three kinds of node, style them freely, and say what each piece is. Events, state, links and asks are contract 4's.
-
-Contract 5 is open until PRP-039 lands. Nothing outside this repository targets it before then.
+PRP-037, PRP-038 and PRP-039, DECISION-049. **Closed** (session 204): any change now is a DECISIONS.md entry and a version bump. Contract 4 (`contract-4.md`) with a new screen description: apps build every screen from three kinds of node, style them freely, and say what each piece is. Events, state, links and asks are contract 4's.
 
 ## Nodes
 
@@ -85,4 +83,16 @@ Rapidkoi uses roles for focus, pressing by keyboard and the checked look. Screen
   - shadows off.
 
   Its named colours stay.
+
+## Link paths (PRP-039)
+
+- A `link` name, and a link's field name, may be a path into nested named fields: 1 to 4 segments of `[a-z0-9_]`, joined by `.`, at most 64 bytes (`editor.task`, `list.filter`).
+- Paths go through maps only, never list positions. An item is reached by an ID in a field.
+- **Reading for the address:** a path through anything but a map, or to a missing name, is left out. One ending on a list or map stops the app, as a top-level one does.
+- **Opening a link:** the value is set only where the fresh state has that path with the same kind of value. Nothing on the way is created or changed.
+- Contract 4 apps' `link` names stay single segments.
+
+## Messages (PRP-039)
+
+A message is any CBOR value, as before. The Rust library writes typed ones (`#[derive(Message)]`): a unit variant as its name (`"Add"`), one with fields as `["Toggle", 3]`, and a part's wrapped as `["List", ["Toggle", 3]]`.
 

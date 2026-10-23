@@ -59,6 +59,8 @@ Never deleted. Older entries are never modified.
 - ☰ opens Settings, About Rapidkoi and Quit (PRP-038). Settings, a built-in app, chooses dark or light, more contrast, and text size from 80% to 200%, applied at once to Rapidkoi and every app that uses Rapidkoi's colours and sizes, and remembered.
 - Each app's ⚙ card can switch it to your colours and your text size, for apps that ignore them.
 - Apps can read your light/dark, contrast and text size choices, and are told when they change.
+- Links can point inside an app's state (PRP-039): `?page=task&editor.task=42` opens with the task set, through named fields only.
+- The Rust library: parts of an app keep their own typed messages (`#[derive(Message)]`, `.map`), nested state is kept as named fields, and link fields chain (`App::editor.then(Editor::task)`). A misspelt message no longer compiles. Contract 5 is complete.
 ### Changed
 - The redesign begins (on the `redesign` branch, DECISION-027): the window shows only the bare frame, an empty header bar with the window controls, an empty sidebar on the right and an empty content area (PRP-014). Tabs, the bar, home and the info panel are hidden until later redesign PRPs bring each back, in the frame or as a bundled app.
 - The address box (PRP-015): a rounded field centred in the header bar, "Enter Address" on home, the app's address and trust marker on an app (click or Ctrl+K to type). While typing, a card drops under it with what you typed, then "Rapidkoi suggest" with the open tabs, pins and where-you-left-off that match; Enter or a suggestion opens it, Escape or a click outside closes it, and a failed open says why in the card. Suggestions are local only. The content area shows the current app again.

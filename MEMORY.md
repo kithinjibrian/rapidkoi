@@ -306,6 +306,12 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - Each app's ⚙ card has Use my colours and Use my text size.
 - ☰ holds Settings, About and Quit.
 
+**Amended (PRP-039, sessions 203–204):**
+- Link fields are paths through named fields (`editor.task`), at most 4 deep, never list positions.
+- Nested `State` structs are named maps; link fields chain (`App::editor.then(Editor::task)`).
+- Messages are typed per part (`#[derive(Message)]`, `View<M>`, `.map`), with `String` still allowed.
+- Contract 5 is closed.
+
 ---
 
 ## CURRENT PROJECT STATE

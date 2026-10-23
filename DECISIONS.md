@@ -362,7 +362,7 @@ Rules:
 - **Nothing about looks goes in the manifest.**
 - **Rapidkoi is the engine, the Rust library is the framework:** the contract has boxes, text, styles, roles from AccessKit's list, and what an app can't build without painting (typing, scrolling and long lists, things on top, pictures, pickers). Widgets live in the library.
 - **State is a tree with one owner per piece; other parts hold IDs.** Link fields become paths into it (`editor.task=42`); pages stay the app's own.
-- **This is contract 5,** built in PRP-037 to PRP-039 and open until the last lands. That settles DECISION-048's step B question: B's drawing goes into 5 as real apps need it. Contract 4 stays as it is.
+- **This is contract 5,** built in PRP-037 to PRP-039, and closed with PRP-039 (session 204). That settles DECISION-048's step B question: B's drawing goes into 5 as real apps need it. Contract 4 stays as it is.
 
 **Rationale:** goals first (session 198): the developer wants an app that looks and behaves their way; the person wants apps that work for them. The research (the Extensible Web Manifesto, Flutter's layers, the first rule of ARIA, AccessKit) shaped the engine-and-framework split.
 

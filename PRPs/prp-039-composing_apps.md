@@ -87,22 +87,22 @@ Done looks like this:
 ## TESTS TO WRITE
 
 `test/address.la`:
-- [ ] `?editor.task=42&page=task` parses.
-- [ ] A bad segment, a fifth level, `..`, a leading or trailing `.`: each refused with why.
-- [ ] `link_of` writes paths as given.
+- [x] `?editor.task=42&page=task` parses.
+- [x] A bad segment, a fifth level, `..`, a leading or trailing `.`: each refused with why.
+- [x] `link_of` writes paths as given.
 
 `test/links.la`:
-- [ ] `read_link` takes paths for contract 5 and refuses them for contract 4.
-- [ ] `fields_in` reads `editor.task` from a nested map, and leaves out a path through a list or a missing branch.
-- [ ] `with_link` sets `editor.task` where the fresh state has it with the same kind, and ignores it through a list, a missing branch, or another kind.
+- [x] `read_link` takes paths for contract 5 and refuses them for contract 4.
+- [x] `fields_in` reads `editor.task` from a nested map, and leaves out a path through a list or a missing branch.
+- [x] `with_link` sets `editor.task` where the fresh state has it with the same kind, and ignores it through a list, a missing branch, or another kind.
 - [ ] A contract 5 fixture opened with a path link starts with the nested value set.
 
 `guest/rust` (`cargo test`):
-- [ ] A nested `State` struct encodes as a named map and round-trips.
-- [ ] `then` builds `"editor.task"`; a list field can't be linked (compile-fail doc test).
-- [ ] `#[derive(Message)]`: unit and field variants encode as specified and decode back; a nested enum through `.map` round-trips.
-- [ ] `Event::Message` decodes typed; an unknown message is ignored.
-- [ ] The apps' tests pass with typed messages.
+- [x] A nested `State` struct encodes as a named map and round-trips.
+- [x] `then` builds `"editor.task"`; a list field can't be linked (compile-fail doc test).
+- [x] `#[derive(Message)]`: unit and field variants encode as specified and decode back; a nested enum through `.map` round-trips.
+- [x] `Event::Message` decodes typed; an unknown message is ignored.
+- [x] The apps' tests pass with typed messages.
 
 ## ROLLBACK PLAN
 - Branch: `prp-017-kivuli_0_17`; `git revert` the PRP's commits. Links go back to top-level fields, and messages to strings.
@@ -111,10 +111,19 @@ Done looks like this:
 - [ ] A link with `editor.task=42` opens with it set (a fixture, and by eye once the tasks app exists).
 - [ ] The counter, quote, the new tab, styled and Settings behave as before.
 - [ ] `lughac test test/` and `cargo test` pass (the owner runs them); build ok; fmt clean; no file over 500 lines.
-- [ ] Docs updated; contract 5 marked closed.
+- [x] Docs updated; contract 5 marked closed.
 
 ## VALIDATION
 - `lughac fmt --check src test`, `lughac test test/`, `lughac build src/main.la -o main`, `cargo test --manifest-path guest/rust/Cargo.toml`
 - For the user:
   1. Open the counter, Add, and Settings' controls: each works as before.
   2. The counter's link still opens at its count.
+
+## AMENDMENTS (session 204, while building)
+
+- **No contract 5 fixture with a path link:** the fixture guests are contract 4, and opening a link applies paths the same way for both (`with_link`). It's tested directly in `test/links.la`. The tasks app (PRP-040) checks it end to end.
+- **A link's names in the address** may be paths for any app. Whether they reach anything is the app's state's to say: a contract 4 app's state has no nested names to find. Only an app's own `link` list is held to single segments for contract 4.
+- **`tabs`** takes `pick: impl Fn(&str) -> M` (the key of the tab picked), not a message prefix.
+- **`SignIn::on`** takes any app's events (`Event<M>`).
+- **`Event` and `View` default their message type to `String`,** so `View` and `Event` alone still mean string messages.
+
