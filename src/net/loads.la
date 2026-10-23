@@ -22,9 +22,9 @@ import window.tabs {
     close_page,
     failed_page,
     state_of,
-    with_saved,
     Screen,
 };
+import window.restarts { with_saved };
 import window.leftoff { LeftOff };
 import window.window { Model, with_tab, app };
 import net.fetching { Fetched, fetch_app };

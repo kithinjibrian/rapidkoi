@@ -9,17 +9,8 @@
  * Used by: shell
  */
 import std.fs;
-import window.tabs {
-    AppPage,
-    Tab,
-    open_path,
-    close_page,
-    resume,
-    load_again,
-    state_of,
-    state_version_of,
-    failed_page,
-};
+import window.tabs { AppPage, Tab, open_path, close_page, state_of, state_version_of, failed_page };
+import window.restarts { resume, load_again };
 import window.instances { next_instance, another };
 import data.remembered { Open };
 import window.leftoff { LeftOff, leave, compiled };

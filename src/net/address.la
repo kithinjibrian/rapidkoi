@@ -25,6 +25,10 @@ public struct Address {
     public remote: bool,
     /** Whether it's fetched over HTTPS. */
     public secure: bool,
+    /** The version a link names (`/@1.2.0`, PRP-036), if it names one. */
+    public version: Option<string>,
+    /** A link's fields (`?count=3`), decoded, in order: the app's, not Rapidkoi's. */
+    public fields: (string, string)[],
 }
 
 /** Why an address can't open. */
@@ -41,6 +45,8 @@ public enum AddressError {
     NoPort,
     /** A port that isn't a number from 1 to 65535. */
     BadPort,
+    /** A link's version or fields break the rules (PRP-036): why. */
+    BadLink(string),
 }
 
 /**
@@ -74,11 +80,17 @@ public fun parse(text: string): Result<Address, AddressError> {
     } else {
         return Err(AddressError.NotAnAddress);
     };
-    let rest = text.slice(scheme.len + 3, text.len);
-    // host[:port][/route]; an IPv6 host is bracketed, so its colons aren't the port's.
+    let whole = text.slice(scheme.len + 3, text.len);
+    // A link's fields follow the first `?` (PRP-036).
+    let q = find(whole, "?");
+    let rest = if q < 0 { whole } else { whole.slice(0, q) };
+    let query = if q < 0 { "" } else { whole.slice(q + 1, whole.len) };
+    // host[:port][/@version][/route]; an IPv6 host is bracketed, so its colons aren't the port's.
     let slash = find(rest, "/");
     let authority = if slash < 0 { rest } else { rest.slice(0, slash) };
-    let route = if slash < 0 { "/" } else { rest.slice(slash, rest.len) };
+    let path = if slash < 0 { "/" } else { rest.slice(slash, rest.len) };
+    let (version, route) = version_of(path)?;
+    let fields = fields_of(query)?;
     let (host, port_text) = split_authority(authority)?;
     let local = host == "localhost" || host == "127.0.0.1" || host == "[::1]";
     if !local && is_ip(host) {
@@ -111,7 +123,167 @@ public fun parse(text: string): Result<Address, AddressError> {
         http: scheme == "http",
         remote: !local,
         secure: secure,
+        version: version,
+        fields: fields,
     })
+}
+
+/** The most fields a link carries. */
+public const MAX_LINK_FIELDS: i64 = 16;
+
+/** The longest field name in a link, in bytes. */
+public const MAX_LINK_NAME: i64 = 64;
+
+/** The longest field value in a link, in bytes, decoded. */
+public const MAX_LINK_VALUE: i64 = 1024;
+
+/** The longest query a link carries, in bytes, encoded. */
+public const MAX_LINK_QUERY: i64 = 4096;
+
+/**
+ * Writes a link (PRP-036): the address's scheme and host, `/@version` when
+ * given, then the fields, each encoded. Remote apps are always `https://`,
+ * so a link is a real web address on the app's own domain.
+ *
+ * @param a the app's address
+ * @param version the running version, if known
+ * @param fields the names and values the app put in its address
+ * @returns the link
+ *
+ * Example:
+ *     link_of(a, Some("0.3.0"), [("count", "3")])
+ */
+public fun link_of(a: Address, version: Option<string>, fields: (string, string)[]): string {
+    let scheme = if a.remote {
+        "https"
+    } else if a.http {
+        "http"
+    } else if a.secure {
+        "https"
+    } else {
+        "rapidkoi"
+    };
+    let v = match version {
+        Some(x) => "/@{x}",
+        None => "",
+    };
+    let q = fields.map(fun(f: (string, string)) = "{f.0}={encode_value(f.1)}").join("&");
+    let tail = if q == "" { "" } else { if v == "" { "/?{q}" } else { "?{q}" } };
+    "{scheme}://{authority(a)}{v}{tail}"
+}
+
+/** `/@1.2.0[/rest]` → the version and the rest; any other path → no version. */
+fun version_of(path: string): Result<(Option<string>, string), AddressError> {
+    if !path.starts_with("/@") {
+        return Ok((None, path));
+    }
+    let after = path.slice(2, path.len);
+    let end = find(after, "/");
+    let v = if end < 0 { after } else { after.slice(0, end) };
+    let route = if end < 0 { "/" } else { after.slice(end, after.len) };
+    let parts = v.split(".");
+    let numbers = parts.len == 3 && parts.all(
+        fun(p: string) = p.len > 0 && p.len <= 9 && parse_i64(p).is_some(),
+    );
+    if !numbers {
+        return Err(AddressError.BadLink("A link's version must be like 1.4.0"));
+    }
+    Ok((Some(v), route))
+}
+
+/** `count=3&filter=work%20items` → decoded pairs, every limit checked first. */
+fun fields_of(query: string): Result<(string, string)[], AddressError> {
+    if query == "" {
+        return Ok([]);
+    }
+    if query.len > MAX_LINK_QUERY {
+        return Err(AddressError.BadLink("A link is longer than 4 KB"));
+    }
+    let parts = query.split("&").filter(fun(p: string) = p != "");
+    if parts.len > MAX_LINK_FIELDS {
+        return Err(AddressError.BadLink("A link has at most 16 fields"));
+    }
+    let mut out: (string, string)[] = [];
+    for p of parts {
+        let eq = find(p, "=");
+        let name = if eq < 0 { p } else { p.slice(0, eq) };
+        let raw = if eq < 0 { "" } else { p.slice(eq + 1, p.len) };
+        let named = name.len >= 1 && name.len <= MAX_LINK_NAME && name.chars().all(
+            fun(c: char) = c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_',
+        );
+        if !named {
+            return Err(
+                AddressError.BadLink("A link's field names are lowercase letters, digits and _"),
+            );
+        }
+        if out.any(fun(f: (string, string)) = f.0 == name) {
+            return Err(AddressError.BadLink("A link names {name} twice"));
+        }
+        let value = decode_value(raw).ok_or(
+            AddressError.BadLink("A link's {name} isn't encoded properly"),
+        )?;
+        if value.len > MAX_LINK_VALUE {
+            return Err(AddressError.BadLink("A link's {name} is longer than 1 KB"));
+        }
+        out.push((name, value));
+    }
+    Ok(out)
+}
+
+/** A value made safe for a link: everything but letters, digits and `-._~` as `%XX`. */
+fun encode_value(v: string): string {
+    let digits = "0123456789ABCDEF";
+    let mut out = "";
+    for b of v {
+        let c = b as char;
+        let plain = c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '.' || c == '_' || c == '~';
+        if plain {
+            out = out + "{c}";
+        } else {
+            let i = b as i64;
+            out = out + "%" + digits.slice(i / 16, i / 16 + 1) + digits.slice(i % 16, i % 16 + 1);
+        }
+    }
+    out
+}
+
+/** `%XX` and `+` decoded; `None` for a broken escape or bytes that aren't UTF-8. */
+fun decode_value(raw: string): Option<string> {
+    let mut bytes: u8[] = [];
+    let src = raw.to_bytes();
+    let mut i = 0;
+    while i < src.len {
+        let b = src[i];
+        if b == 37 {
+            if i + 2 >= src.len {
+                return None;
+            }
+            let hi = hex_digit(src[i + 1])?;
+            let lo = hex_digit(src[i + 2])?;
+            bytes.push((hi * 16 + lo) as u8);
+            i += 3;
+        } else if b == 43 {
+            bytes.push(32);
+            i += 1;
+        } else {
+            bytes.push(b);
+            i += 1;
+        }
+    }
+    string_from_utf8(bytes).ok()
+}
+
+fun hex_digit(b: u8): Option<i64> {
+    let n = b as i64;
+    if n >= 48 && n <= 57 {
+        Some(n - 48)
+    } else if n >= 65 && n <= 70 {
+        Some(n - 55)
+    } else if n >= 97 && n <= 102 {
+        Some(n - 87)
+    } else {
+        None
+    }
 }
 
 /**
@@ -177,6 +349,7 @@ public fun reason(e: AddressError): string = match e {
     NoHost => "This address has no host",
     NoPort => "This address needs a port, like rapidkoi://localhost:8000",
     BadPort => "The port must be a number from 1 to 65535",
+    BadLink(why) => why,
 };
 
 /** `host` and an optional port, from `host`, `host:port`, `[v6]` or `[v6]:port`. */

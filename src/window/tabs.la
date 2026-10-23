@@ -1,10 +1,10 @@
 /**
  * Pages and tabs: what one tab holds, and the life of an app page. Starting
- * a guest from a file or a module, sending it events, Restart, and resuming
- * a page that was left (`leftoff.la` keeps what's left). Calls guests (bounded by
+ * a guest from a file or a module, sending it events, and Restart; starting
+ * one again from saved state is `restarts.la`. Calls guests (bounded by
  * fuel); never draws.
  *
- * Depends on: cbor, wasmtime, guest.guest, bundles.bundle, bundles.loader, trust.verify, net.address, guest.contract, ui.render, window.leftoff, guest.running
+ * Depends on: cbor, wasmtime, guest.guest, bundles.bundle, bundles.loader, trust.verify, net.address, guest.contract, ui.render, guest.running
  * Used by: window.actions, ui.frame, home, panel, shell
  */
 import cbor { Value };
@@ -17,7 +17,6 @@ import trust.verify { Trust, Change, Keyring };
 import guest.contract { Described, ContractError, Effect, read_tree };
 import guest.events { Happened };
 import ui.render { Msg };
-import window.leftoff { LeftOff };
 import guest.running { start, happen };
 
 /** What an app page shows. */
@@ -328,114 +327,6 @@ public fun close_page(p: AppPage) {
         _ => {}
     }
 }
-
-/**
- * Reopens a page that was left, in a fresh store, with its saved state:
- * `view(state)` without calling `init`. A page left stopped starts afresh.
- *
- * @param l what `leave` kept
- * @returns the page, running or stopped
- *
- * Example:
- *     resume(left)
- */
-public fun resume(l: LeftOff): AppPage = match l.program {
-    Some(prog) => {
-        // Resumed from its state: no init, but it's opened, so it may ask.
-        let (screen, asks) = start(prog, l.state);
-        titled(AppPage {
-            name: l.name,
-            manifest: l.manifest,
-            icon: l.icon,
-            path: l.path,
-            title: l.title,
-            trust: l.trust,
-            program: Some(prog),
-            asks: asks,
-            load: 0,
-            in_flight: 0,
-            screen: screen,
-            // The same instance, under its name (PRP-033).
-            instance: l.instance,
-            label: l.label,
-            seen: 0,
-        })
-    }
-    None => failed(l.name, l.path, "This app couldn't be reopened"),
-};
-
-/**
- * Starts a page again from a saved state, when the state's version is the
- * page's: how a signed app picks up where it was after a restart.
- *
- * @returns the page, and whether the saved state had to be dropped
- *     because its shape changed (the page is left as it was then)
- *
- * Example:
- *     with_saved(page, saved.state, saved.state_version)
- */
-public fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = match p.program {
-    Some(prog) if state_version_of(p) == version => {
-        close_page(p);
-        let (screen, asks) = start(prog, Some(state));
-        (titled(AppPage { screen: screen, asks: asks, ..p }), false)
-    }
-    Some(_) => (p, true),
-    None => (p, false),
-};
-
-/**
- * Loads an app again from where it came from (its file, or its development
- * server) and starts it with `saved` state when the new build's state
- * version matches; otherwise fresh. ⟳ Reload uses it.
- *
- * @param engine the program's engine
- * @param ring this session's trusted keys
- * @param path the page's file or address
- * @param saved the running page's state and state version, if it had one
- * @returns the page, and whether a saved state had to be dropped because
- *     its shape changed (`migrate` comes with PRP-006)
- *
- * Example:
- *     load_again(engine, ring, page.path, Some((state, 1)))
- */
-public fun load_again(
-    engine: Engine,
-    ring: Keyring,
-    path: string,
-    saved: Option<(u8[], i64)>,
-): (AppPage, bool) = match load(engine, ring, path) {
-    Err(r) => (refused(r, path), false),
-    Ok(l) => {
-        let fresh = AppPage {
-            manifest: l.manifest,
-            icon: l.icon,
-            trust: l.trust,
-            ..open_program(l.name, path, Program { engine: engine, module: l.module }),
-        };
-        let now = state_version_of(fresh);
-        match saved {
-            Some((state, version)) if version == now => {
-                close_page(fresh);
-                let program = Program { engine: engine, module: l.module };
-                (
-                    {
-                        let (screen, asks) = start(program, Some(state));
-                        titled(AppPage {
-                            program: Some(program),
-                            screen: screen,
-                            asks: asks,
-                            ..fresh,
-                        })
-                    },
-                    false,
-                )
-            }
-            Some(_) => (fresh, true),
-            None => (fresh, false),
-        }
-    }
-};
 
 /**
  * Returns the version of a page's state shape: its manifest's, or 1 for a

@@ -1,7 +1,8 @@
 // Pages in tabs: starting a guest, events and Restart, leaving a page and
 // resuming it with its saved state. Fixture guests; no display.
 import rapidkoi.bundles.bundle { Bundle, Manifest, write };
-import rapidkoi.window.tabs { AppPage, open_module, open_path, handle, resume, state_of };
+import rapidkoi.window.tabs { AppPage, open_module, open_path, handle, state_of };
+import rapidkoi.window.restarts { resume };
 import rapidkoi.window.leftoff { leave };
 import rapidkoi.ui.render { Msg };
 import rapidkoi.guest.contract { envelope };
