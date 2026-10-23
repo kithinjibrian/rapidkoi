@@ -34,9 +34,10 @@ fun shown(m: Model): string[] = match page_of(m) {
 @test
 fun the_counter_starts_at_zero_with_reset_disabled() {
     let m = started();
-    // A v2 app: the greeting's {FIRST_NAME} is filled (empty here: no name
-    // set), and with no data folder it can't be signed in.
-    assert_eq(shown(m), ["Counter", "Count: 0", "Hello, !", "Not signed in"]);
+    // The greeting's {FIRST_NAME} is filled (empty here: no name set), and
+    // with no data folder it can't be signed in. Its buttons are contract 5
+    // boxes, so their labels are texts too (PRP-037).
+    assert_eq(shown(m), ["Counter", "Count: 0", "Add", "Reset", "Hello, !", "Not signed in"]);
     assert_eq(is_disabled(view(m), "Reset"), Ok(true));
     assert_eq(title_of(m), "Rapidkoi — Counter");
 }
@@ -56,7 +57,7 @@ fun add_counts_and_reset_clears() {
 fun typing_a_name_greets_it() {
     let m = started();
     let named = step(m, type_into(view(m), "Your name", "Amina").unwrap());
-    assert_eq(shown(named)[2], "Hello, Amina!");
+    assert_eq(shown(named)[4], "Hello, Amina!");
 }
 
 @test

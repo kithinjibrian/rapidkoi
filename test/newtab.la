@@ -78,8 +78,11 @@ fun refusal(bytes: u8[], origin: Origin): string = match from_bytes(
 @test
 fun the_same_bytes_from_outside_are_refused() {
     // PRP-030: built-in is where the bytes came from, never what they say.
+    // The new tab's controls are refused first, before its module or its
+    // permissions are looked at (PRP-031).
+    assert_eq(refusal(BUNDLE, Origin.External), "This app asks to change Rapidkoi's own controls");
     assert_eq(
-        refusal(BUNDLE, Origin.External),
+        refusal(declaring(["read_pins"]), Origin.External),
         "This app asks for something only Rapidkoi's own apps can have: reading your pins",
     );
     assert_eq(

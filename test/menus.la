@@ -3,7 +3,7 @@
 // the redesign's tabs and new tab (DECISION-030). Fixture guests; no
 // display, no network.
 import rapidkoi.shell { Model, with_pages, update };
-import rapidkoi.window.actions { Msg, ShieldPage, Confirm, TabAction, PinAction };
+import rapidkoi.window.actions { Msg, ShieldPage, PanelPage, Confirm, TabAction, PinAction };
 import rapidkoi.window.tabs { AppPage, open_module };
 import wasmtime { Engine, Module };
 import support { echo };
@@ -43,8 +43,9 @@ fun picking_an_item_selects_that_tab_then_acts() {
     let asked = step(m, Msg.OnTab(1, TabAction.Forget));
     assert_eq(
         (asked.current, asked.panel, asked.confirm),
-        // Asked in a dialog; site settings stay closed on the newly shown tab (PRP-022).
-        (Some(1), None, Some(Confirm.Forget)),
+        // Asked over site settings, which the menu opened, so they stay open
+        // on the newly shown tab (session 165).
+        (Some(1), Some(PanelPage.Main), Some(Confirm.Forget)),
     );
     assert_eq(asked.tabs.len, 2);
     let reloaded = step(m, Msg.OnTab(1, TabAction.Reload));
@@ -62,7 +63,7 @@ fun a_pin_s_actions() {
     assert_eq((unpinned.pinned.len, unpinned.blanks.len), (0, 1));
     // Forget shows it (its open tab, PRP-026), with the question.
     let asked = step(pinned, Msg.OnPin("notes.wasm", PinAction.Forget));
-    assert_eq((asked.panel, asked.confirm), (None, Some(Confirm.Forget)));
+    assert_eq((asked.panel, asked.confirm), (Some(PanelPage.Main), Some(Confirm.Forget)));
     assert_eq(asked.current, Some(0));
     // Unpinning a path that isn't pinned changes nothing.
     assert_eq(step(pinned, Msg.OnPin("other.wasm", PinAction.Unpin)).pinned.len, 1);
