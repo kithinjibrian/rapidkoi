@@ -119,7 +119,7 @@ fun opening_a_bundle_uses_its_manifest() {
 
 @test
 fun a_bundle_for_a_newer_contract_says_so() {
-    let p = open_path(Engine.new(), keyring(), rkb("newer", 5));
+    let p = open_path(Engine.new(), keyring(), rkb("newer", 6));
     assert_eq(reason_of(p), "This app needs a newer version of Rapidkoi");
     assert_eq(p.name, "Bundled");
 }

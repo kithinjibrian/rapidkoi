@@ -7,11 +7,43 @@
  * Depends on: kivuli, cbor, guest.contract, ui.tokens, ui.themes
  * Used by: shell
  */
-import kivuli { View, Align, button, column, input, row, text };
+import kivuli {
+    View,
+    Align,
+    Styling,
+    Background,
+    Border,
+    Outline,
+    Shadow,
+    Side,
+    Radius,
+    Width,
+    Line,
+    When,
+    State,
+    button,
+    button_with,
+    column,
+    input,
+    row,
+    text,
+    text_area,
+};
 import cbor { Value };
 import guest.contract { Node, TextStyle, ButtonLook };
-import ui.tokens { SPACE_SM, pixels, gap, margin };
-import ui.themes { Theme, body, dim, title, heading, field, button as button_look };
+import guest.nodes { Look, Facts, Typing, Direction };
+import ui.tokens { SPACE_SM, RING_WIDTH, pixels, gap, margin };
+import ui.themes {
+    Theme,
+    body,
+    dim,
+    title,
+    heading,
+    field,
+    paint as theme_paint,
+    button as button_look,
+};
+import ui.paint { resolve, styles_of, align_of };
 
 /** What the shell's window sends its `update`. */
 public enum Msg {
@@ -55,6 +87,114 @@ public fun screen(n: Node, t: Theme): View<Msg> = match n {
         margin(pixels(padding)),
     ]),
     Unsupported(kind) => text("Unsupported component: {kind}").style(dim(t)).align(Align.Start),
+    Boxed(look, facts, press, kids) => boxed(look, facts, press, kids, t),
+    Words(s, look, facts) => placed(
+        text(s).style(body(t) + drawn(look, facts, t)),
+        look,
+        Align.Start,
+    ),
+    Field(typing, look) => placed(
+        typing_box(typing, t).style(field(t) + drawn(look, facts_none(), t)),
+        look,
+        Align.Fill,
+    ),
+};
+
+/**
+ * A contract 5 box (PRP-037): its children in a row or column, styled as
+ * the app said. With `on_press` it's a button around them: focusable, and
+ * pressed by click, Enter or Space. Its base look is nothing at all (no
+ * GTK button look, DECISION-031) but a focus ring, so the keyboard's place
+ * always shows; the app's style goes over it.
+ */
+fun boxed(look: Look, facts: Facts, press: Option<Value>, kids: Node[], t: Theme): View<Msg> {
+    let inside = kids.map(fun(k: Node) = screen(k, t));
+    let layout = match look.direction {
+        Row => row(inside),
+        Column => column(inside),
+    };
+    let spaced = match look.gap {
+        Some(_) => {
+            let g: Styling[] = [gap(resolve(look, t).gap.unwrap_or(0))];
+            layout.style(g)
+        }
+        None => layout,
+    };
+    let styles = drawn(Look { gap: None, ..look }, facts, t);
+    match press {
+        Some(m) => {
+            let pressed = button_with(spaced, Msg.Event(m, None)).style(bare(t) + styles);
+            placed(if facts.disabled { pressed.disabled(true) } else { pressed }, look, Align.Fill)
+        }
+        None => placed(spaced.style(styles), look, Align.Fill),
+    }
+}
+
+/** A pressable box's look before the app's: no fill, edge or shadow; the accent ring on focus. */
+fun bare(t: Theme): Styling[] = [
+    Background { color: theme_paint(t.clear), ..Background.theme() },
+    Border {
+        all: Side { width: Width.Px(0), ..Side.theme() },
+        radius: Radius.All(0),
+        ..Border.theme(),
+    },
+    Shadow.off(),
+    When(State.Focus, [
+        Outline {
+            width: Width.Px(RING_WIDTH),
+            color: theme_paint(t.accent),
+            style: Line.Solid,
+            ..Outline.theme(),
+        },
+    ]),
+];
+
+/** A look's styles, with the `checked` look laid over when the node is checked. */
+fun drawn(look: Look, facts: Facts, t: Theme): Styling[] {
+    let base = styles_of(resolve(look, t));
+    if facts.checked != Some(true) {
+        return base;
+    }
+    let mut out = base;
+    for (name, inner) of look.states {
+        if name == "checked" {
+            for s of styles_of(resolve(inner, t)) {
+                out.push(s);
+            }
+        }
+    }
+    out
+}
+
+/** Where a node sits and whether it takes the spare room, as the app said. */
+fun placed(v: View<Msg>, look: Look, otherwise: Align): View<Msg> {
+    let aligned = v.align(look.align.map(align_of).unwrap_or(otherwise));
+    if look.grow { aligned.expand() } else { aligned }
+}
+
+/** One line, or a box of several; Enter on one line sends `on_submit` with the text. */
+fun typing_box(f: Typing, t: Theme): View<Msg> {
+    let change = f.on_change;
+    let send = fun(s: string) = Msg.Event(change.unwrap_or(Value.Null), Some(s));
+    if f.lines > 1 {
+        let area = text_area(f.value, send);
+        return if change.is_none() { area.disabled(true) } else { area };
+    }
+    let line = input(f.value, send).placeholder(f.placeholder);
+    let submitting = match f.on_submit {
+        Some(m) => line.on_submit(Msg.Event(m, Some(f.value))),
+        None => line,
+    };
+    if change.is_none() { submitting.disabled(true) } else { submitting }
+}
+
+/** No role, no state: for nodes that can't have them. */
+fun facts_none(): Facts = Facts {
+    role: None,
+    checked: None,
+    selected: None,
+    disabled: false,
+    label: None,
 };
 
 /**

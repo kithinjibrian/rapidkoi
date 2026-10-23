@@ -1,0 +1,120 @@
+// Contract 5's screens (PRP-037), pure: boxes, texts and typing boxes,
+// their styles and roles, and the same limits as before.
+import rapidkoi.guest.tree5 { read_tree5 };
+import rapidkoi.guest.nodes { Node, Typing, Role, Colour, ContractError };
+import rapidkoi.guest.limits { MAX_NODES, MAX_NODE_DEPTH };
+import cbor { Value, encode };
+import support { t, kv, leaf, parent };
+
+fun read(v: Value): Result<Node, ContractError> = read_tree5(encode(v)).map(fun(d) = d.root);
+
+fun why(v: Value): string = match read_tree5(encode(v)) {
+    Err(Invalid(path, problem)) => "{path}: {problem}",
+    Err(_) => "another error",
+    Ok(_) => "ok",
+};
+
+@test
+fun a_counter_reads() {
+    let add = parent(
+        "box",
+        [
+            ("role", t("button")),
+            ("on_press", t("add")),
+            ("style", kv([("background", t("accent"))])),
+        ],
+        [leaf("text", [("text", t("Add"))])],
+    );
+    let root = parent("box", [("title", t("Counter"))], [
+        leaf("text", [("text", t("Count: 3")), ("role", t("heading"))]),
+        add,
+    ]);
+    let d = read_tree5(encode(root)).unwrap();
+    assert_eq(d.title, Some("Counter"));
+    match d.root {
+        Boxed(_, _, None, kids) => {
+            assert_eq(kids.len, 2);
+            match kids[0] {
+                Words(s, _, f) => assert_eq((s, f.role == Some(Role.Heading)), ("Count: 3", true)),
+                _ => panic("expected a text"),
+            }
+            match kids[1] {
+                Boxed(l, f, Some(msg), inner) => {
+                    assert_eq(
+                        (msg == t("add"), f.role == Some(Role.Button), inner.len),
+                        (true, true, 1),
+                    );
+                    assert_eq(l.background == Some(Colour.Named("accent")), true);
+                }
+                _ => panic("expected a pressable box"),
+            }
+        }
+        _ => panic("expected a box"),
+    }
+}
+
+@test
+fun typing_boxes_read() {
+    let one = read(
+        leaf("input", [
+            ("value", t("Buy")),
+            ("placeholder", t("What needs doing?")),
+            ("on_change", t("draft")),
+            ("on_submit", t("add")),
+        ]),
+    ).unwrap();
+    match one {
+        Field(f, _) => {
+            assert_eq((f.value, f.placeholder, f.lines), ("Buy", "What needs doing?", 1));
+            assert_eq(
+                (f.on_change == Some(t("draft")), f.on_submit == Some(t("add"))),
+                (true, true),
+            );
+        }
+        _ => panic("expected a field"),
+    }
+    match read(leaf("input", [("value", t("")), ("lines", Value.int(5))])).unwrap() {
+        Field(f, _) => assert_eq((f.lines, f.on_change.is_none()), (5, true)),
+        _ => panic("expected a field"),
+    }
+    assert_eq(
+        why(leaf("input", [("value", t("")), ("lines", Value.int(21))])),
+        "root > input: lines must be 1 to 20",
+    );
+}
+
+@test
+fun earlier_kinds_and_unknown_ones_are_placeholders() {
+    // Contract 5 speaks box, text and input; anything else is shown as unsupported.
+    match read(leaf("button", [("label", t("Old"))])).unwrap() {
+        Unsupported(kind) => assert_eq(kind, "button"),
+        _ => panic("expected a placeholder"),
+    }
+}
+
+@test
+fun a_bad_style_or_role_stops_it_with_where() {
+    let bad_style = parent("box", [], [
+        leaf("text", [("text", t("x")), ("style", kv([("width", Value.int(-1))]))]),
+    ]);
+    assert_eq(why(bad_style), "root > box > text[0]: style.width must be 0–4096 px");
+    assert_eq(
+        why(leaf("box", [("role", t("task"))])).starts_with("root > box: role must be"),
+        true,
+    );
+    assert_eq(why(leaf("text", [])), "root > text: \"text\" is missing");
+}
+
+@test
+fun the_limits_still_hold() {
+    let mut kids: Value[] = [];
+    for _ in 0..MAX_NODES {
+        kids.push(leaf("text", [("text", t("x"))]));
+    }
+    assert_eq(why(parent("box", [], kids)).contains("more than {MAX_NODES} nodes"), true);
+    let mut v = leaf("text", [("text", t("bottom"))]);
+    for _ in 0..MAX_NODE_DEPTH + 1 {
+        v = parent("box", [], [v]);
+    }
+    assert_eq(why(v).contains("deeper than {MAX_NODE_DEPTH} nodes"), true);
+}

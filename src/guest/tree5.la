@@ -1,0 +1,162 @@
+/**
+ * Contract 5's screens (PRP-037), pure: a `view` result read into boxes,
+ * texts and typing boxes, each with its style (`guest.styles`) and what it
+ * is (`guest.roles`). The same limits as earlier contracts: the bytes, the
+ * node count and depth, and each string. Any other kind, earlier contracts'
+ * included, is shown as unsupported, its subtree still counted.
+ *
+ * Depends on: cbor, guest.nodes, guest.limits, guest.props, guest.styles, guest.roles
+ * Used by: guest.running
+ */
+import cbor { Value, Limits, decode };
+import guest.nodes { Node, Typing, Described, ContractError, invalid };
+import guest.limits { MAX_VIEW, MAX_NODES, MAX_NODE_DEPTH, MAX_STRING };
+import guest.props { text, optional_text, maybe_text };
+import guest.styles { read_style };
+import guest.roles { read_facts };
+
+/** The most lines a typing box may have. */
+public const MAX_LINES: i64 = 20;
+
+/**
+ * Decodes a contract 5 screen and its title.
+ *
+ * @param bytes what the guest's `view` returned
+ * @returns the tree and the root's optional `title`; `Err(TooLong)` over
+ *     `MAX_VIEW`, `Err(Decode)` for bad CBOR or a decoder limit,
+ *     `Err(Invalid)` for a node, style or role breaking contract 5
+ *
+ * Example:
+ *     read_tree5(bytes)?.root
+ */
+public fun read_tree5(bytes: u8[]): Result<Described, ContractError> {
+    if bytes.len > MAX_VIEW {
+        return Err(ContractError.TooLong("the screen description", bytes.len));
+    }
+    // Two CBOR levels per node (its map, its children), and a style nests
+    // up to six more (props, style, a state's look, a border, a mix, its
+    // list). Styles add many small items, so the count is bounded by the
+    // bytes; nodes are counted exactly while walking.
+    let bounds = Limits {
+        max_depth: 2 * MAX_NODE_DEPTH + 12,
+        max_items: MAX_VIEW,
+        max_bytes: MAX_VIEW,
+        max_string: MAX_STRING,
+    };
+    let value = decode(bytes, bounds).map_err(ContractError.Decode)?;
+    let count = Ref.new(0);
+    let root = node(value, "", 0, 1, count)?;
+    let title = match (value.get("kind"), value.get("props")) {
+        (Some(Text(kind)), Some(given)) => maybe_text(given, "title", "root > {kind}")?,
+        _ => None,
+    };
+    Ok(Described { root: root, title: title })
+}
+
+/** One node and its subtree, counted in `count`; paths read `root > box > text[1]`. */
+fun node(
+    v: Value,
+    parent: string,
+    index: i64,
+    depth: i64,
+    count: Ref<i64>,
+): Result<Node, ContractError> {
+    let path = if parent == "" { "root" } else { "{parent} > [{index}]" };
+    if v.as_map().is_none() {
+        return Err(invalid(path, "a node must be a map"));
+    }
+    let kind = match v.get("kind") {
+        Some(Text(k)) => k,
+        Some(_) => {
+            return Err(invalid(path, "\"kind\" must be text"));
+        }
+        None => {
+            return Err(invalid(path, "\"kind\" is missing"));
+        }
+    };
+    let here = if parent == "" { "root > {kind}" } else { "{parent} > {kind}[{index}]" };
+    count.set(count.get() + 1);
+    if count.get() > MAX_NODES {
+        return Err(invalid(here, "more than {MAX_NODES} nodes"));
+    }
+    if depth > MAX_NODE_DEPTH {
+        return Err(invalid(here, "deeper than {MAX_NODE_DEPTH} nodes"));
+    }
+    let given = match v.get("props") {
+        Some(Map(es)) => Value.Map(es),
+        None => Value.Map([]),
+        Some(_) => {
+            return Err(invalid(here, "\"props\" must be a map"));
+        }
+    };
+    if kind == "box" {
+        let look = read_style(given.get("style"), here)?;
+        let facts = read_facts(given, here)?;
+        return Ok(Node.Boxed(look, facts, given.get("on_press"), children(v, here, depth, count)?));
+    }
+    if kind == "text" {
+        let s = text(given, "text", here)?;
+        return Ok(Node.Words(s, read_style(given.get("style"), here)?, read_facts(given, here)?));
+    }
+    if kind == "input" {
+        let lines = match given.get("lines") {
+            None => 1,
+            Some(n) => match n.as_i64() {
+                Some(x) if x >= 1 && x <= MAX_LINES => x,
+                _ => {
+                    return Err(invalid(here, "lines must be 1 to {MAX_LINES}"));
+                }
+            },
+        };
+        let typing = Typing {
+            value: text(given, "value", here)?,
+            placeholder: optional_text(given, "placeholder", here)?,
+            lines: lines,
+            // No `on_change` means disabled, as before (DECISION-016).
+            on_change: given.get("on_change"),
+            on_submit: given.get("on_submit"),
+        };
+        return Ok(Node.Field(typing, read_style(given.get("style"), here)?));
+    }
+    // Anything else isn't read, but its subtree still counts against the
+    // limits, so it can't hide an oversized tree.
+    tally(v, here, depth, count)?;
+    Ok(Node.Unsupported(kind))
+}
+
+/** A box's `children`, each at the next depth. */
+fun children(v: Value, here: string, depth: i64, count: Ref<i64>): Result<Node[], ContractError> {
+    let items = match v.get("children") {
+        Some(Array(xs)) => xs,
+        None => [],
+        Some(_) => {
+            return Err(invalid(here, "\"children\" must be an array"));
+        }
+    };
+    let mut out: Node[] = [];
+    let mut i = 0;
+    for item of items {
+        out.push(node(item, here, i, depth + 1, count)?);
+        i += 1;
+    }
+    Ok(out)
+}
+
+/** Counts an unread node's subtree against the limits. */
+fun tally(v: Value, here: string, depth: i64, count: Ref<i64>): Result<(), ContractError> {
+    let items = match v.get("children") {
+        Some(Array(xs)) => xs,
+        _ => [],
+    };
+    for item of items {
+        count.set(count.get() + 1);
+        if count.get() > MAX_NODES {
+            return Err(invalid(here, "more than {MAX_NODES} nodes"));
+        }
+        if depth + 1 > MAX_NODE_DEPTH {
+            return Err(invalid(here, "deeper than {MAX_NODE_DEPTH} nodes"));
+        }
+        tally(item, here, depth + 1, count)?;
+    }
+    Ok(())
+}

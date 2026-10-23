@@ -68,9 +68,11 @@ public const INSTANCE_NAME_WIDTH: i64 = 88;
 public const STRIP_WIDTH: i64 = 520;
 /** A radius past half of any box Rapidkoi rounds: a circle, or a pill. */
 public const CIRCLE: i64 = 999;
-/** A button's and a text field's corners, in pixels. */
+/** Small corners an app asks for (`corner: "small"`, PRP-037), in pixels. */
+public const CORNER_SMALL: i64 = 4;
+/** A button's and a text field's corners, in pixels: also an app's `corner: "medium"`. */
 public const BUTTON_RADIUS: i64 = 6;
-/** The page's top-right curve, in pixels. */
+/** The page's top-right curve, in pixels: also an app's `corner: "large"`. */
 public const PAGE_RADIUS: i64 = 12;
 
 /**

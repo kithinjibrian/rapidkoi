@@ -1,0 +1,56 @@
+// Contract 5's roles (PRP-037), pure: what a node is and its state.
+import rapidkoi.guest.roles { read_facts, no_facts };
+import rapidkoi.guest.nodes { Facts, Role, ContractError };
+import cbor { Value };
+import support { t, kv };
+
+fun why(pairs: (string, Value)[]): string = match read_facts(kv(pairs), "root > box") {
+    Err(Invalid(_, problem)) => problem,
+    Err(_) => "another error",
+    Ok(_) => "ok",
+};
+
+@test
+fun roles_and_states_read() {
+    let f = read_facts(
+        kv([("role", t("checkbox")), ("checked", Value.Bool(true)), ("label", t("Buy milk"))]),
+        "root",
+    ).unwrap();
+    assert_eq(
+        (f.role == Some(Role.Checkbox), f.checked, f.label),
+        (true, Some(true), Some("Buy milk")),
+    );
+    let tab = read_facts(kv([("role", t("tab")), ("selected", Value.Bool(true))]), "root").unwrap();
+    assert_eq((tab.role == Some(Role.Tab), tab.selected), (true, Some(true)));
+    for name of [
+        "button",
+        "switch",
+        "tab_list",
+        "heading",
+        "list",
+        "list_item",
+        "group",
+        "separator",
+    ] {
+        assert_eq(read_facts(kv([("role", t(name))]), "root").is_ok(), true);
+    }
+    assert_eq(read_facts(kv([("disabled", Value.Bool(true))]), "root").unwrap().disabled, true);
+    assert_eq(read_facts(kv([]), "root").unwrap() == no_facts(), true);
+}
+
+@test
+fun a_bad_role_says_why() {
+    assert_eq(
+        why([("role", t("task"))]),
+        "role must be one of button, checkbox, switch, tab, tab_list, heading, list, list_item, group, separator",
+    );
+    assert_eq(
+        why([("role", t("button")), ("checked", Value.Bool(true))]),
+        "only a checkbox or a switch is checked",
+    );
+    assert_eq(
+        why([("role", t("heading")), ("selected", Value.Bool(true))]),
+        "only a tab or a list item is selected",
+    );
+    assert_eq(why([("checked", t("yes"))]), "checked must be true or false");
+}

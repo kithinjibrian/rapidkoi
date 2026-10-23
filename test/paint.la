@@ -1,0 +1,84 @@
+// Contract 5's looks drawn (PRP-037), pure: Rapidkoi's names become the
+// theme's values, raw ones stay as written, and state looks become `When`.
+import rapidkoi.ui.paint { Drawn, colour_of, resolve, space_of, corner_of };
+import rapidkoi.ui.themes { DARK };
+import rapidkoi.ui.tokens { SPACE_MD, TEXT_TITLE, BUTTON_RADIUS, CIRCLE };
+import rapidkoi.guest.nodes { Colour, Measure, TextSize, Look };
+import rapidkoi.guest.styles { plain };
+import kivuli { Paint, Color, Size, Weight, Family, State, hex };
+
+@test
+fun rapidkoi_s_names_become_the_theme_s_colours() {
+    assert_eq(colour_of(Colour.Named("accent"), DARK) == Paint.Color(hex(DARK.accent)), true);
+    assert_eq(colour_of(Colour.Named("background"), DARK) == Paint.Color(hex(DARK.page)), true);
+    assert_eq(colour_of(Colour.Named("border"), DARK) == Paint.Color(hex(DARK.edge)), true);
+}
+
+@test
+fun raw_colours_stay_and_mixes_compute() {
+    assert_eq(
+        colour_of(Colour.Raw(46, 125, 50, 128), DARK) == Paint.Color(Color {
+            red: 46,
+            green: 125,
+            blue: 50,
+            alpha: 128,
+        }),
+        true,
+    );
+    // Halfway from #ff7700 to #e8e8e8, rounded.
+    let half = colour_of(Colour.Mix(Colour.Named("accent"), Colour.Named("text"), 0.5), DARK);
+    assert_eq(half == Paint.Color(Color { red: 244, green: 176, blue: 116, alpha: 255 }), true);
+    assert_eq(
+        colour_of(
+            Colour.Mix(Colour.Raw(0, 0, 0, 255), Colour.Raw(255, 255, 255, 255), 0.0),
+            DARK,
+        ) == Paint.Color(Color { red: 0, green: 0, blue: 0, alpha: 255 }),
+        true,
+    );
+}
+
+@test
+fun names_become_tokens() {
+    assert_eq((space_of(Measure.Named("md")), space_of(Measure.Px(7))), (SPACE_MD, 7));
+    assert_eq(
+        (corner_of(Measure.Named("medium")), corner_of(Measure.Named("round"))),
+        (BUTTON_RADIUS, CIRCLE),
+    );
+}
+
+@test
+fun a_look_resolves_to_what_is_drawn() {
+    let l = plain();
+    let d = resolve(
+        Look {
+            size: Some(TextSize.Named("title")),
+            weight: Some("bold"),
+            font: Some("mono"),
+            background: Some(Colour.Named("surface")),
+            padding: Some((Measure.Named("sm"), Measure.Px(20))),
+            states: [("hover", Look { background: Some(Colour.Named("accent")), ..l })],
+            ..l,
+        },
+        DARK,
+    );
+    assert_eq((d.size == Some(Size.Pt(TEXT_TITLE)), d.weight == Some(Weight.Bold)), (true, true));
+    assert_eq(d.family == Some(Family.Monospace), true);
+    assert_eq(d.background == Some(Paint.Color(hex(DARK.control))), true);
+    assert_eq(d.padding, Some((8, 20)));
+    assert_eq(d.states.len, 1);
+    assert_eq(d.states[0].0 == State.Hover, true);
+    assert_eq(d.states[0].1.background == Some(Paint.Color(hex(DARK.accent))), true);
+    // Body and small text follow the base size; rem is a multiple of it.
+    assert_eq(
+        resolve(Look { size: Some(TextSize.Named("small")), ..l }, DARK).size == Some(
+            Size.Scale(0.875),
+        ),
+        true,
+    );
+    assert_eq(
+        resolve(Look { size: Some(TextSize.Rem(1.5)), ..l }, DARK).size == Some(Size.Scale(1.5)),
+        true,
+    );
+    // The checked look is drawn by Rapidkoi when the node is checked, not as a state.
+    assert_eq(resolve(Look { states: [("checked", l)], ..l }, DARK).states.len, 0);
+}

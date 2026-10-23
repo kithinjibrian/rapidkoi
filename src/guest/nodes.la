@@ -63,6 +63,134 @@ public enum Node {
     Row(Space, Space, Self[]),
     /** A kind this shell doesn't know: shown as a placeholder. */
     Unsupported(string),
+    /** Contract 5 (PRP-037): a box, its look, what it is, the message a press sends, and its children. */
+    Boxed(Look, Facts, Option<Value>, Self[]),
+    /** Contract 5: a text, its look and what it is. */
+    Words(string, Look, Facts),
+    /** Contract 5: a typing box. */
+    Field(Typing, Look),
+}
+
+/** A contract 5 typing box (PRP-037). */
+public struct Typing {
+    /** The text in it. */
+    public value: string,
+    /** What it shows while empty. */
+    public placeholder: string,
+    /** 1 for one line; 2 to 20 for a box of several lines. */
+    public lines: i64,
+    /** The message each edit sends (`None`: disabled). */
+    public on_change: Option<Value>,
+    /** The message Enter sends, on one line. */
+    public on_submit: Option<Value>,
+}
+
+/** Which way a box lays out its children. */
+public enum Direction {
+    /** Top to bottom: the default. */
+    Column,
+    /** Left to right. */
+    Row,
+}
+
+/** Where a node sits across its parent. */
+public enum Place {
+    /** At the start. */
+    Start,
+    /** In the middle. */
+    Center,
+    /** At the end. */
+    End,
+    /** Across the whole width (in a column) or height (in a row). */
+    Stretch,
+}
+
+/** A colour in a contract 5 style: Rapidkoi's name, the app's own, or a mix of two. */
+public enum Colour {
+    /** One of Rapidkoi's names (`accent`, `text`…): its value is never given to the app. */
+    Named(string),
+    /** Red, green, blue and alpha, each 0–255. */
+    Raw(i64, i64, i64, i64),
+    /** The first colour moved towards the second by 0 to 1. */
+    Mix(Self, Self, f64),
+}
+
+/** A length in a contract 5 style: one of Rapidkoi's names (`md`, `small`…) or pixels. */
+public enum Measure {
+    /** A token's name. */
+    Named(string),
+    /** Pixels. */
+    Px(i64),
+}
+
+/** A text size: one of Rapidkoi's (`title`…), points, or a multiple of the body size. */
+public enum TextSize {
+    /** `title`, `heading`, `body` or `small`. */
+    Named(string),
+    /** Points. */
+    Pt(i64),
+    /** Times the body size. */
+    Rem(f64),
+}
+
+/** A contract 5 node's style, checked (PRP-037): everything optional, as the app gave it. */
+public struct Look {
+    public direction: Direction,
+    public gap: Option<Measure>,
+    /** Vertical and horizontal. */
+    public padding: Option<(Measure, Measure)>,
+    public align: Option<Place>,
+    public grow: bool,
+    public width: Option<i64>,
+    public height: Option<i64>,
+    public min_width: Option<i64>,
+    public max_width: Option<i64>,
+    public min_height: Option<i64>,
+    public max_height: Option<i64>,
+    public background: Option<Colour>,
+    public color: Option<Colour>,
+    /** Its width and colour. */
+    public border: Option<(i64, Colour)>,
+    public corner: Option<Measure>,
+    /** Its width and colour. */
+    public outline: Option<(i64, Colour)>,
+    /** `none`, `sm`, `md` or `lg`. */
+    public shadow: Option<string>,
+    public opacity: Option<f64>,
+    public size: Option<TextSize>,
+    /** `normal`, `medium` or `bold`. */
+    public weight: Option<string>,
+    /** `body`, `mono`, `serif` or `sans`. */
+    public font: Option<string>,
+    public italic: bool,
+    /** Looks for `hover`, `pressed`, `focus`, `disabled` and `checked`, none of which has its own. */
+    public states: (string, Self)[],
+}
+
+/** What a contract 5 node is (PRP-037): AccessKit's names. */
+public enum Role {
+    Button,
+    Checkbox,
+    Switch,
+    Tab,
+    TabList,
+    Heading,
+    List,
+    ListItem,
+    Group,
+    Separator,
+}
+
+/** What a contract 5 node is, and its state: what keyboards and screen readers need. */
+public struct Facts {
+    public role: Option<Role>,
+    /** A checkbox's or switch's. */
+    public checked: Option<bool>,
+    /** A tab's or list item's. */
+    public selected: Option<bool>,
+    public disabled: bool,
+    /** What a screen reader says, when the text isn't enough. */
+    public label: Option<string>,
 }
 
 /** A decoded screen: its tree, and the title its root carries (contract v1, optional). */

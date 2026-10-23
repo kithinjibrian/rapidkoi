@@ -1,0 +1,308 @@
+/**
+ * Contract 5's looks drawn (PRP-037), pure: an app's checked `Look` turned
+ * into kivuli styles. Rapidkoi's names become the theme's colours
+ * (`themes.la`) and DESIGN.md's tokens here, at draw time, so the app never
+ * learns them. Raw values stay as the app wrote them. `resolve` gives a
+ * plain value tests can compare; `styles_of` turns it into `Styling[]`.
+ *
+ * Depends on: kivuli, guest.nodes, ui.tokens, ui.themes
+ * Used by: ui.render
+ */
+import kivuli {
+    Styling,
+    Paint,
+    Color,
+    Align,
+    Font,
+    Text,
+    Background,
+    Border,
+    Outline,
+    Sizing,
+    Shadow,
+    Effects,
+    Side,
+    Radius,
+    Size,
+    Weight,
+    Family,
+    FontStyle,
+    Width,
+    Line,
+    When,
+    State,
+    hex,
+};
+import guest.nodes { Look, Colour, Measure, TextSize, Place };
+import ui.tokens {
+    SPACE_XS,
+    SPACE_SM,
+    SPACE_MD,
+    SPACE_LG,
+    SPACE_XL,
+    TEXT_TITLE,
+    TEXT_HEADING,
+    CORNER_SMALL,
+    BUTTON_RADIUS,
+    PAGE_RADIUS,
+    CIRCLE,
+    gap,
+    padding_xy,
+};
+import ui.themes { Theme };
+
+/** A look with every name resolved: what kivuli will draw. Only what the app set is `Some`. */
+public struct Drawn {
+    public background: Option<Paint>,
+    public color: Option<Paint>,
+    public border: Option<(i64, Paint)>,
+    public outline: Option<(i64, Paint)>,
+    public corner: Option<i64>,
+    public gap: Option<i64>,
+    /** Vertical and horizontal, in pixels. */
+    public padding: Option<(i64, i64)>,
+    public width: Option<i64>,
+    public height: Option<i64>,
+    public min_width: Option<i64>,
+    public max_width: Option<i64>,
+    public min_height: Option<i64>,
+    public max_height: Option<i64>,
+    public shadow: Option<string>,
+    public opacity: Option<f64>,
+    public size: Option<Size>,
+    public weight: Option<Weight>,
+    public family: Option<Family>,
+    public italic: bool,
+    /** Looks under the pointer, pressed, focused and disabled. */
+    public states: (State, Self)[],
+}
+
+/**
+ * Resolves a colour: Rapidkoi's name from the theme, a raw one as it is, a
+ * mix computed channel by channel.
+ *
+ * Example:
+ *     colour_of(Colour.Named("accent"), m.theme)
+ */
+public fun colour_of(c: Colour, t: Theme): Paint = Paint.Color(rgba(c, t));
+
+/**
+ * Resolves a gap or padding: a spacing token, or pixels.
+ *
+ * Example:
+ *     space_of(Measure.Named("md"))
+ */
+public fun space_of(m: Measure): i64 = match m {
+    Px(n) => n,
+    Named(name) => match name {
+        "xs" => SPACE_XS,
+        "sm" => SPACE_SM,
+        "md" => SPACE_MD,
+        "lg" => SPACE_LG,
+        _ => SPACE_XL,
+    },
+};
+
+/**
+ * Resolves a corner: a radius token, or pixels.
+ *
+ * Example:
+ *     corner_of(Measure.Named("round"))
+ */
+public fun corner_of(m: Measure): i64 = match m {
+    Px(n) => n,
+    Named(name) => match name {
+        "small" => CORNER_SMALL,
+        "medium" => BUTTON_RADIUS,
+        "large" => PAGE_RADIUS,
+        _ => CIRCLE,
+    },
+};
+
+/**
+ * Where a node sits, as kivuli says it.
+ *
+ * Example:
+ *     align_of(Place.Center)
+ */
+public fun align_of(p: Place): Align = match p {
+    Start => Align.Start,
+    Center => Align.Center,
+    End => Align.End,
+    Stretch => Align.Fill,
+};
+
+/**
+ * Resolves a look against the theme. The `checked` look isn't a state here:
+ * `ui.render` lays it over the base when the node is checked, since
+ * Rapidkoi, not GTK, knows it is.
+ *
+ * Example:
+ *     resolve(look, m.theme)
+ */
+public fun resolve(l: Look, t: Theme): Drawn {
+    let paint = fun(c: Colour) = colour_of(c, t);
+    let mut states: (State, Drawn)[] = [];
+    for (name, inner) of l.states {
+        let state = match name {
+            "hover" => Some(State.Hover),
+            "pressed" => Some(State.Press),
+            "focus" => Some(State.Focus),
+            "disabled" => Some(State.Disabled),
+            _ => None,
+        };
+        if let Some(s) = state {
+            states.push((s, resolve(inner, t)));
+        }
+    }
+    Drawn {
+        background: l.background.map(paint),
+        color: l.color.map(paint),
+        border: l.border.map(fun(b: (i64, Colour)) = (b.0, paint(b.1))),
+        outline: l.outline.map(fun(b: (i64, Colour)) = (b.0, paint(b.1))),
+        corner: l.corner.map(corner_of),
+        gap: l.gap.map(space_of),
+        padding: l.padding.map(fun(p: (Measure, Measure)) = (space_of(p.0), space_of(p.1))),
+        width: l.width,
+        height: l.height,
+        min_width: l.min_width,
+        max_width: l.max_width,
+        min_height: l.min_height,
+        max_height: l.max_height,
+        shadow: l.shadow,
+        opacity: l.opacity,
+        size: l.size.map(fun(s: TextSize) = match s {
+            Pt(n) => Size.Pt(n),
+            // Relative to the body size, so body text and rem follow it.
+            Rem(x) => Size.Scale(x),
+            Named(n) => match n {
+                "title" => Size.Pt(TEXT_TITLE),
+                "heading" => Size.Pt(TEXT_HEADING),
+                "small" => Size.Scale(0.875),
+                _ => Size.Scale(1.0),
+            },
+        }),
+        weight: l.weight.map(fun(w: string) = match w {
+            "bold" => Weight.Bold,
+            "medium" => Weight.Medium,
+            _ => Weight.Normal,
+        }),
+        family: l.font.map(fun(f: string) = match f {
+            "mono" => Family.Monospace,
+            "serif" => Family.Serif,
+            "sans" => Family.Sans,
+            _ => Family.Theme,
+        }),
+        italic: l.italic,
+        states: states,
+    }
+}
+
+/**
+ * Turns what's drawn into kivuli styles: only what was set, so the rest
+ * stays as the node's base look.
+ *
+ * Example:
+ *     text(s).style(styles_of(resolve(look, t)))
+ */
+public fun styles_of(d: Drawn): Styling[] {
+    let mut out: Styling[] = [];
+    if let Some(p) = d.background {
+        out.push(Background { color: p, ..Background.theme() });
+    }
+    if let Some(p) = d.color {
+        out.push(Text { color: p, ..Text.theme() });
+    }
+    if let Some((w, p)) = d.border {
+        out.push(Border {
+            all: Side { width: Width.Px(w), color: p, style: Line.Solid },
+            ..Border.theme(),
+        });
+    }
+    if let Some(r) = d.corner {
+        out.push(Border { radius: Radius.All(r), ..Border.theme() });
+    }
+    if let Some((w, p)) = d.outline {
+        out.push(Outline { width: Width.Px(w), color: p, style: Line.Solid, ..Outline.theme() });
+    }
+    if let Some(g) = d.gap {
+        out.push(gap(g));
+    }
+    if let Some((v, h)) = d.padding {
+        out.push(padding_xy(h, v));
+    }
+    let px = fun(o: Option<i64>): Width = match o {
+        Some(n) => Width.Px(n),
+        None => Width.Theme,
+    };
+    if d.width.is_some() || d.height.is_some() || d.min_width.is_some() || d.max_width.is_some() || d.min_height.is_some() || d.max_height.is_some() {
+        out.push(Sizing {
+            width: px(d.width),
+            height: px(d.height),
+            min_width: px(d.min_width),
+            max_width: px(d.max_width),
+            min_height: px(d.min_height),
+            max_height: px(d.max_height),
+            ..Sizing.theme(),
+        });
+    }
+    if let Some(s) = d.shadow {
+        out.push(match s {
+            "sm" => Shadow.sm(),
+            "md" => Shadow.md(),
+            "lg" => Shadow.lg(),
+            _ => Shadow.off(),
+        });
+    }
+    if let Some(o) = d.opacity {
+        out.push(Effects.opacity(o));
+    }
+    if let Some(s) = d.size {
+        out.push(Font { size: s, ..Font.theme() });
+    }
+    if let Some(w) = d.weight {
+        out.push(Font { weight: w, ..Font.theme() });
+    }
+    if let Some(f) = d.family {
+        out.push(Font { family: f, ..Font.theme() });
+    }
+    if d.italic {
+        out.push(Font { style: FontStyle.Italic, ..Font.theme() });
+    }
+    for (state, inner) of d.states {
+        out.push(When(state, styles_of(inner)));
+    }
+    out
+}
+
+/** A colour's channels: a name's from the theme's hex, a mix computed. */
+fun rgba(c: Colour, t: Theme): Color = match c {
+    Raw(r, g, b, a) => Color { red: r, green: g, blue: b, alpha: a },
+    Named(name) => hex(theme_hex(name, t)),
+    Mix(a, b, x) => {
+        let from = rgba(a, t);
+        let to = rgba(b, t);
+        let step = fun(p: i64, q: i64): i64 = (p as f64 + (q - p) as f64 * x + 0.5) as i64;
+        Color {
+            red: step(from.red, to.red),
+            green: step(from.green, to.green),
+            blue: step(from.blue, to.blue),
+            alpha: step(from.alpha, to.alpha),
+        }
+    }
+};
+
+/** The theme's colour for one of Rapidkoi's names (`styles.COLOUR_NAMES`). */
+fun theme_hex(name: string, t: Theme): string = match name {
+    "background" => t.page,
+    // Cards and fields sit on the page in the controls' colour.
+    "surface" => t.control,
+    "text" => t.text,
+    "text_dim" => t.dim,
+    "accent" => t.accent,
+    "on_accent" => t.on_accent,
+    "border" => t.edge,
+    "danger" => t.danger,
+    "on_danger" => t.on_danger,
+    _ => t.text,
+};

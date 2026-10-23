@@ -90,7 +90,7 @@ public fun compile(engine: Engine, bytes: u8[]): Result<Module, GuestError> {
  * @param module the compiled module
  * @returns the guest; `Err(Link)`, `Err(Trap)` or `Err(OutOfFuel)` from its
  *     start function, `Err(MissingExport)` for `memory` or
- *     `rapidkoi_version`, `Err(Version)` for a version outside 2 to 4
+ *     `rapidkoi_version`, `Err(Version)` for a version outside 2 to 5
  *
  * Example:
  *     let g = open(engine, module)?;

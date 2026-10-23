@@ -34,6 +34,13 @@ public fun fill(n: Node, first: string, last: string): Node = match n {
         padding,
         kids.map(fun(k: Node) = fill(k, first, last)),
     ),
+    Words(s, look, facts) => Node.Words(substitute(s, first, last), look, facts),
+    Boxed(look, facts, press, kids) => Node.Boxed(
+        look,
+        facts,
+        press,
+        kids.map(fun(k: Node) = fill(k, first, last)),
+    ),
     // Text fields and anything else: as the app gave them.
     _ => n,
 };

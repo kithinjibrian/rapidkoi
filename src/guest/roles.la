@@ -1,0 +1,96 @@
+/**
+ * Contract 5's roles (PRP-037), pure: what a node is and its state, read
+ * from its props. Names follow AccessKit's, never an app's subject. Rapidkoi
+ * uses them for focus, pressing by keyboard and the checked look; screen
+ * readers hear them once kivuli can pass them on (DECISION-050).
+ *
+ * Depends on: cbor, guest.nodes, guest.limits
+ * Used by: guest.tree5
+ */
+import cbor { Value };
+import guest.nodes { Facts, Role, ContractError };
+import guest.limits { MAX_STRING };
+
+/** Every role, as the contract names it. */
+const ROLES: (string, Role)[] = [
+    ("button", Role.Button),
+    ("checkbox", Role.Checkbox),
+    ("switch", Role.Switch),
+    ("tab", Role.Tab),
+    ("tab_list", Role.TabList),
+    ("heading", Role.Heading),
+    ("list", Role.List),
+    ("list_item", Role.ListItem),
+    ("group", Role.Group),
+    ("separator", Role.Separator),
+];
+
+/**
+ * The facts of a node that says nothing about itself.
+ *
+ * Example:
+ *     no_facts()
+ */
+public fun no_facts(): Facts = Facts {
+    role: None,
+    checked: None,
+    selected: None,
+    disabled: false,
+    label: None,
+};
+
+/**
+ * Reads what a node is: `role`, `checked`, `selected`, `disabled` and `label`.
+ *
+ * @param props the node's props
+ * @param here its path, for errors
+ * @returns the facts; `Err(Invalid)` for an unknown role, a state its role
+ *     can't have, or a value of the wrong kind
+ *
+ * Example:
+ *     read_facts(props, "root > box[2]")?
+ */
+public fun read_facts(props: Value, here: string): Result<Facts, ContractError> {
+    let bad = fun(problem: string) = ContractError.Invalid(here, problem);
+    let role = match props.get("role") {
+        None => None,
+        Some(Text(name)) => match ROLES.iter().find(fun(r: (string, Role)) = r.0 == name) {
+            Some(r) => Some(r.1),
+            None => {
+                return Err(
+                    bad("role must be one of {ROLES.map(fun(r: (string, Role)) = r.0).join(", ")}"),
+                );
+            }
+        },
+        Some(_) => {
+            return Err(bad("role must be text"));
+        }
+    };
+    let checked = maybe_flag(props, "checked", here)?;
+    let selected = maybe_flag(props, "selected", here)?;
+    let disabled = maybe_flag(props, "disabled", here)?.unwrap_or(false);
+    if checked.is_some() && role != Some(Role.Checkbox) && role != Some(Role.Switch) {
+        return Err(bad("only a checkbox or a switch is checked"));
+    }
+    if selected.is_some() && role != Some(Role.Tab) && role != Some(Role.ListItem) {
+        return Err(bad("only a tab or a list item is selected"));
+    }
+    let label = match props.get("label") {
+        None => None,
+        Some(Text(s)) if s.len <= MAX_STRING => Some(s),
+        Some(_) => {
+            return Err(bad("label must be text"));
+        }
+    };
+    Ok(Facts { role: role, checked: checked, selected: selected, disabled: disabled, label: label })
+}
+
+fun maybe_flag(
+    props: Value,
+    key: string,
+    here: string,
+): Result<Option<bool>, ContractError> = match props.get(key) {
+    None => Ok(None),
+    Some(Bool(b)) => Ok(Some(b)),
+    Some(_) => Err(ContractError.Invalid(here, "{key} must be true or false")),
+};

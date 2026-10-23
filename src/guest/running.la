@@ -20,6 +20,7 @@ import guest.contract {
 };
 import guest.events { Happened, event_for };
 import guest.links { with_link };
+import guest.tree5 { read_tree5 };
 import window.tabs { Screen, Program };
 
 /** What one or more events left: the screen, what they asked for, and the address's change. */
@@ -135,7 +136,8 @@ fun shown(g: Guest, state: u8[], asks: Effect[], link: LinkChange): Ran {
 /** Calls `view(state)` and decodes the screen. */
 fun show(g: Guest, state: u8[]): Screen = match g.view(state) {
     Err(e) => halt(g, reason(e)),
-    Ok(bytes) => match read_tree(bytes) {
+    // Contract 5 speaks boxes, texts and styles (PRP-037); earlier ones their own kinds.
+    Ok(bytes) => match if g.version >= 5 { read_tree5(bytes) } else { read_tree(bytes) } {
         Err(e) => halt(g, broken("screen description", e)),
         Ok(d) => Screen.Running(g, state, d),
     },

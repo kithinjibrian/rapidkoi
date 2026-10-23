@@ -1,0 +1,162 @@
+// Contract 5's styles (PRP-037), pure: every key, every kind of value, and
+// each bad value refused with why. No guest, no display.
+import rapidkoi.guest.styles { read_style, plain };
+import rapidkoi.guest.nodes { Look, Colour, Measure, TextSize, Direction, Place, ContractError };
+import cbor { Value };
+import support { t, kv };
+
+fun read(pairs: (string, Value)[]): Result<Look, ContractError> = read_style(
+    Some(kv(pairs)),
+    "root > box",
+);
+
+fun why(pairs: (string, Value)[]): string = match read(pairs) {
+    Err(Invalid(_, problem)) => problem,
+    Err(_) => "another error",
+    Ok(_) => "ok",
+};
+
+fun f(x: f64): Value = Value.Float(x);
+
+fun n(x: i64): Value = Value.int(x);
+
+@test
+fun no_style_is_the_plain_look() {
+    assert_eq(read_style(None, "root") == Ok(plain()), true);
+    assert_eq(read([]) == Ok(plain()), true);
+}
+
+@test
+fun layout_and_sizes_read() {
+    let l = read([
+        ("direction", t("row")),
+        ("gap", t("md")),
+        ("padding", Value.Array([t("sm"), n(20)])),
+        ("align", t("center")),
+        ("grow", Value.Bool(true)),
+        ("width", n(320)),
+        ("max_height", n(4096)),
+    ]).unwrap();
+    assert_eq(l.direction == Direction.Row, true);
+    assert_eq(l.gap == Some(Measure.Named("md")), true);
+    assert_eq(l.padding == Some((Measure.Named("sm"), Measure.Px(20))), true);
+    assert_eq(
+        (l.align == Some(Place.Center), l.grow, l.width, l.max_height),
+        (true, true, Some(320), Some(4096)),
+    );
+    // One padding is both ways.
+    assert_eq(
+        read([("padding", t("lg"))]).unwrap().padding == Some(
+            (Measure.Named("lg"), Measure.Named("lg")),
+        ),
+        true,
+    );
+}
+
+@test
+fun colours_read_in_three_forms() {
+    let l = read([
+        ("background", t("accent")),
+        ("color", t("#2e7d32")),
+        ("border", kv([("width", n(1)), ("color", t("#2e7d3280"))])),
+        (
+            "outline",
+            kv([
+                ("width", n(2)),
+                ("color", kv([("mix", Value.Array([t("accent"), t("text"), f(0.1)]))])),
+            ]),
+        ),
+    ]).unwrap();
+    assert_eq(l.background == Some(Colour.Named("accent")), true);
+    assert_eq(l.color == Some(Colour.Raw(46, 125, 50, 255)), true);
+    assert_eq(l.border == Some((1, Colour.Raw(46, 125, 50, 128))), true);
+    assert_eq(
+        l.outline == Some((2, Colour.Mix(Colour.Named("accent"), Colour.Named("text"), 0.1))),
+        true,
+    );
+}
+
+@test
+fun text_and_shape_read() {
+    let l = read([
+        ("size", t("title")),
+        ("weight", t("bold")),
+        ("font", t("mono")),
+        ("italic", Value.Bool(true)),
+        ("corner", t("round")),
+        ("shadow", t("md")),
+        ("opacity", f(0.5)),
+    ]).unwrap();
+    assert_eq(l.size == Some(TextSize.Named("title")), true);
+    assert_eq(
+        (l.weight, l.font, l.italic, l.shadow, l.opacity),
+        (Some("bold"), Some("mono"), true, Some("md"), Some(0.5)),
+    );
+    assert_eq(l.corner == Some(Measure.Named("round")), true);
+    assert_eq(read([("size", kv([("pt", n(20))]))]).unwrap().size == Some(TextSize.Pt(20)), true);
+    assert_eq(
+        read([("size", kv([("rem", f(1.5))]))]).unwrap().size == Some(TextSize.Rem(1.5)),
+        true,
+    );
+}
+
+@test
+fun state_looks_read_without_nesting() {
+    let l = read([
+        ("background", t("surface")),
+        ("hover", kv([("background", t("accent"))])),
+    ]).unwrap();
+    assert_eq(l.states.len, 1);
+    assert_eq(l.states[0].0, "hover");
+    assert_eq(l.states[0].1.background == Some(Colour.Named("accent")), true);
+    assert_eq(
+        why([("hover", kv([("pressed", kv([]))]))]),
+        "style.hover can't hold another state's look",
+    );
+}
+
+@test
+fun unknown_keys_are_ignored() {
+    assert_eq(read([("sparkle", t("lots"))]) == Ok(plain()), true);
+}
+
+@test
+fun a_bad_style_says_why() {
+    assert_eq(why([("gap", t("huge"))]), "style.gap must be xs, sm, md, lg, xl or 0–256 px");
+    assert_eq(why([("width", n(5000))]), "style.width must be 0–4096 px");
+    assert_eq(
+        why([("background", t("pink"))]),
+        "style.background must be one of Rapidkoi's colours, #rrggbb, #rrggbbaa or a mix",
+    );
+    assert_eq(
+        why([("color", t("#12345"))]),
+        "style.color must be one of Rapidkoi's colours, #rrggbb, #rrggbbaa or a mix",
+    );
+    let nested = kv([
+        (
+            "mix",
+            Value.Array([
+                kv([("mix", Value.Array([t("text"), t("text"), f(0.5)]))]),
+                t("text"),
+                f(0.5),
+            ]),
+        ),
+    ]);
+    assert_eq(why([("color", nested)]), "style.color can't mix a mix");
+    assert_eq(why([("opacity", f(1.5))]), "style.opacity must be 0 to 1");
+    assert_eq(
+        why([("size", kv([("pt", n(200))]))]),
+        "style.size must be title, heading, body, small, 6–72 pt or 0.5–6 rem",
+    );
+    assert_eq(
+        why([("border", kv([("width", n(40)), ("color", t("text"))]))]),
+        "style.border's width must be 0–16 px",
+    );
+    assert_eq(why([("shadow", t("huge"))]), "style.shadow must be none, sm, md or lg");
+    assert_eq(read_style(Some(t("bold")), "root").is_err(), true);
+    let mut many: (string, Value)[] = [];
+    for i in 0..33 {
+        many.push(("k{i}", n(i)));
+    }
+    assert_eq(why(many), "style has more than 32 keys");
+}

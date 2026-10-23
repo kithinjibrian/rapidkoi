@@ -1,0 +1,389 @@
+/**
+ * Contract 5's styles (PRP-037), pure: an app's `style` map read into a
+ * checked `Look`. Every value is hostile input, so each is held to its
+ * kind and range, and a bad one stops the app with why. An unknown key is
+ * ignored, so a later contract can add keys. Rapidkoi's names are kept as
+ * names: `ui.paint` resolves them when drawing, so the app never learns
+ * their values.
+ *
+ * Depends on: cbor, guest.nodes
+ * Used by: guest.tree5
+ */
+import cbor { Value, Entry };
+import guest.nodes { Look, Colour, Measure, TextSize, Direction, Place, ContractError };
+
+/** The most keys one style map may have. */
+public const MAX_STYLE_KEYS: i64 = 32;
+
+/** The largest width or height, in pixels. */
+const MAX_SIZE: i64 = 4096;
+
+/** The largest gap, padding or corner, in pixels. */
+const MAX_SPACE: i64 = 256;
+
+/** Rapidkoi's colour names (`themes.la` gives their values). */
+public const COLOUR_NAMES: string[] = [
+    "background",
+    "surface",
+    "text",
+    "text_dim",
+    "accent",
+    "on_accent",
+    "border",
+    "danger",
+    "on_danger",
+];
+
+/** The states a style can have a look for. */
+const STATES: string[] = ["hover", "pressed", "focus", "disabled", "checked"];
+
+/**
+ * The look of a node with no style: a column, nothing set.
+ *
+ * Example:
+ *     plain()
+ */
+public fun plain(): Look = Look {
+    direction: Direction.Column,
+    gap: None,
+    padding: None,
+    align: None,
+    grow: false,
+    width: None,
+    height: None,
+    min_width: None,
+    max_width: None,
+    min_height: None,
+    max_height: None,
+    background: None,
+    color: None,
+    border: None,
+    corner: None,
+    outline: None,
+    shadow: None,
+    opacity: None,
+    size: None,
+    weight: None,
+    font: None,
+    italic: false,
+    states: [],
+};
+
+/**
+ * Reads a node's `style`.
+ *
+ * @param v the node's `style`, if it has one
+ * @param here the node's path, for errors
+ * @returns the look; `Err(Invalid)` naming the key and what it must be
+ *
+ * Example:
+ *     read_style(props.get("style"), "root > box[1]")?
+ */
+public fun read_style(v: Option<Value>, here: string): Result<Look, ContractError> = match v {
+    None => Ok(plain()),
+    Some(Map(entries)) => look(entries, here, "style", true),
+    Some(_) => Err(bad(here, "style must be a map")),
+};
+
+/** One style map; `top` allows state looks inside it. */
+fun look(entries: Entry[], here: string, at: string, top: bool): Result<Look, ContractError> {
+    if entries.len > MAX_STYLE_KEYS {
+        return Err(bad(here, "{at} has more than {MAX_STYLE_KEYS} keys"));
+    }
+    let mut l = plain();
+    for e of entries {
+        let key = match e.key {
+            Text(k) => k,
+            _ => {
+                return Err(bad(here, "{at}'s keys must be text"));
+            }
+        };
+        let v = e.value;
+        let name = "{at}.{key}";
+        if STATES.any(fun(s: string) = s == key) {
+            if !top {
+                return Err(bad(here, "{at} can't hold another state's look"));
+            }
+            let inner = match v {
+                Map(es) => look(es, here, name, false)?,
+                _ => {
+                    return Err(bad(here, "{name} must be a map"));
+                }
+            };
+            let mut states = l.states;
+            states.push((key, inner));
+            l = Look { states: states, ..l };
+        } else if key == "direction" {
+            l = Look {
+                direction: match v.as_text() {
+                    Some("column") => Direction.Column,
+                    Some("row") => Direction.Row,
+                    _ => {
+                        return Err(bad(here, "{name} must be column or row"));
+                    }
+                },
+                ..l,
+            };
+        } else if key == "gap" {
+            l = Look { gap: Some(space(v, here, name)?), ..l };
+        } else if key == "padding" {
+            let both = match v {
+                Array(xs) if xs.len == 2 => (space(xs[0], here, name)?, space(xs[1], here, name)?),
+                Array(_) => {
+                    return Err(bad(here, "{name} must be one space, or [vertical, horizontal]"));
+                }
+                _ => {
+                    let s = space(v, here, name)?;
+                    (s, s)
+                }
+            };
+            l = Look { padding: Some(both), ..l };
+        } else if key == "align" {
+            l = Look {
+                align: Some(match v.as_text() {
+                    Some("start") => Place.Start,
+                    Some("center") => Place.Center,
+                    Some("end") => Place.End,
+                    Some("stretch") => Place.Stretch,
+                    _ => {
+                        return Err(bad(here, "{name} must be start, center, end or stretch"));
+                    }
+                }),
+                ..l,
+            };
+        } else if key == "grow" {
+            l = Look { grow: flag(v, here, name)?, ..l };
+        } else if key == "italic" {
+            l = Look { italic: flag(v, here, name)?, ..l };
+        } else if key == "width" {
+            l = Look { width: Some(size(v, here, name)?), ..l };
+        } else if key == "height" {
+            l = Look { height: Some(size(v, here, name)?), ..l };
+        } else if key == "min_width" {
+            l = Look { min_width: Some(size(v, here, name)?), ..l };
+        } else if key == "max_width" {
+            l = Look { max_width: Some(size(v, here, name)?), ..l };
+        } else if key == "min_height" {
+            l = Look { min_height: Some(size(v, here, name)?), ..l };
+        } else if key == "max_height" {
+            l = Look { max_height: Some(size(v, here, name)?), ..l };
+        } else if key == "background" {
+            l = Look { background: Some(colour(v, here, name, true)?), ..l };
+        } else if key == "color" {
+            l = Look { color: Some(colour(v, here, name, true)?), ..l };
+        } else if key == "border" {
+            l = Look { border: Some(line(v, here, name, 16)?), ..l };
+        } else if key == "outline" {
+            l = Look { outline: Some(line(v, here, name, 8)?), ..l };
+        } else if key == "corner" {
+            l = Look {
+                corner: Some(match v {
+                    Text(c) if c == "small" || c == "medium" || c == "large" || c == "round" => Measure.Named(
+                        c,
+                    ),
+                    _ => match v.as_i64() {
+                        Some(px) if px >= 0 && px <= MAX_SPACE => Measure.Px(px),
+                        _ => {
+                            return Err(
+                                bad(here, "{name} must be small, medium, large, round or 0–256 px"),
+                            );
+                        }
+                    },
+                }),
+                ..l,
+            };
+        } else if key == "shadow" {
+            l = Look {
+                shadow: Some(
+                    one_of(
+                        v,
+                        ["none", "sm", "md", "lg"],
+                        here,
+                        "{name} must be none, sm, md or lg",
+                    )?,
+                ),
+                ..l,
+            };
+        } else if key == "weight" {
+            l = Look {
+                weight: Some(
+                    one_of(
+                        v,
+                        ["normal", "medium", "bold"],
+                        here,
+                        "{name} must be normal, medium or bold",
+                    )?,
+                ),
+                ..l,
+            };
+        } else if key == "font" {
+            l = Look {
+                font: Some(
+                    one_of(
+                        v,
+                        ["body", "mono", "serif", "sans"],
+                        here,
+                        "{name} must be body, mono, serif or sans",
+                    )?,
+                ),
+                ..l,
+            };
+        } else if key == "opacity" {
+            l = Look {
+                opacity: Some(match number(v) {
+                    Some(x) if x >= 0.0 && x <= 1.0 => x,
+                    _ => {
+                        return Err(bad(here, "{name} must be 0 to 1"));
+                    }
+                }),
+                ..l,
+            };
+        } else if key == "size" {
+            l = Look { size: Some(text_size(v, here, name)?), ..l };
+        }
+        // Any other key: a later contract's, ignored.
+    }
+    Ok(l)
+}
+
+/** A gap or padding: a spacing token or 0–256 px. */
+fun space(v: Value, here: string, name: string): Result<Measure, ContractError> = match v {
+    Text(s) if s == "xs" || s == "sm" || s == "md" || s == "lg" || s == "xl" => Ok(
+        Measure.Named(s),
+    ),
+    _ => match v.as_i64() {
+        Some(px) if px >= 0 && px <= MAX_SPACE => Ok(Measure.Px(px)),
+        _ => Err(bad(here, "{name} must be xs, sm, md, lg, xl or 0–256 px")),
+    },
+};
+
+/** A width or height: 0–4096 px. */
+fun size(v: Value, here: string, name: string): Result<i64, ContractError> = match v.as_i64() {
+    Some(px) if px >= 0 && px <= MAX_SIZE => Ok(px),
+    _ => Err(bad(here, "{name} must be 0–4096 px")),
+};
+
+fun flag(v: Value, here: string, name: string): Result<bool, ContractError> = match v {
+    Bool(b) => Ok(b),
+    _ => Err(bad(here, "{name} must be true or false")),
+};
+
+fun one_of(
+    v: Value,
+    names: string[],
+    here: string,
+    problem: string,
+): Result<string, ContractError> = match v {
+    Text(s) if names.any(fun(n: string) = n == s) => Ok(s),
+    _ => Err(bad(here, problem)),
+};
+
+/** A border or outline: `{width, color}`, the width at most `most` px. */
+fun line(v: Value, here: string, name: string, most: i64): Result<(i64, Colour), ContractError> {
+    if v.as_map().is_none() {
+        return Err(bad(here, "{name} must be {{width, color}}"));
+    }
+    let width = match v.get("width").and_then(fun(w: Value) = w.as_i64()) {
+        Some(w) if w >= 0 && w <= most => w,
+        _ => {
+            return Err(bad(here, "{name}'s width must be 0–{most} px"));
+        }
+    };
+    match v.get("color") {
+        Some(c) => Ok((width, colour(c, here, name, true)?)),
+        None => Err(bad(here, "{name} needs a color")),
+    }
+}
+
+/** One of Rapidkoi's names, `#rrggbb[aa]`, or `{mix: [a, b, 0–1]}` when `mixable`. */
+fun colour(v: Value, here: string, name: string, mixable: bool): Result<Colour, ContractError> {
+    let problem = "{name} must be one of Rapidkoi's colours, #rrggbb, #rrggbbaa or a mix";
+    match v {
+        Text(s) => {
+            if COLOUR_NAMES.any(fun(n: string) = n == s) {
+                return Ok(Colour.Named(s));
+            }
+            hex_colour(s).ok_or(bad(here, problem))
+        }
+        Map(_) => {
+            if !mixable {
+                return Err(bad(here, "{name} can't mix a mix"));
+            }
+            match v.get("mix") {
+                Some(Array(xs)) if xs.len == 3 => {
+                    let amount = match number(xs[2]) {
+                        Some(x) if x >= 0.0 && x <= 1.0 => x,
+                        _ => {
+                            return Err(bad(here, "{name}'s mix amount must be 0 to 1"));
+                        }
+                    };
+                    Ok(
+                        Colour.Mix(
+                            colour(xs[0], here, name, false)?,
+                            colour(xs[1], here, name, false)?,
+                            amount,
+                        ),
+                    )
+                }
+                _ => Err(bad(here, problem)),
+            }
+        }
+        _ => Err(bad(here, problem)),
+    }
+}
+
+/** `#rrggbb` or `#rrggbbaa`, lowercase or uppercase. */
+fun hex_colour(s: string): Option<Colour> {
+    if !s.starts_with("#") || s.len != 7 && s.len != 9 {
+        return None;
+    }
+    let byte = fun(i: i64): Option<i64> = match (
+        digit(s.to_bytes()[i]),
+        digit(s.to_bytes()[i + 1]),
+    ) {
+        (Some(hi), Some(lo)) => Some(hi * 16 + lo),
+        _ => None,
+    };
+    let alpha = if s.len == 9 { byte(7)? } else { 255 };
+    Some(Colour.Raw(byte(1)?, byte(3)?, byte(5)?, alpha))
+}
+
+fun digit(b: u8): Option<i64> {
+    let n = b as i64;
+    if n >= 48 && n <= 57 {
+        Some(n - 48)
+    } else if n >= 65 && n <= 70 {
+        Some(n - 55)
+    } else if n >= 97 && n <= 102 {
+        Some(n - 87)
+    } else {
+        None
+    }
+}
+
+/** A text size: a name, `{pt: 6–72}` or `{rem: 0.5–6}`. */
+fun text_size(v: Value, here: string, name: string): Result<TextSize, ContractError> {
+    let problem = "{name} must be title, heading, body, small, 6–72 pt or 0.5–6 rem";
+    match v {
+        Text(s) if s == "title" || s == "heading" || s == "body" || s == "small" => Ok(
+            TextSize.Named(s),
+        ),
+        Map(_) => match (
+            v.get("pt").and_then(fun(p: Value) = p.as_i64()),
+            v.get("rem").and_then(number),
+        ) {
+            (Some(pt), None) if pt >= 6 && pt <= 72 => Ok(TextSize.Pt(pt)),
+            (None, Some(r)) if r >= 0.5 && r <= 6.0 => Ok(TextSize.Rem(r)),
+            _ => Err(bad(here, problem)),
+        },
+        _ => Err(bad(here, problem)),
+    }
+}
+
+/** A number as a float: CBOR floats and integers alike. */
+fun number(v: Value): Option<f64> = match v {
+    Float(x) => Some(x),
+    _ => v.as_i64().map(fun(n: i64) = n as f64),
+};
+
+fun bad(here: string, problem: string): ContractError = ContractError.Invalid(here, problem);
