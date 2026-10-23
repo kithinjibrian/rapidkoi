@@ -98,7 +98,7 @@ fun controls_choose_a_built_in_apps_rows() {
     let v = front(with_pages(Engine.new(), [declaring(only)]));
     assert(click(v, "Permissions").is_ok());
     assert(click(v, "Servers").is_err());
-    assert(click(v, "State").is_err());
+    assert(click(v, "Data").is_err());
     assert(click(v, "Forget this app…").is_err());
     assert(!shows(v, "App data"));
 }

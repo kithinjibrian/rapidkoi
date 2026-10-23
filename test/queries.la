@@ -1,0 +1,186 @@
+// An app's calls to its database (PRP-041), end to end through the window:
+// asked, run as a task, answered, and the app's other windows told. A
+// contract 6 fixture keeps the last event it got as its state. Real SQLite
+// files under test/tmp/.
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.guest.effects { answer_all };
+import rapidkoi.window.tabs { AppPage, open_module, state_of };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.data.store { store_at };
+import kivuli { Cmd };
+import cbor { Value, Limits, encode, decode };
+import wasmtime { Engine, Module };
+import support { t, kv, echo_v6 };
+import std.fs;
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+/** An init result asking for `effects`. */
+fun asking(wanted: Value[]): u8[] = encode(
+    kv([("state", kv([])), ("effects", Value.Array(wanted))]),
+);
+
+fun sql(msg: string, text: string): Value = kv([
+    ("kind", t("sql")),
+    ("msg", t(msg)),
+    ("sql", t(text)),
+    ("params", Value.Array([])),
+]);
+
+fun batch(msg: string, texts: string[]): Value = kv([
+    ("kind", t("sql_batch")),
+    ("msg", t(msg)),
+    (
+        "steps",
+        Value.Array(texts.map(fun(s: string) = kv([("sql", t(s)), ("params", Value.Array([]))]))),
+    ),
+]);
+
+fun app(engine: Engine, init: u8[]): AppPage = open_module(
+    "notes",
+    "notes.wasm",
+    engine,
+    Module.from_text(engine, echo_v6(init)).unwrap(),
+);
+
+/** A window of `pages`, its data folder at test/tmp/queries-`name`. */
+fun window(name: string, pages: AppPage[]): Model {
+    let dir = "test/tmp/queries-{name}";
+    clean(dir);
+    Model { store: Some(store_at(dir)), ..with_pages(Engine.new(), pages) }
+}
+
+/** Runs every task a command holds (the calls), returning the messages they send. */
+fun run(c: Cmd<Msg>): Msg[] = match c {
+    Task(job) => [job()],
+    Batch(cs) => {
+        let mut all: Msg[] = [];
+        for inner of cs {
+            for msg of run(inner) {
+                all.push(msg);
+            }
+        }
+        all
+    }
+    _ => [],
+};
+
+/** Answers the asks, runs their calls, and hands the results back. */
+fun settle(m: Model): Model {
+    let (asked, c) = answer_all(m);
+    let mut at = asked;
+    for msg of run(c) {
+        let (next, _) = update(at, msg);
+        at = next;
+    }
+    at
+}
+
+/** The event a tab's app last got, decoded. */
+fun last_event(m: Model, i: i64): Value {
+    let state = state_of(m.tabs[i].page).unwrap();
+    let bounds = Limits {
+        max_depth: 32,
+        max_items: 100_000,
+        max_bytes: 1_000_000,
+        max_string: 1_000_000,
+    };
+    let event = decode(state, bounds).unwrap().get("event").unwrap().as_bytes().unwrap();
+    decode(event, bounds).unwrap()
+}
+
+@test
+fun a_query_is_answered_with_its_rows() {
+    let engine = Engine.new();
+    let m = settle(
+        window("rows", [app(engine, asking([sql("one", "SELECT 1 AS one, 'two' AS two")]))]),
+    );
+    let e = last_event(m, 0);
+    assert_eq(e.get("event") == Some(t("on_answer")), true);
+    let v = e.get("value").unwrap();
+    assert_eq(v.get("columns") == Some(Value.Array([t("one"), t("two")])), true);
+    assert_eq(v.get("rows") == Some(Value.Array([Value.Array([Value.int(1), t("two")])])), true);
+    clean("test/tmp/queries-rows");
+}
+
+@test
+fun a_refused_query_is_an_on_fail_and_the_app_runs_on() {
+    let engine = Engine.new();
+    let m = settle(
+        window("fail", [app(engine, asking([sql("x", "ATTACH DATABASE 'x.db' AS x")]))]),
+    );
+    let e = last_event(m, 0);
+    assert_eq(e.get("event") == Some(t("on_fail")), true);
+    assert_eq(
+        e.get("value").unwrap().get("error") == Some(
+            t("This app's SQL asked for something apps can't do"),
+        ),
+        true,
+    );
+    clean("test/tmp/queries-fail");
+}
+
+@test
+fun a_write_tells_the_app_s_other_windows_which_tables_changed() {
+    let engine = Engine.new();
+    let writer = app(
+        engine,
+        asking([batch("saved", ["CREATE TABLE notes (x)", "INSERT INTO notes VALUES (1)"])]),
+    );
+    let other = app(engine, asking([]));
+    let m = settle(window("change", [writer, other]));
+    assert_eq(last_event(m, 0).get("event") == Some(t("on_answer")), true);
+    let heard = last_event(m, 1);
+    assert_eq(heard.get("event") == Some(t("on_change")), true);
+    assert_eq(heard.get("tables") == Some(Value.Array([t("notes")])), true);
+    clean("test/tmp/queries-change");
+}
+
+@test
+fun data_outlives_the_window() {
+    let engine = Engine.new();
+    settle(
+        window("kept", [
+            app(
+                engine,
+                asking([
+                    batch("saved", ["CREATE TABLE notes (x)", "INSERT INTO notes VALUES (7)"]),
+                ]),
+            ),
+        ]),
+    );
+    // Another run, the same folder: the same app's database is there.
+    let dir = "test/tmp/queries-kept";
+    let again = Model {
+        store: Some(store_at(dir)),
+        ..with_pages(Engine.new(), [app(engine, asking([sql("n", "SELECT x FROM notes")]))]),
+    };
+    let e = last_event(settle(again), 0);
+    assert_eq(
+        e.get("value").unwrap().get("rows") == Some(Value.Array([Value.Array([Value.int(7)])])),
+        true,
+    );
+    clean(dir);
+}
+
+@test
+fun a_result_for_a_closed_tab_is_dropped() {
+    let engine = Engine.new();
+    let m = window("stale", [app(engine, asking([sql("one", "SELECT 1")]))]);
+    let (asked, c) = answer_all(m);
+    let (closed, _) = update(asked, Msg.CloseTab(asked.tabs[0].id));
+    for msg of run(c) {
+        let (next, _) = update(closed, msg);
+        assert_eq(next.tabs.len, 0);
+    }
+    clean("test/tmp/queries-stale");
+}

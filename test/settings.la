@@ -76,7 +76,7 @@ fun the_main_page_has_the_app_and_its_sections() {
     assert_eq(click(v, "Public key"), Ok(Msg.PanelGo(PanelPage.Key)));
     assert_eq(click(v, "Identity"), Ok(Msg.PanelGo(PanelPage.Account)));
     assert_eq(click(v, "Servers"), Ok(Msg.PanelGo(PanelPage.Access)));
-    assert_eq(click(v, "State"), Ok(Msg.PanelGo(PanelPage.State)));
+    assert_eq(click(v, "Data"), Ok(Msg.PanelGo(PanelPage.State)));
     assert_eq(click(v, "Forget this app…"), Ok(Msg.Ask(Confirm.Forget)));
 }
 
@@ -126,10 +126,14 @@ fun servers_are_switches_on_a_signed_app() {
 }
 
 @test
-fun state_offers_to_clear_after_asking() {
+fun data_offers_to_clear_after_asking() {
+    // PRP-041: its state and its database, together.
     let v = card(window(signed()), PanelPage.State);
     assert(shows(v, "Nothing saved"));
-    assert_eq(click(v, "Clear and start over…"), Ok(Msg.Ask(Confirm.StartOver)));
+    assert_eq(click(v, "Clear…"), Ok(Msg.Ask(Confirm.ClearData)));
+    // The size once read in a task.
+    let sized = step(step(window(signed()), Msg.TogglePanel), Msg.DataSized(0, 12 * 1024));
+    assert(shows(card(sized, PanelPage.State), "12 KB"));
 }
 
 @test
@@ -139,6 +143,7 @@ fun each_dialog_asks_and_can_be_cancelled() {
     let cases = [
         (Confirm.Forget, "Forget", Msg.Forget),
         (Confirm.StartOver, "Start over", Msg.StartOver),
+        (Confirm.ClearData, "Clear", Msg.ClearData),
         (Confirm.StartOverIdentity, "Start over", Msg.StartOverIdentity),
     ];
     for (c, label, msg) of cases {

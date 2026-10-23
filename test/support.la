@@ -307,3 +307,58 @@ public fun linking(init: u8[], result: u8[]): string {
         ")",
     ].join("\n")
 }
+
+/**
+ * A contract 6 guest (PRP-041): `on_init` gets `init` (a whole result,
+ * which may ask for things); every other event's own bytes become its state
+ * as `{event: <bytes>}`, so a test reads exactly what Rapidkoi sent.
+ */
+public fun echo_v6(init: u8[]): string {
+    let tree = counter_tree("data");
+    // {state: {event: <4-byte-length bytes>}, effects: []}
+    let head: u8[] = [
+        0xa2,
+        0x65,
+        115,
+        116,
+        97,
+        116,
+        101,
+        0xa1,
+        0x65,
+        101,
+        118,
+        101,
+        110,
+        116,
+        0x5a,
+    ];
+    let tail: u8[] = [0x67, 101, 102, 102, 101, 99, 116, 115, 0x80];
+    [
+        "(module (memory (export \"memory\") 2)",
+        "(global $next (mut i32) (i32.const 16384))",
+        "(data (i32.const 1024) \"{wat_bytes(tree)}\")",
+        "(data (i32.const 3000) \"{wat_bytes(head)}\")",
+        "(data (i32.const 3032) \"{wat_bytes(tail)}\")",
+        "(data (i32.const 5000) \"{wat_bytes(init)}\")",
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const 6))",
+        "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
+        "  (local.set $p (global.get $next))",
+        "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
+        "  (local.get $p))",
+        "(func (export \"view\") (param i32 i32) (result i64) (global.set $next (i32.const 16384)) (i64.const {(1024 << 32) | tree.len}))",
+        "(func (export \"handle\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
+        // `{event: "on_init"}` is 15 bytes, its 12th an `i`.
+        "  (if (i32.and (i32.eq (local.get $el) (i32.const 15)) (i32.eq (i32.load8_u (i32.add (local.get $ep) (i32.const 11))) (i32.const 105)))",
+        "    (then (return (i64.const {(5000 << 32) | init.len}))))",
+        "  (memory.copy (i32.const 70000) (i32.const 3000) (i32.const 15))",
+        "  (i32.store8 (i32.const 70015) (i32.shr_u (local.get $el) (i32.const 24)))",
+        "  (i32.store8 (i32.const 70016) (i32.shr_u (local.get $el) (i32.const 16)))",
+        "  (i32.store8 (i32.const 70017) (i32.shr_u (local.get $el) (i32.const 8)))",
+        "  (i32.store8 (i32.const 70018) (local.get $el))",
+        "  (memory.copy (i32.const 70019) (local.get $ep) (local.get $el))",
+        "  (memory.copy (i32.add (i32.const 70019) (local.get $el)) (i32.const 3032) (i32.const 9))",
+        "  (i64.or (i64.const {70000 << 32}) (i64.extend_i32_u (i32.add (local.get $el) (i32.const 28)))))",
+        ")",
+    ].join("\n")
+}
