@@ -10636,3 +10636,6 @@ Branch: prp-017-kivuli_0_17
 - Counter 0.4.0 (contract 4) live at counter.dafifi.net: build, `index.html`, then the index. nginx now answers every path outside `.well-known` with the landing page (anything else under `.well-known` stays 404). Backups on the VM: `sites/counter-index.bak-0.3.0`, `nginx.conf.bak-before-landing`.
 - Quote 0.2.0 (contract 4) live at quote.dafifi.net: built with `QUOTE_SERVER=https://quote.dafifi.net`, published, the server rebuilt (it serves the landing page through `serve`'s handler), the container recreated, the index last. Backups: `sites/quote-index.bak-0.1.0`, `quote/quote-server.bak-0.1.0`.
 - Checked over HTTPS: `/`, `/@0.4.0?count=3` and `/@0.2.0` give the landing pages; key, index and `/quote` answer as before. Not opened in Rapidkoi (the owner's).
+
+## SESSION 196 — 2026-10-23 — The address box shows rapidkoi:// links, not https:// — open
+Branch: prp-017-kivuli_0_17
