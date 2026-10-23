@@ -10735,3 +10735,6 @@ Branch: prp-017-kivuli_0_17
 ### WHAT WAS DONE
 
 - The owner's screenshot: ☰ sat higher than 👤. The popover around it (PRP-038) wasn't centred down the bar; `header.end` now centres it. Build ok; to check by eye.
+
+## SESSION 203 — 2026-10-24 — PRP-039: composing apps (link paths, nested named state, typed messages) — open
+Branch: prp-017-kivuli_0_17
