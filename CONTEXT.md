@@ -6257,3 +6257,19 @@ DECISIONS.md, MEMORY.md, CLAUDE.md, docs/DESIGN.md, docs/specs/kivuli-several-wi
 
 
 
+
+## SESSION 178 — 2026-10-23 — The counter on the VM republished (contract 3) — closed
+
+Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "fix the counter app on the vm".
+- Cause: counter.dafifi.net served Counter 0.2.0, built for contract 1 (session 38). Rapidkoi runs contracts 2 and 3 only, so it was refused.
+- Rebuilt the counter (contract 3) and recreated its publish project at `~/rapidkoi-sites/counter.dafifi.net/` from the live site (key, index, build), so the index continues.
+- `./main publish`: Counter 0.3.0, same key, sequence 2, 0.2.0 kept.
+- With the owner's go-ahead ("yes upload"):
+  - Uploaded the new build, then the index (old index backed up at `/opt/rapidkoi/sites/counter-index.bak-0.2.0`).
+  - Checked the live index and build over HTTPS: they match. No restart; nothing else on the VM touched.
+- Not run: opening `rapidkoi://counter.dafifi.net` in a window (the owner's).
+- Uncommitted from chat, not part of this session: the strip and badge tweaks (dot circle, hover ×, 9+, fixed strip width, ⋯ icon, white names), DECISION-043 and its kivuli request. Awaiting the owner's word to commit.
