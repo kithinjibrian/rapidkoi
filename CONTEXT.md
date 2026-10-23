@@ -10816,3 +10816,6 @@ Branch: prp-017-kivuli_0_17
   - the change log later.
 - DECISION-046 resolved; DECISION-051 (the lugha-sqlite package, built first) recorded; MEMORY.md decision 26.
 - This machine: `libsqlite3` has the session extension, authorizer, progress handler and heap limit; `libsqlite3-dev` (the headers) isn't installed. No code.
+
+## SESSION 208 — 2026-10-24 — PRP-041: storage, a SQLite database per app (build step 4) — open
+Branch: prp-017-kivuli_0_17
