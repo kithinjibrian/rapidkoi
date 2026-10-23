@@ -10615,3 +10615,6 @@ test/{links (new), landing (new), address, verify, remembered, restore, frame, s
 guest/rust/{rapidkoi-derive (new), rapidkoi, counter, quote, newtab}, assets/apps/newtab.rkb,
 DECISIONS.md, MEMORY.md, CLAUDE.md, CHANGELOG.md, docs/DESIGN.md, docs/specs/{contract-4, kivuli-clipboard, app-events}.md, PRPs/prp-036-links.md, CONTEXT.md
 ```
+
+## SESSION 194 — 2026-10-23 — Republish the counter and quote at contract 4, with landing pages — open
+Branch: prp-017-kivuli_0_17
