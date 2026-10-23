@@ -6367,5 +6367,12 @@ CLAUDE.md, docs/DESIGN.md, CHANGELOG.md, MEMORY.md, PRPs/prp-034-restore_open_in
 ---
 
 
-## SESSION 182 — 2026-10-23 — Launch lands on the new tab — open
+## SESSION 182 — 2026-10-23 — Launch lands on the new tab — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: launch went straight to the reopened counter, not the new tab.
+- `shell.start`: launch always lands on the empty tab (`new_blank`, so the instance that was in front becomes `last`), with the address box focused. `test/restore.la` updated. DESIGN.md and the PRP-034 amendment noted.
+- Asked the owner what closing an instance should mean (delete it, or keep it, listed in the app's settings).

@@ -79,9 +79,11 @@ fun starting_again_reopens_them_in_order_with_their_names() {
     save(s, "open", open_file(o)).unwrap();
     let (m, _) = start(["./main"], Some(s));
     assert_eq(names(m), ["m", "Work"]);
-    assert_eq(m.current, Some(m.tabs[1].id));
-    // No empty tab besides: the window has its tabs.
-    assert_eq(m.blanks.len, 0);
+    // Launch lands on the new tab (the owner, session 182); the one that
+    // was in front is the one to go back to.
+    assert_eq(m.blanks.len, 1);
+    assert_eq(m.current, Some(m.blanks[0]));
+    assert_eq(m.last, Some(m.tabs[1].id));
     clean("test/tmp/restore-reopen");
 }
 

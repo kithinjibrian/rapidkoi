@@ -77,21 +77,15 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
         _ => (ready, Cmd.none()),
     };
     if argv.len < 2 {
-        // The window always has a tab: an empty one when nothing reopened (PRP-024).
-        // new_blank clears the notice line; what restoring said still shows.
-        let window_ = if remembered.tabs.len == 0 {
-            Model { notice: remembered.notice, ..window.new_blank(remembered) }
-        } else {
-            remembered
-        };
+        // Launch lands on the new tab, reopened apps waiting in the dock
+        // (the owner, session 182); new_blank makes the one that was in
+        // front the one to go back to. It clears the notice line; what
+        // restoring said still shows.
+        let window_ = Model { notice: remembered.notice, ..window.new_blank(remembered) };
         // 4. What the apps asked for when they opened: the new tab's your
         // pins and where you left off, so the first screen shows them.
         let (answered, sends) = answer_all(window_);
-        let focus: Cmd<Msg> = if remembered.tabs.len == 0 {
-            Cmd.focus("address")
-        } else {
-            Cmd.none()
-        };
+        let focus: Cmd<Msg> = Cmd.focus("address");
         return (answered, both(both(focus, reloads), sends));
     }
     let at = mark(remembered);

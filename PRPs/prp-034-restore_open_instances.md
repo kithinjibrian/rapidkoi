@@ -106,3 +106,4 @@ The dock and the strip look as you left them.
 - **`navigate.reopen_all`** rebuilds the tabs: a file through `open_path` and `resumed`, an address through `begin`, which keeps the instance (PRP-033). The one saved as in front is current.
 - **Continue switches** to the left-off instance when it's open again (`navigate.instance_open`), since reopening at launch can bring it back: still one tab per app. `test/restore.la` `continue_to_an_app_already_reopened_shows_it`.
 - **Tests:** `test/restore.la` (new) for launching and saving; the open file's format in `test/remembered.la`. Saving tests that restart in the same folder now see their tabs reopened, which they allow.
+- **Session 182 (the owner: "i open the app and it goes directly to the counter app not new tab"):** launch lands on the empty tab; the instance that was in front becomes `last`, the one to go back to.
