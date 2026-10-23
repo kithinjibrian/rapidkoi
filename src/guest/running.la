@@ -9,38 +9,75 @@
  * Used by: window.tabs
  */
 import guest.guest { Guest, open, reason };
-import guest.contract { Described, ContractError, Effect, Update, read_tree, read_update };
+import guest.contract {
+    Described,
+    ContractError,
+    Effect,
+    Update,
+    LinkChange,
+    read_tree,
+    read_update_of,
+};
 import guest.events { Happened, event_for };
+import guest.links { with_link };
 import window.tabs { Screen, Program };
+
+/** What one or more events left: the screen, what they asked for, and the address's change. */
+public struct Ran {
+    /** The screen: running, or stopped with why. */
+    public screen: Screen,
+    /** What the events asked for, in order. */
+    public asks: Effect[],
+    /** The last change to the address's fields (contract 4). */
+    public link: LinkChange,
+}
 
 /**
  * Opens the guest in a fresh store and brings it up: on a fresh start the
- * init event (from an empty state), then on every open the opened event,
- * then `view`. Returns the screen and everything both events asked for.
+ * init event (from an empty state) with a link's fields then set in its
+ * state (contract 4, PRP-036), then on every open the opened event, then
+ * `view`. Returns the screen and everything both events asked for.
  */
-fun start(p: Program, saved: Option<u8[]>): (Screen, Effect[]) = match open(p.engine, p.module) {
-    Err(e) => (Screen.Stopped(reason(e), true), []),
+fun start(p: Program, saved: Option<u8[]>, link: (string, string)[]): Ran = match open(
+    p.engine,
+    p.module,
+) {
+    Err(e) => stopped(reason(e)),
     Ok(g) => {
-        let (state, first) = match saved {
-            Some(state) => (state, []),
+        let (state, first, named) = match saved {
+            Some(state) => (state, [], LinkChange.Keep),
             None => match settle(g, [], always(Happened.Init, g), "init") {
-                Ok(u) => (u.state, u.effects),
+                // Only contract 4 states are named fields; before it, a link has none to set.
+                Ok(u) => (
+                    if g.version >= 4 { with_link(u.state, link) } else { u.state },
+                    u.effects,
+                    u.link,
+                ),
                 Err(why) => {
-                    return (Screen.Stopped(why, true), []);
+                    return stopped(why);
                 }
             },
         };
         match settle(g, state, always(Happened.Open, g), "opened") {
-            Err(why) => (Screen.Stopped(why, true), []),
+            Err(why) => stopped(why),
             Ok(u) => {
                 let mut asks = first;
                 for e of u.effects {
                     asks.push(e);
                 }
-                shown(g, u.state, asks)
+                // `on_open`'s own change wins; without one, `on_init`'s stands.
+                let last = if u.link == LinkChange.Keep { named } else { u.link };
+                shown(g, u.state, asks, last)
             }
         }
     }
+};
+
+/** A guest that stopped before it could run: why. */
+fun stopped(why: string): Ran = Ran {
+    screen: Screen.Stopped(why, true),
+    asks: [],
+    link: LinkChange.Keep,
 };
 
 /** An event every contract has, named for `g`'s. */
@@ -58,20 +95,14 @@ fun always(h: Happened, g: Guest): u8[] = event_for(h, g.version).expect(
  * Example:
  *     happen(g, state, Happened.Resume)
  */
-public fun happen(g: Guest, state: u8[], h: Happened): Option<(Screen, Effect[])> = event_for(
-    h,
-    g.version,
-).map(fun(event: u8[]) = step(g, state, event));
+public fun happen(g: Guest, state: u8[], h: Happened): Option<Ran> = event_for(h, g.version).map(
+    fun(event: u8[]) = step(g, state, event),
+);
 
 /** Sends one event (a message or an answer) to the guest's `handle`, then renders the new state. */
-fun step(g: Guest, state: u8[], event: u8[]): (Screen, Effect[]) = match settle(
-    g,
-    state,
-    event,
-    "update",
-) {
-    Err(why) => (Screen.Stopped(why, true), []),
-    Ok(u) => shown(g, u.state, u.effects),
+fun step(g: Guest, state: u8[], event: u8[]): Ran = match settle(g, state, event, "update") {
+    Err(why) => stopped(why),
+    Ok(u) => shown(g, u.state, u.effects, u.link),
 };
 
 /** One `handle` call, read; on any failure the guest is closed and the reason kept. */
@@ -83,7 +114,7 @@ fun settle(g: Guest, state: u8[], event: u8[], what: string): Result<Update, str
             return Err(reason(e));
         }
     };
-    match read_update(bytes) {
+    match read_update_of(bytes, g.version) {
         Ok(u) => Ok(u),
         Err(e) => {
             g.close();
@@ -93,11 +124,11 @@ fun settle(g: Guest, state: u8[], event: u8[], what: string): Result<Update, str
 }
 
 /** Renders a state; a screen that stops drops what was asked for. */
-fun shown(g: Guest, state: u8[], asks: Effect[]): (Screen, Effect[]) {
+fun shown(g: Guest, state: u8[], asks: Effect[], link: LinkChange): Ran {
     let screen = show(g, state);
     match screen {
-        Running(_, _, _) => (screen, asks),
-        _ => (screen, []),
+        Running(_, _, _) => Ran { screen: screen, asks: asks, link: link },
+        _ => Ran { screen: screen, asks: [], link: link },
     }
 }
 

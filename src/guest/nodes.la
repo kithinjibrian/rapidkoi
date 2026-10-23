@@ -114,4 +114,16 @@ public struct Update {
     public state: u8[],
     /** What it asks for, in order (at most `MAX_EFFECTS`). */
     public effects: Effect[],
+    /** Which fields go in the window's address (contract 4, PRP-036). */
+    public link: LinkChange,
+}
+
+/** What a contract 4 result says about the window's address (PRP-036). */
+public enum LinkChange {
+    /** No `link`: the address keeps the fields it had. */
+    Keep,
+    /** `link: null`: the address names no fields. */
+    Clear,
+    /** These top-level fields of the state, in this order. */
+    Set(string[]),
 }

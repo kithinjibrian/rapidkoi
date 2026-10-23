@@ -6,8 +6,11 @@
  * Used by: guest.guest, guest.contract
  */
 
-/** The contract version this shell speaks (`rapidkoi_version()`): 2, one entry point for every event (PRP-011). */
-public const CONTRACT_VERSION: i32 = 3;
+/** The newest contract this shell speaks (`rapidkoi_version()`): 4, a state of named fields and links (PRP-036). */
+public const CONTRACT_VERSION: i32 = 4;
+
+/** The deepest a contract 4 state may nest, as CBOR levels (PRP-036). */
+public const MAX_STATE_DEPTH: i64 = 64;
 
 /** The oldest UI contract this Rapidkoi still runs (DECISION-039: published bundles can't be recompiled). */
 public const OLDEST_CONTRACT: i32 = 2;

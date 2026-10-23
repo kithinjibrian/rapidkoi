@@ -10,7 +10,7 @@
  * Used by: window.navigate, ui.strip, ui.sidebar, shell
  */
 import window.window { Model, close, same_app, show_tab, with_tab, is_blank };
-import window.tabs { AppPage, Tab, Program, titled };
+import window.tabs { AppPage, Tab, Program, ran };
 import guest.running { start };
 
 /** The longest name an instance can be given. */
@@ -200,16 +200,19 @@ public fun close_app(m: Model, id: i64): Model {
 public fun another(p: AppPage, instance: string): Option<AppPage> = p.program.map(fun(
     prog: Program,
 ) {
-    let (screen, asks) = start(prog, None);
-    titled(AppPage {
-        screen: screen,
-        asks: asks,
-        title: None,
-        load: 0,
-        in_flight: 0,
-        instance: instance,
-        label: None,
-        seen: 0,
-        ..p,
-    })
+    // A new window starts fresh: its address names nothing until the app says.
+    ran(
+        AppPage {
+            title: None,
+            load: 0,
+            in_flight: 0,
+            instance: instance,
+            label: None,
+            seen: 0,
+            link: [],
+            fields: [],
+            ..p,
+        },
+        start(prog, None, []),
+    )
 });

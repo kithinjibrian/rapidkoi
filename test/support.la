@@ -269,3 +269,41 @@ public fun png(w: i64, h: i64): u8[] {
     }
     b
 }
+
+/**
+ * A contract 4 guest (PRP-036): `on_init` gets `init` (a whole result),
+ * `on_open` keeps the state it was given (a map of named fields, no
+ * `link`), and any other event gets `result`; `view` shows a counter tree.
+ */
+public fun linking(init: u8[], result: u8[]): string {
+    let tree = counter_tree("link");
+    // {state: <the state's own CBOR>, effects: []}, around the given state.
+    let head: u8[] = [0xa2, 0x65, 115, 116, 97, 116, 101];
+    let tail: u8[] = [0x67, 101, 102, 102, 101, 99, 116, 115, 0x80];
+    [
+        "(module (memory (export \"memory\") 1)",
+        "(global $next (mut i32) (i32.const 8192))",
+        "(data (i32.const 1024) \"{wat_bytes(tree)}\")",
+        "(data (i32.const 3000) \"{wat_bytes(head)}\")",
+        "(data (i32.const 3016) \"{wat_bytes(tail)}\")",
+        "(data (i32.const 5000) \"{wat_bytes(init)}\")",
+        "(data (i32.const 5600) \"{wat_bytes(result)}\")",
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const 4))",
+        "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
+        "  (local.set $p (global.get $next))",
+        "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
+        "  (local.get $p))",
+        "(func (export \"view\") (param i32 i32) (result i64) (global.set $next (i32.const 8192)) (i64.const {(1024 << 32) | tree.len}))",
+        "(func (export \"handle\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
+        // `{event: "on_init"}` and `{event: "on_open"}` are both 15 bytes; their 12th tells them apart.
+        "  (if (i32.eq (local.get $el) (i32.const 15)) (then",
+        "    (if (i32.eq (i32.load8_u (i32.add (local.get $ep) (i32.const 11))) (i32.const 105))",
+        "      (then (return (i64.const {(5000 << 32) | init.len}))))",
+        "    (memory.copy (i32.const 40000) (i32.const 3000) (i32.const 7))",
+        "    (memory.copy (i32.const 40007) (local.get $sp) (local.get $sl))",
+        "    (memory.copy (i32.add (i32.const 40007) (local.get $sl)) (i32.const 3016) (i32.const 9))",
+        "    (return (i64.or (i64.const {40000 << 32}) (i64.extend_i32_u (i32.add (local.get $sl) (i32.const 16)))))))",
+        "  (i64.const {(5600 << 32) | result.len}))",
+        ")",
+    ].join("\n")
+}

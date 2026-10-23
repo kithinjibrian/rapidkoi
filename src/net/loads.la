@@ -153,7 +153,7 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
                 instance: p.instance,
                 label: p.label,
                 seen: p.seen,
-                ..from_loaded(m.engine, l, p.path),
+                ..from_loaded(m.engine, l, p.path, []),
             };
             for k of pending.kept {
                 close_page(k);

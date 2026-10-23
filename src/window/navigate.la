@@ -252,7 +252,7 @@ public fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
                 _ => begin(m, id, a.path, false, saved, [a]),
             };
         }
-        let (loaded, over) = load_again(m.engine, m.ring, a.path, saved);
+        let (loaded, over) = load_again(m.engine, m.ring, a.path, saved, a.link);
         // A changed key asks first: the open page waits, in case the
         // person keeps using it.
         let page = match loaded.screen {

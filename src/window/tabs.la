@@ -14,10 +14,11 @@ import bundles.bundle { Manifest };
 import bundles.loader { Loaded, Refusal, load, why };
 import net.address;
 import trust.verify { Trust, Change, Keyring };
-import guest.contract { Described, ContractError, Effect, read_tree };
+import guest.contract { Described, ContractError, Effect, LinkChange, read_tree };
 import guest.events { Happened };
 import ui.render { Msg };
-import guest.running { start, happen };
+import guest.running { Ran, start, happen };
+import guest.links { fields_in };
 
 /** What an app page shows. */
 public enum Screen {
@@ -92,6 +93,10 @@ public struct AppPage {
     public label: Option<string>,
     /** When it was last the current tab, as a count: the app's last-used instance has the highest. */
     public seen: i64,
+    /** The fields the app put in its address (contract 4, PRP-036), in order. */
+    public link: string[],
+    /** Those fields' current values, as the address shows them. */
+    public fields: (string, string)[],
 }
 
 /** What the window shows: home, or the current tab's app. */
@@ -190,16 +195,22 @@ public fun loading(path: string, number: i64, pending: Pending): AppPage = AppPa
 };
 
 /**
- * The page for an app that arrived: started fresh, as `open_path` starts one.
+ * The page for an app that arrived: started fresh, as `open_path` starts
+ * one, with a link's fields set in its first state (PRP-036).
  *
  * Example:
- *     from_loaded(engine, loaded, "rapidkoi://localhost:8000")
+ *     from_loaded(engine, loaded, "rapidkoi://localhost:8000", [])
  */
-public fun from_loaded(engine: Engine, l: Loaded, path: string): AppPage = AppPage {
+public fun from_loaded(
+    engine: Engine,
+    l: Loaded,
+    path: string,
+    link: (string, string)[],
+): AppPage = AppPage {
     manifest: l.manifest,
     icon: l.icon,
     trust: l.trust,
-    ..open_program(l.name, path, Program { engine: engine, module: l.module }),
+    ..open_program(l.name, path, Program { engine: engine, module: l.module }, link),
 };
 
 /**
@@ -219,27 +230,46 @@ public fun open_module(
     path: string,
     engine: Engine,
     module: Module,
-): AppPage = open_program(name, path, Program { engine: engine, module: module });
+): AppPage = open_program(name, path, Program { engine: engine, module: module }, []);
+
+/**
+ * Starts a compiled app as a page opened from a link (PRP-036): its fields
+ * are set in the fresh state where it has them with the same kind of value.
+ *
+ * Example:
+ *     open_module_at("counter", "counter.wasm", engine, module, [("count", "3")])
+ */
+public fun open_module_at(
+    name: string,
+    path: string,
+    engine: Engine,
+    module: Module,
+    link: (string, string)[],
+): AppPage = open_program(name, path, Program { engine: engine, module: module }, link);
 
 /** A page running `program`, fresh, with whatever its `init` asked for. */
-fun open_program(name: string, path: string, program: Program): AppPage {
-    let (screen, asks) = start(program, None);
-    titled(AppPage {
-        name: name,
-        manifest: None,
-        icon: None,
-        path: path,
-        title: None,
-        trust: None,
-        program: Some(program),
-        asks: asks,
-        load: 0,
-        in_flight: 0,
-        screen: screen,
-        instance: "",
-        label: None,
-        seen: 0,
-    })
+fun open_program(name: string, path: string, program: Program, link: (string, string)[]): AppPage {
+    ran(
+        AppPage {
+            name: name,
+            manifest: None,
+            icon: None,
+            path: path,
+            title: None,
+            trust: None,
+            program: Some(program),
+            asks: [],
+            load: 0,
+            in_flight: 0,
+            screen: Screen.Stopped("", true),
+            instance: "",
+            label: None,
+            seen: 0,
+            link: [],
+            fields: [],
+        },
+        start(program, None, link),
+    )
 }
 
 /**
@@ -262,10 +292,8 @@ public fun handle(p: AppPage, msg: Msg): AppPage = match (p.screen, msg) {
     (_, Restart) => {
         close_page(p);
         match p.program {
-            Some(prog) => {
-                let (screen, asks) = start(prog, None);
-                titled(AppPage { screen: screen, asks: asks, ..p })
-            }
+            // A fresh start: the address names nothing until the app says.
+            Some(prog) => ran(AppPage { link: [], ..p }, start(prog, None, [])),
             None => p,
         }
     }
@@ -301,9 +329,33 @@ public fun changed(p: AppPage): AppPage = match p.screen {
 
 /** `p` after `h`, if its contract has it; any failure stops it. */
 fun sent(p: AppPage, g: Guest, state: u8[], h: Happened): AppPage = match happen(g, state, h) {
-    Some((screen, asks)) => titled(AppPage { screen: screen, asks: asks, ..p }),
+    Some(r) => ran(p, r),
     None => p,
 };
+
+/**
+ * `p` after its guest ran: the new screen and asks, the address's fields
+ * as the app last named them, with their values read from the new state.
+ * A field that can't go in an address stops the app (PRP-036).
+ */
+fun ran(p: AppPage, r: Ran): AppPage {
+    let link = match r.link {
+        Keep => p.link,
+        Clear => [],
+        Set(names) => names,
+    };
+    let after = AppPage { screen: r.screen, asks: r.asks, link: link, ..p };
+    match r.screen {
+        Running(g, state, _) => match fields_in(state, link) {
+            Ok(fs) => titled(AppPage { fields: fs, ..after }),
+            Err(why) => {
+                g.close();
+                AppPage { screen: Screen.Stopped(why, true), asks: [], ..after }
+            }
+        },
+        _ => after,
+    }
+}
 
 /**
  * Frees a page's guest. Closing twice does nothing.
@@ -367,6 +419,8 @@ fun failed(name: string, path: string, why: string): AppPage = AppPage {
     instance: "",
     label: None,
     seen: 0,
+    link: [],
+    fields: [],
 };
 
 /**

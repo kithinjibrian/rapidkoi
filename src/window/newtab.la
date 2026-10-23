@@ -32,5 +32,5 @@ public fun open(engine: Engine): Result<AppPage, Refusal> {
     // Built in: the only bytes that may hold built-in permissions (PRP-030).
     let l = from_bytes(engine, keyring(), "newtab.rkb", BUNDLE, Origin.BuiltIn)?;
     // Its path is its key for your permission settings (`access.key_of`).
-    Ok(from_loaded(engine, l, NEWTAB_KEY))
+    Ok(from_loaded(engine, l, NEWTAB_KEY, []))
 }
