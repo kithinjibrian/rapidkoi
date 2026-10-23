@@ -110,12 +110,12 @@ fun restore_brings_it_all_back_in_order_with_their_names() {
 @test
 fun restore_adds_to_an_app_named_at_launch() {
     // The app named on the command line is part of launch: the session is
-    // kept, and Restore adds to it; "m" is open already, so it stays one.
+    // kept; "m" is open now, so the current one wins for m.
     let s = with_session("adds");
     let (m, _) = start(["./main", module_of(s)], Some(s));
     assert_eq(m.previous.is_some(), true);
     let back = step(m, Msg.RestoreSession);
-    assert_eq(names(back), ["m", "Work"]);
+    assert_eq(names(back), ["m"]);
     clean("test/tmp/restore-adds");
 }
 
@@ -200,9 +200,10 @@ fun opening_something_keeps_restore_on_offer() {
     let (m, _) = start(["./main"], Some(s));
     let opened = step(step(m, Msg.Draft(module_of(s))), Msg.Go);
     assert_eq(opened.previous.is_some(), true);
-    // Restore stacks it under what's open: "m" is open already and stays one.
+    // Restore stacks it under what's open: "m" is open now, so the current
+    // session's m wins and none of the old m windows come back (session 187).
     let back = step(opened, Msg.RestoreSession);
-    assert_eq(names(back), ["m", "Work"]);
+    assert_eq(names(back), ["m"]);
     // Restored: no longer offered, here or at the next launch.
     assert_eq((back.previous.is_none(), previous_file(s).is_none()), (true, true));
     clean("test/tmp/restore-keeps-offer");
@@ -251,4 +252,31 @@ fun a_replaced_session_takes_its_extra_windows_with_it() {
     start(["./main"], Some(s));
     assert_eq((has_state(s, ""), has_state(s, "2")), (true, false));
     clean("test/tmp/restore-replaced-states");
+}
+
+@test
+fun the_current_session_wins_per_app() {
+    // Session 187: an app open now keeps only its current windows; an app
+    // that isn't comes back with all of its windows.
+    let s = folder("per-app");
+    let dir = "test/tmp/restore-per-app";
+    write_bytes("{dir}/n.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    let n = "{s.dir}/../n.wasm";
+    let o = Open {
+        tabs: [
+            OpenTab { path: module_of(s), instance: "", label: None, seen: 1 },
+            OpenTab { path: module_of(s), instance: "2", label: None, seen: 2 },
+            OpenTab { path: module_of(s), instance: "3", label: None, seen: 3 },
+            OpenTab { path: n, instance: "", label: None, seen: 4 },
+            OpenTab { path: n, instance: "2", label: Some("Two"), seen: 5 },
+        ],
+        current: Some(0),
+    };
+    fs.make_dirs(s.dir).unwrap();
+    save(s, "open", open_file(o)).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    let opened = step(step(m, Msg.Draft(module_of(s))), Msg.Go);
+    let back = step(opened, Msg.RestoreSession);
+    assert_eq(names(back), ["m", "n", "Two"]);
+    clean(dir);
 }

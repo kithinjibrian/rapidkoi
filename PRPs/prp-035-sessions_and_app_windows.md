@@ -113,3 +113,4 @@ From chat with the owner (session 183), from the basics up, replacing PRP-034's 
   - An unrestored previous session is replaced at the next launch by the one after it, and its extra windows' state goes then.
   - The owner's exception: an empty session never replaces one.
   - Built as `src/data/sessions.la` (`begin_session`, `restored`, the `previous` file); `saving.drop_session` removed.
+- **Session 187:** "the current wins" is per app, not per window (the owner: an app with 3 windows in the old session and 1 now came back with all 3). An app open now keeps only its current windows; an app that isn't open comes back with all of its own. `navigate.reopen_all`.

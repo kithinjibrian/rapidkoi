@@ -130,8 +130,8 @@ public fun new_instance(m: Model): (Model, Cmd<Msg>) {
 }
 
 /**
- * Reopens what was open when Rapidkoi closed (PRP-034), each in its own
- * tab in the order saved: a file opened again, an address loading in the
+ * Reopens a saved session (PRP-034, PRP-035), each window in its own tab
+ * in the order saved, except apps open now, whose current windows win: a file opened again, an address loading in the
  * background, each as the same instance under the same name, a signed one
  * from its saved state. The one that was in front is current. One that
  * can't come back shows why in its tab.
@@ -147,13 +147,13 @@ public fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
     let mut at = m;
     let mut tasks: Cmd<Msg>[] = [];
     let mut ids: i64[] = [];
+    // The current session wins per app (the owner, session 187): an app
+    // open now keeps only its current windows; one that isn't comes back
+    // with all of its own.
     for t of o.tabs {
-        // Restore adds (PRP-035): a window already open just stays.
-        let already = at.tabs.filter(
-            fun(x: Tab) = same_app(x.page.path, t.path) && x.page.instance == t.instance,
-        );
-        if already.len > 0 {
-            ids.push(already[0].id);
+        let current = m.tabs.filter(fun(x: Tab) = same_app(x.page.path, t.path));
+        if current.len > 0 {
+            ids.push(current[0].id);
             continue;
         }
         let named = fun(p: AppPage) = AppPage {

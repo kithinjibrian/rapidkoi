@@ -6905,5 +6905,13 @@ Branch: prp-017-kivuli_0_17
 ---
 
 
-## SESSION 187 — 2026-10-23 — Restore: the current session wins per app — open
+## SESSION 187 — 2026-10-23 — Restore: the current session wins per app — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: an app with 3 windows in the old session and 1 now came back with all 3 on Restore. "Current wins" was meant per app; I'd built it per window.
+- `navigate.reopen_all`: an app open now keeps only its current windows; an app that isn't comes back with all of its own.
+- Tests: `test/restore.la` updated, plus `the_current_session_wins_per_app`.
+- DESIGN.md, MEMORY.md, PRP-035 amendment. Checks, fmt and build pass. Tests not run (the owner runs them).
