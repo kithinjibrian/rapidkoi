@@ -6927,3 +6927,6 @@ Branch: prp-017-kivuli_0_17
 - `instances.close_instance`: closing the first closes every window of the app.
 - Tests: `test/instances.la` updated. DESIGN.md, MEMORY.md, PRP-035 amendment.
 - Checks, fmt and build pass. Tests not run (the owner runs them).
+
+## SESSION 189 — 2026-10-23 — Every window the same; state lives with its window — open
+Branch: prp-017-kivuli_0_17
