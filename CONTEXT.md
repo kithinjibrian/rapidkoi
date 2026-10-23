@@ -10579,3 +10579,6 @@ PRPs/prp-036-links.md, CONTEXT.md
 
 ---
 
+
+## SESSION 192 — 2026-10-23 — PRP-036 amended: links are web addresses on the app's domain, with the version — open
+Branch: prp-017-kivuli_0_17
