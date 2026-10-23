@@ -10727,3 +10727,6 @@ Branch: prp-017-kivuli_0_17
 - The Rust library: `Ask::preferences`, `Ask::set_preference`, `Prefs`, `Preference`.
 - Docs: contract-5.md, app-events.md, DESIGN.md, CLAUDE.md, MEMORY.md (decision 25 amended), CHANGELOG.md, PRP amendments.
 - Checks: every test file checks, fmt is clean, the build and `cargo test --no-run` succeed. Tests not run (the owner runs them).
+
+## SESSION 202 — 2026-10-24 — Centre ☰ in the header bar — open
+Branch: prp-017-kivuli_0_17
