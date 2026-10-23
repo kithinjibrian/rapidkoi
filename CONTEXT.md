@@ -10666,3 +10666,6 @@ Branch: prp-017-kivuli_0_17
 - From chat with the owner (after session 197): a real app next (tasks first; chat later needs a way for servers to reach apps); what "describing meaning" means; research (the Extensible Web Manifesto, Flutter, ARIA, AccessKit); then step by step from the goals: the person's five controls, follow by default and force as a last resort, free styling through one door, no looks in the manifest, Rapidkoi's names asked for by name, roles, what only Rapidkoi can do, state as a tree with IDs, link paths.
 - Wrote `PRPs/prp-037-contract_5_styling_and_roles.md` (contract 5 part 1), with the split: PRP-038 the person's controls, PRP-039 composing (link paths, nested named state, typed messages), PRP-040 the tasks app.
 - DECISION-049 (apps style themselves; contract 5), DECISION-050 (kivuli accessible roles, `docs/specs/kivuli-accessible-roles.md`). Awaiting the owner's approval of PRP-037 and the split. No code.
+
+## SESSION 199 — 2026-10-23 — Build PRP-037: contract 5 part 1 (primitives, styling, roles) — open
+Branch: prp-017-kivuli_0_17
