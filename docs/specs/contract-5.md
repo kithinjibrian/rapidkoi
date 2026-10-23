@@ -71,3 +71,18 @@ Rapidkoi uses roles for focus, pressing by keyboard and the checked look. Screen
 - `rapidkoi::raw` has the primitives: `boxed()`, `text()`, `field()`, `Role`, `.style([...])`, `.role()`, `.checked()`, `.on_press()`, `.on_submit()`, `.lines()`.
 - `rapidkoi::style` has the values: `Background`, `Text`, `Font`, `Border`, `Outline`, `Spacing`, `Sizing`, `Shadow`, `Effects`, `Layout`, `When(State, …)`, `Color::system`/`rgb`/`rgba`/`.mix`.
 - The widgets (`text().title()`, `button().primary()`, `checkbox`, `tabs`, `spacer`, `input`, `text_area`, `column`, `row`) are built from them, and `.style([...])` restyles any of them.
+
+## The person's choices (PRP-038)
+
+- **`preferences`** (an ask any app may make, no permission): answered with `{ "theme": "dark" | "light", "more_contrast": bool, "text_size": 80–200 }`. Nothing else about the person's settings is ever given. When one changes, every running app gets `on_change`: ask again.
+- **`set_preference`** `{ "name", "value" }` (needs the built-in `change_settings`, which only Rapidkoi's own Settings app holds): `theme` `"dark"`/`"light"`, `more_contrast` true/false, `text_size` 80–200 in steps of 10. Not answered. A bad name or value stops the app.
+- **Text size** sets the body size: `body`, `small`, `rem`, and Rapidkoi's `title`, `heading` and `xs`–`xl` follow it. Raw points and pixels don't, unless the person turns on **Use my text size** for the app.
+- **Use my colours** (per app, in its ⚙ card) turns the app's raw and mixed colours into Rapidkoi's:
+  - text → `text`;
+  - borders and outlines → `border`;
+  - a pressable box's fill → `surface`;
+  - other fills → none;
+  - shadows off.
+
+  Its named colours stay.
+

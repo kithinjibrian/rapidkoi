@@ -298,6 +298,14 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** apps never setting colours (DECISION-031's app rule); a component per app subject; looks in the manifest.
 
+**Amended (PRP-038, sessions 200–201):**
+- Settings is a built-in app (☰ → Settings), holding `change_settings`.
+- Light or dark, with More contrast as a switch: four colour sets.
+- Text size 80%–200% sets the base, and Rapidkoi's spacing names follow; it isn't zoom.
+- Any app reads theme, contrast and text size, nothing more.
+- Each app's ⚙ card has Use my colours and Use my text size.
+- ☰ holds Settings, About and Quit.
+
 ---
 
 ## CURRENT PROJECT STATE

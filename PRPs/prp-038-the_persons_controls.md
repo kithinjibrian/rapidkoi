@@ -107,48 +107,48 @@ Done looks like this:
 ## TESTS TO WRITE
 
 `test/schemes.la` (new):
-- [ ] Each of the four sets meets its contrast bar for text, dim text, text on accent and borders.
-- [ ] `theme_for` picks the right set and scale.
+- [x] Each of the four sets meets its contrast bar for text, dim text, text on accent and borders.
+- [x] `theme_for` picks the right set and scale.
 
 `test/preferences.la` (new):
-- [ ] The file round-trips.
-- [ ] A text size outside 80–200 or off the 10% steps is the default.
-- [ ] A broken file is set aside with a notice.
-- [ ] A newer one is refused.
+- [x] The file round-trips.
+- [x] A text size outside 80–200 or off the 10% steps is the default.
+- [x] A broken file is set aside with a notice.
+- [x] A newer one is refused.
 
 `test/paint.la`:
-- [ ] At 150%: `title`, `heading` and `md` scale.
-- [ ] Raw `pt` and px don't, unless Use my text size is on.
-- [ ] Use my colours maps raw and mixed colours as specified, and leaves named ones.
+- [x] At 150%: `title`, `heading` and `md` scale.
+- [x] Raw `pt` and px don't, unless Use my text size is on.
+- [x] Use my colours maps raw and mixed colours as specified, and leaves named ones.
 
 `test/effects.la`, `test/permissions.la`:
-- [ ] `preferences` is answered for any app.
-- [ ] `set_preference` needs `change_settings`, and a bad name or value is refused.
+- [x] `preferences` is answered for any app.
+- [x] `set_preference` needs `change_settings`, and a bad name or value is refused.
 - [ ] `change_settings` is BuiltIn.
 
 `test/settings_app.la` (new):
-- [ ] The built-in Settings bundle declares `change_settings`.
-- [ ] ☰ → Settings opens it once (a second time switches to it).
-- [ ] Its tabs and buttons change `Model.prefs`, and running contract 5 apps get `on_change`.
+- [x] The built-in Settings bundle declares `change_settings`.
+- [x] ☰ → Settings opens it once (a second time switches to it).
+- [x] Its tabs and buttons change `Model.prefs`, and running contract 5 apps get `on_change`.
 
 `test/header.la`, `test/menus.la`:
-- [ ] ☰ shows Settings, About Rapidkoi and Quit.
-- [ ] Quit quits (`Cmd.quit`).
-- [ ] About shows the version.
+- [x] ☰ shows Settings, About Rapidkoi and Quit.
+- [x] Quit quits (`Cmd.quit`).
+- [x] About shows the version.
 
 `test/people.la`:
-- [ ] Format 4 round-trips the two switches.
-- [ ] Format 3 reads with both off.
+- [x] Format 4 round-trips the two switches.
+- [x] Format 3 reads with both off.
 
 `test/settings.la` (the ⚙ card):
-- [ ] The two switches show and send `OwnLooks`.
+- [x] The two switches show and send `OwnLooks`.
 
 `test/saving.la`:
-- [ ] Prefs are restored at launch and saved on change.
+- [x] Prefs are restored at launch and saved on change.
 
 `guest/rust` (`cargo test`):
-- [ ] The Settings app's view (tabs, switch, `−`/`+` limits at 80 and 200) and its asks.
-- [ ] `Prefs::read` decodes an answer.
+- [x] The Settings app's view (tabs, switch, `−`/`+` limits at 80 and 200) and its asks.
+- [x] `Prefs::read` decodes an answer.
 
 ## ROLLBACK PLAN
 - Branch: `prp-017-kivuli_0_17`; `git revert` the PRP's commits. This returns to one dark theme, a disabled ☰, and no reads.
@@ -159,7 +159,7 @@ Done looks like this:
 - [ ] An app with raw colours, with Use my colours on, shows in Rapidkoi's colours.
 - [ ] About shows the version; Quit quits.
 - [ ] `lughac test test/` and `cargo test` pass (the owner runs them); build ok; fmt clean; no file over 500 lines.
-- [ ] Docs and CHANGELOG.md updated.
+- [x] Docs and CHANGELOG.md updated.
 
 ## VALIDATION
 - `lughac fmt --check src test`, `lughac test test/`, `lughac build src/main.la -o main`, `cargo test --manifest-path guest/rust/Cargo.toml`
@@ -167,3 +167,18 @@ Done looks like this:
   1. `./main`, ☰ → Settings. Pick Light, then More contrast, then text size 150%: Rapidkoi, the new tab and an open app follow.
   2. Open the styled example, then its ⚙ → Use my colours: its green turns Rapidkoi's.
   3. Restart: everything as you left it.
+
+## AMENDMENTS (session 201, while building)
+
+- **Borders:** today's Dark (the owner's colours) has subtle borders at 1.6:1. The 3:1 border bar applies to the More contrast sets only, so Dark keeps its look. Text, dim text, text on the accent and text on danger meet 4.5:1 in every set, and 7:1 with More contrast.
+- **The file's errors** reuse the data folder's `Unreadable` (`Broken`, `Newer`), as every remembered file does, rather than a `PrefsError` of its own.
+- **`set_preference` is applied while answering:** no `Msg.SetPreference`. When it changes the choices, every running app is told (`effects.tell_prefs`) and what they ask is answered in the same update.
+- **Text size and the frame:**
+  - Rapidkoi's `title` and `heading` follow it in its pages (`themes.at_scale`).
+  - The dock's and cards' initials keep scale 1.
+  - The page's root sets the body size through `ui.content`.
+- **The ⚙ card's switches** show for apps whose `controls` allow `app_settings.looks`, and for any app without `controls`. Rapidkoi's own built-in apps don't list it, so they don't show them.
+- **The Settings tab** comes back built in on Restore and on ⟳, never from a file. Its address box shows `builtin:settings`.
+- **`set_preference`'s names:** `theme` (`"dark"`/`"light"`), `more_contrast`, `text_size`. The Rust library's `Preference` (`Light`, `MoreContrast`, `TextSize`) writes them.
+- **The new tab wasn't repacked:** its code didn't change.
+

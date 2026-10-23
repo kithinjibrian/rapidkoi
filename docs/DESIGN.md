@@ -113,3 +113,17 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 - A pressable box starts bare (no fill, edge or shadow) with an accent ring on focus; a text starts in `text`; a typing box in the field look.
 - An app can draw lookalikes of Rapidkoi's screens inside its content. The address, the shield and Rapidkoi's dialogs live in the frame and above the content, where apps can't draw.
 
+## The person's choices (PRP-038)
+
+- **Four colour sets** in `src/ui/schemes.la`: Dark (the owner's), Light, and a More contrast version of each, chosen in Settings (`theme_for`).
+  - Text, dim text, text on the accent and text on danger reach WCAG's 4.5:1, or 7:1 with More contrast, where borders reach 3:1 too.
+  - The ordinary sets keep subtle borders.
+  - Tested in `test/schemes.la`.
+- **Text size** (80%–200%) scales Rapidkoi's pages and apps' content. The page's body size is set by `ui.content`, and `title`, `heading` and `xs`–`xl` scale with it (`at_scale`, `paint.resolve_for`). The frame keeps its sizes: header, address box, strip, dock and card icons.
+- **☰** opens a card (a `kivuli.ui` popover) with ghost rows, hovering round: Settings, a separator, About Rapidkoi (a dialog: "Rapidkoi" and the version, dim), Quit.
+- **Settings** is a built-in app in its own tab:
+  - Theme as tabs (Dark, Light);
+  - More contrast as a checkbox;
+  - Text size as `−` `N%` `+`, disabled at 80 and 200.
+- **⚙'s card** has two switches under App settings, Use my colours and Use my text size, for apps whose `controls` allow `app_settings.looks` (any app without `controls`).
+
