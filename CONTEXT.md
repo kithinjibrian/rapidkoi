@@ -10687,3 +10687,6 @@ test/{styles, roles, tree5, paint (new), render, guest, tabs, newtab}.la,
 guest/rust/{rapidkoi/src/{raw, style (new), view, lib, abi}.rs, styled (new), Cargo.toml}, assets/apps/newtab.rkb,
 docs/specs/contract-5.md, CLAUDE.md, MEMORY.md, DECISIONS.md, docs/DESIGN.md, CHANGELOG.md, PRPs/prp-037-contract_5_styling_and_roles.md, CONTEXT.md
 ```
+
+## SESSION 200 — 2026-10-24 — PRP-038: the person's controls (settings, themes, text size, the per-app switch) — open
+Branch: prp-017-kivuli_0_17
