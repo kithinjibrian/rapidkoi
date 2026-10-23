@@ -1,6 +1,7 @@
 // The frame's small pieces, pure (PRP-017): names, initials, icon keys,
 // matching, and the trust marker Rapidkoi draws for each app. No display.
-import rapidkoi.ui.frame { label, initial, icon_of, marker, marker_icon, marker_note };
+import rapidkoi.ui.frame { label, initial, icon_of, marker, marker_icon, marker_note, address_of };
+import rapidkoi.bundles.bundle { Manifest };
 import rapidkoi.ui.suggestions { matches };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.window.tabs { AppPage, open_module };
@@ -84,4 +85,32 @@ fun the_marker_is_an_icon_and_the_host_with_the_words_on_hover() {
         (marker(counter(), "counter.wasm"), marker_icon(counter())),
         ("📄 counter.wasm · local file", None),
     );
+}
+
+@test
+fun the_address_box_shows_the_window_s_link() {
+    // PRP-036: what you see is what you'd share, the version included.
+    let p = counter();
+    assert_eq(address_of(p), "counter.wasm");
+    let site = AppPage { path: "rapidkoi://localhost:8000", ..p };
+    assert_eq(address_of(site), "rapidkoi://localhost:8000");
+    let versioned = AppPage {
+        manifest: Some(Manifest {
+            contract: 4,
+            name: "Counter",
+            version: "0.3.0",
+            description: None,
+            state_version: 1,
+            icon: None,
+            banners: [],
+            servers: [],
+            permissions: [],
+            controls: None,
+        }),
+        fields: [("count", "3")],
+        ..site,
+    };
+    assert_eq(address_of(versioned), "rapidkoi://localhost:8000/@0.3.0?count=3");
+    let remote = AppPage { path: "rapidkoi://counter.dafifi.net", ..versioned };
+    assert_eq(address_of(remote), "https://counter.dafifi.net/@0.3.0?count=3");
 }

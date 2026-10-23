@@ -26,7 +26,7 @@ import kivuli.ui { input_group, group_input, group_button_with, popover as ui_po
 import window.actions { Msg, ShieldPage, PanelPage };
 import window.window { Model, page_of };
 import window.pins { is_pinned };
-import ui.frame { marker_note, file_of };
+import ui.frame { marker_note, file_of, address_of };
 import ui.icons { Icon, icon };
 import ui.shield { facts, look_colour, card };
 import ui.settings;
@@ -72,7 +72,7 @@ public fun field(m: Model): View<Msg> {
     // swapping into a field, so the box is the same everywhere.
     let (shown, note) = match page {
         App(p) => (
-            if m.editing { m.draft } else { facts(p).place },
+            if m.editing { m.draft } else { address_of(p) },
             // The trust marker's words, on hover: the shield says the rest.
             Some(marker_note(p, file_of(p.path))),
         ),
