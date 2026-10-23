@@ -10647,3 +10647,6 @@ Branch: prp-017-kivuli_0_17
 - `address.link_of` writes `rapidkoi://` for remote apps; `http://` and local `https://` development servers keep their scheme. Pasted `https://` links still open.
 - Tests: `test/address.la`, `test/frame.la`. Checked, fmt clean, `./main` rebuilt. Not run (the owner runs them).
 - DESIGN.md, MEMORY.md (decision 24), CHANGELOG.md, `docs/specs/contract-4.md`, PRP-036 amendment.
+
+## SESSION 197 — 2026-10-23 — Back to https:// links (the owner) — open
+Branch: prp-017-kivuli_0_17
