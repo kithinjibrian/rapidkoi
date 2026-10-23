@@ -10702,3 +10702,6 @@ Branch: prp-017-kivuli_0_17
   - Apps read theme, contrast and text size without permission.
   - The per-app switch is Use my colours and Use my text size.
 - Wrote `PRPs/prp-038-the_persons_controls.md`, with a split of `themes.la` into `ui/schemes.la` to approve with it. No code.
+
+## SESSION 201 — 2026-10-24 — Build PRP-038: the person's controls — open
+Branch: prp-017-kivuli_0_17
