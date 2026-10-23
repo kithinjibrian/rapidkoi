@@ -6376,3 +6376,6 @@ Branch: prp-017-kivuli_0_17
 - The owner: launch went straight to the reopened counter, not the new tab.
 - `shell.start`: launch always lands on the empty tab (`new_blank`, so the instance that was in front becomes `last`), with the address box focused. `test/restore.la` updated. DESIGN.md and the PRP-034 amendment noted.
 - Asked the owner what closing an instance should mean (delete it, or keep it, listed in the app's settings).
+
+## SESSION 183 — 2026-10-23 — PRP-035: sessions and app windows — open
+Branch: prp-017-kivuli_0_17
