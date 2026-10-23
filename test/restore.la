@@ -1,7 +1,9 @@
-// Sessions (PRP-034, PRP-035): the open file is saved as tabs open, close,
-// are renamed or switched; launch keeps it as the previous session, which
-// Restore brings back with names and the one in front, and opening
-// something else drops. A minimal module on disk stands
+// Sessions (PRP-034, PRP-035; the owner's model, session 186): the open
+// file is the current session, saved as it changes. At launch a non-empty
+// one becomes the previous session, kept all session for Restore, which
+// stacks it under the current one (the current wins). Unrestored, it's
+// replaced at the next launch by the session after it, unless that one
+// was empty. A minimal module on disk stands
 // in for each app (it stops for want of memory, which is fine here: the
 // tab, its name and its place are what's checked). Writes only under
 // test/tmp/.
@@ -106,16 +108,6 @@ fun restore_brings_it_all_back_in_order_with_their_names() {
 }
 
 @test
-fun opening_something_else_drops_it() {
-    let s = with_session("drop");
-    let (m, _) = start(["./main"], Some(s));
-    let opened = step(step(m, Msg.Draft(module_of(s))), Msg.Go);
-    assert_eq(opened.previous.is_none(), true);
-    assert_eq(step(opened, Msg.RestoreSession).tabs.len, 1);
-    clean("test/tmp/restore-drop");
-}
-
-@test
 fun restore_adds_to_an_app_named_at_launch() {
     // The app named on the command line is part of launch: the session is
     // kept, and Restore adds to it; "m" is open already, so it stays one.
@@ -170,30 +162,6 @@ fun has_state(s: Store, instance: string): bool = match saved_state_in(
     _ => false,
 };
 
-@test
-fun dropping_it_deletes_its_extra_windows_and_keeps_the_apps_data() {
-    // An instance is a window onto its app (PRP-035): the app's data (its
-    // first instance) stays; a dropped session's other windows are gone.
-    let s = folder("drop-states");
-    fs.make_dirs(s.dir).unwrap();
-    let site = "rapidkoi://localhost:18798";
-    let o = Open {
-        tabs: [
-            OpenTab { path: site, instance: "", label: None, seen: 1 },
-            OpenTab { path: site, instance: "2", label: None, seen: 2 },
-        ],
-        current: Some(0),
-    };
-    save(s, "open", open_file(o)).unwrap();
-    let sv = Saved { host: "localhost:18798", key: [3; 32], state_version: 1, state: [1], used: 1 };
-    keep_in(s, sv, "").unwrap();
-    keep_in(s, sv, "2").unwrap();
-    let (m, _) = start(["./main"], Some(s));
-    step(step(m, Msg.Draft(module_of(s))), Msg.Go);
-    assert_eq((has_state(s, ""), has_state(s, "2")), (true, false));
-    clean("test/tmp/restore-drop-states");
-}
-
 /** Every message a command sends after a delay. */
 fun later(c: Cmd<Msg>): Msg[] = match c {
     After(_, msg) => [msg],
@@ -218,4 +186,69 @@ fun the_new_tabs_restore_button_restores() {
     let (_, c) = update(m, pressed);
     assert_eq(later(c), [Msg.RestoreSession]);
     clean("test/tmp/restore-button");
+}
+
+fun previous_file(s: Store): Option<Open> = match read_bytes("{s.dir}/previous") {
+    Ok(b) => read_open(b).ok(),
+    Err(_) => None,
+};
+
+@test
+fun opening_something_keeps_restore_on_offer() {
+    // Session 186: nothing is dropped by accident.
+    let s = with_session("keeps-offer");
+    let (m, _) = start(["./main"], Some(s));
+    let opened = step(step(m, Msg.Draft(module_of(s))), Msg.Go);
+    assert_eq(opened.previous.is_some(), true);
+    // Restore stacks it under what's open: "m" is open already and stays one.
+    let back = step(opened, Msg.RestoreSession);
+    assert_eq(names(back), ["m", "Work"]);
+    // Restored: no longer offered, here or at the next launch.
+    assert_eq((back.previous.is_none(), previous_file(s).is_none()), (true, true));
+    clean("test/tmp/restore-keeps-offer");
+}
+
+@test
+fun unrestored_it_is_replaced_by_the_next_session() {
+    let s = with_session("replaced");
+    let (m, _) = start(["./main"], Some(s));
+    // This session opens one window, never restores, and closes.
+    step(step(m, Msg.Draft(module_of(s))), Msg.Go);
+    let (again, _) = start(["./main"], Some(s));
+    assert_eq(again.previous.map(fun(o: Open) = o.tabs.len), Some(1));
+    clean("test/tmp/restore-replaced");
+}
+
+@test
+fun an_empty_session_never_replaces_it() {
+    // The owner's exception (session 186): launch, open nothing, close.
+    let s = with_session("empty");
+    start(["./main"], Some(s));
+    let (again, _) = start(["./main"], Some(s));
+    assert_eq(again.previous.map(fun(o: Open) = o.tabs.len), Some(2));
+    clean("test/tmp/restore-empty");
+}
+
+@test
+fun a_replaced_session_takes_its_extra_windows_with_it() {
+    // Its windows' own state goes; each app's data (its first window) stays.
+    let s = folder("replaced-states");
+    fs.make_dirs(s.dir).unwrap();
+    let site = "rapidkoi://localhost:18798";
+    let o = Open {
+        tabs: [
+            OpenTab { path: site, instance: "", label: None, seen: 1 },
+            OpenTab { path: site, instance: "2", label: None, seen: 2 },
+        ],
+        current: Some(0),
+    };
+    save(s, "open", open_file(o)).unwrap();
+    let sv = Saved { host: "localhost:18798", key: [3; 32], state_version: 1, state: [1], used: 1 };
+    keep_in(s, sv, "").unwrap();
+    keep_in(s, sv, "2").unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    step(step(m, Msg.Draft(module_of(s))), Msg.Go);
+    start(["./main"], Some(s));
+    assert_eq((has_state(s, ""), has_state(s, "2")), (true, false));
+    clean("test/tmp/restore-replaced-states");
 }

@@ -21,7 +21,8 @@ import window.navigate;
 import window.pins;
 import window.instances { close_instance, close_app, start_rename, confirm_rename, touched };
 import window.newtab;
-import data.saving { session_store, restore, restore_open, persist, mark, forgotten, drop_session };
+import data.saving { session_store, restore, persist, mark, forgotten };
+import data.sessions { begin_session, restored };
 import data.store { Store };
 import ui.render;
 import ui.layout;
@@ -64,23 +65,16 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     let engine = Engine.new();
     // 1. Restore.
     let empty = with_pages(engine, []);
-    let (restored, open) = match s {
-        Some(st) => restore_open(restore(empty, st), st),
-        None => (empty, None),
+    // The session that just ended becomes the previous one, for the new
+    // tab's Restore (PRP-035; the owner's model, session 186).
+    let recalled = match s {
+        Some(st) => begin_session(restore(empty, st), st),
+        None => empty,
     };
     // 2 and 3. The new tab's app, once for the window, now that what it
     // reads is there; without it the empty tab is just empty (PRP-027).
-    let ready = Model { newtab: newtab.open(engine).ok(), ..restored };
-    // What was open when Rapidkoi closed is kept as the last session, for
-    // the new tab's "Restore previous session": nothing reopens on its own
-    // (PRP-035).
-    let remembered = Model {
-        previous: match open {
-            Some(o) if o.tabs.len > 0 => Some(o),
-            _ => None,
-        },
-        ..ready,
-    };
+    // Nothing reopens on its own: the last session waits for Restore.
+    let remembered = Model { newtab: newtab.open(engine).ok(), ..recalled };
     let reloads: Cmd<Msg> = Cmd.none();
     if argv.len < 2 {
         // Launch lands on the new tab (the owner, sessions 182–183). It
@@ -145,15 +139,8 @@ public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     } else {
         handled
     };
-    // Opening anything else drops the last session (PRP-035): Restore is
-    // offered only until then.
-    let moved_on = if m.previous.is_some() && next.previous.is_some() && next.tabs.len > m.tabs.len {
-        drop_session(next)
-    } else {
-        next
-    };
     // An approval whose page went to the back is a no (PRP-031).
-    let (decided, denied) = left_behind(moved_on);
+    let (decided, denied) = left_behind(next);
     // What a v2 app asked for is answered before anything is drawn or saved:
     // what on_resume and on_change asked for too.
     // The instance now in front is the one its app reopens to (PRP-033).
@@ -233,8 +220,10 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         Cmd.none(),
     ),
     // The new tab's Restore (PRP-035): the last session's windows, added.
+    // Stacked under what's open, the current winning where they overlap;
+    // then it's part of the current session (the owner, session 186).
     RestoreSession => match m.previous {
-        Some(o) => navigate.reopen_all(Model { previous: None, ..m }, o),
+        Some(o) => navigate.reopen_all(restored(Model { previous: None, ..m }), o),
         None => (m, Cmd.none()),
     },
     NewInstance => navigate.new_instance(m),

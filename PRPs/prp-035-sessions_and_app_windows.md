@@ -107,3 +107,9 @@ From chat with the owner (session 183), from the basics up, replacing PRP-034's 
 - **Where you left off is the app:** `leftoff.as_app` (first instance, no state or program of its own) when an extra window closes or is the one used last, so its state never overwrites the app's data.
 - **A closed extra window's state** is deleted in `persist` (`states.drop_state_in`).
 - **`src/data/saving.la` is at 500 lines,** at the limit: the next change there needs a split first.
+- **Session 186, the owner's model** (replacing "dropped as soon as something else is opened", which would lose sessions by accident):
+  - The previous session stays on offer all session.
+  - Restore stacks it under the current one, which wins where they overlap.
+  - An unrestored previous session is replaced at the next launch by the one after it, and its extra windows' state goes then.
+  - The owner's exception: an empty session never replaces one.
+  - Built as `src/data/sessions.la` (`begin_session`, `restored`, the `previous` file); `saving.drop_session` removed.
