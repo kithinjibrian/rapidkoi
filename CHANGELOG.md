@@ -51,7 +51,7 @@ Never deleted. Older entries are never modified.
 - Sessions, the owner's model: "Restore previous session" stays on offer all session and stacks the old session under the current one. An unrestored one is replaced at the next launch by the session after it, unless that was empty.
 - State lives with its window (session 189): every window is the same; closing one deletes its state; opening an app anew starts fresh; only Restore brings a saved window back.
 
-- Links (PRP-036, contract 4): an app names which of its state's fields go in its window's address, and the address box shows the whole link, version included (`rapidkoi://counter.dafifi.net/@0.3.0?count=3`; the same link as `https://` opens too). Opening a link opens a new window of its app at that version, with those fields set; a version no longer published opens the current one and says so. The counter's count is in its address.
+- Links (PRP-036, contract 4): an app names which of its state's fields go in its window's address, and the address box shows the whole link, version included (`https://counter.dafifi.net/@0.3.0?count=3`). Opening a link opens a new window of its app at that version, with those fields set; a version no longer published opens the current one and says so. The counter's count is in its address.
 - `./main publish` writes a landing page, served for every other path on the app's site: a link opened in a browser shows the app, its publisher and Open in Rapidkoi.
 - The Rust library speaks contract 4: `#[derive(State)]`, and `Next` with typed link fields (a list can't go in an address: it doesn't compile).
 ### Changed

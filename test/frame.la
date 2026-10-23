@@ -112,5 +112,5 @@ fun the_address_box_shows_the_window_s_link() {
     };
     assert_eq(address_of(versioned), "rapidkoi://localhost:8000/@0.3.0?count=3");
     let remote = AppPage { path: "rapidkoi://counter.dafifi.net", ..versioned };
-    assert_eq(address_of(remote), "rapidkoi://counter.dafifi.net/@0.3.0?count=3");
+    assert_eq(address_of(remote), "https://counter.dafifi.net/@0.3.0?count=3");
 }

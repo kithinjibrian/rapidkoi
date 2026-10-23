@@ -10345,7 +10345,7 @@ Branch: prp-017-kivuli_0_17
 
 ## NEXT SESSION START POINT
 
-**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Counter 0.4.0 and quote 0.2.0 are live on the VM at contract 4 with landing pages (session 195), to be opened in Rapidkoi by the owner. The address box shows `rapidkoi://` links (session 196). Then PRP-037, cross-app links. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
+**Stay on `prp-017-kivuli_0_17` until the owner says otherwise (session 90): no merging into `redesign` or `main`, no new branches. The owner runs all tests (session 93). While designing in chat, don't log sessions per message. No copy in screens beyond what the owner asks (session 142). Discuss before building (session 183).** kivuli 0.54. Built: PRP-036, links and contract 4 (session 193), awaiting the owner's test runs: `lughac test test/` (start with `test/links.la`, `address.la`, `verify.la`, `remembered.la`, `frame.la`, `landing.la`, `publish.la`, `serve.la`, `guest.la`, `tabs.la`, `newtab.la`, `restore.la`) and `cargo test --manifest-path guest/rust/Cargo.toml` (the doc tests include the compile-fail one), then the PRP's validation by hand. Open questions for the owner: an `Option` field that starts `None` can't be set by a link (its kind isn't known); where step B goes (contract 4 or 5, DECISION-048). Counter 0.4.0 and quote 0.2.0 are live on the VM at contract 4 with landing pages (session 195), to be opened in Rapidkoi by the owner. The address box shows `https://` links (session 197, undoing 196). Then PRP-037, cross-app links. Waiting on kivuli: DECISION-040, 042, 043, 047 (clipboard for share). Parked: DECISION-044 (Continue).
 
 ## SESSION 180 — 2026-10-23 — The strip and dock tweaks from chat (committed) — closed
 
@@ -10648,5 +10648,11 @@ Branch: prp-017-kivuli_0_17
 - Tests: `test/address.la`, `test/frame.la`. Checked, fmt clean, `./main` rebuilt. Not run (the owner runs them).
 - DESIGN.md, MEMORY.md (decision 24), CHANGELOG.md, `docs/specs/contract-4.md`, PRP-036 amendment.
 
-## SESSION 197 — 2026-10-23 — Back to https:// links (the owner) — open
+## SESSION 197 — 2026-10-23 — Back to https:// links (the owner) — closed
+
 Branch: prp-017-kivuli_0_17
+
+### WHAT WAS DONE
+
+- The owner: "let's just use https. using rapidkoi is egoistical".
+- Session 196's change undone (`address.link_of`, its tests, DESIGN.md, MEMORY.md, CHANGELOG.md, the contract 4 spec, restored as before it); a test added that a `rapidkoi://` address is written as `https://`. PRP-036 amendment. Checked, fmt clean, `./main` rebuilt. Not run (the owner runs them).
