@@ -10988,3 +10988,7 @@ Branch: prp-017-kivuli_0_17
 ```
 test/support.la, test/counting.la (new), test/saving.la, test/counter.la and test/tasks.la (deleted), lugha.lock (lughac update), DECISIONS.md, CONTEXT.md
 ```
+
+## SESSION 218 — 2026-10-24 — PRP-042 step 2: ../rapidkoi-rust, made locally — open
+
+Branch: prp-017-kivuli_0_17
