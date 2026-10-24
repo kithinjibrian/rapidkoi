@@ -10936,3 +10936,7 @@ Branch: prp-017-kivuli_0_17
 ```
 PRPs/prp-041-storage.md, MEMORY.md, CONTEXT.md
 ```
+
+## SESSION 215 — 2026-10-24 — PRP-042: the repo cleanup, written — open
+
+Branch: prp-017-kivuli_0_17
