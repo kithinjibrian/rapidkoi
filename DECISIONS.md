@@ -370,6 +370,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-055 — A text area's placeholder (kivuli)
+
+**Status:** deferred (requested: `docs/specs/kivuli-text-area-placeholder.md`)
+**Raised:** 2026-10-24 (the owner, after Notes: its empty text box shows nothing)
+
+**Question:** Contract 5's typing box of several lines has a `placeholder`, and kivuli 0.54 draws placeholders on one-line fields only (`GtkTextView` has none). How does an empty text area say what it's for?
+
+**Meanwhile:** `ui.render.typing_box` names the text area by its placeholder (kivuli `.name`), so it's found as a one-line field is. Nothing is drawn in its place: no workaround with visible text.
+
+---
+
 ### DECISION-054 — Knowing when Rapidkoi's window comes back to the front (kivuli)
 
 **Status:** deferred (kivuli)
@@ -391,6 +402,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 **Meanwhile:** roles drive what Rapidkoi does itself: focus, pressing by keyboard, the `Checked` look. A screen reader hears what GTK infers from the widget. No workaround through visible text.
 
 **Revisit when:** kivuli sets accessible roles and states; then they're passed through with no contract change.
+
+**Typing boxes (the owner, 2026-10-24):** contract 5 gives an `input` no `label`, and Rapidkoi's `Typing` has none, so an app's label on a typing box (the SDK lets it write one) is ignored. When kivuli lands accessible labels, typing boxes gain `label` in the contract (a DECISIONS entry and a version bump) and it's passed through with the rest.
 
 ---
 

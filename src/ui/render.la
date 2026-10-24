@@ -193,7 +193,9 @@ fun typing_box(f: Typing, t: Theme): View<Msg> {
     let change = f.on_change;
     let send = fun(s: string) = Msg.Event(change.unwrap_or(Value.Null), Some(s));
     if f.lines > 1 {
-        let area = text_area(f.value, send);
+        // kivuli's text area shows no placeholder (DECISION-055): named by it,
+        // so it can be found as a one-line field is.
+        let area = text_area(f.value, send).name(f.placeholder);
         return if change.is_none() { area.disabled(true) } else { area };
     }
     let line = input(f.value, send).placeholder(f.placeholder);
