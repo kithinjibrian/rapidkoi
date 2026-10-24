@@ -356,6 +356,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## OPEN — Requires human input before implementation
 
+### DECISION-059 — Rapidkoi crashes on a screen nested about 13 deep (lughac, kivuli)
+
+**Status:** open (reported: `docs/specs/lughac-stack-frames.md`)
+**Raised:** 2026-10-24, opening Notes 0.3.0
+
+**Question:** kivuli's `resolve` uses 289 KB of stack a call in Rapidkoi's `./main` (lughac's `-O 0`; 122 KB at `-O 2`), and a screen costs two or three calls a level, so about 13 levels of nesting overflow the 8 MB main stack and Rapidkoi segfaults. Apps may nest 64 deep: any app can crash the shell. The fix is lughac's (frames that don't grow with every `match` arm's temporaries) or kivuli's (boxing `Style` in `View`, or walking without deep recursion). What does Rapidkoi do until then?
+
+**Options:** (a) nothing in Rapidkoi: wait for lughac or kivuli; Notes can't be opened meanwhile. (b) build `./main` with `-O 2` (frames 122 KB: about 30 levels), as a build setting, until the fix. (c) (b) and lower `MAX_NODE_DEPTH` for now. Any of these leaves the root cause to lughac and kivuli.
+
+---
+
 ### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
 
 **Status:** open (parked by the owner, session 189)
