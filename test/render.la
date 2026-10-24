@@ -1,7 +1,7 @@
 // Rendering, pure: decoded trees become kivuli views, checked through
 // kivuli.testing with no display.
 
-import rapidkoi.ui.render { Msg, screen, stopped };
+import rapidkoi.ui.render { Msg, screen, stopped, drawn_on_box };
 import rapidkoi.ui.schemes { DARK };
 import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, submit, texts };
 import rapidkoi.guest.nodes { Look, Facts, Role, Colour, Typing, Node };
@@ -150,4 +150,14 @@ fun a_scrolling_box_is_drawn_in_a_scrolled_area() {
         Some(false),
     );
     assert_eq(scrolled(screen(plain_box(words), DARK)), None);
+}
+
+@test
+fun a_scrolling_box_s_padding_scrolls_with_its_content() {
+    // As in CSS: the padding is inside what scrolls, so content is cut at the box's edge.
+    let look = fun(pairs: (string, Value)[]) = read_style(Some(kv(pairs)), "root > box").unwrap();
+    let padded = ("padding", Value.int(16));
+    assert_eq(drawn_on_box(look([("scroll", t("vertical")), padded])).padding.is_some(), false);
+    assert_eq(drawn_on_box(look([padded])).padding.is_some(), true);
+    assert_eq(drawn_on_box(look([("gap", Value.int(8))])).gap.is_some(), false);
 }
