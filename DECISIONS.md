@@ -26,19 +26,6 @@ Rules:
 
 ## DEFERRED — Acknowledged, not yet needed
 
-### DECISION-053 — WebAssembly text to bytes (lugha-wasmtime)
-
-**Status:** deferred (requested: `docs/specs/lugha-wasmtime-wat-to-wasm.md`; blocks PRP-042)
-**Raised:** 2026-10-24 — Session 216
-
-**Question:** PRP-042 takes the Rust apps out of this repository, so the tests that serve or pack a module from a `.wasm` file need to make one from WebAssembly text. lugha-wasmtime's `Module.from_text` compiles text straight into a module; its `wasmtime_wat2wasm` is in the private `raw`. How do the tests get the bytes?
-
-**Outcome (the owner, session 216):** lugha-wasmtime gains a public `wat_to_wasm(text): Result<u8[], CompileError>`, in its own repository first. Not chosen: a committed binary fixture made by `wat2wasm`, which can drift from its source.
-
-**Meanwhile:** PRP-042 waits. Nothing is worked around.
-
----
-
 ### DECISION-050 — Screen readers need accessible roles from kivuli
 
 **Status:** deferred (requested: `docs/specs/kivuli-accessible-roles.md`)
@@ -344,6 +331,19 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-053 — WebAssembly text to bytes (lugha-wasmtime)
+
+**Status:** resolved (lugha-wasmtime 0.1.1, session 217)
+**Raised:** 2026-10-24 — Session 216
+
+**Question:** PRP-042 takes the Rust apps out of this repository, so the tests that serve or pack a module from a `.wasm` file need to make one from WebAssembly text. lugha-wasmtime's `Module.from_text` compiles text straight into a module; its `wasmtime_wat2wasm` is in the private `raw`. How do the tests get the bytes?
+
+**Outcome (the owner, session 216):** lugha-wasmtime gains a public `wat_to_wasm(text): Result<u8[], CompileError>`, in its own repository first. Not chosen: a committed binary fixture made by `wat2wasm`, which can drift from its source.
+
+**Done:** lugha-wasmtime 0.1.1 (`wat_to_wasm`); `test/support.la`'s `write_counting` uses it.
+
+---
 
 ### DECISION-046 — Persistent storage: SQL, a database per app
 

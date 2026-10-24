@@ -1,0 +1,102 @@
+// End to end with the `counting` fixture (test/support.la), standing in for
+// a real app (PRP-042): a count that changes on a press, kept across Home,
+// a closed tab, a pin and a packed bundle. No display, no Rust.
+import rapidkoi.shell { Model, start, update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.window { card, page_of };
+import rapidkoi.ui.content { app_view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.commands.pack { make };
+import kivuli.testing { click, texts };
+import support { write_counting, png };
+import std.fs;
+
+/** The fixture written to its own file for test `name`, and opened. */
+fun started(name: string): Model {
+    let path = "test/tmp/counting-{name}.wasm";
+    write_counting(path);
+    let (m, _) = start(["./main", path], None);
+    m
+}
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun add(m: Model): Model = step(m, click(view(m), "Add").unwrap());
+
+/** The app's texts: its page alone, not the frame. */
+fun shown(m: Model): string[] = match page_of(m) {
+    App(a) => texts(app_view(m.current.unwrap_or(-1), a, m)),
+    Home => [],
+};
+
+fun has(m: Model, s: string): bool = shown(m).any(fun(x: string) = x == s);
+
+@test
+fun it_opens_at_zero_and_add_counts() {
+    let m = started("opens");
+    assert(has(m, "Count: 0"));
+    assert(has(add(add(m)), "Count: 2"));
+}
+
+@test
+fun home_and_continue_keep_the_count() {
+    let mut m = add(add(started("home")));
+    m = step(m, Msg.Home);
+    m = step(m, card(m).unwrap().msg);
+    assert(has(m, "Count: 2"));
+    // Closed, then reopened, it still has its count.
+    m = step(m, Msg.CloseTab(0));
+    m = step(m, card(m).unwrap().msg);
+    assert(has(m, "Count: 2"));
+}
+
+@test
+fun a_pinned_app_opens_from_home() {
+    let mut m = step(started("pinned"), Msg.TogglePin);
+    m = step(m, Msg.NewTab);
+    m = step(m, Msg.OpenPinned(m.pinned[0].path));
+    assert(has(m, "Count: 0"));
+}
+
+@test
+fun packed_as_a_bundle_it_runs_the_same() {
+    let module = "test/tmp/counting-packed.wasm";
+    let icon = "test/tmp/counting-icon.png";
+    let out = "test/tmp/counting.rkb";
+    write_counting(module);
+    write_bytes(icon, png(16, 16)).unwrap();
+    let packed = make([
+        module,
+        "--name",
+        "Counting",
+        "--version",
+        "0.1.0",
+        "--description",
+        "Counts",
+        "--icon",
+        icon,
+        "-o",
+        out,
+        "--force",
+    ]);
+    assert(packed.is_ok());
+    let (opened, _) = start(["./main", out], None);
+    // The bundle's icon and manifest came with it.
+    let page = opened.tabs[0].page;
+    assert(page.icon.is_some());
+    assert_eq(
+        page.manifest.map(fun(x) = (x.version, x.description)),
+        Some(("0.1.0", Some("Counts"))),
+    );
+    let mut m = add(opened);
+    assert(has(m, "Count: 1"));
+    // ⟳ keeps the count.
+    m = step(m, Msg.Reload);
+    assert(has(m, "Count: 1"));
+    for f of [module, icon, out] {
+        fs.remove_file(f).unwrap();
+    }
+}
