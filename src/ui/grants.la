@@ -27,7 +27,8 @@ import bundles.permissions {
 import people.people { setting_of };
 import people.access { key_of };
 import guest.nodes { ButtonLook };
-import ui.themes { Theme, body, button as button_look };
+import ui.themes { body, button as button_look };
+import ui.schemes { Theme };
 
 /** The permissions an app declares that this Rapidkoi knows (the loader refused any other). */
 fun declared(p: AppPage): Permission[] = parse(
@@ -41,7 +42,7 @@ fun declared(p: AppPage): Permission[] = parse(
  * Example:
  *     summary(m, page)
  */
-public fun summary(m: Model, p: AppPage): Option<string> {
+fun summary(m: Model, p: AppPage): Option<string> {
     let all = declared(p);
     if all.len == 0 {
         return None;
@@ -69,7 +70,7 @@ public fun summary(m: Model, p: AppPage): Option<string> {
  * Example:
  *     detail(t, "Permissions", Msg.PanelBack, grants.page(m, t, p))
  */
-public fun page(m: Model, t: Theme, p: AppPage): View<Msg>[] = declared(p).map(fun(
+fun page(m: Model, t: Theme, p: AppPage): View<Msg>[] = declared(p).map(fun(
     x: Permission,
 ): View<Msg> {
     let name = name_of(x);
@@ -90,7 +91,7 @@ public fun page(m: Model, t: Theme, p: AppPage): View<Msg>[] = declared(p).map(f
  * Example:
  *     if shows_row(p, "app_data.state") { … }
  */
-public fun shows_row(p: AppPage, wanted: string): bool = match p.manifest.and_then(
+fun shows_row(p: AppPage, wanted: string): bool = match p.manifest.and_then(
     fun(m: Manifest) = m.controls,
 ) {
     None => true,
@@ -106,7 +107,7 @@ public fun shows_row(p: AppPage, wanted: string): bool = match p.manifest.and_th
  * Example:
  *     shows_icon(m.newtab, "settings")
  */
-public fun shows_icon(newtab: Option<AppPage>, icon: string): bool = match newtab.and_then(
+fun shows_icon(newtab: Option<AppPage>, icon: string): bool = match newtab.and_then(
     fun(p: AppPage) = p.manifest,
 ).and_then(fun(m: Manifest) = m.controls) {
     Some(c) => c.address.any(fun(n: string) = n == icon),
@@ -121,7 +122,7 @@ public fun shows_icon(newtab: Option<AppPage>, icon: string): bool = match newta
  * Example:
  *     grants.question(m)
  */
-public fun question(m: Model): Option<View<Msg>> = m.approval.map(
+fun question(m: Model): Option<View<Msg>> = m.approval.map(
     fun(a) = column([
         dialog_header("{a.app} wants to {wish_of(a.permission)}", ""),
         dialog_footer([

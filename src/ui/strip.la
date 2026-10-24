@@ -57,7 +57,7 @@ import ui.icons { Icon, icon as iconsax };
 import ui.frame_looks { app_button, instance_chip, instance_dot, tab_close_on_hover };
 
 /** The most instances shown in the strip before the rest go behind ⋯. */
-public const MAX_STRIP: i64 = 3;
+const MAX_STRIP: i64 = 3;
 
 /**
  * Builds the strip for the header's start.
@@ -68,7 +68,7 @@ public const MAX_STRIP: i64 = 3;
  * Example:
  *     header_bar([strip.view(m)], …)
  */
-public fun view(m: Model): View<Msg> {
+fun view(m: Model): View<Msg> {
     let t = m.theme;
     let none: View<Msg>[] = [];
     // Always this wide, on every tab: the header centres the address box
@@ -188,7 +188,7 @@ fun chip(m: Model, x: Tab, current: bool): View<Msg> {
  * Example:
  *     ui_dialog(Msg.Cancel, [strip.rename_view(m)])
  */
-public fun rename_view(m: Model): View<Msg> {
+fun rename_view(m: Model): View<Msg> {
     let t = m.theme;
     let typed = m.renaming.map(fun(r: (i64, string)) = r.1).unwrap_or("");
     let problem = rename_problem(m);

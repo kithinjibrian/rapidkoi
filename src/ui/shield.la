@@ -17,11 +17,11 @@ import net.address { parse, shown };
 import trust.keys { fingerprint };
 import ui.frame { file_of };
 import ui.tokens { SPACE_SM, gap };
-import ui.themes { Theme };
+import ui.schemes { Theme };
 import ui.cards { sized, identity, choice, detail, line };
 
 /** The shield's three looks: everything checks out, something to know, or nothing vouches. */
-public enum ShieldLook {
+enum ShieldLook {
     /** Signed, and the signature checks out: a verified site, or a signed file whose key Rapidkoi trusts. */
     Verified,
     /** A development address, a key not confirmed yet, or a new publisher. */
@@ -31,7 +31,7 @@ public enum ShieldLook {
 }
 
 /** How Rapidkoi reached the app. */
-public enum Connection {
+enum Connection {
     /** Over HTTPS from another machine, its certificate checked. */
     Secure,
     /** From this computer, for development. */
@@ -41,7 +41,7 @@ public enum Connection {
 }
 
 /** What its signature says. */
-public enum Signature {
+enum Signature {
     /** Signed, by a key Rapidkoi verified or trusts. */
     Signed,
     /** Signed, by a key Rapidkoi hasn't met. */
@@ -53,21 +53,21 @@ public enum Signature {
 }
 
 /** What the shield says about one app. */
-public struct ShieldFacts {
+struct ShieldFacts {
     /** The shield's look. */
-    public look: ShieldLook,
+    look: ShieldLook,
     /** How Rapidkoi reached it. */
-    public connection: Connection,
+    connection: Connection,
     /** What its signature says. */
-    public signature: Signature,
+    signature: Signature,
     /** Where it came from: its host, or its file's name. */
-    public place: string,
+    place: string,
     /** Who signed it: "host · key xxxx-…"; `None` when unsigned. */
-    public publisher: Option<string>,
+    publisher: Option<string>,
     /** Since when Rapidkoi has known that publisher, or that it's new; `None` when unsigned or not confirmed. */
-    public since: Option<string>,
+    since: Option<string>,
     /** Its version, "· verified build" when its site's signed index lists the build; `None` without a manifest. */
-    public version: Option<string>,
+    version: Option<string>,
 }
 
 /**
@@ -80,7 +80,7 @@ public struct ShieldFacts {
  * Example:
  *     facts(page)
  */
-public fun facts(p: AppPage): ShieldFacts {
+fun facts(p: AppPage): ShieldFacts {
     let (connection, place) = match parse(p.path) {
         Ok(a) => (if a.remote { Connection.Secure } else { Connection.ThisComputer }, shown(a)),
         Err(_) => (Connection.LocalFile, file_of(p.path)),
@@ -145,7 +145,7 @@ public fun facts(p: AppPage): ShieldFacts {
  * Example:
  *     known_since(trust.since)
  */
-public fun known_since(since: i64): string {
+fun known_since(since: i64): string {
     if since <= 0 {
         return "Same publisher since first use (date not recorded)";
     }
@@ -162,7 +162,7 @@ public fun known_since(since: i64): string {
  * Example:
  *     checked_words(cached, m.now)
  */
-public fun checked_words(c: Cached, now: i64): string {
+fun checked_words(c: Cached, now: i64): string {
     if !c.reached {
         return if c.checked <= 0 {
             "Not checked yet"
@@ -211,7 +211,7 @@ fun date(ms: i64): string {
  * Example:
  *     icon(Icon.Shield, look_colour(m.theme, f.look))
  */
-public fun look_colour(t: Theme, look: ShieldLook): string = match look {
+fun look_colour(t: Theme, look: ShieldLook): string = match look {
     Verified => t.on_frame,
     Caution => t.accent,
     Unsigned => t.faint,
@@ -230,7 +230,7 @@ public fun look_colour(t: Theme, look: ShieldLook): string = match look {
  * Example:
  *     card(m.theme, page, ShieldPage.Main, m.now)
  */
-public fun card(t: Theme, p: AppPage, page: ShieldPage, now: i64): View<Msg> {
+fun card(t: Theme, p: AppPage, page: ShieldPage, now: i64): View<Msg> {
     let f = facts(p);
     let back = Msg.Shield(Some(ShieldPage.Main));
     let shown = match page {

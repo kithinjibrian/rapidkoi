@@ -16,19 +16,19 @@ import bundles.permissions { Setting, parse };
 import net.requests { allowed };
 
 /** What the Access page shows for one app. */
-public struct Access {
+struct Access {
     /** The app's name. */
-    public app: string,
+    app: string,
     /** Its own server, if it has one. */
-    public own: Option<string>,
+    own: Option<string>,
     /** The other servers it can reach. */
-    public servers: string[],
+    servers: string[],
     /** Those you switched off. */
-    public off: string[],
+    off: string[],
     /** Those an update added that you haven't looked at yet. */
-    public fresh: string[],
+    fresh: string[],
     /** Whether it has switches: only a signed app's settings are kept. */
-    public switches: bool,
+    switches: bool,
 }
 
 /**
@@ -37,7 +37,7 @@ public struct Access {
  * Example:
  *     access_of(m, page)
  */
-public fun access_of(m: Model, p: AppPage): Access {
+fun access_of(m: Model, p: AppPage): Access {
     let a = allowed(m, p);
     let fresh = match p.trust {
         Some(t) => person(m.people, t.host, t.origin).fresh,
@@ -60,7 +60,7 @@ public fun access_of(m: Model, p: AppPage): Access {
  * Example:
  *     on_access(m, "api.acme.com")
  */
-public fun on_access(m: Model, server: string): Model = match page_of(m) {
+fun on_access(m: Model, server: string): Model = match page_of(m) {
     App(p) => match p.trust {
         Some(t) => {
             let x = person(m.people, t.host, t.origin);
@@ -87,7 +87,7 @@ public fun on_access(m: Model, server: string): Model = match page_of(m) {
  * Example:
  *     looked(m, next)
  */
-public fun looked(before: Model, after: Model): Model {
+fun looked(before: Model, after: Model): Model {
     let was = match before.panel {
         Some(Access) => true,
         _ => false,
@@ -122,7 +122,7 @@ public fun looked(before: Model, after: Model): Model {
  * Example:
  *     news(m)
  */
-public fun news(m: Model): Model {
+fun news(m: Model): Model {
     let mut at = m;
     for t of m.tabs {
         at = noted(at, t.page);
@@ -186,7 +186,7 @@ fun has(xs: string[], s: string): bool = xs.any(fun(x: string) = x == s);
  * Example:
  *     key_of(page)
  */
-public fun key_of(p: AppPage): string = match p.trust {
+fun key_of(p: AppPage): string = match p.trust {
     Some(t) => t.host,
     None => p.path,
 };
@@ -199,7 +199,7 @@ public fun key_of(p: AppPage): string = match p.trust {
  * Example:
  *     set_permission(m, "read_pins", Setting.Blocked)
  */
-public fun set_permission(m: Model, name: string, s: Setting): Model {
+fun set_permission(m: Model, name: string, s: Setting): Model {
     let p = match page_of(m) {
         App(a) => a,
         Home => match m.newtab {

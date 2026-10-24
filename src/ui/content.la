@@ -28,7 +28,7 @@ import ui.frame { unapproved };
  * Example:
  *     app_view(id, a, m)
  */
-public fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
+fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
     let now = m.now;
     let shown = match a.screen {
         // {FIRST_NAME} and {LAST_NAME} are filled while drawing: the app
@@ -76,7 +76,7 @@ fun sized<M>(v: View<M>, m: Model): View<M> {
  * Example:
  *     newtab_view(m)
  */
-public fun newtab_view(m: Model): View<Msg> = match m.newtab {
+fun newtab_view(m: Model): View<Msg> = match m.newtab {
     Some(p) => match p.screen {
         // Its own messages go to it alone, as a tab's go to its app.
         Running(_, _, d) => sized(screen_as(d.root, m.theme, own_of(p, m)), m).map(

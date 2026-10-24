@@ -21,13 +21,13 @@ import window.tabs { AppPage };
 import net.address { parse };
 
 /** One call an app asked for: a read of one statement, or a write of several as one transaction. */
-public enum Call {
+enum Call {
     Read(Query),
     Write(Query[]),
 }
 
 /** What a call came to: the app's answer and the tables it changed, or why not. */
-public enum Queried {
+enum Queried {
     /** `{columns, rows, cut}` for a read, `{changes, last_rowid}` for a write; the tables changed. */
     Answer(Value, string[]),
     /** The sentence the app gets. */
@@ -42,7 +42,7 @@ public enum Queried {
  * Example:
  *     path_for(store, page)
  */
-public fun path_for(s: Store, p: AppPage): Option<string> {
+fun path_for(s: Store, p: AppPage): Option<string> {
     let name: u8[] = match p.trust {
         Some(t) => {
             let mut b = "signed\n{t.host}\n".to_bytes();
@@ -76,7 +76,7 @@ public fun path_for(s: Store, p: AppPage): Option<string> {
  * Example:
  *     call(path, Call.Read(query))
  */
-public fun call(path: string, c: Call): Queried {
+fun call(path: string, c: Call): Queried {
     if let Err(why) = folder_of(path) {
         return Queried.Failed(why);
     }
@@ -125,7 +125,7 @@ public fun call(path: string, c: Call): Queried {
  * Example:
  *     size_of(path)
  */
-public fun size_of(path: string): i64 {
+fun size_of(path: string): i64 {
     if !fs.exists(path) {
         return 0;
     }
@@ -147,7 +147,7 @@ public fun size_of(path: string): i64 {
  * Example:
  *     clear(path)?
  */
-public fun clear(path: string): Result<(), string> {
+fun clear(path: string): Result<(), string> {
     for f of [path, "{path}-journal", "{path}-wal", "{path}-shm"] {
         if fs.exists(f) {
             fs.remove_file(f).map_err(

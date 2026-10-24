@@ -32,7 +32,8 @@ import trust.keys { fingerprint };
 import guest.nodes { ButtonLook };
 import ui.cards { sized, choice, detail, sentence, line, identity as app_head };
 import ui.tokens { SPACE_XS, SPACE_SM, SPACE_MD, gap, padding_xy };
-import ui.themes { Theme, body, dim, title, group, button as button_look };
+import ui.themes { body, dim, title, group, button as button_look };
+import ui.schemes { Theme };
 import ui.grants;
 import ui.strip;
 
@@ -47,7 +48,7 @@ import ui.strip;
  * Example:
  *     settings.card(m, page, PanelPage.Main)
  */
-public fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
+fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
     let t = m.theme;
     let you = account_of(m, p);
     let reach = access_of(m, p);
@@ -82,7 +83,7 @@ public fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
  * Example:
  *     page.dialog(settings.dialog(m))
  */
-public fun dialog(m: Model): Option<Dialog<Msg>> {
+fun dialog(m: Model): Option<Dialog<Msg>> {
     // Renaming an instance (PRP-033): closing it is Cancel.
     if m.renaming.is_some() {
         return Some(ui_dialog(Msg.Cancel, [dialog_view(m)]));
@@ -102,7 +103,7 @@ public fun dialog(m: Model): Option<Dialog<Msg>> {
 }
 
 /** What Rapidkoi is, in its version: About's dialog. */
-public const RAPIDKOI_VERSION: string = "0.1.0";
+const RAPIDKOI_VERSION: string = "0.1.0";
 
 /**
  * Returns what the dialog shows while an action is asked about: its question
@@ -111,7 +112,7 @@ public const RAPIDKOI_VERSION: string = "0.1.0";
  * Example:
  *     dialog_view(m)
  */
-public fun dialog_view(m: Model): View<Msg> {
+fun dialog_view(m: Model): View<Msg> {
     if m.renaming.is_some() {
         return strip.rename_view(m);
     }

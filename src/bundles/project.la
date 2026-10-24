@@ -11,39 +11,39 @@ import std.toml { Value, Limits, parse_with, as_text, as_i64, as_table, as_array
 import std.env;
 
 /** What a project describes. Paths are absolute. */
-public struct Project {
+struct Project {
     /** The folder holding the toml. */
-    public dir: string,
+    dir: string,
     /** [app] name. */
-    public name: string,
+    name: string,
     /** [app] version. */
-    public version: string,
+    version: string,
     /** [app] description, if any. */
-    public description: Option<string>,
+    description: Option<string>,
     /** [app] host: set, the app is signed and published. */
-    public host: Option<string>,
+    host: Option<string>,
     /** [app] state_version, default 1. */
-    public state_version: i64,
+    state_version: i64,
     /** [app] module: the .wasm. */
-    public module: string,
+    module: string,
     /** [app] icon, if any. */
-    public icon: Option<string>,
+    icon: Option<string>,
     /** [banners]: page → file. */
-    public banners: (string, string)[],
+    banners: (string, string)[],
     /** [assets]: name → file. */
-    public assets: (string, string)[],
+    assets: (string, string)[],
     /** [publish] key: the secret key file. */
-    public key: Option<string>,
+    key: Option<string>,
     /** [publish] site, default `site`. */
-    public site: string,
+    site: string,
     /** [publish] keep, default 3: versions kept on the site. */
-    public keep: i64,
+    keep: i64,
     /** [network] servers: what the app may reach besides its host (PRP-012). */
-    public servers: string[],
+    servers: string[],
 }
 
 /** Why a project couldn't be read. */
-public enum ProjectError {
+enum ProjectError {
     /** The file couldn't be read. */
     Unreadable(string),
     /** The TOML itself is wrong; std.toml's message. */
@@ -69,7 +69,7 @@ public enum ProjectError {
  * Example:
  *     read_project(env.current_dir()?)?
  */
-public fun read_project(dir: string): Result<Project, ProjectError> {
+fun read_project(dir: string): Result<Project, ProjectError> {
     let text = read_file("{dir}/rapidkoi.toml").map_err(
         fun(e: string) = ProjectError.Unreadable(e),
     )?;
@@ -87,11 +87,7 @@ public fun read_project(dir: string): Result<Project, ProjectError> {
  * Example:
  *     parse_project(text, "/work/notes", env.get("HOME"))
  */
-public fun parse_project(
-    text: string,
-    dir: string,
-    home: Option<string>,
-): Result<Project, ProjectError> {
+fun parse_project(text: string, dir: string, home: Option<string>): Result<Project, ProjectError> {
     // A project file is small; generous room, nothing more.
     let bounds = Limits { bytes: 64 * 1024, depth: 8, values: 10_000 };
     let doc = parse_with(text, bounds).map_err(fun(e) = ProjectError.Toml(e.message()))?;
@@ -150,7 +146,7 @@ public fun parse_project(
  * Example:
  *     reason(e)
  */
-public fun reason(e: ProjectError): string = "rapidkoi.toml: " + match e {
+fun reason(e: ProjectError): string = "rapidkoi.toml: " + match e {
     Unreadable(why) => "can't read it: {why}",
     Toml(message) => message,
     Missing(t, k) => "[{t}] needs {k}",

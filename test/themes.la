@@ -1,7 +1,6 @@
 // Rapidkoi's theme (PRP-017): which colour goes where, and every style
 // building without kivuli refusing a value. No display.
 import rapidkoi.ui.themes {
-    DARK,
     ButtonPaint,
     button_paint,
     bare,
@@ -18,6 +17,7 @@ import rapidkoi.ui.themes {
     button,
     instance_colour,
 };
+import rapidkoi.ui.schemes { DARK };
 import rapidkoi.ui.frame_looks {
     frame,
     header,

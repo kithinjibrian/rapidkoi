@@ -11,27 +11,27 @@ import window.actions { Msg };
 import window.tabs { Tab, Pin };
 
 /** "Where you left off": the app and its last screen, and what Continue sends. */
-public struct Card {
+struct Card {
     /** The app's name. */
-    public name: string,
+    name: string,
     /** Its last screen's title, if any. */
-    public title: Option<string>,
+    title: Option<string>,
     /** `Select(id)` for an open tab, `Continue` for a closed app. */
-    public msg: Msg,
+    msg: Msg,
     /** The app's file or address, for its menu's Forget. */
-    public path: string,
+    path: string,
     /** The app's icon, keyed, if it has one. */
-    public icon: Option<Image>,
+    icon: Option<Image>,
 }
 
 /** One suggestion: what it's called, and what choosing it sends. */
-public struct Suggestion {
+struct Suggestion {
     /** The app's name. */
-    public label: string,
+    label: string,
     /** Its screen's title, when it has one. */
-    public detail: Option<string>,
+    detail: Option<string>,
     /** `Select(id)` for an open tab, `OpenPinned(path)` for a pin, `Continue` for a closed app. */
-    public msg: Msg,
+    msg: Msg,
 }
 
 /**
@@ -47,7 +47,7 @@ public struct Suggestion {
  * Example:
  *     suggest("count", m.tabs, m.pinned, window.card(m))
  */
-public fun suggest(query: string, open: Tab[], pinned: Pin[], card: Option<Card>): Suggestion[] {
+fun suggest(query: string, open: Tab[], pinned: Pin[], card: Option<Card>): Suggestion[] {
     let q = query.trim();
     let mut found: Suggestion[] = [];
     if q == "" {
@@ -87,7 +87,7 @@ public fun suggest(query: string, open: Tab[], pinned: Pin[], card: Option<Card>
  * Example:
  *     matches("COUNT", "counter", None)
  */
-public fun matches(query: string, name: string, title: Option<string>): bool {
+fun matches(query: string, name: string, title: Option<string>): bool {
     let q = lower(query);
     lower(name).contains(q) || lower(title.unwrap_or("")).contains(q)
 }

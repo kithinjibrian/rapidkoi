@@ -11,80 +11,80 @@
 import std.math;
 
 /** What the person chose in Settings (PRP-038). */
-public struct Prefs {
+struct Prefs {
     /** Light rather than dark. */
-    public light: bool,
+    light: bool,
     /** More contrast, on either. */
-    public more_contrast: bool,
+    more_contrast: bool,
     /** The base text size, in percent: 80 to 200, in steps of 10. */
-    public text_size: i64,
+    text_size: i64,
 }
 
 /** Dark, no extra contrast, 100%: what Rapidkoi starts with. */
-public const DEFAULT_PREFS: Prefs = Prefs { light: false, more_contrast: false, text_size: 100 };
+const DEFAULT_PREFS: Prefs = Prefs { light: false, more_contrast: false, text_size: 100 };
 
 /** The smallest text size, in percent. */
-public const MIN_TEXT_SIZE: i64 = 80;
+const MIN_TEXT_SIZE: i64 = 80;
 
 /** The largest text size, in percent (WCAG's 200%). */
-public const MAX_TEXT_SIZE: i64 = 200;
+const MAX_TEXT_SIZE: i64 = 200;
 
 /** One theme: a name, and a colour per part (`#rrggbb` or `#rrggbbaa`). Hex values live only here. */
-public struct Theme {
+struct Theme {
     /** What settings will call it. */
-    public name: string,
+    name: string,
     /** The frame: the header bar and the sidebar, one colour. */
-    public frame: string,
+    frame: string,
     /** The page, the address box and the suggestions card. */
-    public page: string,
+    page: string,
     /** The dim layer over the app while the panel is open: translucent. */
-    public scrim: string,
+    scrim: string,
     /** Thin lines: around the suggestions card and text fields. */
-    public edge: string,
+    edge: string,
     /** Text. */
-    public text: string,
+    text: string,
     /** Secondary text: the text colour, fainter. */
-    public dim: string,
+    dim: string,
     /** A normal button at rest, under the pointer, and pressed. */
-    public control: string,
+    control: string,
     /** A normal button under the pointer. */
-    public control_hover: string,
+    control_hover: string,
     /** A normal button being pressed. */
-    public control_press: string,
+    control_press: string,
     /** Rapidkoi's brand colour: the main action (primary buttons), focus rings, a focused field's edge. */
-    public accent: string,
+    accent: string,
     /** A primary button under the pointer or pressed. */
-    public accent_hover: string,
+    accent_hover: string,
     /** Text on the accent. */
-    public on_accent: string,
+    on_accent: string,
     /** The brand gradient's other end: the accent runs into it. Kept for later; nothing wears it now. */
-    public accent_end: string,
+    accent_end: string,
     /** Icons and text on the frame. */
-    public on_frame: string,
+    on_frame: string,
     /** A faint icon on the frame: the shield of an unsigned app. */
-    public faint: string,
+    faint: string,
     /** What a control on the gradient turns under the pointer. */
-    public frame_hover: string,
+    frame_hover: string,
     /** Instances' dots, in turn (PRP-033): the first instance's, the second's… */
-    public instances: string[],
+    instances: string[],
     /** Buttons that delete or discard. */
-    public danger: string,
+    danger: string,
     /** A danger button under the pointer or pressed. */
-    public danger_hover: string,
+    danger_hover: string,
     /** Text on the danger colour. */
-    public on_danger: string,
+    on_danger: string,
     /** A subtle button under the pointer: a faint light wash. */
-    public subtle_hover: string,
+    subtle_hover: string,
     /** Behind a tooltip's text. */
-    public tooltip: string,
+    tooltip: string,
     /** Nothing: fully transparent. */
-    public clear: string,
+    clear: string,
     /** The person's text size, as a multiple of the base (PRP-038): 0.8 to 2.0. */
-    public scale: f64,
+    scale: f64,
 }
 
 /** The dark theme, the default (the frame and page are the owner's colours, 2026-10-17). */
-public const DARK: Theme = Theme {
+const DARK: Theme = Theme {
     name: "dark",
     frame: "#242424",
     page: "#161616",
@@ -122,7 +122,7 @@ public const DARK: Theme = Theme {
 };
 
 /** The light theme. */
-public const LIGHT: Theme = Theme {
+const LIGHT: Theme = Theme {
     name: "light",
     frame: "#e4e4e7",
     page: "#ffffff",
@@ -152,7 +152,7 @@ public const LIGHT: Theme = Theme {
 };
 
 /** The dark theme with more contrast: pure black and white, borders that show. */
-public const DARK_CONTRAST: Theme = Theme {
+const DARK_CONTRAST: Theme = Theme {
     name: "dark, more contrast",
     frame: "#000000",
     page: "#000000",
@@ -181,7 +181,7 @@ public const DARK_CONTRAST: Theme = Theme {
 };
 
 /** The light theme with more contrast. */
-public const LIGHT_CONTRAST: Theme = Theme {
+const LIGHT_CONTRAST: Theme = Theme {
     name: "light, more contrast",
     frame: "#ffffff",
     page: "#ffffff",
@@ -216,7 +216,7 @@ public const LIGHT_CONTRAST: Theme = Theme {
  * Example:
  *     theme_for(m.prefs)
  */
-public fun theme_for(p: Prefs): Theme {
+fun theme_for(p: Prefs): Theme {
     let set = match (p.light, p.more_contrast) {
         (false, false) => DARK,
         (true, false) => LIGHT,
@@ -233,7 +233,7 @@ public fun theme_for(p: Prefs): Theme {
  * Example:
  *     contrast(t.text, t.page) >= 4.5
  */
-public fun contrast(colour: string, background: string): f64 {
+fun contrast(colour: string, background: string): f64 {
     let (f, alpha) = channels(colour);
     let (b, _) = channels(background);
     let laid = [0, 1, 2].map(fun(i: i64) = f[i] * alpha + b[i] * (1.0 - alpha));

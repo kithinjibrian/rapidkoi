@@ -7,7 +7,8 @@
 // in for each app (it stops for want of memory, which is fine here: the
 // tab, its name and its place are what's checked). Writes only under
 // test/tmp/.
-import rapidkoi.shell { Model, start, update };
+import rapidkoi.shell { start, update };
+import rapidkoi.window.window { Model };
 import rapidkoi.ui.layout { view };
 import kivuli { Cmd };
 import kivuli.testing { click };

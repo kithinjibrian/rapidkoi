@@ -11,15 +11,15 @@
 import std.fs;
 
 /** The data folder, and the files this session must leave alone. */
-public struct Store {
+struct Store {
     /** The folder. */
-    public dir: string,
+    dir: string,
     /** Files written by a newer Rapidkoi: never overwritten this session. */
     skip: string[],
 }
 
 /** Why the folder or a file couldn't be used. */
-public enum StoreError {
+enum StoreError {
     /** No `$HOME` (and no usable `$XDG_DATA_HOME`). */
     NoHome,
     /** A file system failure: the path, the system's message. */
@@ -41,7 +41,7 @@ const OWNER_FILE: i64 = 0b110_000_000;
  * Example:
  *     data_dir(env.get("XDG_DATA_HOME"), env.get("HOME"))?
  */
-public fun data_dir(xdg: Option<string>, home: Option<string>): Result<string, StoreError> {
+fun data_dir(xdg: Option<string>, home: Option<string>): Result<string, StoreError> {
     if let Some(x) = xdg {
         if x.starts_with("/") {
             return Ok("{x}/rapidkoi");
@@ -59,7 +59,7 @@ public fun data_dir(xdg: Option<string>, home: Option<string>): Result<string, S
  * Example:
  *     store_at(data_dir(…)?)
  */
-public fun store_at(dir: string): Store = Store { dir: dir, skip: [] };
+fun store_at(dir: string): Store = Store { dir: dir, skip: [] };
 
 /**
  * The same store, never writing `name` this session (it was written by a
@@ -68,7 +68,7 @@ public fun store_at(dir: string): Store = Store { dir: dir, skip: [] };
  * Example:
  *     skipping(s, "pins")
  */
-public fun skipping(s: Store, name: string): Store {
+fun skipping(s: Store, name: string): Store {
     let mut skip = s.skip;
     skip.push(name);
     Store { skip: skip, ..s }
@@ -80,7 +80,7 @@ public fun skipping(s: Store, name: string): Store {
  * Example:
  *     ensure(s)?
  */
-public fun ensure(s: Store): Result<(), StoreError> {
+fun ensure(s: Store): Result<(), StoreError> {
     if !fs.is_dir(s.dir) {
         fs.make_dirs(s.dir).map_err(fun(e: string) = StoreError.Io(s.dir, e))?;
         fs.set_mode(s.dir, OWNER_DIR).map_err(fun(e: string) = StoreError.Io(s.dir, e))?;
@@ -98,7 +98,7 @@ public fun ensure(s: Store): Result<(), StoreError> {
  * Example:
  *     save(s, "pins", bytes)?
  */
-public fun save(s: Store, name: string, bytes: u8[]): Result<(), StoreError> {
+fun save(s: Store, name: string, bytes: u8[]): Result<(), StoreError> {
     if s.skip.any(fun(n: string) = n == name) {
         return Ok(());
     }
@@ -124,7 +124,7 @@ public fun save(s: Store, name: string, bytes: u8[]): Result<(), StoreError> {
  * Example:
  *     remove(s, "left-off")?
  */
-public fun remove(s: Store, name: string): Result<(), StoreError> {
+fun remove(s: Store, name: string): Result<(), StoreError> {
     let file = "{s.dir}/{name}";
     if s.skip.any(fun(n: string) = n == name) || !fs.exists(file) {
         return Ok(());
@@ -142,7 +142,7 @@ public fun remove(s: Store, name: string): Result<(), StoreError> {
  * Example:
  *     load(s, "trust", 1024 * 1024)?
  */
-public fun load(s: Store, name: string, max: i64): Result<Option<u8[]>, StoreError> {
+fun load(s: Store, name: string, max: i64): Result<Option<u8[]>, StoreError> {
     let file = "{s.dir}/{name}";
     if !fs.exists(file) {
         return Ok(None);
@@ -163,7 +163,7 @@ public fun load(s: Store, name: string, max: i64): Result<Option<u8[]>, StoreErr
  * Example:
  *     set_aside(s, "pins")?
  */
-public fun set_aside(s: Store, name: string): Result<string, StoreError> {
+fun set_aside(s: Store, name: string): Result<string, StoreError> {
     let file = "{s.dir}/{name}";
     let aside = "{file}.broken";
     fs.rename(file, aside).map_err(fun(e: string) = StoreError.Io(file, e))?;
@@ -176,7 +176,7 @@ public fun set_aside(s: Store, name: string): Result<string, StoreError> {
  * Example:
  *     reason(e)
  */
-public fun reason(e: StoreError): string = match e {
+fun reason(e: StoreError): string = match e {
     NoHome => "There's no home folder, so nothing will be saved this session",
     Io(path, why) => "{path}: {why}",
     TooLarge(name, size) => "Rapidkoi's {name} file is too large ({size} bytes)",

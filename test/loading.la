@@ -3,10 +3,10 @@
 // stale ones, a changed snapshot and refusals need no network. The end to
 // end case runs the task over a real local socket. Writes only under
 // test/tmp/.
-import rapidkoi.shell { Model, start, update, subscriptions };
+import rapidkoi.shell { start, update, subscriptions };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
-import rapidkoi.window.window { page_of };
+import rapidkoi.window.window { page_of, Model };
 import rapidkoi.ui.frame { marker_note, file_of };
 import rapidkoi.net.fetching { Fetched };
 import rapidkoi.bundles.loader { Refusal };

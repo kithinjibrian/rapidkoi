@@ -1,7 +1,8 @@
 // Named instances (PRP-033): an app open more than once, each instance
 // with its own name and state; the header's strip; renaming; the dock's
 // one entry per app. Fixture guests; no display.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.instances { display_name, instances_of, next_instance };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage, Tab, open_module, state_of };

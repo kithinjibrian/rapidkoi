@@ -13,10 +13,10 @@
 import std.http { Request, Response };
 import std.fs;
 import bundles.signing { read_any };
-import bundles.bundle { reason };
+import bundles.rules { reason };
 
 /** Where a development server serves its bundle: the well-known path from the packaging design. */
-public const BUNDLE_PATH: string = "/.well-known/rapidkoi/app.rkb";
+const BUNDLE_PATH: string = "/.well-known/rapidkoi/app.rkb";
 
 /** Where a site keeps Rapidkoi's files. */
 const SITE_PATH: string = "/.well-known/rapidkoi/";
@@ -31,7 +31,7 @@ const SITE_PATH: string = "/.well-known/rapidkoi/";
  * Example:
  *     if argv[1] == "serve" { return run(argv); }
  */
-public fun run(argv: string[]): i32 {
+fun run(argv: string[]): i32 {
     let mut rest: string[] = [];
     for i in 2..argv.len {
         rest.push(argv[i]);
@@ -72,7 +72,7 @@ public fun run(argv: string[]): i32 {
  * Example:
  *     prepare(["counter.rkb", "--port", "8000"])
  */
-public fun prepare(args: string[]): Result<(string, i64), string> {
+fun prepare(args: string[]): Result<(string, i64), string> {
     let mut file: Option<string> = None;
     let mut port = 8000;
     let mut i = 0;
@@ -119,7 +119,7 @@ public fun prepare(args: string[]): Result<(string, i64), string> {
  * Example:
  *     handle("counter.rkb", 8000, request)
  */
-public fun handle(file: string, port: i64, r: Request): Response {
+fun handle(file: string, port: i64, r: Request): Response {
     if r.method != "GET" {
         return http.text(405, "Only GET");
     }

@@ -9,7 +9,8 @@
  * Used by: main
  */
 import std.fs;
-import bundles.bundle { Bundle, Manifest, Controls, write, reason };
+import bundles.bundle { Bundle, Manifest, Controls, write };
+import bundles.rules { reason };
 import guest.limits { CONTRACT_VERSION };
 import std.env;
 import commands.publish { pack_project };
@@ -41,7 +42,7 @@ struct Request {
  * Example:
  *     if argv[1] == "pack" { return run(argv); }
  */
-public fun run(argv: string[]): i32 {
+fun run(argv: string[]): i32 {
     let mut rest: string[] = [];
     for i in 2..argv.len {
         rest.push(argv[i]);
@@ -68,7 +69,7 @@ public fun run(argv: string[]): i32 {
  * Example:
  *     make(["counter.wasm", "--name", "Counter", "--version", "0.1.0", "-o", "counter.rkb"])
  */
-public fun make(args: string[]): Result<string, string> {
+fun make(args: string[]): Result<string, string> {
     // No module named: the current folder's rapidkoi.toml says what to pack.
     if args.len == 0 || args.len == 1 && args[0] == "--force" {
         let dir = env.current_dir().map_err(fun(e: string) = "can't find the current folder: {e}")?;

@@ -31,10 +31,10 @@ import guest.limits {
 };
 
 /** What an app built for an older contract is told (DECISION-056). */
-public const OLDER: string = "This app needs to be rebuilt for this Rapidkoi";
+const OLDER: string = "This app needs to be rebuilt for this Rapidkoi";
 
 /** Why a guest couldn't load or a call failed. Any of these stops the app. */
-public enum GuestError {
+enum GuestError {
     /** The module file is larger than `MAX_MODULE`, with its size in bytes. */
     TooLarge(i64),
     /** The module didn't compile; wasmtime's message. */
@@ -60,7 +60,7 @@ public enum GuestError {
 }
 
 /** One instance of a guest app, in its own store. */
-public struct Guest {
+struct Guest {
     store: Store,
     instance: Instance,
     memory: Memory,
@@ -76,7 +76,7 @@ public struct Guest {
  * Example:
  *     compile(engine, read_bytes(path)?)?
  */
-public fun compile(engine: Engine, bytes: u8[]): Result<Module, GuestError> {
+fun compile(engine: Engine, bytes: u8[]): Result<Module, GuestError> {
     if bytes.len > MAX_MODULE {
         return Err(GuestError.TooLarge(bytes.len));
     }
@@ -95,7 +95,7 @@ public fun compile(engine: Engine, bytes: u8[]): Result<Module, GuestError> {
  * Example:
  *     let g = open(engine, module)?;
  */
-public fun open(engine: Engine, module: Module): Result<Guest, GuestError> {
+fun open(engine: Engine, module: Module): Result<Guest, GuestError> {
     let store = Store.new(engine).map_err(fun(_) = GuestError.Closed)?;
     // One instance with one memory and one table is all the contract needs;
     // the memory cap is the contract's.
@@ -147,7 +147,7 @@ impl Guest {
      * Example:
      *     let result = g.handle(state, envelope(msg, None))?;
      */
-    public fun handle(self, state: u8[], event: u8[]): Result<u8[], GuestError> {
+    fun handle(self, state: u8[], event: u8[]): Result<u8[], GuestError> {
         let (sp, sl) = self.give(state)?;
         let (ep, el) = self.give(event)?;
         let r = self.packed("handle", [sp, sl, ep, el])?;
@@ -163,7 +163,7 @@ impl Guest {
      * Example:
      *     let tree = g.view(state)?;
      */
-    public fun view(self, state: u8[]): Result<u8[], GuestError> {
+    fun view(self, state: u8[]): Result<u8[], GuestError> {
         let (sp, sl) = self.give(state)?;
         let r = self.packed("view", [sp, sl])?;
         self.take(r, "the screen description", MAX_VIEW)
@@ -176,7 +176,7 @@ impl Guest {
      * Example:
      *     g.close();
      */
-    public fun close(self) {
+    fun close(self) {
         self.store.close();
     }
 
@@ -233,7 +233,7 @@ impl Guest {
  * Example:
  *     stopped(reason(e), true)
  */
-public fun reason(e: GuestError): string = match e {
+fun reason(e: GuestError): string = match e {
     TooLarge(n) => "This app is too large to open ({n} bytes)",
     Compile(m) => "This file isn't a WebAssembly app ({m})",
     Link(m) => "This app couldn't start ({m})",

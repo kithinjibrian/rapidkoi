@@ -14,51 +14,51 @@ import trust.keys { SecretKey };
 import bundles.rules { check_version };
 
 /** One published version. */
-public struct Version {
+struct Version {
     /** MAJOR.MINOR.PATCH. */
-    public version: string,
+    version: string,
     /** The SHA-256 of its `.rkb`: its file name on the site, and its id. */
-    public sha256: u8[],
+    sha256: u8[],
     /** The `.rkb`'s size in bytes. */
-    public size: i64,
+    size: i64,
     /** Why the publisher withdrew it, if they did. */
-    public withdrawn: Option<string>,
+    withdrawn: Option<string>,
 }
 
 /** A site's list of versions. */
-public struct Index {
+struct Index {
     /** The app's host. */
-    public host: string,
+    host: string,
     /** Goes up by one with every change; Rapidkoi refuses a lower one than it has seen. */
-    public sequence: i64,
+    sequence: i64,
     /** The version people get by default. */
-    public current: string,
+    current: string,
     /** Every listed version, oldest first. */
-    public versions: Version[],
+    versions: Version[],
 }
 
 /** One planned key change, signed by the old key. */
-public struct Rotation {
+struct Rotation {
     /** The key before. */
-    public old: u8[],
+    old: u8[],
     /** The key after. */
-    public new: u8[],
+    new: u8[],
     /** `old`'s signature over the change. */
-    public signature: u8[],
+    signature: u8[],
 }
 
 /** The public key file. */
-public struct KeyFile {
+struct KeyFile {
     /** The app's host. */
-    public host: string,
+    host: string,
     /** The current public key. */
-    public key: u8[],
+    key: u8[],
     /** Planned changes, oldest first. */
-    public rotations: Rotation[],
+    rotations: Rotation[],
 }
 
 /** Why an index or key file was refused. */
-public enum IndexError {
+enum IndexError {
     /** Not readable: which file, why. */
     Unreadable(string, string),
     /** The signature doesn't check with the trusted key. */
@@ -81,7 +81,7 @@ public enum IndexError {
  * Example:
  *     write_bytes(path, sign_index(ix, key)?)
  */
-public fun sign_index(ix: Index, key: SecretKey): Result<u8[], IndexError> {
+fun sign_index(ix: Index, key: SecretKey): Result<u8[], IndexError> {
     let body = encode(
         Value.Map([
             entry("host", Value.Text(ix.host)),
@@ -113,7 +113,7 @@ public fun sign_index(ix: Index, key: SecretKey): Result<u8[], IndexError> {
  * Example:
  *     read_index(bytes, trusted_key, "notes.acme.com")?
  */
-public fun read_index(bytes: u8[], key: u8[], host: string): Result<Index, IndexError> {
+fun read_index(bytes: u8[], key: u8[], host: string): Result<Index, IndexError> {
     let bad = fun(why: string) = IndexError.Unreadable("index", why);
     let root = decode(bytes, Limits {
         max_depth: 3,
@@ -163,7 +163,7 @@ public fun read_index(bytes: u8[], key: u8[], host: string): Result<Index, Index
  * Example:
  *     add(ix, "2.4.1", sha256(file), file.len)?
  */
-public fun add(ix: Index, version: string, sha: u8[], size: i64): Result<Index, IndexError> {
+fun add(ix: Index, version: string, sha: u8[], size: i64): Result<Index, IndexError> {
     if check_version(version).is_err() {
         return Err(IndexError.BadVersion(version));
     }
@@ -187,7 +187,7 @@ public fun add(ix: Index, version: string, sha: u8[], size: i64): Result<Index, 
  * Example:
  *     let (ix, gone) = prune(ix, 3);
  */
-public fun prune(ix: Index, keep: i64): (Index, u8[][]) {
+fun prune(ix: Index, keep: i64): (Index, u8[][]) {
     let mut kept: Version[] = [];
     let mut removed: u8[][] = [];
     let mut i = 0;
@@ -209,7 +209,7 @@ public fun prune(ix: Index, keep: i64): (Index, u8[][]) {
  * Example:
  *     withdraw(ix, "2.3.0", "Security fix in 2.3.1")?
  */
-public fun withdraw(ix: Index, version: string, why: string): Result<Index, IndexError> {
+fun withdraw(ix: Index, version: string, why: string): Result<Index, IndexError> {
     if !ix.versions.any(fun(v: Version) = v.version == version) {
         return Err(IndexError.NoSuchVersion(version));
     }
@@ -229,7 +229,7 @@ public fun withdraw(ix: Index, version: string, why: string): Result<Index, Inde
  * Example:
  *     write_bytes(path, key_file(kf))
  */
-public fun key_file(kf: KeyFile): u8[] = encode(
+fun key_file(kf: KeyFile): u8[] = encode(
     Value.Map([
         entry("format", Value.int(1)),
         entry("host", Value.Text(kf.host)),
@@ -257,7 +257,7 @@ public fun key_file(kf: KeyFile): u8[] = encode(
  * Example:
  *     read_key_file(bytes)?
  */
-public fun read_key_file(bytes: u8[]): Result<KeyFile, IndexError> {
+fun read_key_file(bytes: u8[]): Result<KeyFile, IndexError> {
     let bad = fun(why: string) = IndexError.Unreadable("key file", why);
     let v = decode(bytes, Limits {
         max_depth: 4,
@@ -286,7 +286,7 @@ public fun read_key_file(bytes: u8[]): Result<KeyFile, IndexError> {
  * Example:
  *     rotate(old_key, new_key.public_key)?
  */
-public fun rotate(old: SecretKey, new: u8[]): Result<Rotation, IndexError> {
+fun rotate(old: SecretKey, new: u8[]): Result<Rotation, IndexError> {
     let signature = ed25519_sign(old.secret, change(old.host, old.public_key, new)).map_err(
         fun(e) = IndexError.Unreadable("key", e.message()),
     )?;
@@ -304,7 +304,7 @@ public fun rotate(old: SecretKey, new: u8[]): Result<Rotation, IndexError> {
  * Example:
  *     follow(trusted, read_key_file(bytes)?)?
  */
-public fun follow(trusted: u8[], kf: KeyFile): Result<u8[], IndexError> {
+fun follow(trusted: u8[], kf: KeyFile): Result<u8[], IndexError> {
     let mut at = trusted;
     // Each step moves forward along the trail; at most one pass per rotation.
     for _ of kf.rotations {
@@ -335,7 +335,7 @@ public fun follow(trusted: u8[], kf: KeyFile): Result<u8[], IndexError> {
  * Example:
  *     reason(e)
  */
-public fun reason(e: IndexError): string = match e {
+fun reason(e: IndexError): string = match e {
     Unreadable(what, why) => "The app's {what} can't be read ({why})",
     BadSignature => "The app's index isn't signed by its publisher's key",
     WrongHost(found, wanted) => "The app's index is for {found}, not {wanted}",

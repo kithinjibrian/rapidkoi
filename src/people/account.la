@@ -17,13 +17,13 @@ import people.identity { public_key, user_label };
 import ui.render;
 
 /** What the Account page shows for one app. */
-public struct Account {
+struct Account {
     /** The app's name. */
-    public app: string,
+    app: string,
     /** You to this app; `None` for an unsigned app (no account possible). */
-    public person: Option<Person>,
+    person: Option<Person>,
     /** "User 4f9a", once the app has asked and the key is known. */
-    public label: Option<string>,
+    label: Option<string>,
 }
 
 /**
@@ -32,7 +32,7 @@ public struct Account {
  * Example:
  *     account_of(m, page)
  */
-public fun account_of(m: Model, p: AppPage): Account {
+fun account_of(m: Model, p: AppPage): Account {
     match p.trust {
         None => Account { app: p.name, person: None, label: None },
         Some(t) => {
@@ -54,7 +54,7 @@ public fun account_of(m: Model, p: AppPage): Account {
  * Example:
  *     on_account(m, Msg.SignOut)
  */
-public fun on_account(m: Model, msg: Msg): Model {
+fun on_account(m: Model, msg: Msg): Model {
     // Your name for every app needs no app.
     if let SetName(Everywhere, part, s) = msg {
         let clipped = clip(s);
@@ -114,7 +114,7 @@ public fun on_account(m: Model, msg: Msg): Model {
  * Example:
  *     forget_account(m, window.forget(m))
  */
-public fun forget_account(before: Model, after: Model): Model = match page_of(before) {
+fun forget_account(before: Model, after: Model): Model = match page_of(before) {
     App(a) => match a.trust {
         Some(t) => Model { people: forget_person(after.people, t.host, t.origin), ..after },
         None => after,

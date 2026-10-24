@@ -33,7 +33,7 @@ import window.tabs {
  * Example:
  *     resume(left)
  */
-public fun resume(l: LeftOff): AppPage = match l.program {
+fun resume(l: LeftOff): AppPage = match l.program {
     Some(prog) => {
         // Resumed from its state: no init, but it's opened, so it may ask.
         ran(AppPage {
@@ -71,7 +71,7 @@ public fun resume(l: LeftOff): AppPage = match l.program {
  * Example:
  *     with_saved(page, saved.state, saved.state_version)
  */
-public fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = match p.program {
+fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = match p.program {
     Some(prog) if state_version_of(p) == version => {
         close_page(p);
         // The window keeps the fields its address named.
@@ -97,7 +97,7 @@ public fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = 
  * Example:
  *     load_again(engine, ring, page.path, Some((state, 1)), page.link)
  */
-public fun load_again(
+fun load_again(
     engine: Engine,
     ring: Keyring,
     path: string,

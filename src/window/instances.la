@@ -14,7 +14,7 @@ import window.tabs { AppPage, Tab, Program, ran };
 import guest.running { start };
 
 /** The longest name an instance can be given. */
-public const MAX_INSTANCE_NAME: i64 = 64;
+const MAX_INSTANCE_NAME: i64 = 64;
 
 /**
  * Returns an instance's name: the one the person gave it, else its app's
@@ -23,7 +23,7 @@ public const MAX_INSTANCE_NAME: i64 = 64;
  * Example:
  *     display_name(page)
  */
-public fun display_name(p: AppPage): string = match p.label {
+fun display_name(p: AppPage): string = match p.label {
     Some(l) => l,
     None => if p.instance == "" { p.name } else { "{p.name} {p.instance}" },
 };
@@ -35,7 +35,7 @@ public fun display_name(p: AppPage): string = match p.label {
  * Example:
  *     instances_of(m, m.current.unwrap_or(-1))
  */
-public fun instances_of(m: Model, id: i64): Tab[] {
+fun instances_of(m: Model, id: i64): Tab[] {
     let mut path: Option<string> = None;
     for t of m.tabs {
         if t.id == id {
@@ -55,7 +55,7 @@ public fun instances_of(m: Model, id: i64): Tab[] {
  * Example:
  *     next_instance(m, "notes.wasm")
  */
-public fun next_instance(m: Model, path: string): string {
+fun next_instance(m: Model, path: string): string {
     let used = m.tabs.filter(fun(t: Tab) = same_app(t.page.path, path)).map(
         fun(t: Tab) = t.page.instance,
     );
@@ -76,7 +76,7 @@ public fun next_instance(m: Model, path: string): string {
  * Example:
  *     touched(m, next)
  */
-public fun touched(before: Model, after: Model): Model = match after.current {
+fun touched(before: Model, after: Model): Model = match after.current {
     Some(id) if before.current != Some(id) && !is_blank(after, id) => {
         let mut most = 0;
         for t of after.tabs {
@@ -95,7 +95,7 @@ public fun touched(before: Model, after: Model): Model = match after.current {
  * Example:
  *     start_rename(m, 3)
  */
-public fun start_rename(m: Model, id: i64): Model {
+fun start_rename(m: Model, id: i64): Model {
     for t of m.tabs {
         if t.id == id {
             return Model { renaming: Some((id, display_name(t.page))), ..m };
@@ -112,7 +112,7 @@ public fun start_rename(m: Model, id: i64): Model {
  * Example:
  *     rename_problem(m)
  */
-public fun rename_problem(m: Model): Option<string> {
+fun rename_problem(m: Model): Option<string> {
     let (id, typed) = match m.renaming {
         Some(r) => r,
         None => {
@@ -140,7 +140,7 @@ public fun rename_problem(m: Model): Option<string> {
  * Example:
  *     confirm_rename(m)
  */
-public fun confirm_rename(m: Model): Model = match (m.renaming, rename_problem(m)) {
+fun confirm_rename(m: Model): Model = match (m.renaming, rename_problem(m)) {
     (Some((id, typed)), None) => Model {
         renaming: None,
         ..with_tab(m, id, fun(p: AppPage) = AppPage { label: Some(typed.trim()), ..p }),
@@ -156,7 +156,7 @@ public fun confirm_rename(m: Model): Model = match (m.renaming, rename_problem(m
  * Example:
  *     close_instance(m, 3)
  */
-public fun close_instance(m: Model, id: i64): Model {
+fun close_instance(m: Model, id: i64): Model {
     let others = instances_of(m, id).filter(fun(t: Tab) = t.id != id);
     let closed = close(m, id);
     if m.current != Some(id) || others.len == 0 {
@@ -177,7 +177,7 @@ public fun close_instance(m: Model, id: i64): Model {
  * Example:
  *     close_app(m, 0)
  */
-public fun close_app(m: Model, id: i64): Model {
+fun close_app(m: Model, id: i64): Model {
     let mut at = m;
     for t of instances_of(m, id) {
         at = close(at, t.id);
@@ -197,9 +197,7 @@ public fun close_app(m: Model, id: i64): Model {
  * Example:
  *     another(page, "2")
  */
-public fun another(p: AppPage, instance: string): Option<AppPage> = p.program.map(fun(
-    prog: Program,
-) {
+fun another(p: AppPage, instance: string): Option<AppPage> = p.program.map(fun(prog: Program) {
     // A new window starts fresh: its address names nothing until the app says.
     ran(
         AppPage {

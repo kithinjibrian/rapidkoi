@@ -10,7 +10,7 @@ import cbor { Value, DecodeError };
 import net.network { Request };
 
 /** What one of Rapidkoi's own buttons means: its look comes from the theme (`themes.button`). */
-public enum ButtonLook {
+enum ButtonLook {
     /** An ordinary action (no `style`, or `"normal"`). */
     Normal,
     /** The one main action in a view (`"primary"`). */
@@ -22,7 +22,7 @@ public enum ButtonLook {
 }
 
 /** One decoded node. Messages stay CBOR values the shell never looks inside. */
-public enum Node {
+enum Node {
     /** A kind this shell doesn't know: shown as a placeholder. */
     Unsupported(string),
     /** A box (PRP-037): its look, what it is, the message a press sends, and its children. */
@@ -34,23 +34,23 @@ public enum Node {
 }
 
 /** A typing box (PRP-037). */
-public struct Typing {
+struct Typing {
     /** The text in it. */
-    public value: string,
+    value: string,
     /** What it shows while empty. */
-    public placeholder: string,
+    placeholder: string,
     /** What it's for, named by the app (DECISION-056): its name, and screen readers' once kivuli can. */
-    public label: Option<string>,
+    label: Option<string>,
     /** 1 for one line; 2 to 20 for a box of several lines. */
-    public lines: i64,
+    lines: i64,
     /** The message each edit sends (`None`: disabled). */
-    public on_change: Option<Value>,
+    on_change: Option<Value>,
     /** The message Enter sends, on one line. */
-    public on_submit: Option<Value>,
+    on_submit: Option<Value>,
 }
 
 /** Which way a box lays out its children. */
-public enum Direction {
+enum Direction {
     /** Top to bottom: the default. */
     Column,
     /** Left to right. */
@@ -58,7 +58,7 @@ public enum Direction {
 }
 
 /** Where a node sits across its parent. */
-public enum Place {
+enum Place {
     /** At the start. */
     Start,
     /** In the middle. */
@@ -70,7 +70,7 @@ public enum Place {
 }
 
 /** A colour in an app's style: Rapidkoi's name, the app's own, or a mix of two. */
-public enum Colour {
+enum Colour {
     /** One of Rapidkoi's names (`accent`, `text`…): its value is never given to the app. */
     Named(string),
     /** Red, green, blue and alpha, each 0–255. */
@@ -80,7 +80,7 @@ public enum Colour {
 }
 
 /** A length in an app's style: one of Rapidkoi's names (`md`, `small`…) or pixels. */
-public enum Measure {
+enum Measure {
     /** A token's name. */
     Named(string),
     /** Pixels. */
@@ -88,7 +88,7 @@ public enum Measure {
 }
 
 /** A text size: one of Rapidkoi's (`title`…), points, or a multiple of the body size. */
-public enum TextSize {
+enum TextSize {
     /** `title`, `heading`, `body` or `small`. */
     Named(string),
     /** Points. */
@@ -98,41 +98,41 @@ public enum TextSize {
 }
 
 /** A node's style, checked (PRP-037): everything optional, as the app gave it. */
-public struct Look {
-    public direction: Direction,
-    public gap: Option<Measure>,
+struct Look {
+    direction: Direction,
+    gap: Option<Measure>,
     /** Vertical and horizontal. */
-    public padding: Option<(Measure, Measure)>,
-    public align: Option<Place>,
-    public grow: bool,
-    public width: Option<i64>,
-    public height: Option<i64>,
-    public min_width: Option<i64>,
-    public max_width: Option<i64>,
-    public min_height: Option<i64>,
-    public max_height: Option<i64>,
-    public background: Option<Colour>,
-    public color: Option<Colour>,
+    padding: Option<(Measure, Measure)>,
+    align: Option<Place>,
+    grow: bool,
+    width: Option<i64>,
+    height: Option<i64>,
+    min_width: Option<i64>,
+    max_width: Option<i64>,
+    min_height: Option<i64>,
+    max_height: Option<i64>,
+    background: Option<Colour>,
+    color: Option<Colour>,
     /** Its width and colour. */
-    public border: Option<(i64, Colour)>,
-    public corner: Option<Measure>,
+    border: Option<(i64, Colour)>,
+    corner: Option<Measure>,
     /** Its width and colour. */
-    public outline: Option<(i64, Colour)>,
+    outline: Option<(i64, Colour)>,
     /** `none`, `sm`, `md` or `lg`. */
-    public shadow: Option<string>,
-    public opacity: Option<f64>,
-    public size: Option<TextSize>,
+    shadow: Option<string>,
+    opacity: Option<f64>,
+    size: Option<TextSize>,
     /** `normal`, `medium` or `bold`. */
-    public weight: Option<string>,
+    weight: Option<string>,
     /** `body`, `mono`, `serif` or `sans`. */
-    public font: Option<string>,
-    public italic: bool,
+    font: Option<string>,
+    italic: bool,
     /** Looks for `hover`, `pressed`, `focus`, `disabled` and `checked`, none of which has its own. */
-    public states: (string, Self)[],
+    states: (string, Self)[],
 }
 
 /** What a node is (PRP-037): AccessKit's names. */
-public enum Role {
+enum Role {
     Button,
     Checkbox,
     Switch,
@@ -146,27 +146,27 @@ public enum Role {
 }
 
 /** What a node is, and its state: what keyboards and screen readers need. */
-public struct Facts {
-    public role: Option<Role>,
+struct Facts {
+    role: Option<Role>,
     /** A checkbox's or switch's. */
-    public checked: Option<bool>,
+    checked: Option<bool>,
     /** A tab's or list item's. */
-    public selected: Option<bool>,
-    public disabled: bool,
+    selected: Option<bool>,
+    disabled: bool,
     /** What a screen reader says, when the text isn't enough. */
-    public label: Option<string>,
+    label: Option<string>,
 }
 
 /** A decoded screen: its tree, and the title its root carries (optional). */
-public struct Described {
+struct Described {
     /** The root node. */
-    public root: Node,
+    root: Node,
     /** The screen's title, from the root's `props.title`. */
-    public title: Option<string>,
+    title: Option<string>,
 }
 
 /** Why a description or result was refused. */
-public enum ContractError {
+enum ContractError {
     /** The bytes aren't CBOR this shell accepts (or pass a decoder limit). */
     Decode(DecodeError),
     /** What was too long, and its length in bytes. */
@@ -179,7 +179,7 @@ public enum ContractError {
 fun invalid(path: string, problem: string): ContractError = ContractError.Invalid(path, problem);
 
 /** Something an app asks Rapidkoi for, in its result's `effects` (PRP-011). */
-public enum Effect {
+enum Effect {
     /** Your public key for this app; answered with `msg`. */
     Identity(Value),
     /** A sign-in signature over this challenge (1 to 1024 bytes); answered with `msg`. */
@@ -209,29 +209,29 @@ public enum Effect {
 }
 
 /** One statement an app asks its database to run (PRP-041), its shape checked. */
-public struct Query {
+struct Query {
     /** The SQL: one statement, values as `?`. */
-    public sql: string,
+    sql: string,
     /** The values, in order: numbers, text, bytes, true/false or null. */
-    public params: Value[],
+    params: Value[],
     /** The most rows to answer with (a read). */
-    public max_rows: i64,
+    max_rows: i64,
 }
 
 /** What `handle` returned: the new state and what it asks for. */
-public struct Update {
+struct Update {
     /** The new state. */
-    public state: u8[],
+    state: u8[],
     /** What it asks for, in order (at most `MAX_EFFECTS`). */
-    public effects: Effect[],
+    effects: Effect[],
     /** Which fields go in the window's address (PRP-036). */
-    public link: LinkChange,
+    link: LinkChange,
     /** What kind each link field is, path and `number`/`text`/`bool`, so a link can set one that's empty (DECISION-056). */
-    public kinds: (string, string)[],
+    kinds: (string, string)[],
 }
 
 /** What a result says about the window's address (PRP-036). */
-public enum LinkChange {
+enum LinkChange {
     /** No `link`: the address keeps the fields it had. */
     Keep,
     /** `link: null`: the address names no fields. */

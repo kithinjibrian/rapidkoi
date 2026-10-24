@@ -19,52 +19,52 @@ import guest.limits {
     MAX_PERMISSIONS,
     MAX_PERMISSION_NAME,
 };
-public import bundles.rules { BundleError, reason };
+import bundles.rules { BundleError, reason };
 import net.network { check_server };
 
 /** The format this Rapidkoi reads and writes. */
-public const FORMAT: i64 = 1;
+const FORMAT: i64 = 1;
 
 /** What a bundle says about its app. */
-public struct Manifest {
+struct Manifest {
     /** The UI contract its module speaks. */
-    public contract: i64,
+    contract: i64,
     /** The app's name. */
-    public name: string,
+    name: string,
     /** Its version, MAJOR.MINOR.PATCH. */
-    public version: string,
+    version: string,
     /** A sentence about it, if given. */
-    public description: Option<string>,
+    description: Option<string>,
     /** The version of its state's shape, from 1. */
-    public state_version: i64,
+    state_version: i64,
     /** The asset that is its icon, if any. */
-    public icon: Option<string>,
+    icon: Option<string>,
     /** Page → asset name, for banners. */
-    public banners: (string, string)[],
+    banners: (string, string)[],
     /** The servers it may reach besides its own host (PRP-012); signed in format 2. */
-    public servers: string[],
+    servers: string[],
     /** What it may reach (PRP-030), by name; signed in format 2. Known and allowed is the loader's call. */
-    public permissions: string[],
+    permissions: string[],
     /** The frame it shows (PRP-031): only an app built into `./main` may choose. */
-    public controls: Option<Controls>,
+    controls: Option<Controls>,
 }
 
 /**
  * Which of Rapidkoi's own controls a built-in app shows (PRP-031): Rapidkoi
  * still draws each one and decides what it does.
  */
-public struct Controls {
+struct Controls {
     /** Icons in the address box: `settings`, `share`. */
-    public address: string[],
+    address: string[],
     /** Rows in its settings card: a group (`app_settings`) or one row (`app_settings.permissions`). */
-    public settings: string[],
+    settings: string[],
 }
 
 /** The address box's icons a built-in app may show. */
-public const ADDRESS_ICONS: string[] = ["settings", "share"];
+const ADDRESS_ICONS: string[] = ["settings", "share"];
 
 /** The settings card's groups and rows, as `controls` names them. */
-public const SETTINGS_ROWS: string[] = [
+const SETTINGS_ROWS: string[] = [
     "account",
     "account.public_key",
     "account.identity",
@@ -77,13 +77,13 @@ public const SETTINGS_ROWS: string[] = [
 ];
 
 /** An app, unpacked. */
-public struct Bundle {
+struct Bundle {
     /** What it says about itself. */
-    public manifest: Manifest,
+    manifest: Manifest,
     /** Its WebAssembly module. */
-    public module: u8[],
+    module: u8[],
     /** Its assets, by name. */
-    public assets: (string, u8[])[],
+    assets: (string, u8[])[],
 }
 
 /**
@@ -95,7 +95,7 @@ public struct Bundle {
  * Example:
  *     read(read_bytes("counter.rkb")?)?
  */
-public fun read(bytes: u8[]): Result<Bundle, BundleError> {
+fun read(bytes: u8[]): Result<Bundle, BundleError> {
     if bytes.len > MAX_BUNDLE {
         return Err(BundleError.TooLarge("bundle", bytes.len));
     }
@@ -143,7 +143,7 @@ public fun read(bytes: u8[]): Result<Bundle, BundleError> {
  * Example:
  *     write_bytes("counter.rkb", write(b)?)
  */
-public fun write(b: Bundle): Result<u8[], BundleError> {
+fun write(b: Bundle): Result<u8[], BundleError> {
     check(b)?;
     Ok(
         encode(
@@ -203,7 +203,7 @@ fun assets_value(assets: (string, u8[])[]): Value = Value.Map(
  * Example:
  *     asset(b, "icon.png")
  */
-public fun asset(b: Bundle, name: string): Option<u8[]> {
+fun asset(b: Bundle, name: string): Option<u8[]> {
     for a of b.assets {
         if a.0 == name {
             return Some(a.1);

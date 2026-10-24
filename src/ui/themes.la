@@ -30,7 +30,7 @@ import kivuli {
     hex,
 };
 import guest.nodes { ButtonLook };
-public import ui.schemes { Theme, DARK };
+import ui.schemes { Theme, DARK };
 import ui.tokens { TEXT_TITLE, TEXT_HEADING, PAGE_RADIUS, EDGE_WIDTH, BUTTON_RADIUS, CIRCLE };
 
 /**
@@ -45,7 +45,7 @@ import ui.tokens { TEXT_TITLE, TEXT_HEADING, PAGE_RADIUS, EDGE_WIDTH, BUTTON_RAD
  * Example:
  *     page.palette(palette(m.theme)).scheme(Scheme.Dark)
  */
-public fun palette(t: Theme): Palette {
+fun palette(t: Theme): Palette {
     let pairs = [
         (Token.Background, t.page),
         (Token.Foreground, t.text),
@@ -77,15 +77,15 @@ public fun palette(t: Theme): Palette {
 }
 
 /** A button kind's colours: at rest, under the pointer, pressed, and its text. */
-public struct ButtonPaint {
+struct ButtonPaint {
     /** At rest. */
-    public background: string,
+    background: string,
     /** Under the pointer. */
-    public hover: string,
+    hover: string,
     /** Being pressed. */
-    public press: string,
+    press: string,
     /** Its label and icon. */
-    public text: string,
+    text: string,
 }
 
 /**
@@ -94,7 +94,7 @@ public struct ButtonPaint {
  * Example:
  *     button_paint(DARK, ButtonLook.Primary)
  */
-public fun button_paint(t: Theme, kind: ButtonLook): ButtonPaint = match kind {
+fun button_paint(t: Theme, kind: ButtonLook): ButtonPaint = match kind {
     Normal => ButtonPaint {
         background: t.control,
         hover: t.control_hover,
@@ -130,7 +130,7 @@ public fun button_paint(t: Theme, kind: ButtonLook): ButtonPaint = match kind {
  * Example:
  *     ui.button(address, Msg.EditAddress).style(bare(t))
  */
-public fun bare(t: Theme): Styling[] {
+fun bare(t: Theme): Styling[] {
     let clear = Background { color: paint(t.clear), ..Background.theme() };
     let none = Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() };
     [
@@ -150,7 +150,7 @@ public fun bare(t: Theme): Styling[] {
  * Example:
  *     column(rows).style(group(t))
  */
-public fun group(t: Theme): Styling[] = [
+fun group(t: Theme): Styling[] = [
     Background { color: paint(t.control), ..Background.theme() },
     Border { radius: Radius.All(PAGE_RADIUS), ..Border.theme() },
 ];
@@ -162,7 +162,7 @@ public fun group(t: Theme): Styling[] = [
  * Example:
  *     area.style(page(m.theme))
  */
-public fun page(t: Theme): Styling[] = [
+fun page(t: Theme): Styling[] = [
     Background { color: paint(t.page), ..Background.theme() },
     Border { radius: Radius.Corners(0, PAGE_RADIUS, 0, 0), ..Border.theme() },
     Text { color: paint(t.text), ..Text.theme() },
@@ -175,7 +175,7 @@ public fun page(t: Theme): Styling[] = [
  * Example:
  *     input(v, f).style(field(t))
  */
-public fun field(t: Theme): Styling[] = [
+fun field(t: Theme): Styling[] = [
     Background { color: paint(t.page), ..Background.theme() },
     Text { color: paint(t.text), ..Text.theme() },
     Border { all: line(t.edge), radius: Radius.All(BUTTON_RADIUS), ..Border.theme() },
@@ -189,7 +189,7 @@ public fun field(t: Theme): Styling[] = [
  * Example:
  *     input(m.draft, Msg.Draft).style(address(m.theme))
  */
-public fun address(t: Theme): Styling[] {
+fun address(t: Theme): Styling[] {
     let mut all = field(t);
     // Half the height rounds each end into a half circle (the owner,
     // session 75). kivuli radii are pixels, so the box's height is fixed.
@@ -203,7 +203,7 @@ public fun address(t: Theme): Styling[] {
  * Example:
  *     column(rows).style(suggestions(m.theme))
  */
-public fun suggestions(t: Theme): Styling[] = [
+fun suggestions(t: Theme): Styling[] = [
     Background { color: paint(t.page), ..Background.theme() },
     Text { color: paint(t.text), ..Text.theme() },
     Border { all: line(t.edge), radius: Radius.All(PAGE_RADIUS), ..Border.theme() },
@@ -216,7 +216,7 @@ public fun suggestions(t: Theme): Styling[] = [
  * Example:
  *     button_with(column([]), Msg.Dismiss).style(clear(m.theme))
  */
-public fun clear(t: Theme): Styling[] = flat(t.clear);
+fun clear(t: Theme): Styling[] = flat(t.clear);
 
 /**
  * Returns ordinary text's look.
@@ -224,7 +224,7 @@ public fun clear(t: Theme): Styling[] = flat(t.clear);
  * Example:
  *     text(s).style(body(t))
  */
-public fun body(t: Theme): Styling[] = [Text { color: paint(t.text), ..Text.theme() }];
+fun body(t: Theme): Styling[] = [Text { color: paint(t.text), ..Text.theme() }];
 
 /**
  * Returns secondary text's look: fainter.
@@ -232,7 +232,7 @@ public fun body(t: Theme): Styling[] = [Text { color: paint(t.text), ..Text.them
  * Example:
  *     text(reason).style(dim(t))
  */
-public fun dim(t: Theme): Styling[] = [Text { color: paint(t.dim), ..Text.theme() }];
+fun dim(t: Theme): Styling[] = [Text { color: paint(t.dim), ..Text.theme() }];
 
 /**
  * Returns a view's title's look: `TEXT_TITLE` points, bold.
@@ -240,7 +240,7 @@ public fun dim(t: Theme): Styling[] = [Text { color: paint(t.dim), ..Text.theme(
  * Example:
  *     text("This app stopped working").style(title(t))
  */
-public fun title(t: Theme): Styling[] = [
+fun title(t: Theme): Styling[] = [
     Font { size: Size.Pt(at_scale(TEXT_TITLE, t)), weight: Weight.Bold, ..Font.theme() },
     Text { color: paint(t.text), ..Text.theme() },
 ];
@@ -251,7 +251,7 @@ public fun title(t: Theme): Styling[] = [
  * Example:
  *     text("Pinned").style(heading(t))
  */
-public fun heading(t: Theme): Styling[] = [
+fun heading(t: Theme): Styling[] = [
     Font { size: Size.Pt(at_scale(TEXT_HEADING, t)), weight: Weight.Bold, ..Font.theme() },
     Text { color: paint(t.text), ..Text.theme() },
 ];
@@ -263,7 +263,7 @@ public fun heading(t: Theme): Styling[] = [
  * Example:
  *     button("Restart", Msg.Restart).style(button(t, ButtonLook.Primary))
  */
-public fun button(t: Theme, kind: ButtonLook): Styling[] {
+fun button(t: Theme, kind: ButtonLook): Styling[] {
     let p = button_paint(t, kind);
     [
         Background { color: paint(p.background), ..Background.theme() },
@@ -289,7 +289,7 @@ public fun button(t: Theme, kind: ButtonLook): Styling[] {
  * Example:
  *     paint(t.accent)
  */
-public fun paint(colour: string): Paint = Paint.Color(hex(colour));
+fun paint(colour: string): Paint = Paint.Color(hex(colour));
 
 /** A thin solid line in a colour. */
 fun line(colour: string): Side = Side {
@@ -304,7 +304,7 @@ fun line(colour: string): Side = Side {
  * Example:
  *     flat(t.frame)
  */
-public fun flat(colour: string): Styling[] = [
+fun flat(colour: string): Styling[] = [
     Background { color: paint(colour), ..Background.theme() },
     Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() },
     Shadow.off(),
@@ -318,7 +318,7 @@ public fun flat(colour: string): Styling[] = [
  * Example:
  *     instance_colour(t, page.instance)
  */
-public fun instance_colour(t: Theme, key: string): string {
+fun instance_colour(t: Theme, key: string): string {
     let n = if key == "" { 1 } else { parse_i64(key).unwrap_or(1) };
     t.instances[(n - 1) % t.instances.len]
 }
@@ -330,4 +330,4 @@ public fun instance_colour(t: Theme, key: string): string {
  * Example:
  *     at_scale(TEXT_TITLE, t)
  */
-public fun at_scale(pt: i64, t: Theme): i64 = (pt as f64 * t.scale + 0.5) as i64;
+fun at_scale(pt: i64, t: Theme): i64 = (pt as f64 * t.scale + 0.5) as i64;

@@ -1,7 +1,7 @@
 // Contract 5's looks drawn (PRP-037), pure: Rapidkoi's names become the
 // theme's values, raw ones stay as written, and state looks become `When`.
 import rapidkoi.ui.paint { Drawn, Own, colour_of, resolve, resolve_for, space_of, corner_of };
-import rapidkoi.ui.themes { Theme, DARK };
+import rapidkoi.ui.schemes { Theme, DARK };
 import rapidkoi.ui.tokens { SPACE_MD, TEXT_TITLE, BUTTON_RADIUS, CIRCLE };
 import rapidkoi.guest.nodes { Colour, Measure, TextSize, Look };
 import rapidkoi.guest.styles { plain };

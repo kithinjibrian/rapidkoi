@@ -27,7 +27,7 @@ import ui.render;
  * Example:
  *     ask(m, id, msg, Call.Read(query))
  */
-public fun ask(m: Model, id: i64, msg: Value, c: Call): (Model, Option<Value>, Cmd<Msg>) {
+fun ask(m: Model, id: i64, msg: Value, c: Call): (Model, Option<Value>, Cmd<Msg>) {
     let p = match app(m, id) {
         Some(p) => p,
         None => {
@@ -68,7 +68,7 @@ public fun ask(m: Model, id: i64, msg: Value, c: Call): (Model, Option<Value>, C
  * Example:
  *     arrive(m, id, load, msg, got)
  */
-public fun arrive(m: Model, id: i64, load: i64, msg: Value, got: Queried): Model {
+fun arrive(m: Model, id: i64, load: i64, msg: Value, got: Queried): Model {
     let p = match app(m, id) {
         Some(p) if p.load == load => p,
         _ => {

@@ -1,7 +1,8 @@
 // Contract 7's results, pure: what `handle` returns (state, effects, the
 // address's fields and their kinds) and a request's reply. No guest and no
 // display. The screen's tests are in tree.la.
-import rapidkoi.guest.contract { ContractError, read_update, reply, Effect, Update, LinkChange };
+import rapidkoi.guest.contract { read_update, reply };
+import rapidkoi.guest.nodes { ContractError, Effect, Update, LinkChange };
 import cbor { Value, Entry, encode, decode, Limits };
 import rapidkoi.net.network { Request, Reply };
 import support { t, kv };

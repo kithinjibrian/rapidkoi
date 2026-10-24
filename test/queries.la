@@ -2,7 +2,8 @@
 // asked, run as a task, answered, and the app's other windows told. A
 // fixture keeps the last event it got as its state. Real SQLite
 // files under test/tmp/.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window as windows { Model, with_pages };
 import rapidkoi.guest.effects { answer_all };
 import rapidkoi.window.tabs { AppPage, open_module, state_of };
 import rapidkoi.window.actions { Msg };

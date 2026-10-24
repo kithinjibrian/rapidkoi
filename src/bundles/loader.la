@@ -10,7 +10,8 @@
  */
 import wasmtime { Engine, Module };
 import guest.guest { compile, reason, OLDER };
-import bundles.bundle { Manifest, asset, reason as bundle_reason };
+import bundles.bundle { Manifest, asset };
+import bundles.rules { reason as bundle_reason };
 import bundles.signing { Opened, read_any };
 import trust.verify {
     Trust,
@@ -30,17 +31,17 @@ import bundles.permissions { Tier, PermissionError, parse as parse_permissions, 
 import std.http { Limits };
 
 /** An app ready to start: what to call it, its manifest if it has one, and its compiled module. */
-public struct Loaded {
+struct Loaded {
     /** The manifest's name, or the file's name without `.wasm`. */
-    public name: string,
+    name: string,
     /** The bundle's manifest; `None` for a bare `.wasm`. */
-    public manifest: Option<Manifest>,
+    manifest: Option<Manifest>,
     /** The icon's PNG bytes, checked by the bundle rules; `None` without one. */
-    public icon: Option<u8[]>,
+    icon: Option<u8[]>,
     /** The compiled module. */
-    public module: Module,
+    module: Module,
     /** Who signed it and how far that's trusted; `None` when unsigned. */
-    public trust: Option<Trust>,
+    trust: Option<Trust>,
 }
 
 /**
@@ -48,7 +49,7 @@ public struct Loaded {
  * `./main` may hold a built-in permission. Never read from the manifest,
  * which can't vouch for itself.
  */
-public enum Origin {
+enum Origin {
     /** Compiled into `./main` (`window/newtab.la`). */
     BuiltIn,
     /** Any file or address. */
@@ -56,7 +57,7 @@ public enum Origin {
 }
 
 /** Why an app wasn't loaded. */
-public enum Refusal {
+enum Refusal {
     /** It couldn't be loaded: what to call it, why. */
     Failed(string, string),
     /** A signed site failed a check: its host, why. No way past it. */
@@ -77,7 +78,7 @@ public enum Refusal {
  * Example:
  *     load(engine, ring, "counter.rkb")
  */
-public fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Refusal> {
+fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Refusal> {
     if is_address(path) {
         // The same work a background load does, waited for (tests, and `load_again`'s files).
         let a = parse(path).map_err(fun(e) = Refusal.Failed(path, address.reason(e)))?;
@@ -106,7 +107,7 @@ public fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Ref
  * Example:
  *     why(r)
  */
-public fun why(r: Refusal): string = match r {
+fun why(r: Refusal): string = match r {
     Failed(_, w) => w,
     Unverified(_, w) => "This app couldn't be verified, so Rapidkoi didn't run it: {w}",
     Unapproved(_, c) => verify_reason(VerifyError.Unapproved(c)),
@@ -123,7 +124,7 @@ public fun why(r: Refusal): string = match r {
  * Example:
  *     fetch(parse("rapidkoi://localhost:8000")?)
  */
-public fun fetch(a: Address): Result<u8[], string> {
+fun fetch(a: Address): Result<u8[], string> {
     let bounds = Limits { body: MAX_BUNDLE, timeout_ms: FETCH_TIMEOUT_MS, ..http.limits() };
     let r = http.request_with("GET", url(a), #{}, [], bounds).map_err(
         fun(e: string) = "Couldn't reach rapidkoi://{shown(a)}: {e}",
@@ -145,11 +146,7 @@ public fun fetch(a: Address): Result<u8[], string> {
  * Example:
  *     from_fetched(engine, ring, fetched)
  */
-public fun from_fetched(
-    engine: Engine,
-    ring: Keyring,
-    f: Fetched,
-): Result<Loaded, Refusal> = match f {
+fun from_fetched(engine: Engine, ring: Keyring, f: Fetched): Result<Loaded, Refusal> = match f {
     Signed(v, r, _, _) => {
         record(ring, r);
         from_opened(engine, v.trust.host, v.opened, Some(v.trust), Origin.External)
@@ -166,7 +163,7 @@ public fun from_fetched(
  * Example:
  *     if current(ring, fetched) { from_fetched(…) } else { … }
  */
-public fun current(ring: Keyring, f: Fetched): bool = match f {
+fun current(ring: Keyring, f: Fetched): bool = match f {
     Signed(v, _, known, _) => known_for(ring, v.trust.host) == known,
     _ => true,
 };
@@ -186,7 +183,7 @@ public fun current(ring: Keyring, f: Fetched): bool = match f {
  * Example:
  *     from_bytes(engine, keyring(), "newtab.rkb", BUNDLE, Origin.BuiltIn)
  */
-public fun from_bytes(
+fun from_bytes(
     engine: Engine,
     ring: Keyring,
     file: string,
@@ -253,7 +250,7 @@ fun from_opened(
  * Example:
  *     name_of("apps/counter.wasm")
  */
-public fun name_of(path: string): string {
+fun name_of(path: string): string {
     let parts = path.split("/");
     let file = parts[parts.len - 1];
     if file.ends_with(".wasm") && file.len > 5 { file.slice(0, file.len - 5) } else { file }

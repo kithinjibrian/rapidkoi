@@ -1,10 +1,10 @@
 // Rendering, pure: decoded trees become kivuli views, checked through
 // kivuli.testing with no display.
-import rapidkoi.guest.contract { Node };
+
 import rapidkoi.ui.render { Msg, screen, stopped };
-import rapidkoi.ui.themes { DARK };
+import rapidkoi.ui.schemes { DARK };
 import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, submit, texts };
-import rapidkoi.guest.nodes { Look, Facts, Role, Colour, Typing };
+import rapidkoi.guest.nodes { Look, Facts, Role, Colour, Typing, Node };
 import rapidkoi.guest.styles { plain };
 import rapidkoi.guest.roles { no_facts };
 import support { t };

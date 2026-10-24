@@ -31,7 +31,7 @@ const ROLES: (string, Role)[] = [
  * Example:
  *     no_facts()
  */
-public fun no_facts(): Facts = Facts {
+fun no_facts(): Facts = Facts {
     role: None,
     checked: None,
     selected: None,
@@ -50,7 +50,7 @@ public fun no_facts(): Facts = Facts {
  * Example:
  *     read_facts(props, "root > box[2]")?
  */
-public fun read_facts(props: Value, here: string): Result<Facts, ContractError> {
+fun read_facts(props: Value, here: string): Result<Facts, ContractError> {
     let bad = fun(problem: string) = ContractError.Invalid(here, problem);
     let role = match props.get("role") {
         None => None,

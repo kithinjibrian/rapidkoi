@@ -17,7 +17,8 @@ import people.people { Grant, person, setting_of, with_setting };
 import window.tabs { AppPage, Tab, Screen, handle, changed };
 import window.window { Model, with_tab, is_blank, with_prefs };
 import data.preferences { prefs_value, apply };
-import guest.contract { Effect, reply };
+import guest.contract { reply };
+import guest.nodes { Effect };
 import cbor { Value };
 import kivuli { Cmd };
 import window.actions { Msg, Approval, Answer };
@@ -32,7 +33,7 @@ import bundles.bundle { Manifest };
 import net.network { Reply };
 
 /** The most answers in a row for one app before it's stopped: an app that keeps asking. */
-public const MAX_ANSWERS: i64 = 32;
+const MAX_ANSWERS: i64 = 32;
 
 /**
  * Answers every tab's waiting effects. A fetch is answered later, when its
@@ -45,7 +46,7 @@ public const MAX_ANSWERS: i64 = 32;
  * Example:
  *     answer_all(next)
  */
-public fun answer_all(m: Model): (Model, Cmd<Msg>) {
+fun answer_all(m: Model): (Model, Cmd<Msg>) {
     let mut at = m;
     let mut sends: Cmd<Msg>[] = [];
     let mut slots: Slot[] = [];
@@ -302,7 +303,7 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
  * Example:
  *     tell_changes(m, next)
  */
-public fun tell_changes(before: Model, after: Model): Model {
+fun tell_changes(before: Model, after: Model): Model {
     let id = match after.current {
         Some(id) if before.current == Some(id) => id,
         _ => {
@@ -339,7 +340,7 @@ public fun tell_changes(before: Model, after: Model): Model {
  * Example:
  *     tell_prefs(m, next)
  */
-public fun tell_prefs(before: Model, after: Model): Model {
+fun tell_prefs(before: Model, after: Model): Model {
     if before.prefs == after.prefs {
         return after;
     }
@@ -363,7 +364,7 @@ fun in_front(m: Model, slot: Slot): bool = match slot {
  * Example:
  *     let (m, sent) = left_behind(next);
  */
-public fun left_behind(m: Model): (Model, Cmd<Msg>) = match m.approval {
+fun left_behind(m: Model): (Model, Cmd<Msg>) = match m.approval {
     Some(a) => {
         let slot = match a.tab {
             Some(id) => Slot.InTab(id),
@@ -386,7 +387,7 @@ public fun left_behind(m: Model): (Model, Cmd<Msg>) = match m.approval {
  * Example:
  *     approve(m, Answer.Once)
  */
-public fun approve(m: Model, a: Answer): (Model, Cmd<Msg>) {
+fun approve(m: Model, a: Answer): (Model, Cmd<Msg>) {
     let waiting = match m.approval {
         Some(w) => w,
         None => {

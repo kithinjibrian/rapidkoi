@@ -1,7 +1,8 @@
 // The shield (PRP-021): what it says about an app (its look, connection,
 // signature, publisher, since when, version), and opening, paging and
 // closing its card. Fixture guests; no display.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.shield {
     ShieldFacts,
     ShieldLook,

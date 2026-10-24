@@ -41,7 +41,7 @@ import bundles.loader { why };
  * Example:
  *     go(m)
  */
-public fun go(m: Model): (Model, Cmd<Msg>) {
+fun go(m: Model): (Model, Cmd<Msg>) {
     let wanted = m.draft.trim();
     if wanted == "" {
         return (m, Cmd.none());
@@ -71,7 +71,7 @@ public fun go(m: Model): (Model, Cmd<Msg>) {
  * Example:
  *     open_file(m, "counter.wasm")
  */
-public fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
+fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
     // A link (PRP-036) is its app's address with a version and fields.
     let (path, version, fields) = match parse(text) {
         Ok(a) if is_address(text) => (without_link(text), a.version, a.fields),
@@ -123,7 +123,7 @@ public fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
  * Example:
  *     new_instance(m)
  */
-public fun new_instance(m: Model): (Model, Cmd<Msg>) {
+fun new_instance(m: Model): (Model, Cmd<Msg>) {
     let p = match page_of(m) {
         App(a) => a,
         Home => {
@@ -151,7 +151,7 @@ public fun new_instance(m: Model): (Model, Cmd<Msg>) {
  * Example:
  *     reopen_all(m, open)
  */
-public fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
+fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
     let mut at = m;
     let mut tasks: Cmd<Msg>[] = [];
     let mut ids: i64[] = [];
@@ -208,7 +208,7 @@ public fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
  * Example:
  *     open_pin(m, "counter.wasm")
  */
-public fun open_pin(m: Model, path: string): (Model, Cmd<Msg>) = match open_tab_of(m, path) {
+fun open_pin(m: Model, path: string): (Model, Cmd<Msg>) = match open_tab_of(m, path) {
     Some(id) => (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none()),
     None => open_file(go_home(m), path),
 };
@@ -219,7 +219,7 @@ public fun open_pin(m: Model, path: string): (Model, Cmd<Msg>) = match open_tab_
  * Example:
  *     reopen(m)
  */
-public fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
+fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
     // Already open again (reopened at launch, PRP-034): shown, not started twice.
     Some(l) if instance_open(m, l).is_some() => (
         show_tab(m, instance_open(m, l).unwrap_or(-1)),
@@ -264,7 +264,7 @@ fun instance_open(m: Model, l: LeftOff): Option<i64> {
  * Example:
  *     reload(m)
  */
-public fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
+fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
     (Some(id), App(a)) if a.path == settings_app.SETTINGS_KEY => match settings_app.open(m.engine) {
         // Built in: started again as it is, its settings read afresh.
         Ok(page) => {
@@ -314,7 +314,7 @@ public fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
  * Example:
  *     keep_mine(m)
  */
-public fun keep_mine(m: Model): Model = match (m.current, page_of(m)) {
+fun keep_mine(m: Model): Model = match (m.current, page_of(m)) {
     (Some(id), App(a)) => match a.screen {
         Unapproved(_, kept) if kept.len > 0 => with_tab(m, id, fun(_: AppPage) = kept[0]),
         Unapproved(_, _) => window.close(m, id),
@@ -330,7 +330,7 @@ public fun keep_mine(m: Model): Model = match (m.current, page_of(m)) {
  * Example:
  *     separate_app(m)
  */
-public fun separate_app(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
+fun separate_app(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
     (Some(id), App(a)) => match a.screen {
         Unapproved(c, _) => {
             separate(m.ring, c);
@@ -352,7 +352,7 @@ public fun separate_app(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of
  * Example:
  *     open_settings(m)
  */
-public fun open_settings(m: Model): Model {
+fun open_settings(m: Model): Model {
     if let Some(id) = open_tab_of(m, settings_app.SETTINGS_KEY) {
         return show_tab(m, id);
     }

@@ -21,7 +21,7 @@
  * Example:
  *     landing_page("Counter", Some("Counts"), "counter.dafifi.net · key ab12-…", "counter.dafifi.net")
  */
-public fun landing_page(
+fun landing_page(
     name: string,
     description: Option<string>,
     publisher: string,

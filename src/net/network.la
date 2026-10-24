@@ -13,31 +13,31 @@ import net.address { parse, shown, site_url };
 import guest.limits { MAX_BODY_UP };
 
 /** One request an app asks for. */
-public struct Request {
+struct Request {
     /** GET, POST, PUT, PATCH or DELETE. */
-    public method: string,
+    method: string,
     /** Where: `https://host[:port]/path?query` (or `http://localhost:PORT/…` from this machine). */
-    public url: string,
+    url: string,
     /** Its own headers, name and value. */
-    public headers: (string, string)[],
+    headers: (string, string)[],
     /** The body, at most `MAX_BODY_UP` bytes. */
-    public body: u8[],
+    body: u8[],
 }
 
 /** What one app may reach. */
-public struct Allowed {
+struct Allowed {
     /** Its own host, as addresses show it (`counter.dafifi.net`, `localhost:8000`); none for a bare file. */
-    public own: Option<string>,
+    own: Option<string>,
     /** What its manifest declares. */
-    public servers: string[],
+    servers: string[],
     /** What the person switched off for it. */
-    public off: string[],
+    off: string[],
     /** Whether the app itself came from this machine (a local file or address). */
-    public local: bool,
+    local: bool,
 }
 
 /** Why a request wasn't sent. */
-public enum NetworkError {
+enum NetworkError {
     /** Not its own host and not declared. */
     NotListed(string),
     /** Switched off on the Access page. */
@@ -67,7 +67,7 @@ public enum NetworkError {
 }
 
 /** What came back for one request, answered to the app. */
-public enum Reply {
+enum Reply {
     /** The server's answer: status, headers (names in lower case), body. */
     Got(i64, Map<string, string>, u8[]),
     /** It wasn't sent, or didn't come back: the sentence the app gets. */
@@ -81,7 +81,7 @@ public enum Reply {
  * Example:
  *     check_server("api.notes.acme.com")?
  */
-public fun check_server(name: string): Result<(), string> = match parse("https://{name}") {
+fun check_server(name: string): Result<(), string> = match parse("https://{name}") {
     Ok(a) if shown(a) == name || "{shown(a)}:443" == name => Ok(()),
     _ => Err("\"{name}\" isn't a server name (like api.example.com)"),
 };
@@ -94,7 +94,7 @@ public fun check_server(name: string): Result<(), string> = match parse("https:/
  * Example:
  *     check_request(request, allowed)?
  */
-public fun check_request(r: Request, a: Allowed): Result<Request, NetworkError> {
+fun check_request(r: Request, a: Allowed): Result<Request, NetworkError> {
     let methods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
     if !methods.any(fun(m: string) = m == r.method) {
         return Err(NetworkError.BadMethod(r.method));
@@ -144,7 +144,7 @@ public fun check_request(r: Request, a: Allowed): Result<Request, NetworkError> 
  * Example:
  *     reason(e, "Counter")
  */
-public fun reason(e: NetworkError, app: string): string = match e {
+fun reason(e: NetworkError, app: string): string = match e {
     NotListed(h) => "{h} isn't one of {app}'s servers",
     Off(h) => "You turned off {h} for {app}",
     Local => "Apps from the internet can't reach this computer",
@@ -171,7 +171,7 @@ public fun reason(e: NetworkError, app: string): string = match e {
  * Example:
  *     check_addresses("api.acme.com", resolved)?
  */
-public fun check_addresses(host: string, addresses: string[]): Result<string[], NetworkError> {
+fun check_addresses(host: string, addresses: string[]): Result<string[], NetworkError> {
     if addresses.len == 0 {
         return Err(NetworkError.NoAddress(host));
     }
@@ -191,7 +191,7 @@ public fun check_addresses(host: string, addresses: string[]): Result<string[], 
  * Example:
  *     local_address("169.254.169.254")
  */
-public fun local_address(ip: string): bool {
+fun local_address(ip: string): bool {
     if let Some(v) = ipv4(ip) {
         return local_v4(v);
     }

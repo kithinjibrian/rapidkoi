@@ -32,7 +32,7 @@ const PREVIOUS: string = "previous";
  * Example:
  *     begin_session(restore(m, s), s)
  */
-public fun begin_session(m: Model, s: Store): Model {
+fun begin_session(m: Model, s: Store): Model {
     let (read, ended) = restore_open(m, s);
     let mut notes: string[] = [];
     let older = match recall(s, PREVIOUS, MAX_OPEN_FILE, read_open) {
@@ -75,7 +75,7 @@ public fun begin_session(m: Model, s: Store): Model {
  * Example:
  *     restored(m)
  */
-public fun restored(m: Model): Model = match m.store {
+fun restored(m: Model): Model = match m.store {
     Some(s) => match remove(s, PREVIOUS) {
         Ok(()) => m,
         Err(e) => Model {

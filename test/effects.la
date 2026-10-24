@@ -2,7 +2,8 @@
 // sign-in signatures, for signed apps only, as you've chosen in the Account
 // page. An echo guest's state becomes the answer it got, so each test reads
 // exactly what Rapidkoi sent. Writes only under test/tmp/.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.layout { view };
 import rapidkoi.guest.effects { answer_all };
 import rapidkoi.data.saving { restore };

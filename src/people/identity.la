@@ -15,12 +15,12 @@ import data.store { Store, StoreError, load, save, reason as store_reason };
 import trust.keys { hex };
 
 /** This computer's master secret: never shown, never sent. */
-public struct Master {
+struct Master {
     secret: u8[],
 }
 
 /** Why an identity couldn't be made or used. */
-public enum IdentityError {
+enum IdentityError {
     /** The data folder failed. */
     Store(StoreError),
     /** std.crypto failed: its message. */
@@ -45,7 +45,7 @@ const LABEL: string = "rapidkoi identity v1";
  * Example:
  *     master(store)?
  */
-public fun master(s: Store): Result<Master, IdentityError> {
+fun master(s: Store): Result<Master, IdentityError> {
     match load(s, FILE, 4096).map_err(IdentityError.Store)? {
         Some(bytes) => read(bytes),
         None => {
@@ -72,11 +72,9 @@ public fun master(s: Store): Result<Master, IdentityError> {
  * Example:
  *     existing(store)?
  */
-public fun existing(s: Store): Result<Option<Master>, IdentityError> = match load(
-    s,
-    FILE,
-    4096,
-).map_err(IdentityError.Store)? {
+fun existing(s: Store): Result<Option<Master>, IdentityError> = match load(s, FILE, 4096).map_err(
+    IdentityError.Store,
+)? {
     Some(bytes) => Ok(Some(read(bytes)?)),
     None => Ok(None),
 };
@@ -91,7 +89,7 @@ public fun existing(s: Store): Result<Option<Master>, IdentityError> = match loa
  * Example:
  *     public_key(m, "notes.acme.com", origin, 0)?
  */
-public fun public_key(
+fun public_key(
     m: Master,
     host: string,
     origin: u8[],
@@ -109,7 +107,7 @@ public fun public_key(
  * Example:
  *     sign_in(m, host, origin, 0, challenge)?
  */
-public fun sign_in(
+fun sign_in(
     m: Master,
     host: string,
     origin: u8[],
@@ -127,7 +125,7 @@ public fun sign_in(
  * Example:
  *     ed25519_verify(public_key, sign_in_message(host, challenge), signature)
  */
-public fun sign_in_message(host: string, challenge: u8[]): u8[] = encode(
+fun sign_in_message(host: string, challenge: u8[]): u8[] = encode(
     Value.Map([
         entry("kind", Value.Text("rapidkoi sign-in")),
         entry("host", Value.Text(host)),
@@ -143,7 +141,7 @@ public fun sign_in_message(host: string, challenge: u8[]): u8[] = encode(
  * Example:
  *     user_label(public_key)
  */
-public fun user_label(key: u8[]): string = "User {hex(key).slice(0, 4)}";
+fun user_label(key: u8[]): string = "User {hex(key).slice(0, 4)}";
 
 /**
  * Returns a plain sentence for an identity error.
@@ -151,7 +149,7 @@ public fun user_label(key: u8[]): string = "User {hex(key).slice(0, 4)}";
  * Example:
  *     reason(e)
  */
-public fun reason(e: IdentityError): string = match e {
+fun reason(e: IdentityError): string = match e {
     Store(s) => "Rapidkoi couldn't keep your identity: {store_reason(s)}",
     Crypto(why) => "Rapidkoi couldn't work out your key: {why}",
     Broken(why) => "Rapidkoi couldn't read your identity ({why}); it left the file as it was",

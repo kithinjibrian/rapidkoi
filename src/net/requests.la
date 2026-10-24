@@ -32,7 +32,7 @@ import guest.limits { MAX_IN_FLIGHT, MAX_BODY_DOWN, REQUEST_TIMEOUT_MS };
  * Example:
  *     allowed(m, page)
  */
-public fun allowed(m: Model, p: AppPage): Allowed {
+fun allowed(m: Model, p: AppPage): Allowed {
     let declared = match p.manifest {
         Some(man) => man.servers,
         None => [],
@@ -71,7 +71,7 @@ public fun allowed(m: Model, p: AppPage): Allowed {
  * Example:
  *     ask(m, id, msg, request)
  */
-public fun ask(m: Model, id: i64, msg: Value, r: Request): (Model, Option<Value>, Cmd<Msg>) {
+fun ask(m: Model, id: i64, msg: Value, r: Request): (Model, Option<Value>, Cmd<Msg>) {
     let p = match app(m, id) {
         Some(p) => p,
         None => {
@@ -117,7 +117,7 @@ public fun ask(m: Model, id: i64, msg: Value, r: Request): (Model, Option<Value>
  * Example:
  *     send(checked, Network { ca_file: None, hosts: [] }, REQUEST_TIMEOUT_MS, MAX_BODY_DOWN)
  */
-public fun send(r: Request, net: Network, timeout_ms: i64, max_body: i64): Reply {
+fun send(r: Request, net: Network, timeout_ms: i64, max_body: i64): Reply {
     let at = match parse(r.url) {
         Ok(at) => at,
         Err(_) => {
@@ -145,7 +145,7 @@ public fun send(r: Request, net: Network, timeout_ms: i64, max_body: i64): Reply
  * Example:
  *     arrive(m, id, load, msg, got)
  */
-public fun arrive(m: Model, id: i64, load: i64, msg: Value, got: Reply): Model = match app(m, id) {
+fun arrive(m: Model, id: i64, load: i64, msg: Value, got: Reply): Model = match app(m, id) {
     Some(p) if p.load == load => with_tab(m, id, fun(page: AppPage) {
         let less = AppPage {
             in_flight: if page.in_flight > 0 { page.in_flight - 1 } else { 0 },

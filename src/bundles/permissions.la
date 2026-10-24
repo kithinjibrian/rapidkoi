@@ -9,7 +9,7 @@
  */
 
 /** Something an app may reach, declared in its manifest. */
-public enum Permission {
+enum Permission {
     /** Your pins: name, place and icon. */
     ReadPins,
     /** The app you left off: name, place, icon and screen title. */
@@ -23,7 +23,7 @@ public enum Permission {
 }
 
 /** Who may hold a permission. */
-public enum Tier {
+enum Tier {
     /** Only an app compiled into `./main`. */
     BuiltIn,
     /** Any app that declares it. */
@@ -31,7 +31,7 @@ public enum Tier {
 }
 
 /** What the person lets an app do with a permission it declared (PRP-031). */
-public enum Setting {
+enum Setting {
     /** Answered at once. */
     Allowed,
     /** Rapidkoi asks the person first; the app waits. */
@@ -41,7 +41,7 @@ public enum Setting {
 }
 
 /** Every setting, in the order the Permissions page offers them. */
-public const SETTINGS: Setting[] = [Setting.Allowed, Setting.Ask, Setting.Blocked];
+const SETTINGS: Setting[] = [Setting.Allowed, Setting.Ask, Setting.Blocked];
 
 /**
  * Returns a permission's setting until the person changes it: built-in
@@ -50,7 +50,7 @@ public const SETTINGS: Setting[] = [Setting.Allowed, Setting.Ask, Setting.Blocke
  * Example:
  *     default_of(Permission.ReadPins)
  */
-public fun default_of(p: Permission): Setting = match tier_of(p) {
+fun default_of(p: Permission): Setting = match tier_of(p) {
     BuiltIn => Setting.Allowed,
     Any => Setting.Ask,
 };
@@ -61,7 +61,7 @@ public fun default_of(p: Permission): Setting = match tier_of(p) {
  * Example:
  *     setting_name(Setting.Blocked)
  */
-public fun setting_name(s: Setting): string = match s {
+fun setting_name(s: Setting): string = match s {
     Allowed => "allowed",
     Ask => "ask",
     Blocked => "blocked",
@@ -73,7 +73,7 @@ public fun setting_name(s: Setting): string = match s {
  * Example:
  *     setting_words(Setting.Ask)
  */
-public fun setting_words(s: Setting): string = match s {
+fun setting_words(s: Setting): string = match s {
     Allowed => "Always allowed",
     Ask => "Needs approval",
     Blocked => "Blocked",
@@ -85,7 +85,7 @@ public fun setting_words(s: Setting): string = match s {
  * Example:
  *     parse_setting("ask")
  */
-public fun parse_setting(name: string): Option<Setting> {
+fun parse_setting(name: string): Option<Setting> {
     for s of SETTINGS {
         if setting_name(s) == name {
             return Some(s);
@@ -95,13 +95,13 @@ public fun parse_setting(name: string): Option<Setting> {
 }
 
 /** Why a manifest's permissions can't be read. */
-public enum PermissionError {
+enum PermissionError {
     /** A name this Rapidkoi doesn't know (a newer one might). */
     Unknown(string),
 }
 
 /** Every permission, in the order they're listed. */
-public const ALL: Permission[] = [
+const ALL: Permission[] = [
     Permission.ReadPins,
     Permission.ReadLeftOff,
     Permission.OpenApps,
@@ -115,7 +115,7 @@ public const ALL: Permission[] = [
  * Example:
  *     name_of(Permission.ReadPins)
  */
-public fun name_of(p: Permission): string = match p {
+fun name_of(p: Permission): string = match p {
     ReadPins => "read_pins",
     ReadLeftOff => "read_left_off",
     OpenApps => "open_apps",
@@ -129,7 +129,7 @@ public fun name_of(p: Permission): string = match p {
  * Example:
  *     tier_of(Permission.OpenApps)
  */
-public fun tier_of(p: Permission): Tier = match p {
+fun tier_of(p: Permission): Tier = match p {
     ReadPins => Tier.BuiltIn,
     ReadLeftOff => Tier.BuiltIn,
     OpenApps => Tier.BuiltIn,
@@ -143,7 +143,7 @@ public fun tier_of(p: Permission): Tier = match p {
  * Example:
  *     "This app asks for something only Rapidkoi's own apps can have: {words_of(p)}"
  */
-public fun words_of(p: Permission): string = match p {
+fun words_of(p: Permission): string = match p {
     ReadPins => "reading your pins",
     ReadLeftOff => "reading where you left off",
     OpenApps => "opening your apps",
@@ -157,7 +157,7 @@ public fun words_of(p: Permission): string = match p {
  * Example:
  *     label_of(Permission.ReadPins)
  */
-public fun label_of(p: Permission): string = match p {
+fun label_of(p: Permission): string = match p {
     ReadPins => "Reading your pins",
     ReadLeftOff => "Reading where you left off",
     OpenApps => "Opening your apps",
@@ -171,7 +171,7 @@ public fun label_of(p: Permission): string = match p {
  * Example:
  *     "{app} wants to {wish_of(p)}"
  */
-public fun wish_of(p: Permission): string = match p {
+fun wish_of(p: Permission): string = match p {
     ReadPins => "read your pins",
     ReadLeftOff => "read where you left off",
     OpenApps => "open your apps",
@@ -188,7 +188,7 @@ public fun wish_of(p: Permission): string = match p {
  * Example:
  *     parse(manifest.permissions)
  */
-public fun parse(names: string[]): Result<Permission[], PermissionError> {
+fun parse(names: string[]): Result<Permission[], PermissionError> {
     let mut out: Permission[] = [];
     for n of names {
         let mut found: Option<Permission> = None;

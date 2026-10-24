@@ -22,7 +22,7 @@ Where things are recorded: **DECISIONS.md** (every decision and its why: core de
 
 ## TESTING
 
-- **Test first.** For every new function, a failing `@test` first, then the least code that passes it. Every `public` function gets a happy-path test and one per error it can return.
+- **Test first.** For every new function, a failing `@test` first, then the least code that passes it. Every function used outside its module gets a happy-path test and one per error it can return.
 - Tests live in `test/`, flat, named for the module (`src/ui/layout.la` → `test/layout.la`, DECISION-033). No test code in `src/`.
 - `update` and `view` are pure: test them without a display, through `kivuli.testing` (press buttons, type into inputs, read texts).
 - Anything that opens a GTK window starts with `if !has_display() { skip("no display"); }`.
@@ -103,7 +103,7 @@ Needs: `lughac` (the owner installs it from `../lugha`), `libgtk-4-dev`, `libsql
 
 - **Read `docs/DESIGN.md` before writing any view.** Every spacing, size and text size in Rapidkoi's own screens is a token from it; every colour comes from `src/ui/themes.la` (the desktop theme is ignored, DECISION-031). Never a hardcoded colour, never a bare number in `Spacing`, `Sizing`, `Font` or `Border`.
 - Apps style their own content (contract 7): their values are checked by `src/guest/styles.la`, and Rapidkoi's names they use are resolved by `src/ui/paint.la`. The frame, address and dialogs stay Rapidkoi's.
-- **Read `docs/CODE_STYLE.md` before writing code.** Every `public` item has a `/** … */` comment; every non-obvious decision inside a function has a `//` comment saying why. Code reads like the code around it.
+- **Read `docs/CODE_STYLE.md` before writing code.** Rapidkoi is a program, so nothing is `public` (an item with no keyword is visible to the whole package, tests included). Every item used outside its module has a `/** … */` comment; every non-obvious decision inside a function has a `//` comment saying why. Code reads like the code around it.
 
 ## ANTI-PATTERNS
 

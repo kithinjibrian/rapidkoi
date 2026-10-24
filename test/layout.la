@@ -1,7 +1,8 @@
 // The frame (PRP-014, PRP-015, PRP-023): the header bar with the address
 // box, the sidebar with the apps, and the content area showing the current
 // app. No display.
-import rapidkoi.shell { Model, start, with_pages, update, view };
+import rapidkoi.shell { start, update, view };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.layout;
 import rapidkoi.ui.content { newtab_view };
 import rapidkoi.window.actions { Msg, TabAction };

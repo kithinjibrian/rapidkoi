@@ -12,17 +12,17 @@ import std.fs;
 import cbor { Value, Entry, Limits, decode, encode };
 
 /** A publisher's key pair, for one host. */
-public struct SecretKey {
+struct SecretKey {
     /** The app's host the key signs for. */
-    public host: string,
+    host: string,
     /** The 32-byte secret seed. Never written anywhere but its own file. */
-    public secret: u8[],
+    secret: u8[],
     /** The 32-byte public key. */
-    public public_key: u8[],
+    public_key: u8[],
 }
 
 /** Why a key couldn't be made or read. */
-public enum KeyError {
+enum KeyError {
     /** keygen never replaces a key. */
     Exists(string),
     /** A key path inside the project. */
@@ -55,7 +55,7 @@ const OWNER_ONLY: i64 = 0b110_000_000;
  * Example:
  *     keygen("notes.acme.com", "/home/me/.config/rapidkoi/keys/notes.key", "/work/notes")?
  */
-public fun keygen(host: string, path: string, project: string): Result<SecretKey, KeyError> {
+fun keygen(host: string, path: string, project: string): Result<SecretKey, KeyError> {
     if inside(path, project) {
         return Err(KeyError.InsideProject(path));
     }
@@ -98,7 +98,7 @@ public fun keygen(host: string, path: string, project: string): Result<SecretKey
  * Example:
  *     read_secret(project.key?, project.host?)?
  */
-public fun read_secret(path: string, host: string): Result<SecretKey, KeyError> {
+fun read_secret(path: string, host: string): Result<SecretKey, KeyError> {
     let bytes = read_bytes(path).map_err(fun(e: string) = KeyError.Io(path, e))?;
     let bad = fun(why: string) = KeyError.Malformed(path, why);
     let v = decode(bytes, Limits {
@@ -132,7 +132,7 @@ public fun read_secret(path: string, host: string): Result<SecretKey, KeyError> 
  * Example:
  *     fingerprint(key.public_key)
  */
-public fun fingerprint(key: u8[]): string {
+fun fingerprint(key: u8[]): string {
     let h = hex(sha256(key)).slice(0, 16);
     [h.slice(0, 4), h.slice(4, 8), h.slice(8, 12), h.slice(12, 16)].join("-")
 }
@@ -143,7 +143,7 @@ public fun fingerprint(key: u8[]): string {
  * Example:
  *     hex(sha256(file))
  */
-public fun hex(bytes: u8[]): string {
+fun hex(bytes: u8[]): string {
     let digits = "0123456789abcdef";
     let mut parts: string[] = [];
     for b of bytes {
@@ -164,7 +164,7 @@ public fun hex(bytes: u8[]): string {
  * Example:
  *     inside("/work/notes/k.key", "/work/notes")
  */
-public fun inside(path: string, dir: string): bool {
+fun inside(path: string, dir: string): bool {
     let p = normal(path);
     let d = normal(dir);
     p == d || p.starts_with(d + "/")
@@ -176,7 +176,7 @@ public fun inside(path: string, dir: string): bool {
  * Example:
  *     reason(e)
  */
-public fun reason(e: KeyError): string = match e {
+fun reason(e: KeyError): string = match e {
     Exists(p) => "{p} already exists: keygen never replaces a key",
     InsideProject(p) => "{p} is inside the project: keep secret keys outside it, so they're never committed or published",
     WrongHost(p, found, wanted) => "{p} is the key for {found}, not {wanted}",

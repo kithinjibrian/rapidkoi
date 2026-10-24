@@ -37,11 +37,12 @@ import trust.index {
     reason as index_reason,
 };
 import guest.limits { CONTRACT_VERSION };
-import bundles.bundle { Bundle, Manifest, write, reason as bundle_reason };
+import bundles.bundle { Bundle, Manifest, write };
+import bundles.rules { reason as bundle_reason };
 import commands.landing { landing_page };
 
 /** Where a site keeps Rapidkoi's files, under its root. */
-public const WELL_KNOWN: string = ".well-known/rapidkoi";
+const WELL_KNOWN: string = ".well-known/rapidkoi";
 
 /**
  * Runs `keygen` or `publish` from the program's arguments, in the current
@@ -52,7 +53,7 @@ public const WELL_KNOWN: string = ".well-known/rapidkoi";
  * Example:
  *     if argv[1] == "publish" { return publish.run(argv); }
  */
-public fun run(argv: string[]): i32 {
+fun run(argv: string[]): i32 {
     let command = argv[1];
     let result: Result<string, string> = match env.current_dir() {
         Err(e) => Err("can't find the current folder: {e}"),
@@ -87,7 +88,7 @@ public fun run(argv: string[]): i32 {
  * Example:
  *     make_key("/work/notes")?
  */
-public fun make_key(dir: string): Result<string, string> {
+fun make_key(dir: string): Result<string, string> {
     let p = read_project(dir).map_err(project_reason)?;
     let (host, path) = signer(p)?;
     let k = keygen(host, path, p.dir).map_err(key_reason)?;
@@ -103,7 +104,7 @@ public fun make_key(dir: string): Result<string, string> {
  * Example:
  *     publish_args("/work/notes", ["--withdraw", "1.0.0", "--reason", "Security fix in 1.0.1"])?
  */
-public fun publish_args(dir: string, args: string[]): Result<string, string> {
+fun publish_args(dir: string, args: string[]): Result<string, string> {
     if args.len == 0 {
         return publish_site(dir);
     }
@@ -125,7 +126,7 @@ public fun publish_args(dir: string, args: string[]): Result<string, string> {
  * Example:
  *     publish_site("/work/notes")?
  */
-public fun publish_site(dir: string): Result<string, string> {
+fun publish_site(dir: string): Result<string, string> {
     let p = read_project(dir).map_err(project_reason)?;
     let key = secret(p)?;
     let bytes = write_signed(bundle_of(p)?, key).map_err(bundle_reason)?;
@@ -179,7 +180,7 @@ public fun publish_site(dir: string): Result<string, string> {
  * Example:
  *     withdraw_version("/work/notes", "1.0.0", "Security fix in 1.0.1")?
  */
-public fun withdraw_version(dir: string, version: string, why: string): Result<string, string> {
+fun withdraw_version(dir: string, version: string, why: string): Result<string, string> {
     let p = read_project(dir).map_err(project_reason)?;
     let key = secret(p)?;
     let ix = withdraw(existing(p, key)?, version, why).map_err(index_reason)?;
@@ -197,7 +198,7 @@ public fun withdraw_version(dir: string, version: string, why: string): Result<s
  * Example:
  *     pack_project("/work/notes", false)?
  */
-public fun pack_project(dir: string, force: bool): Result<string, string> {
+fun pack_project(dir: string, force: bool): Result<string, string> {
     let p = read_project(dir).map_err(project_reason)?;
     let out = "{p.dir}/{p.name.split(" ").join("-")}-{p.version}.rkb";
     if fs.exists(out) && !force {
@@ -219,7 +220,7 @@ public fun pack_project(dir: string, force: bool): Result<string, string> {
  * Example:
  *     bundle_of(read_project(dir)?)?
  */
-public fun bundle_of(p: Project): Result<Bundle, string> {
+fun bundle_of(p: Project): Result<Bundle, string> {
     let mut assets: (string, u8[])[] = [];
     let mut icon: Option<string> = None;
     if let Some(file) = p.icon {

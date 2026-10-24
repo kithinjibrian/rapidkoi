@@ -25,15 +25,15 @@ import net.address { Address, shown };
  * [] }` and never reads either from a file, the environment or a flag
  * (PRP-009, PRP-013).
  */
-public struct Network {
+struct Network {
     /** A PEM file of extra certificates to trust: tests only. */
-    public ca_file: Option<string>,
+    ca_file: Option<string>,
     /** Name → the addresses a lookup gives, in place of the resolver: tests only. */
-    public hosts: (string, string[])[],
+    hosts: (string, string[])[],
 }
 
 /** Why a request didn't come back. */
-public enum Dialed {
+enum Dialed {
     /** Refused before anything was sent: where the name points, or its lookup. */
     Refused(NetworkError),
     /** Sent, or tried, and it failed: std's reason. */
@@ -51,7 +51,7 @@ public enum Dialed {
  * Example:
  *     dial(at, "GET", url, #{}, [], bounds, reach)
  */
-public fun dial(
+fun dial(
     a: Address,
     method: string,
     url: string,
@@ -97,7 +97,7 @@ public fun dial(
  * Example:
  *     lookup("api.acme.com", reach)?
  */
-public fun lookup(name: string, reach: Network): Result<string[], string> {
+fun lookup(name: string, reach: Network): Result<string[], string> {
     for (n, addresses) of reach.hosts {
         if n == name {
             return Ok(addresses);
@@ -113,7 +113,7 @@ public fun lookup(name: string, reach: Network): Result<string[], string> {
  * Example:
  *     send_to("93.184.215.14", "GET", "https://api.acme.com/", #{}, [], bounds, reach)
  */
-public fun send_to(
+fun send_to(
     ip: string,
     method: string,
     url: string,
@@ -141,7 +141,7 @@ public fun send_to(
  * Example:
  *     try_each(addresses, 30_000, fun(ip: string, left: i64) = send_to(ip, …))
  */
-public fun try_each(
+fun try_each(
     addresses: string[],
     timeout_ms: i64,
     attempt: fun(string, i64): Result<Response, string>,

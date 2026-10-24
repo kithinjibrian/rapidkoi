@@ -49,32 +49,32 @@ import ui.tokens {
     gap,
     padding_xy,
 };
-import ui.themes { Theme };
+import ui.schemes { Theme };
 
 /** A look with every name resolved: what kivuli will draw. Only what the app set is `Some`. */
-public struct Drawn {
-    public background: Option<Paint>,
-    public color: Option<Paint>,
-    public border: Option<(i64, Paint)>,
-    public outline: Option<(i64, Paint)>,
-    public corner: Option<i64>,
-    public gap: Option<i64>,
+struct Drawn {
+    background: Option<Paint>,
+    color: Option<Paint>,
+    border: Option<(i64, Paint)>,
+    outline: Option<(i64, Paint)>,
+    corner: Option<i64>,
+    gap: Option<i64>,
     /** Vertical and horizontal, in pixels. */
-    public padding: Option<(i64, i64)>,
-    public width: Option<i64>,
-    public height: Option<i64>,
-    public min_width: Option<i64>,
-    public max_width: Option<i64>,
-    public min_height: Option<i64>,
-    public max_height: Option<i64>,
-    public shadow: Option<string>,
-    public opacity: Option<f64>,
-    public size: Option<Size>,
-    public weight: Option<Weight>,
-    public family: Option<Family>,
-    public italic: bool,
+    padding: Option<(i64, i64)>,
+    width: Option<i64>,
+    height: Option<i64>,
+    min_width: Option<i64>,
+    max_width: Option<i64>,
+    min_height: Option<i64>,
+    max_height: Option<i64>,
+    shadow: Option<string>,
+    opacity: Option<f64>,
+    size: Option<Size>,
+    weight: Option<Weight>,
+    family: Option<Family>,
+    italic: bool,
     /** Looks under the pointer, pressed, focused and disabled. */
-    public states: (State, Self)[],
+    states: (State, Self)[],
 }
 
 /**
@@ -84,7 +84,7 @@ public struct Drawn {
  * Example:
  *     colour_of(Colour.Named("accent"), m.theme)
  */
-public fun colour_of(c: Colour, t: Theme): Paint = Paint.Color(rgba(c, t));
+fun colour_of(c: Colour, t: Theme): Paint = Paint.Color(rgba(c, t));
 
 /**
  * Resolves a gap or padding: a spacing token, or pixels.
@@ -92,7 +92,7 @@ public fun colour_of(c: Colour, t: Theme): Paint = Paint.Color(rgba(c, t));
  * Example:
  *     space_of(Measure.Named("md"))
  */
-public fun space_of(m: Measure): i64 = match m {
+fun space_of(m: Measure): i64 = match m {
     Px(n) => n,
     Named(name) => match name {
         "xs" => SPACE_XS,
@@ -109,7 +109,7 @@ public fun space_of(m: Measure): i64 = match m {
  * Example:
  *     corner_of(Measure.Named("round"))
  */
-public fun corner_of(m: Measure): i64 = match m {
+fun corner_of(m: Measure): i64 = match m {
     Px(n) => n,
     Named(name) => match name {
         "small" => CORNER_SMALL,
@@ -125,7 +125,7 @@ public fun corner_of(m: Measure): i64 = match m {
  * Example:
  *     align_of(Place.Center)
  */
-public fun align_of(p: Place): Align = match p {
+fun align_of(p: Place): Align = match p {
     Start => Align.Start,
     Center => Align.Center,
     End => Align.End,
@@ -133,15 +133,15 @@ public fun align_of(p: Place): Align = match p {
 };
 
 /** The person's switch for one app (PRP-038): force their colours, their text size, or both. */
-public struct Own {
+struct Own {
     /** Use my colours: the app's own colours become Rapidkoi's. */
-    public colours: bool,
+    colours: bool,
     /** Use my text size: the app's raw points and pixels scale too. */
-    public text_size: bool,
+    text_size: bool,
 }
 
 /** Neither forced: the app as it styled itself. */
-public const AS_STYLED: Own = Own { colours: false, text_size: false };
+const AS_STYLED: Own = Own { colours: false, text_size: false };
 
 /**
  * Resolves a look against the theme, as the app styled it.
@@ -149,7 +149,7 @@ public const AS_STYLED: Own = Own { colours: false, text_size: false };
  * Example:
  *     resolve(look, m.theme)
  */
-public fun resolve(l: Look, t: Theme): Drawn = resolve_for(l, t, AS_STYLED, false);
+fun resolve(l: Look, t: Theme): Drawn = resolve_for(l, t, AS_STYLED, false);
 
 /**
  * Resolves a look against the theme and the person's switch for the app.
@@ -163,7 +163,7 @@ public fun resolve(l: Look, t: Theme): Drawn = resolve_for(l, t, AS_STYLED, fals
  * Example:
  *     resolve_for(look, m.theme, own, true)
  */
-public fun resolve_for(l: Look, t: Theme, own: Own, pressable: bool): Drawn {
+fun resolve_for(l: Look, t: Theme, own: Own, pressable: bool): Drawn {
     let paint = fun(c: Colour) = colour_of(c, t);
     // The app's own colour, or Rapidkoi's `name` in its place when forced.
     let forced = fun(c: Colour, name: string): Option<Paint> = match c {
@@ -251,7 +251,7 @@ public fun resolve_for(l: Look, t: Theme, own: Own, pressable: bool): Drawn {
  * Example:
  *     text(s).style(styles_of(resolve(look, t)))
  */
-public fun styles_of(d: Drawn): Styling[] {
+fun styles_of(d: Drawn): Styling[] {
     let mut out: Styling[] = [];
     if let Some(p) = d.background {
         out.push(Background { color: p, ..Background.theme() });

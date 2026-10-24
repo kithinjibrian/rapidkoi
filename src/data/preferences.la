@@ -12,7 +12,7 @@ import ui.schemes { Prefs, DEFAULT_PREFS, MIN_TEXT_SIZE, MAX_TEXT_SIZE };
 import data.remembered { Unreadable, root };
 
 /** The file's cap in bytes: three small fields. */
-public const MAX_PREFS_FILE: i64 = 4096;
+const MAX_PREFS_FILE: i64 = 4096;
 
 /**
  * Encodes the preferences file.
@@ -20,7 +20,7 @@ public const MAX_PREFS_FILE: i64 = 4096;
  * Example:
  *     save(s, "preferences", prefs_file(m.prefs))?
  */
-public fun prefs_file(p: Prefs): u8[] = encode(
+fun prefs_file(p: Prefs): u8[] = encode(
     Value.Map([
         entry("format", Value.int(1)),
         entry("kind", Value.Text("rapidkoi preferences")),
@@ -40,7 +40,7 @@ public fun prefs_file(p: Prefs): u8[] = encode(
  * Example:
  *     read_prefs(bytes)?
  */
-public fun read_prefs(bytes: u8[]): Result<Prefs, Unreadable> {
+fun read_prefs(bytes: u8[]): Result<Prefs, Unreadable> {
     let v = root(bytes, "preferences", 2, 32, MAX_PREFS_FILE)?;
     let flag = fun(field: string, otherwise: bool): bool = match v.get(field) {
         Some(Bool(b)) => b,
@@ -64,7 +64,7 @@ public fun read_prefs(bytes: u8[]): Result<Prefs, Unreadable> {
  * Example:
  *     prefs_value(m.prefs)
  */
-public fun prefs_value(p: Prefs): Value = Value.Map([
+fun prefs_value(p: Prefs): Value = Value.Map([
     entry("theme", Value.Text(if p.light { "light" } else { "dark" })),
     entry("more_contrast", Value.Bool(p.more_contrast)),
     entry("text_size", Value.int(p.text_size)),
@@ -81,7 +81,7 @@ public fun prefs_value(p: Prefs): Value = Value.Map([
  * Example:
  *     apply(m.prefs, "text_size", Value.int(120))?
  */
-public fun apply(p: Prefs, name: string, v: Value): Result<Prefs, string> = match name {
+fun apply(p: Prefs, name: string, v: Value): Result<Prefs, string> = match name {
     "theme" => match v.as_text() {
         Some("dark") => Ok(Prefs { light: false, ..p }),
         Some("light") => Ok(Prefs { light: true, ..p }),
