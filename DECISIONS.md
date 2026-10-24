@@ -786,6 +786,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **A core decision:** yes (decision 26, amended)
 
+
+**Superseded in part (DECISION-056, PRP-045):** older contracts no longer run; contract 7 is the only one, and its spec is `docs/specs/contract-7.md`.
+
 ---
 
 ### DECISION-051 — SQLite comes through a new package, lugha-sqlite
@@ -823,6 +826,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **A core decision:** yes (decision 25)
 
+
+**Superseded in part (DECISION-056, PRP-045):** older contracts no longer run; contract 7 is the only one, and its spec is `docs/specs/contract-7.md`.
+
 ---
 
 ### DECISION-048 — Contract 4: a state of named fields, and links
@@ -844,6 +850,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 **Rationale:** the owner's choices in chat, sessions 190–192 (PRP-036's WHY). Step B (images, wrapping rows, an accent style), meant for contract 3, hasn't landed: whether it now goes into contract 4 before any app outside this repository targets it, or makes contract 5, is the owner's call when step B is planned.
 
 **A core decision:** yes
+
+
+**Superseded in part (DECISION-056, PRP-045):** older contracts no longer run; contract 7 is the only one, and its spec is `docs/specs/contract-7.md`.
 
 ---
 
@@ -870,6 +879,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 2. Does Rapidkoi keep running contract 2 apps (the counter and quote published on the test VM), speaking both versions, or refuse them ("This app needs an older version of Rapidkoi") and republish ours at 3?
 
 **Recommendation:** 1: contract 3 starts with A and is still open to B; no app outside this repository targets it until B lands. 2: keep running contract 2: published bundles can't be recompiled (CLAUDE.md architecture rule 6), and the difference is small (event names, three missing asks).
+
+
+**Superseded in part (DECISION-056, PRP-045):** older contracts no longer run; contract 7 is the only one, and its spec is `docs/specs/contract-7.md`.
 
 ---
 
