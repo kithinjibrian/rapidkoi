@@ -6,6 +6,7 @@
 //!
 //! Build and pack: `scripts/settings.sh`, which writes `assets/apps/settings.rkb`.
 
+use rapidkoi::style::Layout;
 use rapidkoi::{
     button, checkbox, column, row, spacer, tabs, text, App, Ask, Event, Message, Next, Preference, Prefs, Space, State,
     View,
@@ -103,6 +104,8 @@ impl App for Settings {
         ])
         .spacing(Space::Md)
         .padding(Space::Lg)
+        // Rapidkoi never scrolls an app's page (PRP-046): a short window scrolls this.
+        .style([Layout::scroll(), Layout::grow()])
         .screen_title("Settings")
     }
 }

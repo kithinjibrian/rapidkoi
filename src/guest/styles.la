@@ -10,7 +10,7 @@
  * Used by: guest.tree
  */
 import cbor { Value, Entry };
-import guest.nodes { Look, Colour, Measure, TextSize, Direction, Place, ContractError };
+import guest.nodes { Look, Colour, Measure, TextSize, Direction, Place, ContractError, Axis };
 
 /** The most keys one style map may have. */
 const MAX_STYLE_KEYS: i64 = 32;
@@ -66,6 +66,7 @@ fun plain(): Look = Look {
     weight: None,
     font: None,
     italic: false,
+    scroll: None,
     states: [],
 };
 
@@ -147,6 +148,22 @@ fun look(entries: Entry[], here: string, at: string, top: bool): Result<Look, Co
                     Some("stretch") => Place.Stretch,
                     _ => {
                         return Err(bad(here, "{name} must be start, center, end or stretch"));
+                    }
+                }),
+                ..l,
+            };
+        } else if key == "scroll" {
+            // A hover or pressed look can't change what scrolls: only the box's own.
+            if !top {
+                return Err(bad(here, "{name} only goes on a box's own look"));
+            }
+            l = Look {
+                scroll: Some(match v.as_text() {
+                    Some("vertical") => Axis.Vertical,
+                    Some("horizontal") => Axis.Horizontal,
+                    Some("both") => Axis.Both,
+                    _ => {
+                        return Err(bad(here, "{name} must be vertical, horizontal or both"));
                     }
                 }),
                 ..l,

@@ -9,7 +9,10 @@ import rapidkoi.window.actions { Msg, TabAction };
 import rapidkoi.window.tabs { AppPage, open_module };
 import kivuli.testing { click, is_disabled, pick, texts };
 import wasmtime { Engine, Module };
-import support { echo };
+import support { echo, crashing };
+import kivuli { View };
+import cbor;
+import rapidkoi.ui.render;
 
 fun app(engine: Engine, name: string): AppPage = open_module(
     name,
@@ -86,4 +89,23 @@ fun account_and_menu_wait_greyed_out_on_home_and_on_apps() {
         assert_eq(is_disabled(v, "Account (coming soon)"), Ok(true));
         assert_eq(is_disabled(v, "Menu"), Ok(false));
     }
+}
+
+/** Whether a view is a scrolled area, under its modifiers. */
+fun scrolled<M>(v: View<M>): bool = match v {
+    Styled(inner, _) => scrolled(inner),
+    Scroll(_, _) => true,
+    _ => false,
+};
+
+@test
+fun a_running_app_gets_the_area_and_rapidkoi_s_own_screens_scroll() {
+    // PRP-046: apps lay themselves out; Rapidkoi never scrolls their page.
+    let running = busy();
+    assert_eq(scrolled(layout.content_area(running)), false);
+    let engine = Engine.new();
+    let broken = Module.from_text(engine, crashing()).unwrap();
+    let m = with_pages(engine, [open_module("x", "x.wasm", engine, broken)]);
+    let (stopped, _) = update(m, Msg.Tab(0, render.Msg.Event(cbor.Value.Text("add"), None)));
+    assert_eq(scrolled(layout.content_area(stopped)), true);
 }

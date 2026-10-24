@@ -124,6 +124,16 @@ fun marker_note(p: AppPage, shown: string): string = match p.trust {
 fun remote(path: string): bool = parse(path).map(fun(a) = a.remote).unwrap_or(false);
 
 /**
+ * Says whether an app is in development (PRP-046): from a file or this
+ * machine (`localhost`), never a published site or Rapidkoi's own. Where
+ * a clipped edge may be shown.
+ *
+ * Example:
+ *     in_development(page.path)
+ */
+fun in_development(path: string): bool = !remote(path) && !path.starts_with("builtin:");
+
+/**
  * The page asking about a key that changed without its old key's approval.
  * There's no "run anyway": keep the version that was open, or open the new
  * publisher as a separate app.

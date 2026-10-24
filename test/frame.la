@@ -1,6 +1,15 @@
 // The frame's small pieces, pure (PRP-017): names, initials, icon keys,
 // matching, and the trust marker Rapidkoi draws for each app. No display.
-import rapidkoi.ui.frame { label, initial, icon_of, marker, marker_icon, marker_note, address_of };
+import rapidkoi.ui.frame {
+    label,
+    initial,
+    icon_of,
+    marker,
+    marker_icon,
+    marker_note,
+    address_of,
+    in_development,
+};
 import rapidkoi.bundles.bundle { Manifest };
 import rapidkoi.ui.suggestions { matches };
 import rapidkoi.trust.verify { Trust, Standing };
@@ -118,4 +127,14 @@ fun the_address_box_shows_the_window_s_link() {
     assert_eq(address_of(versioned), "rapidkoi://localhost:8000/@0.3.0?count=3");
     let remote = AppPage { path: "rapidkoi://counter.dafifi.net", ..versioned };
     assert_eq(address_of(remote), "https://counter.dafifi.net/@0.3.0?count=3");
+}
+
+@test
+fun files_and_this_machine_are_in_development() {
+    // PRP-046: where a clipped edge may be shown; never for published apps or Rapidkoi's own.
+    assert_eq(in_development("notes.rkb"), true);
+    assert_eq(in_development("rapidkoi://localhost:8002"), true);
+    assert_eq(in_development("http://127.0.0.1:8000"), true);
+    assert_eq(in_development("rapidkoi://notes.dafifi.net"), false);
+    assert_eq(in_development("builtin:newtab"), false);
 }

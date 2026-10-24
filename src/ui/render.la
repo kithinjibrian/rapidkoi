@@ -28,6 +28,8 @@ import kivuli {
     row,
     text,
     text_area,
+    scroll,
+    scroll_fit,
 };
 import cbor { Value };
 
@@ -109,6 +111,13 @@ fun boxed(
         None => layout,
     };
     let styles = drawn(Look { gap: None, ..look }, facts, t, own, press.is_some());
+    // A scrolling box (PRP-046): as tall as its content until its parent runs
+    // out of room (`scroll_fit`), or, with `grow`, the room left (`scroll`).
+    // Its style goes on the scrolled area, so its sizes bound what scrolls.
+    let spaced = match look.scroll {
+        Some(_) => if look.grow { scroll(spaced) } else { scroll_fit(spaced) },
+        None => spaced,
+    };
     match press {
         Some(m) => {
             let pressed = button_with(spaced, Msg.Event(m, None)).style(bare(t) + styles);

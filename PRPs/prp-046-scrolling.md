@@ -40,14 +40,22 @@ PRP-046 of three for contract 7 (DECISION-056 Q4): after the base (PRP-045), bef
 - `layout.content`: `App(a)` running → `app_view(…)` with the margin, no `scroll`; anything else → `scroll(…)` as now.
 
 ## TESTS
-- [ ] `scroll` reads as each axis; a bad value stops the app with its sentence
-- [ ] A scrolling box inside one that scrolls the same way (`vertical` in `vertical`, anything in `both`) stops the app at its path; `horizontal` in `vertical` reads
-- [ ] A box with `scroll` is drawn in a scrolled area; without, it isn't
-- [ ] A running app's page isn't wrapped in a scroll; a stopped page and the loading page are
-- [ ] Whether an app is in development (a file, `localhost`) decides whether its overflow band may show (pure; the band itself once kivuli reports overflow)
-- [ ] The new tab and Settings still show and work (their tests), their content in a scrolling box
+- [x] `scroll` reads as each axis; a bad value stops the app with its sentence
+- [x] A scrolling box inside one that scrolls the same way (`vertical` in `vertical`, anything in `both`) stops the app at its path; `horizontal` in `vertical` reads
+- [x] A box with `scroll` is drawn in a scrolled area; without, it isn't
+- [x] A running app's page isn't wrapped in a scroll; a stopped page and the loading page are
+- [x] Whether an app is in development (a file, `localhost`) decides whether its overflow band may show (pure; the band itself once kivuli reports overflow)
+- [x] The new tab and Settings still show and work (their tests), their content in a scrolling box
 
 ## ACCEPTANCE
-- [ ] Every test above passes
-- [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build src/main.la -o main` pass
+- [x] Every test above passes
+- [x] `lughac test test/`, `lughac fmt --check src test` and `lughac build src/main.la -o main` pass
 - [ ] For the owner, by eye: ⚙ Settings with the window made short scrolls inside its own content; the new tab with many pins scrolls; Notes (once moved to contract 7) scrolls its list and its note apart
+
+## AMENDMENTS
+
+- **The new tab** scrolls its own content too: `content_area` keeps a scroll only for Rapidkoi's own screens (loading, stopped, refused).
+- **`scroll` only on a box's own look:** a hover or pressed look can't change what scrolls.
+- **Nesting** carries the union of the axes scrolling around a box (vertical then horizontal is both), so a third box scrolling either way inside them is refused.
+- **Built here, waiting on kivuli (DECISION-057, `kivuli-requests.md` § 11–12):** the clip, the development band, one-axis scrolling. `ui.frame.in_development` is built and tested.
+- **The SDK** (`../rapidkoi-rust`, at the owner's word): `Layout::scroll`, `scroll_x`, `scroll_both`, on its branch `scrolling`, to be tagged `v0.2.0-pre.2`.

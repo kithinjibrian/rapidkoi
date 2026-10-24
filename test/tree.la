@@ -176,3 +176,32 @@ fun the_limits_still_hold() {
     }
     assert_eq(why(v).contains("deeper than {MAX_NODE_DEPTH} nodes"), true);
 }
+
+/** A box with `scroll` along `axis`, holding `kids`. */
+fun scrolling(axis: string, kids: Value[]): Value = parent(
+    "box",
+    [("style", kv([("scroll", t(axis))]))],
+    kids,
+);
+
+@test
+fun a_scroll_inside_a_scroll_the_same_way_is_refused() {
+    // PRP-046: never a dead scroll that silently doesn't.
+    let inner = scrolling("vertical", [leaf("text", [("text", t("x"))])]);
+    assert_eq(
+        why(scrolling("vertical", [parent("box", [], [inner])])),
+        "root > box > box[0] > box[0]: This app put a scrolling box inside another that scrolls the same way",
+    );
+    assert_eq(
+        why(scrolling("both", [scrolling("horizontal", [])])).ends_with("scrolls the same way"),
+        true,
+    );
+    assert_eq(
+        why(scrolling("horizontal", [scrolling("both", [])])).ends_with("scrolls the same way"),
+        true,
+    );
+    // Across is fine: a row of thumbnails in a list.
+    assert_eq(why(scrolling("vertical", [scrolling("horizontal", [])])), "ok");
+    // Side by side, each scrolls.
+    assert_eq(why(parent("box", [], [scrolling("vertical", []), scrolling("vertical", [])])), "ok");
+}

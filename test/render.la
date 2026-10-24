@@ -5,9 +5,11 @@ import rapidkoi.ui.render { Msg, screen, stopped };
 import rapidkoi.ui.schemes { DARK };
 import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, submit, texts };
 import rapidkoi.guest.nodes { Look, Facts, Role, Colour, Typing, Node };
-import rapidkoi.guest.styles { plain };
+import rapidkoi.guest.styles { plain, read_style };
 import rapidkoi.guest.roles { no_facts };
-import support { t };
+import support { t, kv };
+import kivuli { View };
+import cbor { Value };
 
 @test
 fun an_unsupported_kind_shows_a_placeholder() {
@@ -113,4 +115,39 @@ fun a_typing_box_is_named_by_its_label() {
     assert_eq(type_into(v, "Search notes", "garden"), Ok(Msg.Event(t("search"), Some("garden"))));
     let area = screen(Node.Field(Typing { lines: 10, label: Some("Note"), ..f }, plain()), DARK);
     assert_eq(type_into(area, "Note", "Sukuma"), Ok(Msg.Event(t("search"), Some("Sukuma"))));
+}
+
+/** Whether a view is a scrolled area, under its modifiers. */
+fun scrolled(v: View<Msg>): Option<bool> = match v {
+    Styled(inner, _) => scrolled(inner),
+    Scroll(_, fit) => Some(fit),
+    _ => None,
+};
+
+@test
+fun a_scrolling_box_is_drawn_in_a_scrolled_area() {
+    // PRP-046: as tall as its content until it runs out of room; with `grow`, it fills.
+    let look = fun(pairs: (string, Value)[]) = read_style(Some(kv(pairs)), "root > box").unwrap();
+    let words = [Node.Words("x", plain(), no_facts())];
+    assert_eq(
+        scrolled(
+            screen(Node.Boxed(look([("scroll", t("vertical"))]), no_facts(), None, words), DARK),
+        ),
+        Some(true),
+    );
+    assert_eq(
+        scrolled(
+            screen(
+                Node.Boxed(
+                    look([("scroll", t("vertical")), ("grow", Value.Bool(true))]),
+                    no_facts(),
+                    None,
+                    words,
+                ),
+                DARK,
+            ),
+        ),
+        Some(false),
+    );
+    assert_eq(scrolled(screen(plain_box(words), DARK)), None);
 }
