@@ -82,3 +82,4 @@ Never deleted. Older entries are never modified.
 - kivuli 0.49: the window controls (− □ ×) take Rapidkoi's palette as ghost buttons, muted until hovered, close red on hover.
 - Rapidkoi's brand colour, `#FF7700`, is the accent: primary buttons, focus rings and a focused field's edge are orange, with dark text on orange.
 - The header bar and sidebar stay flat `#242424`, with white icons and window controls (a brand gradient, orange `#FF7700` into pink `#FF2E63`, was tried and set aside).
+- The Rust library and its examples (counter, styled) move to their own repository, rapidkoi-rust (PRP-042); Rapidkoi's new tab and Settings build from its v0.1.0. The tasks app and the quote demo with its server are removed; Notes and Trip will replace them there. Rapidkoi's tests no longer need any Rust built.

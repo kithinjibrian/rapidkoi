@@ -52,7 +52,7 @@ One PRP at a time. Never implement more than one feature's scope in a single ses
 
 If mid-implementation the scope turns out larger than the PRP described: stop, document what was discovered, update or create a PRP, and get approval before continuing. The human decides what is "small enough to add", not the model.
 
-**A missing or broken lughac, kivuli, lugha-wasmtime, lugha-cbor or lugha-sqlite feature is never worked around silently.** Stop, record it in `DECISIONS.md`, and report it. It is fixed in its own repository (`../lugha`, `../kivuli`, `../lugha-wasmtime`, `../lugha-cbor`, `../lugha-sqlite`) under that repo's `CLAUDE.md`, never from a rapidkoi session.
+**A missing or broken lughac, kivuli, lugha-wasmtime, lugha-cbor, lugha-sqlite or rapidkoi-rust feature is never worked around silently.** Stop, record it in `DECISIONS.md`, and report it. It is fixed in its own repository (`../lugha`, `../kivuli`, `../lugha-wasmtime`, `../lugha-cbor`, `../lugha-sqlite`, `../rapidkoi-rust`) under that repo's `CLAUDE.md`, never from a rapidkoi session.
 
 **Generic code doesn't go in rapidkoi.** Anything another Lugha program could use unchanged (bindings to a C library, a general data structure) belongs in its own package. Propose it as a new package instead of writing it here.
 
@@ -153,7 +153,7 @@ Never read, modify, or delete:
 - `.env` and `.env.*`
 - `lugha.lock`: written only by `lughac build`/`update`, never hand-edited
 - Built executables (the paths in `.gitignore`)
-- `../lugha/`, `../kivuli/`, `../lugha-gtk/`, `../lugha-wasmtime/`, `../lugha-cbor/`, `../lugha-sqlite/`: other repositories with their own rules. Read for reference; never write from a rapidkoi session
+- `../lugha/`, `../kivuli/`, `../lugha-gtk/`, `../lugha-wasmtime/`, `../lugha-cbor/`, `../lugha-sqlite/`, `../rapidkoi-rust/`: other repositories with their own rules. Read for reference; never write from a rapidkoi session
 
 If a task seems to require touching a protected file, stop and ask. See also `.llmignore`. `.claude/settings.json` denies Claude's Read and Edit tools on the same paths. Keep all three in sync.
 
@@ -171,15 +171,14 @@ lughac update src/main.la             # re-resolve git packages, rewrite lugha.l
 lughac explain E0312                  # what an error code means
 lughac spec                           # the full Lugha language reference: check it before assuming a feature exists
 
-# The Rust guest (guest/rust/): cargo, never lughac
+# Rapidkoi's own apps (guest/rust/: newtab, settings): cargo, never lughac. The Rust SDK is
+# ../rapidkoi-rust (a git dependency, by tag); its examples (counter, styled) are built there (its README)
 cargo test --manifest-path guest/rust/Cargo.toml
 cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown
-./main guest/rust/target/wasm32-unknown-unknown/release/counter.wasm   # opens a window: the user's
 
-# Bundles: pack the counter into one .rkb, then open it
-./main pack guest/rust/target/wasm32-unknown-unknown/release/counter.wasm --name Counter --version 0.1.0 \
-    --description "Counts, and says hello" --icon guest/rust/counter/icon.png -o counter.rkb
-./main counter.rkb                                                     # opens a window: the user's
+# Bundles: pack any app's .wasm into one .rkb, then open it
+./main pack app.wasm --name App --version 0.1.0 --description "What it does" --icon icon.png -o app.rkb
+./main app.rkb                                                         # opens a window: the user's
 
 # Rapidkoi's new-tab app (PRP-027): build and pack it into assets/apps/newtab.rkb (after building ./main)
 ./scripts/newtab.sh
@@ -188,30 +187,19 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
 ./main assets/apps/newtab.rkb                                          # opens a window: the user's
 
 # Local development: serve a bundle, open it at its address (Reload in ⓘ after a repack)
-./main serve counter.rkb --port 8000                                   # 127.0.0.1 only; Ctrl+C to stop
+./main serve app.rkb --port 8000                                       # 127.0.0.1 only; Ctrl+C to stop
 ./main rapidkoi://localhost:8000                                       # opens a window: the user's
 
-# Signed apps: rapidkoi.toml describes the app (the repo's own is the counter's)
+# Signed apps: rapidkoi.toml in the app's folder describes it (e.g. ../rapidkoi-rust/examples/counter/)
 ./main keygen          # once: the secret key at [publish].key, outside the project, mode 0600
 ./main publish         # signs and writes site/.well-known/rapidkoi/{key, index, builds/<sha256>.rkb}
 ./main publish --withdraw VERSION --reason TEXT
 ./main pack            # one .rkb from rapidkoi.toml, signed when it has a host and a key
 ./main serve site/     # serves the site; ./main rapidkoi://localhost:8000 opens it verified
 
-# The tasks app (PRP-040, build step 3): build, pack, serve, open
-cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown -p tasks
-./main pack guest/rust/target/wasm32-unknown-unknown/release/tasks.wasm --name Tasks --version 0.1.0 -o tasks.rkb
-./main serve tasks.rkb --port 8001                                     # then: ./main rapidkoi://localhost:8001 (the user's)
-
-# The network demo (PRP-012): the quote app and its Lugha server, in examples/quote/
-cd examples/quote && ../../main keygen && ../../main publish && cd ../..
-lughac test examples/quote/server.la                                   # the server's own tests
-lughac build examples/quote/server.la -o quote-server
-./quote-server --site examples/quote/site --host localhost:8000 --port 8000
-./main rapidkoi://localhost:8000                                       # opens a window: the user's
 ```
 
-`test/counter.la` drives the built counter end to end; it skips itself until the guest is built.
+`test/counting.la` and `test/saving.la` drive a hand-written stand-in app (`support.counting`) end to end: the suite never needs Rust (PRP-042).
 
 A task is done only when `fmt --check` is clean, `lughac test test/` passes (skips allowed only for `no display`), and `lughac build src/main.la -o main` succeeds.
 
@@ -227,7 +215,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 - **GTK 4** + GLib, through kivuli.
 - **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` (`wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }`; source in `../lugha-wasmtime`). rapidkoi never declares a wasmtime `extern` itself.
 - **CBOR** through the package `cbor` (`cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1" }`; source in `../lugha-cbor`). The guest↔shell contract is version 6 (contract 5 plus storage: the `sql` and `sql_batch` asks and `on_change`'s `tables`, DECISION-052, `docs/specs/contract-6.md`) on version 5 (MEMORY.md decisions 10, 21, 24, 25; PRP-011, PRP-030, PRP-036, PRP-037: boxes, texts, styles and roles, `docs/specs/contract-5.md`; closed with PRP-039), on top of version 4: exports `rapidkoi_version`, `alloc`, `handle(state, event)` and `view`, events for everything, named `on_` on the wire (`docs/specs/app-events.md`), and a state of named fields whose `link` names what goes in the window's address (`docs/specs/contract-4.md`). Contract 2 to 5 apps still run (DECISION-039, DECISION-048, DECISION-049, DECISION-052). Any change to a contract is a DECISIONS.md entry and a version bump.
-- **Guests:** Rust (`wasm32-unknown-unknown`) under `guest/rust/`, built with cargo, never by `lughac`. The shell's tests use hand-written `.wat` fixtures and never need Rust.
+- **Guests:** Rapidkoi's own apps (newtab, settings) are Rust (`wasm32-unknown-unknown`) under `guest/rust/`, built with cargo, never by `lughac`, on the Rust SDK **rapidkoi-rust** (`rapidkoi = { git = "https://github.com/kithinjibrian/rapidkoi-rust", tag = "v0.1.0" }`; source in `../rapidkoi-rust`, with the example apps: counter, styled; Notes and Trip to come, PRP-042). A contract change is tagged there first, then the built-ins move to the tag and are repacked. The shell's tests use hand-written `.wat` fixtures and never need Rust.
 - **SQLite** through the package `sqlite` (`sqlite = { git = "https://github.com/kithinjibrian/lugha-sqlite", version = "0.1" }`; source in `../lugha-sqlite`): one database per app, contract 6 (MEMORY.md decision 26, DECISION-052, PRP-041, `docs/specs/contract-6.md`). Every connection is `Guard.untrusted()`; every call runs in a `Cmd.task`.
 
 ---
@@ -300,12 +288,11 @@ public fun load_settings(path: string): Settings { … }
 │                        commands/ pack.la (`./main pack`), publish.la (`keygen`, `publish`), serve.la (`./main serve`: a bundle or a site), landing.la (pure: the landing page a browser shows)
 │                        Imports name the folder (`import ui.layout;` binds `layout`). They run one way: guest.nodes ← props ← contract ← ui.tokens ← themes ← render ← window.tabs ← actions ← ui.frame ← suggestions ← window.window ← ui.content, addressbox ← layout ← shell ← main
 ├── test/              — @test files, flat, each named for the module it tests (DECISION-033), support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
-│                        counter.la, tasks.la (end to end with the Rust counter and tasks app; each skips until it's built)
-├── guest/rust/        — Cargo workspace: rapidkoi (contract 6 for Rust: storage (Ask::sql, sql_batch, Value, params!, Event::Rows/Done); raw primitives, style, widgets, typed messages (Message, View<M>, .map), App trait, State (nested), Next, Field paths (then), export!, Request, SignIn, Place), rapidkoi-derive (#[derive(State)]), styled (contract 5's styling shown), settings (Rapidkoi's Settings, PRP-038), tasks (the real app, build step 3, PRP-040), counter (the demo: its count in its address), quote (the network demo), newtab (Rapidkoi's new tab, PRP-027)
+│                        counting.la (end to end with support.counting, a stand-in app written as WebAssembly text)
+├── guest/rust/        — Cargo workspace of Rapidkoi's own apps, on rapidkoi-rust (git, by tag): newtab (Rapidkoi's new tab, PRP-027), settings (Rapidkoi's Settings, PRP-038)
 ├── assets/apps/       — newtab.rkb and settings.rkb: Rapidkoi's built-in apps, packed unsigned by scripts/newtab.sh and scripts/settings.sh and committed; built into ./main by src/window/newtab.la and settings_app.la (repack, then rebuild ./main)
 ├── scripts/           — newtab.sh, settings.sh: build and pack the built-in apps (their --permission and --control flags)
 ├── assets/icons/      — the Iconsax SVGs, the only copy: `src/ui/icons.la` builds each in with include_str (PRP-029); change a file, then rebuild
-├── examples/quote/    — the network demo's rapidkoi.toml, its server (server.la: the signed site, sign-in, /quote) and Dockerfile (the VM)
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)
 ├── docs/
 │   ├── CODE_STYLE.md  — documentation rules for .la code

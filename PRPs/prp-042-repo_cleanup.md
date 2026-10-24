@@ -120,21 +120,21 @@ If this needs to be abandoned mid-way:
 - State: every step is its own commit. Revert from the last back. Before step 3, `../rapidkoi-rust` is local only and can be deleted. After it, the GitHub repository stays, and archiving or deleting it is the owner's call.
 
 ## ACCEPTANCE CRITERIA
-- [ ] `../rapidkoi-rust` exists with the layout above and the moved files' history (`git log --follow rapidkoi/src/lib.rs` reaches before the split)
-- [ ] It builds, and its `cargo test` passes (the owner runs it)
-- [ ] It's on GitHub, tagged `v0.1.0` (the owner said yes)
-- [ ] This repository's `guest/rust/` holds only newtab and settings, depending on the tag
-- [ ] `examples/`, the root `rapidkoi.toml`, `test/counter.la` and `test/tasks.la` are gone
-- [ ] No test skips for a missing Rust build (`grep -rn "build guest/rust" test` finds nothing)
+- [x] `../rapidkoi-rust` exists with the layout above and the moved files' history (`git log --follow rapidkoi/src/lib.rs` reaches before the split)
+- [x] It builds, and its `cargo test` passes (the owner runs it)
+- [x] It's on GitHub, tagged `v0.1.0` (the owner said yes)
+- [x] This repository's `guest/rust/` holds only newtab and settings, depending on the tag
+- [x] `examples/`, the root `rapidkoi.toml`, `test/counter.la` and `test/tasks.la` are gone
+- [x] No test skips for a missing Rust build (`grep -rn "build guest/rust" test` finds nothing)
 - [ ] The repacked built-ins load and run (`test/newtab.la`, `test/settings_app.la`), and the owner sees the new tab and Settings unchanged
 - [ ] quote.dafifi.net is down (the owner said yes)
-- [ ] CLAUDE.md, `.llmignore` and `.claude/settings.json` protect `../rapidkoi-rust/`
+- [x] CLAUDE.md, `.llmignore` and `.claude/settings.json` protect `../rapidkoi-rust/`
 - [ ] `lughac test test/` passes
-- [ ] `lughac build src/main.la -o main` succeeds
-- [ ] `lughac fmt --check src test` is clean
+- [x] `lughac build src/main.la -o main` succeeds
+- [x] `lughac fmt --check src test` is clean
 - [ ] Every `public` item has a `/** … */` doc comment
 - [ ] No file over 500 lines
-- [ ] CHANGELOG.md updated
+- [x] CHANGELOG.md updated
 
 ## VALIDATION
 Run these commands to verify completion:
@@ -144,3 +144,10 @@ Run these commands to verify completion:
 - `cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown`
 - In `../rapidkoi-rust`: `cargo test`, then `cargo build --release --target wasm32-unknown-unknown`
 - For the user: `./main`: the new tab and ⚙ Settings look and work as before. In `../rapidkoi-rust`, pack and open the counter (its README's commands): it counts.
+
+## AMENDMENTS
+
+- **Q1 (session 216):** (a), lugha-wasmtime 0.1.1's `wat_to_wasm` (DECISION-053). The fixture is a contract 4 guest, `support.counting`; `saving.la` writes one file per test.
+- **Step 5 (session 219):** `examples/quote/site/`, `quote-server` and `tasks.rkb` are untracked build outputs (`.gitignore`), which CLAUDE.md protects: left for the owner to delete, and their `.gitignore` lines kept until then.
+- **Step 4 (session 219):** the repacked `.rkb`s differ byte for byte from before, as the library now builds from cargo's git checkout (rustc keeps source paths); same source, same apps.
+- **`docs/server-sign-in.md`** needed no change: its worked example is `test/signin.la`, which stays.

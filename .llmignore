@@ -21,3 +21,4 @@ lugha.lock
 ../lugha-wasmtime/
 ../lugha-cbor/
 ../lugha-sqlite/
+../rapidkoi-rust/

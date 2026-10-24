@@ -11,7 +11,8 @@
       "Edit(../lugha-gtk/**)",
       "Edit(../lugha-wasmtime/**)",
       "Edit(../lugha-cbor/**)",
-      "Edit(../lugha-sqlite/**)"
+      "Edit(../lugha-sqlite/**)",
+      "Edit(../rapidkoi-rust/**)"
     ]
   },
     "attribution": {
