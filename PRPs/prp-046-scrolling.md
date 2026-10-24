@@ -59,3 +59,4 @@ PRP-046 of three for contract 7 (DECISION-056 Q4): after the base (PRP-045), bef
 - **Nesting** carries the union of the axes scrolling around a box (vertical then horizontal is both), so a third box scrolling either way inside them is refused.
 - **Built here, waiting on kivuli (DECISION-057, `kivuli-requests.md` § 11–12):** the clip, the development band, one-axis scrolling. `ui.frame.in_development` is built and tested.
 - **The SDK** (`../rapidkoi-rust`, at the owner's word): `Layout::scroll`, `scroll_x`, `scroll_both`, tagged and pushed as `v0.2.0-pre.2`; the built-ins moved to it and were repacked; the full suite passed (545).
+- **No margin round an app** (the owner, at review): an app pads itself, so what it scrolls is cut at the window's edge; the new tab pads itself (`Space::Lg`), as Settings does. Rapidkoi's own screens keep its margin.

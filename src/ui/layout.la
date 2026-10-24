@@ -40,14 +40,16 @@ import ui.frame_looks { tooltips, frame as frame_look, sidebar as side_look };
 fun content_area(m: Model): View<Msg> = match page_of(m) {
     // On an app page m.current is Some: page_of found its tab.
     App(a) => {
-        let shown = app_view(m.current.unwrap_or(-1), a, m).style([margin(SPACE_LG)]);
+        let shown = app_view(m.current.unwrap_or(-1), a, m);
+        // An app pads itself, so what it scrolls is cut at the window's edge
+        // (PRP-046); Rapidkoi's own screens keep Rapidkoi's margin.
         match a.screen {
             Running(_, _, _) => shown,
-            _ => scroll(shown),
+            _ => scroll(shown.style([margin(SPACE_LG)])),
         }
     }
     // The new-tab app, a bundled app like any other (DECISION-027, PRP-027).
-    Home => newtab_view(m).style([margin(SPACE_LG)]),
+    Home => newtab_view(m),
 };
 
 /**

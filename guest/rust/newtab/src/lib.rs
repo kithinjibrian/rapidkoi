@@ -115,7 +115,7 @@ impl NewTab {
             parts.push(column([text("Pinned").heading(), row(buttons).spacing(Space::Sm)]).spacing(Space::Sm));
         }
         // Rapidkoi never scrolls an app's page (PRP-046): pins can outgrow the window.
-        column(parts).spacing(Space::Lg).style([Layout::scroll(), Layout::grow()])
+        column(parts).spacing(Space::Lg).padding(Space::Lg).style([Layout::scroll(), Layout::grow()])
     }
 }
 
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn with_nothing_it_shows_the_wordmark() {
-        assert_eq!(NewTab::default().view(), column([text("Rapidkoi").title()]).spacing(Space::Lg).style([Layout::scroll(), Layout::grow()]));
+        assert_eq!(NewTab::default().view(), column([text("Rapidkoi").title()]).spacing(Space::Lg).padding(Space::Lg).style([Layout::scroll(), Layout::grow()]));
     }
 
     #[test]
@@ -160,7 +160,7 @@ mod tests {
                 ])
                 .spacing(Space::Sm),
             ])
-            .spacing(Space::Lg).style([Layout::scroll(), Layout::grow()])
+            .spacing(Space::Lg).padding(Space::Lg).style([Layout::scroll(), Layout::grow()])
         );
         assert_eq!(message(Msg::Continue), vec![Ask::continue_left_off("continue")]);
     }
@@ -178,7 +178,7 @@ mod tests {
                 ])
                 .spacing(Space::Sm),
             ])
-            .spacing(Space::Lg).style([Layout::scroll(), Layout::grow()])
+            .spacing(Space::Lg).padding(Space::Lg).style([Layout::scroll(), Layout::grow()])
         );
         assert_eq!(message(Msg::Pin(1)), vec![Ask::open_pin("open", 1)]);
     }
@@ -190,7 +190,7 @@ mod tests {
         assert_eq!(
             t.view(),
             column([text("Rapidkoi").title(), button("Restore previous session (2)").primary().on_press(Msg::Restore)])
-                .spacing(Space::Lg).style([Layout::scroll(), Layout::grow()])
+                .spacing(Space::Lg).padding(Space::Lg).style([Layout::scroll(), Layout::grow()])
         );
         assert_eq!(message(Msg::Restore), vec![Ask::restore_session("restore")]);
         let (t, _) = t.step(Event::Answer { msg: "session".into(), value: None });
