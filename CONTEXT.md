@@ -11005,3 +11005,7 @@ Branch: prp-017-kivuli_0_17
 ```
 ../rapidkoi-rust (new, local), CONTEXT.md
 ```
+
+## SESSION 219 — 2026-10-24 — PRP-042 steps 3 and 4: rapidkoi-rust published, the built-ins on its tag — open
+
+Branch: prp-017-kivuli_0_17
