@@ -22,7 +22,6 @@ import kivuli {
     image,
     overlay,
     row,
-    text,
 };
 import kivuli.ui { input_group, group_input, group_button_with, popover as ui_popover };
 import window.actions { Msg, ShieldPage, PanelPage };
@@ -30,7 +29,6 @@ import window.window { Model, page_of };
 import window.pins { is_pinned };
 import ui.frame { marker_note, file_of, address_of };
 import ui.icons { Icon, icon };
-import ui.frame_looks { update_dot };
 import ui.shield { facts, look_colour, card };
 import ui.settings;
 import ui.grants { shows_icon };
@@ -48,6 +46,7 @@ import ui.tokens {
     margin_y,
     flush_y,
     EDGE_WIDTH,
+    UPDATE_DOT,
 };
 
 /** The upgrade button's tooltip (PRP-044): the owner's words. */
@@ -114,7 +113,11 @@ public fun field(m: Model): View<Msg> {
                 ).style(round()).align(Align.Center).tooltip(UPGRADE);
                 start.push(
                     overlay(upgrade, [
-                        text("").style(update_dot(t)).place(Align.End, Align.Start),
+                        // A picture, not text: an empty label is a line of text tall.
+                        image(icon(Icon.Dot, t.danger)).style([square(UPDATE_DOT)]).place(
+                            Align.End,
+                            Align.Start,
+                        ),
                     ]).align(Align.Center),
                 );
             }
