@@ -70,8 +70,14 @@ const MAX_ASSET_NAME: i64 = 128;
 /** How long fetching a bundle from a development server may take, in milliseconds. */
 const FETCH_TIMEOUT_MS: i64 = 30_000;
 
-/** The largest image any asset may declare, in pixels per side (kivuli's own cap). */
+/** The largest image any asset or picture may declare, in pixels per side (kivuli's own cap, DECISION-058). */
 const MAX_IMAGE_PX: i64 = 4096;
+
+/** The most pixels a picture may declare (PRP-047): 4,096 × 4,096 until kivuli shows more (DECISION-058). */
+const MAX_IMAGE_PIXELS: i64 = 4096 * 4096;
+
+/** The largest SVG in a bundle, in bytes (PRP-047). */
+const MAX_SVG: i64 = 1024 * 1024;
 
 /** The largest icon, in pixels per side. */
 const MAX_ICON_PX: i64 = 1024;

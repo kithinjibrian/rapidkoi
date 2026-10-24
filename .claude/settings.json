@@ -12,7 +12,8 @@
       "Edit(../lugha-wasmtime/**)",
       "Edit(../lugha-cbor/**)",
       "Edit(../lugha-sqlite/**)",
-      "Edit(../rapidkoi-rust/**)"
+      "Edit(../rapidkoi-rust/**)",
+      "Edit(../lugha-imagesize/**)"
     ]
   },
     "attribution": {

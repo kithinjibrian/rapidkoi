@@ -148,7 +148,7 @@ fun pack_errors_are_plain() {
     let text = file("errors-not.png", [1, 2, 3]);
     assert_eq(
         make([m, "--name", "M", "--version", "0.1.0", "--icon", text, "-o", out]),
-        Err("This bundle's asset \"icon.png\" isn't a PNG image"),
+        Err("This bundle's asset \"icon.png\" isn't a PNG, JPEG or SVG picture"),
     );
     assert_eq(
         make([m, "--name", "M", "--version", "0.1.0", "--banner", "home", "-o", out]),

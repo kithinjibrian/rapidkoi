@@ -202,10 +202,10 @@ fun asset_names_are_checked() {
 }
 
 @test
-fun assets_must_be_png_and_referenced_ones_must_exist() {
+fun assets_must_be_pictures_and_referenced_ones_must_exist() {
     assert_eq(
         error_of(raw(base(), [("a.png", Value.Bytes([1, 2, 3]))])),
-        "This bundle's asset \"a.png\" isn't a PNG image",
+        "This bundle's asset \"a.png\" isn't a PNG, JPEG or SVG picture",
     );
     assert_eq(
         error_of(raw(with("icon", t("icon.png")), [])),
@@ -309,7 +309,7 @@ fun write_refuses_what_read_refuses() {
     let not_png = Bundle { assets: [("icon.png", [1, 2])], ..good() };
     assert_eq(
         write(not_png).map_err(reason),
-        Err("This bundle's asset \"icon.png\" isn't a PNG image"),
+        Err("This bundle's asset \"icon.png\" isn't a PNG, JPEG or SVG picture"),
     );
     let bad_version = Bundle { manifest: Manifest { version: "1", ..manifest() }, ..good() };
     assert_eq(write(bad_version).is_err(), true);
@@ -341,7 +341,7 @@ fun image_sizes_are_limited_by_role() {
     );
     assert_eq(
         error_of(raw(base(), [("z.png", Value.Bytes(png_of(0, 10)))])),
-        "This bundle's asset \"z.png\" isn't a PNG image",
+        "This bundle's asset \"z.png\" isn't a PNG, JPEG or SVG picture",
     );
 }
 
@@ -354,12 +354,12 @@ fun a_png_needs_its_header_chunk() {
     no_ihdr[15] = 84;
     assert_eq(
         error_of(raw(base(), [("a.png", Value.Bytes(no_ihdr))])),
-        "This bundle's asset \"a.png\" isn't a PNG image",
+        "This bundle's asset \"a.png\" isn't a PNG, JPEG or SVG picture",
     );
     let short: u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0];
     assert_eq(
         error_of(raw(base(), [("a.png", Value.Bytes(short))])),
-        "This bundle's asset \"a.png\" isn't a PNG image",
+        "This bundle's asset \"a.png\" isn't a PNG, JPEG or SVG picture",
     );
 }
 
@@ -412,4 +412,81 @@ fun controls_name_known_icons_and_rows() {
         declared.manifest.controls,
     );
     assert_eq(read(write(good()).unwrap()).unwrap().manifest.controls, None);
+}
+
+@test
+fun a_bundle_holds_pngs_jpegs_and_svgs() {
+    // PRP-047: pictures for an app's screen, checked by their headers.
+    let svg = "<svg viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M0 0h24v24z\"/></svg>".to_bytes();
+    let jpeg: u8[] = [
+        0xff,
+        0xd8,
+        0xff,
+        0xc0,
+        0,
+        17,
+        8,
+        0,
+        10,
+        0,
+        20,
+        3,
+        1,
+        0x22,
+        0,
+        2,
+        0x11,
+        1,
+        3,
+        0x11,
+        1,
+    ];
+    let assets = [
+        ("a.png", Value.Bytes(png_of(8, 8))),
+        ("b.jpg", Value.Bytes(jpeg)),
+        ("c.svg", Value.Bytes(svg)),
+    ];
+    assert_eq(error_of(raw(base(), assets)), "ok");
+}
+
+@test
+fun gif_webp_and_big_svgs_are_refused() {
+    let gif = "GIF89a".to_bytes() + [8, 0, 8, 0, 0, 0, 0];
+    assert_eq(
+        error_of(raw(base(), [("a.gif", Value.Bytes(gif))])),
+        "This bundle's asset \"a.gif\" isn't a PNG, JPEG or SVG picture",
+    );
+    let webp = "RIFF".to_bytes() + [22, 0, 0, 0] + "WEBPVP8X".to_bytes() + [
+        10,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        7,
+        0,
+        0,
+        7,
+        0,
+        0,
+    ];
+    assert_eq(
+        error_of(raw(base(), [("a.webp", Value.Bytes(webp))])),
+        "This bundle's asset \"a.webp\" isn't a PNG, JPEG or SVG picture",
+    );
+    let mut big = "<svg width=\"2\" height=\"2\">".to_bytes();
+    while big.len <= 1024 * 1024 {
+        big.push(0x20);
+    }
+    assert_eq(
+        error_of(raw(base(), [("big.svg", Value.Bytes(big))])),
+        "This bundle's asset \"big.svg\" is too large (1048577 bytes)",
+    );
+    let bad_text: u8[] = [0x3c, 0x73, 0x76, 0x67, 0x3e, 0xff];
+    assert_eq(
+        error_of(raw(base(), [("x.svg", Value.Bytes(bad_text))])),
+        "This bundle's asset \"x.svg\" isn't a PNG, JPEG or SVG picture",
+    );
 }
