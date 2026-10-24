@@ -24,12 +24,10 @@ fun picture_view<M>(p: Picture, look: Look, t: Theme, own: Own): View<M> {
     let drawn: View<M> = match p.shown {
         // Its box keeps its size while the picture comes.
         Waiting => column([]),
-        Ready(bytes) => image(of_bytes(p, bytes, t, own)).fit(
-            match p.fit {
-                Contain => Fit.Contain,
-                Cover => Fit.Cover,
-            },
-        ),
+        Ready(bytes) => image(of_bytes(p, bytes, t, own)).fit(match p.fit {
+            Contain => Fit.Contain,
+            Cover => Fit.Cover,
+        }),
         Broken => image(icon(Icon.BrokenPicture, t.dim)).fit(Fit.Contain),
     };
     let named = match p.label {
@@ -49,7 +47,10 @@ fun picture_view<M>(p: Picture, look: Look, t: Theme, own: Own): View<M> {
  * bundle SVG with a colour has `currentColor` drawn in it, and the colour
  * in its key.
  */
-fun of_bytes(p: Picture, bytes: u8[], t: Theme, own: Own): Image = match (p.colour, asset_of(p.source)) {
+fun of_bytes(p: Picture, bytes: u8[], t: Theme, own: Own): Image = match (
+    p.colour,
+    asset_of(p.source),
+) {
     (Some(c), Some(_)) => {
         let colour = svg_colour(c, t, own);
         // The bundle's rules made sure an SVG is UTF-8 text.
@@ -77,7 +78,13 @@ fun svg_colour(c: Colour, t: Theme, own: Own): string {
     } else {
         // Three decimals: enough for 256 steps.
         let a = (x.alpha * 1000 + 127) / 255;
-        let frac = if a % 1000 < 10 { "00{a % 1000}" } else if a % 1000 < 100 { "0{a % 1000}" } else { "{a % 1000}" };
+        let frac = if a % 1000 < 10 {
+            "00{a % 1000}"
+        } else if a % 1000 < 100 {
+            "0{a % 1000}"
+        } else {
+            "{a % 1000}"
+        };
         "rgba({x.red},{x.green},{x.blue},{a / 1000}.{frac})"
     }
 }

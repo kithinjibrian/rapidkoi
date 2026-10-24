@@ -29,7 +29,10 @@ fun read_picture(
         Some(Text(s)) if good_source(s) => s,
         _ => {
             return Err(
-                invalid(here, "src must be asset:NAME or an http(s) address of at most {MAX_SOURCE} bytes"),
+                invalid(
+                    here,
+                    "src must be asset:NAME or an http(s) address of at most {MAX_SOURCE} bytes",
+                ),
             );
         }
     };
@@ -105,17 +108,25 @@ fun asset_of(source: string): Option<string> = if source.starts_with("asset:") {
  * Example:
  *     sources(d.root)
  */
-fun sources(root: Node): string[] {
-    let out: Ref<string[]> = Ref.new([]);
+fun sources(root: Node): string[] = pictures_in(root).map(fun(p: Picture) = p.source);
+
+/**
+ * The pictures in a screen, the first of each source, in the order it shows them.
+ *
+ * Example:
+ *     pictures_in(d.root)
+ */
+fun pictures_in(root: Node): Picture[] {
+    let out: Ref<Picture[]> = Ref.new([]);
     gather(root, out);
     out.get()
 }
 
-fun gather(n: Node, out: Ref<string[]>) {
+fun gather(n: Node, out: Ref<Picture[]>) {
     match n {
         Pictured(p, _) => {
-            if !out.get().any(fun(s: string) = s == p.source) {
-                out.update(fun(xs: string[]) = xs + [p.source]);
+            if !out.get().any(fun(q: Picture) = q.source == p.source) {
+                out.update(fun(xs: Picture[]) = xs + [p]);
             }
         }
         Boxed(_, _, _, kids) => {

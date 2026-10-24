@@ -1,0 +1,320 @@
+/**
+ * Pictures from servers (PRP-047): after every update, each page's screen
+ * is checked for the pictures it names. One from the bundle must be there
+ * (an SVG, if it takes a colour); one from a server must be one the app
+ * may reach, or the app stops. Those not yet kept are downloaded in kivuli
+ * tasks, at most `MAX_DOWNLOADS` a page at a time, in the order the screen
+ * shows them; a plain GET, no headers. A result is checked by its header
+ * (`lugha-imagesize`) before it's kept, and the app is told (`on_load`,
+ * `on_fail`). Kept pictures off screen are dropped, least recently shown
+ * first, past `MAX_DECODED`. Nothing is sent from `update`.
+ *
+ * Depends on: kivuli, imagesize, net.network, net.requests, window.tabs, window.window, window.actions, guest.pictures, guest.contract, guest.limits, ui.render
+ * Used by: shell
+ */
+import kivuli { Cmd };
+import imagesize { Format, size_of, format_of };
+import net.network { Request, Reply, NetworkError, check_request, reason };
+import net.requests { allowed, send };
+import window.tabs { AppPage, Tab, Kept, Screen, handle, close_page };
+import window.window { Model, with_tab, app };
+import window.actions { Msg };
+import guest.nodes { Picture };
+import guest.pictures { pictures_in, asset_of };
+import guest.contract { reply };
+import guest.limits {
+    MAX_DOWNLOADS,
+    MAX_DECODED,
+    MAX_PICTURE,
+    MAX_IMAGE_PX,
+    MAX_IMAGE_PIXELS,
+    PICTURE_TIMEOUT_MS,
+};
+import ui.render;
+
+/**
+ * Checks every page's pictures and starts the downloads its screen needs.
+ *
+ * @returns the model (a page naming what it can't have, stopped); the downloads
+ *
+ * Example:
+ *     fetch_all(m)
+ */
+fun fetch_all(m: Model): (Model, Cmd<Msg>) {
+    let mut at = m;
+    let mut sends: Cmd<Msg>[] = [];
+    for t of m.tabs {
+        let (page, cmds) = fetch_page(at, t);
+        at = with_tab(at, t.id, fun(_: AppPage) = page);
+        for c of cmds {
+            sends.push(c);
+        }
+    }
+    (at, if sends.len == 0 { Cmd.none() } else { Cmd.batch(sends) })
+}
+
+/** One page: its bundle's pictures checked, its kept ones brought up to date, its downloads started. */
+fun fetch_page(m: Model, t: Tab): (AppPage, Cmd<Msg>[]) {
+    let p = t.page;
+    let shown = match p.screen {
+        Running(_, _, d) => pictures_in(d.root),
+        _ => {
+            return (p, []);
+        }
+    };
+    let assets = p.program.map(fun(g) = g.assets).unwrap_or([]);
+    for pic of shown {
+        if let Some(name) = asset_of(pic.source) {
+            if let Err(why) = check_asset(assets, name, pic) {
+                return (stopped(p, why), []);
+            }
+        }
+    }
+    let wanted = shown.filter(fun(q: Picture) = asset_of(q.source).is_none()).map(
+        fun(q: Picture) = q.source,
+    );
+    let on = fun(s: string): bool = wanted.any(fun(w: string) = w == s);
+    // Each check stamps what's on screen: the least recently shown go first.
+    let now = stamp(p) + 1;
+    let mut kept: (string, Kept)[] = [];
+    for (source, k) of p.pictures {
+        match k {
+            Here(b, d, _) if on(source) => kept.push((source, Kept.Here(b, d, now))),
+            // A failed picture is tried again when the screen names it again.
+            Gone if !on(source) => {}
+            _ => kept.push((source, k)),
+        }
+    }
+    let rules = allowed(m, p);
+    let mut coming = kept.filter(fun(e: (string, Kept)) = e.1 == Kept.Coming).len;
+    let mut sends: Cmd<Msg>[] = [];
+    let mut refused: (string, string)[] = [];
+    for source of wanted {
+        if kept.any(fun(e: (string, Kept)) = e.0 == source) || coming >= MAX_DOWNLOADS {
+            continue;
+        }
+        let get = Request { method: "GET", url: source, headers: [], body: [] };
+        match check_request(get, rules) {
+            Ok(checked) => {
+                kept.push((source, Kept.Coming));
+                coming += 1;
+                sends.push(download(t.id, p.load, source, checked, m));
+            }
+            // Switched off by the person: the picture fails, the app runs on.
+            Err(Off(host)) => {
+                kept.push((source, Kept.Gone));
+                refused.push((source, reason(NetworkError.Off(host), p.name)));
+            }
+            Err(e) => {
+                return (stopped(p, reason(e, p.name)), []);
+            }
+        }
+    }
+    let mut page = AppPage { pictures: evicted(kept, on), ..p };
+    for (source, why) of refused {
+        page = told(page, source, Err(why));
+    }
+    (page, sends)
+}
+
+/** A picture from the bundle: there, and an SVG if it's to take a colour. */
+fun check_asset(assets: (string, u8[])[], name: string, pic: Picture): Result<(), string> {
+    for (n, bytes) of assets {
+        if n == name {
+            if pic.colour.is_some() && format_of(bytes) != Some(Format.Svg) {
+                return Err("\"{name}\" isn't an SVG, so it takes no color");
+            }
+            return Ok(());
+        }
+    }
+    Err("its bundle has no \"{name}\"")
+}
+
+/** The page stopped: its screen names what it can't have. */
+fun stopped(p: AppPage, why: string): AppPage {
+    close_page(p);
+    AppPage {
+        screen: Screen.Stopped("This app's screen names a picture it can't have: {why}", true),
+        asks: [],
+        ..p,
+    }
+}
+
+/** One download, in a task: the page's tab and load come back with it. */
+fun download(id: i64, load: i64, source: string, checked: Request, m: Model): Cmd<Msg> {
+    let net = m.network;
+    Cmd.task(
+        fun(): Reply = send(checked, net, PICTURE_TIMEOUT_MS, MAX_PICTURE),
+        fun(got: Reply) = Msg.Pictured(id, load, source, got),
+    )
+}
+
+/** What's kept, with pictures off screen dropped, least recently shown first, until the rest fit `MAX_DECODED`. */
+fun evicted(kept: (string, Kept)[], on: fun(string): bool): (string, Kept)[] {
+    let mut out = kept;
+    while decoded(out) > MAX_DECODED {
+        let mut oldest = -1;
+        let mut at = -1;
+        for i in 0..out.len {
+            if let Here(_, _, seen) = out[i].1 {
+                if !on(out[i].0) && (at < 0 || seen < oldest) {
+                    oldest = seen;
+                    at = i;
+                }
+            }
+        }
+        // What's on screen stays, even over: it was let in by `arrive`'s check.
+        if at < 0 {
+            break;
+        }
+        let mut rest: (string, Kept)[] = [];
+        for i in 0..out.len {
+            if i != at {
+                rest.push(out[i]);
+            }
+        }
+        out = rest;
+    }
+    out
+}
+
+/** The decoded size of everything kept. */
+fun decoded(kept: (string, Kept)[]): i64 {
+    let mut total = 0;
+    for (_, k) of kept {
+        if let Here(_, d, _) = k {
+            total += d;
+        }
+    }
+    total
+}
+
+/**
+ * The latest stamp on a page's kept pictures: when they were last checked on screen.
+ *
+ * Example:
+ *     stamp(page)
+ */
+fun stamp(p: AppPage): i64 {
+    let mut most = 0;
+    for (_, k) of p.pictures {
+        if let Here(_, _, s) = k {
+            if s > most {
+                most = s;
+            }
+        }
+    }
+    most
+}
+
+/**
+ * What a page has of one picture.
+ *
+ * Example:
+ *     kept_in(page, "https://notes.dafifi.net/files/7.jpg")
+ */
+fun kept_in(p: AppPage, source: string): Option<Kept> {
+    for (s, k) of p.pictures {
+        if s == source {
+            return Some(k);
+        }
+    }
+    None
+}
+
+/**
+ * Takes a download's result: dropped for a closed tab, another load, or a
+ * picture the screen no longer names; otherwise checked, kept or failed,
+ * and the app told.
+ *
+ * Example:
+ *     arrive(m, id, load, source, got)
+ */
+fun arrive(m: Model, id: i64, load: i64, source: string, got: Reply): Model = match app(m, id) {
+    Some(p) if p.load == load && kept_in(p, source) == Some(Kept.Coming) => with_tab(m, id, fun(
+        page: AppPage,
+    ) {
+        let rest = page.pictures.filter(fun(e: (string, Kept)) = e.0 != source);
+        let named = match page.screen {
+            Running(_, _, d) => pictures_in(d.root).any(fun(q: Picture) = q.source == source),
+            _ => false,
+        };
+        if !named {
+            return AppPage { pictures: rest, ..page };
+        }
+        match checked(got, decoded(rest)) {
+            Ok((bytes, size)) => told(
+                AppPage {
+                    pictures: rest + [(source, Kept.Here(bytes, size, stamp(page) + 1))],
+                    ..page,
+                },
+                source,
+                Ok(()),
+            ),
+            Err(why) => told(
+                AppPage { pictures: rest + [(source, Kept.Gone)], ..page },
+                source,
+                Err(why),
+            ),
+        }
+    }),
+    _ => m,
+};
+
+/** A result checked: its bytes and decoded size, or the sentence the app gets. */
+fun checked(got: Reply, held: i64): Result<(u8[], i64), string> {
+    let body = match got {
+        Got(200, _, body) => body,
+        Got(status, _, _) => {
+            return Err("The server answered {status} for this picture");
+        }
+        // `send` words a cut-off body by its own cap; a picture's is `MAX_PICTURE`.
+        Failed(why) => {
+            return Err(
+                if why.contains("was larger than") {
+                    "This picture is larger than {MAX_PICTURE / (1024 * 1024)} MB"
+                } else {
+                    why
+                },
+            );
+        }
+    };
+    let s = match size_of(body) {
+        Ok(s) => s,
+        Err(_) => {
+            return Err("This picture isn't a PNG or JPEG");
+        }
+    };
+    if s.format == Format.Webp {
+        return Err("This picture is WebP, which Rapidkoi can't show yet");
+    }
+    if s.format != Format.Png && s.format != Format.Jpeg {
+        return Err("This picture isn't a PNG or JPEG");
+    }
+    if s.width > MAX_IMAGE_PX || s.height > MAX_IMAGE_PX || s.pixels() > MAX_IMAGE_PIXELS {
+        return Err(
+            "This picture is too large ({s.width} × {s.height} px; at most {MAX_IMAGE_PX} × {MAX_IMAGE_PX})",
+        );
+    }
+    let size = s.pixels() * 4;
+    if held + size > MAX_DECODED {
+        return Err("This screen's pictures need more than {MAX_DECODED / (1024 * 1024)} MB");
+    }
+    Ok((body, size))
+}
+
+/** Tells the app a picture came (`on_load`) or why not (`on_fail`), when it gave a message. */
+fun told(page: AppPage, source: string, outcome: Result<(), string>): AppPage {
+    let pic = match page.screen {
+        Running(_, _, d) => pictures_in(d.root).filter(fun(q: Picture) = q.source == source),
+        _ => [],
+    };
+    if pic.len == 0 {
+        return page;
+    }
+    match (outcome, pic[0].on_load, pic[0].on_fail) {
+        (Ok(_), Some(msg), _) => handle(page, render.Msg.Event(msg, None)),
+        (Err(why), _, Some(msg)) => handle(page, render.Msg.Answer(msg, reply(Reply.Failed(why)))),
+        _ => page,
+    }
+}

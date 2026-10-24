@@ -1,0 +1,247 @@
+// Pictures from servers (PRP-047): what a screen names is downloaded in the
+// background, at most 6 at a time, checked by its header, kept with the
+// page, and the app told. A screen naming what it can't have stops the app.
+// Live, on local ports.
+import rapidkoi.net.downloads { fetch_all, arrive, kept_in, stamp };
+import rapidkoi.net.network { Reply };
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.tabs { AppPage, Tab, Kept, Program, open_program, state_of };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.guest.events { Happened, event_for };
+import rapidkoi.guest.limits { MAX_DOWNLOADS, MAX_DECODED };
+import cbor { Value, encode };
+import kivuli { Cmd };
+import std.http { Request as Incoming, Response };
+import std.task { sleep };
+import wasmtime { Engine, Module };
+import support { guest_of, result_of, t, kv, leaf, parent, png, settle, event_in };
+
+/** `/N.png` is an N × 10 PNG; `/huge.png` 5000 × 10; `/a.webp` a WebP; anything else 404. */
+fun serving(r: Incoming): Response {
+    if r.path == "/huge.png" {
+        return http.bytes(200, png(5000, 10));
+    }
+    if r.path == "/a.webp" {
+        let webp = "RIFF".to_bytes() + [22, 0, 0, 0] + "WEBPVP8X".to_bytes() + [
+            10,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            7,
+            0,
+            0,
+            7,
+            0,
+            0,
+        ];
+        return http.bytes(200, webp);
+    }
+    if r.path.ends_with(".png") {
+        let n = parse_i64(r.path.slice(1, r.path.len - 4)).unwrap_or(0);
+        if n > 0 {
+            return http.bytes(200, png(n, 10));
+        }
+    }
+    http.text(404, "")
+}
+
+fun server(port: i64) {
+    spawn http.serve("127.0.0.1:{port}", serving);
+    sleep(100);
+}
+
+fun image(src: string, props: (string, Value)[]): Value = leaf("image", [("src", t(src))] + props);
+
+/** An echo app from `http://localhost:PORT` showing `pictures`, with `assets` in its bundle. */
+fun showing(port: i64, pictures: Value[], assets: (string, u8[])[]): Model {
+    let engine = Engine.new();
+    let tree = encode(parent("box", [], pictures));
+    let module = Module.from_text(engine, guest_of(result_of(kv([])), None, None, tree)).unwrap();
+    let p = open_program(
+        "notes",
+        "http://localhost:{port}",
+        Program { engine: engine, module: module, assets: assets },
+        [],
+    );
+    with_pages(engine, [p])
+}
+
+fun page(m: Model): AppPage = m.tabs[0].page;
+
+fun stopped(m: Model): string = match page(m).screen {
+    Stopped(why, _) => why,
+    _ => "running",
+};
+
+fun tasks(c: Cmd<Msg>): i64 = match c {
+    Task(_) => 1,
+    Batch(cs) => {
+        let mut n = 0;
+        for one of cs {
+            n += tasks(one);
+        }
+        n
+    }
+    _ => 0,
+};
+
+/** The event the echo app got last. */
+fun got(m: Model): u8[] = event_in(state_of(page(m)).unwrap_or([]));
+
+@test
+fun a_screen_s_pictures_download_six_at_a_time() {
+    let mut pictures: Value[] = [];
+    for i in 1..9 {
+        pictures.push(image("http://localhost:18950/{i}.png", []));
+    }
+    let (m, cmd) = fetch_all(showing(18950, pictures, []));
+    assert_eq(tasks(cmd), MAX_DOWNLOADS);
+    assert_eq(page(m).pictures.len, MAX_DOWNLOADS);
+    // Asking again starts nothing more while those are coming.
+    let (_, again) = fetch_all(m);
+    assert_eq(tasks(again), 0);
+}
+
+@test
+fun every_picture_arrives_and_each_result_starts_the_next() {
+    server(18951);
+    let mut pictures: Value[] = [];
+    for i in 1..9 {
+        pictures.push(image("http://localhost:18951/{i}.png", []));
+    }
+    let (m, cmd) = fetch_all(showing(18951, pictures, []));
+    let done = settle(m, cmd, update);
+    for i in 1..9 {
+        match kept_in(page(done), "http://localhost:18951/{i}.png") {
+            Some(Here(bytes, decoded, _)) => {
+                assert_eq(bytes, png(i, 10));
+                assert_eq(decoded, i * 10 * 4);
+            }
+            _ => panic("picture {i} isn't here"),
+        }
+    }
+}
+
+@test
+fun a_picture_that_comes_sends_on_load() {
+    server(18952);
+    let m = showing(18952, [image("http://localhost:18952/3.png", [("on_load", t("shown"))])], []);
+    let (started, cmd) = fetch_all(m);
+    let done = settle(started, cmd, update);
+    assert_eq(got(done), event_for(Happened.Message(t("shown"), None)));
+}
+
+fun fails_with(port: i64, src: string, why: string) {
+    let m = showing(port, [image(src, [("on_fail", t("broken"))])], []);
+    let (started, cmd) = fetch_all(m);
+    let done = settle(started, cmd, update);
+    match kept_in(page(done), src) {
+        Some(Gone) => {}
+        _ => panic("{src} should be gone"),
+    }
+    let error = Value.Map([cbor.Entry { key: t("error"), value: t(why) }]);
+    assert_eq(got(done), event_for(Happened.Answer(t("broken"), error)));
+}
+
+@test
+fun a_picture_that_can_t_be_shown_sends_on_fail_with_why() {
+    server(18953);
+    fails_with(
+        18953,
+        "http://localhost:18953/missing.png",
+        "The server answered 404 for this picture",
+    );
+    fails_with(
+        18953,
+        "http://localhost:18953/huge.png",
+        "This picture is too large (5000 × 10 px; at most 4096 × 4096)",
+    );
+    fails_with(
+        18953,
+        "http://localhost:18953/a.webp",
+        "This picture is WebP, which Rapidkoi can't show yet",
+    );
+    fails_with(18953, "http://localhost:18953/0.txt", "The server answered 404 for this picture");
+}
+
+@test
+fun no_message_given_means_nothing_sent() {
+    server(18954);
+    let m = showing(18954, [image("http://localhost:18954/missing.png", [])], []);
+    let before = got(m);
+    let (started, cmd) = fetch_all(m);
+    let done = settle(started, cmd, update);
+    assert_eq(got(done), before);
+}
+
+@test
+fun a_screen_naming_what_it_can_t_have_stops_the_app() {
+    let elsewhere = showing(18955, [image("https://elsewhere.example.com/a.png", [])], []);
+    assert_eq(
+        stopped(fetch_all(elsewhere).0),
+        "This app's screen names a picture it can't have: elsewhere.example.com isn't one of notes's servers",
+    );
+    let missing = showing(18955, [image("asset:icons/trash.svg", [])], []);
+    assert_eq(
+        stopped(fetch_all(missing).0),
+        "This app's screen names a picture it can't have: its bundle has no \"icons/trash.svg\"",
+    );
+    let png_tinted = showing(18955, [image("asset:a.png", [("color", t("accent"))])], [
+        ("a.png", png(4, 4)),
+    ]);
+    assert_eq(
+        stopped(fetch_all(png_tinted).0),
+        "This app's screen names a picture it can't have: \"a.png\" isn't an SVG, so it takes no color",
+    );
+    let fine = showing(18955, [image("asset:a.png", [])], [("a.png", png(4, 4))]);
+    assert_eq(stopped(fetch_all(fine).0), "running");
+}
+
+@test
+fun a_result_for_a_closed_page_or_a_source_no_longer_wanted_is_dropped() {
+    let m = showing(18956, [image("http://localhost:18956/1.png", [])], []);
+    let (started, _) = fetch_all(m);
+    let id = started.tabs[0].id;
+    let load = page(started).load;
+    // Another load since: dropped.
+    let stale = arrive(
+        started,
+        id,
+        load + 1,
+        "http://localhost:18956/1.png",
+        Reply.Got(200, #{}, png(1, 10)),
+    );
+    assert_eq(kept_in(page(stale), "http://localhost:18956/1.png") == Some(Kept.Coming), true);
+    // A source the screen no longer names: dropped.
+    let other = arrive(
+        started,
+        id,
+        load,
+        "http://localhost:18956/9.png",
+        Reply.Got(200, #{}, png(1, 10)),
+    );
+    assert_eq(kept_in(page(other), "http://localhost:18956/9.png").is_none(), true);
+}
+
+@test
+fun past_256_mb_the_least_recently_shown_pictures_off_screen_go_first() {
+    let m = showing(18957, [image("http://localhost:18957/1.png", [])], []);
+    let half = MAX_DECODED / 2;
+    let filled = AppPage {
+        pictures: [
+            ("http://localhost:18957/old.png", Kept.Here([], half, 1)),
+            ("http://localhost:18957/newer.png", Kept.Here([], half, 2)),
+            ("http://localhost:18957/1.png", Kept.Here([], 40, 3)),
+        ],
+        ..page(m),
+    };
+    let (after, _) = fetch_all(Model { tabs: [Tab { page: filled, ..m.tabs[0] }], ..m });
+    let kept = page(after).pictures.map(fun(e: (string, Kept)) = e.0);
+    assert_eq(kept, ["http://localhost:18957/newer.png", "http://localhost:18957/1.png"]);
+    assert_eq(stamp(page(after)) > 3, true);
+}

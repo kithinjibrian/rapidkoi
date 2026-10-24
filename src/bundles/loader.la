@@ -40,6 +40,8 @@ struct Loaded {
     icon: Option<u8[]>,
     /** The compiled module. */
     module: Module,
+    /** Its bundle's pictures by name, checked by the bundle rules (PRP-047); none for a bare `.wasm`. */
+    assets: (string, u8[])[],
     /** Who signed it and how far that's trusted; `None` when unsigned. */
     trust: Option<Trust>,
 }
@@ -96,7 +98,14 @@ fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Refusal> {
     )?;
     if !path.ends_with(".rkb") {
         let module = compile(engine, bytes).map_err(fun(e) = Refusal.Failed(file, reason(e)))?;
-        return Ok(Loaded { name: file, manifest: None, icon: None, module: module, trust: None });
+        return Ok(Loaded {
+            name: file,
+            manifest: None,
+            icon: None,
+            module: module,
+            assets: [],
+            trust: None,
+        });
     }
     from_bundle(engine, ring, file, bytes, Origin.External)
 }
@@ -241,7 +250,14 @@ fun from_opened(
         Some(name) => asset(b, name),
         None => None,
     };
-    Ok(Loaded { name: m.name, manifest: Some(m), icon: icon, module: module, trust: trust })
+    Ok(Loaded {
+        name: m.name,
+        manifest: Some(m),
+        icon: icon,
+        module: module,
+        assets: b.assets,
+        trust: trust,
+    })
 }
 
 /**

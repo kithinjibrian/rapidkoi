@@ -14,6 +14,7 @@ import window.tabs { AppPage, Tab, Pin, handle, is_loading, to_front };
 import net.loads;
 import guest.effects { answer_all, approve, left_behind, tell_changes, tell_prefs };
 import net.requests;
+import net.downloads;
 import data.queries;
 import data.databases;
 import data.kept;
@@ -175,10 +176,15 @@ fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     } else {
         (first, Cmd.none())
     };
-    let sends = both(asked, again);
+    // The pictures each screen names (PRP-047): what telling an app about
+    // one asks is answered, and what that answer shows is fetched too.
+    let (pictured, first_pictures) = downloads.fetch_all(answered);
+    let (replied, more) = answer_all(pictured);
+    let (shown_now, then_pictures) = downloads.fetch_all(replied);
+    let sends = both(both(asked, again), both(more, both(first_pictures, then_pictures)));
     // What each app declares, and "New" cleared once its Access page is left.
     (
-        persist(m, news(looked(m, answered)), at),
+        persist(m, news(looked(m, shown_now)), at),
         both(both(both(cmd, denied), sends), into_view(m, answered)),
     )
 }
@@ -341,6 +347,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Refreshed(id, build, r) => (loads.refreshed(m, id, build, r), Cmd.none()),
     CheckForUpdates(_) => (m, loads.check_current(m)),
     Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
+    Pictured(id, load, source, got) => (downloads.arrive(m, id, load, source, got), Cmd.none()),
     Queried(id, load, msg, got) => (queries.arrive(m, id, load, msg, got), Cmd.none()),
     DataSized(id, n) => (
         window.with_tab(m, id, fun(a: AppPage) = AppPage { data_size: Some(n), ..a }),

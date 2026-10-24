@@ -102,6 +102,8 @@ enum Msg {
     CheckForUpdates(i64),
     /** A request's result, for this tab and load, answering the app's `msg` (PRP-012). */
     Responded(i64, i64, Value, Reply),
+    /** A picture's download, for this tab and load, by its source (PRP-047). */
+    Pictured(i64, i64, string, Reply),
     /** A call to the app's database, for this tab and load, answering the app's `msg` (PRP-041). */
     Queried(i64, i64, Value, Queried),
     /** How big this tab's app's data is, in bytes, for its ⚙ card. */

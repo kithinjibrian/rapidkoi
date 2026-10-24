@@ -63,6 +63,8 @@ struct Pending {
 struct Program {
     engine: Engine,
     module: Module,
+    /** Its bundle's pictures by name (PRP-047). */
+    assets: (string, u8[])[],
 }
 
 /** One app in a tab. */
@@ -105,6 +107,18 @@ struct AppPage {
     data_size: Option<i64>,
     /** Its kept copy, when it's a signed app Rapidkoi keeps (PRP-043). */
     cached: Option<Cached>,
+    /** The pictures its screens named from servers, by source (PRP-047). */
+    pictures: (string, Kept)[],
+}
+
+/** What a page has of a picture from a server (PRP-047). */
+enum Kept {
+    /** Downloading. */
+    Coming,
+    /** Its bytes, checked; its decoded size (width × height × 4); when it was last on screen, as `seen` counts. */
+    Here(u8[], i64, i64),
+    /** It can't be shown. */
+    Gone,
 }
 
 /** What Rapidkoi knows of a signed app's kept copy (PRP-043): for its Signed app page and ⚙ → Data. */
@@ -167,7 +181,12 @@ fun open_path(engine: Engine, ring: Keyring, path: string): AppPage = match load
         manifest: l.manifest,
         icon: l.icon,
         trust: l.trust,
-        ..open_module(l.name, path, engine, l.module),
+        ..open_program(
+            l.name,
+            path,
+            Program { engine: engine, module: l.module, assets: l.assets },
+            [],
+        ),
     },
     Err(r) => refused(r, path),
 };
@@ -230,7 +249,12 @@ fun from_loaded(
     manifest: l.manifest,
     icon: l.icon,
     trust: l.trust,
-    ..open_program(l.name, path, Program { engine: engine, module: l.module }, link),
+    ..open_program(
+        l.name,
+        path,
+        Program { engine: engine, module: l.module, assets: l.assets },
+        link,
+    ),
 };
 
 /**
@@ -248,7 +272,7 @@ fun from_loaded(
 fun open_module(name: string, path: string, engine: Engine, module: Module): AppPage = open_program(
     name,
     path,
-    Program { engine: engine, module: module },
+    Program { engine: engine, module: module, assets: [] },
     [],
 );
 
@@ -265,7 +289,7 @@ fun open_module_at(
     engine: Engine,
     module: Module,
     link: (string, string)[],
-): AppPage = open_program(name, path, Program { engine: engine, module: module }, link);
+): AppPage = open_program(name, path, Program { engine: engine, module: module, assets: [] }, link);
 
 /** A page running `program`, fresh, with whatever its `init` asked for. */
 fun open_program(name: string, path: string, program: Program, link: (string, string)[]): AppPage {
@@ -289,6 +313,7 @@ fun open_program(name: string, path: string, program: Program, link: (string, st
             fields: [],
             data_size: None,
             cached: None,
+            pictures: [],
         },
         start(program, None, link),
     )
@@ -454,6 +479,7 @@ fun failed(name: string, path: string, why: string): AppPage = AppPage {
     fields: [],
     data_size: None,
     cached: None,
+    pictures: [],
 };
 
 /**
