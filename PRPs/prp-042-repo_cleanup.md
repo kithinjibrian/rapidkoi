@@ -35,7 +35,7 @@ Nothing changes in the window. This is a restructure, not a feature.
 - Related source files: chat with the owner, 2026-10-24 (sessions 214–215): "most of this guest apps should go into individual repos and leave builtins only. the rust lib i also feel should be outside the repo"; "let's just have two. one that is truly offline and another that needs multiple servers. you can delete task and quote".
 - Lugha spec sections relied on: none new.
 - kivuli API used: none new.
-- Open decisions that must be resolved first: **Q1 below** (how a test gets a `.wasm` file from WAT).
+- Open decisions that must be resolved first: **Q1 below**, resolved (a) by the owner (session 216): DECISION-053, waiting on lugha-wasmtime's `wat_to_wasm` (`docs/specs/lugha-wasmtime-wat-to-wasm.md`).
 
 ## WHERE EACH TEST GOES
 
