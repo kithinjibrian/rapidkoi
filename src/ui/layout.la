@@ -8,10 +8,12 @@
  * Depends on: kivuli, window.actions, window.tabs, window.window, ui.content, ui.header, ui.tokens, ui.themes
  * Used by: shell
  */
-import kivuli { View, Align, Scheme, column, row, scroll };
+import kivuli { View, Align, Scheme, Overflowing, column, row, scroll, clip };
 import window.actions { Msg };
 import window.tabs { Page };
 import window.window { Model, title_of, page_of };
+import ui.frame { in_development };
+import ui.overflow { overflowed };
 import ui.content { app_view, newtab_view };
 import ui.header;
 import ui.sidebar;
@@ -44,7 +46,21 @@ fun content_area(m: Model): View<Msg> = match page_of(m) {
         // An app pads itself, so what it scrolls is cut at the window's edge
         // (PRP-046); Rapidkoi's own screens keep Rapidkoi's margin.
         match a.screen {
-            Running(_, _, _) => shown,
+            // Cut at the window's edge, never pushing it bigger (kivuli 0.58);
+            // in development, shown where and by how much.
+            Running(_, _, _) => {
+                let id = m.current.unwrap_or(-1);
+                if in_development(a.path) {
+                    let (at, across, down) = m.overflow;
+                    let (x, y) = if at == id { (across, down) } else { (0, 0) };
+                    let told = clip(shown).on_overflow(
+                        fun(o: Overflowing) = Msg.Overflowed(id, o.across, o.down),
+                    );
+                    overflowed(told.expand(), x, y, m.theme)
+                } else {
+                    clip(shown).expand()
+                }
+            }
             _ => scroll(shown.style([margin(SPACE_LG)])),
         }
     }

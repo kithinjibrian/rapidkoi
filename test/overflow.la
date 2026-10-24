@@ -1,0 +1,25 @@
+// What doesn't fit (PRP-046, kivuli 0.58): an app's page is cut at the
+// window's edge, and in development a striped band says by how much.
+
+import rapidkoi.ui.overflow { overflowed };
+import rapidkoi.ui.schemes { DARK };
+import kivuli { View, text };
+import kivuli.testing { texts };
+
+fun page(): View<i64> = text("the app");
+
+@test
+fun nothing_is_drawn_over_a_page_that_fits() {
+    assert_eq(texts(overflowed(page(), 0, 0, DARK)), ["the app"]);
+}
+
+@test
+fun each_cut_edge_says_by_how_much() {
+    assert_eq(texts(overflowed(page(), 0, 42, DARK)), ["the app", "Bottom overflowed by 42 px"]);
+    assert_eq(texts(overflowed(page(), 7, 0, DARK)), ["the app", "Right overflowed by 7 px"]);
+    assert_eq(texts(overflowed(page(), 7, 42, DARK)), [
+        "the app",
+        "Bottom overflowed by 42 px",
+        "Right overflowed by 7 px",
+    ]);
+}

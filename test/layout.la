@@ -6,7 +6,7 @@ import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.layout;
 import rapidkoi.ui.content { newtab_view };
 import rapidkoi.window.actions { Msg, TabAction };
-import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.window.tabs { AppPage, Tab, open_module };
 import kivuli.testing { click, is_disabled, pick, texts };
 import wasmtime { Engine, Module };
 import support { echo, crashing };
@@ -108,4 +108,35 @@ fun a_running_app_gets_the_area_and_rapidkoi_s_own_screens_scroll() {
     let m = with_pages(engine, [open_module("x", "x.wasm", engine, broken)]);
     let (stopped, _) = update(m, Msg.Tab(0, render.Msg.Event(cbor.Value.Text("add"), None)));
     assert_eq(scrolled(layout.content_area(stopped)), true);
+}
+
+@test
+fun an_app_in_development_shows_where_it_overflows_and_a_published_one_doesn_t() {
+    // PRP-046 with kivuli 0.58: a file's app is in development.
+    let m = busy();
+    let id = m.current.unwrap_or(-1);
+    let (told, _) = update(m, Msg.Overflowed(id, 0, 42));
+    assert_eq(
+        texts(layout.content_area(told)).any(fun(s: string) = s == "Bottom overflowed by 42 px"),
+        true,
+    );
+    // Another tab's report isn't this page's.
+    let (other, _) = update(m, Msg.Overflowed(id + 100, 0, 42));
+    assert_eq(
+        texts(layout.content_area(other)).any(fun(s: string) = s.contains("overflowed")),
+        false,
+    );
+    let published = Model {
+        tabs: told.tabs.map(
+            fun(t: Tab) = Tab {
+                page: AppPage { path: "https://counter.dafifi.net", ..t.page },
+                ..t,
+            },
+        ),
+        ..told,
+    };
+    assert_eq(
+        texts(layout.content_area(published)).any(fun(s: string) = s.contains("overflowed")),
+        false,
+    );
 }

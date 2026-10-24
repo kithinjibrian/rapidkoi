@@ -109,7 +109,7 @@ Rapidkoi builds apps, not sites (PRP-046): an app's page is exactly the window's
 
 - A box with `scroll` shows what fits and scrolls the rest: as tall as its content until its parent runs out of room, or, with `grow`, the room left. Its sizes bound the scrolled area.
 - A scrolling box inside another that scrolls the same way (`both` shares both) stops the app: "This app put a scrolling box inside another that scrolls the same way". Across is fine: a row of thumbnails in a list.
-- What still doesn't fit is clipped: silently in a published app; in development (a local file or a `localhost` address), with a striped band at the cut edge, "Bottom overflowed by 42 px". Both wait on kivuli (DECISION-057); until then an overflowing app pushes the window's minimum size.
+- What still doesn't fit is cut off at the window's edge, and never makes the window bigger: silently in a published app; in development (a local file or a `localhost` address), with a striped band along the cut edge and "Bottom overflowed by 42 px" (or Right) in its corner.
 - A `vertical` box scrolls only up and down (what's wider is cut), and a `horizontal` one only sideways.
 
 ### Pictures

@@ -1,0 +1,56 @@
+/**
+ * Where an app in development is cut off (PRP-046, kivuli 0.58), pure: a
+ * striped band along each edge its page sticks out of, and how far, as
+ * Flutter shows it in debug builds. Published apps are cut silently.
+ *
+ * Depends on: kivuli, ui.themes, ui.tokens, ui.schemes
+ * Used by: ui.layout
+ */
+import kivuli { View, Align, column, overlay, text };
+import ui.themes { overflow_stripes, overflow_label };
+import ui.tokens { SPACE_XS, SPACE_SM, padding_xy, exactly, fixed_height };
+import ui.schemes { Theme };
+
+/**
+ * The page with a band along each edge it's cut at; the page alone when it fits.
+ *
+ * @param v the clipped page
+ * @param across how far it sticks out at the end side, in pixels
+ * @param down how far it sticks out at the bottom
+ *
+ * Example:
+ *     overflowed(clipped, 0, 42, m.theme)
+ */
+fun overflowed<M>(v: View<M>, across: i64, down: i64, t: Theme): View<M> {
+    if across <= 0 && down <= 0 {
+        return v;
+    }
+    let mut layers: View<M>[] = [];
+    let mut words: View<M>[] = [];
+    if down > 0 {
+        layers.push(
+            column([]).style(overflow_stripes(t)).style([fixed_height(0, SPACE_SM)]).place(
+                Align.Fill,
+                Align.End,
+            ),
+        );
+        words.push(text("Bottom overflowed by {down} px"));
+    }
+    if across > 0 {
+        layers.push(
+            column([]).style(overflow_stripes(t)).style([exactly(SPACE_SM)]).place(
+                Align.End,
+                Align.Fill,
+            ),
+        );
+        words.push(text("Right overflowed by {across} px"));
+    }
+    // The words sit in the corner, clear of the stripes.
+    layers.push(
+        column(words).style(overflow_label(t)).style([padding_xy(SPACE_SM, SPACE_XS)]).place(
+            Align.End,
+            Align.End,
+        ),
+    );
+    overlay(v, layers)
+}

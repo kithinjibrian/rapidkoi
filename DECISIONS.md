@@ -381,17 +381,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
-### DECISION-057 — Clipping an app's page, showing its overflow, and scrolling one way (kivuli)
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 11, § 12)
-**Raised:** 2026-10-24, PRP-046
-
-**Question:** Rapidkoi never scrolls an app's page (the owner: "we are building apps not sites"). What doesn't fit must be clipped, silently when published and with a striped band in development; and a box scrolling `vertical` shouldn't scroll sideways. kivuli 0.54 has no clipping container, no overflow measure, and no one-axis scroll.
-
-**Meanwhile:** an overflowing app pushes the window's minimum size (visible, the developer's to fix); a scrolling box scrolls whichever way its content overflows; `ui.frame.in_development` already says where a band would show. Nothing is worked around.
-
----
-
 ### DECISION-054 — Knowing when Rapidkoi's window comes back to the front (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 2)
@@ -710,6 +699,19 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-057 — Clipping an app's page, showing its overflow, and scrolling one way (kivuli)
+
+**Status:** resolved (kivuli 0.58, 2026-10-24)
+**Raised:** 2026-10-24, PRP-046
+
+**Question:** Rapidkoi never scrolls an app's page (the owner: "we are building apps not sites"). What doesn't fit must be clipped, silently when published and with a striped band in development; and a box scrolling `vertical` shouldn't scroll sideways. kivuli 0.54 has no clipping container, no overflow measure, and no one-axis scroll.
+
+**Meanwhile:** an overflowing app pushes the window's minimum size (visible, the developer's to fix); a scrolling box scrolls whichever way its content overflows; `ui.frame.in_development` already says where a band would show. Nothing is worked around.
+
+**Outcome:** kivuli 0.57 and 0.58: a scrolling box keeps to its axis (`Overflow.scroll_y`/`scroll_x`); a running app's page is in `clip`, so it never pushes the window bigger; an app in development reports its overflow (`on_overflow` → `Msg.Overflowed`) and `ui.overflow` draws the striped band and "Bottom overflowed by 42 px".
+
+---
 
 ### DECISION-055 — A text area's placeholder (kivuli)
 
