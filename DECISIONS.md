@@ -372,7 +372,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md`)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 13)
 **Raised:** 2026-10-24, PRP-047
 
 **Question:** DECISION-056 Q3 agreed PNG, JPEG and WebP from servers, up to 8,000 px a side and 40 MP, and `on_fail` for every picture that can't be shown. kivuli 0.54 shows PNG, JPEG and SVG only, up to 4,096 × 4,096 px and 16 MB, and shows nothing, silently, for one it can't decode.
@@ -739,6 +739,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 **Why:** Notes needs both; a breaking change costs one rebuild per app while every app is the owner's.
 
 **Supersedes:** DECISION-039, 048, 049, 052's "older contracts still run".
+
+**Amended (the owner, PRP-047's build):** a picture's `on_load` and `on_fail` arrive as `on_message` (the failure's sentence as `value`), so typed messages arrive whole; WebP and the 8,000 px / 40 MP limits wait on kivuli (DECISION-058).
 
 ---
 

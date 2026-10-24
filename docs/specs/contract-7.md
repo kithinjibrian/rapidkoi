@@ -1,6 +1,6 @@
 # Contract 7
 
-The one contract Rapidkoi speaks (DECISION-056, PRP-045): an app is a WebAssembly module exporting `rapidkoi_version` (7), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". It gathers contracts 3–6 (PRP-030, 036–039, 041) with two additions: link fields with declared `kinds`, and a `label` on typing boxes. Scrolling (PRP-046) and pictures (PRP-047) are added before contract 7 is released. Any change after that is a DECISIONS.md entry and a version bump.
+The one contract Rapidkoi speaks (DECISION-056, PRP-045): an app is a WebAssembly module exporting `rapidkoi_version` (7), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". It gathers contracts 3–6 (PRP-030, 036–039, 041) with two additions: link fields with declared `kinds`, and a `label` on typing boxes. Scrolling (PRP-046) and pictures (PRP-047) complete it. Any change after that is a DECISIONS.md entry and a version bump.
 
 ## The state
 
@@ -70,6 +70,7 @@ An app that doesn't know an event changes nothing. There's no event when Rapidko
 | `box` | `style`, `role`, `checked`, `selected`, `disabled`, `label`, `on_press`, and `title` on the root | yes |
 | `text` | `text` (required), `style`, `role`, `label` | no |
 | `input` | `value` (required), `placeholder`, `label` (1–200 bytes), `lines` (1–20; more than 1 is a box of several lines), `on_change` (none: disabled), `on_submit` (Enter, on one line; sent with the text as `value`), `style` | no |
+| `image` | `src` (required: `asset:NAME` or an `http(s)://` address, at most 2 KB), `fit` (`contain`, the default, or `cover`), `color` (an `asset:` SVG only), `label` (1–200 bytes), `on_load`, `on_fail`, `style` | no |
 
 - A **box with `on_press`** is pressable: focusable, and pressed by a click, Enter or Space; it sends `on_message` with its message. `disabled: true` greys it, and it sends nothing.
 - A typing box's **`label`** says what it's for: Rapidkoi names the box by it, and screen readers hear it once kivuli can tell them (DECISION-050). Without one, its placeholder names it.
@@ -110,6 +111,16 @@ Rapidkoi builds apps, not sites (PRP-046): an app's page is exactly the window's
 - A scrolling box inside another that scrolls the same way (`both` shares both) stops the app: "This app put a scrolling box inside another that scrolls the same way". Across is fine: a row of thumbnails in a list.
 - What still doesn't fit is clipped: silently in a published app; in development (a local file or a `localhost` address), with a striped band at the cut edge, "Bottom overflowed by 42 px". Both wait on kivuli (DECISION-057); until then an overflowing app pushes the window's minimum size.
 - Until kivuli can scroll one way only, a `vertical` box also scrolls sideways when its content is wider (DECISION-057).
+
+### Pictures
+
+PRP-047. A picture comes from the app's bundle or from a server it may reach, never anywhere else, and Rapidkoi loads it: the app names it in its view, as a web page names an `<img>`.
+
+- **From the bundle:** `asset:NAME`, packed from `[assets]` in `rapidkoi.toml`. A bundle holds PNG and JPEG (at most 4 MB, 4,096 px a side) and SVG (at most 1 MB, UTF-8). Shown at once. With `color`, an SVG's `currentColor` is drawn in that colour (Rapidkoi's names follow the theme).
+- **From a server:** an address `fetch` could reach (the app's own host or a server it declares; HTTPS; `http://localhost` from this machine). Downloaded in the background with a plain GET (no headers, no cookies), at most 6 at a time a window, in the order the screen shows them, each within 30 seconds and 10 MB; PNG or JPEG, at most 4,096 px a side and 16 MP, checked from its header before it's kept. WebP waits on kivuli (DECISION-058). Kept while the window lasts; past 256 MB decoded, those off screen go, least recently shown first.
+- **While it loads** its box is empty, at its style's size. **When it can't be shown** (refused, not found, too large, not PNG or JPEG), Rapidkoi's broken-picture mark takes its place, and the app runs on.
+- **`on_load`** arrives as `on_message` with its `msg` once the picture is shown; **`on_fail`** as `on_message` with its `msg` and Rapidkoi's sentence as `value`. Neither is sent without a message, and each once while the picture stays on screen.
+- **A broken view stops the app:** a bad `src`, an asset the bundle doesn't have, `color` on anything but a bundle SVG, a server the app may never reach, or more than 256 pictures in one screen. A server the person switched off only fails that picture.
 
 ### Roles
 

@@ -65,21 +65,21 @@ Checking 8,000 px and 40 MP before decoding means reading PNG, JPEG and WebP hea
 - The contract stays version 7: contract 7 isn't released until this lands.
 
 ## TESTS
-- [ ] `image` reads each prop; a missing or bad `src`, a bad `fit`, `color` on a URL or a PNG, a bad `label` each stop the app with their sentence
-- [ ] An `asset:` the bundle lacks, and a URL to a server the app may not reach, stop the app
-- [ ] More than `MAX_PICTURES` sources stops the app (Q3)
-- [ ] A bundle with a PNG, a JPEG and an SVG loads; an SVG over 1 MB, a picture over the size limits, and a file that's none of them are refused with their sentences
-- [ ] A bundle picture is drawn at once; `color` recolours `currentColor` and nothing else
-- [ ] A view naming 8 URLs starts 6 downloads; each result starts the next
-- [ ] A download's result: ready → drawn and `on_load` sent once; a failed request, a 404, too large, too many pixels, WebP (Q1) → the mark and `on_fail` with its sentence; no message given → nothing sent
-- [ ] A result for a closed page or a source no longer in the view is dropped
-- [ ] Past 256 MB decoded, the least recently shown pictures not in the view are dropped first
-- [ ] Header reading: PNG, JPEG (baseline and progressive), WebP (lossy, lossless, extended): their sizes; truncated or garbage input is an error, never a crash (in `lugha-imagesize` under Q2 (a))
-- [ ] The new tab and Settings still pass
+- [x] `image` reads each prop; a missing or bad `src`, a bad `fit`, `color` on a URL or a PNG, a bad `label` each stop the app with their sentence
+- [x] An `asset:` the bundle lacks, and a URL to a server the app may not reach, stop the app
+- [x] More than `MAX_PICTURES` sources stops the app (Q3)
+- [x] A bundle with a PNG, a JPEG and an SVG loads; an SVG over 1 MB, a picture over the size limits, and a file that's none of them are refused with their sentences
+- [x] A bundle picture is drawn at once; `color` recolours `currentColor` and nothing else
+- [x] A view naming 8 URLs starts 6 downloads; each result starts the next
+- [x] A download's result: ready → drawn and `on_load` sent once; a failed request, a 404, too large, too many pixels, WebP (Q1) → the mark and `on_fail` with its sentence; no message given → nothing sent
+- [x] A result for a closed page or a source no longer in the view is dropped
+- [x] Past 256 MB decoded, the least recently shown pictures not in the view are dropped first
+- [x] Header reading: PNG, JPEG (baseline and progressive), WebP (lossy, lossless, extended): their sizes; truncated or garbage input is an error, never a crash (in `lugha-imagesize` under Q2 (a))
+- [x] The new tab and Settings still pass
 
 ## ACCEPTANCE
-- [ ] Every test above passes
-- [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build src/main.la -o main` pass
+- [x] Every test above passes
+- [x] `lughac test test/`, `lughac fmt --check src test` and `lughac build src/main.la -o main` pass
 - [ ] For the owner, by eye: Notes with its icons from its bundle, recoloured in light and dark; a test page of photos from a local server, one broken, loading in the background without holding the window
 
 ## AMENDMENTS
