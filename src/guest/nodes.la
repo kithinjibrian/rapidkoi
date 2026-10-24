@@ -164,6 +164,8 @@ struct Look {
     /** `body`, `mono`, `serif` or `sans`. */
     font: Option<string>,
     italic: bool,
+    /** A text kept to one line, cut with "…", instead of wrapping to its box (the owner, 2026-10-24). */
+    truncate: bool,
     /** Which way the box scrolls (PRP-046): it shows what fits and scrolls the rest. */
     scroll: Option<Axis>,
     /** Looks for `hover`, `pressed`, `focus`, `disabled` and `checked`, none of which has its own. */

@@ -702,6 +702,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-060 — An app's long text: wraps, or is truncated
+
+**Status:** resolved (the owner, 2026-10-24)
+**Raised:** 2026-10-24, Notes 0.3.0: a long preview pushed its 296 px list wider
+
+**Question:** An app's text was one unwrapped line, and GTK never lets a box be narrower than its widest line, so long text pushed its box (and the window) wider. Apps lay themselves out (PRP-046), so they need to say what long text does.
+
+**Outcome:** as on the web, text wraps to its box's width; a new style key `truncate: true` keeps it on one line, cut with "…" (kivuli's `.wrap()` and `.ellipsize()`). Contract 7 isn't released, so no version bump; the SDK gets `Text::truncate()`.
+
+---
+
 ### DECISION-054 — Knowing when Rapidkoi's window comes back to the front (kivuli)
 
 **Status:** resolved (kivuli 0.58, 2026-10-24)

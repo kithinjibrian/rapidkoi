@@ -1,7 +1,7 @@
 // Rendering, pure: decoded trees become kivuli views, checked through
 // kivuli.testing with no display.
 
-import rapidkoi.ui.render { Msg, screen, stopped, drawn_on_box, one_way };
+import rapidkoi.ui.render { Msg, screen, stopped, drawn_on_box, one_way, Flow, flow_of };
 import rapidkoi.ui.schemes { DARK };
 import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, submit, texts };
 import rapidkoi.guest.nodes { Look, Facts, Role, Colour, Typing, Node, Axis };
@@ -183,4 +183,10 @@ fun a_box_scrolls_only_the_way_it_says() {
     assert_eq(one_way(Axis.Vertical) == Some(Overflow.scroll_y()), true);
     assert_eq(one_way(Axis.Horizontal) == Some(Overflow.scroll_x()), true);
     assert_eq(one_way(Axis.Both).is_none(), true);
+}
+
+@test
+fun a_text_wraps_unless_it_s_truncated() {
+    assert_eq(flow_of(plain()) == Flow.Wrap, true);
+    assert_eq(flow_of(Look { truncate: true, ..plain() }) == Flow.Truncate, true);
 }

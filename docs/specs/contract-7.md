@@ -98,6 +98,7 @@ One map, every key optional, at most 32 keys. A known key with a bad value stops
 | `weight` | `"normal"`, `"medium"`, `"bold"` |
 | `font` | `"body"`, `"mono"`, `"serif"`, `"sans"` |
 | `italic` | `true` |
+| `truncate` | `true`: a text stays on one line, cut with "…"; without it a text wraps to its box's width |
 | `scroll` | `"vertical"`, `"horizontal"` or `"both"`, on a box's own look (below) |
 | `hover`, `pressed`, `focus`, `disabled`, `checked` | a style map without these keys |
 
