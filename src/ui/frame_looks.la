@@ -35,6 +35,7 @@ import ui.tokens {
     CIRCLE,
     RING_WIDTH,
     TAB_CLOSE,
+    UPDATE_DOT,
     HEADER_ICON,
     margin_x,
     padding,
@@ -192,6 +193,20 @@ public fun count_badge(t: Theme): Styling[] = [
     Border { radius: Radius.All(CIRCLE), ..Border.theme() },
     Sizing { min_width: Width.Px(TAB_CLOSE), min_height: Width.Px(TAB_CLOSE), ..Sizing.theme() },
     // No padding: the minimum size rounds one digit; more widen it.
+    no_padding(),
+];
+
+/**
+ * Returns the look of the red dot on the upgrade button (PRP-044): small,
+ * round, in the danger colour, for urgency.
+ *
+ * Example:
+ *     text("").style(update_dot(t))
+ */
+public fun update_dot(t: Theme): Styling[] = [
+    Background { color: paint(t.danger), ..Background.theme() },
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    Sizing { min_width: Width.Px(UPDATE_DOT), min_height: Width.Px(UPDATE_DOT), ..Sizing.theme() },
     no_padding(),
 ];
 

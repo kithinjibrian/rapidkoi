@@ -269,3 +269,93 @@ fun the_data_page_counts_the_kept_app() {
     assert(page(m).cached.map(fun(c: Cached) = c.size).unwrap_or(0) > 0);
     done(s, dir);
 }
+
+/** The upgrade button's tooltip, which also finds it (PRP-044). */
+const UPGRADE: string = "A new version of this app is available: upgrade";
+
+fun offers(m: Model): bool = click(view(m), UPGRADE).is_ok();
+
+fun newer(m: Model): Option<string> = page(m).cached.and_then(fun(c: Cached) = c.newer);
+
+@test
+fun a_kept_newer_version_offers_the_upgrade_which_carries_the_state() {
+    let s = folder("upgrade");
+    let dir = site(18822, "1.0.0");
+    served(dir, 18822);
+    let first = started(s, ["./main", "rapidkoi://localhost:18822"]);
+    assert(!offers(first));
+    republish(dir, 18822, "2.0.0");
+    // Opened from the kept 1.0.0; its check keeps 2.0.0 and offers it.
+    let ready = started(s, ["./main", "rapidkoi://localhost:18822"]);
+    assert_eq((version(ready), newer(ready)), ("1.0.0", Some("2.0.0")));
+    assert_eq(click(view(ready), UPGRADE), Ok(Msg.Reload));
+    let counted = step(ready, click(view(ready), "Add").unwrap());
+    let upgraded = step(counted, Msg.Reload);
+    assert_eq(version(upgraded), "2.0.0");
+    assert(shows(upgraded, "Count: 1"));
+    assert(!offers(upgraded));
+    done(s, dir);
+}
+
+@test
+fun up_to_date_or_offline_offers_nothing() {
+    let s = folder("no-upgrade");
+    let dir = site(18823, "1.0.0");
+    served(dir, 18823);
+    started(s, ["./main", "rapidkoi://localhost:18823"]);
+    // From the copy, checked, and still current.
+    assert(!offers(started(s, ["./main", "rapidkoi://localhost:18823"])));
+    done(s, dir);
+    let t = folder("no-upgrade-offline");
+    let away = site(18824, "1.0.0");
+    kept_by_hand(t, away, 18824);
+    assert(!offers(started(t, ["./main", "rapidkoi://localhost:18824"])));
+    done(t, away);
+}
+
+@test
+fun every_window_of_the_app_on_the_old_version_offers_it() {
+    let s = folder("upgrade-both");
+    let dir = site(18825, "1.0.0");
+    served(dir, 18825);
+    started(s, ["./main", "rapidkoi://localhost:18825"]);
+    let opened = started(s, ["./main", "rapidkoi://localhost:18825"]);
+    // A second window, then 2.0.0 published, then a check from the first.
+    let two = step(opened, Msg.NewInstance);
+    republish(dir, 18825, "2.0.0");
+    let checked = step(two, Msg.CheckForUpdates(0));
+    let offered = checked.tabs.filter(
+        fun(t) = t.page.cached.and_then(fun(c: Cached) = c.newer) == Some("2.0.0"),
+    );
+    assert_eq(offered.len, 2);
+    done(s, dir);
+}
+
+@test
+fun an_open_app_is_checked_while_it_stays_open() {
+    let s = folder("periodic");
+    let dir = site(18826, "1.0.0");
+    served(dir, 18826);
+    // Opened from the site: nothing to check yet.
+    let m = started(s, ["./main", "rapidkoi://localhost:18826"]);
+    republish(dir, 18826, "2.0.0");
+    let checked = step(m, Msg.CheckForUpdates(0));
+    assert_eq(newer(checked), Some("2.0.0"));
+    assert(offers(checked));
+    done(s, dir);
+}
+
+@test
+fun a_withdrawn_window_offers_the_newer_version_kept() {
+    let s = folder("withdrawn-upgrade");
+    let dir = site(18827, "1.0.0");
+    served(dir, 18827);
+    started(s, ["./main", "rapidkoi://localhost:18827"]);
+    republish(dir, 18827, "2.0.0");
+    withdraw_version(dir, "1.0.0", "it lost data").unwrap();
+    let m = started(s, ["./main", "rapidkoi://localhost:18827"]);
+    assert(shows(m, "Counting 1.0.0 was withdrawn: it lost data"));
+    assert(offers(m));
+    assert_eq(version(step(m, Msg.Reload)), "2.0.0");
+    done(s, dir);
+}

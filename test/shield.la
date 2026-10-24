@@ -142,7 +142,7 @@ fun checked_words_say_how_long_ago_or_since_when() {
     // 18 October 2026, 09:00 UTC.
     let at = 1_792_314_000_000;
     let seen = fun(checked: i64, reached: bool, now: i64) = checked_words(
-        Cached { checked: checked, reached: reached, size: 0 },
+        Cached { checked: checked, reached: reached, size: 0, newer: None },
         now,
     );
     assert_eq(seen(at, true, at + 20_000), "Checked just now");

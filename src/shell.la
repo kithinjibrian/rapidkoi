@@ -18,7 +18,7 @@ import data.queries;
 import data.databases;
 import data.kept;
 import sqlite;
-import guest.limits { SQLITE_HEAP };
+import guest.limits { SQLITE_HEAP, CHECK_EVERY_MS };
 import people.account { on_account, forget_account };
 import people.access { on_access, looked, news, set_permission };
 import people.people { with_looks };
@@ -111,16 +111,30 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
 
 /**
  * What the window listens to: the loading tick (120 ms) while some tab is
- * loading in the background, and nothing otherwise.
+ * loading in the background, and, while a kept app is in front, a check
+ * against its site every `CHECK_EVERY_MS` (PRP-044).
  *
  * Example:
  *     App { subscriptions: subscriptions, … }
  */
-public fun subscriptions(m: Model): Sub<Msg> = if m.tabs.any(fun(t: Tab) = is_loading(t.page)) {
-    Sub.every(120, Msg.Tick)
-} else {
-    Sub.none()
-};
+public fun subscriptions(m: Model): Sub<Msg> {
+    let mut subs: Sub<Msg>[] = [];
+    if m.tabs.any(fun(t: Tab) = is_loading(t.page)) {
+        subs.push(Sub.every(120, Msg.Tick));
+    }
+    let in_front = match window.page_of(m) {
+        App(p) => p.cached.is_some(),
+        Home => false,
+    };
+    if in_front {
+        subs.push(Sub.every(CHECK_EVERY_MS, Msg.CheckForUpdates));
+    }
+    match subs.len {
+        0 => Sub.none(),
+        1 => subs[0],
+        _ => Sub.batch(subs),
+    }
+}
 
 /**
  * Handles one message from the window, then saves whatever it changed
@@ -325,6 +339,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     SeparateApp => navigate.separate_app(m),
     Fetched(id, number, f) => loads.arrive(m, id, number, f),
     Refreshed(id, build, r) => (loads.refreshed(m, id, build, r), Cmd.none()),
+    CheckForUpdates(_) => (m, loads.check_current(m)),
     Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
     Queried(id, load, msg, got) => (queries.arrive(m, id, load, msg, got), Cmd.none()),
     DataSized(id, n) => (

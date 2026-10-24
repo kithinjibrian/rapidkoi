@@ -47,10 +47,10 @@ public struct Keeping {
 public enum Refreshed {
     /**
      * The site was reached and its current build checked: the trust to
-     * record, the snapshot it was checked against, whether that build was
-     * newer and is now kept, and why the running version was withdrawn, if it was.
+     * record, the snapshot it was checked against, the version of a newer
+     * build now kept (PRP-044), and why the running version was withdrawn, if it was.
      */
-    Checked(Record, Identity[], bool, Option<string>),
+    Checked(Record, Identity[], Option<string>, Option<string>),
     /** The site lists no version that may run, so the copy is gone; why the running version was withdrawn, if it was. */
     Gone(Option<string>),
     /** The site couldn't be reached: offline, most likely. */
@@ -143,7 +143,8 @@ public fun refresh(
             }
             // A failed write only means the next open checks again.
             write_meta(k, Meta { checked: src.checked, ..meta }).unwrap_or(());
-            Refreshed.Checked(r, known, newer, withdrawn)
+            let fresher = if newer { Some(v.opened.bundle.manifest.version) } else { None };
+            Refreshed.Checked(r, known, fresher, withdrawn)
         }
         // Not reached (offline, a lookup, a timeout): nothing changes.
         Err(Fetch(_, why)) if !why.starts_with("the server answered") => Refreshed.Unreachable,
