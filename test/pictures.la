@@ -1,0 +1,115 @@
+// Pictures in a screen (PRP-047), pure: the `image` node read and checked,
+// and the sources a screen names.
+
+import rapidkoi.guest.tree { read_tree };
+import rapidkoi.guest.pictures { sources };
+import rapidkoi.guest.nodes { Node, Picture, Fitting, Shown, Colour, ContractError };
+import rapidkoi.guest.limits { MAX_PICTURES };
+import cbor { Value, encode };
+import support { t, kv, leaf, parent };
+
+fun read(v: Value): Result<Node, ContractError> = read_tree(encode(v)).map(fun(d) = d.root);
+
+fun why(v: Value): string = match read_tree(encode(v)) {
+    Err(Invalid(path, problem)) => "{path}: {problem}",
+    Err(_) => "another error",
+    Ok(_) => "ok",
+};
+
+fun picture(v: Value): Picture = match read(v).unwrap() {
+    Pictured(p, _) => p,
+    _ => panic("expected a picture"),
+};
+
+fun image(props: (string, Value)[]): Value = leaf("image", props);
+
+@test
+fun an_image_reads_every_prop() {
+    let p = picture(
+        image([
+            ("src", t("asset:icons/trash.svg")),
+            ("fit", t("cover")),
+            ("color", t("text_dim")),
+            ("label", t("Delete")),
+            ("on_load", t("Loaded")),
+            ("on_fail", t("Failed")),
+            ("style", kv([("width", Value.int(24))])),
+        ]),
+    );
+    assert_eq(p.source, "asset:icons/trash.svg");
+    assert_eq(p.fit == Fitting.Cover, true);
+    assert_eq(p.colour == Some(Colour.Named("text_dim")), true);
+    assert_eq(p.label, Some("Delete"));
+    assert_eq(p.on_load, Some(t("Loaded")));
+    assert_eq(p.on_fail, Some(t("Failed")));
+    assert_eq(p.shown == Shown.Waiting, true);
+    match read(image([("src", t("asset:a.png")), ("style", kv([("width", Value.int(24))]))])).unwrap() {
+        Pictured(_, look) => assert_eq(look.width, Some(24)),
+        _ => panic("expected a picture"),
+    }
+}
+
+@test
+fun an_image_s_defaults() {
+    let p = picture(image([("src", t("https://notes.dafifi.net/files/7.jpg"))]));
+    assert_eq(p.fit == Fitting.Contain, true);
+    assert_eq(p.colour.is_none(), true);
+    assert_eq(p.label, None);
+    assert_eq(p.on_load, None);
+    assert_eq(p.on_fail, None);
+}
+
+@test
+fun a_bad_source_stops_the_app() {
+    let problem = "src must be asset:NAME or an http(s) address of at most 2048 bytes";
+    assert_eq(why(image([])), "root > image: {problem}");
+    for bad of ["", "trash.svg", "asset:", "asset:../x.png", "asset:Big.png", "ftp://x.com/a.png", "file:///etc/passwd"] {
+        assert_eq(why(image([("src", t(bad))])), "root > image: {problem}");
+    }
+    let mut long = "https://a.com/";
+    while long.len <= 2048 {
+        long = long + "x";
+    }
+    assert_eq(why(image([("src", t(long))])), "root > image: {problem}");
+    assert_eq(why(image([("src", Value.int(3))])), "root > image: {problem}");
+}
+
+@test
+fun bad_props_stop_the_app() {
+    let src = ("src", t("asset:a.svg"));
+    assert_eq(why(image([src, ("fit", t("fill"))])), "root > image: fit must be contain or cover");
+    assert_eq(why(image([src, ("label", t(""))])), "root > image: label must be text of 1 to 200 bytes");
+    assert_eq(
+        why(image([("src", t("https://a.com/x.png")), ("color", t("accent"))])),
+        "root > image: color only goes on a picture from the app's bundle",
+    );
+    assert_eq(why(image([src, ("color", t("pink"))])).contains("color must be one of Rapidkoi's colours"), true);
+    assert_eq(
+        why(parent("image", [src], [leaf("text", [("text", t("x"))])])),
+        "root > image: an image has no children",
+    );
+}
+
+@test
+fun a_screen_s_sources_in_order_each_once() {
+    let a = image([("src", t("asset:a.svg"))]);
+    let b = image([("src", t("https://a.com/b.png"))]);
+    let root = read(parent("box", [], [a, b, a, parent("box", [], [b])])).unwrap();
+    assert_eq(sources(root), ["asset:a.svg", "https://a.com/b.png"]);
+}
+
+@test
+fun at_most_256_pictures_a_screen() {
+    let mut kids: Value[] = [];
+    for i in 0..MAX_PICTURES {
+        kids.push(image([("src", t("https://a.com/{i}.png"))]));
+    }
+    // The same source again is still one picture.
+    kids.push(image([("src", t("https://a.com/0.png"))]));
+    assert_eq(why(parent("box", [], kids)), "ok");
+    kids.push(image([("src", t("https://a.com/new.png"))]));
+    assert_eq(
+        why(parent("box", [], kids)),
+        "root > box > image[{MAX_PICTURES + 1}]: more than {MAX_PICTURES} pictures",
+    );
+}

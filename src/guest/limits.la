@@ -73,6 +73,27 @@ const FETCH_TIMEOUT_MS: i64 = 30_000;
 /** The largest image any asset or picture may declare, in pixels per side (kivuli's own cap, DECISION-058). */
 const MAX_IMAGE_PX: i64 = 4096;
 
+/** The longest label a typing box or picture may have, in bytes (DECISION-056). */
+const MAX_LABEL: i64 = 200;
+
+/** The most pictures one screen may name, by distinct source (PRP-047). */
+const MAX_PICTURES: i64 = 256;
+
+/** The longest picture source, `asset:NAME` or an address, in bytes (PRP-047). */
+const MAX_SOURCE: i64 = 2048;
+
+/** The largest picture downloaded from a server, in bytes (PRP-047). */
+const MAX_PICTURE: i64 = 10 * 1024 * 1024;
+
+/** How long downloading one picture may take, in milliseconds (PRP-047). */
+const PICTURE_TIMEOUT_MS: i64 = 30_000;
+
+/** The most pictures one window downloads at once (PRP-047). */
+const MAX_DOWNLOADS: i64 = 6;
+
+/** The most decoded picture memory a window keeps, width × height × 4 bytes each (PRP-047). */
+const MAX_DECODED: i64 = 256 * 1024 * 1024;
+
 /** The most pixels a picture may declare (PRP-047): 4,096 × 4,096 until kivuli shows more (DECISION-058). */
 const MAX_IMAGE_PIXELS: i64 = 4096 * 4096;
 

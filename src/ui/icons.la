@@ -36,6 +36,8 @@ enum Icon {
     Upgrade,
     /** `dot.svg`: a filled circle, the upgrade's red dot (PRP-044). */
     Dot,
+    /** `gallery-slash.svg`: a picture an app named that can't be shown (PRP-047). */
+    BrokenPicture,
 }
 
 /** Every icon, for tests and for listing. */
@@ -52,6 +54,7 @@ const ALL: Icon[] = [
     Icon.More,
     Icon.Upgrade,
     Icon.Dot,
+    Icon.BrokenPicture,
 ];
 
 /**
@@ -74,6 +77,7 @@ fun file(i: Icon): string = match i {
     More => "3-dots-more.svg",
     Upgrade => "refresh-arrow.svg",
     Dot => "dot.svg",
+    BrokenPicture => "gallery-slash.svg",
 };
 
 /**
@@ -96,6 +100,7 @@ fun svg(i: Icon): string = match i {
     More => include_str("../../assets/icons/3-dots-more.svg"),
     Upgrade => include_str("../../assets/icons/refresh-arrow.svg"),
     Dot => include_str("../../assets/icons/dot.svg"),
+    BrokenPicture => include_str("../../assets/icons/gallery-slash.svg"),
 };
 
 /**

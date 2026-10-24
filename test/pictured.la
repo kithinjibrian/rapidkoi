@@ -1,0 +1,82 @@
+// Drawing a picture (PRP-047), pure: waiting, shown, recoloured, broken.
+
+import rapidkoi.ui.pictured { picture_view, svg_colour };
+import rapidkoi.ui.schemes { DARK };
+import rapidkoi.ui.paint { AS_STYLED, Own };
+import rapidkoi.guest.nodes { Picture, Fitting, Shown, Colour };
+import rapidkoi.guest.styles { plain };
+import kivuli { View, Image };
+import kivuli.testing { texts };
+
+fun picture(source: string, shown: Shown, colour: Option<Colour>): Picture = Picture {
+    source: source,
+    fit: Fitting.Contain,
+    colour: colour,
+    label: Some("Photo"),
+    on_load: None,
+    on_fail: None,
+    shown: shown,
+};
+
+/** The picture a view draws, under its modifiers. */
+fun drawn(v: View<i64>): Option<Image> = match v {
+    Styled(inner, _) => drawn(inner),
+    Image(img) => Some(img),
+    _ => None,
+};
+
+fun view(p: Picture): View<i64> = picture_view(p, plain(), DARK, AS_STYLED);
+
+@test
+fun a_picture_still_loading_is_an_empty_box() {
+    let v = view(picture("https://a.com/x.png", Shown.Waiting, None));
+    assert_eq(drawn(v).is_none(), true);
+    assert_eq(texts(v).len, 0);
+}
+
+@test
+fun a_ready_picture_is_drawn_from_its_bytes_keyed_by_its_source() {
+    let bytes: u8[] = [0x89, 0x50, 0x4e, 0x47];
+    match drawn(view(picture("https://a.com/x.png", Shown.Ready(bytes), None))) {
+        Some(Bytes(key, b)) => {
+            assert_eq(key, "https://a.com/x.png");
+            assert_eq(b, bytes);
+        }
+        _ => panic("expected a picture from bytes"),
+    }
+}
+
+@test
+fun a_bundle_svg_is_drawn_in_its_colour() {
+    let svg = "<svg><path fill=\"currentColor\" stroke=\"currentColor\"/></svg>".to_bytes();
+    let accent = svg_colour(Colour.Named("accent"), DARK, AS_STYLED);
+    match drawn(view(picture("asset:a.svg", Shown.Ready(svg), Some(Colour.Named("accent"))))) {
+        Some(Bytes(key, b)) => {
+            assert_eq(key, "asset:a.svg:{accent}");
+            assert_eq(
+                string_from_utf8(b).unwrap(),
+                "<svg><path fill=\"{accent}\" stroke=\"{accent}\"/></svg>",
+            );
+        }
+        _ => panic("expected a picture from bytes"),
+    }
+}
+
+@test
+fun an_svg_colour_is_hex_or_rgba_and_follows_use_my_colours() {
+    assert_eq(svg_colour(Colour.Raw(255, 119, 0, 255), DARK, AS_STYLED), "#ff7700");
+    assert_eq(svg_colour(Colour.Raw(255, 119, 0, 128), DARK, AS_STYLED), "rgba(255,119,0,0.502)");
+    let mine = Own { colours: true, text_size: false };
+    assert_eq(
+        svg_colour(Colour.Raw(255, 119, 0, 255), DARK, mine),
+        svg_colour(Colour.Named("text"), DARK, AS_STYLED),
+    );
+}
+
+@test
+fun a_broken_picture_shows_the_mark() {
+    match drawn(view(picture("https://a.com/x.png", Shown.Broken, None))) {
+        Some(Bytes(key, _)) => assert(key.starts_with("icon:gallery-slash.svg:")),
+        _ => panic("expected the mark"),
+    }
+}
