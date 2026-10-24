@@ -1,0 +1,275 @@
+/**
+ * The kept copy of each signed app (PRP-043): its site's `key` and `index`
+ * as last fetched, the one build that index names, and `meta` (when it was
+ * last checked and opened, and an update to announce). Nothing here
+ * trusts what's on disk: `files` serves the copy to `verify.check_site_at`,
+ * which checks it exactly as it checks a site. Each app's folder is
+ * `kept/<sha256 of its host>`, so no host becomes a path. Touches the
+ * disk: run it in a task.
+ *
+ * Depends on: std.fs, std.crypto, cbor, data.store, trust.keys, trust.verify, guest.limits
+ * Used by: net.keeping, shell
+ */
+import std.fs;
+import std.crypto { sha256 };
+import cbor { Value, Entry, Limits, decode, encode };
+import data.store { Store, store_at, save, reason as store_reason };
+import trust.keys { hex };
+import trust.verify { SITE };
+import guest.limits { MAX_BUNDLE };
+
+/** One app's kept copy: its folder. */
+public struct Kept {
+    /** `kept/<sha256 of the host>` in the data folder. */
+    public dir: string,
+}
+
+/** What's known about a kept copy beyond its files. */
+public struct Meta {
+    /** When its site was last reached and checked, in milliseconds since 1970. */
+    public checked: i64,
+    /** When it was last opened: eviction goes oldest first. */
+    public opened: i64,
+    /** A version kept since it last opened, to announce on the next open. */
+    public updated: Option<string>,
+}
+
+/** Why a kept copy couldn't be written or removed. */
+public enum KeptError {
+    /** A file system failure: the path, the system's message. */
+    Io(string, string),
+}
+
+/** The largest `meta` file read back. */
+const MAX_META: i64 = 4096;
+
+/**
+ * Returns the kept copy for a host (`notes.dafifi.net`, `localhost:8000`).
+ * Touches nothing.
+ *
+ * Example:
+ *     kept_for(store, "notes.dafifi.net")
+ */
+public fun kept_for(s: Store, host: string): Kept = Kept {
+    dir: "{s.dir}/kept/{hex(sha256("host\n{host}".to_bytes()))}",
+};
+
+/**
+ * Says whether there's a copy to check: its index is there.
+ *
+ * Example:
+ *     if has(k) { … }
+ */
+public fun has(k: Kept): bool = fs.is_file("{k.dir}/index");
+
+/**
+ * Returns a `get` over the kept files, for `verify.check_site_at`: the key,
+ * the index and builds by their 64-digit name, as a site serves them, and
+ * a 404 for anything else or anything missing.
+ *
+ * Example:
+ *     check_site_at(known, host, files(k), None)
+ */
+public fun files(k: Kept): fun(string): Result<(i64, u8[]), string> = fun(path: string) {
+    let name = match file_of(path) {
+        Some(n) => n,
+        None => {
+            return Ok((404, []));
+        }
+    };
+    let file = "{k.dir}/{name}";
+    if !fs.is_file(file) {
+        return Ok((404, []));
+    }
+    let bytes = read_bytes(file)?;
+    // A site's answer is bounded; so is the copy of it.
+    if bytes.len > MAX_BUNDLE {
+        return Err("the kept {name} is too large");
+    }
+    Ok((200, bytes))
+};
+
+/**
+ * Keeps a site's files: the build first, then the index naming it, then
+ * the key, each written safely, so a half-written copy fails its check.
+ * Any other build is removed: one per app.
+ *
+ * @returns `Ok(())`; or which file couldn't be written, and why
+ *
+ * Example:
+ *     keep(k, key, index, build)?
+ */
+public fun keep(k: Kept, key: u8[], index: u8[], build: u8[]): Result<(), KeptError> {
+    let at = store_at(k.dir);
+    let name = "{hex(sha256(build))}.rkb";
+    for (file, bytes) of [(name, build), ("index", index), ("key", key)] {
+        save(at, file, bytes).map_err(fun(e) = KeptError.Io("{k.dir}/{file}", store_reason(e)))?;
+    }
+    for other of fs.list_dir(k.dir).map_err(fun(e: string) = KeptError.Io(k.dir, e))? {
+        if other.ends_with(".rkb") && other != name {
+            let old = "{k.dir}/{other}";
+            fs.remove_file(old).map_err(fun(e: string) = KeptError.Io(old, e))?;
+        }
+    }
+    Ok(())
+}
+
+/**
+ * Reads a kept copy's meta: `None` when there's none, or it can't be read.
+ *
+ * Example:
+ *     read_meta(k).map(fun(m: Meta) = m.checked)
+ */
+public fun read_meta(k: Kept): Option<Meta> {
+    let file = "{k.dir}/meta";
+    if !fs.is_file(file) {
+        return None;
+    }
+    let bytes = read_bytes(file).ok()?;
+    let bounds = Limits { max_depth: 2, max_items: 16, max_bytes: MAX_META, max_string: MAX_META };
+    let v = decode(bytes, bounds).ok()?;
+    if v.get("kind").and_then(fun(x: Value) = x.as_text()) != Some("rapidkoi kept") {
+        return None;
+    }
+    let number = fun(name: string) = v.get(name).and_then(fun(x: Value) = x.as_i64()).unwrap_or(0);
+    Some(Meta {
+        checked: number("checked"),
+        opened: number("opened"),
+        updated: v.get("updated").and_then(fun(x: Value) = x.as_text()),
+    })
+}
+
+/**
+ * Writes a kept copy's meta, safely.
+ *
+ * Example:
+ *     write_meta(k, Meta { opened: now, ..m })?
+ */
+public fun write_meta(k: Kept, m: Meta): Result<(), KeptError> {
+    let mut entries = [
+        entry("format", Value.int(1)),
+        entry("kind", Value.Text("rapidkoi kept")),
+        entry("checked", Value.int(m.checked)),
+        entry("opened", Value.int(m.opened)),
+    ];
+    if let Some(v) = m.updated {
+        entries.push(entry("updated", Value.Text(v)));
+    }
+    save(store_at(k.dir), "meta", encode(Value.Map(entries))).map_err(
+        fun(e) = KeptError.Io("{k.dir}/meta", store_reason(e)),
+    )
+}
+
+/**
+ * Returns how many bytes a kept copy takes: 0 when there's none.
+ *
+ * Example:
+ *     size_of(k)
+ */
+public fun size_of(k: Kept): i64 {
+    let names = match fs.list_dir(k.dir) {
+        Ok(n) => n,
+        Err(_) => {
+            return 0;
+        }
+    };
+    let mut total = 0;
+    for name of names {
+        // `meta` is Rapidkoi's own note, not the app.
+        if name != "meta" {
+            total += read_bytes("{k.dir}/{name}").map(fun(b: u8[]) = b.len).unwrap_or(0);
+        }
+    }
+    total
+}
+
+/**
+ * Removes a kept copy, folder and all. Nothing there is nothing to do.
+ *
+ * Example:
+ *     remove(kept_for(store, host))?
+ */
+public fun remove(k: Kept): Result<(), KeptError> {
+    if !fs.is_dir(k.dir) {
+        return Ok(());
+    }
+    for name of fs.list_dir(k.dir).map_err(fun(e: string) = KeptError.Io(k.dir, e))? {
+        let file = "{k.dir}/{name}";
+        fs.remove_file(file).map_err(fun(e: string) = KeptError.Io(file, e))?;
+    }
+    fs.remove_dir(k.dir).map_err(fun(e: string) = KeptError.Io(k.dir, e))?;
+    Ok(())
+}
+
+/**
+ * Removes kept copies while all of them together are over `limit`: the
+ * least recently opened first, never one for a host in `pinned`, which
+ * stay even if they alone are over it.
+ *
+ * @param pinned the hosts of pinned apps
+ * @returns how many were removed; or the first that couldn't be
+ *
+ * Example:
+ *     evict(store, ["notes.dafifi.net"], KEPT_BYTES)?
+ */
+public fun evict(s: Store, pinned: string[], limit: i64): Result<i64, KeptError> {
+    let root = "{s.dir}/kept";
+    if !fs.is_dir(root) {
+        return Ok(0);
+    }
+    let held = pinned.map(fun(h: string) = kept_for(s, h).dir);
+    let mut all: (i64, Kept, i64)[] = [];
+    let mut total = 0;
+    for name of fs.list_dir(root).map_err(fun(e: string) = KeptError.Io(root, e))? {
+        let k = Kept { dir: "{root}/{name}" };
+        let size = size_of(k);
+        total += size;
+        if !held.any(fun(d: string) = d == k.dir) {
+            all.push((read_meta(k).map(fun(m: Meta) = m.opened).unwrap_or(0), k, size));
+        }
+    }
+    let mut removed = 0;
+    for (_, k, size) of all.sort_by(fun(a, b) = a.0 < b.0) {
+        if total <= limit {
+            break;
+        }
+        remove(k)?;
+        total -= size;
+        removed += 1;
+    }
+    Ok(removed)
+}
+
+/**
+ * Returns a plain sentence for a kept-copy error.
+ *
+ * Example:
+ *     reason(e)
+ */
+public fun reason(e: KeptError): string = match e {
+    Io(path, why) => "{path}: {why}",
+};
+
+/** The kept file a site path names: `key`, `index`, or a build by its 64 lowercase hex digits. */
+fun file_of(path: string): Option<string> {
+    if path == "{SITE}/key" {
+        return Some("key");
+    }
+    if path == "{SITE}/index" {
+        return Some("index");
+    }
+    let start = "{SITE}/builds/";
+    if !path.starts_with(start) || !path.ends_with(".rkb") {
+        return None;
+    }
+    let digits = path.slice(start.len, path.len - 4);
+    // Only a hash names a file: nothing else from the path reaches the disk.
+    if digits.len != 64 || !digits.to_bytes().all(
+        fun(c: u8) = c >= 48 && c <= 57 || c >= 97 && c <= 102,
+    ) {
+        return None;
+    }
+    Some("{digits}.rkb")
+}
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };

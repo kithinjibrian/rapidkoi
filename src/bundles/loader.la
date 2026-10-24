@@ -150,7 +150,7 @@ public fun from_fetched(
     ring: Keyring,
     f: Fetched,
 ): Result<Loaded, Refusal> = match f {
-    Signed(v, r, _) => {
+    Signed(v, r, _, _) => {
         record(ring, r);
         from_opened(engine, v.trust.host, v.opened, Some(v.trust), Origin.External)
     }
@@ -167,7 +167,7 @@ public fun from_fetched(
  *     if current(ring, fetched) { from_fetched(…) } else { … }
  */
 public fun current(ring: Keyring, f: Fetched): bool = match f {
-    Signed(v, _, known) => known_for(ring, v.trust.host) == known,
+    Signed(v, _, known, _) => known_for(ring, v.trust.host) == known,
     _ => true,
 };
 

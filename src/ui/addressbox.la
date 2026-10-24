@@ -109,7 +109,7 @@ public fun field(m: Model): View<Msg> {
             ui_popover(
                 shield_button,
                 m.shield.is_some(),
-                card(t, p, m.shield.unwrap_or(ShieldPage.Main)),
+                card(t, p, m.shield.unwrap_or(ShieldPage.Main), m.now),
                 Msg.Shield(None),
             ),
         );

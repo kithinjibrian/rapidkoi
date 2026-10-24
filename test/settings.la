@@ -5,7 +5,7 @@ import rapidkoi.shell { Model, with_pages, update };
 import rapidkoi.ui.settings;
 import rapidkoi.ui.addressbox;
 import rapidkoi.window.actions { Msg, PanelPage, ShieldPage, Confirm, NameScope, NamePart };
-import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.window.tabs { AppPage, Cached, open_module };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.bundles.bundle { Manifest };
 import kivuli { View };
@@ -134,6 +134,18 @@ fun data_offers_to_clear_after_asking() {
     // The size once read in a task.
     let sized = step(step(window(signed()), Msg.TogglePanel), Msg.DataSized(0, 12 * 1024));
     assert(shows(card(sized, PanelPage.State), "12 KB"));
+}
+
+@test
+fun data_shows_the_kept_app_beside_its_data() {
+    // PRP-043: a signed app's kept copy takes room too.
+    let kept = AppPage {
+        cached: Some(Cached { checked: 0, reached: true, size: 70 * 1024 }),
+        ..signed(),
+    };
+    let v = card(window(kept), PanelPage.State);
+    assert((shows(v, "App"), shows(v, "70 KB")) == (true, true));
+    assert(!shows(card(window(signed()), PanelPage.State), "App"));
 }
 
 @test

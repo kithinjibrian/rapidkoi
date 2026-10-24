@@ -62,7 +62,7 @@ fun a_signed_site_comes_back_checked_with_what_to_record() {
     let snapshot: Identity[] = [];
     let f = fetch_app(at(18761), snapshot, Network { ca_file: None, hosts: [] }, 5000);
     match f {
-        Signed(v, _, known) => {
+        Signed(v, _, known, _) => {
             assert_eq(v.opened.bundle.manifest.name, "Notes");
             assert_eq(v.trust.host, "localhost:18761");
             assert_eq(known.len, 0);
@@ -179,7 +179,7 @@ fun a_signed_site_over_tls_opens() {
     let dir = tls_site(18781, "localhost");
     let f = fetch_app(secure(18781), [], trusting(), 5000);
     match f {
-        Signed(v, _, _) => assert_eq(v.trust.host, "localhost:18781"),
+        Signed(v, _, _, _) => assert_eq(v.trust.host, "localhost:18781"),
         _ => panic("expected a signed site, got {refusal(f)}"),
     }
     done(dir);

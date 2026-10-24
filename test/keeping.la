@@ -1,0 +1,277 @@
+// Opening signed apps from their kept copies (PRP-043), through the window
+// with no display: sites published into test/tmp/ and served on local
+// sockets, one port per test; a port nothing serves stands in for offline.
+import rapidkoi.shell { Model, start, update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.tabs { AppPage, Cached };
+import rapidkoi.data.store { Store, store_at };
+import rapidkoi.data.kept { kept_for, keep, has, read_meta, Meta };
+import rapidkoi.commands.publish { make_key, publish_site, withdraw_version };
+import rapidkoi.commands.serve { handle };
+import kivuli.testing { click, texts };
+import std.http { Request };
+import std.env;
+import std.fs;
+import std.task { sleep };
+import support { settle, write_counting };
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun folder(name: string): Store {
+    let dir = "test/tmp/keeping-{name}";
+    clean(dir);
+    store_at(dir)
+}
+
+/** A window on `s`, with every background task run to its end. */
+fun started(s: Store, argv: string[]): Model {
+    let (m, cmd) = start(argv, Some(s));
+    settle(m, cmd, update)
+}
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, cmd) = update(m, msg);
+    settle(next, cmd, update)
+}
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+fun page(m: Model): AppPage = m.tabs[m.tabs.len - 1].page;
+
+fun version(m: Model): string = page(m).manifest.map(fun(x) = x.version).unwrap_or("none");
+
+/** A site for localhost:PORT with the counting fixture at `v`, published (not served). */
+fun site(port: i64, v: string): string {
+    let dir = "{env.current_dir().unwrap()}/test/tmp/keeping-site-{port}";
+    clean(dir);
+    clean("{dir}.key");
+    fs.make_dirs(dir).unwrap();
+    write_counting("{dir}/m.wasm");
+    make_key_for(dir, port, v);
+    dir
+}
+
+fun make_key_for(dir: string, port: i64, v: string) {
+    toml(dir, port, v);
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+}
+
+fun toml(dir: string, port: i64, v: string) {
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Counting\"\nversion = \"{v}\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+    ).unwrap();
+}
+
+/** Publishes version `v` of the site in `dir`. */
+fun republish(dir: string, port: i64, v: string) {
+    toml(dir, port, v);
+    publish_site(dir).unwrap();
+}
+
+/** Serves the site in `dir` on PORT. */
+fun served(dir: string, port: i64) {
+    spawn http.serve("127.0.0.1:{port}", fun(r: Request) = handle("{dir}/site", port, r));
+    sleep(100);
+}
+
+/** Keeps a published site's files for its host, as if it had been opened before. */
+fun kept_by_hand(s: Store, dir: string, port: i64) {
+    let root = "{dir}/site/.well-known/rapidkoi";
+    let builds = fs.list_dir("{root}/builds").unwrap();
+    keep(
+        kept_for(s, "localhost:{port}"),
+        read_bytes("{root}/key").unwrap(),
+        read_bytes("{root}/index").unwrap(),
+        read_bytes("{root}/builds/{builds[builds.len - 1]}").unwrap(),
+    ).unwrap();
+}
+
+fun done(s: Store, dir: string) {
+    clean(s.dir);
+    clean(dir);
+    clean("{dir}.key");
+}
+
+fun reached(m: Model): Option<bool> = page(m).cached.map(fun(c: Cached) = c.reached);
+
+@test
+fun offline_a_kept_app_opens_and_says_it_wasnt_checked() {
+    let s = folder("offline");
+    let dir = site(18811, "1.0.0");
+    kept_by_hand(s, dir, 18811);
+    // Nothing serves 18811.
+    let m = started(s, ["./main", "rapidkoi://localhost:18811"]);
+    assert(shows(m, "Count: 0"));
+    assert_eq(reached(m), Some(false));
+    done(s, dir);
+}
+
+@test
+fun the_first_open_keeps_it_and_the_next_opens_from_it() {
+    let s = folder("first");
+    let dir = site(18812, "1.0.0");
+    served(dir, 18812);
+    let first = started(s, ["./main", "rapidkoi://localhost:18812"]);
+    assert((shows(first, "Count: 0"), has(kept_for(s, "localhost:18812"))) == (true, true));
+    let again = started(s, ["./main", "rapidkoi://localhost:18812"]);
+    assert(shows(again, "Count: 0"));
+    // Opened from the copy, then checked against the live site.
+    assert_eq(reached(again), Some(true));
+    done(s, dir);
+}
+
+@test
+fun a_newer_version_is_used_from_the_next_open_with_a_notice() {
+    let s = folder("newer");
+    let dir = site(18813, "1.0.0");
+    served(dir, 18813);
+    started(s, ["./main", "rapidkoi://localhost:18813"]);
+    republish(dir, 18813, "2.0.0");
+    // This open runs the kept 1.0.0; its check keeps 2.0.0 for next time.
+    let second = started(s, ["./main", "rapidkoi://localhost:18813"]);
+    assert_eq(version(second), "1.0.0");
+    assert_eq(
+        read_meta(kept_for(s, "localhost:18813")).and_then(fun(x: Meta) = x.updated),
+        Some("2.0.0"),
+    );
+    let third = started(s, ["./main", "rapidkoi://localhost:18813"]);
+    assert_eq(version(third), "2.0.0");
+    assert_eq(third.notice, Some("Counting updated to 2.0.0"));
+    // Announced once.
+    assert_eq(started(s, ["./main", "rapidkoi://localhost:18813"]).notice, None);
+    done(s, dir);
+}
+
+@test
+fun a_withdrawn_running_version_stops_its_window_and_reload_opens_the_newest() {
+    let s = folder("withdrawn");
+    let dir = site(18814, "1.0.0");
+    served(dir, 18814);
+    started(s, ["./main", "rapidkoi://localhost:18814"]);
+    republish(dir, 18814, "2.0.0");
+    withdraw_version(dir, "1.0.0", "it lost data").unwrap();
+    let m = started(s, ["./main", "rapidkoi://localhost:18814"]);
+    assert(!shows(m, "Count: 0"));
+    assert(shows(m, "Counting 1.0.0 was withdrawn: it lost data"));
+    let reloaded = step(m, Msg.Reload);
+    assert((shows(reloaded, "Count: 0"), version(reloaded)) == (true, "2.0.0"));
+    done(s, dir);
+}
+
+@test
+fun with_every_version_withdrawn_the_copy_goes() {
+    let s = folder("gone");
+    let dir = site(18815, "1.0.0");
+    served(dir, 18815);
+    started(s, ["./main", "rapidkoi://localhost:18815"]);
+    withdraw_version(dir, "1.0.0", "it lost data").unwrap();
+    let m = started(s, ["./main", "rapidkoi://localhost:18815"]);
+    assert(shows(m, "Counting 1.0.0 was withdrawn: it lost data"));
+    assert(!has(kept_for(s, "localhost:18815")));
+    done(s, dir);
+}
+
+@test
+fun reload_goes_to_the_site_first() {
+    let s = folder("reload");
+    let dir = site(18816, "1.0.0");
+    served(dir, 18816);
+    let m = started(s, ["./main", "rapidkoi://localhost:18816"]);
+    republish(dir, 18816, "2.0.0");
+    assert_eq(version(step(m, Msg.Reload)), "2.0.0");
+    done(s, dir);
+}
+
+@test
+fun a_link_to_another_version_runs_it_without_keeping_it() {
+    let s = folder("link");
+    let dir = site(18817, "1.0.0");
+    republish(dir, 18817, "2.0.0");
+    served(dir, 18817);
+    started(s, ["./main", "rapidkoi://localhost:18817"]);
+    let m = started(s, ["./main", "rapidkoi://localhost:18817/@1.0.0"]);
+    assert_eq(version(m), "1.0.0");
+    // The copy is still the current version.
+    assert_eq(version(started(s, ["./main", "rapidkoi://localhost:18817"])), "2.0.0");
+    done(s, dir);
+}
+
+@test
+fun offline_a_link_to_another_version_opens_the_kept_one_with_a_notice() {
+    let s = folder("link-offline");
+    // The site lists 0.9.0 and 1.0.0; only 1.0.0, the current one, is kept.
+    let dir = site(18818, "0.9.0");
+    let builds = "{dir}/site/.well-known/rapidkoi/builds";
+    let before = fs.list_dir(builds).unwrap();
+    republish(dir, 18818, "1.0.0");
+    let current = fs.list_dir(builds).unwrap().filter(
+        fun(n: string) = !before.any(fun(b: string) = b == n),
+    );
+    let root = "{dir}/site/.well-known/rapidkoi";
+    keep(
+        kept_for(s, "localhost:18818"),
+        read_bytes("{root}/key").unwrap(),
+        read_bytes("{root}/index").unwrap(),
+        read_bytes("{builds}/{current[0]}").unwrap(),
+    ).unwrap();
+    let m = started(s, ["./main", "rapidkoi://localhost:18818/@0.9.0"]);
+    assert_eq(version(m), "1.0.0");
+    assert_eq(m.notice, Some("0.9.0 isn't available offline; opened 1.0.0"));
+    done(s, dir);
+}
+
+@test
+fun unsigned_apps_and_files_are_never_kept() {
+    let s = folder("unsigned");
+    write_counting("test/tmp/keeping-file.wasm");
+    let m = started(s, ["./main", "test/tmp/keeping-file.wasm"]);
+    assert(shows(m, "Count: 0"));
+    assert(!fs.exists("{s.dir}/kept"));
+    fs.remove_file("test/tmp/keeping-file.wasm").unwrap();
+    clean(s.dir);
+}
+
+@test
+fun forget_removes_the_kept_copy() {
+    let s = folder("forget");
+    let dir = site(18819, "1.0.0");
+    kept_by_hand(s, dir, 18819);
+    let m = started(s, ["./main", "rapidkoi://localhost:18819"]);
+    step(m, Msg.Forget);
+    assert(!has(kept_for(s, "localhost:18819")));
+    done(s, dir);
+}
+
+@test
+fun restore_opens_from_the_kept_copy() {
+    let s = folder("restore");
+    let dir = site(18820, "1.0.0");
+    kept_by_hand(s, dir, 18820);
+    let m = started(s, ["./main", "rapidkoi://localhost:18820"]);
+    step(m, click(view(m), "Add").unwrap());
+    let restored = step(started(s, ["./main"]), Msg.RestoreSession);
+    assert(shows(restored, "Count: 1"));
+    done(s, dir);
+}
+
+@test
+fun the_data_page_counts_the_kept_app() {
+    let s = folder("size");
+    let dir = site(18821, "1.0.0");
+    kept_by_hand(s, dir, 18821);
+    let m = started(s, ["./main", "rapidkoi://localhost:18821"]);
+    assert(page(m).cached.map(fun(c: Cached) = c.size).unwrap_or(0) > 0);
+    done(s, dir);
+}

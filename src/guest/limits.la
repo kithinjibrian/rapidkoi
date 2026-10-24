@@ -150,3 +150,6 @@ public const QUERY_MS: i64 = 1000;
 
 /** The memory SQLite may use across every app's database. */
 public const SQLITE_HEAP: i64 = 256 * 1024 * 1024;
+
+/** All kept copies of signed apps together, in bytes (PRP-043): past it, the least recently opened unpinned ones go. */
+public const KEPT_BYTES: i64 = 500 * 1024 * 1024;

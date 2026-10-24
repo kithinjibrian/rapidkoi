@@ -5,9 +5,11 @@
  * older load is ignored; one checked against a snapshot of trust that has
  * since changed loads again, once. Trust is recorded and the app compiled
  * only on arrival. `resumed` starts a signed app from its saved state,
- * however it was opened.
+ * however it was opened. A signed app opens from its kept copy first and
+ * is checked against its site after (PRP-043, `net.keeping`); `refreshed`
+ * takes that check.
  *
- * Depends on: kivuli, std.time, std.crypto, window.tabs, window.leftoff, window.window, net.fetching, bundles.loader, trust.verify, data.states, data.remembered, data.store, net.address, window.actions, guest.limits
+ * Depends on: kivuli, std.time, std.crypto, window.tabs, window.leftoff, window.window, net.fetching, net.keeping, bundles.loader, trust.verify, data.states, data.remembered, data.store, net.address, window.actions, guest.limits
  * Used by: window.navigate, shell
  */
 import kivuli { Cmd };
@@ -15,6 +17,7 @@ import std.time;
 import std.crypto { equal };
 import window.tabs {
     AppPage,
+    Cached,
     Pending,
     loading,
     from_loaded,
@@ -27,10 +30,11 @@ import window.tabs {
 import window.restarts { with_saved };
 import window.leftoff { LeftOff };
 import window.window { Model, with_tab, app };
-import net.fetching { Fetched, fetch_app };
+import net.fetching { Fetched, Source };
+import net.keeping { Keeping, Refreshed, open_app, refresh };
 import net.dialing { Network };
 import bundles.loader { Refusal, from_fetched, current };
-import trust.verify { known_for, moves };
+import trust.verify { known_for, moves, record };
 import data.states { saved_state_in, move_state };
 import data.remembered { Recalled };
 import data.store { Store };
@@ -113,8 +117,13 @@ fun begin_at(
     // Plain data for the task: the window's network is always the system's
     // roots alone, except in tests (`window.with_network`).
     let net = m.network;
+    // Kept apps open from their copy first, except on ⟳ (a page kept
+    // while it reloads), which asks the site first (PRP-043).
+    let keep = m.store.map(
+        fun(s: Store) = Keeping { store: s, pinned: pinned_hosts(m), cache_first: kept.len == 0 },
+    );
     let task = Cmd.task(
-        fun(): Fetched = fetch_app(a, known, net, FETCH_TIMEOUT_MS),
+        fun(): Fetched = open_app(a, known, net, FETCH_TIMEOUT_MS, keep),
         fun(f: Fetched) = Msg.Fetched(id, number, f),
     );
     // The tab's instance waits for its app under its name (PRP-033), with
@@ -188,6 +197,10 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
         let gave_up = failed_page(p.path, "Trust for {host} changed while it loaded; try again");
         return (with_tab(m, id, fun(_: AppPage) = gave_up), Cmd.none());
     }
+    let source = match f {
+        Signed(_, _, _, src) if m.store.is_some() => Some(src),
+        _ => None,
+    };
     let (page, notice) = match from_fetched(m.engine, m.ring, f) {
         Ok(l) => {
             // The instance it was loading for, with that instance's state.
@@ -195,14 +208,29 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
                 instance: p.instance,
                 label: p.label,
                 seen: p.seen,
+                cached: source.map(
+                    fun(src: Source) = Cached {
+                        checked: src.checked,
+                        reached: !src.offline,
+                        size: src.size,
+                    },
+                ),
                 ..from_loaded(m.engine, l, p.path, pending.link),
             };
-            // A link's version no longer listed opened the current one (PRP-036).
+            let offline = source.map(fun(src: Source) = src.offline).unwrap_or(false);
+            // A link's version no longer listed opened the current one
+            // (PRP-036); offline, the kept one opened (PRP-043).
             let instead = match (pending.version, fresh.manifest) {
+                (Some(v), Some(mf)) if mf.version != v && offline => Some(
+                    "{v} isn't available offline; opened {mf.version}",
+                ),
                 (Some(v), Some(mf)) if mf.version != v => Some(
                     "This link was made with {fresh.name} {v}; opened {mf.version}",
                 ),
-                _ => None,
+                _ => match source.and_then(fun(src: Source) = src.updated) {
+                    Some(u) => Some("{fresh.name} updated to {u}"),
+                    None => None,
+                },
             };
             for k of pending.kept {
                 close_page(k);
@@ -248,8 +276,107 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
     let left = if ran { None } else { m.left_off };
     (
         Model { left_off: left, notice: notice, ..with_tab(m, id, fun(_: AppPage) = page) },
-        Cmd.none(),
+        check_after(m, id, p.path, page, source),
     )
+}
+
+/**
+ * Takes the check that followed an open from the kept copy (PRP-043):
+ * records the trust it found, notes whether the site was reached, and
+ * stops the window when its running version was withdrawn. A result for
+ * a closed tab, or one now running another build, is dropped.
+ *
+ * @param build the SHA-256 of the build that was running when the check began
+ *
+ * Example:
+ *     refreshed(m, id, build, r)
+ */
+public fun refreshed(m: Model, id: i64, build: u8[], r: Refreshed): Model {
+    let p = match app(m, id) {
+        Some(p) if p.trust.map(fun(t) = equal(t.build, build)).unwrap_or(false) => p,
+        _ => {
+            return m;
+        }
+    };
+    let now = time.now_ms();
+    let noted = fun(reached: bool) = with_tab(
+        m,
+        id,
+        fun(a: AppPage) = AppPage {
+            cached: a.cached.map(
+                fun(c: Cached) = Cached {
+                    checked: if reached { now } else { c.checked },
+                    reached: reached,
+                    ..c,
+                },
+            ),
+            ..a,
+        },
+    );
+    match r {
+        Checked(rec, known, _, withdrawn) => {
+            // Checked against trust that's since changed: the next open records it.
+            if known_for(m.ring, rec.now.host) == known {
+                record(m.ring, rec);
+            }
+            match withdrawn {
+                Some(why) => stopped(m, id, p, why),
+                None => noted(true),
+            }
+        }
+        Gone(withdrawn) => match withdrawn {
+            Some(why) => stopped(m, id, p, why),
+            None => noted(true),
+        },
+        Unreachable => noted(false),
+        Refused => m,
+    }
+}
+
+/** The check that follows an open from the kept copy, when it opened from one and isn't offline. */
+fun check_after(
+    m: Model,
+    id: i64,
+    path: string,
+    page: AppPage,
+    source: Option<Source>,
+): Cmd<Msg> = match (source, m.store, page.trust, page.manifest, parse(path)) {
+    (Some(src), Some(s), Some(t), Some(mf), Ok(a)) if src.kept && !src.offline => {
+        let known = known_for(m.ring, t.host);
+        let net = m.network;
+        let pinned = pinned_hosts(m);
+        let build = t.build;
+        let version = mf.version;
+        Cmd.task(
+            fun(): Refreshed = refresh(a, known, net, FETCH_TIMEOUT_MS, s, pinned, build, version),
+            fun(r: Refreshed) = Msg.Refreshed(id, build, r),
+        )
+    }
+    _ => Cmd.none(),
+};
+
+/** The window, its running version withdrawn: stopped, saying why; ⟳ opens what may run now. */
+fun stopped(m: Model, id: i64, p: AppPage, why: string): Model {
+    let version = p.manifest.map(fun(mf) = mf.version).unwrap_or("");
+    close_page(p);
+    let page = AppPage {
+        instance: p.instance,
+        label: p.label,
+        seen: p.seen,
+        ..refused(Refusal.Failed(p.name, "{p.name} {version} was withdrawn: {why}"), p.path),
+    };
+    with_tab(m, id, fun(_: AppPage) = page)
+}
+
+/** The hosts of pinned apps at addresses: their kept copies are never evicted. */
+fun pinned_hosts(m: Model): string[] {
+    let mut hosts: string[] = [];
+    for pin of m.pinned {
+        if let Ok(a) = parse(pin.path) {
+            hosts.push(shown(a));
+        }
+    }
+    hosts
 }
 
 /**

@@ -16,6 +16,7 @@ import guest.effects { answer_all, approve, left_behind, tell_changes, tell_pref
 import net.requests;
 import data.queries;
 import data.databases;
+import data.kept;
 import sqlite;
 import guest.limits { SQLITE_HEAP };
 import people.account { on_account, forget_account };
@@ -306,9 +307,13 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         None => (m, Cmd.none()),
     },
     Forget => {
-        // Its database goes with it (PRP-041); a failure is the notice.
+        // Its database and its kept copy go with it (PRP-041, PRP-043); a failure is the notice.
         let said = match m.current {
-            Some(id) => data_cleared(m, id),
+            Some(id) => {
+                let copy = copy_removed(m, id);
+                let db = data_cleared(m, id);
+                if db.is_some() { db } else { copy }
+            }
             None => None,
         };
         let gone = forget_account(m, forgotten(m, pins.forget(m)));
@@ -319,6 +324,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     KeepMine => (navigate.keep_mine(m), Cmd.none()),
     SeparateApp => navigate.separate_app(m),
     Fetched(id, number, f) => loads.arrive(m, id, number, f),
+    Refreshed(id, build, r) => (loads.refreshed(m, id, build, r), Cmd.none()),
     Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
     Queried(id, load, msg, got) => (queries.arrive(m, id, load, msg, got), Cmd.none()),
     DataSized(id, n) => (
@@ -399,6 +405,22 @@ fun on_pin(m: Model, path: string, action: PinAction): (Model, Cmd<Msg>) = match
  *     view(m)
  */
 public fun view(m: Model): View<Msg> = layout.view(m);
+
+/**
+ * Removes tab `id`'s app's kept copy (PRP-043), when it's a signed app: a
+ * folder in Rapidkoi's own data folder, removed as Forget asks. Returns
+ * why, when it couldn't.
+ */
+fun copy_removed(m: Model, id: i64): Option<string> = match (
+    m.store,
+    m.tabs.iter().find(fun(t: Tab) = t.id == id).and_then(fun(t: Tab) = t.page.trust),
+) {
+    (Some(s), Some(tr)) => match kept.remove(kept.kept_for(s, tr.host)) {
+        Ok(()) => None,
+        Err(e) => Some(kept.reason(e)),
+    },
+    _ => None,
+};
 
 /**
  * Removes tab `id`'s app's database (PRP-041): a file in Rapidkoi's own

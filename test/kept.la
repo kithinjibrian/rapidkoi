@@ -1,0 +1,210 @@
+// The kept copy of a signed app (PRP-043): its site's key, index and one
+// build, read back through the same checks as a live site. Sites are
+// published into test/tmp/ and never served here. Writes only under test/tmp/.
+import rapidkoi.data.kept {
+    Meta,
+    kept_for,
+    keep,
+    files,
+    has,
+    read_meta,
+    write_meta,
+    size_of,
+    remove,
+    evict,
+};
+import rapidkoi.data.store { Store, store_at };
+import rapidkoi.trust.verify { Identity, VerifyError, check_site_at };
+import rapidkoi.commands.publish { make_key, publish_site };
+import support { write_counting };
+import std.crypto { sha256, equal };
+import std.env;
+import std.fs;
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun folder(name: string): Store {
+    let dir = "test/tmp/kept-{name}";
+    clean(dir);
+    store_at(dir)
+}
+
+/** A site for `host`, published with the counting fixture into test/tmp/kept-site-NAME. */
+fun published(name: string, host: string): string {
+    let dir = "{env.current_dir().unwrap()}/test/tmp/kept-site-{name}";
+    clean(dir);
+    clean("{dir}.key");
+    fs.make_dirs(dir).unwrap();
+    write_counting("{dir}/m.wasm");
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Counting\"\nversion = \"1.0.0\"\nhost = \"{host}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+    ).unwrap();
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+    dir
+}
+
+/** A published site's key, index and only build. */
+fun site_files(dir: string): (u8[], u8[], u8[]) {
+    let root = "{dir}/site/.well-known/rapidkoi";
+    let builds = fs.list_dir("{root}/builds").unwrap();
+    (
+        read_bytes("{root}/key").unwrap(),
+        read_bytes("{root}/index").unwrap(),
+        read_bytes("{root}/builds/{builds[0]}").unwrap(),
+    )
+}
+
+fun done(s: Store, site: string) {
+    clean(s.dir);
+    clean(site);
+    clean("{site}.key");
+}
+
+@test
+fun a_kept_copy_passes_the_sites_own_checks() {
+    let s = folder("checks");
+    let host = "localhost:18801";
+    let site = published("checks", host);
+    let (key, index, build) = site_files(site);
+    let k = kept_for(s, host);
+    assert(!has(k));
+    keep(k, key, index, build).unwrap();
+    assert(has(k));
+    match check_site_at([], host, files(k), None) {
+        Ok((v, _)) => assert(equal(v.trust.build, sha256(build))),
+        Err(_) => assert(false),
+    }
+    done(s, site);
+}
+
+@test
+fun a_changed_byte_anywhere_fails_the_check() {
+    let s = folder("tamper");
+    let host = "localhost:18802";
+    let site = published("tamper", host);
+    let (key, index, build) = site_files(site);
+    let k = kept_for(s, host);
+    let mut bad = build;
+    bad[bad.len - 1] = bad[bad.len - 1] ^ 1;
+    keep(k, key, index, bad).unwrap();
+    assert(check_site_at([], host, files(k), None).is_err());
+    let mut worse = index;
+    worse[worse.len - 1] = worse[worse.len - 1] ^ 1;
+    keep(k, key, worse, build).unwrap();
+    assert(check_site_at([], host, files(k), None).is_err());
+    done(s, site);
+}
+
+@test
+fun an_index_older_than_one_seen_is_refused() {
+    let s = folder("older");
+    let host = "localhost:18803";
+    let site = published("older", host);
+    let (key, index, build) = site_files(site);
+    let k = kept_for(s, host);
+    keep(k, key, index, build).unwrap();
+    let (_, r) = check_site_at([], host, files(k), None).unwrap();
+    // The keyring has seen a later sequence than the kept index's.
+    let seen = Identity { sequence: r.now.sequence + 1, ..r.now };
+    match check_site_at([seen], host, files(k), None) {
+        Err(Older(_, _)) => {}
+        _ => assert(false),
+    }
+    done(s, site);
+}
+
+/** A build name that was never kept. */
+const ZEROS: string = "0000000000000000000000000000000000000000000000000000000000000000";
+
+@test
+fun one_build_is_kept_and_a_missing_file_is_a_404() {
+    let s = folder("one");
+    let k = kept_for(s, "localhost:18804");
+    keep(k, [1], [2], [3, 3]).unwrap();
+    keep(k, [1], [2], [4, 4, 4]).unwrap();
+    // Only the newer build is left: key, index and one .rkb.
+    assert_eq(fs.list_dir(k.dir).unwrap().filter(fun(n: string) = n.ends_with(".rkb")).len, 1);
+    let get = files(k);
+    assert_eq(get("/.well-known/rapidkoi/builds/{ZEROS}.rkb"), Ok((404, [])));
+    assert_eq(get("/.well-known/rapidkoi/../../etc"), Ok((404, [])));
+    assert_eq(get("/.well-known/rapidkoi/index"), Ok((200, [2])));
+    clean(s.dir);
+}
+
+@test
+fun meta_round_trips() {
+    let s = folder("meta");
+    let k = kept_for(s, "localhost:18805");
+    assert(read_meta(k).is_none());
+    let m = Meta { checked: 10, opened: 20, updated: Some("1.1.0") };
+    write_meta(k, m).unwrap();
+    assert_eq(read_meta(k), Some(m));
+    clean(s.dir);
+}
+
+@test
+fun remove_takes_it_all_and_size_counts_it() {
+    let s = folder("remove");
+    let k = kept_for(s, "localhost:18806");
+    assert_eq(size_of(k), 0);
+    let mut build: u8[] = [];
+    for _ in 0..100 {
+        build.push(3);
+    }
+    keep(k, [1, 1], [2, 2, 2], build).unwrap();
+    assert_eq(size_of(k), 105);
+    remove(k).unwrap();
+    assert((!has(k), fs.exists(k.dir)) == (true, false));
+    // Nothing there is nothing to do.
+    remove(k).unwrap();
+    clean(s.dir);
+}
+
+/** A kept copy for `host` of about `n` bytes, last opened at `opened`. */
+fun kept_of(s: Store, host: string, n: i64, opened: i64) {
+    let k = kept_for(s, host);
+    let mut build: u8[] = [];
+    for _ in 0..n {
+        build.push(opened as u8);
+    }
+    keep(k, [1], [2], build).unwrap();
+    write_meta(k, Meta { checked: 0, opened: opened, updated: None }).unwrap();
+}
+
+@test
+fun eviction_goes_oldest_first_and_never_takes_a_pin() {
+    let s = folder("evict");
+    kept_of(s, "a", 1000, 1);
+    kept_of(s, "b", 1000, 2);
+    kept_of(s, "c", 1000, 3);
+    // Over 2500: the least recently opened unpinned one goes, and no more.
+    assert_eq(evict(s, ["a"], 2500), Ok(1));
+    assert(
+        (has(kept_for(s, "a")), has(kept_for(s, "b")), has(kept_for(s, "c"))) == (
+            true,
+            false,
+            true,
+        ),
+    );
+    // Under any limit, a pinned app stays.
+    assert_eq(evict(s, ["a"], 10), Ok(1));
+    assert((has(kept_for(s, "a")), has(kept_for(s, "c"))) == (true, false));
+    clean(s.dir);
+}
+
+@test
+fun nothing_kept_is_nothing_to_evict() {
+    let s = folder("empty");
+    assert_eq(evict(s, [], 0), Ok(0));
+}

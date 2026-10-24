@@ -7,17 +7,20 @@
  * certificate is checked as std checks it (PRP-009). Runs in a kivuli
  * task, so it holds only plain data (the address, the snapshot, the
  * network) and returns plain data: the window records trust and compiles
- * when the result arrives (`loader.from_fetched`).
+ * when the result arrives (`loader.from_fetched`). A signed load also
+ * hands back the site's files it checked, for keeping (PRP-043).
  *
  * Depends on: std.http, net.dialing, net.network, trust.verify, bundles.loader, net.address, guest.limits
  * Used by: bundles.loader, window.navigate
  */
 import std.http { Limits };
+import std.time;
 import trust.verify {
     Verified,
     Record,
     Identity,
     VerifyError,
+    SITE,
     check_site_at,
     reason as verify_reason,
 };
@@ -30,12 +33,32 @@ import net.network { reason as network_reason };
 
 /** What a background load came back with. */
 public enum Fetched {
-    /** A signed site, checked: the build, what to record, and the snapshot it was checked against. */
-    Signed(Verified, Record, Identity[]),
+    /** A signed site, checked: the build, what to record, the snapshot it was checked against, and where it came from. */
+    Signed(Verified, Record, Identity[], Source),
     /** A bundle from a server with no key (or an `http://` address): what to call it, its bytes, unchecked. */
     Unsigned(string, u8[]),
     /** It couldn't be fetched or verified. */
     Refused(Refusal),
+}
+
+/** Where a signed load's build came from, and the site's files it checked (PRP-043). */
+public struct Source {
+    /** The site's key file, as checked; empty when read from the kept copy. */
+    public key: u8[],
+    /** The site's index, as checked; empty when read from the kept copy. */
+    public index: u8[],
+    /** The build, as checked; empty when read from the kept copy. */
+    public build: u8[],
+    /** How many bytes the app takes kept: its build, key and index. */
+    public size: i64,
+    /** Read from the kept copy rather than fetched. */
+    public kept: bool,
+    /** The site couldn't be reached, so the kept copy opened in place of what was asked. */
+    public offline: bool,
+    /** When the site was last reached and checked, in milliseconds since 1970: now, when fetched. */
+    public checked: i64,
+    /** A version kept since the app last opened, to announce. */
+    public updated: Option<string>,
 }
 
 /**
@@ -60,15 +83,10 @@ public fun fetch_app(a: Address, known: Identity[], net: Network, timeout_ms: i6
         // A site with a key is verified; without one, only a plain-HTTP
         // development server on this machine may serve an unsigned bundle.
         // A link's version opens while the site lists it (PRP-036).
-        let fetched = check_site_at(
-            known,
-            host,
-            fun(p: string) = get(a, site_url(a, p), net, timeout_ms),
-            a.version,
-        );
+        let (fetched, source) = check_signed(a, known, net, timeout_ms, a.version);
         match fetched {
             Ok((v, r)) => {
-                return Fetched.Signed(v, r, known);
+                return Fetched.Signed(v, r, known, source);
             }
             Err(Unsigned) if a.secure => {
                 return fail("{host} has no Rapidkoi key, so it can't be verified");
@@ -91,6 +109,61 @@ public fun fetch_app(a: Address, known: Identity[], net: Network, timeout_ms: i6
         Ok((status, _)) => fail("The development server answered {status}"),
         Err(why) => fail(failure(host, why, timeout_ms)),
     }
+}
+
+/**
+ * Checks a signed site at an address, as `fetch_app` does, keeping the
+ * files it fetched. Safe to run in a task.
+ *
+ * @param wanted a link's version, if it names one
+ * @returns the check's outcome, and the site's files as fetched (whatever of them was)
+ *
+ * Example:
+ *     let (checked, source) = check_signed(a, known, net, FETCH_TIMEOUT_MS, None);
+ */
+public fun check_signed(
+    a: Address,
+    known: Identity[],
+    net: Network,
+    timeout_ms: i64,
+    wanted: Option<string>,
+): (Result<(Verified, Record), VerifyError>, Source) {
+    let got: Ref<(string, u8[])[]> = Ref.new([]);
+    let checked = check_site_at(
+        known,
+        shown(a),
+        fun(p: string) {
+            let r = get(a, site_url(a, p), net, timeout_ms);
+            if let Ok((200, body)) = r {
+                got.update(fun(all: (string, u8[])[]) {
+                    let mut next = all;
+                    next.push((p, body));
+                    next
+                });
+            }
+            r
+        },
+        wanted,
+    );
+    let file = fun(f: fun(string): bool) = got.get().iter().find(
+        fun(x: (string, u8[])) = f(x.0),
+    ).map(fun(x: (string, u8[])) = x.1).unwrap_or([]);
+    let key = file(fun(p: string) = p == "{SITE}/key");
+    let index = file(fun(p: string) = p == "{SITE}/index");
+    let build = file(fun(p: string) = p.starts_with("{SITE}/builds/"));
+    (
+        checked,
+        Source {
+            key: key,
+            index: index,
+            build: build,
+            size: key.len + index.len + build.len,
+            kept: false,
+            offline: false,
+            checked: time.now_ms(),
+            updated: None,
+        },
+    )
 }
 
 /**
