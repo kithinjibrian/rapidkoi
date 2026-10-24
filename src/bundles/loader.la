@@ -212,6 +212,15 @@ fun from_bundle(
     from_opened(engine, file, o, trust, origin)
 }
 
+/**
+ * Whether an app's manifest speaks the contract this Rapidkoi runs: an
+ * older or newer one is refused when it loads.
+ *
+ * Example:
+ *     runs_here(bundle.manifest)
+ */
+fun runs_here(m: Manifest): bool = m.contract == CONTRACT_VERSION as i64;
+
 /** A checked bundle's module compiled. */
 fun from_opened(
     engine: Engine,

@@ -1,7 +1,7 @@
 // Loading from a development server, over a real local socket: a server
 // on a spawned green thread, a client in the test. Each test has its own
 // port (tests run in parallel processes). Writes only under test/tmp/.
-import rapidkoi.bundles.loader { load, fetch, why };
+import rapidkoi.bundles.loader { load, fetch, why, runs_here };
 import rapidkoi.trust.verify { keyring };
 import rapidkoi.net.address { parse };
 import rapidkoi.commands.serve { handle };
@@ -119,4 +119,24 @@ fun reload_fetches_the_new_build() {
     bundle_file("loader-reload", "1.1.0");
     let (loading, cmd) = reload(m);
     assert_eq(version_of(settle(loading, cmd, update)), "1.1.0");
+}
+
+@test
+fun only_this_contract_s_apps_run_here() {
+    // A kept copy built for an older contract is passed over for its site (PRP-045).
+    let m = Manifest {
+        contract: 7,
+        name: "Notes",
+        version: "0.3.0",
+        description: None,
+        state_version: 1,
+        icon: None,
+        banners: [],
+        servers: [],
+        permissions: [],
+        controls: None,
+    };
+    assert_eq(runs_here(m), true);
+    assert_eq(runs_here(Manifest { contract: 6, ..m }), false);
+    assert_eq(runs_here(Manifest { contract: 8, ..m }), false);
 }

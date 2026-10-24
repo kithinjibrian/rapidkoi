@@ -30,7 +30,7 @@ import data.kept {
 import data.store { Store };
 import trust.verify { Verified, Record, Identity, check_site_at };
 import trust.index { Version, read_index, read_key_file };
-import bundles.loader { Refusal };
+import bundles.loader { Refusal, runs_here };
 import guest.limits { KEPT_BYTES };
 
 /** Where a load keeps what it opens. */
@@ -87,8 +87,15 @@ fun open_app(
     let host = shown(a);
     let k = kept_for(kp.store, host);
     if kp.cache_first && has(k) {
-        if let Some(f) = from_kept(k, known, host, a.version, false) {
-            return f;
+        match from_kept(k, known, host, a.version, false) {
+            // A copy built for another contract can't run: the site may have a rebuilt one.
+            Some(Signed(v, _, _, _)) if !runs_here(v.opened.bundle.manifest) => {
+                remove(k).unwrap_or(());
+            }
+            Some(f) => {
+                return f;
+            }
+            None => {}
         }
     }
     let f = fetch_app(a, known, net, timeout_ms);
