@@ -1,11 +1,11 @@
 /**
- * Contract 5's roles (PRP-037), pure: what a node is and its state, read
+ * Roles (PRP-037), pure: what a node is and its state, read
  * from its props. Names follow AccessKit's, never an app's subject. Rapidkoi
  * uses them for focus, pressing by keyboard and the checked look; screen
  * readers hear them once kivuli can pass them on (DECISION-050).
  *
  * Depends on: cbor, guest.nodes, guest.limits
- * Used by: guest.tree5
+ * Used by: guest.tree
  */
 import cbor { Value };
 import guest.nodes { Facts, Role, ContractError };

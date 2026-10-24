@@ -1,5 +1,5 @@
 /**
- * Contract 6's storage asks (PRP-041), pure: a `sql` or `sql_batch` effect
+ * Storage asks (PRP-041), pure: a `sql` or `sql_batch` effect
  * read and held to its bounds before anything runs. What the SQL may do is
  * the database's guardrails' question (`data.databases`).
  *

@@ -7,11 +7,16 @@ import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.window.tabs { AppPage, open_module };
 import kivuli { Image };
 import wasmtime { Engine, Module };
-import support { fixed, titled_tree, result_of };
+import support { fixed, titled_tree, result_of, kv };
+import cbor { Value };
 
 fun counter(): AppPage {
     let engine = Engine.new();
-    let wat = fixed(2, [1], titled_tree("Count: 0", "Counter"), result_of([2]));
+    let wat = fixed(
+        kv([("count", Value.int(1))]),
+        titled_tree("Count: 0", "Counter"),
+        result_of(kv([("count", Value.int(2))])),
+    );
     open_module("counter", "apps/counter.wasm", engine, Module.from_text(engine, wat).unwrap())
 }
 
@@ -96,7 +101,7 @@ fun the_address_box_shows_the_window_s_link() {
     assert_eq(address_of(site), "rapidkoi://localhost:8000");
     let versioned = AppPage {
         manifest: Some(Manifest {
-            contract: 4,
+            contract: 7,
             name: "Counter",
             version: "0.3.0",
             description: None,

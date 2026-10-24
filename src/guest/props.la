@@ -1,12 +1,12 @@
 /**
- * Reading one node's props: required and optional text, and the contract's
- * meaning words (styles, spacing). Each failure names the node's path.
+ * Reading one node's props: required and optional text. Each failure
+ * names the node's path.
  *
  * Depends on: cbor, guest.nodes
- * Used by: guest.contract
+ * Used by: guest.tree
  */
 import cbor { Value };
-import guest.nodes { TextStyle, ButtonLook, Space, ContractError, invalid };
+import guest.nodes { ContractError, invalid };
 
 /** A required text prop. */
 fun text(props: Value, name: string, here: string): Result<string, ContractError> = match props.get(
@@ -38,55 +38,3 @@ fun maybe_text(
     Some(_) => Err(invalid(here, "\"{name}\" must be text")),
     None => Ok(None),
 };
-
-/** An optional word prop: `default` when left out. */
-fun word(
-    props: Value,
-    name: string,
-    here: string,
-    default: string,
-): Result<string, ContractError> = match props.get(name) {
-    Some(Text(s)) => Ok(s),
-    Some(_) => Err(invalid(here, "\"{name}\" must be text")),
-    None => Ok(default),
-};
-
-fun meaningless(here: string, name: string, w: string): ContractError = invalid(
-    here,
-    "\"{name}\" has no meaning \"{w}\"",
-);
-
-fun text_style(props: Value, here: string): Result<TextStyle, ContractError> {
-    let w = word(props, "style", here, "body")?;
-    match w {
-        "body" => Ok(TextStyle.Body),
-        "title" => Ok(TextStyle.Title),
-        "heading" => Ok(TextStyle.Heading),
-        "dim" => Ok(TextStyle.Dim),
-        _ => Err(meaningless(here, "style", w)),
-    }
-}
-
-fun button_look(props: Value, here: string): Result<ButtonLook, ContractError> {
-    let w = word(props, "style", here, "normal")?;
-    match w {
-        "normal" => Ok(ButtonLook.Normal),
-        "primary" => Ok(ButtonLook.Primary),
-        "danger" => Ok(ButtonLook.Danger),
-        "subtle" => Ok(ButtonLook.Subtle),
-        _ => Err(meaningless(here, "style", w)),
-    }
-}
-
-fun space(props: Value, name: string, here: string): Result<Space, ContractError> {
-    let w = word(props, name, here, "none")?;
-    match w {
-        "none" => Ok(Space.Zero),
-        "xs" => Ok(Space.Xs),
-        "sm" => Ok(Space.Sm),
-        "md" => Ok(Space.Md),
-        "lg" => Ok(Space.Lg),
-        "xl" => Ok(Space.Xl),
-        _ => Err(meaningless(here, name, w)),
-    }
-}

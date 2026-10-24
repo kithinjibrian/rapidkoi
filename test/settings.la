@@ -24,7 +24,7 @@ fun plain(): AppPage {
 fun signed(): AppPage = AppPage {
     path: "rapidkoi://notes.acme.com",
     manifest: Some(Manifest {
-        contract: 2,
+        contract: 7,
         name: "Notes",
         version: "1.2.0",
         description: Some("Notes that follow you"),

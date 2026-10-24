@@ -4,12 +4,17 @@ import rapidkoi.ui.suggestions { Card, Suggestion, suggest };
 import rapidkoi.window.tabs { Tab, Pin, AppPage, open_module };
 import rapidkoi.window.actions { Msg };
 import wasmtime { Engine, Module };
-import support { fixed, titled_tree, result_of };
+import support { fixed, titled_tree, result_of, kv };
+import cbor { Value };
 
 /** A counter app whose screen is titled "Sprint 3". */
 fun counter(): AppPage {
     let engine = Engine.new();
-    let wat = fixed(2, [1], titled_tree("Count: 0", "Sprint 3"), result_of([2]));
+    let wat = fixed(
+        kv([("count", Value.int(1))]),
+        titled_tree("Count: 0", "Sprint 3"),
+        result_of(kv([("count", Value.int(2))])),
+    );
     open_module("counter", "apps/counter.wasm", engine, Module.from_text(engine, wat).unwrap())
 }
 

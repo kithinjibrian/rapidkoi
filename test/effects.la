@@ -1,4 +1,4 @@
-// Answering a contract v2 app's effects (PRP-011): its public key and
+// Answering an app's effects (PRP-011): its public key and
 // sign-in signatures, for signed apps only, as you've chosen in the Account
 // page. An echo guest's state becomes the answer it got, so each test reads
 // exactly what Rapidkoi sent. Writes only under test/tmp/.
@@ -26,14 +26,14 @@ import rapidkoi.people.people {
     with_setting,
     setting_of,
 };
-import rapidkoi.guest.contract { answer };
+import rapidkoi.guest.events { Happened, event_for };
 import rapidkoi.data.preferences { prefs_value };
 import rapidkoi.data.store { Store, store_at };
 import cbor { Value, Entry, encode, decode, Limits };
 import std.crypto { ed25519_verify };
 import std.fs;
 import wasmtime { Engine, Module };
-import support { echo_v2, echo_opening, t, kv, fixed, counter_tree, result_of };
+import support { echo_init, echo_opening, event_in, t, kv, fixed, counter_tree, result_of };
 import kivuli.testing { texts };
 
 const HOST: string = "notes.acme.com";
@@ -58,19 +58,19 @@ fun folder(name: string): Store {
 /** An init result asking for `effects`. */
 fun asking(wanted: Value[]): u8[] = encode(
     Value.Map([
-        Entry { key: t("state"), value: Value.Bytes([]) },
+        Entry { key: t("state"), value: kv([]) },
         Entry { key: t("effects"), value: Value.Array(wanted) },
     ]),
 );
 
-/** A v2 echo page asking at init; signed by `HOST` when `signed`. */
+/** An echo page asking at init; signed by `HOST` when `signed`. */
 fun page(wanted: Value[], signed: bool): AppPage {
     let engine = Engine.new();
     let p = open_module(
         "notes",
         "rapidkoi://notes.acme.com",
         engine,
-        Module.from_text(engine, echo_v2(asking(wanted))).unwrap(),
+        Module.from_text(engine, echo_init(asking(wanted))).unwrap(),
     );
     if !signed {
         return p;
@@ -95,7 +95,11 @@ fun answered(s: Store, p: AppPage): Model {
     answer_all(restore(with_pages(engine, [p]), s)).0
 }
 
-fun got(m: Model): u8[] = state_of(m.tabs[0].page).unwrap_or([]);
+/** The answer the echo page got last: the event its state holds. */
+fun got(m: Model): u8[] = event_in(state_of(m.tabs[0].page).unwrap_or([]));
+
+/** The event Rapidkoi sends with an answer. */
+fun answer(msg: Value, value: Value): u8[] = event_for(Happened.Answer(msg, value));
 
 @test
 fun a_signed_app_gets_its_own_public_key() {
@@ -180,7 +184,7 @@ fun greeting(): AppPage {
         "hi",
         "hi.wasm",
         engine,
-        Module.from_text(engine, fixed(2, [], tree, result_of([]))).unwrap(),
+        Module.from_text(engine, fixed(kv([]), tree, result_of(kv([])))).unwrap(),
     )
 }
 
@@ -202,7 +206,7 @@ fun a_resumed_app_asks_again_when_opened() {
     let s = folder("resumed");
     let ask = encode(
         Value.Map([
-            Entry { key: t("state"), value: Value.Bytes([]) },
+            Entry { key: t("state"), value: kv([]) },
             Entry {
                 key: t("effects"),
                 value: Value.Array([kv([("kind", t("identity")), ("msg", t("me"))])]),
@@ -228,7 +232,7 @@ fun a_resumed_app_asks_again_when_opened() {
         ),
     };
     // Resumed from a saved state (no init): opened still runs, so it asks.
-    let (resumed, _) = with_saved(p, [], 1);
+    let (resumed, _) = with_saved(p, encode(kv([])), 1);
     assert_eq(resumed.asks.len, 1);
     let m = answer_all(restore(with_pages(engine, [resumed]), s)).0;
     let pk = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
@@ -244,7 +248,7 @@ fun holding(kind: string, extra: (string, Value)[], declared: string[]): AppPage
     }
     AppPage {
         manifest: Some(Manifest {
-            contract: 2,
+            contract: 7,
             name: "notes",
             version: "1.0.0",
             description: None,
@@ -288,9 +292,9 @@ fun later(c: Cmd<Msg>): Msg[] = match c {
 @test
 fun a_holder_reads_your_pins_and_where_you_left_off() {
     let (m, _) = asked(holding("pins", [], ["read_pins"]));
-    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), pins_of(m))));
+    assert_eq(got(m), answer(t("got"), pins_of(m)));
     let (left, _) = asked(holding("left_off", [], ["read_left_off"]));
-    assert_eq(state_of(left.tabs[0].page), Some(answer(t("got"), left_off_of(left))));
+    assert_eq(got(left), answer(t("got"), left_off_of(left)));
 }
 
 @test
@@ -333,13 +337,13 @@ fun set(p: AppPage, permission: Permission, s: Setting): (Model, Cmd<Msg>) = ans
 fun blocked_answers_with_nothing_and_the_app_runs_on() {
     // PRP-031: the person decides; blocking isn't the app's failure.
     let (m, _) = set(holding("pins", [], ["read_pins"]), Permission.ReadPins, Setting.Blocked);
-    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), Value.Array([]))));
+    assert_eq(got(m), answer(t("got"), Value.Array([])));
     let (left, _) = set(
         holding("left_off", [], ["read_left_off"]),
         Permission.ReadLeftOff,
         Setting.Blocked,
     );
-    assert_eq(state_of(left.tabs[0].page), Some(answer(t("got"), Value.Null)));
+    assert_eq(got(left), answer(t("got"), Value.Null));
     let (_, c) = set(
         holding("open_pin", [("index", Value.int(0))], ["open_apps"]),
         Permission.OpenApps,
@@ -359,19 +363,20 @@ fun needs_approval_waits_for_the_person() {
     assert_eq(m.tabs[0].page.asks.len, 1);
     // Allow once: answered; the setting stays.
     let (once, _) = update(m, Msg.Approve(Answer.Once));
-    assert_eq(state_of(once.tabs[0].page), Some(answer(t("got"), pins_of(once))));
+    assert_eq(got(once), answer(t("got"), pins_of(once)));
     assert_eq(
         (once.approval, setting_of(once.people, key_of(p), Permission.ReadPins)),
         (None, Setting.Ask),
     );
-    // Always allow: answered, and allowed from now on.
+    // Always allow: answered, and allowed from now on; the app is then told
+    // its settings changed, so that's the last event it got.
     let (always, _) = update(m, Msg.Approve(Answer.Always));
-    assert_eq(state_of(always.tabs[0].page), Some(answer(t("got"), pins_of(always))));
+    assert_eq((always.approval, always.tabs[0].page.asks.len), (None, 0));
     assert_eq(setting_of(always.people, key_of(p), Permission.ReadPins), Setting.Allowed);
-    // Don't allow: answered as blocked.
+    // Don't allow: answered (as blocked: `blocked_answers_with_nothing…`); the app
+    // is then told its settings changed, so that's the last event it got.
     let (deny, _) = update(m, Msg.Approve(Answer.Deny));
-    assert_eq(state_of(deny.tabs[0].page), Some(answer(t("got"), Value.Array([]))));
-    assert_eq(deny.approval, None);
+    assert_eq((deny.approval, deny.tabs[0].page.asks.len), (None, 0));
 }
 
 @test
@@ -380,7 +385,7 @@ fun leaving_the_page_is_dont_allow() {
     let (m, _) = set(p, Permission.ReadPins, Setting.Ask);
     let (left, _) = update(m, Msg.NewTab);
     assert_eq(left.approval, None);
-    assert_eq(state_of(left.tabs[0].page), Some(answer(t("got"), Value.Array([]))));
+    assert_eq(got(left), answer(t("got"), Value.Array([])));
 }
 
 @test
@@ -410,7 +415,7 @@ fun the_new_tab_reads_and_restores_the_last_session() {
         previous: Some(o),
         ..with_pages(Engine.new(), [holding("session", [], ["restore_session"])]),
     });
-    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), session_of(m))));
+    assert_eq(got(m), answer(t("got"), session_of(m)));
     let (_, c) = asked(holding("restore_session", [], ["restore_session"]));
     assert_eq(later(c), [Msg.RestoreSession]);
     let (refused, _) = asked(holding("restore_session", [], ["open_apps"]));
@@ -424,7 +429,7 @@ fun the_new_tab_reads_and_restores_the_last_session() {
 fun any_app_reads_the_person_s_choices() {
     // PRP-038: theme, more contrast and text size, no permission needed.
     let (m, _) = asked(holding("preferences", [], []));
-    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), prefs_value(m.prefs))));
+    assert_eq(got(m), answer(t("got"), prefs_value(m.prefs)));
 }
 
 @test

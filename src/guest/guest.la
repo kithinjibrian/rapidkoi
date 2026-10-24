@@ -22,7 +22,6 @@ import wasmtime {
 };
 import guest.limits {
     CONTRACT_VERSION,
-    OLDEST_CONTRACT,
     MAX_MODULE,
     MEMORY_BYTES,
     MAX_STATE,
@@ -30,6 +29,9 @@ import guest.limits {
     MAX_UPDATE,
     FUEL_PER_CALL,
 };
+
+/** What an app built for an older contract is told (DECISION-056). */
+public const OLDER: string = "This app needs to be rebuilt for this Rapidkoi";
 
 /** Why a guest couldn't load or a call failed. Any of these stops the app. */
 public enum GuestError {
@@ -62,8 +64,6 @@ public struct Guest {
     store: Store,
     instance: Instance,
     memory: Memory,
-    /** The contract it speaks: 1, or 2 (effects and placeholders, PRP-011). */
-    public version: i32,
 }
 
 /**
@@ -97,7 +97,7 @@ public fun compile(engine: Engine, bytes: u8[]): Result<Module, GuestError> {
  */
 public fun open(engine: Engine, module: Module): Result<Guest, GuestError> {
     let store = Store.new(engine).map_err(fun(_) = GuestError.Closed)?;
-    // One instance with one memory and one table is all contract v1 needs;
+    // One instance with one memory and one table is all the contract needs;
     // the memory cap is the contract's.
     store.limit(Limits {
         memory_bytes: Some(MEMORY_BYTES),
@@ -126,10 +126,10 @@ fun start(engine: Engine, store: Store, module: Module): Result<Guest, GuestErro
             return Err(GuestError.MissingExport("memory"));
         }
     };
-    let g = Guest { store: store, instance: instance, memory: memory, version: 0 };
+    let g = Guest { store: store, instance: instance, memory: memory };
     match g.call("rapidkoi_version", [])? {
-        // Every contract from the oldest still run to the newest (DECISION-039).
-        I32(v) if v >= OLDEST_CONTRACT && v <= CONTRACT_VERSION => Ok(Guest { version: v, ..g }),
+        // Contract 7 only (DECISION-056): an older app is rebuilt, never run.
+        I32(v) if v == CONTRACT_VERSION => Ok(g),
         I32(v) => Err(GuestError.Version(v)),
         I64(_) => Err(GuestError.WrongExport("rapidkoi_version")),
     }
@@ -240,6 +240,7 @@ public fun reason(e: GuestError): string = match e {
     MissingExport(name) => "This app is missing \"{name}\"",
     WrongExport(name) => "This app's \"{name}\" isn't what Rapidkoi expects",
     Version(v) if v <= 0 => "This app isn't a Rapidkoi app",
+    Version(v) if v < CONTRACT_VERSION => OLDER,
     Version(_) => "This app needs a newer version of Rapidkoi",
     Trap(m) => "This app crashed ({m})",
     OutOfFuel => "This app stopped responding",

@@ -1,5 +1,5 @@
 /**
- * The types of UI contract v1's decoded form: the node tree, its meaning
+ * The types of the contract's decoded form: the node tree, its meaning
  * words, and why a description was refused. Data only; reading bytes into
  * them is `contract.la`, reading props is `props.la`.
  *
@@ -9,19 +9,7 @@
 import cbor { Value, DecodeError };
 import net.network { Request };
 
-/** How a text reads: the contract's `style` words. */
-public enum TextStyle {
-    /** The theme's ordinary text (no `style`, or `"body"`). */
-    Body,
-    /** A view's title (`"title"`). */
-    Title,
-    /** A section heading (`"heading"`). */
-    Heading,
-    /** Secondary text (`"dim"`). */
-    Dim,
-}
-
-/** What a button means: the contract's button `style` words. */
+/** What one of Rapidkoi's own buttons means: its look comes from the theme (`themes.button`). */
 public enum ButtonLook {
     /** An ordinary action (no `style`, or `"normal"`). */
     Normal,
@@ -33,50 +21,26 @@ public enum ButtonLook {
     Subtle,
 }
 
-/** A spacing or padding word; sizes come from `ui/tokens.la`. */
-public enum Space {
-    /** `"none"`, or the prop left out. */
-    Zero,
-    /** `"xs"`. */
-    Xs,
-    /** `"sm"`. */
-    Sm,
-    /** `"md"`. */
-    Md,
-    /** `"lg"`. */
-    Lg,
-    /** `"xl"`. */
-    Xl,
-}
-
 /** One decoded node. Messages stay CBOR values the shell never looks inside. */
 public enum Node {
-    /** A text and its style. */
-    Text(string, TextStyle),
-    /** A label, its look, and the message a press sends (`None`: disabled). */
-    Button(string, ButtonLook, Option<Value>),
-    /** The text shown, the placeholder, and the message each edit sends. */
-    Input(string, string, Option<Value>),
-    /** Spacing, padding, and the children top to bottom. */
-    Column(Space, Space, Self[]),
-    /** Spacing, padding, and the children left to right. */
-    Row(Space, Space, Self[]),
     /** A kind this shell doesn't know: shown as a placeholder. */
     Unsupported(string),
-    /** Contract 5 (PRP-037): a box, its look, what it is, the message a press sends, and its children. */
+    /** A box (PRP-037): its look, what it is, the message a press sends, and its children. */
     Boxed(Look, Facts, Option<Value>, Self[]),
-    /** Contract 5: a text, its look and what it is. */
+    /** A text, its look and what it is. */
     Words(string, Look, Facts),
-    /** Contract 5: a typing box. */
+    /** A typing box. */
     Field(Typing, Look),
 }
 
-/** A contract 5 typing box (PRP-037). */
+/** A typing box (PRP-037). */
 public struct Typing {
     /** The text in it. */
     public value: string,
     /** What it shows while empty. */
     public placeholder: string,
+    /** What it's for, named by the app (DECISION-056): its name, and screen readers' once kivuli can. */
+    public label: Option<string>,
     /** 1 for one line; 2 to 20 for a box of several lines. */
     public lines: i64,
     /** The message each edit sends (`None`: disabled). */
@@ -105,7 +69,7 @@ public enum Place {
     Stretch,
 }
 
-/** A colour in a contract 5 style: Rapidkoi's name, the app's own, or a mix of two. */
+/** A colour in an app's style: Rapidkoi's name, the app's own, or a mix of two. */
 public enum Colour {
     /** One of Rapidkoi's names (`accent`, `text`…): its value is never given to the app. */
     Named(string),
@@ -115,7 +79,7 @@ public enum Colour {
     Mix(Self, Self, f64),
 }
 
-/** A length in a contract 5 style: one of Rapidkoi's names (`md`, `small`…) or pixels. */
+/** A length in an app's style: one of Rapidkoi's names (`md`, `small`…) or pixels. */
 public enum Measure {
     /** A token's name. */
     Named(string),
@@ -133,7 +97,7 @@ public enum TextSize {
     Rem(f64),
 }
 
-/** A contract 5 node's style, checked (PRP-037): everything optional, as the app gave it. */
+/** A node's style, checked (PRP-037): everything optional, as the app gave it. */
 public struct Look {
     public direction: Direction,
     public gap: Option<Measure>,
@@ -167,7 +131,7 @@ public struct Look {
     public states: (string, Self)[],
 }
 
-/** What a contract 5 node is (PRP-037): AccessKit's names. */
+/** What a node is (PRP-037): AccessKit's names. */
 public enum Role {
     Button,
     Checkbox,
@@ -181,7 +145,7 @@ public enum Role {
     Separator,
 }
 
-/** What a contract 5 node is, and its state: what keyboards and screen readers need. */
+/** What a node is, and its state: what keyboards and screen readers need. */
 public struct Facts {
     public role: Option<Role>,
     /** A checkbox's or switch's. */
@@ -193,7 +157,7 @@ public struct Facts {
     public label: Option<string>,
 }
 
-/** A decoded screen: its tree, and the title its root carries (contract v1, optional). */
+/** A decoded screen: its tree, and the title its root carries (optional). */
 public struct Described {
     /** The root node. */
     public root: Node,
@@ -214,7 +178,7 @@ public enum ContractError {
 /** A contract error at `path`. */
 fun invalid(path: string, problem: string): ContractError = ContractError.Invalid(path, problem);
 
-/** Something a contract v2 app asks Rapidkoi for, in its result's `effects` (PRP-011). */
+/** Something an app asks Rapidkoi for, in its result's `effects` (PRP-011). */
 public enum Effect {
     /** Your public key for this app; answered with `msg`. */
     Identity(Value),
@@ -238,7 +202,7 @@ public enum Effect {
     Preferences(Value),
     /** Change one of them (needs `change_settings`): its name and value; not answered. */
     SetPreference(Value, string, Value),
-    /** One statement against the app's database (contract 6, PRP-041); answered with rows or why not. */
+    /** One statement against the app's database (PRP-041); answered with rows or why not. */
     Sql(Value, Query),
     /** Statements run as one transaction; answered with what changed or why not. */
     SqlBatch(Value, Query[]),
@@ -254,17 +218,19 @@ public struct Query {
     public max_rows: i64,
 }
 
-/** What a contract v2 `init` or `update` returned: the new state and what it asks for. */
+/** What `handle` returned: the new state and what it asks for. */
 public struct Update {
     /** The new state. */
     public state: u8[],
     /** What it asks for, in order (at most `MAX_EFFECTS`). */
     public effects: Effect[],
-    /** Which fields go in the window's address (contract 4, PRP-036). */
+    /** Which fields go in the window's address (PRP-036). */
     public link: LinkChange,
+    /** What kind each link field is, path and `number`/`text`/`bool`, so a link can set one that's empty (DECISION-056). */
+    public kinds: (string, string)[],
 }
 
-/** What a contract 4 result says about the window's address (PRP-036). */
+/** What a result says about the window's address (PRP-036). */
 public enum LinkChange {
     /** No `link`: the address keeps the fields it had. */
     Keep,

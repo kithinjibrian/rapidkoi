@@ -30,9 +30,9 @@ import kivuli {
     text_area,
 };
 import cbor { Value };
-import guest.contract { Node, TextStyle, ButtonLook };
+import guest.contract { Node, ButtonLook };
 import guest.nodes { Look, Facts, Typing, Direction };
-import ui.tokens { SPACE_SM, RING_WIDTH, pixels, gap, margin };
+import ui.tokens { SPACE_SM, RING_WIDTH, gap, margin };
 import ui.themes {
     Theme,
     body,
@@ -75,26 +75,6 @@ public fun screen(n: Node, t: Theme): View<Msg> = screen_as(n, t, AS_STYLED);
  *     screen_as(tree, m.theme, own)
  */
 public fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
-    Text(s, style) => styled_text(s, style, t),
-    Button(label, look, msg) => button_of(label, look, msg, t),
-    Input(value, hint, Some(msg)) => input(
-        value,
-        fun(s: string) = Msg.Event(msg, Some(s)),
-    ).placeholder(hint).style(field(t)),
-    // No message: greyed out and silent (kivuli 0.1.1); `.disabled` drops the handler.
-    Input(value, hint, None) => input(
-        value,
-        fun(s: string) = Msg.Event(Value.Null, Some(s)),
-    ).placeholder(hint).disabled(true).style(field(t)),
-    // The contract's padding was kivuli 0.10's `.padding`: room outside the node.
-    Column(spacing, padding, kids) => column(kids.map(fun(k: Node) = screen_as(k, t, own))).style([
-        gap(pixels(spacing)),
-        margin(pixels(padding)),
-    ]),
-    Row(spacing, padding, kids) => row(kids.map(fun(k: Node) = screen_as(k, t, own))).style([
-        gap(pixels(spacing)),
-        margin(pixels(padding)),
-    ]),
     Unsupported(kind) => text("Unsupported component: {kind}").style(dim(t)).align(Align.Start),
     Boxed(look, facts, press, kids) => boxed(look, facts, press, kids, t, own),
     Words(s, look, facts) => placed(
@@ -110,7 +90,7 @@ public fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
 };
 
 /**
- * A contract 5 box (PRP-037): its children in a row or column, styled as
+ * A box (PRP-037): its children in a row or column, styled as
  * the app said. With `on_press` it's a button around them: focusable, and
  * pressed by click, Enter or Space. Its base look is nothing at all (no
  * GTK button look, DECISION-031) but a focus ring, so the keyboard's place
@@ -195,10 +175,13 @@ fun typing_box(f: Typing, t: Theme): View<Msg> {
     if f.lines > 1 {
         // kivuli's text area shows no placeholder (DECISION-055): named by it,
         // so it can be found as a one-line field is.
-        let area = text_area(f.value, send).name(f.placeholder);
+        let area = text_area(f.value, send).name(f.label.unwrap_or(f.placeholder));
         return if change.is_none() { area.disabled(true) } else { area };
     }
-    let line = input(f.value, send).placeholder(f.placeholder);
+    // Named by its label when it has one (DECISION-056), so it's found by it.
+    let line = input(f.value, send).placeholder(f.placeholder).name(
+        f.label.unwrap_or(f.placeholder),
+    );
     let submitting = match f.on_submit {
         Some(m) => line.on_submit(Msg.Event(m, Some(f.value))),
         None => line,
@@ -267,28 +250,4 @@ public fun loading(address: string, elapsed: i64, t: Theme): View<Msg> {
         text(address).style(title(t)).align(Align.Start),
         row([text(frame).style(body(t)), text(label).style(dim(t))]).style([gap(SPACE_SM)]),
     ]).style([gap(SPACE_SM)])
-}
-
-/** An app's text, at the start of its line: kivuli centers text unless told. */
-fun styled_text(s: string, style: TextStyle, t: Theme): View<Msg> {
-    let look = match style {
-        Body => body(t),
-        Title => title(t),
-        Heading => heading(t),
-        Dim => dim(t),
-    };
-    text(s).style(look).align(Align.Start)
-}
-
-/** An app's button: the app names its kind, Rapidkoi's theme decides its look. */
-fun button_of(label: string, look: ButtonLook, msg: Option<Value>, t: Theme): View<Msg> {
-    let style = button_look(t, look);
-    match msg {
-        // At its own width, not the column's (session 185): a button
-        // stretched across the page reads as a bar, not a button.
-        Some(m) => button(label, Msg.Event(m, None)).style(style).align(Align.Start),
-        // kivuli: a button without a message is disabled; any placeholder
-        // message works, since `.disabled(true)` removes it.
-        None => button(label, Msg.Restart).disabled(true).style(style).align(Align.Start),
-    }
 }

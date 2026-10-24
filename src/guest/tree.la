@@ -1,9 +1,9 @@
 /**
- * Contract 5's screens (PRP-037), pure: a `view` result read into boxes,
- * texts and typing boxes, each with its style (`guest.styles`) and what it
- * is (`guest.roles`). The same limits as earlier contracts: the bytes, the
- * node count and depth, and each string. Any other kind, earlier contracts'
- * included, is shown as unsupported, its subtree still counted.
+ * Screens (contract 7; boxes, texts and styles since PRP-037), pure: a
+ * `view` result read into boxes, texts and typing boxes, each with its
+ * style (`guest.styles`) and what it is (`guest.roles`). Limited by the
+ * bytes, the node count and depth, and each string. Any other kind is shown
+ * as unsupported, its subtree still counted.
  *
  * Depends on: cbor, guest.nodes, guest.limits, guest.props, guest.styles, guest.roles
  * Used by: guest.running
@@ -18,18 +18,21 @@ import guest.roles { read_facts };
 /** The most lines a typing box may have. */
 public const MAX_LINES: i64 = 20;
 
+/** The longest label a typing box may have, in bytes (DECISION-056). */
+public const MAX_LABEL: i64 = 200;
+
 /**
- * Decodes a contract 5 screen and its title.
+ * Decodes a screen and its title.
  *
  * @param bytes what the guest's `view` returned
  * @returns the tree and the root's optional `title`; `Err(TooLong)` over
  *     `MAX_VIEW`, `Err(Decode)` for bad CBOR or a decoder limit,
- *     `Err(Invalid)` for a node, style or role breaking contract 5
+ *     `Err(Invalid)` for a node, style or role breaking the contract
  *
  * Example:
- *     read_tree5(bytes)?.root
+ *     read_tree(bytes)?.root
  */
-public fun read_tree5(bytes: u8[]): Result<Described, ContractError> {
+public fun read_tree(bytes: u8[]): Result<Described, ContractError> {
     if bytes.len > MAX_VIEW {
         return Err(ContractError.TooLong("the screen description", bytes.len));
     }
@@ -108,9 +111,17 @@ fun node(
                 }
             },
         };
+        let label = match given.get("label") {
+            None => None,
+            Some(Text(s)) if s.len >= 1 && s.len <= MAX_LABEL => Some(s),
+            Some(_) => {
+                return Err(invalid(here, "label must be text of 1 to {MAX_LABEL} bytes"));
+            }
+        };
         let typing = Typing {
             value: text(given, "value", here)?,
             placeholder: optional_text(given, "placeholder", here)?,
+            label: label,
             lines: lines,
             // No `on_change` means disabled, as before (DECISION-016).
             on_change: given.get("on_change"),

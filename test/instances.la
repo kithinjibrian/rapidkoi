@@ -7,11 +7,11 @@ import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage, Tab, open_module, state_of };
 import rapidkoi.ui.strip;
 import rapidkoi.ui.sidebar;
-import rapidkoi.guest.contract { envelope };
+import rapidkoi.guest.events { Happened, event_for };
 import rapidkoi.ui.render;
 import kivuli.testing { click, pick, texts, type_into };
 import wasmtime { Engine, Module };
-import support { t, echo };
+import support { t, echo, event_in };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.data.saving { restore };
 import rapidkoi.data.store { store_at };
@@ -52,8 +52,11 @@ fun plus_opens_another_instance_of_the_current_app() {
     // The new one is current, and its own guest: an event reaches only it.
     let id = m.current.unwrap();
     let echoed = step(m, add(id));
-    assert_eq(state_of(echoed.tabs[2].page), Some(envelope(t("add"), None)));
-    assert_eq(state_of(echoed.tabs[0].page), Some([]));
+    assert_eq(
+        state_of(echoed.tabs[2].page).map(event_in),
+        Some(event_for(Happened.Message(t("add"), None))),
+    );
+    assert_eq(state_of(echoed.tabs[0].page).map(event_in), Some([]));
 }
 
 @test

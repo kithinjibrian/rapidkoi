@@ -18,7 +18,7 @@ import support { settle };
 fun bundle_file(tag: string, version: string): string {
     let p = "test/tmp/{tag}.rkb";
     let m = Manifest {
-        contract: 2,
+        contract: 7,
         name: "Served",
         version: version,
         description: None,

@@ -1,230 +1,16 @@
-// Contract v1, pure: CBOR bytes to a Node tree, update results, and event
-// envelopes. No guest and no display.
-import rapidkoi.guest.contract {
-    Node,
-    TextStyle,
-    ButtonLook,
-    Space,
-    ContractError,
-    Described,
-    read_tree,
-    read_update,
-    lifecycle,
-    answer,
-    reply,
-    Effect,
-    Update,
-    envelope,
-};
+// Contract 7's results, pure: what `handle` returns (state, effects, the
+// address's fields and their kinds) and a request's reply. No guest and no
+// display. The screen's tests are in tree.la.
+import rapidkoi.guest.contract { ContractError, read_update, reply, Effect, Update, LinkChange };
 import cbor { Value, Entry, encode, decode, Limits };
 import rapidkoi.net.network { Request, Reply };
-import support { t, kv, leaf, parent, wide, deep };
-
-fun tree(v: Value): Result<Node, ContractError> = read_tree(encode(v)).map(
-    fun(d: Described) = d.root,
-);
-
-/** The problem text of a contract error, or "" when it isn't one. */
-fun problem(r: Result<Node, ContractError>): string = match r {
-    Err(Invalid(path, what)) => "{path}: {what}",
-    Err(e) => "{e}",
-    Ok(_) => "",
-};
-
-@test
-fun a_text_decodes_with_each_style() {
-    assert_eq(tree(leaf("text", [("text", t("hi"))])), Ok(Node.Text("hi", TextStyle.Body)));
-    assert_eq(
-        tree(leaf("text", [("text", t("hi")), ("style", t("title"))])),
-        Ok(Node.Text("hi", TextStyle.Title)),
-    );
-    assert_eq(
-        tree(leaf("text", [("text", t("hi")), ("style", t("heading"))])),
-        Ok(Node.Text("hi", TextStyle.Heading)),
-    );
-    assert_eq(
-        tree(leaf("text", [("text", t("hi")), ("style", t("dim"))])),
-        Ok(Node.Text("hi", TextStyle.Dim)),
-    );
-}
-
-@test
-fun a_button_keeps_its_message_and_style() {
-    let msg = kv([("delete", Value.int(41))]);
-    assert_eq(
-        tree(leaf("button", [("label", t("Delete")), ("style", t("danger")), ("on_press", msg)])),
-        Ok(Node.Button("Delete", ButtonLook.Danger, Some(msg))),
-    );
-    assert_eq(
-        tree(leaf("button", [("label", t("Go"))])),
-        Ok(Node.Button("Go", ButtonLook.Normal, None)),
-    );
-    assert_eq(
-        tree(leaf("button", [("label", t("Go")), ("style", t("primary"))])),
-        Ok(Node.Button("Go", ButtonLook.Primary, None)),
-    );
-    assert_eq(
-        tree(leaf("button", [("label", t("Go")), ("style", t("subtle"))])),
-        Ok(Node.Button("Go", ButtonLook.Subtle, None)),
-    );
-}
-
-@test
-fun an_input_decodes() {
-    assert_eq(
-        tree(
-            leaf("input", [
-                ("value", t("Amina")),
-                ("placeholder", t("Your name")),
-                ("on_change", t("name")),
-            ]),
-        ),
-        Ok(Node.Input("Amina", "Your name", Some(t("name")))),
-    );
-    assert_eq(
-        tree(leaf("input", [("value", t("")), ("on_change", t("n"))])),
-        Ok(Node.Input("", "", Some(t("n")))),
-    );
-}
-
-@test
-fun containers_decode_with_spacing_and_padding() {
-    assert_eq(
-        tree(
-            parent("row", [("spacing", t("sm")), ("padding", t("xl"))], [
-                leaf("text", [("text", t("a"))]),
-            ]),
-        ),
-        Ok(Node.Row(Space.Sm, Space.Xl, [Node.Text("a", TextStyle.Body)])),
-    );
-    assert_eq(
-        tree(parent("column", [("spacing", t("none"))], [])),
-        Ok(Node.Column(Space.Zero, Space.Zero, [])),
-    );
-    assert_eq(
-        tree(parent("column", [("padding", t("xs")), ("spacing", t("md")), ("key", t("k"))], [])),
-        Ok(Node.Column(Space.Md, Space.Xs, [])),
-    );
-    assert_eq(
-        tree(parent("column", [("padding", t("lg"))], [])),
-        Ok(Node.Column(Space.Zero, Space.Lg, [])),
-    );
-}
-
-@test
-fun a_key_and_unknown_props_are_ignored() {
-    let v = kv([
-        ("kind", t("text")),
-        ("key", t("msg-41")),
-        ("props", kv([("text", t("x")), ("shiny", Value.Bool(true))])),
-    ]);
-    assert_eq(tree(v), Ok(Node.Text("x", TextStyle.Body)));
-}
-
-@test
-fun children_on_a_text_are_ignored() {
-    let v = kv([
-        ("kind", t("text")),
-        ("props", kv([("text", t("x"))])),
-        ("children", Value.Array([leaf("text", [("text", t("y"))])])),
-    ]);
-    assert_eq(tree(v), Ok(Node.Text("x", TextStyle.Body)));
-}
-
-@test
-fun an_unknown_kind_becomes_a_placeholder() {
-    assert_eq(
-        tree(parent("column", [], [leaf("map", [("lat", Value.int(1))])])),
-        Ok(Node.Column(Space.Zero, Space.Zero, [Node.Unsupported("map")])),
-    );
-}
-
-@test
-fun an_unknown_kinds_children_still_count() {
-    let v = parent("chart", [], [wide(10000)]);
-    assert_eq(problem(tree(v)), "root > chart > column[0] > text[9998]: more than 10000 nodes");
-}
-
-@test
-fun contract_errors_name_where_they_are() {
-    assert_eq(problem(tree(kv([("props", kv([]))]))), "root: \"kind\" is missing");
-    assert_eq(
-        problem(tree(kv([("kind", Value.int(3)), ("props", kv([]))]))),
-        "root: \"kind\" must be text",
-    );
-    assert_eq(
-        problem(tree(kv([("kind", t("text")), ("props", Value.Array([]))]))),
-        "root > text: \"props\" must be a map",
-    );
-    assert_eq(
-        problem(tree(parent("column", [], [leaf("text", [])]))),
-        "root > column > text[0]: \"text\" is missing",
-    );
-    assert_eq(
-        problem(
-            tree(
-                parent("row", [], [
-                    leaf("text", [("text", t("a"))]),
-                    leaf("button", [("label", Value.int(1))]),
-                ]),
-            ),
-        ),
-        "root > row > button[1]: \"label\" must be text",
-    );
-    assert_eq(
-        problem(tree(leaf("button", [("label", t("a")), ("style", t("loud"))]))),
-        "root > button: \"style\" has no meaning \"loud\"",
-    );
-    assert_eq(
-        problem(tree(leaf("column", [("spacing", t("huge"))]))),
-        "root > column: \"spacing\" has no meaning \"huge\"",
-    );
-    assert_eq(
-        problem(tree(kv([("kind", t("column")), ("props", kv([])), ("children", t("no"))]))),
-        "root > column: \"children\" must be an array",
-    );
-    assert_eq(problem(tree(t("just text"))), "root: a node must be a map");
-    assert_eq(
-        problem(tree(parent("column", [], [Value.int(5)]))),
-        "root > column > [0]: a node must be a map",
-    );
-}
-
-@test
-fun an_input_without_on_change_is_disabled() {
-    assert_eq(tree(leaf("input", [("value", t("x"))])), Ok(Node.Input("x", "", None)));
-}
-
-@test
-fun node_limits() {
-    assert_eq(tree(wide(9999)).is_ok(), true);
-    assert_eq(problem(tree(wide(10000))), "root > column > text[9999]: more than 10000 nodes");
-    assert_eq(tree(deep(64)).is_ok(), true);
-    assert_eq(problem(tree(deep(65))).ends_with("deeper than 64 nodes"), true);
-}
-
-/** A text of `n` copies of "x". */
-fun xs(n: i64): string {
-    let bytes: u8[] = [120; n];
-    string_from_utf8(bytes).unwrap()
-}
-
-@test
-fun string_and_size_limits() {
-    assert_eq(tree(leaf("text", [("text", t(xs(65536)))])).is_ok(), true);
-    assert_eq(problem(tree(leaf("text", [("text", t(xs(65537)))]))), "Decode(TooLarge)");
-    let big: u8[] = [0; 4 * 1024 * 1024 + 1];
-    assert_eq(
-        problem(read_tree(big).map(fun(d: Described) = d.root)),
-        "TooLong(\"the screen description\", 4194305)",
-    );
-    assert_eq(problem(read_tree([0xa1]).map(fun(d: Described) = d.root)), "Decode(Truncated)");
-}
+import support { t, kv };
 
 @test
 fun an_update_result_gives_its_state() {
-    let ok = encode(kv([("state", Value.Bytes([1, 2, 3])), ("effects", Value.Array([]))]));
-    assert_eq(read_update(ok).map(fun(u: Update) = u.state), Ok([1, 2, 3]));
+    let state = kv([("count", Value.int(3))]);
+    let ok = encode(kv([("state", state), ("effects", Value.Array([]))]));
+    assert_eq(read_update(ok).map(fun(u: Update) = u.state), Ok(encode(state)));
 }
 
 @test
@@ -236,53 +22,22 @@ fun bad_update_results_are_contract_errors() {
     };
     assert_eq(shown(kv([("effects", Value.Array([]))])), "update: \"state\" is missing");
     assert_eq(
-        shown(kv([("state", t("no")), ("effects", Value.Array([]))])),
-        "update: \"state\" must be bytes",
+        shown(kv([("state", Value.Bytes([1])), ("effects", Value.Array([]))])),
+        "update: \"state\" must be a map of named fields",
     );
-    assert_eq(shown(kv([("state", Value.Bytes([]))])), "update: \"effects\" is missing");
+    assert_eq(shown(kv([("state", kv([]))])), "update: \"effects\" is missing");
     assert_eq(
-        shown(kv([("state", Value.Bytes([])), ("effects", Value.Null)])),
+        shown(kv([("state", kv([])), ("effects", Value.Null)])),
         "update: \"effects\" must be an array",
     );
     assert_eq(shown(Value.Array([])), "update: the result must be a map");
 }
 
-@test
-fun envelopes_carry_the_message_and_value() {
-    let msg = kv([("delete", Value.int(41))]);
-    let decoded = fun(bytes: u8[]): Value = decode(bytes, Limits.default()).unwrap();
-    assert_eq(decoded(envelope(msg, None)), kv([("event", t("message")), ("msg", msg)]));
-    assert_eq(
-        decoded(envelope(t("name"), Some("Amina K"))),
-        kv([("event", t("message")), ("msg", t("name")), ("value", t("Amina K"))]),
-    );
-}
-
-@test
-fun the_root_may_carry_a_title() {
-    let titled = read_tree(encode(parent("column", [("title", t("Sprint 3"))], [])));
-    assert_eq(titled.map(fun(d: Described) = d.title), Ok(Some("Sprint 3")));
-    let untitled = read_tree(encode(parent("column", [], [])));
-    assert_eq(untitled.map(fun(d: Described) = d.title), Ok(None));
-}
-
-@test
-fun a_title_must_be_text_and_only_counts_on_the_root() {
-    assert_eq(
-        problem(tree(leaf("text", [("text", t("a")), ("title", Value.int(3))]))),
-        "root > text: \"title\" must be text",
-    );
-    let nested = read_tree(
-        encode(parent("column", [], [leaf("text", [("text", t("a")), ("title", t("ignored"))])])),
-    );
-    assert_eq(nested.map(fun(d: Described) = d.title), Ok(None));
-}
-
-// Contract v2 (PRP-011): what an app may ask for in its result's effects.
+// What an app may ask for in its result's effects (PRP-011).
 
 fun v2(effects: Value[]): u8[] = encode(
     Value.Map([
-        Entry { key: t("state"), value: Value.Bytes([1]) },
+        Entry { key: t("state"), value: kv([("n", Value.int(1))]) },
         Entry { key: t("effects"), value: Value.Array(effects) },
     ]),
 );
@@ -306,7 +61,7 @@ fun v2_effects_decode() {
     let u = read_update(
         v2([ask("identity", []), ask("sign", [("challenge", Value.Bytes([7, 7]))])]),
     ).unwrap();
-    assert_eq(u.state, [1]);
+    assert_eq(u.state, encode(kv([("n", Value.int(1))])));
     assert_eq(u.effects, [Effect.Identity(t("got")), Effect.Sign(t("got"), [7, 7])]);
     assert_eq(read_update(v2([])).unwrap().effects, []);
 }
@@ -416,41 +171,6 @@ fun a_reply_is_a_response_or_an_error() {
 }
 
 @test
-fun an_answer_carries_bytes_or_null() {
-    assert_eq(
-        answer(t("got"), Value.Bytes([1, 2])),
-        encode(
-            Value.Map([
-                Entry { key: t("event"), value: t("answer") },
-                Entry { key: t("msg"), value: t("got") },
-                Entry { key: t("value"), value: Value.Bytes([1, 2]) },
-            ]),
-        ),
-    );
-    assert_eq(
-        answer(t("got"), Value.Null),
-        encode(
-            Value.Map([
-                Entry { key: t("event"), value: t("answer") },
-                Entry { key: t("msg"), value: t("got") },
-                Entry { key: t("value"), value: Value.Null },
-            ]),
-        ),
-    );
-}
-
-@test
-fun events_say_what_happened() {
-    assert_eq(lifecycle("init"), encode(kv([("event", t("init"))])));
-    assert_eq(lifecycle("opened"), encode(kv([("event", t("opened"))])));
-    assert_eq(envelope(t("add"), None), encode(kv([("event", t("message")), ("msg", t("add"))])));
-    assert_eq(
-        envelope(t("name"), Some("Amina")),
-        encode(kv([("event", t("message")), ("msg", t("name")), ("value", t("Amina"))])),
-    );
-}
-
-@test
 fun the_new_tabs_asks_decode() {
     let u = read_update(
         v2([
@@ -484,4 +204,40 @@ fun open_pin_needs_an_index() {
         ),
         true,
     );
+}
+
+/** A result with the given `link` and `kinds`. */
+fun linked(link: Value, kinds: Value): u8[] = encode(
+    kv([("state", kv([])), ("effects", Value.Array([])), ("link", link), ("kinds", kinds)]),
+);
+
+@test
+fun kinds_say_what_each_link_field_is() {
+    let u = read_update(
+        linked(
+            Value.Array([t("note"), t("editor.task")]),
+            kv([("note", t("number")), ("editor.task", t("number")), ("query", t("text"))]),
+        ),
+    ).unwrap();
+    assert_eq(u.link, LinkChange.Set(["note", "editor.task"]));
+    assert_eq(u.kinds, [("note", "number"), ("editor.task", "number"), ("query", "text")]);
+    let none = encode(kv([("state", kv([])), ("effects", Value.Array([]))]));
+    assert_eq(read_update(none).unwrap().kinds, []);
+}
+
+@test
+fun bad_kinds_stop_the_app() {
+    let why = fun(kinds: Value): string = match read_update(linked(Value.Array([]), kinds)) {
+        Err(Invalid(_, problem)) => problem,
+        _ => "ok",
+    };
+    assert_eq(why(t("note")), "\"kinds\" must be a map of field paths to kinds");
+    assert_eq(why(kv([("note", t("date"))])), "\"kinds\": note must be number, text or bool");
+    assert_eq(why(kv([("note", Value.int(1))])), "\"kinds\" maps field paths to kinds, as text");
+    assert_eq(why(kv([("Note!", t("text"))])).starts_with("\"kinds\": "), true);
+    let mut many: (string, Value)[] = [];
+    for i in 0..17 {
+        many.push(("f{i}", t("text")));
+    }
+    assert_eq(why(kv(many)), "\"kinds\" names at most 16 fields");
 }

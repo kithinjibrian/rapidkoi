@@ -1,14 +1,14 @@
-// Contract 5's screens (PRP-037), pure: boxes, texts and typing boxes,
-// their styles and roles, and the same limits as before.
-import rapidkoi.guest.tree5 { read_tree5 };
-import rapidkoi.guest.nodes { Node, Typing, Role, Colour, ContractError };
+// Screens (contract 7; boxes, texts and styles since PRP-037), pure: boxes,
+// texts and typing boxes, their styles and roles, and the limits.
+import rapidkoi.guest.tree { read_tree };
+import rapidkoi.guest.nodes { Node, Typing, Role, Colour, ContractError, Described };
 import rapidkoi.guest.limits { MAX_NODES, MAX_NODE_DEPTH };
 import cbor { Value, encode };
 import support { t, kv, leaf, parent };
 
-fun read(v: Value): Result<Node, ContractError> = read_tree5(encode(v)).map(fun(d) = d.root);
+fun read(v: Value): Result<Node, ContractError> = read_tree(encode(v)).map(fun(d) = d.root);
 
-fun why(v: Value): string = match read_tree5(encode(v)) {
+fun why(v: Value): string = match read_tree(encode(v)) {
     Err(Invalid(path, problem)) => "{path}: {problem}",
     Err(_) => "another error",
     Ok(_) => "ok",
@@ -29,7 +29,7 @@ fun a_counter_reads() {
         leaf("text", [("text", t("Count: 3")), ("role", t("heading"))]),
         add,
     ]);
-    let d = read_tree5(encode(root)).unwrap();
+    let d = read_tree(encode(root)).unwrap();
     assert_eq(d.title, Some("Counter"));
     match d.root {
         Boxed(_, _, None, kids) => {
@@ -84,11 +84,69 @@ fun typing_boxes_read() {
 }
 
 @test
-fun earlier_kinds_and_unknown_ones_are_placeholders() {
-    // Contract 5 speaks box, text and input; anything else is shown as unsupported.
+fun other_kinds_are_placeholders_and_their_children_still_count() {
+    // Box, text and input; anything else (contract 4's button included) is shown as unsupported.
     match read(leaf("button", [("label", t("Old"))])).unwrap() {
         Unsupported(kind) => assert_eq(kind, "button"),
         _ => panic("expected a placeholder"),
+    }
+    let mut kids: Value[] = [];
+    for _ in 0..MAX_NODES {
+        kids.push(leaf("text", [("text", t("x"))]));
+    }
+    assert_eq(why(parent("chart", [], kids)).contains("more than {MAX_NODES} nodes"), true);
+}
+
+@test
+fun a_typing_box_may_have_a_label() {
+    match read(leaf("input", [("value", t("")), ("label", t("Search notes"))])).unwrap() {
+        Field(f, _) => assert_eq(f.label, Some("Search notes")),
+        _ => panic("expected a field"),
+    }
+    match read(leaf("input", [("value", t(""))])).unwrap() {
+        Field(f, _) => assert_eq(f.label, None),
+        _ => panic("expected a field"),
+    }
+    assert_eq(
+        why(leaf("input", [("value", t("")), ("label", t(""))])),
+        "root > input: label must be text of 1 to 200 bytes",
+    );
+    assert_eq(
+        why(leaf("input", [("value", t("")), ("label", Value.int(3))])),
+        "root > input: label must be text of 1 to 200 bytes",
+    );
+}
+
+@test
+fun the_root_may_carry_a_title_and_only_the_root() {
+    let titled = read_tree(encode(parent("box", [("title", t("Sprint 3"))], [])));
+    assert_eq(titled.map(fun(d: Described) = d.title), Ok(Some("Sprint 3")));
+    let nested = read_tree(
+        encode(parent("box", [], [leaf("text", [("text", t("a")), ("title", t("ignored"))])])),
+    );
+    assert_eq(nested.map(fun(d: Described) = d.title), Ok(None));
+    assert_eq(why(leaf("box", [("title", Value.int(3))])), "root > box: \"title\" must be text");
+}
+
+/** A text of `n` copies of "x". */
+fun xs(n: i64): string {
+    let bytes: u8[] = [120; n];
+    string_from_utf8(bytes).unwrap()
+}
+
+@test
+fun string_and_size_limits() {
+    assert_eq(read(leaf("text", [("text", t(xs(65536)))])).is_ok(), true);
+    let long = read_tree(encode(leaf("text", [("text", t(xs(65537)))])));
+    assert_eq(long.is_err(), true);
+    let big: u8[] = [0; 4 * 1024 * 1024 + 1];
+    match read_tree(big) {
+        Err(TooLong(what, n)) => assert_eq((what, n), ("the screen description", 4194305)),
+        _ => panic("expected too long"),
+    }
+    match read_tree([0xa1]) {
+        Err(Decode(_)) => {}
+        _ => panic("expected bad CBOR"),
     }
 }
 

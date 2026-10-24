@@ -1,23 +1,30 @@
 // {FIRST_NAME} and {LAST_NAME} (PRP-011), pure: filled in display text
-// only, never in text fields; anything else in braces stays as it is.
+// only, never in typing boxes; anything else in braces stays as it is.
 import rapidkoi.guest.placeholders { fill };
-import rapidkoi.guest.nodes { Node, TextStyle, ButtonLook, Space };
+import rapidkoi.guest.nodes { Node, Typing };
+import rapidkoi.guest.styles { plain };
+import rapidkoi.guest.roles { no_facts };
 import cbor { Value };
 
-fun body(s: string): Node = Node.Text(s, TextStyle.Body);
+fun body(s: string): Node = Node.Words(s, plain(), no_facts());
+
+fun boxed(kids: Node[], press: Option<Value>): Node = Node.Boxed(plain(), no_facts(), press, kids);
 
 @test
-fun names_fill_text_and_button_labels() {
-    let tree = Node.Column(Space.Md, Space.Zero, [
-        body("Hello, {{FIRST_NAME}} {{LAST_NAME}}!"),
-        Node.Button("Hi {{FIRST_NAME}}", ButtonLook.Primary, Some(Value.Text("hi"))),
-    ]);
+fun names_fill_texts_however_deep() {
+    let tree = boxed(
+        [
+            body("Hello, {{FIRST_NAME}} {{LAST_NAME}}!"),
+            boxed([body("Hi {{FIRST_NAME}}")], Some(Value.Text("hi"))),
+        ],
+        None,
+    );
     assert_eq(
         fill(tree, "Brian", "Kithinji"),
-        Node.Column(Space.Md, Space.Zero, [
-            body("Hello, Brian Kithinji!"),
-            Node.Button("Hi Brian", ButtonLook.Primary, Some(Value.Text("hi"))),
-        ]),
+        boxed(
+            [body("Hello, Brian Kithinji!"), boxed([body("Hi Brian")], Some(Value.Text("hi")))],
+            None,
+        ),
     );
 }
 
@@ -31,8 +38,18 @@ fun an_empty_name_fills_nothing_and_other_braces_stay() {
 }
 
 @test
-fun text_fields_are_never_filled() {
-    let field = Node.Input("{{FIRST_NAME}}", "{{LAST_NAME}}", Some(Value.Text("typed")));
+fun typing_boxes_are_never_filled() {
+    let field = Node.Field(
+        Typing {
+            value: "{{FIRST_NAME}}",
+            placeholder: "{{LAST_NAME}}",
+            label: None,
+            lines: 1,
+            on_change: Some(Value.Text("typed")),
+            on_submit: None,
+        },
+        plain(),
+    );
     assert_eq(fill(field, "Brian", "K"), field);
 }
 

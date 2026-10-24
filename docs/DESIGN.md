@@ -102,9 +102,9 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 - No colours outside `src/ui/themes.la`; nothing follows the desktop theme; apps never get colours.
 - Icons are theme icon names, preferably `…-symbolic`.
 
-## Apps' own looks (contract 5, PRP-037, DECISION-049)
+## Apps' own looks (PRP-037, DECISION-049)
 
-- Apps style their content themselves through `style` (`docs/specs/contract-5.md`). Rapidkoi's own screens keep the rules above.
+- Apps style their content themselves through `style` (`docs/specs/contract-7.md`). Rapidkoi's own screens keep the rules above.
 - Rapidkoi's names resolve as follows (`src/ui/paint.la`):
   - **Colours:** `background` = `page`, `surface` = `control`, `text` = `text`, `text_dim` = `dim`, `accent`, `on_accent`, `border` = `edge`, `danger`, `on_danger`.
   - **Spacing:** `xs`–`xl` = the `SPACE_*` tokens.

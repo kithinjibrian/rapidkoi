@@ -56,7 +56,7 @@ fun loading(m: Model): bool = match m.tabs[0].page.screen {
 /** A format 1 bundle's bytes, as an unsigned server would send. */
 fun plain(): u8[] = write(Bundle {
     manifest: Manifest {
-        contract: 2,
+        contract: 7,
         name: "Plain",
         version: "1.0.0",
         description: None,

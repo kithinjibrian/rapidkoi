@@ -700,6 +700,26 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-056 — Contract 7: one contract, scrolling, pictures
+
+**Status:** resolved (discovery with the owner, 2026-10-24); built in PRP-045, PRP-046, PRP-047
+**Raised:** 2026-10-24, after Notes: its list and note can't scroll apart, and it has no icons
+
+**Outcome (the owner, Q1–Q7, "don't be afraid of breaking changes"):**
+- **Q1, where pictures come from:** the app's bundle (`image("asset:trash.svg")`), or a URL in the view (`image("https://…")`) on the app's own or declared servers, under `fetch`'s rules, loaded by Rapidkoi as a browser loads an `<img>` (Elm's model). Optional `on_load` and `on_fail` messages. Never a URL anywhere else: no picture is fetched but one a view names.
+- **Q2, sizing:** the existing `Sizing` styles; `fit` `contain` (default) or `cover`; the box's styles (corners, borders, shadows) apply; `.color(...)` recolours a one-colour SVG from the bundle only; `label` for screen readers.
+- **Q3, limits:** 10 MB downloaded a picture; 8,000 px a side and 40 megapixels, checked from the header before decoding; 256 MB decoded a window, least recently shown first; 6 downloads at once a window; 30 s each; PNG, JPEG and WebP from servers, SVG (≤ 1 MB) only from the bundle. A failed picture shows Rapidkoi's broken-picture mark, sends `on_fail` with the sentence, and the app runs on; a broken view (a bad URL, a missing asset, a size over the limits) stops the app.
+- **Q4, scrolling** (researched: CSS's `min-height: auto`, Flutter's unbounded viewports, Compose's infinite height): the page is the window and never scrolls; `Layout::scroll()` / `scroll_x()` on a box; every box on the way to a scrolling one has a minimum size of 0, so it never pushes its parents bigger; it's as tall as its content until it runs out of room (`scroll_fit`), `grow` to fill; a scrolling box inside another scrolling the same way stops the app with a sentence.
+- **Q5:** contract 7 only; contracts 2–6 and their code deleted; every app rebuilt (the SDK, its examples, the built-ins, Notes; the counter on the VM republished, asked first).
+- **Q6:** `label` on typing boxes; link fields with declared kinds (`kinds` in the `on_init` result, written by the SDK from the state's types), so an `Option` field can be set by a link.
+- **Q7:** three PRPs, one contract: PRP-045 (the base), PRP-046 (scrolling), PRP-047 (pictures); the SDK released as v0.2.0 after the third.
+
+**Why:** Notes needs both; a breaking change costs one rebuild per app while every app is the owner's.
+
+**Supersedes:** DECISION-039, 048, 049, 052's "older contracts still run".
+
+---
+
 ### DECISION-053 — WebAssembly text to bytes (lugha-wasmtime)
 
 **Status:** resolved (lugha-wasmtime 0.1.1, session 217)
@@ -766,6 +786,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **A core decision:** yes (decision 26, amended)
 
+
+**Superseded in part (DECISION-056, PRP-045):** older contracts no longer run; contract 7 is the only one, and its spec is `docs/specs/contract-7.md`.
+
 ---
 
 ### DECISION-051 — SQLite comes through a new package, lugha-sqlite
@@ -803,6 +826,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **A core decision:** yes (decision 25)
 
+
+**Superseded in part (DECISION-056, PRP-045):** older contracts no longer run; contract 7 is the only one, and its spec is `docs/specs/contract-7.md`.
+
 ---
 
 ### DECISION-048 — Contract 4: a state of named fields, and links
@@ -824,6 +850,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 **Rationale:** the owner's choices in chat, sessions 190–192 (PRP-036's WHY). Step B (images, wrapping rows, an accent style), meant for contract 3, hasn't landed: whether it now goes into contract 4 before any app outside this repository targets it, or makes contract 5, is the owner's call when step B is planned.
 
 **A core decision:** yes
+
+
+**Superseded in part (DECISION-056, PRP-045):** older contracts no longer run; contract 7 is the only one, and its spec is `docs/specs/contract-7.md`.
 
 ---
 
@@ -850,6 +879,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 2. Does Rapidkoi keep running contract 2 apps (the counter and quote published on the test VM), speaking both versions, or refuse them ("This app needs an older version of Rapidkoi") and republish ours at 3?
 
 **Recommendation:** 1: contract 3 starts with A and is still open to B; no app outside this repository targets it until B lands. 2: keep running contract 2: published bundles can't be recompiled (CLAUDE.md architecture rule 6), and the difference is small (event names, three missing asks).
+
+
+**Superseded in part (DECISION-056, PRP-045):** older contracts no longer run; contract 7 is the only one, and its spec is `docs/specs/contract-7.md`.
 
 ---
 

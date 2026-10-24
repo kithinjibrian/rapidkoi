@@ -84,7 +84,7 @@ Needs: `lughac` (the owner installs it from `../lugha`), `libgtk-4-dev`, `libsql
 - **GTK 4** only through kivuli. rapidkoi never imports `gtk`.
 - **wasmtime** (C API 49) through `lugha-wasmtime` 0.1 (`wat_to_wasm` since 0.1.1). rapidkoi declares no wasmtime `extern`.
 - **CBOR** through `lugha-cbor` 0.1. **SQLite** through `lugha-sqlite` 0.1: one database per app, every connection `Guard.untrusted()`, every call in a `Cmd.task`.
-- **The contract is version 6** (`docs/specs/contract-6.md`: storage) on 5 (`contract-5.md`: boxes, texts, styles, roles) on 4 (`contract-4.md`: named-field state, links); events in `app-events.md`. Contracts 2–5 still run. Any contract change is a DECISIONS.md entry and a version bump, and the guest↔host contract carries its version from its first commit: published bundles can't be recompiled.
+- **The contract is version 7, the only one** (`docs/specs/contract-7.md`, DECISION-056): named-field state, links (with `kinds`), `on_` events, boxes, texts and typing boxes (with `label`), styles, roles, storage. Older apps are refused, never run. Any change to it is a DECISIONS.md entry and a version bump, and the guest↔host contract carries its version from its first commit: published bundles can't be recompiled.
 - **The Rust SDK is `rapidkoi-rust`** (`../rapidkoi-rust`, a git dependency by tag) with the examples counter and styled. Notes is its own repository, `../notes` (core decision 27). A contract change is tagged there first; then the built-ins move to the tag and are repacked.
 
 ## ARCHITECTURE
@@ -102,7 +102,7 @@ Needs: `lughac` (the owner installs it from `../lugha`), `libgtk-4-dev`, `libsql
 ## DESIGN AND CODE STYLE
 
 - **Read `docs/DESIGN.md` before writing any view.** Every spacing, size and text size in Rapidkoi's own screens is a token from it; every colour comes from `src/ui/themes.la` (the desktop theme is ignored, DECISION-031). Never a hardcoded colour, never a bare number in `Spacing`, `Sizing`, `Font` or `Border`.
-- Apps style their own content (contract 5): their values are checked by `src/guest/styles.la`, and Rapidkoi's names they use are resolved by `src/ui/paint.la`. The frame, address and dialogs stay Rapidkoi's.
+- Apps style their own content (contract 7): their values are checked by `src/guest/styles.la`, and Rapidkoi's names they use are resolved by `src/ui/paint.la`. The frame, address and dialogs stay Rapidkoi's.
 - **Read `docs/CODE_STYLE.md` before writing code.** Every `public` item has a `/** … */` comment; every non-obvious decision inside a function has a `//` comment saying why. Code reads like the code around it.
 
 ## ANTI-PATTERNS
