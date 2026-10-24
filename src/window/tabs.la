@@ -115,6 +115,8 @@ public struct Cached {
     public reached: bool,
     /** How many bytes the kept copy takes. */
     public size: i64,
+    /** A newer version kept and not yet running here, offered by the address box (PRP-044). */
+    public newer: Option<string>,
 }
 
 /** What the window shows: home, or the current tab's app. */

@@ -32,6 +32,8 @@ public enum Icon {
     Star,
     /** `3-dots-more.svg`: the instance strip's overflow (PRP-033). */
     More,
+    /** `refresh-arrow.svg`: a newer version is ready (PRP-044). */
+    Upgrade,
 }
 
 /** Every icon, for tests and for listing. */
@@ -46,6 +48,7 @@ public const ALL: Icon[] = [
     Icon.Shield,
     Icon.Star,
     Icon.More,
+    Icon.Upgrade,
 ];
 
 /**
@@ -66,6 +69,7 @@ public fun file(i: Icon): string = match i {
     Shield => "shield-tick.svg",
     Star => "star.svg",
     More => "3-dots-more.svg",
+    Upgrade => "refresh-arrow.svg",
 };
 
 /**
@@ -86,6 +90,7 @@ public fun svg(i: Icon): string = match i {
     Shield => include_str("../../assets/icons/shield-tick.svg"),
     Star => include_str("../../assets/icons/star.svg"),
     More => include_str("../../assets/icons/3-dots-more.svg"),
+    Upgrade => include_str("../../assets/icons/refresh-arrow.svg"),
 };
 
 /**

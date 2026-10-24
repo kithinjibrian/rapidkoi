@@ -98,6 +98,8 @@ public enum Msg {
     Fetched(i64, i64, Fetched),
     /** The check after an app opened from its kept copy, for this tab and the build it was running (PRP-043). */
     Refreshed(i64, u8[], Refreshed),
+    /** Time to check the app in front against its site, while it stays open (PRP-044): the time now. */
+    CheckForUpdates(i64),
     /** A request's result, for this tab and load, answering the app's `msg` (PRP-012). */
     Responded(i64, i64, Value, Reply),
     /** A call to the app's database, for this tab and load, answering the app's `msg` (PRP-041). */

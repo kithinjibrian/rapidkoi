@@ -38,13 +38,20 @@ Today the check runs once, when an app opens from its kept copy. An app left ope
 - No new message: the button sends `Msg.Reload`.
 
 ## TESTS
-- [ ] A check that keeps a newer build marks the window `newer`, and the address box shows the button with its tooltip
-- [ ] An unreachable check, an up-to-date app, and an unsigned app show no button
-- [ ] Another open window of the same app running the older build shows it too
-- [ ] Clicking it upgrades the window to the new version, its state carried over; the button goes
-- [ ] The withdrawn screen says only the withdrawal; with a newer valid version kept, the button shows
+- [x] A check that keeps a newer build marks the window `newer`, and the address box shows the button with its tooltip
+- [x] An unreachable check, an up-to-date app, and an unsigned app show no button
+- [x] Another open window of the same app running the older build shows it too
+- [x] Clicking it upgrades the window to the new version, its state carried over; the button goes
+- [x] The withdrawn screen says only the withdrawal; with a newer valid version kept, the button shows
 
 ## ACCEPTANCE
-- [ ] Every test above passes
-- [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build src/main.la -o main` pass
+- [x] Every test above passes
+- [x] `lughac test test/`, `lughac fmt --check src test` and `lughac build src/main.la -o main` pass
 - [ ] For the owner, by eye: with Notes open, deploy a new Notes version, open Notes again (a second open runs the check), see the arrow with its red dot and tooltip, click it: the new version runs and the arrow goes
+
+## AMENDMENTS
+
+- **Q1 (the owner, at approval):** (a). The 15-minute check is built (`CHECK_EVERY_MS`, `Msg.CheckForUpdates`, `loads.check_current`); the check when Rapidkoi's window comes back to the front waits on kivuli, which has no event for it (DECISION-054).
+- **Every window of the app** means every tab with the same address running another version: `loads.offered`. A withdrawn window keeps its kept copy's facts (`stopped` keeps `cached`), so the newer version is offered there too.
+- **The withdrawn screen's words** never named ⟳: they stay "{name} {version} was withdrawn: {reason}".
+- **`subscriptions`** stays one subscription when there's one (the loading tick or the check), a batch only for both.

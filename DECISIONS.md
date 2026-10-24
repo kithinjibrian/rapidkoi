@@ -350,6 +350,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Amended (the owner, 2026-10-24):** updates are silent. A person hears about an update only when it changes something for them: their window stopped (a withdrawal), their state lost (its shape changed), the app asking for more (a new server or permission), the publisher's key changed, or a link not getting the version it named. A routine new version says nothing; its version is on the Signed app page. What's new in an app is the app's own to say.
 
+**Amended (the owner, PRP-044):** still no notice, but the address box offers it: once a check keeps a newer version and reached the site, an upgrade button (the refresh arrow, a red dot, "A new version of this app is available: upgrade") shows left of the shield in every window of the app on the old version; clicking it upgrades that window, its state carried over. A kept app in front is checked every 15 minutes too.
+
 ---
 
 ## OPEN — Requires human input before implementation
@@ -367,6 +369,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## DEFERRED — Acknowledged, not yet needed
+
+### DECISION-054 — Knowing when Rapidkoi's window comes back to the front (kivuli)
+
+**Status:** deferred (kivuli)
+**Raised:** 2026-10-24, PRP-044
+
+**Question:** PRP-044's Q1 (the owner: (a)) checks a kept app against its site every 15 minutes while it's in front, and when Rapidkoi's window comes back to the front. kivuli 0.54 has no event for the window becoming active again (GTK's `notify::is-active`), so only the 15-minute check is built.
+
+**Meanwhile:** the 15-minute check, and the check on every open from the kept copy. Nothing is worked around.
+
+---
 
 ### DECISION-050 — Screen readers need accessible roles from kivuli
 
