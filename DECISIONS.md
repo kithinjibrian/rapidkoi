@@ -383,7 +383,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-054 — Knowing when Rapidkoi's window comes back to the front (kivuli)
 
-**Status:** deferred (kivuli)
+**Status:** deferred (requested: `docs/specs/kivuli-window-active.md`)
 **Raised:** 2026-10-24, PRP-044
 
 **Question:** PRP-044's Q1 (the owner: (a)) checks a kept app against its site every 15 minutes while it's in front, and when Rapidkoi's window comes back to the front. kivuli 0.54 has no event for the window becoming active again (GTK's `notify::is-active`), so only the 15-minute check is built.
@@ -603,11 +603,11 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-014 — Running two apps at once (kivuli single-instance)
 
-**Status:** deferred
+**Status:** deferred (requested: `docs/specs/kivuli-application-flags.md`)
 **Raised:** 2026-10-17 — Session 5
 **Revisit when:** The shell runs more than one app, or a second launch must open a second app.
 
-**Question:** kivuli starts GTK with `gtk_application_new(id, 0)` (`../kivuli/src/live.la:74`), so GTK makes the program single-instance: a second `./main other.wasm` raises the first window and drops the new app. Should kivuli accept application flags (e.g. `G_APPLICATION_NON_UNIQUE`, or `HANDLES_OPEN` for links later)?
+**Question:** kivuli starts GTK with `gtk_application_new(id, 0)` (`../kivuli/src/render/live.la:109`), so GTK makes the program single-instance: a second `./main other.wasm` raises the first window and drops the new app. Should kivuli accept application flags (e.g. `G_APPLICATION_NON_UNIQUE`, or `HANDLES_OPEN` for links later)?
 
 **Notes:** A kivuli gap, fixed upstream when needed. Step 1 runs one app, so it's a known limitation. Build path step 2 (links) will need `HANDLES_OPEN`-style behaviour anyway.
 
@@ -651,7 +651,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-020 — What kivuli needs for Rapidkoi's frame
 
-**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018)
+**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018; the file dialog requested: `docs/specs/kivuli-file-dialog.md`)
 **Raised:** 2026-10-17 — Session 10
 **Revisit when:** Each kivuli release. Swap the matching placeholder out.
 
