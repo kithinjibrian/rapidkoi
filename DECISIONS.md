@@ -381,17 +381,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
-### DECISION-054 — Knowing when Rapidkoi's window comes back to the front (kivuli)
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 2)
-**Raised:** 2026-10-24, PRP-044
-
-**Question:** PRP-044's Q1 (the owner: (a)) checks a kept app against its site every 15 minutes while it's in front, and when Rapidkoi's window comes back to the front. kivuli 0.54 has no event for the window becoming active again (GTK's `notify::is-active`), so only the 15-minute check is built.
-
-**Meanwhile:** the 15-minute check, and the check on every open from the kept copy. Nothing is worked around.
-
----
-
 ### DECISION-050 — Screen readers need accessible roles from kivuli
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 3)
@@ -699,6 +688,19 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-054 — Knowing when Rapidkoi's window comes back to the front (kivuli)
+
+**Status:** resolved (kivuli 0.58, 2026-10-24)
+**Raised:** 2026-10-24, PRP-044
+
+**Question:** PRP-044's Q1 (the owner: (a)) checks a kept app against its site every 15 minutes while it's in front, and when Rapidkoi's window comes back to the front. kivuli 0.54 has no event for the window becoming active again (GTK's `notify::is-active`), so only the 15-minute check is built.
+
+**Meanwhile:** the 15-minute check, and the check on every open from the kept copy. Nothing is worked around.
+
+**Outcome:** kivuli 0.56's `Sub.window_active`: while a kept app is in front, Rapidkoi checks it against its site when the window comes back to the front (`Msg.WindowActive(true)`), as well as every 15 minutes.
+
+---
 
 ### DECISION-057 — Clipping an app's page, showing its overflow, and scrolling one way (kivuli)
 

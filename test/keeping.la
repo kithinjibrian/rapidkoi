@@ -347,6 +347,20 @@ fun an_open_app_is_checked_while_it_stays_open() {
 }
 
 @test
+fun an_open_app_is_checked_when_the_window_comes_back_to_the_front() {
+    // kivuli 0.56 (DECISION-054): back to the front checks; going behind doesn't.
+    let s = folder("window-front");
+    let dir = site(18828, "1.0.0");
+    served(dir, 18828);
+    let m = started(s, ["./main", "rapidkoi://localhost:18828"]);
+    republish(dir, 18828, "2.0.0");
+    assert_eq(newer(step(m, Msg.WindowActive(false))), None);
+    let checked = step(m, Msg.WindowActive(true));
+    assert_eq(newer(checked), Some("2.0.0"));
+    done(s, dir);
+}
+
+@test
 fun a_withdrawn_window_offers_the_newer_version_kept() {
     let s = folder("withdrawn-upgrade");
     let dir = site(18827, "1.0.0");

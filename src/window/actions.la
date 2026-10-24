@@ -102,6 +102,8 @@ enum Msg {
     CheckForUpdates(i64),
     /** A request's result, for this tab and load, answering the app's `msg` (PRP-012). */
     Responded(i64, i64, Value, Reply),
+    /** Rapidkoi's window came to the front (`true`) or went behind (kivuli 0.56). */
+    WindowActive(bool),
     /** How far this tab's app sticks out past the window, across and down, in pixels (PRP-046, kivuli 0.58). */
     Overflowed(i64, i64, i64),
     /** A picture's download, for this tab and load, by its source (PRP-047). */
