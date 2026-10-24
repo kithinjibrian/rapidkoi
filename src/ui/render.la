@@ -38,6 +38,7 @@ import ui.tokens { SPACE_SM, RING_WIDTH, gap, margin, padding_xy };
 import ui.themes { body, dim, title, heading, field, paint as theme_paint, button as button_look };
 import ui.schemes { Theme };
 import ui.paint { Own, AS_STYLED, resolve_for, styles_of, align_of };
+import ui.pictured { picture_view };
 
 /** What the shell's window sends its `update`. */
 enum Msg {
@@ -81,6 +82,7 @@ fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
         look,
         Align.Fill,
     ),
+    Pictured(p, look) => picture_view(p, look, t, own),
 };
 
 /**

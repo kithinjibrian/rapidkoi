@@ -1,0 +1,139 @@
+/**
+ * Pictures in a screen (PRP-047), pure: the `image` node's props read and
+ * checked, and the sources a screen names. Where a source points (the
+ * bundle, an allowed server) is checked against the app in `net.pictures`.
+ *
+ * Depends on: cbor, guest.nodes, guest.limits, guest.styles, bundles.rules
+ * Used by: guest.tree, net.pictures, ui.content
+ */
+import cbor { Value };
+import guest.nodes { Node, Look, Picture, Fitting, Shown, ContractError, invalid };
+import guest.limits { MAX_LABEL, MAX_PICTURES, MAX_SOURCE };
+import guest.styles { read_style, colour };
+import bundles.rules { check_asset_name };
+
+/**
+ * Reads an `image` node's props: its source, fit, colour, label and
+ * messages, and its style. A source not yet in `seen` is added to it; one
+ * past `MAX_PICTURES` stops the app.
+ *
+ * Example:
+ *     read_picture(props, "root > image", seen)?
+ */
+fun read_picture(
+    given: Value,
+    here: string,
+    seen: Ref<string[]>,
+): Result<(Picture, Look), ContractError> {
+    let source = match given.get("src") {
+        Some(Text(s)) if good_source(s) => s,
+        _ => {
+            return Err(
+                invalid(
+                    here,
+                    "src must be asset:NAME or an http(s) address of at most {MAX_SOURCE} bytes",
+                ),
+            );
+        }
+    };
+    if !seen.get().any(fun(s: string) = s == source) {
+        if seen.get().len >= MAX_PICTURES {
+            return Err(invalid(here, "more than {MAX_PICTURES} pictures"));
+        }
+        seen.update(fun(xs: string[]) = xs + [source]);
+    }
+    let fit = match given.get("fit") {
+        None => Fitting.Contain,
+        Some(Text(s)) if s == "contain" => Fitting.Contain,
+        Some(Text(s)) if s == "cover" => Fitting.Cover,
+        Some(_) => {
+            return Err(invalid(here, "fit must be contain or cover"));
+        }
+    };
+    let tint = match given.get("color") {
+        None => None,
+        Some(c) => {
+            // Only the app's own SVG can be recoloured: a server's picture is a photo.
+            if asset_of(source).is_none() {
+                return Err(invalid(here, "color only goes on a picture from the app's bundle"));
+            }
+            Some(colour(c, here, "color", true)?)
+        }
+    };
+    let label = match given.get("label") {
+        None => None,
+        Some(Text(s)) if s.len >= 1 && s.len <= MAX_LABEL => Some(s),
+        Some(_) => {
+            return Err(invalid(here, "label must be text of 1 to {MAX_LABEL} bytes"));
+        }
+    };
+    let p = Picture {
+        source: source,
+        fit: fit,
+        colour: tint,
+        label: label,
+        on_load: given.get("on_load"),
+        on_fail: given.get("on_fail"),
+        shown: Shown.Waiting,
+    };
+    Ok((p, read_style(given.get("style"), here)?))
+}
+
+/** Whether a source is `asset:` and a good asset name, or an http(s) address, within `MAX_SOURCE`. */
+fun good_source(s: string): bool {
+    if s.len > MAX_SOURCE {
+        return false;
+    }
+    match asset_of(s) {
+        Some(name) => check_asset_name(name).is_ok(),
+        None => s.starts_with("https://") || s.starts_with("http://"),
+    }
+}
+
+/**
+ * The asset a source names, if it's from the bundle.
+ *
+ * Example:
+ *     asset_of("asset:trash.svg") == Some("trash.svg")
+ */
+fun asset_of(source: string): Option<string> = if source.starts_with("asset:") {
+    Some(source.slice(6, source.len))
+} else {
+    None
+};
+
+/**
+ * The pictures a screen names, in the order it shows them, each once.
+ *
+ * Example:
+ *     sources(d.root)
+ */
+fun sources(root: Node): string[] = pictures_in(root).map(fun(p: Picture) = p.source);
+
+/**
+ * The pictures in a screen, the first of each source, in the order it shows them.
+ *
+ * Example:
+ *     pictures_in(d.root)
+ */
+fun pictures_in(root: Node): Picture[] {
+    let out: Ref<Picture[]> = Ref.new([]);
+    gather(root, out);
+    out.get()
+}
+
+fun gather(n: Node, out: Ref<Picture[]>) {
+    match n {
+        Pictured(p, _) => {
+            if !out.get().any(fun(q: Picture) = q.source == p.source) {
+                out.update(fun(xs: Picture[]) = xs + [p]);
+            }
+        }
+        Boxed(_, _, _, kids) => {
+            for k of kids {
+                gather(k, out);
+            }
+        }
+        _ => {}
+    }
+}

@@ -1,0 +1,16 @@
+/**
+ * What a page has of a picture from a server (PRP-047): split from
+ * `tabs.la`, which holds it on each page (named so no local `kept` clashes).
+ *
+ * Used by: window.tabs, net.downloads, ui.content
+ */
+
+/** What a page has of one picture from a server. */
+enum Kept {
+    /** Downloading. */
+    Coming,
+    /** Its bytes, checked; its decoded size (width × height × 4); when it was last on screen, as a stamp. */
+    Here(u8[], i64, i64),
+    /** It can't be shown. */
+    Gone,
+}

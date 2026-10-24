@@ -56,6 +56,7 @@ fun resume(l: LeftOff): AppPage = match l.program {
             fields: [],
             data_size: None,
             cached: None,
+            pictures: [],
         }, start(prog, l.state, []))
     }
     None => failed(l.name, l.path, "This app couldn't be reopened"),
@@ -110,13 +111,18 @@ fun load_again(
             manifest: l.manifest,
             icon: l.icon,
             trust: l.trust,
-            ..open_program(l.name, path, Program { engine: engine, module: l.module }, []),
+            ..open_program(
+                l.name,
+                path,
+                Program { engine: engine, module: l.module, assets: l.assets },
+                [],
+            ),
         };
         let now = state_version_of(fresh);
         match saved {
             Some((state, version)) if version == now => {
                 close_page(fresh);
-                let program = Program { engine: engine, module: l.module };
+                let program = Program { engine: engine, module: l.module, assets: l.assets };
                 // Continued with its state, the window keeps its address's fields.
                 (
                     ran(

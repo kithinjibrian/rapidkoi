@@ -46,7 +46,7 @@ Ask before anything that leaves this machine: creating repositories, adding remo
 
 ## PROTECTED FILES
 
-Never read, modify or delete: `.env` and `.env.*`; `lugha.lock` (written only by `lughac build`/`update`); built outputs (the paths in `.gitignore`). Sibling repositories are read for reference and never written from here: `../lugha/`, `../kivuli/`, `../lugha-gtk/`, `../lugha-wasmtime/`, `../lugha-cbor/`, `../lugha-sqlite/`, `../rapidkoi-rust/`. Keep `.llmignore` and `.claude/settings.json` in step with this list. Never build or install `lughac` yourself: when a newer one is needed, ask the owner.
+Never read, modify or delete: `.env` and `.env.*`; `lugha.lock` (written only by `lughac build`/`update`); built outputs (the paths in `.gitignore`). Sibling repositories are read for reference and never written from here: `../lugha/`, `../kivuli/`, `../lugha-gtk/`, `../lugha-wasmtime/`, `../lugha-cbor/`, `../lugha-sqlite/`, `../lugha-imagesize/`, `../rapidkoi-rust/`. Keep `.llmignore` and `.claude/settings.json` in step with this list. Never build or install `lughac` yourself: when a newer one is needed, ask the owner.
 
 ---
 
@@ -83,9 +83,10 @@ Needs: `lughac` (the owner installs it from `../lugha`), `libgtk-4-dev`, `libsql
 - **kivuli 0.54** (git package): the UI. Import through its entry (`import kivuli { View, text };`); only the entry and `kivuli.testing` are public. Styling is one door, `.style([...])` of typed values (`Font`, `Spacing`, `Sizing`, `Background`, `Border`, `When(State, …)`, …). Read `../kivuli/README.md` or its source before using any API.
 - **GTK 4** only through kivuli. rapidkoi never imports `gtk`.
 - **wasmtime** (C API 49) through `lugha-wasmtime` 0.1 (`wat_to_wasm` since 0.1.1). rapidkoi declares no wasmtime `extern`.
+- **Picture headers** through `lugha-imagesize` 0.1 (PRP-047): a picture's format and size before anything decodes it.
 - **CBOR** through `lugha-cbor` 0.1. **SQLite** through `lugha-sqlite` 0.1: one database per app, every connection `Guard.untrusted()`, every call in a `Cmd.task`.
 - **The contract is version 7, the only one** (`docs/specs/contract-7.md`, DECISION-056): named-field state, links (with `kinds`), `on_` events, boxes, texts and typing boxes (with `label`), styles, roles, storage. Older apps are refused, never run. Any change to it is a DECISIONS.md entry and a version bump, and the guest↔host contract carries its version from its first commit: published bundles can't be recompiled.
-- **The Rust SDK is `rapidkoi-rust`** (`../rapidkoi-rust`, a git dependency by tag, now `v0.2.0-pre.2`: contract 7's base and scrolling) with the examples counter and styled. Notes is its own repository, `../notes` (core decision 27). A contract change is tagged there first; then the built-ins move to the tag and are repacked.
+- **The Rust SDK is `rapidkoi-rust`** (`../rapidkoi-rust`, a git dependency by tag, now `v0.2.0-pre.3`: contract 7, pictures included) with the examples counter and styled. Notes is its own repository, `../notes` (core decision 27). A contract change is tagged there first; then the built-ins move to the tag and are repacked.
 
 ## ARCHITECTURE
 

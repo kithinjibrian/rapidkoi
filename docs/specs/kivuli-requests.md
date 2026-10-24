@@ -16,6 +16,7 @@ Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fi
 10. [Bug: a picture's `.size(n)` doesn't cap it](#10-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
 11. [A container that clips, and says how far its content overflows](#11-a-container-that-clips-and-says-how-far-its-content-overflows) (DECISION-057)
 12. [Scrolling one way only](#12-scrolling-one-way-only) (DECISION-057)
+13. [Pictures: WebP, larger pictures, and a decode that fails](#13-pictures-webp-larger-pictures-and-a-decode-that-fails) (DECISION-058)
 
 ---
 
@@ -267,3 +268,18 @@ DECISION-057 (PRP-046).
 **What to add.** An axis on `scroll` and `scroll_fit` (`scroll_y`, `scroll_x`, or an argument): `gtk_scrolled_window_set_policy(sw, h, v)` with `GTK_POLICY_NEVER` for the other axis (the child then gets the scrolled window's width, and wraps or is cut).
 
 **How Rapidkoi will use it.** `ui.render.boxed` passes the box's `scroll` axis through. No contract change.
+
+---
+
+## 13. Pictures: WebP, larger pictures, and a decode that fails
+
+DECISION-058 (PRP-047).
+
+**What Rapidkoi needs.** Apps show pictures from their servers (PRP-047). Rapidkoi checks each one's header before handing its bytes to `image(Image.Bytes(key, bytes))`, but kivuli 0.54 shows only PNG, JPEG and SVG, up to 4,096 × 4,096 px and 16 MB, and a picture it can't decode shows nothing, silently. Agreed with the owner (DECISION-056) were WebP too, 8,000 px a side and 40 megapixels, and telling the app (`on_fail`) about every picture that can't be shown.
+
+**What to add.**
+1. **WebP** in `Image.Bytes`: GTK 4's `gdk_texture_new_from_bytes` reads PNG, JPEG and TIFF; WebP needs gdk-pixbuf's webp loader (`webp-pixbuf-loader`) or libwebp.
+2. **A higher cap**: 8,000 px a side and 40 MP, or a cap the caller passes (Rapidkoi has already checked the header with `lugha-imagesize`).
+3. **Knowing a picture failed to decode**: a message, for example `image(img).on_error(fun(why: string) = Msg.Broken(why))`, sent when the texture can't be made (the `GError` from `gdk_texture_new_from_bytes`).
+
+**How Rapidkoi will use it.** `net.downloads.checked` lets WebP and larger pictures through; `ui.pictured` passes `on_error` through, and a failed decode is kept as gone and sent to the app as its `on_fail`. No contract change: only fewer refusals.

@@ -5,21 +5,19 @@
  * bytes, the node count and depth, and each string. Any other kind is shown
  * as unsupported, its subtree still counted.
  *
- * Depends on: cbor, guest.nodes, guest.limits, guest.props, guest.styles, guest.roles
+ * Depends on: cbor, guest.nodes, guest.limits, guest.props, guest.styles, guest.roles, guest.pictures
  * Used by: guest.running
  */
 import cbor { Value, Limits, decode };
 import guest.nodes { Node, Typing, Described, ContractError, Axis, invalid };
-import guest.limits { MAX_VIEW, MAX_NODES, MAX_NODE_DEPTH, MAX_STRING };
+import guest.limits { MAX_VIEW, MAX_NODES, MAX_NODE_DEPTH, MAX_STRING, MAX_LABEL };
+import guest.pictures { read_picture };
 import guest.props { text, optional_text, maybe_text };
 import guest.styles { read_style };
 import guest.roles { read_facts };
 
 /** The most lines a typing box may have. */
 const MAX_LINES: i64 = 20;
-
-/** The longest label a typing box may have, in bytes (DECISION-056). */
-const MAX_LABEL: i64 = 200;
 
 /**
  * Decodes a screen and its title.
@@ -48,7 +46,8 @@ fun read_tree(bytes: u8[]): Result<Described, ContractError> {
     };
     let value = decode(bytes, bounds).map_err(ContractError.Decode)?;
     let count = Ref.new(0);
-    let root = node(value, "", 0, 1, count, None)?;
+    let seen: Ref<string[]> = Ref.new([]);
+    let root = node(value, "", 0, 1, count, seen, None)?;
     let title = match (value.get("kind"), value.get("props")) {
         (Some(Text(kind)), Some(given)) => maybe_text(given, "title", "root > {kind}")?,
         _ => None,
@@ -58,7 +57,8 @@ fun read_tree(bytes: u8[]): Result<Described, ContractError> {
 
 /**
  * One node and its subtree, counted in `count`; paths read `root > box >
- * text[1]`. `scrolling` is which ways the boxes around it already scroll.
+ * text[1]`. `seen` is the picture sources so far (PRP-047); `scrolling`
+ * is which ways the boxes around it already scroll.
  */
 fun node(
     v: Value,
@@ -66,6 +66,7 @@ fun node(
     index: i64,
     depth: i64,
     count: Ref<i64>,
+    seen: Ref<string[]>,
     scrolling: Option<Axis>,
 ): Result<Node, ContractError> {
     let path = if parent == "" { "root" } else { "{parent} > [{index}]" };
@@ -119,7 +120,7 @@ fun node(
                 look,
                 facts,
                 given.get("on_press"),
-                children(v, here, depth, count, inside)?,
+                children(v, here, depth, count, seen, inside)?,
             ),
         );
     }
@@ -155,6 +156,13 @@ fun node(
         };
         return Ok(Node.Field(typing, read_style(given.get("style"), here)?));
     }
+    if kind == "image" {
+        if v.get("children").is_some() {
+            return Err(invalid(here, "an image has no children"));
+        }
+        let (p, look) = read_picture(given, here, seen)?;
+        return Ok(Node.Pictured(p, look));
+    }
     // Anything else isn't read, but its subtree still counts against the
     // limits, so it can't hide an oversized tree.
     tally(v, here, depth, count)?;
@@ -167,6 +175,7 @@ fun children(
     here: string,
     depth: i64,
     count: Ref<i64>,
+    seen: Ref<string[]>,
     scrolling: Option<Axis>,
 ): Result<Node[], ContractError> {
     let items = match v.get("children") {
@@ -179,7 +188,7 @@ fun children(
     let mut out: Node[] = [];
     let mut i = 0;
     for item of items {
-        out.push(node(item, here, i, depth + 1, count, scrolling)?);
+        out.push(node(item, here, i, depth + 1, count, seen, scrolling)?);
         i += 1;
     }
     Ok(out)

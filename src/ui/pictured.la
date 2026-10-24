@@ -1,0 +1,96 @@
+/**
+ * Drawing an app's picture (PRP-047), pure: an empty box while it loads,
+ * the picture once its bytes are here (a bundle SVG in its colour), or
+ * Rapidkoi's broken-picture mark. The box's style (size, corners, border)
+ * applies to all three. A picture sends nothing, so its view is any `M`.
+ *
+ * Depends on: kivuli, guest.nodes, ui.paint, ui.icons, ui.schemes
+ * Used by: ui.render
+ */
+import kivuli { View, Fit, Image, column, image };
+import guest.nodes { Look, Picture, Fitting, Colour };
+import guest.pictures { asset_of };
+import ui.paint { Own, resolve_for, styles_of, align_of, rgba };
+import ui.icons { Icon, icon };
+import ui.schemes { Theme };
+
+/**
+ * Draws a picture as it stands, in its box.
+ *
+ * Example:
+ *     picture_view(p, look, m.theme, own)
+ */
+fun picture_view<M>(p: Picture, look: Look, t: Theme, own: Own): View<M> {
+    let drawn: View<M> = match p.shown {
+        // Its box keeps its size while the picture comes.
+        Waiting => column([]),
+        Ready(bytes) => image(of_bytes(p, bytes, t, own)).fit(match p.fit {
+            Contain => Fit.Contain,
+            Cover => Fit.Cover,
+        }),
+        Broken => image(icon(Icon.BrokenPicture, t.dim)).fit(Fit.Contain),
+    };
+    let named = match p.label {
+        Some(l) => drawn.name(l),
+        None => drawn,
+    };
+    let styled = named.style(styles_of(resolve_for(look, t, own, false)));
+    let aligned = match look.align {
+        Some(a) => styled.align(align_of(a)),
+        None => styled,
+    };
+    if look.grow { aligned.expand() } else { aligned }
+}
+
+/**
+ * The picture kivuli shows, keyed by its source so it's decoded once: a
+ * bundle SVG with a colour has `currentColor` drawn in it, and the colour
+ * in its key.
+ */
+fun of_bytes(p: Picture, bytes: u8[], t: Theme, own: Own): Image = match (
+    p.colour,
+    asset_of(p.source),
+) {
+    (Some(c), Some(_)) => {
+        let colour = svg_colour(c, t, own);
+        // The bundle's rules made sure an SVG is UTF-8 text.
+        let svg = string_from_utf8(bytes).unwrap_or("");
+        Image.Bytes("{p.source}:{colour}", svg.split("currentColor").join(colour).to_bytes())
+    }
+    _ => Image.Bytes(p.source, bytes),
+};
+
+/**
+ * A colour as an SVG writes it: `#rrggbb`, or `rgba(…)` when it's see-through.
+ * With Use my colours, the app's own colours are the theme's text colour.
+ *
+ * Example:
+ *     svg_colour(Colour.Named("accent"), m.theme, own)
+ */
+fun svg_colour(c: Colour, t: Theme, own: Own): string {
+    let forced = match c {
+        Named(_) => c,
+        _ => if own.colours { Colour.Named("text") } else { c },
+    };
+    let x = rgba(forced, t);
+    if x.alpha >= 255 {
+        "#{two(x.red)}{two(x.green)}{two(x.blue)}"
+    } else {
+        // Three decimals: enough for 256 steps.
+        let a = (x.alpha * 1000 + 127) / 255;
+        let frac = if a % 1000 < 10 {
+            "00{a % 1000}"
+        } else if a % 1000 < 100 {
+            "0{a % 1000}"
+        } else {
+            "{a % 1000}"
+        };
+        "rgba({x.red},{x.green},{x.blue},{a / 1000}.{frac})"
+    }
+}
+
+/** A channel as two lower-case hex digits. */
+fun two(n: i64): string {
+    let digits = "0123456789abcdef";
+    "{digits.slice(n / 16, n / 16 + 1)}{digits.slice(n % 16, n % 16 + 1)}"
+}

@@ -1,0 +1,61 @@
+// The content area (PRP-047): each picture drawn as its page has it.
+
+import rapidkoi.ui.content { with_shown };
+import rapidkoi.window.downloaded { Kept };
+import rapidkoi.guest.nodes { Node, Picture, Fitting, Shown };
+import rapidkoi.guest.styles { plain };
+import rapidkoi.guest.roles { no_facts };
+
+fun picture(source: string): Node = Node.Pictured(
+    Picture {
+        source: source,
+        fit: Fitting.Contain,
+        colour: None,
+        label: None,
+        on_load: None,
+        on_fail: None,
+        shown: Shown.Waiting,
+    },
+    plain(),
+);
+
+fun shown(n: Node): Shown[] = match n {
+    Pictured(p, _) => [p.shown],
+    Boxed(_, _, _, kids) => {
+        let mut out: Shown[] = [];
+        for k of kids {
+            out = out + shown(k);
+        }
+        out
+    }
+    _ => [],
+};
+
+@test
+fun each_picture_is_drawn_as_its_page_has_it() {
+    let root = Node.Boxed(plain(), no_facts(), None, [
+        picture("asset:a.svg"),
+        picture("asset:missing.svg"),
+        picture("https://a.com/here.png"),
+        picture("https://a.com/coming.png"),
+        picture("https://a.com/gone.png"),
+        picture("https://a.com/unasked.png"),
+    ]);
+    let assets: (string, u8[])[] = [("a.svg", [1, 2])];
+    let kept = [
+        ("https://a.com/here.png", Kept.Here([3, 4], 16, 1)),
+        ("https://a.com/coming.png", Kept.Coming),
+        ("https://a.com/gone.png", Kept.Gone),
+    ];
+    assert_eq(
+        shown(with_shown(root, assets, kept)) == [
+            Shown.Ready([1, 2]),
+            Shown.Broken,
+            Shown.Ready([3, 4]),
+            Shown.Waiting,
+            Shown.Broken,
+            Shown.Waiting,
+        ],
+        true,
+    );
+}

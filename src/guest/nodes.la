@@ -31,6 +31,43 @@ enum Node {
     Words(string, Look, Facts),
     /** A typing box. */
     Field(Typing, Look),
+    /** A picture (PRP-047), and its look. */
+    Pictured(Picture, Look),
+}
+
+/** A picture in a screen (PRP-047): where it's from, and what Rapidkoi has of it. */
+struct Picture {
+    /** `asset:NAME` from the app's bundle, or an http(s) address, as the app gave it. */
+    source: string,
+    fit: Fitting,
+    /** The colour a one-colour SVG from the bundle is drawn in. */
+    colour: Option<Colour>,
+    /** What it shows, for screen readers and tests. */
+    label: Option<string>,
+    /** The message `on_message` carries once it's shown. */
+    on_load: Option<Value>,
+    /** The message `on_fail` carries when it can't be. */
+    on_fail: Option<Value>,
+    /** What Rapidkoi has of it, filled in just before it's drawn. */
+    shown: Shown,
+}
+
+/** How a picture fills its box. */
+enum Fitting {
+    /** All of it, inside the box: the default. */
+    Contain,
+    /** The whole box, cropped. */
+    Cover,
+}
+
+/** What Rapidkoi has of a picture. */
+enum Shown {
+    /** Nothing yet: its box stays empty. */
+    Waiting,
+    /** Its bytes, checked. */
+    Ready(u8[]),
+    /** It can't be shown: Rapidkoi's broken-picture mark. */
+    Broken,
 }
 
 /** A typing box (PRP-037). */

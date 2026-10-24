@@ -3,12 +3,15 @@
  * loading, stopped, refused, or Rapidkoi's question about a changed key).
  * Never calls a guest.
  *
- * Depends on: kivuli, window.actions, window.tabs, window.window, guest.placeholders, people.people, ui.render, ui.frame
+ * Depends on: kivuli, window.actions, window.tabs, window.window, guest.nodes, guest.pictures, guest.placeholders, people.people, ui.render, ui.frame
  * Used by: ui.layout
  */
 import kivuli { View, Styling, Font, Size, column };
 import window.actions { Msg };
 import window.tabs { AppPage };
+import window.downloaded { Kept };
+import guest.nodes { Node, Picture, Shown };
+import guest.pictures { asset_of };
 import guest.placeholders { fill };
 import people.people { name_in, looks_of };
 import people.access { key_of };
@@ -38,7 +41,7 @@ fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
                 Some(t) => name_in(m.people, t.host, t.origin),
                 None => (m.people.first, m.people.last),
             };
-            screen_as(fill(d.root, first, last), m.theme, own_of(a, m))
+            screen_as(fill(pictured(d.root, a), first, last), m.theme, own_of(a, m))
         }
         Stopped(why, can_restart) => stopped(why, can_restart, m.theme),
         Refused(why) => refused(why, m.theme),
@@ -79,10 +82,65 @@ fun sized<M>(v: View<M>, m: Model): View<M> {
 fun newtab_view(m: Model): View<Msg> = match m.newtab {
     Some(p) => match p.screen {
         // Its own messages go to it alone, as a tab's go to its app.
-        Running(_, _, d) => sized(screen_as(d.root, m.theme, own_of(p, m)), m).map(
+        Running(_, _, d) => sized(screen_as(pictured(d.root, p), m.theme, own_of(p, m)), m).map(
             fun(inner: render.Msg) = Msg.FromNewTab(inner),
         ),
         _ => column([]),
     },
     None => column([]),
 };
+
+/** A page's screen with its pictures as the page has them. */
+fun pictured(root: Node, a: AppPage): Node = with_shown(
+    root,
+    a.program.map(fun(g) = g.assets).unwrap_or([]),
+    a.pictures,
+);
+
+/**
+ * A screen with each picture as the page has it (PRP-047): a bundle's
+ * from its assets, a server's from what's kept; one missing from the
+ * bundle, or gone, is broken; one not yet here waits.
+ *
+ * Example:
+ *     with_shown(d.root, assets, page.pictures)
+ */
+fun with_shown(n: Node, assets: (string, u8[])[], kept: (string, Kept)[]): Node = match n {
+    Pictured(p, look) => Node.Pictured(
+        Picture { shown: shown_of(p.source, assets, kept), ..p },
+        look,
+    ),
+    Boxed(look, facts, press, kids) => Node.Boxed(
+        look,
+        facts,
+        press,
+        kids.map(fun(k: Node) = with_shown(k, assets, kept)),
+    ),
+    _ => n,
+};
+
+fun shown_of(source: string, assets: (string, u8[])[], kept: (string, Kept)[]): Shown {
+    match asset_of(source) {
+        Some(name) => {
+            for (n, bytes) of assets {
+                if n == name {
+                    return Shown.Ready(bytes);
+                }
+            }
+            // The download pass stops the app first; drawn broken meanwhile.
+            Shown.Broken
+        }
+        None => {
+            for (s, k) of kept {
+                if s == source {
+                    return match k {
+                        Here(bytes, _, _) => Shown.Ready(bytes),
+                        Coming => Shown.Waiting,
+                        Gone => Shown.Broken,
+                    };
+                }
+            }
+            Shown.Waiting
+        }
+    }
+}
