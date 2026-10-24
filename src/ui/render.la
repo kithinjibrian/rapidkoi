@@ -30,10 +30,11 @@ import kivuli {
     text_area,
     scroll,
     scroll_fit,
+    Overflow,
 };
 import cbor { Value };
 
-import guest.nodes { Look, Facts, Typing, Direction, Node, ButtonLook };
+import guest.nodes { Look, Facts, Typing, Direction, Node, ButtonLook, Axis };
 import ui.tokens { SPACE_SM, RING_WIDTH, gap, margin, padding_xy };
 import ui.themes { body, dim, title, heading, field, paint as theme_paint, button as button_look };
 import ui.schemes { Theme };
@@ -123,7 +124,13 @@ fun boxed(
     // out of room (`scroll_fit`), or, with `grow`, the room left (`scroll`).
     // The rest of its style goes on the scrolled area, so its sizes bound what scrolls.
     let spaced = match look.scroll {
-        Some(_) => if look.grow { scroll(spaced) } else { scroll_fit(spaced) },
+        Some(axis) => {
+            let area = if look.grow { scroll(spaced) } else { scroll_fit(spaced) };
+            match one_way(axis) {
+                Some(o) => area.style([o]),
+                None => area,
+            }
+        }
         None => spaced,
     };
     match press {
@@ -134,6 +141,13 @@ fun boxed(
         None => placed(spaced.style(styles), look, Align.Fill),
     }
 }
+
+/** The way a scrolling box is kept to, when it scrolls one way only (kivuli 0.57, DECISION-057). */
+fun one_way(axis: Axis): Option<Overflow> = match axis {
+    Vertical => Some(Overflow.scroll_y()),
+    Horizontal => Some(Overflow.scroll_x()),
+    Both => None,
+};
 
 /** What a box draws on itself: its gap is its children's, and a scrolling box's padding scrolls with them. */
 fun drawn_on_box(look: Look): Look = match look.scroll {
