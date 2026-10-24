@@ -383,6 +383,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-061 — A box with a maximum width can't be centred (kivuli)
+
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 10)
+**Raised:** 2026-10-24, Notes 0.3.3
+
+**Question:** An app's `max_width` with `align: center` should give a box as much room as there is, at most its maximum, in the middle. kivuli's clamp puts its child at the start, and a centred one shrinks to its content's natural width: Notes' note wrapped in a narrow strip.
+
+**Meanwhile (the owner):** apps' maximum-width boxes fill from the start; Notes doesn't centre its note. Nothing is worked around.
+
+---
+
 ### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 9)
