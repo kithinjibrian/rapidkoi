@@ -336,6 +336,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** Example or demo apps in this repository; shell tests that need a Rust build; changing the SDK from a rapidkoi session (a contract change is tagged there first).
 
+**Amended (the owner, 2026-10-24):** Notes has its own repository, `../notes` (github.com/kithinjibrian/notes), on the SDK by tag (`v0.1.0`), not as an SDK example. It's live as a signed app at notes.dafifi.net, deployed with its own `scripts/deploy.sh`. The SDK's examples stay counter and styled; where Trip lives isn't decided yet.
+
 ---
 
 ## OPEN — Requires human input before implementation
