@@ -10969,3 +10969,7 @@ Branch: prp-017-kivuli_0_17
 ```
 docs/specs/lugha-wasmtime-wat-to-wasm.md (new), DECISIONS.md, PRPs/prp-042-repo_cleanup.md, CONTEXT.md
 ```
+
+## SESSION 217 — 2026-10-24 — PRP-042 step 1: the counting fixture — open
+
+Branch: prp-017-kivuli_0_17
