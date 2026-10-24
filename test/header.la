@@ -12,6 +12,10 @@ import kivuli.testing { click, is_disabled, type_into, texts };
 import rapidkoi.ui.settings;
 import wasmtime { Engine, Module };
 import support { echo };
+import rapidkoi.ui.frame { address_of };
+
+/** The window's first app page. */
+fun page(m: Model): AppPage = m.tabs[0].page;
 
 fun step(m: Model, msg: Msg): Model {
     let (next, _) = update(m, msg);
@@ -131,12 +135,15 @@ fun the_card_turns_its_pages() {
 }
 
 @test
-fun share_waits_greyed_on_every_tab_and_pin_is_for_apps() {
-    // PRP-025: share (the owner's icon) until links can share a screen.
+fun share_copies_an_app_s_link_and_pin_is_for_apps() {
+    // kivuli 0.60 (DECISION-047): on an app, share copies its link; the new tab has none to share.
     let app_page = window(plain());
     let empty = step(window(plain()), Msg.NewTab);
-    for m of [app_page, empty] {
-        assert_eq(is_disabled(addressbox.field(m), "Share (coming soon)"), Ok(true));
+    assert_eq(click(addressbox.field(app_page), "Share"), Ok(Msg.Share));
+    assert_eq(is_disabled(addressbox.field(empty), "Share"), Ok(true));
+    match update(app_page, Msg.Share).1 {
+        Copy(text) => assert_eq(text, address_of(page(app_page))),
+        _ => panic("share should copy the link"),
     }
     assert_eq(click(addressbox.field(app_page), "Pin"), Ok(Msg.TogglePin));
     assert(click(addressbox.field(empty), "Pin").is_err());

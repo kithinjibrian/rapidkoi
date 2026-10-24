@@ -170,20 +170,21 @@ fun field(m: Model): View<Msg> {
     if start.len > 1 {
         start = [row(start)];
     }
-    // Share on every tab, greyed until links can share an app's screen (the
-    // owner's icon, session 154); pin after it on an app. The empty tab's
-    // as the new tab's `controls` say (PRP-031).
+    // Share on every tab (the owner's icon, session 154): on an app it copies
+    // its link (DECISION-047); the empty tab, shown as the new tab's
+    // `controls` say (PRP-031), has none to share. Pin after it on an app.
     let mut end: View<Msg>[] = [];
-    let sharing = match page {
+    let on_app = match page {
         App(_) => true,
-        Home => shows_icon(m.newtab, "share"),
+        Home => false,
     };
+    let sharing = on_app || shows_icon(m.newtab, "share");
     if sharing {
         end.push(
             group_button_with(
                 [image(icon(Icon.Share, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
-                Msg.Home,
-            ).disabled(true).style(round()).align(Align.Center).tooltip("Share (coming soon)"),
+                Msg.Share,
+            ).disabled(!on_app).style(round()).align(Align.Center).tooltip("Share"),
         );
     }
     if let App(p) = page {

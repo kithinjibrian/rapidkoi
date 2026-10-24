@@ -405,20 +405,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
-### DECISION-047 — Share needs a clipboard command (kivuli)
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 2)
-**Raised:** 2026-10-23 — Session 193 (PRP-036: links)
-
-**Question:** Share should copy the window's link. kivuli 0.54 has no command that writes to the clipboard, and rapidkoi never touches GTK itself (architecture rule 2).
-
-**Meanwhile:** share stays disabled. The address box shows the full link, and its text can be selected and copied. No workaround.
-
-**Revisit when:** kivuli offers a clipboard command; then share copies `address_of(page)`.
-
----
-
-
 ### DECISION-045 — Apps keep nothing between calls: by convention, checked in development
 
 **Status:** deferred (to settle before live sessions or developer tools, the owner, session 190)
@@ -685,6 +671,21 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-047 — Share needs a clipboard command (kivuli)
+
+**Status:** resolved (kivuli 0.60, 2026-10-25)
+**Raised:** 2026-10-23 — Session 193 (PRP-036: links)
+
+**Question:** Share should copy the window's link. kivuli 0.54 has no command that writes to the clipboard, and rapidkoi never touches GTK itself (architecture rule 2).
+
+**Meanwhile:** share stays disabled. The address box shows the full link, and its text can be selected and copied. No workaround.
+
+**Revisit when:** kivuli offers a clipboard command; then share copies `address_of(page)`.
+
+**Outcome:** kivuli 0.60's `Cmd.copy_text`: on an app, share copies its link (`address_of`), or a local file's path; on the empty tab there's nothing to share, so it stays greyed. Nothing is shown when it's copied (no unasked copy).
+
+---
 
 ### DECISION-050 — Screen readers need accessible roles from kivuli
 

@@ -33,6 +33,8 @@ import data.sessions { begin_session, restored };
 import data.store { Store };
 import ui.render;
 import ui.layout;
+import ui.frame { address_of };
+import net.address { is_address };
 
 /**
  * Builds the first window from the command line, remembering what this
@@ -232,6 +234,9 @@ fun both(a: Cmd<Msg>, b: Cmd<Msg>): Cmd<Msg> = match (a, b) {
     _ => Cmd.batch([a, b]),
 };
 
+/** What share copies: an app's link at an address, else its file's path. */
+fun shared(p: AppPage): string = if is_address(p.path) { address_of(p) } else { p.path };
+
 /**
  * Handles one message from the window.
  *
@@ -350,6 +355,10 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Refreshed(id, build, r) => (loads.refreshed(m, id, build, r), Cmd.none()),
     CheckForUpdates(_) => (m, loads.check_current(m)),
     Launched(items) => navigate.open_launched(m, items),
+    Share => (m, match window.page_of(m) {
+        App(p) => Cmd.copy_text(shared(p)),
+        Home => Cmd.none(),
+    }),
     WindowActive(on) => (m, if on { loads.check_current(m) } else { Cmd.none() }),
     Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
     Pictured(id, load, source, got) => (downloads.arrive(m, id, load, source, got), Cmd.none()),
