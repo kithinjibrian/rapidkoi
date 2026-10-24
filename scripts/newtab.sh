@@ -3,7 +3,7 @@
 # into assets/apps/newtab.rkb (PRP-027), declaring the built-in permissions
 # it needs (PRP-030) and the frame it shows (PRP-031): only a bundle built
 # into ./main may hold them. Run from the repository's root, after
-# `lughac build src/main.la -o main`. The .rkb is committed, so building
+# `lughac build -O 2 src/main.la -o main`. The .rkb is committed, so building
 # ./main never needs cargo. Rebuild ./main after: it embeds the bundle.
 set -eu
 cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown -p newtab

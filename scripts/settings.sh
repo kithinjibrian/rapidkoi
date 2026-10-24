@@ -2,7 +2,7 @@
 # Builds Rapidkoi's Settings app (guest/rust/settings) and packs it,
 # unsigned, into assets/apps/settings.rkb (PRP-038), declaring the
 # built-in permission it needs: only a bundle built into ./main may hold
-# it. Run from the repository's root, after `lughac build src/main.la -o
+# it. Run from the repository's root, after `lughac build -O 2 src/main.la -o
 # main`. The .rkb is committed, so building ./main never needs cargo.
 # Rebuild ./main after: it embeds the bundle.
 set -eu
