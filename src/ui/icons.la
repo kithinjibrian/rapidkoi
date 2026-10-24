@@ -34,6 +34,8 @@ public enum Icon {
     More,
     /** `refresh-arrow.svg`: a newer version is ready (PRP-044). */
     Upgrade,
+    /** `dot.svg`: a filled circle, the upgrade's red dot (PRP-044). */
+    Dot,
 }
 
 /** Every icon, for tests and for listing. */
@@ -49,6 +51,7 @@ public const ALL: Icon[] = [
     Icon.Star,
     Icon.More,
     Icon.Upgrade,
+    Icon.Dot,
 ];
 
 /**
@@ -70,6 +73,7 @@ public fun file(i: Icon): string = match i {
     Star => "star.svg",
     More => "3-dots-more.svg",
     Upgrade => "refresh-arrow.svg",
+    Dot => "dot.svg",
 };
 
 /**
@@ -91,6 +95,7 @@ public fun svg(i: Icon): string = match i {
     Star => include_str("../../assets/icons/star.svg"),
     More => include_str("../../assets/icons/3-dots-more.svg"),
     Upgrade => include_str("../../assets/icons/refresh-arrow.svg"),
+    Dot => include_str("../../assets/icons/dot.svg"),
 };
 
 /**
