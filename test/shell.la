@@ -1,15 +1,21 @@
 // The window: tabs (apps only; home isn't a tab), the address box, pins,
 // "where you left off", the info panel, and failing safely per tab.
 // Fixture guests; no display.
-import rapidkoi.shell { Model, start, with_pages, update, view, title_of };
-import rapidkoi.window { card };
-import rapidkoi.actions { Msg, Confirm };
-import rapidkoi.tabs { AppPage, open_module, state_of };
-import rapidkoi.render;
-import rapidkoi.contract { envelope };
-import kivuli.testing { click, texts, type_into };
+import rapidkoi.shell { Model, start, with_pages, update, title_of };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.window { card, page_of };
+import rapidkoi.window.actions { Msg, Confirm, PanelPage };
+import rapidkoi.bundles.bundle { Manifest };
+import rapidkoi.bundles.permissions { Permission, Setting };
+import rapidkoi.people.people { nobody, with_setting };
+import rapidkoi.window.tabs { AppPage, open_module, state_of };
+import rapidkoi.ui.render;
+import rapidkoi.guest.contract { envelope };
+import rapidkoi.guest.events { Happened, event_for };
+import kivuli { Cmd };
+import kivuli.testing { texts, type_into };
 import wasmtime { Engine, Module };
-import support { t, fixed, echo, crashing, titled_tree, result_of };
+import support { t, fixed, echo, echo_v3, crashing, titled_tree, result_of };
 
 fun app(engine: Engine, name: string, wat: string): AppPage = open_module(
     name,
@@ -40,14 +46,19 @@ fun page(m: Model, id: i64): AppPage {
 
 fun add(id: i64): Msg = Msg.Tab(id, render.Msg.Event(t("add"), None));
 
+fun on_home(m: Model): bool = match page_of(m) {
+    Home => true,
+    App(_) => false,
+};
+
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
 @test
-fun booting_without_an_app_shows_home_with_no_tabs() {
+fun booting_without_an_app_shows_one_empty_tab() {
     let (m, _) = start(["./main"], None);
-    assert_eq(m.tabs.len, 0);
-    assert_eq(m.current, None);
-    assert_eq(shows(m, "Rapidkoi"), true);
+    // PRP-024: the window always has a tab; an empty one to start.
+    assert_eq((m.tabs.len, m.blanks.len), (0, 1));
+    assert(on_home(m));
     assert_eq(title_of(m), "Rapidkoi");
 }
 
@@ -79,12 +90,12 @@ fun a_crash_stays_in_its_tab_and_restart_brings_it_back() {
 }
 
 @test
-fun new_tab_and_home_show_home_and_keep_every_app() {
+fun new_tab_and_home_show_an_empty_tab_and_keep_every_app() {
     let m = step(step(two(), add(0)), Msg.NewTab);
-    assert_eq(m.current, None);
+    assert(on_home(m));
     assert_eq(m.tabs.len, 2);
     let home = step(step(m, Msg.Select(1)), Msg.Home);
-    assert_eq(home.current, None);
+    assert(on_home(home));
     assert_eq(home.tabs.len, 2);
     // The app kept its state while home showed.
     assert_eq(state_of(page(home, 0)), Some(envelope(t("add"), None)));
@@ -94,8 +105,7 @@ fun new_tab_and_home_show_home_and_keep_every_app() {
 fun where_you_left_off_selects_an_open_app() {
     let m = step(step(two(), Msg.Select(1)), Msg.Home);
     assert_eq(card(m).map(fun(c) = c.msg), Some(Msg.Select(1)));
-    assert_eq(shows(m, "Where you left off"), true);
-    assert_eq(step(m, click(view(m), "Continue").unwrap()).current, Some(1));
+    assert_eq(step(m, Msg.Select(1)).current, Some(1));
 }
 
 @test
@@ -105,7 +115,8 @@ fun a_closed_app_reopens_with_its_state() {
     let home = step(closed, Msg.Home);
     // Tab 1 is still open and was visited last, so it's the card; close it too.
     let both = step(step(home, Msg.Select(1)), Msg.CloseTab(1));
-    assert_eq(both.current, None);
+    // The empty tab from Home is what's left (PRP-024).
+    assert(on_home(both));
     assert_eq(card(both).map(fun(c) = c.msg), Some(Msg.Continue));
     let back = step(both, Msg.Continue);
     assert_eq(back.tabs.len, 1);
@@ -126,9 +137,10 @@ fun closing_tabs_picks_a_neighbour_then_home() {
     let m = step(two(), Msg.CloseTab(0));
     assert_eq(m.current, Some(1));
     assert_eq(state_of(page(step(m, add(0)), 1)), Some([]));
+    // The last tab closed: one empty tab remains (PRP-024).
     let none = step(m, Msg.CloseTab(1));
-    assert_eq(none.tabs.len, 0);
-    assert_eq(none.current, None);
+    assert_eq((none.tabs.len, none.blanks.len), (0, 1));
+    assert_eq(none.current, Some(none.blanks[0]));
 }
 
 @test
@@ -161,9 +173,12 @@ fun the_address_box_on_an_app_replaces_its_app() {
 fun pinning_and_opening_a_pin() {
     let m = step(two(), Msg.TogglePin);
     assert_eq(m.pinned.len, 1);
-    // The pin's file doesn't exist here, so its new tab shows why.
-    let opened = step(m, Msg.OpenPinned("a.wasm"));
-    assert_eq(opened.tabs.len, 3);
+    // Open already: its tab is shown, not a second copy (PRP-026).
+    let shown = step(step(m, Msg.Select(1)), Msg.OpenPinned("a.wasm"));
+    assert_eq((shown.tabs.len, shown.current), (2, Some(0)));
+    // Closed: it opens again; its file doesn't exist here, so its tab shows why.
+    let opened = step(step(m, Msg.CloseTab(0)), Msg.OpenPinned("a.wasm"));
+    assert_eq(opened.tabs.len, 2);
     assert_eq(
         texts(view(opened)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
         true,
@@ -172,11 +187,10 @@ fun pinning_and_opening_a_pin() {
 }
 
 @test
-fun the_info_panel_opens_beside_the_app() {
+fun the_info_panel_opens_and_closes() {
     let m = step(two(), Msg.TogglePanel);
-    assert_eq(shows(m, "Your settings"), true);
-    assert_eq(click(view(m), "Forget this app"), Ok(Msg.Ask(Confirm.Forget)));
-    assert_eq(shows(step(m, Msg.TogglePanel), "Your settings"), false);
+    assert_eq(m.panel, Some(PanelPage.Main));
+    assert_eq(step(m, Msg.TogglePanel).panel, None);
 }
 
 @test
@@ -187,4 +201,188 @@ fun window_titles() {
     ]);
     assert_eq(title_of(titled), "Rapidkoi — Counter");
     assert_eq(title_of(two()), "Rapidkoi — a");
+}
+
+@test
+fun each_panel_page_opens_and_comes_back() {
+    let m = step(two(), Msg.TogglePanel);
+    for p of [PanelPage.Key, PanelPage.Account, PanelPage.Access, PanelPage.State] {
+        let opened = step(m, Msg.PanelGo(p));
+        assert_eq(opened.panel, Some(p));
+        assert_eq(step(opened, Msg.PanelBack).panel, Some(PanelPage.Main));
+    }
+}
+
+@test
+fun start_over_asks_first() {
+    let m = step(step(step(two(), add(0)), Msg.TogglePanel), Msg.PanelGo(PanelPage.State));
+    let asking = step(m, Msg.Ask(Confirm.StartOver));
+    assert_eq(asking.confirm, Some(Confirm.StartOver));
+    assert_eq(state_of(page(step(asking, Msg.Cancel), 0)), Some(envelope(t("add"), None)));
+    assert_eq(state_of(page(step(asking, Msg.StartOver), 0)), Some([]));
+}
+
+@test
+fun forget_asks_then_removes_everything() {
+    let m = step(two(), Msg.TogglePin);
+    let asking = step(step(m, Msg.TogglePanel), Msg.Ask(Confirm.Forget));
+    assert_eq(asking.confirm, Some(Confirm.Forget));
+    assert_eq(step(asking, Msg.Cancel).tabs.len, 2);
+    let gone = step(asking, Msg.Forget);
+    assert_eq(gone.tabs.len, 1);
+    assert_eq(gone.pinned.len, 0);
+    assert_eq(gone.left_off.is_none(), true);
+    assert_eq(gone.panel.is_none(), true);
+}
+
+@test
+fun switching_tabs_drops_a_pending_confirm() {
+    let asking = step(step(two(), Msg.TogglePanel), Msg.Ask(Confirm.Forget));
+    assert_eq(step(asking, Msg.Select(1)).confirm.is_none(), true);
+}
+
+@test
+fun reload_says_why_when_the_file_is_gone() {
+    // A fixture module isn't a file, so ⟳ can't load it again: it shows why.
+    // The real reload-with-state path is tested end to end in counter.la.
+    let reloaded = step(step(two(), add(0)), Msg.Reload);
+    assert_eq(
+        texts(view(reloaded)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
+        true,
+    );
+}
+
+/** Every `Cmd.scroll_to` in `c`, batches opened. */
+fun scrolls(c: Cmd<Msg>): string[] = match c {
+    ScrollTo(name) => [name],
+    Batch(cs) => {
+        let mut all: string[] = [];
+        for inner of cs {
+            for n of scrolls(inner) {
+                all.push(n);
+            }
+        }
+        all
+    }
+    _ => [],
+};
+
+fun scrolled(m: Model, msg: Msg): string[] {
+    let (_, c) = update(m, msg);
+    scrolls(c)
+}
+
+@test
+fun the_current_tab_is_scrolled_into_view() {
+    // PRP-028: whenever the current tab changes, the sidebar shows it.
+    let m = two();
+    assert_eq(scrolled(m, Msg.Select(1)), ["tab-1"]);
+    assert_eq(scrolled(m, Msg.NewTab), ["tab-2"]);
+    // Closing the current tab: its neighbour is current now.
+    assert_eq(scrolled(m, Msg.CloseTab(0)), ["tab-1"]);
+    // Opening a file from an empty tab fills it: the same id.
+    let blank = step(m, Msg.NewTab);
+    assert_eq(scrolled(step(blank, Msg.Draft("lugha.toml")), Msg.Go), []);
+}
+
+@test
+fun nothing_scrolls_when_the_current_tab_stays() {
+    let m = two();
+    assert_eq(scrolled(m, Msg.Draft("rapid")), []);
+    assert_eq(scrolled(m, Msg.Select(0)), []);
+}
+
+/** Two contract 3 echo apps, tabs 0 and 1, tab 0 current: each one's state is the last event it got. */
+fun two_v3(): Model {
+    let engine = Engine.new();
+    with_pages(engine, [app(engine, "a", echo_v3()), app(engine, "b", echo_v3())])
+}
+
+fun last_event(m: Model, id: i64): Option<u8[]> = state_of(page(m, id));
+
+fun v3(h: Happened): Option<u8[]> = event_for(h, 3);
+
+@test
+fun a_tab_brought_back_hears_on_resume() {
+    // PRP-030: back to the front while running.
+    let m = two_v3();
+    assert_eq(last_event(m, 1), v3(Happened.Open));
+    let back = step(m, Msg.Select(1));
+    assert_eq(last_event(back, 1), v3(Happened.Resume));
+    // The tab that was current, and selecting it again, hear nothing.
+    assert_eq(last_event(back, 0), v3(Happened.Open));
+    assert_eq(last_event(step(back, Msg.Select(1)), 1), v3(Happened.Resume));
+    // Closing the tab in front brings the other back.
+    let closed = step(back, Msg.CloseTab(1));
+    assert_eq(last_event(closed, 0), v3(Happened.Resume));
+}
+
+@test
+fun a_contract_2_app_hears_nothing_when_brought_back() {
+    let m = two();
+    let before = state_of(page(m, 1));
+    assert_eq(state_of(page(step(m, Msg.Select(1)), 1)), before);
+}
+
+@test
+fun the_new_tab_hears_on_resume_when_the_empty_tab_shows() {
+    let engine = Engine.new();
+    let m = Model { newtab: Some(app(engine, "newtab", echo_v3())), ..two_v3() };
+    let home = step(m, Msg.NewTab);
+    assert_eq(home.newtab.and_then(fun(p: AppPage) = state_of(p)), v3(Happened.Resume));
+}
+
+/** A contract 3 echo app on tab 0, current, declaring `permissions`. */
+fun reading(declared: string[]): Model {
+    let engine = Engine.new();
+    let p = app(engine, "a", echo_v3());
+    let declared = AppPage {
+        manifest: Some(Manifest {
+            contract: 3,
+            name: "a",
+            version: "1.0.0",
+            description: None,
+            state_version: 1,
+            icon: None,
+            banners: [],
+            servers: [],
+            permissions: declared,
+            controls: None,
+        }),
+        ..p,
+    };
+    with_pages(engine, [declared, app(engine, "b", echo_v3())])
+}
+
+@test
+fun the_page_in_front_hears_on_change() {
+    // PRP-031: pinning it while it's in front changes your pins.
+    let m = reading(["read_pins"]);
+    let pinned = step(m, Msg.TogglePin);
+    assert_eq(last_event(pinned, 0), v3(Happened.Change));
+    // Without the permission, nothing to tell.
+    let blind = step(reading([]), Msg.TogglePin);
+    assert_eq(last_event(blind, 0), v3(Happened.Open));
+    // Blocked: nothing it can read moved.
+    let blocked = Model {
+        people: with_setting(nobody(), "a.wasm", Permission.ReadPins, Setting.Blocked),
+        ..m,
+    };
+    assert_eq(last_event(step(blocked, Msg.TogglePin), 0), v3(Happened.Open));
+}
+
+@test
+fun its_own_setting_changing_is_a_change() {
+    let m = reading(["read_pins"]);
+    let set = step(m, Msg.SetPermission("read_pins", Setting.Ask));
+    assert_eq(last_event(set, 0), v3(Happened.Change));
+}
+
+@test
+fun closing_the_card_never_reopens_it() {
+    // Session 171: the popover closing itself (a dialog taking the focus)
+    // can say so twice; a toggle reopened it, holding every click.
+    let m = step(two(), Msg.TogglePanel);
+    let closed = step(step(m, Msg.ClosePanel), Msg.ClosePanel);
+    assert_eq(closed.panel, None);
 }

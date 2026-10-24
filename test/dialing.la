@@ -2,9 +2,9 @@
 // address checked, then connected to one of exactly those addresses. Live
 // sockets on local ports; names are pointed where a test wants through the
 // test-only `Network.hosts`.
-import rapidkoi.dialing { Network, Dialed, dial, lookup, send_to, try_each };
-import rapidkoi.network { reason };
-import rapidkoi.address { parse };
+import rapidkoi.net.dialing { Network, Dialed, dial, lookup, send_to, try_each };
+import rapidkoi.net.network { reason };
+import rapidkoi.net.address { parse };
 import std.http { Request, Response, Limits };
 import std.task { sleep };
 

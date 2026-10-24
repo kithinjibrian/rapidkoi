@@ -10,7 +10,15 @@
       "Edit(../kivuli/**)",
       "Edit(../lugha-gtk/**)",
       "Edit(../lugha-wasmtime/**)",
-      "Edit(../lugha-cbor/**)"
+      "Edit(../lugha-cbor/**)",
+      "Edit(../lugha-sqlite/**)",
+      "Edit(../rapidkoi-rust/**)"
     ]
+  },
+    "attribution": {
+    "coAuthoredBy": false,
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }

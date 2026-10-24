@@ -1,0 +1,496 @@
+/**
+ * The three files Rapidkoi remembers across restarts, as CBOR maps that
+ * start with their format and kind: `trust` (identities: host, key,
+ * sequence, separate), `pins` (name, path, icon) and `left-off` (the app
+ * used last; a signed app's state is in `states/`). Reading treats every file as hostile: CBOR
+ * limits, then every field checked. `recall` adds the store: a missing file
+ * is Fresh, a broken one is set aside, a newer one is left alone.
+ *
+ * Depends on: cbor, data.store, trust.verify, window.tabs, window.leftoff, bundles.rules, guest.limits
+ * Used by: data.saving
+ */
+import cbor { Value, Entry, Limits, decode, encode };
+import data.store { Store, StoreError, load, set_aside, reason as store_reason };
+import trust.verify { Identity };
+import window.tabs { Pin };
+import window.leftoff { LeftOff, recalled, signer_of, as_instance };
+import bundles.rules { check_host, check_asset, check_role };
+import guest.limits { MAX_ICON_PX };
+import guest.links { read_link };
+import net.address { MAX_LINK_FIELDS };
+
+/** The format the pins, left-off and state files are written in. */
+public const FORMAT: i64 = 1;
+
+/** The trust file's format: 2 added when each key was first trusted (PRP-009), 3 each app's origin key (PRP-011). */
+public const TRUST_FORMAT: i64 = 3;
+
+/** The most identities the trust file holds. */
+public const MAX_IDENTITIES: i64 = 10_000;
+
+/** The most pins the pins file holds. */
+public const MAX_PINS: i64 = 256;
+
+/** The trust file's cap in bytes. */
+public const MAX_TRUST_FILE: i64 = 1024 * 1024;
+
+/** The pins file's cap in bytes (icons are kept with their pins). */
+public const MAX_PINS_FILE: i64 = 32 * 1024 * 1024;
+
+/** The left-off file's cap in bytes: a name, a path and an icon. */
+public const MAX_LEFT_FILE: i64 = 8 * 1024 * 1024;
+
+/** The most tabs the open file lists (PRP-034). */
+public const MAX_OPEN: i64 = 64;
+
+/** The open file's cap in bytes: paths and names, no icons. */
+public const MAX_OPEN_FILE: i64 = 1024 * 1024;
+
+/** The longest path the open file keeps. */
+const MAX_OPEN_PATH: i64 = 4096;
+
+/** One instance that was open when Rapidkoi closed (PRP-034). */
+public struct OpenTab {
+    /** Where its app came from: a file or an address, as opened. */
+    public path: string,
+    /** Its instance's key: "" for the first, then "2", "3"… */
+    public instance: string,
+    /** The name the person gave it, if any. */
+    public label: Option<string>,
+    /** When it was last in front, as a count. */
+    public seen: i64,
+    /** The fields its address named (PRP-036), in order. */
+    public link: string[],
+}
+
+/** What was open when Rapidkoi closed: its instances in order, and which was in front. */
+public struct Open {
+    /** The open instances, in the order their tabs were made. */
+    public tabs: OpenTab[],
+    /** The index in `tabs` of the one in front; `None` on an empty tab. */
+    public current: Option<i64>,
+}
+
+/** Why a file's bytes can't be used. */
+public enum Unreadable {
+    /** Damaged or not Rapidkoi's: why, naming the field. */
+    Broken(string),
+    /** Written by a newer Rapidkoi: its format number. */
+    Newer(i64),
+}
+
+/** What reading one remembered file came to. */
+public enum Recalled<T> {
+    /** No file: a first run. */
+    Fresh,
+    /** Read. */
+    Read(T),
+    /** Broken, and set aside: where it went, why. */
+    Broken(string, string),
+    /** A newer Rapidkoi's: left as it is. */
+    Newer(i64),
+    /** It couldn't even be read or set aside: why. */
+    Failed(string),
+}
+
+/**
+ * Reads one remembered file from the store.
+ *
+ * @param name `trust`, `pins` or `left-off`
+ * @param max its cap in bytes; a larger file is broken
+ * @param read its format's reader
+ *
+ * Example:
+ *     recall(s, "trust", MAX_TRUST_FILE, read_trust)
+ */
+public fun recall<T>(
+    s: Store,
+    name: string,
+    max: i64,
+    read: fun(u8[]): Result<T, Unreadable>,
+): Recalled<T> {
+    let bytes = match load(s, name, max) {
+        Ok(None) => {
+            return Recalled.Fresh;
+        }
+        Ok(Some(b)) => b,
+        Err(TooLarge(n, size)) => {
+            return aside(s, name, store_reason(StoreError.TooLarge(n, size)));
+        }
+        Err(e) => {
+            return Recalled.Failed(store_reason(e));
+        }
+    };
+    match read(bytes) {
+        Ok(v) => Recalled.Read(v),
+        Err(Newer(n)) => Recalled.Newer(n),
+        Err(Broken(why)) => aside(s, name, why),
+    }
+}
+
+/**
+ * Encodes the trust file.
+ *
+ * Example:
+ *     save(s, "trust", trust_file(identities(ring)))?
+ */
+public fun trust_file(ids: Identity[]): u8[] = file(
+    "trust",
+    "entries",
+    Value.Array(
+        ids.map(
+            fun(i: Identity) = Value.Map([
+                entry("host", Value.Text(i.host)),
+                entry("key", Value.Bytes(i.key)),
+                entry("sequence", Value.int(i.sequence)),
+                entry("separate", Value.Bool(i.separate)),
+                entry("since", Value.int(i.since)),
+                entry("origin", Value.Bytes(i.origin)),
+            ]),
+        ),
+    ),
+);
+
+/**
+ * Reads the trust file (format 1 or 2): every host a host name, every key
+ * 32 bytes; format 1's entries have no first-use date (0).
+ *
+ * Example:
+ *     read_trust(bytes)?
+ */
+public fun read_trust(bytes: u8[]): Result<Identity[], Unreadable> {
+    let items = list(bytes, "trust", "entries", 4, 16 * MAX_IDENTITIES, 1024 * 1024)?;
+    if items.len > MAX_IDENTITIES {
+        return Err(Unreadable.Broken("it has more than 10,000 entries"));
+    }
+    let mut ids: Identity[] = [];
+    for v of items {
+        if v.as_map().is_none() {
+            return Err(Unreadable.Broken("an entry isn't a map"));
+        }
+        let host = text(v, "host").ok_or(Unreadable.Broken("an entry has no host"))?;
+        if check_host(host).is_err() {
+            return Err(Unreadable.Broken("an entry's host isn't a host name"));
+        }
+        let key = blob(v, "key").unwrap_or([]);
+        if key.len != 32 {
+            return Err(Unreadable.Broken("an entry's key isn't 32 bytes"));
+        }
+        let sequence = v.get("sequence").map(fun(n: Value) = n.as_i64().unwrap_or(-1)).unwrap_or(
+            -1,
+        );
+        if sequence < 0 {
+            return Err(Unreadable.Broken("an entry's sequence isn't a whole number"));
+        }
+        let separate = match v.get("separate") {
+            Some(Bool(b)) => b,
+            _ => {
+                return Err(Unreadable.Broken("an entry's separate isn't true or false"));
+            }
+        };
+        // Format 1 didn't record it: 0, "date not recorded".
+        let since = v.get("since").map(fun(n: Value) = n.as_i64().unwrap_or(-1)).unwrap_or(0);
+        if since < 0 {
+            return Err(Unreadable.Broken("an entry's first use isn't a time"));
+        }
+        // Formats 1 and 2 didn't record it: the key is the origin (no rotation was kept yet).
+        let origin = match v.get("origin") {
+            Some(Bytes(b)) if b.len == 32 => b,
+            None => key,
+            _ => {
+                return Err(Unreadable.Broken("an entry's origin key isn't 32 bytes"));
+            }
+        };
+        ids.push(Identity {
+            host: host,
+            key: key,
+            sequence: sequence,
+            separate: separate,
+            since: since,
+            origin: origin,
+        });
+    }
+    Ok(ids)
+}
+
+/**
+ * Encodes the pins file.
+ *
+ * Example:
+ *     save(s, "pins", pins_file(m.pinned))?
+ */
+public fun pins_file(pins: Pin[]): u8[] = file("pins", "pins", Value.Array(pins.map(fun(p: Pin) {
+    let mut fields = [entry("name", Value.Text(p.name)), entry("path", Value.Text(p.path))];
+    if let Some(icon) = p.icon {
+        fields.push(entry("icon", Value.Bytes(icon)));
+    }
+    Value.Map(fields)
+})));
+
+/**
+ * Reads the pins file. An icon that fails the bundle's icon rules is
+ * dropped, keeping the pin.
+ *
+ * Example:
+ *     read_pins(bytes)?
+ */
+public fun read_pins(bytes: u8[]): Result<Pin[], Unreadable> {
+    let items = list(bytes, "pins", "pins", 4, 16 * MAX_PINS, MAX_PINS_FILE)?;
+    if items.len > MAX_PINS {
+        return Err(Unreadable.Broken("it has more than 256 pins"));
+    }
+    let mut pins: Pin[] = [];
+    for v of items {
+        let name = text(v, "name").ok_or(Unreadable.Broken("a pin has no name"))?;
+        let path = text(v, "path").ok_or(Unreadable.Broken("a pin has no path"))?;
+        pins.push(Pin { name: name, path: path, icon: icon(blob(v, "icon")) });
+    }
+    Ok(pins)
+}
+
+/**
+ * Encodes the left-off file: which app was used last, and (for a signed
+ * one) its host and key. Its state lives in `states/`.
+ *
+ * Example:
+ *     save(s, "left-off", left_file(l))?
+ */
+public fun left_file(l: LeftOff): u8[] {
+    let mut fields = [entry("name", Value.Text(l.name)), entry("path", Value.Text(l.path))];
+    if let Some(t) = l.title {
+        fields.push(entry("title", Value.Text(t)));
+    }
+    if let Some(i) = l.icon {
+        fields.push(entry("icon", Value.Bytes(i)));
+    }
+    if let Some((host, key)) = signer_of(l) {
+        fields.push(entry("host", Value.Text(host)));
+        fields.push(entry("key", Value.Bytes(key)));
+    }
+    // Which instance (PRP-033); the first's names none, as before.
+    if l.instance != "" {
+        fields.push(entry("instance", Value.Text(l.instance)));
+    }
+    if let Some(n) = l.label {
+        fields.push(entry("label", Value.Text(n)));
+    }
+    file("left-off", "app", Value.Map(fields))
+}
+
+/**
+ * Reads the left-off file: an app to reopen by its path.
+ *
+ * Example:
+ *     read_left(bytes)?
+ */
+public fun read_left(bytes: u8[]): Result<LeftOff, Unreadable> {
+    let v = root(bytes, "left-off", 4, 64, MAX_LEFT_FILE)?.get("app").ok_or(
+        Unreadable.Broken("there's no app"),
+    )?;
+    let name = text(v, "name").ok_or(Unreadable.Broken("the app has no name"))?;
+    let path = text(v, "path").ok_or(Unreadable.Broken("the app has no path"))?;
+    let signer = match text(v, "host") {
+        None => None,
+        Some(host) => {
+            if check_host(host).is_err() {
+                return Err(Unreadable.Broken("the app's host isn't a host name"));
+            }
+            let key = blob(v, "key").unwrap_or([]);
+            if key.len != 32 {
+                return Err(Unreadable.Broken("the app's key isn't 32 bytes"));
+            }
+            Some((host, key))
+        }
+    };
+    let instance = text(v, "instance").unwrap_or("");
+    // A key Rapidkoi gave: "" or a number from 2, short.
+    let numbered = instance.len <= 4 && instance.chars().all(fun(c: char) = c >= '0' && c <= '9');
+    if !numbered || instance == "0" || instance == "1" {
+        return Err(Unreadable.Broken("the app's instance isn't one Rapidkoi gave"));
+    }
+    let label = text(v, "label");
+    if label.map(fun(n: string) = n == "" || n.char_count() > 64).unwrap_or(false) {
+        return Err(Unreadable.Broken("the app's instance name is empty or too long"));
+    }
+    Ok(
+        as_instance(
+            recalled(name, path, text(v, "title"), icon(blob(v, "icon")), signer),
+            instance,
+            label,
+        ),
+    )
+}
+
+/**
+ * Encodes the open file (PRP-034): what was open, to reopen at launch.
+ *
+ * Example:
+ *     save(s, "open", open_file(o))?
+ */
+public fun open_file(o: Open): u8[] = encode(Value.Map([
+    entry("format", Value.int(FORMAT)),
+    entry("kind", Value.Text("rapidkoi open")),
+    entry("tabs", Value.Array(o.tabs.map(fun(t: OpenTab) {
+        let mut fields = [
+            entry("path", Value.Text(t.path)),
+            entry("instance", Value.Text(t.instance)),
+            entry("seen", Value.int(t.seen)),
+        ];
+        if let Some(l) = t.label {
+            fields.push(entry("label", Value.Text(l)));
+        }
+        if t.link.len > 0 {
+            fields.push(entry("link", Value.Array(t.link.map(fun(n: string) = Value.Text(n)))));
+        }
+        Value.Map(fields)
+    }))),
+    entry("current", match o.current {
+        Some(i) => Value.int(i),
+        None => Value.Null,
+    }),
+]));
+
+/**
+ * Reads the open file, every field checked: at most `MAX_OPEN` tabs, each
+ * a path, an instance key Rapidkoi gave, a name of 1–64 characters, no
+ * instance twice, and the tab in front one of them.
+ *
+ * Example:
+ *     read_open(bytes)?
+ */
+public fun read_open(bytes: u8[]): Result<Open, Unreadable> {
+    // A tab's link is one level deeper, and up to 16 names more.
+    let v = root(bytes, "open", 5, (8 + MAX_LINK_FIELDS) * MAX_OPEN + 16, MAX_OPEN_FILE)?;
+    let items = match v.get("tabs") {
+        Some(Array(xs)) => xs,
+        _ => {
+            return Err(Unreadable.Broken("its tabs aren't a list"));
+        }
+    };
+    if items.len > MAX_OPEN {
+        return Err(Unreadable.Broken("it lists more than 64 tabs"));
+    }
+    let mut found: OpenTab[] = [];
+    for x of items {
+        let path = text(x, "path").unwrap_or("");
+        if path == "" || path.len > MAX_OPEN_PATH {
+            return Err(Unreadable.Broken("a tab's path is empty or too long"));
+        }
+        let instance = text(x, "instance").unwrap_or("");
+        if !is_instance(instance) {
+            return Err(Unreadable.Broken("a tab's instance isn't one Rapidkoi gave"));
+        }
+        let label = text(x, "label");
+        if label.map(fun(n: string) = n == "" || n.char_count() > 64).unwrap_or(false) {
+            return Err(Unreadable.Broken("a tab's name is empty or too long"));
+        }
+        if found.any(fun(t: OpenTab) = t.path == path && t.instance == instance) {
+            return Err(Unreadable.Broken("an instance is listed twice"));
+        }
+        let seen = x.get("seen").and_then(fun(n: Value) = n.as_i64()).unwrap_or(0);
+        // Read back as an app's result is (PRP-036); none before links.
+        let link = match read_link(x.get("link"), true) {
+            Ok(Set(names)) => names,
+            Ok(_) => [],
+            Err(_) => {
+                return Err(Unreadable.Broken("a tab's link isn't field names"));
+            }
+        };
+        found.push(OpenTab {
+            path: path,
+            instance: instance,
+            label: label,
+            seen: seen,
+            link: link,
+        });
+    }
+    let current = match v.get("current") {
+        Some(Null) | None => None,
+        Some(n) => match n.as_i64() {
+            Some(i) if i >= 0 && i < found.len => Some(i),
+            _ => {
+                return Err(Unreadable.Broken("the tab in front isn't one of them"));
+            }
+        },
+    };
+    Ok(Open { tabs: found, current: current })
+}
+
+/** An instance key Rapidkoi gives: "" for the first, else a number from 2, at most four digits. */
+fun is_instance(k: string): bool = k == "" || k.len <= 4 && k.chars().all(
+    fun(c: char) = c >= '0' && c <= '9',
+) && k != "0" && k != "1" && !k.starts_with("0");
+
+/** A broken file set aside: Broken with where it went, or Failed when it couldn't be moved. */
+fun aside<T>(s: Store, name: string, why: string): Recalled<T> = match set_aside(s, name) {
+    Ok(path) => Recalled.Broken(path, why),
+    Err(e) => Recalled.Failed(store_reason(e)),
+};
+
+/** A file's map: `{format, kind: "rapidkoi KIND", FIELD: value}`. */
+fun file(kind: string, field: string, value: Value): u8[] = encode(
+    Value.Map([
+        entry("format", Value.int(newest(kind))),
+        entry("kind", Value.Text("rapidkoi {kind}")),
+        entry(field, value),
+    ]),
+);
+
+/** The newest format of a kind of file, the one this Rapidkoi writes. */
+fun newest(kind: string): i64 = if kind == "trust" { TRUST_FORMAT } else { FORMAT };
+
+/** The decoded map, after its format and kind are checked. */
+fun root(bytes: u8[], kind: string, depth: i64, items: i64, size: i64): Result<Value, Unreadable> {
+    let bounds = Limits { max_depth: depth, max_items: items, max_bytes: size, max_string: size };
+    let v = decode(bytes, bounds).map_err(fun(e) = Unreadable.Broken("not CBOR ({e})"))?;
+    if v.as_map().is_none() {
+        return Err(Unreadable.Broken("not CBOR (not a map)"));
+    }
+    let format = v.get("format").map(fun(n: Value) = n.as_i64().unwrap_or(-1)).unwrap_or(-1);
+    // The kind first: another kind of file is broken here, whatever its format.
+    if format < 1 || text(v, "kind") != Some("rapidkoi {kind}") {
+        return Err(Unreadable.Broken("it isn't Rapidkoi's {kind} file"));
+    }
+    if format > newest(kind) {
+        return Err(Unreadable.Newer(format));
+    }
+    Ok(v)
+}
+
+/** The array at `field` in a checked file. */
+fun list(
+    bytes: u8[],
+    kind: string,
+    field: string,
+    depth: i64,
+    items: i64,
+    size: i64,
+): Result<Value[], Unreadable> {
+    match root(bytes, kind, depth, items, size)?.get(field) {
+        Some(Array(xs)) => Ok(xs),
+        _ => Err(Unreadable.Broken("its {field} isn't a list")),
+    }
+}
+
+/** An icon that passes the bundle's icon rules, or none. */
+fun icon(bytes: Option<u8[]>): Option<u8[]> = match bytes {
+    Some(b) if check_asset("icon.png", b).is_ok() && check_role(
+        "icon",
+        b,
+        MAX_ICON_PX,
+        MAX_ICON_PX,
+    ).is_ok() => Some(b),
+    _ => None,
+};
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };
+
+fun text(v: Value, field: string): Option<string> = match v.get(field) {
+    Some(Text(s)) => Some(s),
+    _ => None,
+};
+
+fun blob(v: Value, field: string): Option<u8[]> = match v.get(field) {
+    Some(Bytes(b)) => Some(b),
+    _ => None,
+};

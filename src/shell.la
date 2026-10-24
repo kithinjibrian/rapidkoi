@@ -1,34 +1,36 @@
 /**
  * Rapidkoi's window as a kivuli app: `boot` from the command line, `update`
- * for every message, and `view` composing the bar (in the header bar), home
- * or the current app (with the info panel beside it), and the rail, in the
- * current theme, maximized. The state and what
- * changes it live in `window.la`; `view` never calls a guest.
+ * for every message, and `view`, the bare frame from `layout.la` (PRP-014).
+ * The state and what changes it live in `window.la`; `view` never calls a
+ * guest.
  *
- * Depends on: kivuli, wasmtime, actions, tabs, window, saving, store, loads, effects, requests, access, account, placeholders, people, render, frame, home, panel, theme, themes
+ * Depends on: kivuli, wasmtime, window.actions, window.tabs, window.window, data.saving, data.store, net.loads, guest.effects, net.requests, people.access, people.account, ui.render, ui.layout
  * Used by: main
  */
-import kivuli { View, Cmd, Sub, Align, button, column, overlay, row, scroll, text };
+import kivuli { View, Cmd, Sub };
 import wasmtime { Engine };
-import actions { Msg, PanelPage, Confirm, TabAction, PinAction };
-import tabs { AppPage, Tab, Pin, handle, is_loading };
-import loads;
-import effects { answer_all };
-import requests;
-import account { account_of, on_account, forget_account };
-import access { access_of, on_access, looked, news };
-import placeholders { fill };
-import people { name_in };
-public import window { Model, with_pages, title_of };
-import navigate;
-import saving { session_store, restore, persist, mark, forgotten };
-import store { Store };
-import render { screen, stopped, refused, loading };
-import frame { bar, rail, unapproved };
-import home;
-import panel;
-import theme { SPACE_SM, SPACE_MD, SPACE_LG, WINDOW_WIDTH, WINDOW_HEIGHT, PANEL_HEIGHT };
-import themes { Look, kivuli_theme };
+import window.actions { Msg, PanelPage, ShieldPage, Confirm, TabAction, PinAction };
+import window.tabs { AppPage, Tab, Pin, handle, is_loading, to_front };
+import net.loads;
+import guest.effects { answer_all, approve, left_behind, tell_changes, tell_prefs };
+import net.requests;
+import data.queries;
+import data.databases;
+import sqlite;
+import guest.limits { SQLITE_HEAP };
+import people.account { on_account, forget_account };
+import people.access { on_access, looked, news, set_permission };
+import people.people { with_looks };
+public import window.window { Model, with_pages, title_of };
+import window.navigate;
+import window.pins;
+import window.instances { close_instance, close_app, start_rename, confirm_rename, touched };
+import window.newtab;
+import data.saving { session_store, restore, persist, mark, forgotten };
+import data.sessions { begin_session, restored };
+import data.store { Store };
+import ui.render;
+import ui.layout;
 
 /**
  * Builds the first window from the command line, remembering what this
@@ -53,20 +55,48 @@ public fun boot(argv: string[]): (Model, Cmd<Msg>) = match session_store() {
  * Builds the first window on a data folder (or none, saving nothing).
  * Tests start here with a folder of their own, never the person's.
  *
+ * The launch order (session 170): no app runs until the window it reads
+ * from is complete.
+ * 1. Restore what the data folder holds: trust, pins, where you left off,
+ *    people and permission settings.
+ * 2. Build the window: the empty tab, or the app's tab.
+ * 3. Start the apps: the new tab, then the one named on the command line.
+ * 4. Answer what they asked for when they opened.
+ *
  * Example:
  *     start(["./main"], Some(store_at("test/tmp/s")))
  */
 public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
-    let empty = with_pages(Engine.new(), []);
-    let remembered = match s {
-        Some(st) => restore(empty, st),
+    let engine = Engine.new();
+    // Every app's database shares SQLite's memory: one cap for all (PRP-041).
+    sqlite.heap_limit(SQLITE_HEAP);
+    // 1. Restore.
+    let empty = with_pages(engine, []);
+    // The session that just ended becomes the previous one, for the new
+    // tab's Restore (PRP-035; the owner's model, session 186).
+    let recalled = match s {
+        Some(st) => begin_session(restore(empty, st), st),
         None => empty,
     };
+    // 2 and 3. The new tab's app, once for the window, now that what it
+    // reads is there; without it the empty tab is just empty (PRP-027).
+    // Nothing reopens on its own: the last session waits for Restore.
+    let remembered = Model { newtab: newtab.open(engine).ok(), ..recalled };
+    let reloads: Cmd<Msg> = Cmd.none();
     if argv.len < 2 {
-        return (remembered, Cmd.focus("address"));
+        // Launch lands on the new tab (the owner, sessions 182–183). It
+        // clears the notice line; what restoring said still shows.
+        let window_ = Model { notice: remembered.notice, ..window.new_blank(remembered) };
+        // 4. What the apps asked for when they opened: the new tab's your
+        // pins and where you left off, so the first screen shows them.
+        let (answered, sends) = answer_all(window_);
+        let focus: Cmd<Msg> = Cmd.focus("address");
+        return (answered, both(both(focus, reloads), sends));
     }
     let at = mark(remembered);
+    // 2 and 3: the app's tab, and the app in it.
     let (placed, cmd) = navigate.open_file(remembered, argv[1]);
+    // 4. What both asked for.
     let (answered, sends) = answer_all(placed);
     let opened = persist(remembered, news(answered), at);
     // Opening clears the notice line; what restoring said still shows.
@@ -75,7 +105,7 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
         (Some(a), None) => Some(a),
         (None, b) => b,
     };
-    (Model { notice: notice, ..opened }, both(cmd, sends))
+    (Model { notice: notice, ..opened }, both(both(reloads, cmd), sends))
 }
 
 /**
@@ -101,12 +131,75 @@ public fun subscriptions(m: Model): Sub<Msg> = if m.tabs.any(fun(t: Tab) = is_lo
 public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     // The keyring is shared by every copy of the model: mark it first.
     let at = mark(m);
-    let (next, cmd) = handle_msg(m, msg);
-    // What a v2 app asked for is answered before anything is drawn or saved.
-    let (answered, sends) = answer_all(next);
+    let (handled, cmd) = handle_msg(m, msg);
+    // The shield's card belongs to one page: leaving it (another tab, home,
+    // another app in this tab) closes it (PRP-021).
+    // Site settings too (PRP-022).
+    // A card the message itself opened (About or Forget from another tab's
+    // menu) stays: only what was open on the old page closes.
+    let next = if shown(handled) != shown(m) {
+        Model {
+            shield: if handled.shield == m.shield { None } else { handled.shield },
+            panel: if handled.panel == m.panel { None } else { handled.panel },
+            ..handled,
+        }
+    } else {
+        handled
+    };
+    // An approval whose page went to the back is a no (PRP-031).
+    let (decided, denied) = left_behind(next);
+    // What a v2 app asked for is answered before anything is drawn or saved:
+    // what on_resume and on_change asked for too.
+    // The instance now in front is the one its app reopens to (PRP-033).
+    let told = tell_prefs(m, tell_changes(m, resumed(m, touched(m, decided))));
+    let (first, asked) = answer_all(told);
+    // The Settings app's change lands while answering: every app is told
+    // then, and what they ask in turn answered (PRP-038).
+    let (answered, again) = if first.prefs != told.prefs {
+        answer_all(tell_prefs(told, first))
+    } else {
+        (first, Cmd.none())
+    };
+    let sends = both(asked, again);
     // What each app declares, and "New" cleared once its Access page is left.
-    (persist(m, news(looked(m, answered)), at), both(cmd, sends))
+    (
+        persist(m, news(looked(m, answered)), at),
+        both(both(both(cmd, denied), sends), into_view(m, answered)),
+    )
 }
+
+/**
+ * Scrolls the sidebar to the current tab when it changed (PRP-028): a
+ * tab selected, made or closed to a neighbour may be out of sight. The
+ * focus stays where it is.
+ */
+fun into_view(before: Model, after: Model): Cmd<Msg> = match after.current {
+    Some(id) => if before.current != Some(id) { Cmd.scroll_to("tab-{id}") } else { Cmd.none() },
+    None => Cmd.none(),
+};
+
+/**
+ * Tells the page now at the front that it's back (`on_resume`, PRP-030),
+ * when the current tab changed to one that was already there: an app tab
+ * that existed before this update, or the empty tab, whose page is the new
+ * tab's. A page just opened heard `on_open` instead.
+ */
+fun resumed(before: Model, after: Model): Model = match after.current {
+    Some(id) if before.current != Some(id) => if window.is_blank(after, id) {
+        Model { newtab: after.newtab.map(to_front), ..after }
+    } else if before.tabs.any(fun(t: Tab) = t.id == id) {
+        window.with_tab(after, id, to_front)
+    } else {
+        after
+    },
+    _ => after,
+};
+
+/** The page the window shows: its tab and its app's path; `None` on home. */
+fun shown(m: Model): Option<(i64, string)> = match (m.current, window.page_of(m)) {
+    (Some(id), App(a)) => Some((id, a.path)),
+    _ => None,
+};
 
 /** Two commands as one; either alone when the other does nothing, so a lone task stays a task. */
 fun both(a: Cmd<Msg>, b: Cmd<Msg>): Cmd<Msg> = match (a, b) {
@@ -127,31 +220,81 @@ fun both(a: Cmd<Msg>, b: Cmd<Msg>): Cmd<Msg> = match (a, b) {
  */
 fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Tab(id, inner) => (window.with_tab(m, id, fun(a: AppPage) = handle(a, inner)), Cmd.none()),
-    Select(id) => (window.show_tab(m, id), Cmd.none()),
+    // Choosing a tab, from the address box's suggestions too, closes them.
+    Select(id) => (window.show_tab(Model { draft: "", ..m }, id), Cmd.none()),
     // Home isn't a tab: + and ⌂ both show it, keeping every app open.
-    NewTab | Home => (window.go_home(m), Cmd.focus("address")),
-    CloseTab(id) => (window.close(m, id), Cmd.none()),
-    Draft(text) => (Model { draft: text, notice: None, ..m }, Cmd.none()),
+    // + adds an empty tab; Home shows one, the current if it's empty (PRP-024).
+    NewTab => (window.new_blank(m), Cmd.focus("address")),
+    Home => (window.go_home(m), Cmd.focus("address")),
+    // One of several instances closes to another of the same app (PRP-033).
+    CloseTab(id) => (close_instance(m, id), Cmd.none()),
+    CloseApp(id) => (close_app(m, id), Cmd.none()),
+    // The new tab's own clicks (session 185): what it asks for is answered
+    // after, as for any app.
+    FromNewTab(inner) => (
+        Model { newtab: m.newtab.map(fun(p: AppPage) = handle(p, inner)), ..m },
+        Cmd.none(),
+    ),
+    // The new tab's Restore (PRP-035): the last session's windows, added.
+    // Stacked under what's open, the current winning where they overlap;
+    // then it's part of the current session (the owner, session 186).
+    RestoreSession => match m.previous {
+        Some(o) => navigate.reopen_all(restored(Model { previous: None, ..m }), o),
+        None => (m, Cmd.none()),
+    },
+    NewInstance => navigate.new_instance(m),
+    RenameInstance(id) => (start_rename(m, id), Cmd.none()),
+    InstanceName(typed) => (
+        Model { renaming: m.renaming.map(fun(r: (i64, string)) = (r.0, typed)), ..m },
+        Cmd.none(),
+    ),
+    ConfirmRename => (confirm_rename(m), Cmd.none()),
+    // Typing in the field starts editing: on an app, what's typed replaces
+    // its address in the box until Enter or Dismiss (PRP-025).
+    Draft(text) => (Model { draft: text, editing: true, notice: None, ..m }, Cmd.none()),
     Go => navigate.go(m),
+    Dismiss => (Model { draft: "", editing: false, notice: None, ..m }, Cmd.none()),
+    // One card at a time: opening the shield's closes site settings (PRP-022).
+    Shield(page) => (
+        Model { shield: page, panel: if page.is_some() { None } else { m.panel }, ..m },
+        Cmd.none(),
+    ),
     EditAddress => match window.page_of(m) {
         App(a) => (Model { editing: true, draft: a.path, ..m }, Cmd.focus("address")),
         Home => (m, Cmd.focus("address")),
     },
-    OpenPinned(path) => navigate.open_file(window.go_home(m), path),
-    Continue => navigate.reopen(m),
+    OpenPinned(path) => navigate.open_pin(m, path),
+    Continue => navigate.reopen(Model { draft: "", editing: false, ..m }),
+    Approve(a) => approve(m, a),
+    SetPermission(name, s) => (set_permission(m, name, s), Cmd.none()),
     TogglePanel => (
         Model {
             panel: if m.panel.is_some() { None } else { Some(PanelPage.Main) },
+            // One card at a time: site settings close the shield's (PRP-022).
+            shield: None,
             confirm: None,
             ..m,
         },
+        // Opening it: its app's data's size, read in a task (PRP-041).
+        if m.panel.is_none() { sizing(m) } else { Cmd.none() },
+    ),
+    // Closing only, never a toggle: a popover may say it closed more than
+    // once, and a toggle reopened it over everything (session 171).
+    ClosePanel => (Model { panel: None, confirm: None, ..m }, Cmd.none()),
+    TogglePin => (pins.toggle_pin(m), Cmd.none()),
+    // ☰ (PRP-038): Settings, About Rapidkoi, Quit.
+    Menu(open) => (Model { menu: open, ..m }, Cmd.none()),
+    OpenSettings => (navigate.open_settings(Model { menu: false, ..m }), Cmd.none()),
+    About(open) => (Model { about: open, menu: false, ..m }, Cmd.none()),
+    Quit => (m, Cmd.quit()),
+    OwnLooks(key, colours, text_size) => (
+        Model { people: with_looks(m.people, key, colours, text_size), ..m },
         Cmd.none(),
     ),
-    TogglePin => (window.toggle_pin(m), Cmd.none()),
     PanelGo(page) => (Model { panel: Some(page), confirm: None, ..m }, Cmd.none()),
     PanelBack => (Model { panel: Some(PanelPage.Main), confirm: None, ..m }, Cmd.none()),
     Ask(c) => (Model { confirm: Some(c), ..m }, Cmd.none()),
-    Cancel => (Model { confirm: None, ..m }, Cmd.none()),
+    Cancel => (Model { confirm: None, renaming: None, ..m }, Cmd.none()),
     StartOver => match m.current {
         Some(id) => (
             Model {
@@ -162,13 +305,45 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         ),
         None => (m, Cmd.none()),
     },
-    Forget => (forget_account(m, forgotten(m, window.forget(m))), Cmd.none()),
+    Forget => {
+        // Its database goes with it (PRP-041); a failure is the notice.
+        let said = match m.current {
+            Some(id) => data_cleared(m, id),
+            None => None,
+        };
+        let gone = forget_account(m, forgotten(m, pins.forget(m)));
+        (Model { notice: if said.is_some() { said } else { gone.notice }, ..gone }, Cmd.none())
+    }
     FocusSearch => (m, Cmd.focus("address")),
     Reload => navigate.reload(m),
     KeepMine => (navigate.keep_mine(m), Cmd.none()),
     SeparateApp => navigate.separate_app(m),
     Fetched(id, number, f) => loads.arrive(m, id, number, f),
     Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
+    Queried(id, load, msg, got) => (queries.arrive(m, id, load, msg, got), Cmd.none()),
+    DataSized(id, n) => (
+        window.with_tab(m, id, fun(a: AppPage) = AppPage { data_size: Some(n), ..a }),
+        Cmd.none(),
+    ),
+    // Everything the app keeps: its database, then its window starts fresh (PRP-041).
+    ClearData => match m.current {
+        Some(id) => (
+            Model {
+                confirm: None,
+                notice: data_cleared(m, id),
+                ..window.with_tab(
+                    m,
+                    id,
+                    fun(a: AppPage) = AppPage {
+                        data_size: Some(0),
+                        ..handle(a, render.Msg.Restart),
+                    },
+                ),
+            },
+            Cmd.none(),
+        ),
+        None => (m, Cmd.none()),
+    },
     ToggleServer(server) => (on_access(m, server), Cmd.none()),
     Tick(now) => (Model { now: now, ..m }, Cmd.none()),
     OnTab(id, action) => on_tab(m, id, action),
@@ -190,8 +365,12 @@ fun on_tab(m: Model, id: i64, action: TabAction): (Model, Cmd<Msg>) {
     let at = window.show_tab(m, id);
     match action {
         Reload => navigate.reload(at),
-        TogglePin => (window.toggle_pin(at), Cmd.none()),
-        About => (Model { panel: Some(PanelPage.About), confirm: None, ..at }, Cmd.none()),
+        TogglePin => (pins.toggle_pin(at), Cmd.none()),
+        // About this app is the shield's card now (PRP-022).
+        About => (
+            Model { shield: Some(ShieldPage.Main), panel: None, confirm: None, ..at },
+            Cmd.none(),
+        ),
         Close => (window.close(at, id), Cmd.none()),
         Forget => (
             Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget), ..at },
@@ -202,17 +381,16 @@ fun on_tab(m: Model, id: i64, action: TabAction): (Model, Cmd<Msg>) {
 
 /** A home tile's menu item, for the app at `path`. Forget opens it, then the panel at its question. */
 fun on_pin(m: Model, path: string, action: PinAction): (Model, Cmd<Msg>) = match action {
-    Open => navigate.open_file(window.go_home(m), path),
+    Open => navigate.open_pin(m, path),
     Unpin => (Model { pinned: m.pinned.filter(fun(p: Pin) = p.path != path), ..m }, Cmd.none()),
     Forget => {
-        let (opened, cmd) = navigate.open_file(window.go_home(m), path);
+        let (opened, cmd) = navigate.open_pin(m, path);
         (Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget), ..opened }, cmd)
     }
 };
 
 /**
- * Draws the window: the bar, home or the current app (with the panel
- * beside it when open), and the rail. Never calls a guest.
+ * Draws the window: the bare frame (PRP-014). Never calls a guest.
  *
  * @param m the model
  * @returns the window's view
@@ -220,78 +398,36 @@ fun on_pin(m: Model, path: string, action: PinAction): (Model, Cmd<Msg>) = match
  * Example:
  *     view(m)
  */
-public fun view(m: Model): View<Msg> {
-    let page = window.page_of(m);
-    // On an app page m.current is Some: page_of found its tab.
-    let id = m.current.unwrap_or(-1);
-    let middle = match page {
-        Home => card(home.view(m.draft, m.pinned, window.card(m), m.tabs)),
-        // The panel sits over the app, which keeps its width. A dim layer
-        // between them keeps the app from being clicked meanwhile; it isn't a
-        // button, so a stray click never closes the panel (Close, Escape, ⓘ do).
-        App(a) => overlay(card(app_view(id, a, m)), match m.panel {
-            Some(p) => [
-                column([]).style([Look.Scrim]),
-                // Under ⓘ at the top right, as tall as its content. The dark
-                // look is on a wrapper, so the panel's padding falls inside it;
-                // the outer padding insets it from the page's edges.
-                // One height for every page: shorter ones leave room below,
-                // and the main page keeps Forget and Close at the bottom.
-                column([column([panel.view(a, p, m.confirm, account_of(m, a), access_of(m, a)).expand()]).style([Look.Panel]).height(
-                    PANEL_HEIGHT,
-                )]).padding(
-                    SPACE_SM,
-                ).place(Align.End, Align.Start),
-            ],
-            None => [],
-        }),
-    };
-    let mut parts: View<Msg>[] = [];
-    if let Some(n) = m.notice {
-        parts.push(text(n).dim().padding(SPACE_MD));
-    }
-    let pins = m.pinned.map(fun(p: Pin) = p.path);
-    parts.push(row([middle.expand(), rail(m.tabs, m.current, pins)]).expand());
-    let pinned = match page {
-        App(a) => window.is_pinned(m, a.path),
-        Home => false,
-    };
-    let b = bar(page, m.draft, m.editing, pinned);
-    column(parts).style([Look.Frame]).window(
-        title_of(m),
-        WINDOW_WIDTH,
-        WINDOW_HEIGHT,
-    ).maximized().theme(kivuli_theme(m.theme)).header(b.start, b.title, b.end).header_style([
-        Look.Frame,
-    ])
-}
+public fun view(m: Model): View<Msg> = layout.view(m);
 
 /**
- * The page, flush with the frame: it meets the header bar above and the rail
- * on its right, and the window's edges on the left and bottom.
+ * Removes tab `id`'s app's database (PRP-041): a file in Rapidkoi's own
+ * data folder, as saving's are. Returns why, when it couldn't.
  */
-fun card(v: View<Msg>): View<Msg> = scroll(v.padding(SPACE_LG)).style([Look.Page]);
+fun data_cleared(m: Model, id: i64): Option<string> = match (
+    m.store,
+    m.tabs.iter().find(fun(t: Tab) = t.id == id),
+) {
+    (Some(s), Some(t)) => match databases.path_for(s, t.page) {
+        Some(path) => match databases.clear(path) {
+            Ok(()) => None,
+            Err(why) => Some(why),
+        },
+        None => None,
+    },
+    _ => None,
+};
 
-/** A tab's app, its messages tagged with the tab, so they reach only it. */
-fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
-    let now = m.now;
-    let shown = match a.screen {
-        // {FIRST_NAME} and {LAST_NAME} are filled while drawing: the app
-        // can show your name, never know it (PRP-011).
-        Running(_, _, d) => {
-            let (first, last) = match a.trust {
-                Some(t) => name_in(m.people, t.host, t.origin),
-                None => (m.people.first, m.people.last),
-            };
-            screen(fill(d.root, first, last))
-        }
-        Stopped(why, can_restart) => stopped(why, can_restart),
-        Refused(why) => refused(why),
-        Loading(p) => loading(a.name, if now > p.started { now - p.started } else { 0 }),
-        // Rapidkoi's own question, not the app's: its buttons are the window's.
-        Unapproved(c, kept) => {
-            return unapproved(c, kept.len > 0);
-        }
-    };
-    shown.map(fun(inner: render.Msg) = Msg.Tab(id, inner))
-}
+/** A task reading the current app's database's size for its ⚙ card; nothing when it keeps none. */
+fun sizing(m: Model): Cmd<Msg> = match (m.store, m.current) {
+    (Some(s), Some(id)) => match m.tabs.iter().find(fun(t: Tab) = t.id == id).and_then(
+        fun(t: Tab) = databases.path_for(s, t.page),
+    ) {
+        Some(path) => Cmd.task(
+            fun(): i64 = databases.size_of(path),
+            fun(n: i64) = Msg.DataSized(id, n),
+        ),
+        None => Cmd.none(),
+    },
+    _ => Cmd.none(),
+};

@@ -1,0 +1,220 @@
+/**
+ * The `pack` command: `./main pack MODULE --name N --version V … -o OUT.rkb`
+ * reads the developer's files and writes one bundle; `./main pack` alone
+ * packs the current folder's `rapidkoi.toml` (signed when it has a key). It reads only the
+ * files named, writes only OUT (never over an existing file without
+ * `--force`), never runs the module, and opens no window.
+ *
+ * Depends on: std.fs, std.env, bundles.bundle, commands.publish
+ * Used by: main
+ */
+import std.fs;
+import bundles.bundle { Bundle, Manifest, Controls, write, reason };
+import guest.limits { CONTRACT_VERSION };
+import std.env;
+import commands.publish { pack_project };
+
+/** What the command line asked for. */
+struct Request {
+    module: string,
+    name: string,
+    version: string,
+    description: Option<string>,
+    state_version: i64,
+    icon: Option<string>,
+    banners: (string, string)[],
+    assets: (string, string)[],
+    servers: string[],
+    permissions: string[],
+    controls: Option<Controls>,
+    out: string,
+    force: bool,
+}
+
+/**
+ * Runs `pack` from the program's arguments: prints a summary, or
+ * `rapidkoi pack: <what>` on stderr.
+ *
+ * @param argv the program's arguments: `argv[0]` its path, `argv[1]` "pack"
+ * @returns the exit code: 0 on success, 1 on any error
+ *
+ * Example:
+ *     if argv[1] == "pack" { return run(argv); }
+ */
+public fun run(argv: string[]): i32 {
+    let mut rest: string[] = [];
+    for i in 2..argv.len {
+        rest.push(argv[i]);
+    }
+    match make(rest) {
+        Ok(summary) => {
+            println(summary);
+            0
+        }
+        Err(e) => {
+            eprintln("rapidkoi pack: {e}");
+            1
+        }
+    }
+}
+
+/**
+ * Packs a bundle from `pack`'s arguments (everything after `pack`).
+ *
+ * @param args the module's path, then flags
+ * @returns a one-line summary, or what went wrong (a bad flag, an unreadable
+ *     file, a bundle rule, an existing OUT without `--force`)
+ *
+ * Example:
+ *     make(["counter.wasm", "--name", "Counter", "--version", "0.1.0", "-o", "counter.rkb"])
+ */
+public fun make(args: string[]): Result<string, string> {
+    // No module named: the current folder's rapidkoi.toml says what to pack.
+    if args.len == 0 || args.len == 1 && args[0] == "--force" {
+        let dir = env.current_dir().map_err(fun(e: string) = "can't find the current folder: {e}")?;
+        return pack_project(dir, args.len == 1);
+    }
+    let r = parse(args)?;
+    if fs.exists(r.out) && !r.force {
+        return Err("{r.out} exists; add --force to replace it");
+    }
+    let module = load(r.module)?;
+    let mut assets: (string, u8[])[] = [];
+    let mut icon: Option<string> = None;
+    if let Some(file) = r.icon {
+        assets.push(("icon.png", load(file)?));
+        icon = Some("icon.png");
+    }
+    let mut banners: (string, string)[] = [];
+    for b of r.banners {
+        let name = "banner/{b.0}.png";
+        assets.push((name, load(b.1)?));
+        banners.push((b.0, name));
+    }
+    for a of r.assets {
+        assets.push((a.0, load(a.1)?));
+    }
+    let manifest = Manifest {
+        contract: CONTRACT_VERSION as i64,
+        name: r.name,
+        version: r.version,
+        description: r.description,
+        state_version: r.state_version,
+        icon: icon,
+        banners: banners,
+        servers: r.servers,
+        permissions: r.permissions,
+        controls: r.controls,
+    };
+    let bytes = write(Bundle { manifest: manifest, module: module, assets: assets }).map_err(
+        reason,
+    )?;
+    write_bytes(r.out, bytes).map_err(fun(e: string) = "can't write {r.out}: {e}")?;
+    let noun = if assets.len == 1 { "asset" } else { "assets" };
+    Ok("packed {r.out}: {r.name} {r.version}, {module.len / 1024} KB module, {assets.len} {noun}")
+}
+
+fun load(file: string): Result<u8[], string> = read_bytes(file).map_err(
+    fun(e: string) = "can't read {file}: {e}",
+);
+
+fun parse(args: string[]): Result<Request, string> {
+    let mut module: Option<string> = None;
+    let mut name: Option<string> = None;
+    let mut version: Option<string> = None;
+    let mut description: Option<string> = None;
+    let mut state_version = 1;
+    let mut icon: Option<string> = None;
+    let mut banners: (string, string)[] = [];
+    let mut assets: (string, string)[] = [];
+    let mut servers: string[] = [];
+    let mut permissions: string[] = [];
+    let mut address: string[] = [];
+    let mut settings: string[] = [];
+    let mut out: Option<string> = None;
+    let mut force = false;
+    let mut i = 0;
+    while i < args.len {
+        let a = args[i];
+        if a == "--force" {
+            force = true;
+            i += 1;
+            continue;
+        }
+        if !a.starts_with("-") {
+            if module.is_some() {
+                return Err("only one module: {a}");
+            }
+            module = Some(a);
+            i += 1;
+            continue;
+        }
+        if i + 1 >= args.len {
+            return Err("{a} needs a value");
+        }
+        let v = args[i + 1];
+        if a == "--name" {
+            name = Some(v);
+        } else if a == "--version" {
+            version = Some(v);
+        } else if a == "--description" {
+            description = Some(v);
+        } else if a == "--state-version" {
+            state_version = parse_i64(v).ok_or("--state-version takes a whole number")?;
+        } else if a == "--icon" {
+            icon = Some(v);
+        } else if a == "--banner" {
+            banners.push(pair(v, "--banner takes PAGE=FILE")?);
+        } else if a == "--asset" {
+            assets.push(pair(v, "--asset takes NAME=FILE")?);
+        } else if a == "--server" {
+            servers.push(v);
+        } else if a == "--permission" {
+            permissions.push(v);
+        } else if a == "--control" {
+            let (part, name) = pair(v, "--control takes address=ICON or settings=ROW")?;
+            if part == "address" {
+                address.push(name);
+            } else if part == "settings" {
+                settings.push(name);
+            } else {
+                return Err("--control takes address=ICON or settings=ROW");
+            }
+        } else if a == "-o" {
+            out = Some(v);
+        } else {
+            return Err("unknown flag {a}");
+        }
+        i += 2;
+    }
+    Ok(Request {
+        module: module.ok_or(
+            "no module given: rapidkoi pack MODULE --name N --version V -o OUT.rkb",
+        )?,
+        name: name.ok_or("--name is required")?,
+        version: version.ok_or("--version is required")?,
+        description: description,
+        state_version: state_version,
+        icon: icon,
+        banners: banners,
+        assets: assets,
+        servers: servers,
+        permissions: permissions,
+        controls: if address.len + settings.len > 0 {
+            Some(Controls { address: address, settings: settings })
+        } else {
+            None
+        },
+        out: out.ok_or("-o is required")?,
+        force: force,
+    })
+}
+
+/** `KEY=VALUE` split at the first `=`. */
+fun pair(v: string, problem: string): Result<(string, string), string> {
+    let parts = v.split("=");
+    if parts.len < 2 || parts[0] == "" {
+        return Err(problem);
+    }
+    Ok((parts[0], v.slice(parts[0].len + 1, v.len)))
+}

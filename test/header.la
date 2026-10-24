@@ -1,0 +1,142 @@
+// The header bar (PRP-019, PRP-021, PRP-032): the address box with its
+// shield (and its card) and pin, then account and menu; no ← ⌂ →. Through kivuli.testing; no display.
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.ui.header;
+import rapidkoi.ui.addressbox;
+import rapidkoi.ui.layout;
+import rapidkoi.window.actions { Msg, ShieldPage };
+import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.trust.verify { Trust, Standing };
+import kivuli.testing { click, is_disabled, type_into, texts };
+import rapidkoi.ui.settings;
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun plain(): AppPage {
+    let engine = Engine.new();
+    open_module("notes", "notes.wasm", engine, Module.from_text(engine, echo()).unwrap())
+}
+
+/** Notes from `notes.acme.com`, its key in `standing`. */
+fun signed(standing: Standing): AppPage = AppPage {
+    path: "rapidkoi://notes.acme.com",
+    trust: Some(Trust {
+        host: "notes.acme.com",
+        key: [3; 32],
+        standing: standing,
+        build: [0; 32],
+        separate: false,
+        since: 0,
+        origin: [3; 32],
+    }),
+    ..plain(),
+};
+
+fun window(p: AppPage): Model = with_pages(Engine.new(), [p]);
+
+@test
+fun no_back_home_or_forward_on_any_tab() {
+    // PRP-032: moving around inside an app is the app's own UI.
+    for m of [window(plain()), step(window(plain()), Msg.NewTab), with_pages(Engine.new(), [])] {
+        let v = layout.view(m);
+        for gone of [
+            "Back (comes with links)",
+            "Home (comes with links)",
+            "Forward (comes with links)",
+        ] {
+            assert(click(v, gone).is_err());
+            assert(is_disabled(v, gone).is_err());
+        }
+    }
+}
+
+@test
+fun account_waits_and_the_menu_opens_its_card() {
+    let m = window(plain());
+    let end = header.end(m);
+    assert_eq(end.len, 2);
+    assert_eq(is_disabled(end[0], "Account (coming soon)"), Ok(true));
+    // PRP-038: ☰ opens Settings, About Rapidkoi and Quit.
+    assert_eq(click(end[1], "Menu"), Ok(Msg.Menu(true)));
+    let card = header.menu_card(m.theme);
+    assert_eq(texts(card), ["Settings", "About Rapidkoi", "Quit"]);
+    assert_eq(click(card, "Settings"), Ok(Msg.OpenSettings));
+    assert_eq(click(card, "About Rapidkoi"), Ok(Msg.About(true)));
+    assert_eq(click(card, "Quit"), Ok(Msg.Quit));
+}
+
+@test
+fun quit_quits_and_about_shows_the_version() {
+    let (_, c) = update(window(plain()), Msg.Quit);
+    assert_eq(
+        match c {
+            Quit => true,
+            _ => false,
+        },
+        true,
+    );
+    let (about, _) = update(window(plain()), Msg.About(true));
+    assert_eq(texts(settings.dialog_view(about)), ["Rapidkoi", "0.1.0"]);
+    assert_eq(about.menu, false);
+}
+
+@test
+fun home_has_no_pin_and_no_shield() {
+    let m = step(window(plain()), Msg.Home);
+    let box = addressbox.field(m);
+    assert(click(box, "Pin").is_err());
+    assert(click(box, "Site information").is_err());
+    assert_eq(type_into(box, "Enter Address", "no"), Ok(Msg.Draft("no")));
+}
+
+@test
+fun an_app_can_be_pinned_and_unpinned() {
+    let m = window(plain());
+    assert_eq(click(addressbox.field(m), "Pin"), Ok(Msg.TogglePin));
+    let pinned = step(m, Msg.TogglePin);
+    assert_eq(click(addressbox.field(pinned), "Unpin"), Ok(Msg.TogglePin));
+}
+
+@test
+fun every_app_page_has_the_shield_and_home_does_not() {
+    // PRP-021: always shown, in its look; it opens the card.
+    for m of [
+        window(plain()),
+        window(signed(Standing.Verified)),
+        window(signed(Standing.NotConfirmed)),
+    ] {
+        assert_eq(
+            click(addressbox.field(m), "Site information"),
+            Ok(Msg.Shield(Some(ShieldPage.Main))),
+        );
+    }
+    let home = step(window(plain()), Msg.Home);
+    assert(click(addressbox.field(home), "Site information").is_err());
+}
+
+@test
+fun the_card_turns_its_pages() {
+    let m = step(window(signed(Standing.Verified)), Msg.Shield(Some(ShieldPage.Main)));
+    let card = addressbox.field(m);
+    assert_eq(click(card, "Connection secure"), Ok(Msg.Shield(Some(ShieldPage.Connection))));
+    assert_eq(click(card, "Signed app"), Ok(Msg.Shield(Some(ShieldPage.Signed))));
+    let signed_page = addressbox.field(step(m, Msg.Shield(Some(ShieldPage.Signed))));
+    assert_eq(click(signed_page, "Back"), Ok(Msg.Shield(Some(ShieldPage.Main))));
+}
+
+@test
+fun share_waits_greyed_on_every_tab_and_pin_is_for_apps() {
+    // PRP-025: share (the owner's icon) until links can share a screen.
+    let app_page = window(plain());
+    let empty = step(window(plain()), Msg.NewTab);
+    for m of [app_page, empty] {
+        assert_eq(is_disabled(addressbox.field(m), "Share (coming soon)"), Ok(true));
+    }
+    assert_eq(click(addressbox.field(app_page), "Pin"), Ok(Msg.TogglePin));
+    assert(click(addressbox.field(empty), "Pin").is_err());
+}

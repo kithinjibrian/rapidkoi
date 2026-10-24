@@ -3,11 +3,12 @@
  * trees, WebAssembly text for fixture guests, and `settle`, which runs a
  * command's background tasks in place. Holds no tests itself.
  *
- * Depends on: cbor, kivuli
- * Used by: contract, render, guest, shell, loading, opening, saving
+ * Depends on: cbor, kivuli, wasmtime
+ * Used by: contract, render, guest, shell, loading, opening, saving, counting
  */
 import cbor { Value, Entry, encode };
 import kivuli { Cmd };
+import wasmtime { wat_to_wasm };
 
 /**
  * Runs a command's tasks now, in order, sending each result through
@@ -172,6 +173,29 @@ public fun echo_v2(init: u8[]): string = echoing(init, None);
 /** `echo` that asks for things every time it's opened (`opened`, a result). */
 public fun echo_opening(opened: u8[]): string = echoing(result_of([]), Some(opened));
 
+/**
+ * A contract 3 guest (PRP-030) whose `handle` keeps every event's own bytes
+ * as its state, init and open too: the state is the last event it got.
+ */
+public fun echo_v3(): string {
+    let tree = counter_tree("echo");
+    [
+        "(module (memory (export \"memory\") 1)",
+        "(global $next (mut i32) (i32.const 8192))",
+        "(data (i32.const 1024) \"{wat_bytes(tree)}\")",
+        wrapping(3000),
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const 3))",
+        "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
+        "  (local.set $p (global.get $next))",
+        "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
+        "  (local.get $p))",
+        "(func (export \"view\") (param i32 i32) (result i64) (global.set $next (i32.const 8192)) (i64.const {(1024 << 32) | tree.len}))",
+        "(func (export \"handle\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
+        "  (call $wrap (local.get $ep) (local.get $el)))",
+        ")",
+    ].join("\n")
+}
+
 /** The echoing guest. */
 fun echoing(init: u8[], opened: Option<u8[]>): string {
     let tree = counter_tree("echo");
@@ -245,4 +269,172 @@ public fun png(w: i64, h: i64): u8[] {
         b.push(x as u8);
     }
     b
+}
+
+/**
+ * A contract 4 guest (PRP-036): `on_init` gets `init` (a whole result),
+ * `on_open` keeps the state it was given (a map of named fields, no
+ * `link`), and any other event gets `result`; `view` shows a counter tree.
+ */
+public fun linking(init: u8[], result: u8[]): string {
+    let tree = counter_tree("link");
+    // {state: <the state's own CBOR>, effects: []}, around the given state.
+    let head: u8[] = [0xa2, 0x65, 115, 116, 97, 116, 101];
+    let tail: u8[] = [0x67, 101, 102, 102, 101, 99, 116, 115, 0x80];
+    [
+        "(module (memory (export \"memory\") 1)",
+        "(global $next (mut i32) (i32.const 8192))",
+        "(data (i32.const 1024) \"{wat_bytes(tree)}\")",
+        "(data (i32.const 3000) \"{wat_bytes(head)}\")",
+        "(data (i32.const 3016) \"{wat_bytes(tail)}\")",
+        "(data (i32.const 5000) \"{wat_bytes(init)}\")",
+        "(data (i32.const 5600) \"{wat_bytes(result)}\")",
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const 4))",
+        "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
+        "  (local.set $p (global.get $next))",
+        "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
+        "  (local.get $p))",
+        "(func (export \"view\") (param i32 i32) (result i64) (global.set $next (i32.const 8192)) (i64.const {(1024 << 32) | tree.len}))",
+        "(func (export \"handle\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
+        // `{event: "on_init"}` and `{event: "on_open"}` are both 15 bytes; their 12th tells them apart.
+        "  (if (i32.eq (local.get $el) (i32.const 15)) (then",
+        "    (if (i32.eq (i32.load8_u (i32.add (local.get $ep) (i32.const 11))) (i32.const 105))",
+        "      (then (return (i64.const {(5000 << 32) | init.len}))))",
+        "    (memory.copy (i32.const 40000) (i32.const 3000) (i32.const 7))",
+        "    (memory.copy (i32.const 40007) (local.get $sp) (local.get $sl))",
+        "    (memory.copy (i32.add (i32.const 40007) (local.get $sl)) (i32.const 3016) (i32.const 9))",
+        "    (return (i64.or (i64.const {40000 << 32}) (i64.extend_i32_u (i32.add (local.get $sl) (i32.const 16)))))))",
+        "  (i64.const {(5600 << 32) | result.len}))",
+        ")",
+    ].join("\n")
+}
+
+/**
+ * A contract 6 guest (PRP-041): `on_init` gets `init` (a whole result,
+ * which may ask for things); every other event's own bytes become its state
+ * as `{event: <bytes>}`, so a test reads exactly what Rapidkoi sent.
+ */
+public fun echo_v6(init: u8[]): string {
+    let tree = counter_tree("data");
+    // {state: {event: <4-byte-length bytes>}, effects: []}
+    let head: u8[] = [
+        0xa2,
+        0x65,
+        115,
+        116,
+        97,
+        116,
+        101,
+        0xa1,
+        0x65,
+        101,
+        118,
+        101,
+        110,
+        116,
+        0x5a,
+    ];
+    let tail: u8[] = [0x67, 101, 102, 102, 101, 99, 116, 115, 0x80];
+    [
+        "(module (memory (export \"memory\") 2)",
+        "(global $next (mut i32) (i32.const 16384))",
+        "(data (i32.const 1024) \"{wat_bytes(tree)}\")",
+        "(data (i32.const 3000) \"{wat_bytes(head)}\")",
+        "(data (i32.const 3032) \"{wat_bytes(tail)}\")",
+        "(data (i32.const 5000) \"{wat_bytes(init)}\")",
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const 6))",
+        "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
+        "  (local.set $p (global.get $next))",
+        "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
+        "  (local.get $p))",
+        "(func (export \"view\") (param i32 i32) (result i64) (global.set $next (i32.const 16384)) (i64.const {(1024 << 32) | tree.len}))",
+        "(func (export \"handle\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64)",
+        // `{event: "on_init"}` is 15 bytes, its 12th an `i`.
+        "  (if (i32.and (i32.eq (local.get $el) (i32.const 15)) (i32.eq (i32.load8_u (i32.add (local.get $ep) (i32.const 11))) (i32.const 105)))",
+        "    (then (return (i64.const {(5000 << 32) | init.len}))))",
+        "  (memory.copy (i32.const 70000) (i32.const 3000) (i32.const 15))",
+        "  (i32.store8 (i32.const 70015) (i32.shr_u (local.get $el) (i32.const 24)))",
+        "  (i32.store8 (i32.const 70016) (i32.shr_u (local.get $el) (i32.const 16)))",
+        "  (i32.store8 (i32.const 70017) (i32.shr_u (local.get $el) (i32.const 8)))",
+        "  (i32.store8 (i32.const 70018) (local.get $el))",
+        "  (memory.copy (i32.const 70019) (local.get $ep) (local.get $el))",
+        "  (memory.copy (i32.add (i32.const 70019) (local.get $el)) (i32.const 3032) (i32.const 9))",
+        "  (i64.or (i64.const {70000 << 32}) (i64.extend_i32_u (i32.add (local.get $el) (i32.const 28)))))",
+        ")",
+    ].join("\n")
+}
+
+/**
+ * A contract 4 guest standing in for a real app (PRP-042): its state is
+ * `{count: n}`, its view `Count: n` and an `Add` button, and each message
+ * adds one. `on_init` starts at 0; every other event keeps the count. Good
+ * to 9: one CBOR byte, one digit.
+ */
+public fun counting(): string {
+    let result = encode(
+        kv([("state", kv([("count", Value.int(0))])), ("effects", Value.Array([]))]),
+    );
+    // The count is the state's last byte, before `effects: []` (9 bytes).
+    let n_at = result.len - 10;
+    let tree = encode(
+        parent("column", [], [
+            leaf("text", [("text", t("Count: 0"))]),
+            leaf("button", [("label", t("Add")), ("on_press", t("add"))]),
+        ]),
+    );
+    let digit_at = after(tree, "Count: ".to_bytes());
+    [
+        "(module (memory (export \"memory\") 2)",
+        "(global $next (mut i32) (i32.const 65536))",
+        "(data (i32.const 1024) \"{wat_bytes(result)}\")",
+        "(data (i32.const 2048) \"{wat_bytes(tree)}\")",
+        "(func (export \"rapidkoi_version\") (result i32) (i32.const 4))",
+        "(func (export \"alloc\") (param $n i32) (result i32) (local $p i32)",
+        "  (local.set $p (global.get $next))",
+        "  (global.set $next (i32.add (global.get $next) (local.get $n)))",
+        "  (local.get $p))",
+        // `{count: n}` ends with n; an empty state (before init) counts 0.
+        "(func $count (param $sp i32) (param $sl i32) (result i32)",
+        "  (if (result i32) (i32.eqz (local.get $sl)) (then (i32.const 0))",
+        "    (else (i32.load8_u (i32.sub (i32.add (local.get $sp) (local.get $sl)) (i32.const 1))))))",
+        "(func (export \"view\") (param $sp i32) (param $sl i32) (result i64)",
+        "  (global.set $next (i32.const 65536))",
+        "  (i32.store8 (i32.const {2048 + digit_at}) (i32.add (i32.const 48) (call $count (local.get $sp) (local.get $sl))))",
+        "  (i64.const {pack(2048, tree.len)}))",
+        "(func (export \"handle\") (param $sp i32) (param $sl i32) (param $ep i32) (param $el i32) (result i64) (local $n i32) (local $kind i32)",
+        "  (global.set $next (i32.const 65536))",
+        // `{event: "on_…"}`: the 12th byte is the letter after `on_`.
+        "  (local.set $kind (i32.load8_u (i32.add (local.get $ep) (i32.const 11))))",
+        "  (local.set $n (call $count (local.get $sp) (local.get $sl)))",
+        "  (if (i32.eq (local.get $kind) (i32.const 105)) (then (local.set $n (i32.const 0))))",
+        "  (if (i32.eq (local.get $kind) (i32.const 109)) (then (local.set $n (i32.add (local.get $n) (i32.const 1)))))",
+        "  (i32.store8 (i32.const {1024 + n_at}) (local.get $n))",
+        "  (i64.const {pack(1024, result.len)}))",
+        ")",
+    ].join("\n")
+}
+
+/** Writes `counting()` to `path` as WebAssembly bytes, for what reads a module from disk. */
+public fun write_counting(path: string) {
+    write_bytes(
+        path,
+        wat_to_wasm(counting()).expect("the counting fixture is valid text"),
+    ).unwrap();
+}
+
+/** Where `needle` ends in `hay`: the index just after its first match. */
+fun after(hay: u8[], needle: u8[]): i64 {
+    for i in 0..hay.len - needle.len + 1 {
+        let mut same = true;
+        for j in 0..needle.len {
+            if hay[i + j] != needle[j] {
+                same = false;
+                break;
+            }
+        }
+        if same {
+            return i + needle.len;
+        }
+    }
+    panic("the fixture's tree holds its own text")
 }

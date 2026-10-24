@@ -1,0 +1,203 @@
+/**
+ * The address box, pure (PRP-015, PRP-019): the framed group in the header
+ * bar. Rapidkoi draws it where apps can't: the address and its trust marker
+ * are Rapidkoi's word. Its suggestions card is gone until its redesign
+ * (session 108; `ui/suggestions.la` keeps what to suggest). Opening and
+ * closing happen in `update`.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.frame, ui.icons, ui.tokens, ui.themes
+ * Used by: ui.header
+ */
+import kivuli {
+    View,
+    Align,
+    Border,
+    Radius,
+    Shadow,
+    Side,
+    State,
+    Styling,
+    When,
+    Width,
+    image,
+    row,
+};
+import kivuli.ui { input_group, group_input, group_button_with, popover as ui_popover };
+import window.actions { Msg, ShieldPage, PanelPage };
+import window.window { Model, page_of };
+import window.pins { is_pinned };
+import ui.frame { marker_note, file_of, address_of };
+import ui.icons { Icon, icon };
+import ui.shield { facts, look_colour, card };
+import ui.settings;
+import ui.grants { shows_icon };
+import ui.tokens {
+    SPACE_XS,
+    SPACE_SM,
+    ADDRESS_HEIGHT,
+    CIRCLE,
+    ADDRESS_WIDTH,
+    ADDRESS_ICON,
+    square,
+    padding,
+    at_least,
+    fixed_height,
+    margin_y,
+    flush_y,
+    EDGE_WIDTH,
+};
+
+/**
+ * Builds the address box for the header bar, one framed group: on an app
+ * page, the shield at its start in its look, opening its card (PRP-021),
+ * then ⚙ opening site settings (PRP-020, PRP-022); in the middle one field
+ * on every tab ("Enter Address" on an empty tab, the app's address on an
+ * app; Enter goes, PRP-025); at its end share (greyed until links) and ☆ on
+ * an app page.
+ *
+ * @param m the model
+ * @returns the box
+ *
+ * Example:
+ *     addressbox.field(m)
+ */
+public fun field(m: Model): View<Msg> {
+    let t = m.theme;
+    let page = page_of(m);
+    // kivuli.ui makes fields and buttons at least 36 high; inside the box's
+    // edge they take its height instead, so the box can be thinner.
+    let inside = at_least(0, ADDRESS_HEIGHT - 2 * EDGE_WIDTH);
+    // One field on every tab (the owner, session 154): on an app it shows
+    // the app's address until typed in; on an empty tab, the hint. No button
+    // swapping into a field, so the box is the same everywhere.
+    let (shown, note) = match page {
+        App(p) => (
+            if m.editing { m.draft } else { address_of(p) },
+            // The trust marker's words, on hover: the shield says the rest.
+            Some(marker_note(p, file_of(p.path))),
+        ),
+        Home => (m.draft, None),
+    };
+    // No padding above and below: kivuli.ui's field has 4 px each way
+    // (session 122).
+    let typing = group_input(shown, Msg.Draft).placeholder("Enter Address").name(
+        "address",
+    ).on_submit(Msg.Go).style([inside, flush_y()]);
+    // It takes the keyboard by itself only on an empty tab, not over an app.
+    let with_focus = match page {
+        Home => typing.autofocus(),
+        App(_) => typing,
+    };
+    let middle = match note {
+        Some(n) => with_focus.tooltip(n),
+        None => with_focus,
+    };
+    let mut start: View<Msg>[] = [];
+    if let App(p) = page {
+        // The shield, always, in its look (PRP-021); its card hangs from it
+        // while `m.shield` says it's open. A click outside or Escape closes it.
+        let f = facts(p);
+        let shield_button = group_button_with(
+            [
+                image(icon(Icon.Shield, look_colour(t, f.look))).style([
+                    square(ADDRESS_ICON),
+                ]).align(Align.Center),
+            ],
+            Msg.Shield(Some(ShieldPage.Main)),
+        ).style(round()).align(Align.Center).tooltip("Site information");
+        start.push(
+            ui_popover(
+                shield_button,
+                m.shield.is_some(),
+                card(t, p, m.shield.unwrap_or(ShieldPage.Main)),
+                Msg.Shield(None),
+            ),
+        );
+    }
+    // Site settings, right of the shield (PRP-020): its card hangs from ⚙
+    // while `m.panel` says it's open (PRP-022). A click outside or Escape
+    // closes it, as ⚙ does. On the empty tab, the new tab's card, if its
+    // `controls` show ⚙ (PRP-031).
+    let settled = match page {
+        App(p) => Some(p),
+        Home => if shows_icon(m.newtab, "settings") { m.newtab } else { None },
+    };
+    if let Some(p) = settled {
+        let gear = group_button_with(
+            [image(icon(Icon.Settings, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
+            Msg.TogglePanel,
+        ).style(round()).align(Align.Center).tooltip("Site settings");
+        start.push(
+            ui_popover(
+                gear,
+                m.panel.is_some(),
+                settings.card(m, p, m.panel.unwrap_or(PanelPage.Main)),
+                Msg.ClosePanel,
+            ),
+        );
+    }
+    // The shield and ⚙ side by side, their round hovers touching: kivuli.ui
+    // puts 8 px between a group's add-ons, too far apart for the owner
+    // (session 145).
+    if start.len > 1 {
+        start = [row(start)];
+    }
+    // Share on every tab, greyed until links can share an app's screen (the
+    // owner's icon, session 154); pin after it on an app. The empty tab's
+    // as the new tab's `controls` say (PRP-031).
+    let mut end: View<Msg>[] = [];
+    let sharing = match page {
+        App(_) => true,
+        Home => shows_icon(m.newtab, "share"),
+    };
+    if sharing {
+        end.push(
+            group_button_with(
+                [image(icon(Icon.Share, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
+                Msg.Home,
+            ).disabled(true).style(round()).align(Align.Center).tooltip("Share (coming soon)"),
+        );
+    }
+    if let App(p) = page {
+        let tip = if is_pinned(m, p.path) { "Unpin" } else { "Pin" };
+        end.push(
+            group_button_with(
+                [image(icon(Icon.Star, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
+                Msg.TogglePin,
+            ).style(round()).align(Align.Center).tooltip(tip),
+        );
+    }
+    // A pill, as the owner asked (sessions 75, 121): GTK caps a radius at half
+    // the box, so CIRCLE rounds each end fully whatever height kivuli.ui's
+    // minimums give it.
+    let box = input_group(start, middle, end).style([
+        Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+        // Exactly this high on every tab: its content differs (the field
+        // alone on an empty tab; the shield, ⚙ and ☆ around the address on
+        // an app), and each asked for its own height (sessions 122, 152).
+        fixed_height(ADDRESS_WIDTH, ADDRESS_HEIGHT),
+        // Room above and below inside the header bar (the owner, session 107).
+        margin_y(SPACE_SM),
+        // No glow while typed in: kivuli.ui's 3 px halo goes, its thin ring
+        // edge stays (the owner, session 117).
+        When(State.FocusWithin, [Shadow.off()]),
+    ]);
+    box.align(Align.Center)
+}
+
+/**
+ * The address box's icon buttons: circles exactly the box's inner height,
+ * `SPACE_XS` around the icon, hovering round (session 145). A size alone left
+ * them ovals: the group stretched them, so the size is capped too. No
+ * focus ring: the box's own edge shows the focus is in it (the owner,
+ * session 161: a ring inside a ring).
+ */
+fun round(): Styling[] = [
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    padding(SPACE_XS),
+    square(ADDRESS_HEIGHT - 2 * EDGE_WIDTH),
+    When(State.Focus, [
+        Shadow.off(),
+        Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() },
+    ]),
+];

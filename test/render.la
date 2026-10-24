@@ -1,8 +1,12 @@
 // Rendering, pure: decoded trees become kivuli views, checked through
 // kivuli.testing with no display.
-import rapidkoi.contract { Node, TextStyle, ButtonLook, Space };
-import rapidkoi.render { Msg, screen, stopped };
-import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, texts };
+import rapidkoi.guest.contract { Node, TextStyle, ButtonLook, Space };
+import rapidkoi.ui.render { Msg, screen, stopped };
+import rapidkoi.ui.themes { DARK };
+import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, submit, texts };
+import rapidkoi.guest.nodes { Look, Facts, Role, Colour, Typing };
+import rapidkoi.guest.styles { plain };
+import rapidkoi.guest.roles { no_facts };
 import support { t };
 
 @test
@@ -14,6 +18,7 @@ fun texts_appear() {
             Node.Text("hint", TextStyle.Dim),
             Node.Text("Section", TextStyle.Heading),
         ]),
+        DARK,
     );
     assert_eq(texts(v), ["Counter", "3", "hint", "Section"]);
 }
@@ -22,6 +27,7 @@ fun texts_appear() {
 fun a_button_sends_its_message() {
     let v = screen(
         Node.Row(Space.Sm, Space.Zero, [Node.Button("Add", ButtonLook.Primary, Some(t("add")))]),
+        DARK,
     );
     assert_eq(click(v, "Add"), Ok(Msg.Event(t("add"), None)));
     assert_eq(is_disabled(v, "Add"), Ok(false));
@@ -29,13 +35,13 @@ fun a_button_sends_its_message() {
 
 @test
 fun a_button_without_a_message_is_disabled() {
-    let v = screen(Node.Button("Reset", ButtonLook.Normal, None));
+    let v = screen(Node.Button("Reset", ButtonLook.Normal, None), DARK);
     assert_eq(is_disabled(v, "Reset"), Ok(true));
 }
 
 @test
 fun typing_sends_the_message_and_the_text() {
-    let v = screen(Node.Input("", "Your name", Some(t("name"))));
+    let v = screen(Node.Input("", "Your name", Some(t("name"))), DARK);
     assert_eq(type_into(v, "Your name", "Amina"), Ok(Msg.Event(t("name"), Some("Amina"))));
 }
 
@@ -46,30 +52,82 @@ fun an_unsupported_kind_shows_a_placeholder() {
             Node.Unsupported("map"),
             Node.Text("after", TextStyle.Body),
         ]),
+        DARK,
     );
     assert_eq(texts(v), ["Unsupported component: map", "after"]);
 }
 
 @test
 fun the_error_screen_offers_restart() {
-    let v = stopped("This app stopped responding", true);
+    let v = stopped("This app stopped responding", true, DARK);
     assert_eq(texts(v), ["This app stopped working", "This app stopped responding"]);
     assert_eq(click(v, "Restart"), Ok(Msg.Restart));
 }
 
 @test
 fun no_restart_when_the_app_never_loaded() {
-    let v = stopped("Couldn't read app.wasm", false);
+    let v = stopped("Couldn't read app.wasm", false, DARK);
     assert_eq(click(v, "Restart"), Err(Lookup.NotFound("button \"Restart\"")));
 }
 
 @test
 fun an_input_without_a_message_is_disabled() {
-    let v = screen(Node.Input("Amina", "Your name", None));
+    let v = screen(Node.Input("Amina", "Your name", None), DARK);
     assert_eq(is_field_disabled(v, "Your name"), Ok(true));
     assert_eq(type_into(v, "Your name", "x"), Err(Lookup.Silent("text field \"Your name\"")));
     assert_eq(
-        is_field_disabled(screen(Node.Input("", "Your name", Some(t("n")))), "Your name"),
+        is_field_disabled(screen(Node.Input("", "Your name", Some(t("n"))), DARK), "Your name"),
         Ok(false),
+    );
+}
+
+fun plain_box(kids: Node[]): Node = Node.Boxed(plain(), no_facts(), None, kids);
+
+@test
+fun contract_5_texts_and_boxes_appear() {
+    // PRP-037: boxes and texts, styled or not.
+    let styled = Look { color: Some(Colour.Named("accent")), ..plain() };
+    let v = screen(
+        plain_box([
+            Node.Words("Counter", styled, no_facts()),
+            Node.Words("3", plain(), no_facts()),
+        ]),
+        DARK,
+    );
+    assert_eq(texts(v), ["Counter", "3"]);
+}
+
+@test
+fun a_pressable_box_is_a_button() {
+    let add = Node.Boxed(
+        Look { background: Some(Colour.Named("accent")), ..plain() },
+        Facts { role: Some(Role.Button), ..no_facts() },
+        Some(t("add")),
+        [Node.Words("Add", plain(), no_facts())],
+    );
+    let v = screen(plain_box([add]), DARK);
+    assert_eq(click(v, "Add"), Ok(Msg.Event(t("add"), None)));
+    let off = Node.Boxed(plain(), Facts { disabled: true, ..no_facts() }, Some(t("add")), [
+        Node.Words("Add", plain(), no_facts()),
+    ]);
+    assert_eq(is_disabled(screen(off, DARK), "Add"), Ok(true));
+}
+
+@test
+fun a_typing_box_sends_edits_and_enter() {
+    let f = Typing {
+        value: "Buy milk",
+        placeholder: "What needs doing?",
+        lines: 1,
+        on_change: Some(t("draft")),
+        on_submit: Some(t("add")),
+    };
+    let v = screen(Node.Field(f, plain()), DARK);
+    assert_eq(type_into(v, "What needs doing?", "Buy"), Ok(Msg.Event(t("draft"), Some("Buy"))));
+    assert_eq(submit(v, "What needs doing?"), Ok(Msg.Event(t("add"), Some("Buy milk"))));
+    let silent = Typing { on_change: None, on_submit: None, ..f };
+    assert_eq(
+        is_field_disabled(screen(Node.Field(silent, plain()), DARK), "What needs doing?"),
+        Ok(true),
     );
 }

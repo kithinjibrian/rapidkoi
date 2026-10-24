@@ -1,0 +1,222 @@
+/**
+ * What Rapidkoi's window can send its `update`: the frame's buttons, the
+ * address box, home, the info panel and its pages, and each tab's own
+ * screen.
+ *
+ * Depends on: ui.render, net.fetching
+ * Used by: ui.frame, home, panel, shell
+ */
+import data.databases { Queried };
+import ui.render;
+import net.fetching { Fetched };
+import net.network { Reply };
+import cbor { Value };
+import bundles.permissions { Permission, Setting };
+
+/** A message to the shell. */
+public enum Msg {
+    /** A message from a tab's own screen (a guest event, or Restart), by tab id. */
+    Tab(i64, render.Msg),
+    /** Show this tab. */
+    Select(i64),
+    /** Open a new tab on home. */
+    NewTab,
+    /** Close this tab. */
+    CloseTab(i64),
+    /** Go home in the current tab. */
+    Home,
+    /** The address box's new text. */
+    Draft(string),
+    /** Open what the address box says. */
+    Go,
+    /** Close the address box's suggestions: Escape, or a click outside them. Empties the box. */
+    Dismiss,
+    /** Open the shield's card on a page, turn to a page, or close it (`None`; Escape, a click outside). */
+    Shield(Option<ShieldPage>),
+    /** Turn the address shown on an app page back into the box. */
+    EditAddress,
+    /** Open a pinned app, by path, in the current tab. */
+    OpenPinned(string),
+    /** Reopen where the person left off. */
+    Continue,
+    /** The approval dialog's answer (PRP-031). */
+    Approve(Answer),
+    /** Another instance of the current app (PRP-033): the strip's +. */
+    NewInstance,
+    /** Ask for a new name for this instance: its menu's Rename…. */
+    RenameInstance(i64),
+    /** The rename dialog's text. */
+    InstanceName(string),
+    /** Rename: apply the name typed, if it's allowed. */
+    ConfirmRename,
+    /** Close every instance of this tab's app: the dock's menu. */
+    CloseApp(i64),
+    /** Restore the last session (PRP-035): the new tab's button. */
+    RestoreSession,
+    /** ☰'s card open or closed (PRP-038). */
+    Menu(bool),
+    /** Open Rapidkoi's Settings app in a tab, or show its tab. */
+    OpenSettings,
+    /** The About dialog shown or closed. */
+    About(bool),
+    /** Close Rapidkoi. */
+    Quit,
+    /** An app's key, Use my colours, Use my text size: its ⚙ card's switches. */
+    OwnLooks(string, bool, bool),
+    /** A message from the new tab's own screen (a click, typing), for it alone (session 185). */
+    FromNewTab(render.Msg),
+    /** The Permissions page: the card's app's permission, by name, set to this. */
+    SetPermission(string, Setting),
+    /** Show or hide the app info panel: ⚙. */
+    TogglePanel,
+    /** Close the app info panel: its popover closed itself (a click outside, Escape). Never opens it. */
+    ClosePanel,
+    /** Pin the current app, or unpin it if it's pinned (☆ in the bar). */
+    TogglePin,
+    /** Move the keyboard to the address box (Ctrl+K once kivuli has window-level shortcuts; PRP-025). */
+    FocusSearch,
+    /** Load the current app again from its file or server, keeping its state when it can (⟳). */
+    Reload,
+    /** Open one of the info panel's pages. */
+    PanelGo(PanelPage),
+    /** Go back to the info panel's main page. */
+    PanelBack,
+    /** Ask before a destructive action. */
+    Ask(Confirm),
+    /** Don't do the action that was asked about. */
+    Cancel,
+    /** Clear the current app's state and start it fresh (confirmed). */
+    StartOver,
+    /** Forget the current app: its tab, pin and saved state (confirmed). */
+    Forget,
+    /** On a changed key: keep the page that was open (or close the tab). */
+    KeepMine,
+    /** On a changed key: trust the new key as a separate app, this session. */
+    SeparateApp,
+    /** A background load's result, for this tab and load number (PRP-008). */
+    Fetched(i64, i64, Fetched),
+    /** A request's result, for this tab and load, answering the app's `msg` (PRP-012). */
+    Responded(i64, i64, Value, Reply),
+    /** A call to the app's database, for this tab and load, answering the app's `msg` (PRP-041). */
+    Queried(i64, i64, Value, Queried),
+    /** How big this tab's app's data is, in bytes, for its ⚙ card. */
+    DataSized(i64, i64),
+    /** Clear the current app's data and start it fresh (confirmed). */
+    ClearData,
+    /** The Access page's switch for one of this app's servers (PRP-012). */
+    ToggleServer(string),
+    /** The loading tick: the time, while some tab is loading. */
+    Tick(i64),
+    /** A tab's right-click menu: select that tab, then act (PRP-010). */
+    OnTab(i64, TabAction),
+    /** A home tile's right-click menu, for the app at this path (PRP-010). */
+    OnPin(string, PinAction),
+    /** A name typed on the Account page: for every app or this one, first or last (PRP-011). */
+    SetName(NameScope, NamePart, string),
+    /** The Account page's "Sign in automatically". */
+    ToggleAutoSignIn,
+    /** Stop answering this app with your key. */
+    SignOut,
+    /** Answer it again. */
+    SignIn,
+    /** Become someone new to this app (confirmed): a new key, and the app starts again. */
+    StartOverIdentity,
+}
+
+/** Which name a field sets. */
+public enum NameScope {
+    /** The one every app shows. */
+    Everywhere,
+    /** This app's own, over the one for every app. */
+    ThisApp,
+}
+
+/** Which part of a name. */
+public enum NamePart {
+    /** {FIRST_NAME} */
+    First,
+    /** {LAST_NAME} */
+    Last,
+}
+
+/** What a tab's menu can do: what the bar and panel already do. */
+public enum TabAction {
+    /** ⟳ */
+    Reload,
+    /** Pin it to home, or unpin it. */
+    TogglePin,
+    /** The panel's About page. */
+    About,
+    /** Close the tab. */
+    Close,
+    /** The panel's "Forget this app?" question. */
+    Forget,
+}
+
+/** What a home tile's menu can do. */
+public enum PinAction {
+    /** Open it, as a click on the tile does. */
+    Open,
+    /** Take it off home. */
+    Unpin,
+    /** Open it, with the panel's "Forget this app?" question. */
+    Forget,
+}
+
+/** The shield's card's pages (PRP-021). */
+public enum ShieldPage {
+    /** The app, and a row each for its connection and its signature. */
+    Main,
+    /** How Rapidkoi reached it. */
+    Connection,
+    /** Who signed it, since when, and its version. */
+    Signed,
+}
+
+/** Site settings' pages (PRP-022): the card behind ⚙. */
+public enum PanelPage {
+    /** The app, its sections, and Forget. */
+    Main,
+    /** Public key: who you are to the app. */
+    Key,
+    /** Identity: your name in it, signing in and out, starting over as someone new. */
+    Account,
+    /** Servers: what it can reach, a switch each. */
+    Access,
+    /** State: what it saved, and clearing it. */
+    State,
+    /** Permissions: what it declared, a setting each (PRP-031). */
+    Permissions,
+}
+
+/** An app's ask waiting for the person (PRP-031): Rapidkoi's own dialog. */
+public struct Approval {
+    /** The asking page's tab; `None` for the new tab. */
+    public tab: Option<i64>,
+    /** What it asked to do. */
+    public permission: Permission,
+    /** The app's name, for the dialog. */
+    public app: string,
+}
+
+/** The approval dialog's buttons. */
+public enum Answer {
+    /** Answer this ask; the next one asks again. */
+    Once,
+    /** Answer it, and allow it from now on. */
+    Always,
+    /** Answer it with nothing, as blocked does, this once. */
+    Deny,
+}
+
+/** A destructive action waiting for "yes". */
+public enum Confirm {
+    /** Clear the app's state. */
+    StartOver,
+    /** Forget the app entirely. */
+    Forget,
+    /** Become someone new to the app. */
+    StartOverIdentity,
+    /** Clear the app's data (PRP-041). */
+    ClearData,
+}

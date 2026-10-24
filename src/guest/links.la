@@ -1,0 +1,224 @@
+/**
+ * Links (PRP-036, contract 4), pure: reading which fields an app names for
+ * its address, reading their current values out of its state, and setting a
+ * link's fields in a fresh state. A window's state is a CBOR map with text
+ * keys; only simple values (numbers, text, true/false) go in an address.
+ *
+ * Depends on: cbor, guest.nodes, guest.limits, net.address
+ * Used by: guest.contract, guest.running, window.tabs
+ */
+import cbor { Value, Entry, Limits, decode, encode };
+import guest.nodes { ContractError, LinkChange };
+import guest.limits { MAX_STATE, MAX_STATE_DEPTH };
+import net.address { MAX_LINK_FIELDS, MAX_LINK_VALUE, name_ok };
+
+/**
+ * Reads a contract 4 or 5 result's `link`: absent keeps the address's
+ * fields, null clears them, a list of field names sets them. Contract 5's
+ * names may be paths into nested fields (`editor.task`, PRP-039).
+ *
+ * @param v the result's `link`, if it has one
+ * @param paths whether names may be paths (contract 5)
+ * @returns the change; `Err(Invalid)` for names that aren't text, a bad
+ *     name, a name twice, or more than `MAX_LINK_FIELDS`
+ *
+ * Example:
+ *     read_link(value.get("link"), true)?
+ */
+public fun read_link(v: Option<Value>, paths: bool): Result<LinkChange, ContractError> {
+    let items = match v {
+        None => {
+            return Ok(LinkChange.Keep);
+        }
+        Some(Null) => {
+            return Ok(LinkChange.Clear);
+        }
+        Some(Array(xs)) => xs,
+        Some(_) => {
+            return Err(nodes.invalid("update", "\"link\" must be a list of field names or null"));
+        }
+    };
+    if items.len > MAX_LINK_FIELDS {
+        return Err(nodes.invalid("update", "\"link\" names at most 16 fields"));
+    }
+    let mut names: string[] = [];
+    for item of items {
+        let name = match item {
+            Text(s) => s,
+            _ => {
+                return Err(nodes.invalid("update", "\"link\"'s field names must be text"));
+            }
+        };
+        if let Err(why) = name_ok(name, paths) {
+            return Err(nodes.invalid("update", "\"link\": {why}"));
+        }
+        if names.any(fun(n: string) = n == name) {
+            return Err(nodes.invalid("update", "\"link\" names {name} twice"));
+        }
+        names.push(name);
+    }
+    Ok(LinkChange.Set(names))
+}
+
+/**
+ * Reads the named fields' current values out of a state, as an address
+ * writes them. A name the state doesn't have, or holds null, is left out.
+ *
+ * @param state the window's state, a CBOR map (contract 4)
+ * @param names the fields the app put in its address
+ * @returns the names and values, in order; `Err` with the sentence that
+ *     stops the app when one isn't a simple value or is over 1 KB
+ *
+ * Example:
+ *     fields_in(state, ["count"])
+ */
+public fun fields_in(state: u8[], names: string[]): Result<(string, string)[], string> {
+    if names.len == 0 {
+        return Ok([]);
+    }
+    let entries = entries_of(state).ok_or("This app's state isn't named fields")?;
+    let mut out: (string, string)[] = [];
+    for name of names {
+        let found = at_path(Value.Map(entries), name.split("."));
+        let value = match found {
+            None | Some(Null) => None,
+            Some(Unsigned(n)) => Some("{n}"),
+            // Below i64's range there's no number a link could give back.
+            Some(Negative(_)) => found.and_then(fun(v: Value) = v.as_i64()).map(
+                fun(n: i64) = "{n}",
+            ),
+            Some(Text(s)) => Some(s),
+            Some(Bool(b)) => Some(if b { "true" } else { "false" }),
+            Some(Float(f)) => Some("{f}"),
+            Some(Array(_)) => {
+                return Err("This app put a list in its address");
+            }
+            Some(Map(_)) => {
+                return Err("This app put a map in its address");
+            }
+            Some(_) => {
+                return Err(
+                    "This app put something other than text, a number or true/false in its address",
+                );
+            }
+        };
+        if let Some(v) = value {
+            if v.len > MAX_LINK_VALUE {
+                return Err("This app put more than 1 KB in its address");
+            }
+            out.push((name, v));
+        }
+    }
+    Ok(out)
+}
+
+/** The value at a path, through named fields only: `None` past a list, a value, or a missing name. */
+fun at_path(v: Value, segments: string[]): Option<Value> {
+    let mut here = v;
+    for seg of segments {
+        here = match here {
+            Map(es) => es.iter().find(fun(e: Entry) = e.key.as_text() == Some(seg)).map(
+                fun(e: Entry) = e.value,
+            )?,
+            _ => {
+                return None;
+            }
+        };
+    }
+    Some(here)
+}
+
+/**
+ * Sets a link's fields in a fresh state, only where the state has that
+ * name with the same kind of value: a number for a number, text for text,
+ * true/false for true/false. Anything else is ignored; what the values
+ * mean is the app's to check in `on_open`.
+ *
+ * @param state the state after `on_init`
+ * @param fields the link's fields, already bounded by `address.parse`
+ * @returns the state with those fields set; unchanged when none apply
+ *
+ * Example:
+ *     with_link(state, [("count", "3")])
+ */
+public fun with_link(state: u8[], fields: (string, string)[]): u8[] {
+    let mut entries = match entries_of(state) {
+        Some(es) => es,
+        None => {
+            return state;
+        }
+    };
+    let mut changed = false;
+    for (name, given) of fields {
+        if let Some(next) = set_path(entries, name.split("."), given) {
+            entries = next;
+            changed = true;
+        }
+    }
+    if changed { encode(Value.Map(entries)) } else { state }
+}
+
+/**
+ * `entries` with the value at the path set from the link, when the path
+ * leads through named fields to a value of the same kind; `None` when it
+ * doesn't, so nothing on the way is ever made.
+ */
+fun set_path(entries: Entry[], segments: string[], given: string): Option<Entry[]> {
+    let head = segments[0];
+    let mut out: Entry[] = [];
+    let mut hit = false;
+    for e of entries {
+        if !hit && e.key.as_text() == Some(head) {
+            let replaced = if segments.len == 1 {
+                same_kind(e.value, given)
+            } else {
+                match e.value {
+                    Map(inner) => {
+                        let mut rest: string[] = [];
+                        for i in 1..segments.len {
+                            rest.push(segments[i]);
+                        }
+                        set_path(inner, rest, given).map(fun(es: Entry[]) = Value.Map(es))
+                    }
+                    _ => None,
+                }
+            };
+            match replaced {
+                Some(v) => {
+                    hit = true;
+                    out.push(Entry { key: e.key, value: v });
+                }
+                None => {
+                    return None;
+                }
+            }
+        } else {
+            out.push(e);
+        }
+    }
+    if hit { Some(out) } else { None }
+}
+
+/** The link's text as a value of `like`'s kind: a number for a number, text for text, true/false for true/false. */
+fun same_kind(like: Value, given: string): Option<Value> = match like {
+    Unsigned(_) | Negative(_) => parse_i64(given).map(fun(n: i64) = Value.int(n)),
+    Text(_) => Some(Value.Text(given)),
+    Bool(_) => match given {
+        "true" => Some(Value.Bool(true)),
+        "false" => Some(Value.Bool(false)),
+        _ => None,
+    },
+    Float(_) => parse_f64(given).map(fun(f: f64) = Value.Float(f)),
+    _ => None,
+};
+
+/** A state's top-level entries; `None` when it isn't a map. */
+fun entries_of(state: u8[]): Option<Entry[]> {
+    let bounds = Limits {
+        max_depth: MAX_STATE_DEPTH,
+        max_items: MAX_STATE,
+        max_bytes: MAX_STATE,
+        max_string: MAX_STATE,
+    };
+    decode(state, bounds).ok().and_then(fun(v: Value) = v.as_map())
+}

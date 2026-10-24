@@ -1,0 +1,71 @@
+/**
+ * The window's frame, pure (PRP-014, PRP-019): the header bar across the
+ * top (`ui/header.la`), the sidebar down the right, and the content area
+ * filling the rest with the current app. The address box's suggestions card
+ * is gone until its redesign (session 108). What else goes in the frame
+ * comes with later redesign PRPs (DECISION-027). Never calls a guest.
+ *
+ * Depends on: kivuli, window.actions, window.tabs, window.window, ui.content, ui.header, ui.tokens, ui.themes
+ * Used by: shell
+ */
+import kivuli { View, Align, Scheme, column, row, scroll };
+import window.actions { Msg };
+import window.tabs { Page };
+import window.window { Model, title_of, page_of };
+import ui.content { app_view, newtab_view };
+import ui.header;
+import ui.sidebar;
+import ui.settings;
+import ui.tokens {
+    SPACE_SM,
+    SPACE_LG,
+    FRAME_THICKNESS,
+    WINDOW_WIDTH,
+    WINDOW_HEIGHT,
+    margin,
+    at_least,
+};
+import ui.themes { page, palette };
+import ui.frame_looks { tooltips, frame as frame_look, sidebar as side_look };
+
+/**
+ * Draws the frame: the header bar (and GTK's window controls), the sidebar
+ * on the right, and the current app in the content area.
+ *
+ * @param m the model
+ * @returns the window's view
+ *
+ * Example:
+ *     layout.view(m)
+ */
+public fun view(m: Model): View<Msg> {
+    let t = m.theme;
+    // The content area meets the window's left and bottom edges; the page's
+    // look rounds only its top-right corner, where the frame wraps it.
+    let shown = match page_of(m) {
+        // On an app page m.current is Some: page_of found its tab.
+        App(a) => scroll(app_view(m.current.unwrap_or(-1), a, m).style([margin(SPACE_LG)])),
+        // The new-tab app, a bundled app like any other (DECISION-027, PRP-027).
+        Home => scroll(newtab_view(m).style([margin(SPACE_LG)])),
+    };
+    let area = column([shown.expand()]).expand().style(page(t));
+    // Empty and as wide as the header bar is tall, so the frame is an even L.
+    // The root's frame look paints it, as one surface with the header bar.
+    let mut side = side_look(t);
+    side.push(at_least(FRAME_THICKNESS, 0));
+    // The apps, pinned first, then +; centred across the strip (PRP-023).
+    let sidebar_view = column([sidebar.view(m).expand().align(Align.Center)]).style(side);
+    let body = row([area, sidebar_view]).expand();
+    // Rapidkoi's colours as a palette, fixed dark: kivuli.ui's components
+    // draw in them, and the desktop's scheme never applies (DECISION-031).
+    // `.dialog` wraps the page in an overlay, so it comes first: the root
+    // modifiers (`.palette`, `.window`, `.header`) must sit on what it
+    // returns, or kivuli stops ("belongs on the root"; session 141).
+    // Start over, start over as someone new, and Forget ask first (PRP-022).
+    // Tooltips are styled there too: GTK hangs them beside the root.
+    column([body]).style(frame_look(t)).dialog(settings.dialog(m)).style(tooltips(t)).window(
+        title_of(m),
+        WINDOW_WIDTH,
+        WINDOW_HEIGHT,
+    ).maximized().palette(palette(t)).scheme(Scheme.Dark).header(header.bar(m))
+}

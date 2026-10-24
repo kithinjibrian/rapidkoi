@@ -1,0 +1,453 @@
+/**
+ * Addresses, pure. Local development addresses (localhost, 127.0.0.1,
+ * [::1]): `rapidkoi://HOST:PORT[/route]`, `http://HOST:PORT/…` (a bundle's
+ * own URL) and `https://HOST:PORT` (a site over TLS). Remote hosts, by
+ * name and over HTTPS only (PRP-009): `rapidkoi://HOST[:PORT][/route]` or
+ * `https://HOST[:PORT]…`, port 443 by default. Never a remote IP address.
+ *
+ * Depends on: bundles.rules
+ * Used by: bundles.loader, net.fetching, net.loads, window.navigate, window.tabs, ui.frame, panel
+ */
+
+import bundles.rules { check_host };
+
+/** A parsed address. */
+public struct Address {
+    /** `localhost`, `127.0.0.1`, `[::1]`, or a remote host name. */
+    public host: string,
+    /** From 1 to 65535. */
+    public port: i64,
+    /** The path after the port, `/` without one: kept for the links step, not yet given to apps. */
+    public route: string,
+    /** Whether it was an `http://` address (the bundle's own URL) rather than `rapidkoi://`. */
+    public http: bool,
+    /** Whether the host is another machine: then it's always HTTPS, and must be signed. */
+    public remote: bool,
+    /** Whether it's fetched over HTTPS. */
+    public secure: bool,
+    /** The version a link names (`/@1.2.0`, PRP-036), if it names one. */
+    public version: Option<string>,
+    /** A link's fields (`?count=3`), decoded, in order: the app's, not Rapidkoi's. */
+    public fields: (string, string)[],
+}
+
+/** Why an address can't open. */
+public enum AddressError {
+    /** Plain `http://` to another machine: remote apps are HTTPS only. */
+    NotSecure(string),
+    /** A remote IP address: apps are opened by host name. */
+    IpAddress(string),
+    /** Not `rapidkoi://`, `http://` or `https://`. */
+    NotAnAddress,
+    /** No host, or a malformed one. */
+    NoHost,
+    /** A local host without a port. */
+    NoPort,
+    /** A port that isn't a number from 1 to 65535. */
+    BadPort,
+    /** A link's version or fields break the rules (PRP-036): why. */
+    BadLink(string),
+}
+
+/**
+ * Says whether text is an address rather than a file path or a search.
+ *
+ * Example:
+ *     is_address("rapidkoi://localhost:8000")
+ */
+public fun is_address(text: string): bool = text.starts_with("rapidkoi://") || text.starts_with(
+    "http://",
+) || text.starts_with("https://");
+
+/**
+ * Parses an address: a local development one, or a remote host over HTTPS.
+ *
+ * @param text what the person typed or passed
+ * @returns the address; `Err(NotSecure)` for remote plain http,
+ *     `Err(IpAddress)` for a remote IP, `Err(NoHost)`, `Err(NoPort)`,
+ *     `Err(BadPort)` or `Err(NotAnAddress)`
+ *
+ * Example:
+ *     parse("rapidkoi://localhost:8000/folder/42")?
+ */
+public fun parse(text: string): Result<Address, AddressError> {
+    let scheme = if text.starts_with("https://") {
+        "https"
+    } else if text.starts_with("http://") {
+        "http"
+    } else if text.starts_with("rapidkoi://") {
+        "rapidkoi"
+    } else {
+        return Err(AddressError.NotAnAddress);
+    };
+    let whole = text.slice(scheme.len + 3, text.len);
+    // A link's fields follow the first `?` (PRP-036).
+    let q = find(whole, "?");
+    let rest = if q < 0 { whole } else { whole.slice(0, q) };
+    let query = if q < 0 { "" } else { whole.slice(q + 1, whole.len) };
+    // host[:port][/@version][/route]; an IPv6 host is bracketed, so its colons aren't the port's.
+    let slash = find(rest, "/");
+    let authority = if slash < 0 { rest } else { rest.slice(0, slash) };
+    let path = if slash < 0 { "/" } else { rest.slice(slash, rest.len) };
+    let (version, route) = version_of(path)?;
+    let fields = fields_of(query)?;
+    let (host, port_text) = split_authority(authority)?;
+    let local = host == "localhost" || host == "127.0.0.1" || host == "[::1]";
+    if !local && is_ip(host) {
+        return Err(AddressError.IpAddress(host));
+    }
+    // A remote name: what a site signs for, lowercase, with at least one dot.
+    if !local && (check_host(host).is_err() || !host.contains(".") || host.contains(":")) {
+        return Err(AddressError.NoHost);
+    }
+    if !local && scheme == "http" {
+        return Err(AddressError.NotSecure(host));
+    }
+    let secure = scheme == "https" || !local;
+    let port = match port_text {
+        Some(p) => parse_i64(p).ok_or(AddressError.BadPort)?,
+        // A local development server has no usual port; HTTPS has 443.
+        None => if secure {
+            443
+        } else {
+            return Err(AddressError.NoPort);
+        },
+    };
+    if port < 1 || port > 65535 {
+        return Err(AddressError.BadPort);
+    }
+    Ok(Address {
+        host: host,
+        port: port,
+        route: route,
+        http: scheme == "http",
+        remote: !local,
+        secure: secure,
+        version: version,
+        fields: fields,
+    })
+}
+
+/** The most fields a link carries. */
+public const MAX_LINK_FIELDS: i64 = 16;
+
+/** The longest field name in a link, in bytes. */
+public const MAX_LINK_NAME: i64 = 64;
+
+/** How deep a link field's path may reach (PRP-039): `a.b.c.d`. */
+public const MAX_LINK_DEPTH: i64 = 4;
+
+/**
+ * Checks a link field's name: 1 to 64 bytes of lowercase letters, digits
+ * and `_`; with `paths` (contract 5, PRP-039), up to `MAX_LINK_DEPTH` such
+ * segments joined by `.`.
+ *
+ * @returns `Ok`, or why not as a sentence
+ *
+ * Example:
+ *     name_ok("editor.task", true)
+ */
+public fun name_ok(name: string, paths: bool): Result<(), string> {
+    let words = if paths {
+        "A link's field names are lowercase letters, digits and _, joined by ."
+    } else {
+        "A link's field names are lowercase letters, digits and _"
+    };
+    if name.len < 1 || name.len > MAX_LINK_NAME {
+        return Err(words);
+    }
+    let segments = name.split(".");
+    if !paths && segments.len > 1 {
+        return Err(words);
+    }
+    let plain = segments.all(
+        fun(s: string) = s.len >= 1 && s.chars().all(
+            fun(c: char) = c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_',
+        ),
+    );
+    if !plain {
+        return Err(words);
+    }
+    if segments.len > MAX_LINK_DEPTH {
+        return Err("A link's field paths are at most {MAX_LINK_DEPTH} deep");
+    }
+    Ok(())
+}
+
+/** The longest field value in a link, in bytes, decoded. */
+public const MAX_LINK_VALUE: i64 = 1024;
+
+/** The longest query a link carries, in bytes, encoded. */
+public const MAX_LINK_QUERY: i64 = 4096;
+
+/**
+ * Writes a link (PRP-036): the address's scheme and host, `/@version` when
+ * given, then the fields, each encoded. Remote apps are always `https://`,
+ * so a link is a real web address on the app's own domain.
+ *
+ * @param a the app's address
+ * @param version the running version, if known
+ * @param fields the names and values the app put in its address
+ * @returns the link
+ *
+ * Example:
+ *     link_of(a, Some("0.3.0"), [("count", "3")])
+ */
+public fun link_of(a: Address, version: Option<string>, fields: (string, string)[]): string {
+    let scheme = if a.remote {
+        "https"
+    } else if a.http {
+        "http"
+    } else if a.secure {
+        "https"
+    } else {
+        "rapidkoi"
+    };
+    let v = match version {
+        Some(x) => "/@{x}",
+        None => "",
+    };
+    let q = fields.map(fun(f: (string, string)) = "{f.0}={encode_value(f.1)}").join("&");
+    // A development server's bundle keeps its own path (`http://…/counter.rkb`).
+    let path = v + if a.route == "/" { "" } else { a.route };
+    let tail = if q == "" { "" } else { if path == "" { "/?{q}" } else { "?{q}" } };
+    "{scheme}://{authority(a)}{path}{tail}"
+}
+
+/**
+ * Returns an address without a link's parts: its `/@version` and its
+ * fields. A window is kept, pinned and reopened under this.
+ *
+ * Example:
+ *     without_link("https://counter.dafifi.net/@0.3.0?count=3")
+ */
+public fun without_link(text: string): string {
+    let q = find(text, "?");
+    let base = if q < 0 { text } else { text.slice(0, q) };
+    let at = find(base, "/@");
+    if at < 0 {
+        return base;
+    }
+    let after = base.slice(at + 2, base.len);
+    let end = find(after, "/");
+    base.slice(0, at) + if end < 0 { "" } else { after.slice(end, after.len) }
+}
+
+/** `/@1.2.0[/rest]` → the version and the rest; any other path → no version. */
+fun version_of(path: string): Result<(Option<string>, string), AddressError> {
+    if !path.starts_with("/@") {
+        return Ok((None, path));
+    }
+    let after = path.slice(2, path.len);
+    let end = find(after, "/");
+    let v = if end < 0 { after } else { after.slice(0, end) };
+    let route = if end < 0 { "/" } else { after.slice(end, after.len) };
+    let parts = v.split(".");
+    let numbers = parts.len == 3 && parts.all(
+        fun(p: string) = p.len > 0 && p.len <= 9 && parse_i64(p).is_some(),
+    );
+    if !numbers {
+        return Err(AddressError.BadLink("A link's version must be like 1.4.0"));
+    }
+    Ok((Some(v), route))
+}
+
+/** `count=3&filter=work%20items` → decoded pairs, every limit checked first. */
+fun fields_of(query: string): Result<(string, string)[], AddressError> {
+    if query == "" {
+        return Ok([]);
+    }
+    if query.len > MAX_LINK_QUERY {
+        return Err(AddressError.BadLink("A link is longer than 4 KB"));
+    }
+    let parts = query.split("&").filter(fun(p: string) = p != "");
+    if parts.len > MAX_LINK_FIELDS {
+        return Err(AddressError.BadLink("A link has at most 16 fields"));
+    }
+    let mut out: (string, string)[] = [];
+    for p of parts {
+        let eq = find(p, "=");
+        let name = if eq < 0 { p } else { p.slice(0, eq) };
+        let raw = if eq < 0 { "" } else { p.slice(eq + 1, p.len) };
+        // Any app's link may carry paths: whether they reach anything is the app's state's to say.
+        if let Err(why) = name_ok(name, true) {
+            return Err(AddressError.BadLink(why));
+        }
+        if out.any(fun(f: (string, string)) = f.0 == name) {
+            return Err(AddressError.BadLink("A link names {name} twice"));
+        }
+        let value = decode_value(raw).ok_or(
+            AddressError.BadLink("A link's {name} isn't encoded properly"),
+        )?;
+        if value.len > MAX_LINK_VALUE {
+            return Err(AddressError.BadLink("A link's {name} is longer than 1 KB"));
+        }
+        out.push((name, value));
+    }
+    Ok(out)
+}
+
+/** A value made safe for a link: everything but letters, digits and `-._~` as `%XX`. */
+fun encode_value(v: string): string {
+    let digits = "0123456789ABCDEF";
+    let mut out = "";
+    for b of v {
+        let c = b as char;
+        let plain = c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '.' || c == '_' || c == '~';
+        if plain {
+            out = out + "{c}";
+        } else {
+            let i = b as i64;
+            out = out + "%" + digits.slice(i / 16, i / 16 + 1) + digits.slice(i % 16, i % 16 + 1);
+        }
+    }
+    out
+}
+
+/** `%XX` and `+` decoded; `None` for a broken escape or bytes that aren't UTF-8. */
+fun decode_value(raw: string): Option<string> {
+    let mut bytes: u8[] = [];
+    let src = raw.to_bytes();
+    let mut i = 0;
+    while i < src.len {
+        let b = src[i];
+        if b == 37 {
+            if i + 2 >= src.len {
+                return None;
+            }
+            let hi = hex_digit(src[i + 1])?;
+            let lo = hex_digit(src[i + 2])?;
+            bytes.push((hi * 16 + lo) as u8);
+            i += 3;
+        } else if b == 43 {
+            bytes.push(32);
+            i += 1;
+        } else {
+            bytes.push(b);
+            i += 1;
+        }
+    }
+    string_from_utf8(bytes).ok()
+}
+
+fun hex_digit(b: u8): Option<i64> {
+    let n = b as i64;
+    if n >= 48 && n <= 57 {
+        Some(n - 48)
+    } else if n >= 65 && n <= 70 {
+        Some(n - 55)
+    } else if n >= 97 && n <= 102 {
+        Some(n - 87)
+    } else {
+        None
+    }
+}
+
+/**
+ * Returns the URL of a file on an address's site: `https://` or `http://`,
+ * the host, the port unless it's HTTPS's own 443, then `path`.
+ *
+ * Example:
+ *     site_url(a, "/.well-known/rapidkoi/key")
+ */
+public fun site_url(
+    a: Address,
+    path: string,
+): string = "{if a.secure { "https" } else { "http" }}://{authority(a)}{path}";
+
+/**
+ * Returns the URL a bundle is fetched from: the well-known bundle path for
+ * `rapidkoi://`, the address itself for `http://` naming a file (an
+ * `http://` link names none: it's the site's own address, PRP-036).
+ *
+ * Example:
+ *     url(a)
+ */
+public fun url(a: Address): string = if a.http && a.route != "/" {
+    "http://{a.host}:{a.port}{a.route}"
+} else {
+    site_url(a, "/.well-known/rapidkoi/app.rkb")
+};
+
+/**
+ * Returns the address as the bar shows it: host and port (the host alone
+ * for HTTPS on 443): also the host a site signs for.
+ *
+ * Example:
+ *     shown(a)
+ */
+public fun shown(a: Address): string = authority(a);
+
+/** host:port, or the host alone on HTTPS's own port. */
+fun authority(a: Address): string = if a.secure && a.port == 443 {
+    a.host
+} else {
+    "{a.host}:{a.port}"
+};
+
+/** A dotted IPv4 address, or a bracketed IPv6 one. */
+fun is_ip(host: string): bool {
+    if host.starts_with("[") {
+        return true;
+    }
+    let parts = host.split(".");
+    parts.len == 4 && parts.all(fun(p: string) = p.len > 0 && parse_i64(p).is_some())
+}
+
+/**
+ * Returns a plain sentence for an address error.
+ *
+ * Example:
+ *     reason(AddressError.NotYet)
+ */
+public fun reason(e: AddressError): string = match e {
+    NotSecure(host) => "Remote apps open over HTTPS only: rapidkoi://{host}",
+    IpAddress(_) => "Open apps by their host name, not an IP address",
+    NotAnAddress => "This isn't a rapidkoi://, https:// or http:// address",
+    NoHost => "This address has no host",
+    NoPort => "This address needs a port, like rapidkoi://localhost:8000",
+    BadPort => "The port must be a number from 1 to 65535",
+    BadLink(why) => why,
+};
+
+/** `host` and an optional port, from `host`, `host:port`, `[v6]` or `[v6]:port`. */
+fun split_authority(a: string): Result<(string, Option<string>), AddressError> {
+    if a.starts_with("[") {
+        let close = find(a, "]");
+        if close < 0 {
+            return Err(AddressError.NoHost);
+        }
+        let host = a.slice(0, close + 1);
+        let after = a.slice(close + 1, a.len);
+        if after == "" {
+            return Ok((host, None));
+        }
+        if !after.starts_with(":") {
+            return Err(AddressError.NoHost);
+        }
+        return Ok((host, Some(after.slice(1, after.len))));
+    }
+    let parts = a.split(":");
+    if parts[0] == "" {
+        return Err(AddressError.NoHost);
+    }
+    if parts.len == 1 {
+        Ok((parts[0], None))
+    } else if parts.len == 2 {
+        Ok((parts[0], Some(parts[1])))
+    } else {
+        Err(AddressError.NoHost)
+    }
+}
+
+/** The byte offset of `needle` in `s`, or -1. */
+fun find(s: string, needle: string): i64 {
+    let mut i = 0;
+    while i + needle.len <= s.len {
+        if s.slice(i, i + needle.len) == needle {
+            return i;
+        }
+        i += 1;
+    }
+    -1
+}

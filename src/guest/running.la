@@ -1,0 +1,156 @@
+/**
+ * Running a guest (moved from `tabs.la`, PRP-011): opening it in a fresh
+ * store, the init event (fresh starts) and the opened event (every open),
+ * messages and Rapidkoi's answers through `handle`, reading each result
+ * (its effects included), and `view`. Calls guests (bounded by fuel);
+ * never draws.
+ *
+ * Depends on: cbor, guest.guest, guest.contract, window.tabs
+ * Used by: window.tabs
+ */
+import guest.guest { Guest, open, reason };
+import guest.contract {
+    Described,
+    ContractError,
+    Effect,
+    Update,
+    LinkChange,
+    read_tree,
+    read_update_of,
+};
+import guest.events { Happened, event_for };
+import guest.links { with_link };
+import guest.tree5 { read_tree5 };
+import window.tabs { Screen, Program };
+
+/** What one or more events left: the screen, what they asked for, and the address's change. */
+public struct Ran {
+    /** The screen: running, or stopped with why. */
+    public screen: Screen,
+    /** What the events asked for, in order. */
+    public asks: Effect[],
+    /** The last change to the address's fields (contract 4). */
+    public link: LinkChange,
+}
+
+/**
+ * Opens the guest in a fresh store and brings it up: on a fresh start the
+ * init event (from an empty state) with a link's fields then set in its
+ * state (contract 4, PRP-036), then on every open the opened event, then
+ * `view`. Returns the screen and everything both events asked for.
+ */
+fun start(p: Program, saved: Option<u8[]>, link: (string, string)[]): Ran = match open(
+    p.engine,
+    p.module,
+) {
+    Err(e) => stopped(reason(e)),
+    Ok(g) => {
+        let (state, first, named) = match saved {
+            Some(state) => (state, [], LinkChange.Keep),
+            None => match settle(g, [], always(Happened.Init, g), "init") {
+                // Only contract 4 states are named fields; before it, a link has none to set.
+                Ok(u) => (
+                    if g.version >= 4 { with_link(u.state, link) } else { u.state },
+                    u.effects,
+                    u.link,
+                ),
+                Err(why) => {
+                    return stopped(why);
+                }
+            },
+        };
+        match settle(g, state, always(Happened.Open, g), "opened") {
+            Err(why) => stopped(why),
+            Ok(u) => {
+                let mut asks = first;
+                for e of u.effects {
+                    asks.push(e);
+                }
+                // `on_open`'s own change wins; without one, `on_init`'s stands.
+                let last = if u.link == LinkChange.Keep { named } else { u.link };
+                shown(g, u.state, asks, last)
+            }
+        }
+    }
+};
+
+/** A guest that stopped before it could run: why. */
+fun stopped(why: string): Ran = Ran {
+    screen: Screen.Stopped(why, true),
+    asks: [],
+    link: LinkChange.Keep,
+};
+
+/** An event every contract has, named for `g`'s. */
+fun always(h: Happened, g: Guest): u8[] = event_for(h, g.version).expect(
+    "every contract has init, open, message and answer",
+);
+
+/**
+ * Sends an event, named for the guest's contract, to its `handle`, then
+ * renders the new state. Contract 2 has no resume: nothing is called.
+ *
+ * @returns the screen and what it asked for; `None` when the guest's
+ *     contract has no such event
+ *
+ * Example:
+ *     happen(g, state, Happened.Resume)
+ */
+public fun happen(g: Guest, state: u8[], h: Happened): Option<Ran> = event_for(h, g.version).map(
+    fun(event: u8[]) = step(g, state, event),
+);
+
+/** Sends one event (a message or an answer) to the guest's `handle`, then renders the new state. */
+fun step(g: Guest, state: u8[], event: u8[]): Ran = match settle(g, state, event, "update") {
+    Err(why) => stopped(why),
+    Ok(u) => shown(g, u.state, u.effects, u.link),
+};
+
+/** One `handle` call, read; on any failure the guest is closed and the reason kept. */
+fun settle(g: Guest, state: u8[], event: u8[], what: string): Result<Update, string> {
+    let bytes = match g.handle(state, event) {
+        Ok(b) => b,
+        Err(e) => {
+            g.close();
+            return Err(reason(e));
+        }
+    };
+    match read_update_of(bytes, g.version) {
+        Ok(u) => Ok(u),
+        Err(e) => {
+            g.close();
+            Err(broken("{what} result", e))
+        }
+    }
+}
+
+/** Renders a state; a screen that stops drops what was asked for. */
+fun shown(g: Guest, state: u8[], asks: Effect[], link: LinkChange): Ran {
+    let screen = show(g, state);
+    match screen {
+        Running(_, _, _) => Ran { screen: screen, asks: asks, link: link },
+        _ => Ran { screen: screen, asks: [], link: link },
+    }
+}
+
+/** Calls `view(state)` and decodes the screen. */
+fun show(g: Guest, state: u8[]): Screen = match g.view(state) {
+    Err(e) => halt(g, reason(e)),
+    // Contract 5 speaks boxes, texts and styles (PRP-037); earlier ones their own kinds.
+    Ok(bytes) => match if g.version >= 5 { read_tree5(bytes) } else { read_tree(bytes) } {
+        Err(e) => halt(g, broken("screen description", e)),
+        Ok(d) => Screen.Running(g, state, d),
+    },
+};
+
+/** Stops the guest: frees its store and keeps why. */
+fun halt(g: Guest, why: string): Screen {
+    g.close();
+    Screen.Stopped(why, true)
+}
+
+fun broken(what: string, e: ContractError): string = match e {
+    Invalid(path, problem) => "This app's {what} is broken ({path}: {problem})",
+    TooLong(_, n) => "This app's {what} is too large ({n} bytes)",
+    Decode(d) => "This app's {what} is broken (bad CBOR: {d})",
+};

@@ -1,0 +1,190 @@
+/**
+ * Signed bundles, format 2. The manifest (format 1's fields plus the host
+ * and a SHA-256 of the module and each asset) is stored as its exact CBOR
+ * bytes and signed with Ed25519: "sign bytes, not shapes". Reading checks
+ * the signature over those bytes before decoding them, then every hash,
+ * then every format 1 rule. Whether the signing key is *trusted* is
+ * `verify`'s question, not this module's.
+ *
+ * Depends on: std.crypto, cbor, bundles.bundle, bundles.rules, trust.keys
+ * Used by: commands.pack, commands.publish, bundles.loader, trust.verify
+ */
+import std.crypto { sha256, ed25519_sign, ed25519_verify, equal };
+import cbor { Value, Entry, Limits, decode, encode };
+import bundles.bundle {
+    Bundle,
+    Manifest,
+    FORMAT,
+    read,
+    manifest_fields,
+    manifest_of,
+    assets_of,
+    assets_value,
+    check,
+    entry,
+};
+import bundles.rules { BundleError, check_host };
+import trust.keys { SecretKey };
+import guest.limits { MAX_BUNDLE, MAX_MODULE, MAX_ASSETS };
+
+/** What a signature says about a bundle. */
+public struct Signed {
+    /** The host the manifest names. */
+    public host: string,
+    /** The 32-byte public key that signed it. */
+    public key: u8[],
+    /** The SHA-256 of the whole `.rkb` file: its id in an index. */
+    public hash: u8[],
+}
+
+/** A bundle read from bytes, and its signature if it has one. */
+public struct Opened {
+    /** The bundle, checked. */
+    public bundle: Bundle,
+    /** `None` for format 1 (unsigned). */
+    public signed: Option<Signed>,
+}
+
+/** The signed bundle format. */
+public const SIGNED_FORMAT: i64 = 2;
+
+/**
+ * Signs a bundle for `key.host` and writes it as format 2.
+ *
+ * @param b the bundle, checked by format 1's rules first
+ * @param key the publisher's secret key
+ * @returns the `.rkb` bytes, or why not (a rule, a bad host, a crypto failure)
+ *
+ * Example:
+ *     write_signed(bundle, read_secret(path, host)?)?
+ */
+public fun write_signed(b: Bundle, key: SecretKey): Result<u8[], BundleError> {
+    check(b)?;
+    check_host(key.host)?;
+    let mut fields = manifest_fields(b.manifest);
+    fields.push(entry("host", Value.Text(key.host)));
+    fields.push(entry("module_sha256", Value.Bytes(sha256(b.module))));
+    fields.push(
+        entry(
+            "asset_sha256",
+            Value.Map(b.assets.map(fun(a: (string, u8[])) = entry(a.0, Value.Bytes(sha256(a.1))))),
+        ),
+    );
+    let manifest = encode(Value.Map(fields));
+    let signature = ed25519_sign(key.secret, manifest).map_err(fun(_) = BundleError.BadSignature)?;
+    Ok(
+        encode(
+            Value.Map([
+                entry("format", Value.int(SIGNED_FORMAT)),
+                entry("manifest", Value.Bytes(manifest)),
+                entry("signature", Value.Bytes(signature)),
+                entry("key", Value.Bytes(key.public_key)),
+                entry("module", Value.Bytes(b.module)),
+                entry("assets", assets_value(b.assets)),
+            ]),
+        ),
+    )
+}
+
+/**
+ * Reads a `.rkb` of either format.
+ *
+ * @param bytes the file, possibly hostile
+ * @returns the bundle and, for format 2, who signed it; or why not
+ *
+ * Example:
+ *     read_any(read_bytes(path)?)?
+ */
+public fun read_any(bytes: u8[]): Result<Opened, BundleError> {
+    if bytes.len > MAX_BUNDLE {
+        return Err(BundleError.TooLarge("bundle", bytes.len));
+    }
+    let bounds = Limits {
+        max_depth: 8,
+        max_items: 4096,
+        max_bytes: MAX_BUNDLE,
+        max_string: MAX_MODULE,
+    };
+    let root = decode(bytes, bounds).map_err(fun(e) = BundleError.Decode("{e}"))?;
+    if root.as_map().is_none() {
+        return Err(BundleError.NotAMap);
+    }
+    match root.get("format").map(fun(v: Value) = v.as_i64().unwrap_or(-1)) {
+        Some(1) => Ok(Opened { bundle: read(bytes)?, signed: None }),
+        Some(2) => signed(root, bytes),
+        Some(n) => Err(BundleError.Format(n)),
+        None => Err(BundleError.Missing("format")),
+    }
+}
+
+/** Format 2: the signature over the manifest's bytes, then the hashes, then the rules. */
+fun signed(root: Value, bytes: u8[]): Result<Opened, BundleError> {
+    let manifest = blob(root, "manifest")?;
+    let signature = blob(root, "signature")?;
+    let key = blob(root, "key")?;
+    // Checked before anything inside the manifest is read.
+    if !ed25519_verify(key, manifest, signature) {
+        return Err(BundleError.BadSignature);
+    }
+    let m = decode(manifest, Limits {
+        max_depth: 6,
+        max_items: 2 * MAX_ASSETS + 64,
+        max_bytes: 1024 * 1024,
+        max_string: 4096,
+    }).map_err(fun(e) = BundleError.Decode("{e}"))?;
+    let host = match m.get("host") {
+        Some(Text(h)) => h,
+        _ => {
+            return Err(BundleError.Missing("host"));
+        }
+    };
+    check_host(host)?;
+    let module = blob(root, "module")?;
+    if !equal(sha256(module), blob(m, "module_sha256")?) {
+        return Err(BundleError.HashMismatch("module"));
+    }
+    let assets = assets_of(root)?;
+    let signed_hashes = match m.get("asset_sha256") {
+        Some(Map(entries)) => entries,
+        _ => {
+            return Err(BundleError.Missing("asset_sha256"));
+        }
+    };
+    for a of assets {
+        match lookup(signed_hashes, a.0) {
+            Some(h) => {
+                if !equal(sha256(a.1), h) {
+                    return Err(BundleError.HashMismatch("asset \"{a.0}\""));
+                }
+            }
+            None => {
+                return Err(BundleError.UnsignedAsset(a.0));
+            }
+        }
+    }
+    for e of signed_hashes {
+        if let Text(name) = e.key {
+            if !assets.any(fun(a: (string, u8[])) = a.0 == name) {
+                return Err(BundleError.AbsentAsset(name));
+            }
+        }
+    }
+    let b = Bundle { manifest: manifest_of(m)?, module: module, assets: assets };
+    check(b)?;
+    Ok(Opened { bundle: b, signed: Some(Signed { host: host, key: key, hash: sha256(bytes) }) })
+}
+
+fun blob(v: Value, field: string): Result<u8[], BundleError> = match v.get(field) {
+    Some(Bytes(b)) => Ok(b),
+    Some(_) => Err(BundleError.Wrong(field, "must be bytes")),
+    None => Err(BundleError.Missing(field)),
+};
+
+fun lookup(entries: Entry[], name: string): Option<u8[]> {
+    for e of entries {
+        if e.key == Value.Text(name) {
+            return e.value.as_bytes();
+        }
+    }
+    None
+}

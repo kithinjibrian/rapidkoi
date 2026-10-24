@@ -1,24 +1,25 @@
 // Remembering across restarts: a window started on a test data folder,
 // changed, then started again on the same folder. Sites are served over
 // real local sockets, one port per test. Writes only under test/tmp/.
-import rapidkoi.shell { Model, start, update, view };
-import rapidkoi.actions { Msg };
-import rapidkoi.store { Store, store_at, save };
-import rapidkoi.remembered { read_pins, read_trust, read_left, left_file, pins_file };
-import rapidkoi.leftoff { LeftOff, recalled };
-import rapidkoi.publish { make_key, publish_site };
-import rapidkoi.keys { read_secret };
-import rapidkoi.index { KeyFile, key_file, rotate };
-import rapidkoi.serve { handle };
+import rapidkoi.shell { Model, start, update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.window { page_of };
+import rapidkoi.ui.frame { marker_note, file_of };
+import rapidkoi.data.store { Store, store_at, save };
+import rapidkoi.data.remembered { read_pins, read_trust, read_left, left_file };
+import rapidkoi.window.leftoff { LeftOff, recalled };
+import rapidkoi.commands.publish { make_key, publish_site };
+import rapidkoi.trust.keys { read_secret };
+import rapidkoi.trust.index { KeyFile, key_file, rotate };
+import rapidkoi.commands.serve { handle };
 import kivuli.testing { click, texts };
 import cbor { Value, Entry, encode };
 import std.http { Request };
 import std.env;
 import std.fs;
 import std.task { sleep };
-import support { png, settle };
-
-const COUNTER: string = "guest/rust/target/wasm32-unknown-unknown/release/counter.wasm";
+import support { settle, write_counting };
 
 fun clean(path: string) {
     if fs.is_dir(path) {
@@ -51,11 +52,11 @@ fun step(m: Model, msg: Msg): Model {
 
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
-/** The bar's marker, found by what it means (its tooltip leads with that). */
-fun marks(m: Model, s: string): bool = click(
-    view(m),
-    "{s}. Click to search or type a path (Ctrl+K)",
-) == Ok(Msg.EditAddress);
+/** What the trust marker says for the current app (its hover text in the address box, PRP-025). */
+fun marks(m: Model, s: string): bool = match page_of(m) {
+    App(p) => marker_note(p, file_of(p.path)) == s,
+    Home => false,
+};
 
 /** A signed site for `localhost:PORT`, published and served. */
 fun site(port: i64): string = site_of(port, "", 1);
@@ -82,12 +83,11 @@ fun write_toml(dir: string, port: i64, module: string, version: string, sv: i64)
     ).unwrap();
 }
 
-/** The counter, absolute (a site's toml is read from its own folder). */
-fun counter(): string {
-    if !fs.is_file(COUNTER) {
-        skip("build guest/rust first: cargo build --release --target wasm32-unknown-unknown");
-    }
-    "{env.current_dir().unwrap()}/{COUNTER}"
+/** The `counting` fixture as a module file, absolute (a site's toml is read from its own folder). */
+fun counter(name: string): string {
+    let path = "{env.current_dir().unwrap()}/test/tmp/saving-counting-{name}.wasm";
+    write_counting(path);
+    path
 }
 
 fun add(m: Model): Model = step(m, click(view(m), "Add").unwrap());
@@ -225,28 +225,30 @@ fun pins_survive_a_restart_for_every_app() {
 }
 
 @test
-fun a_signed_app_resumes_by_address_and_by_continue() {
+fun a_signed_window_comes_back_only_by_restore() {
     let s = folder("signed");
-    let dir = site_of(18755, counter(), 1);
+    let dir = site_of(18755, counter("18755"), 1);
     // Count to 2, then the window just goes away (no close).
     let m = add(add(started(s, ["./main", "rapidkoi://localhost:18755"])));
     assert_eq(shows(m, "Count: 2"), true);
-    // Opened by its address after a restart: the same state.
-    assert_eq(shows(started(s, ["./main", "rapidkoi://localhost:18755"]), "Count: 2"), true);
-    // By Continue too.
-    assert_eq(shows(step(started(s, ["./main"]), Msg.Continue), "Count: 2"), true);
+    // State lives with its window (session 189): restored with the last
+    // session, it's as it was.
+    assert_eq(shows(step(started(s, ["./main"]), Msg.RestoreSession), "Count: 2"), true);
+    // Opened anew by its address, it starts fresh: what should last
+    // belongs in storage.
+    assert_eq(shows(started(s, ["./main", "rapidkoi://localhost:18755"]), "Count: 0"), true);
     done(dir, s);
 }
 
 @test
 fun an_unsigned_app_starts_fresh_after_a_restart() {
     let s = folder("unsigned");
-    let m = add(started(s, ["./main", counter()]));
+    let m = add(started(s, ["./main", counter("unsigned")]));
     assert_eq(shows(m, "Count: 1"), true);
     let again = started(s, ["./main"]);
     // Not offered by Continue, and opening it starts at zero.
     assert_eq(again.left_off.is_none(), true);
-    assert_eq(shows(started(s, ["./main", counter()]), "Count: 0"), true);
+    assert_eq(shows(started(s, ["./main", counter("unsigned")]), "Count: 0"), true);
     assert_eq(fs.exists("{s.dir}/states"), false);
     clean(s.dir);
 }
@@ -254,7 +256,7 @@ fun an_unsigned_app_starts_fresh_after_a_restart() {
 @test
 fun a_separate_publisher_gets_its_own_state() {
     let s = folder("separate");
-    let dir = site_of(18756, counter(), 1);
+    let dir = site_of(18756, counter("18756"), 1);
     add(add(started(s, ["./main", "rapidkoi://localhost:18756"])));
     swap_key(dir);
     let other = step(started(s, ["./main", "rapidkoi://localhost:18756"]), Msg.SeparateApp);
@@ -265,14 +267,14 @@ fun a_separate_publisher_gets_its_own_state() {
 @test
 fun a_rotation_keeps_the_state() {
     let s = folder("rotation");
-    let dir = site_of(18757, counter(), 1);
+    let dir = site_of(18757, counter("18757"), 1);
     add(started(s, ["./main", "rapidkoi://localhost:18757"]));
     // The publisher moves to a new key, signed by the old one.
     let old = read_secret("{dir}.key", "localhost:18757").unwrap();
     clean("{dir}/site");
     clean("{dir}.key");
     make_key(dir).unwrap();
-    write_toml(dir, 18757, counter(), "1.0.1", 1);
+    write_toml(dir, 18757, counter("18757"), "1.0.1", 1);
     publish_site(dir).unwrap();
     let new = read_secret("{dir}.key", "localhost:18757").unwrap();
     write_bytes(
@@ -283,7 +285,8 @@ fun a_rotation_keeps_the_state() {
             rotations: [rotate(old, new.public_key).unwrap()],
         }),
     ).unwrap();
-    let after = started(s, ["./main", "rapidkoi://localhost:18757"]);
+    // Restored after the rotation: the window's state followed its key.
+    let after = step(started(s, ["./main"]), Msg.RestoreSession);
     assert_eq(
         (marks(after, "localhost:18757 · verified (development)"), shows(after, "Count: 1")),
         (true, true),
@@ -294,7 +297,7 @@ fun a_rotation_keeps_the_state() {
 @test
 fun forget_drops_the_pin_left_off_and_state_and_keeps_trust() {
     let s = folder("forget");
-    let dir = site_of(18753, counter(), 1);
+    let dir = site_of(18753, counter("18753"), 1);
     let m = step(add(started(s, ["./main", "rapidkoi://localhost:18753"])), Msg.TogglePin);
     assert_eq(fs.list_dir("{s.dir}/states").unwrap().len, 1);
     step(m, Msg.Forget);
@@ -309,11 +312,11 @@ fun forget_drops_the_pin_left_off_and_state_and_keeps_trust() {
 @test
 fun a_changed_state_version_starts_over() {
     let s = folder("version");
-    let dir = site_of(18758, counter(), 1);
+    let dir = site_of(18758, counter("18758"), 1);
     add(started(s, ["./main", "rapidkoi://localhost:18758"]));
-    write_toml(dir, 18758, counter(), "2.0.0", 2);
+    write_toml(dir, 18758, counter("18758"), "2.0.0", 2);
     publish_site(dir).unwrap();
-    let after = started(s, ["./main", "rapidkoi://localhost:18758"]);
+    let after = step(started(s, ["./main"]), Msg.RestoreSession);
     assert_eq(shows(after, "Count: 0"), true);
     assert_eq(after.notice, Some("Counter's saved state changed shape, so it started over"));
     done(dir, s);
@@ -322,7 +325,7 @@ fun a_changed_state_version_starts_over() {
 @test
 fun the_signed_app_used_last_is_the_one_continued() {
     let s = folder("last");
-    let dir = site_of(18759, counter(), 1);
+    let dir = site_of(18759, counter("18759"), 1);
     let m = started(s, ["./main", "rapidkoi://localhost:18759"]);
     // An unsigned app after it leaves the signed one as the one to continue.
     let two = step(step(step(m, Msg.NewTab), Msg.Draft("lugha.toml")), Msg.Go);

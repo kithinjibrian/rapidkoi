@@ -1,0 +1,83 @@
+/**
+ * Contract 6's storage asks (PRP-041), pure: a `sql` or `sql_batch` effect
+ * read and held to its bounds before anything runs. What the SQL may do is
+ * the database's guardrails' question (`data.databases`).
+ *
+ * Depends on: cbor, guest.nodes, guest.limits
+ * Used by: guest.contract
+ */
+import cbor { Value };
+import guest.nodes { Query, ContractError };
+import guest.limits { MAX_SQL, MAX_SQL_PARAMS, MAX_SQL_VALUE, MAX_ROWS, MAX_STEPS };
+
+/**
+ * Reads a `sql` effect: `sql`, `params`, and `max_rows` (at most `MAX_ROWS`).
+ *
+ * Example:
+ *     sql_of(effect)?
+ */
+public fun sql_of(e: Value): Result<Query, ContractError> {
+    let q = query_of(e, "an sql")?;
+    let wanted = e.get("max_rows").and_then(fun(n: Value) = n.as_i64()).unwrap_or(MAX_ROWS);
+    Ok(Query { max_rows: if wanted < 1 || wanted > MAX_ROWS { MAX_ROWS } else { wanted }, ..q })
+}
+
+/**
+ * Reads a `sql_batch` effect's `steps`, at most `MAX_STEPS`.
+ *
+ * Example:
+ *     batch_of(effect)?
+ */
+public fun batch_of(e: Value): Result<Query[], ContractError> {
+    let steps = match e.get("steps") {
+        Some(Array(xs)) => xs,
+        _ => {
+            return Err(bad("an sql_batch needs its steps"));
+        }
+    };
+    if steps.len > MAX_STEPS {
+        return Err(bad("an sql_batch takes at most {MAX_STEPS} steps"));
+    }
+    let mut out: Query[] = [];
+    for s of steps {
+        out.push(query_of(s, "an sql_batch's step")?);
+    }
+    Ok(out)
+}
+
+/** One statement's `sql` and `params`. */
+fun query_of(e: Value, what: string): Result<Query, ContractError> {
+    let sql = match e.get("sql") {
+        Some(Text(s)) => s,
+        _ => {
+            return Err(bad("{what} needs its text"));
+        }
+    };
+    if sql.len > MAX_SQL {
+        return Err(bad("{what}'s text is over 100 KB"));
+    }
+    let params = match e.get("params") {
+        Some(Array(xs)) => xs,
+        None => [],
+        Some(_) => {
+            return Err(bad("{what}'s values must be a list"));
+        }
+    };
+    if params.len > MAX_SQL_PARAMS {
+        return Err(bad("{what} takes at most {MAX_SQL_PARAMS} values"));
+    }
+    for p of params {
+        let ok = match p {
+            Unsigned(_) | Negative(_) | Float(_) | Bool(_) | Null => true,
+            Text(s) => s.len <= MAX_SQL_VALUE,
+            Bytes(b) => b.len <= MAX_SQL_VALUE,
+            _ => false,
+        };
+        if !ok {
+            return Err(bad("{what}'s values are numbers, text, bytes, true/false or null"));
+        }
+    }
+    Ok(Query { sql: sql, params: params, max_rows: MAX_ROWS })
+}
+
+fun bad(problem: string): ContractError = ContractError.Invalid("update", problem);

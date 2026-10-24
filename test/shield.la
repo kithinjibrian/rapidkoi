@@ -1,0 +1,130 @@
+// The shield (PRP-021): what it says about an app (its look, connection,
+// signature, publisher, since when, version), and opening, paging and
+// closing its card. Fixture guests; no display.
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.ui.shield { ShieldFacts, ShieldLook, Connection, Signature, facts, known_since };
+import rapidkoi.window.actions { Msg, ShieldPage };
+import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.trust.keys { fingerprint };
+import rapidkoi.bundles.bundle { Manifest };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun plain(path: string): AppPage {
+    let engine = Engine.new();
+    AppPage {
+        path: path,
+        ..open_module("notes", "notes.wasm", engine, Module.from_text(engine, echo()).unwrap()),
+    }
+}
+
+fun manifest(): Manifest = Manifest {
+    contract: 2,
+    name: "Notes",
+    version: "1.2.0",
+    description: None,
+    state_version: 1,
+    icon: None,
+    banners: [],
+    servers: [],
+    permissions: [],
+    controls: None,
+};
+
+/** Notes at `path`, signed by notes.acme.com's key in `standing`. */
+fun signed(path: string, standing: Standing, separate: bool): AppPage = AppPage {
+    manifest: Some(manifest()),
+    trust: Some(Trust {
+        host: "notes.acme.com",
+        key: [3; 32],
+        standing: standing,
+        build: [0; 32],
+        separate: separate,
+        since: 1_792_314_000_000,
+        origin: [3; 32],
+    }),
+    ..plain(path),
+};
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+@test
+fun a_verified_site_is_secure_and_signed() {
+    let f = facts(signed("rapidkoi://notes.acme.com", Standing.Verified, false));
+    assert_eq(
+        (f.look, f.connection, f.signature),
+        (ShieldLook.Verified, Connection.Secure, Signature.Signed),
+    );
+    assert_eq(f.place, "notes.acme.com");
+    assert_eq(f.publisher, Some("notes.acme.com · key {fingerprint([3; 32])}"));
+    assert_eq(f.since, Some("Same publisher since 18 Oct 2026"));
+    assert_eq(f.version, Some("1.2.0 · verified build"));
+}
+
+@test
+fun a_trusted_signed_file_is_verified_from_a_local_file() {
+    let f = facts(signed("notes.rkb", Standing.Trusted, false));
+    assert_eq(
+        (f.look, f.connection, f.signature),
+        (ShieldLook.Verified, Connection.LocalFile, Signature.Signed),
+    );
+    // Only a site's index vouches for the build itself.
+    assert_eq(f.version, Some("1.2.0"));
+}
+
+@test
+fun a_key_not_confirmed_or_a_new_publisher_is_caution() {
+    let stranger = facts(signed("notes.rkb", Standing.NotConfirmed, false));
+    assert_eq((stranger.look, stranger.signature), (ShieldLook.Caution, Signature.NotConfirmed));
+    let other = facts(signed("rapidkoi://notes.acme.com", Standing.Verified, true));
+    assert_eq((other.look, other.signature), (ShieldLook.Caution, Signature.NewPublisher));
+    assert_eq(other.since, Some("New publisher: its key changed"));
+}
+
+@test
+fun this_computer_is_caution_even_when_signed() {
+    let f = facts(signed("rapidkoi://localhost:8000", Standing.Verified, false));
+    assert_eq(
+        (f.look, f.connection, f.signature),
+        (ShieldLook.Caution, Connection.ThisComputer, Signature.Signed),
+    );
+    assert_eq(f.place, "localhost:8000");
+}
+
+@test
+fun nothing_signed_is_unsigned() {
+    let file = facts(plain("apps/notes.wasm"));
+    assert_eq(
+        (file.look, file.connection, file.signature),
+        (ShieldLook.Unsigned, Connection.LocalFile, Signature.NotSigned),
+    );
+    assert_eq(file.place, "notes.wasm");
+    assert_eq((file.publisher, file.since, file.version), (None, None, None));
+    let dev = facts(plain("rapidkoi://localhost:8000"));
+    assert_eq((dev.look, dev.connection), (ShieldLook.Unsigned, Connection.ThisComputer));
+}
+
+@test
+fun known_since_reads_a_date_or_says_it_was_not_recorded() {
+    // 18 October 2026, 09:00 UTC; 29 February 2000 (a leap day).
+    assert_eq(known_since(1_792_314_000_000), "Same publisher since 18 Oct 2026");
+    assert_eq(known_since(951_782_400_000), "Same publisher since 29 Feb 2000");
+    assert_eq(known_since(0), "Same publisher since first use (date not recorded)");
+}
+
+@test
+fun the_card_opens_pages_and_closes() {
+    let engine = Engine.new();
+    let m = with_pages(engine, [plain("a.wasm"), plain("b.wasm")]);
+    let open = step(m, Msg.Shield(Some(ShieldPage.Main)));
+    assert_eq(open.shield, Some(ShieldPage.Main));
+    assert_eq(step(open, Msg.Shield(Some(ShieldPage.Signed))).shield, Some(ShieldPage.Signed));
+    assert_eq(step(open, Msg.Shield(None)).shield, None);
+    // Leaving the page closes it: another tab, or home.
+    assert_eq(step(open, Msg.Select(1)).shield, None);
+    assert_eq(step(open, Msg.Home).shield, None);
+}

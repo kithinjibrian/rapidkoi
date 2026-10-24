@@ -1,0 +1,110 @@
+/**
+ * Sessions (PRP-035; the owner's model, session 186). The current session
+ * is the `open` file, saved as it changes (`saving.persist`). At launch,
+ * the session that just ended (a non-empty `open`) becomes the previous
+ * session, the `previous` file, kept all session for the new tab's
+ * Restore, which stacks it under the current one. An unrestored previous
+ * session is replaced at the next launch by the one after it, and its
+ * extra windows' state goes with it; an empty session never replaces one.
+ *
+ * Depends on: data.store, data.remembered, data.saving, data.states, net.address, window.window
+ * Used by: shell
+ */
+import data.store { Store, save, remove, reason as store_reason };
+import data.remembered { Open, OpenTab, Recalled, MAX_OPEN_FILE, recall, open_file, read_open };
+import data.saving { restore_open };
+import data.states { drop_host_instance };
+import net.address { parse, shown };
+import window.window { Model };
+
+/** Where the previous session waits for Restore. */
+const PREVIOUS: string = "previous";
+
+/**
+ * Starts a session: the one that just ended becomes the previous one,
+ * replacing an older one that was never restored, unless it was empty;
+ * otherwise the older one stays on offer.
+ *
+ * @param m the window, its data folder restored
+ * @param s the data folder
+ * @returns the window, its `previous` set (and a notice if a file couldn't be read or written)
+ *
+ * Example:
+ *     begin_session(restore(m, s), s)
+ */
+public fun begin_session(m: Model, s: Store): Model {
+    let (read, ended) = restore_open(m, s);
+    let mut notes: string[] = [];
+    let older = match recall(s, PREVIOUS, MAX_OPEN_FILE, read_open) {
+        Read(o) => Some(o),
+        Broken(aside, _) => {
+            notes.push("Rapidkoi couldn't read your last session, so it set it aside in {aside}");
+            None
+        }
+        _ => None,
+    };
+    let previous = match ended {
+        // The session that just ended is the one to offer: an older one,
+        // never restored, is thrown away, its extra windows with it.
+        Some(o) if o.tabs.len > 0 => {
+            if let Some(old) = older {
+                for why of discard(s, old, o) {
+                    notes.push(why);
+                }
+            }
+            if let Err(e) = save(s, PREVIOUS, open_file(o)) {
+                notes.push("Rapidkoi couldn't keep your last session: {store_reason(e)}");
+            }
+            Some(o)
+        }
+        // An empty session never replaces one (the owner, session 186).
+        _ => older,
+    };
+    let notice = match (read.notice, notes.len > 0) {
+        (Some(a), true) => Some("{a} · {notes.join(" · ")}"),
+        (None, true) => Some(notes.join(" · ")),
+        (n, false) => n,
+    };
+    Model { previous: previous, notice: notice, ..read }
+}
+
+/**
+ * Forgets the previous session once it's restored: it's part of the
+ * current one now, which becomes the next previous one in its turn.
+ *
+ * Example:
+ *     restored(m)
+ */
+public fun restored(m: Model): Model = match m.store {
+    Some(s) => match remove(s, PREVIOUS) {
+        Ok(()) => m,
+        Err(e) => Model {
+            notice: Some("Rapidkoi couldn't clear your last session: {store_reason(e)}"),
+            ..m,
+        },
+    },
+    None => m,
+};
+
+/**
+ * Removes the saved state of an old session's extra windows that the new
+ * one doesn't have: each app's data (its first window's) stays. Only
+ * signed apps keep state, opened by address, so they're found by host.
+ * Returns what couldn't be removed.
+ */
+fun discard(s: Store, old: Open, kept: Open): string[] {
+    let mut failed: string[] = [];
+    for t of old.tabs {
+        let still = kept.tabs.any(fun(k: OpenTab) = k.path == t.path && k.instance == t.instance);
+        if t.instance != "" && !still {
+            if let Ok(a) = parse(t.path) {
+                if let Err(e) = drop_host_instance(s, shown(a), t.instance) {
+                    failed.push(
+                        "Rapidkoi couldn't remove an old window's state: {store_reason(e)}",
+                    );
+                }
+            }
+        }
+    }
+    failed
+}

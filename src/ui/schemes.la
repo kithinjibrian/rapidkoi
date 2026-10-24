@@ -1,0 +1,268 @@
+/**
+ * Rapidkoi's colour sets (PRP-038, split from `themes.la`): dark and light,
+ * each with a More contrast version, and the person's choices that pick
+ * one (`Prefs`). Every hex value Rapidkoi draws lives here. Each set meets
+ * WCAG's contrast for its text (`contrast`, tested): 4.5:1, or 7:1 with
+ * More contrast, where borders reach 3:1 too.
+ *
+ * Depends on: nothing
+ * Used by: ui.themes, ui.paint, data.preferences, window.window
+ */
+import std.math;
+
+/** What the person chose in Settings (PRP-038). */
+public struct Prefs {
+    /** Light rather than dark. */
+    public light: bool,
+    /** More contrast, on either. */
+    public more_contrast: bool,
+    /** The base text size, in percent: 80 to 200, in steps of 10. */
+    public text_size: i64,
+}
+
+/** Dark, no extra contrast, 100%: what Rapidkoi starts with. */
+public const DEFAULT_PREFS: Prefs = Prefs { light: false, more_contrast: false, text_size: 100 };
+
+/** The smallest text size, in percent. */
+public const MIN_TEXT_SIZE: i64 = 80;
+
+/** The largest text size, in percent (WCAG's 200%). */
+public const MAX_TEXT_SIZE: i64 = 200;
+
+/** One theme: a name, and a colour per part (`#rrggbb` or `#rrggbbaa`). Hex values live only here. */
+public struct Theme {
+    /** What settings will call it. */
+    public name: string,
+    /** The frame: the header bar and the sidebar, one colour. */
+    public frame: string,
+    /** The page, the address box and the suggestions card. */
+    public page: string,
+    /** The dim layer over the app while the panel is open: translucent. */
+    public scrim: string,
+    /** Thin lines: around the suggestions card and text fields. */
+    public edge: string,
+    /** Text. */
+    public text: string,
+    /** Secondary text: the text colour, fainter. */
+    public dim: string,
+    /** A normal button at rest, under the pointer, and pressed. */
+    public control: string,
+    /** A normal button under the pointer. */
+    public control_hover: string,
+    /** A normal button being pressed. */
+    public control_press: string,
+    /** Rapidkoi's brand colour: the main action (primary buttons), focus rings, a focused field's edge. */
+    public accent: string,
+    /** A primary button under the pointer or pressed. */
+    public accent_hover: string,
+    /** Text on the accent. */
+    public on_accent: string,
+    /** The brand gradient's other end: the accent runs into it. Kept for later; nothing wears it now. */
+    public accent_end: string,
+    /** Icons and text on the frame. */
+    public on_frame: string,
+    /** A faint icon on the frame: the shield of an unsigned app. */
+    public faint: string,
+    /** What a control on the gradient turns under the pointer. */
+    public frame_hover: string,
+    /** Instances' dots, in turn (PRP-033): the first instance's, the second's… */
+    public instances: string[],
+    /** Buttons that delete or discard. */
+    public danger: string,
+    /** A danger button under the pointer or pressed. */
+    public danger_hover: string,
+    /** Text on the danger colour. */
+    public on_danger: string,
+    /** A subtle button under the pointer: a faint light wash. */
+    public subtle_hover: string,
+    /** Behind a tooltip's text. */
+    public tooltip: string,
+    /** Nothing: fully transparent. */
+    public clear: string,
+    /** The person's text size, as a multiple of the base (PRP-038): 0.8 to 2.0. */
+    public scale: f64,
+}
+
+/** The dark theme, the default (the frame and page are the owner's colours, 2026-10-17). */
+public const DARK: Theme = Theme {
+    name: "dark",
+    frame: "#242424",
+    page: "#161616",
+    scrim: "#00000060",
+    edge: "#3a3a3a",
+    text: "#e8e8e8",
+    dim: "#e8e8e88c",
+    control: "#2e2e2e",
+    control_hover: "#383838",
+    control_press: "#424242",
+    // Rapidkoi's brand colour (the owner, session 111).
+    accent: "#ff7700",
+    accent_hover: "#ff8c2e",
+    // Dark on the orange: white on it reads at 2.66:1, #161616 at 6.8:1.
+    on_accent: "#161616",
+    // The brand gradient's other end, a pink-red (the owner, session 112).
+    accent_end: "#ff2e63",
+    // White on the frame (the owner, session 116).
+    on_frame: "#ffffff",
+    // Grey, solid: SVG fills don't take #rrggbbaa everywhere, so not `dim`.
+    faint: "#8c8c8c",
+    // A faint white wash: a window control under the pointer, on the frame.
+    frame_hover: "#ffffff26",
+    // Instances' dots (the owner, session 177): the brand orange first,
+    // then hues that tell apart on the dark frame.
+    instances: ["#ff7700", "#4c9aff", "#36b37e", "#b37feb", "#ff2e63", "#ffc400"],
+    danger: "#c01c28",
+    danger_hover: "#d42c38",
+    on_danger: "#ffffff",
+    subtle_hover: "#ffffff14",
+    // Black (the owner, session 146).
+    tooltip: "#000000",
+    clear: "#00000000",
+    scale: 1.0,
+};
+
+/** The light theme. */
+public const LIGHT: Theme = Theme {
+    name: "light",
+    frame: "#e4e4e7",
+    page: "#ffffff",
+    scrim: "#00000040",
+    edge: "#d4d4d4",
+    text: "#1a1a1a",
+    dim: "#1a1a1aa6",
+    control: "#ececec",
+    control_hover: "#e0e0e0",
+    control_press: "#d4d4d4",
+    // The brand orange, deepened so white reads on it (4.6:1).
+    accent: "#c25400",
+    accent_hover: "#a84900",
+    on_accent: "#ffffff",
+    accent_end: "#e0245e",
+    on_frame: "#1a1a1a",
+    faint: "#6e6e6e",
+    frame_hover: "#00000014",
+    instances: ["#c25400", "#2c6fd1", "#1f8a5b", "#8a4fd1", "#d11f4f", "#a87b00"],
+    danger: "#b3141f",
+    danger_hover: "#9c111b",
+    on_danger: "#ffffff",
+    subtle_hover: "#00000010",
+    tooltip: "#000000",
+    clear: "#00000000",
+    scale: 1.0,
+};
+
+/** The dark theme with more contrast: pure black and white, borders that show. */
+public const DARK_CONTRAST: Theme = Theme {
+    name: "dark, more contrast",
+    frame: "#000000",
+    page: "#000000",
+    scrim: "#00000080",
+    edge: "#9a9a9a",
+    text: "#ffffff",
+    dim: "#d6d6d6",
+    control: "#1f1f1f",
+    control_hover: "#333333",
+    control_press: "#474747",
+    accent: "#ff8c2e",
+    accent_hover: "#ffa257",
+    on_accent: "#000000",
+    accent_end: "#ff4d7a",
+    on_frame: "#ffffff",
+    faint: "#bdbdbd",
+    frame_hover: "#ffffff33",
+    instances: ["#ff8c2e", "#6fb0ff", "#4fd19a", "#c49bff", "#ff5c85", "#ffd24d"],
+    danger: "#ff6b6b",
+    danger_hover: "#ff8a8a",
+    on_danger: "#000000",
+    subtle_hover: "#ffffff26",
+    tooltip: "#000000",
+    clear: "#00000000",
+    scale: 1.0,
+};
+
+/** The light theme with more contrast. */
+public const LIGHT_CONTRAST: Theme = Theme {
+    name: "light, more contrast",
+    frame: "#ffffff",
+    page: "#ffffff",
+    scrim: "#00000060",
+    edge: "#595959",
+    text: "#000000",
+    dim: "#333333",
+    control: "#e6e6e6",
+    control_hover: "#d4d4d4",
+    control_press: "#bfbfbf",
+    accent: "#8a3c00",
+    accent_hover: "#6e3000",
+    on_accent: "#ffffff",
+    accent_end: "#a0123f",
+    on_frame: "#000000",
+    faint: "#474747",
+    frame_hover: "#00000026",
+    instances: ["#8a3c00", "#0b4fa8", "#0f6b44", "#5c2fa0", "#a0123f", "#6b5000"],
+    danger: "#8b0000",
+    danger_hover: "#6b0000",
+    on_danger: "#ffffff",
+    subtle_hover: "#0000001a",
+    tooltip: "#000000",
+    clear: "#00000000",
+    scale: 1.0,
+};
+
+/**
+ * Returns the theme the person's choices pick: the colour set, and their
+ * text size as `scale`.
+ *
+ * Example:
+ *     theme_for(m.prefs)
+ */
+public fun theme_for(p: Prefs): Theme {
+    let set = match (p.light, p.more_contrast) {
+        (false, false) => DARK,
+        (true, false) => LIGHT,
+        (false, true) => DARK_CONTRAST,
+        (true, true) => LIGHT_CONTRAST,
+    };
+    Theme { scale: p.text_size as f64 / 100.0, ..set }
+}
+
+/**
+ * Returns WCAG's contrast ratio of a colour on a background: 1 to 21. A
+ * translucent colour (`#rrggbbaa`) is laid over the background first.
+ *
+ * Example:
+ *     contrast(t.text, t.page) >= 4.5
+ */
+public fun contrast(colour: string, background: string): f64 {
+    let (f, alpha) = channels(colour);
+    let (b, _) = channels(background);
+    let laid = [0, 1, 2].map(fun(i: i64) = f[i] * alpha + b[i] * (1.0 - alpha));
+    let one = luminance(laid);
+    let two = luminance(b);
+    let hi = if one > two { one } else { two };
+    let lo = if one > two { two } else { one };
+    (hi + 0.05) / (lo + 0.05)
+}
+
+/** `#rrggbb[aa]` as 0–255 channels and an alpha of 0 to 1. Theme colours only: they're Rapidkoi's own. */
+fun channels(hex: string): (f64[], f64) {
+    let byte = fun(i: i64): f64 = (digit(hex.to_bytes()[i]) * 16 + digit(
+        hex.to_bytes()[i + 1],
+    )) as f64;
+    let alpha = if hex.len == 9 { byte(7) / 255.0 } else { 1.0 };
+    ([byte(1), byte(3), byte(5)], alpha)
+}
+
+fun digit(b: u8): i64 {
+    let n = b as i64;
+    if n >= 97 { n - 87 } else if n >= 65 { n - 55 } else { n - 48 }
+}
+
+/** Relative luminance, as WCAG defines it. */
+fun luminance(c: f64[]): f64 {
+    let lin = fun(x: f64): f64 {
+        let v = x / 255.0;
+        if v <= 0.04045 { v / 12.92 } else { math.pow((v + 0.055) / 1.055, 2.4) }
+    };
+    0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2])
+}

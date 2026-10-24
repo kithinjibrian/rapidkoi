@@ -3,15 +3,15 @@
 // results for closed tabs dropped, the switches. An echo guest's state
 // becomes the answer it got, so each test reads exactly what Rapidkoi sent.
 // Writes only under test/tmp/.
-import rapidkoi.requests { send, arrive };
-import rapidkoi.network { Request, Reply };
-import rapidkoi.dialing { Network };
+import rapidkoi.net.requests { send, arrive };
+import rapidkoi.net.network { Request, Reply };
+import rapidkoi.net.dialing { Network };
 import rapidkoi.shell { Model, with_pages, update };
-import rapidkoi.effects { answer_all };
-import rapidkoi.tabs { AppPage, open_module, state_of };
-import rapidkoi.verify { Trust, Standing };
-import rapidkoi.people { Person, person, with_person };
-import rapidkoi.contract { answer, reply };
+import rapidkoi.guest.effects { answer_all };
+import rapidkoi.window.tabs { AppPage, open_module, state_of };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.people.people { Person, person, with_person };
+import rapidkoi.guest.contract { answer, reply };
 import cbor { Value, Entry, encode, decode, Limits };
 import std.http { Request as Incoming, Response };
 import std.task { sleep };

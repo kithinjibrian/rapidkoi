@@ -1,6 +1,15 @@
 // Bundle format 1, pure: reading and writing `.rkb` bytes, and every rule
 // a bundle must keep. No files, no guest, no display.
-import rapidkoi.bundle { Bundle, Manifest, BundleError, read, write, asset, reason };
+import rapidkoi.bundles.bundle {
+    Bundle,
+    Manifest,
+    Controls,
+    BundleError,
+    read,
+    write,
+    asset,
+    reason,
+};
 import cbor { Value, encode };
 import support { t, kv, png as png_of };
 
@@ -16,6 +25,8 @@ fun manifest(): Manifest = Manifest {
     icon: Some("icon.png"),
     banners: [("home", "banner/home.png")],
     servers: ["api.acme.com", "localhost:9000"],
+    permissions: [],
+    controls: None,
 };
 
 fun good(): Bundle = Bundle {
@@ -219,16 +230,46 @@ fun assets_must_be_png_and_referenced_ones_must_exist() {
 }
 
 @test
-fun permissions_and_prerendered_must_be_empty() {
+fun permissions_are_names() {
+    // PRP-030: whether a name is known, and who may hold it, is the loader's.
+    let list = fun(names: string[]) = Value.Array(names.map(fun(n: string) = t(n)));
+    assert_eq(error_of(raw(with("permissions", list(["read_pins", "camera"])), [])), "ok");
+    assert_eq(error_of(raw(with("permissions", Value.Array([])), [])), "ok");
     assert_eq(
-        error_of(raw(with("permissions", Value.Array([t("camera")])), [])),
-        "This bundle asks for \"permissions\", which this version of Rapidkoi can't grant yet",
+        error_of(raw(with("permissions", t("read_pins")), [])),
+        "This bundle's \"permissions\" must be a list of names",
     );
+    assert_eq(
+        error_of(raw(with("permissions", list(["Read-Pins"])), [])),
+        "This bundle's \"permissions\" lists \"Read-Pins\", which isn't a permission name",
+    );
+    assert_eq(
+        error_of(raw(with("permissions", list(["read_pins", "read_pins"])), [])),
+        "This bundle's \"permissions\" lists \"read_pins\" twice",
+    );
+    let mut many: string[] = [];
+    for i of range(0, 17) {
+        many.push("p{i}");
+    }
+    assert_eq(
+        error_of(raw(with("permissions", list(many)), [])),
+        "This bundle's \"permissions\" lists too many (17; at most 16)",
+    );
+    let declared = Bundle {
+        manifest: Manifest { permissions: ["read_pins"], ..manifest() },
+        ..good(),
+    };
+    assert_eq(read(write(declared).unwrap()).unwrap().manifest.permissions, ["read_pins"]);
+    let bad = Bundle { manifest: Manifest { permissions: [""], ..manifest() }, ..good() };
+    assert_eq(write(bad).is_err(), true);
+}
+
+@test
+fun prerendered_must_be_empty() {
     assert_eq(
         error_of(raw(with("prerendered", Value.Array([t("x")])), [])),
         "This bundle asks for \"prerendered\", which this version of Rapidkoi can't grant yet",
     );
-    assert_eq(error_of(raw(with("permissions", Value.Array([])), [])), "ok");
 }
 
 @test
@@ -328,4 +369,55 @@ fun a_png_needs_its_header_chunk() {
         error_of(raw(base(), [("a.png", Value.Bytes(short))])),
         "This bundle's asset \"a.png\" isn't a PNG image",
     );
+}
+
+@test
+fun controls_name_known_icons_and_rows() {
+    // PRP-031: a built-in app's frame; who may use it is the loader's call.
+    let list = fun(names: string[]) = Value.Array(names.map(fun(n: string) = t(n)));
+    let controls = fun(address: string[], settings: string[]) = kv([
+        ("address", list(address)),
+        ("settings", list(settings)),
+    ]);
+    assert_eq(
+        error_of(
+            raw(
+                with("controls", controls(["settings", "share"], ["app_settings.permissions"])),
+                [],
+            ),
+        ),
+        "ok",
+    );
+    assert_eq(error_of(raw(with("controls", controls([], ["app_settings", "forget"])), [])), "ok");
+    assert_eq(
+        error_of(raw(with("controls", controls(["shield"], [])), [])),
+        "This bundle's \"controls\" names \"shield\", which isn't an address icon",
+    );
+    assert_eq(
+        error_of(raw(with("controls", controls([], ["app_settings.colours"])), [])),
+        "This bundle's \"controls\" names \"app_settings.colours\", which isn't a settings row",
+    );
+    assert_eq(
+        error_of(raw(with("controls", controls(["share", "share"], [])), [])),
+        "This bundle's \"controls\" names \"share\" twice",
+    );
+    assert_eq(
+        error_of(raw(with("controls", t("settings")), [])),
+        "This bundle's \"controls\" must map address and settings to lists of names",
+    );
+    let declared = Bundle {
+        manifest: Manifest {
+            controls: Some(Controls {
+                address: ["settings"],
+                settings: ["app_settings.permissions"],
+            }),
+            ..manifest(),
+        },
+        ..good(),
+    };
+    assert_eq(
+        read(write(declared).unwrap()).unwrap().manifest.controls,
+        declared.manifest.controls,
+    );
+    assert_eq(read(write(good()).unwrap()).unwrap().manifest.controls, None);
 }

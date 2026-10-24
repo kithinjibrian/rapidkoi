@@ -1,0 +1,183 @@
+/**
+ * Rapidkoi's data folder (`$XDG_DATA_HOME/rapidkoi`, else
+ * `~/.local/share/rapidkoi`): what it remembers across restarts. Files are
+ * written safely (owner-only, synced, renamed into place, the folder
+ * synced), so a crash leaves the old file or the new one; read with a cap;
+ * and set aside as `NAME.broken` when they can't be read, never deleted.
+ *
+ * Depends on: std.fs
+ * Used by: data.remembered, data.saving
+ */
+import std.fs;
+
+/** The data folder, and the files this session must leave alone. */
+public struct Store {
+    /** The folder. */
+    public dir: string,
+    /** Files written by a newer Rapidkoi: never overwritten this session. */
+    skip: string[],
+}
+
+/** Why the folder or a file couldn't be used. */
+public enum StoreError {
+    /** No `$HOME` (and no usable `$XDG_DATA_HOME`). */
+    NoHome,
+    /** A file system failure: the path, the system's message. */
+    Io(string, string),
+    /** A file over its cap: its name, its size. */
+    TooLarge(string, i64),
+}
+
+/** 0700: the folder is the owner's only. */
+const OWNER_DIR: i64 = 0b111_000_000;
+
+/** 0600: each file is the owner's only. */
+const OWNER_FILE: i64 = 0b110_000_000;
+
+/**
+ * Returns the data folder: `$XDG_DATA_HOME/rapidkoi` when that's set and
+ * absolute (the XDG rule), else `$HOME/.local/share/rapidkoi`.
+ *
+ * Example:
+ *     data_dir(env.get("XDG_DATA_HOME"), env.get("HOME"))?
+ */
+public fun data_dir(xdg: Option<string>, home: Option<string>): Result<string, StoreError> {
+    if let Some(x) = xdg {
+        if x.starts_with("/") {
+            return Ok("{x}/rapidkoi");
+        }
+    }
+    match home {
+        Some(h) if h != "" => Ok("{h}/.local/share/rapidkoi"),
+        _ => Err(StoreError.NoHome),
+    }
+}
+
+/**
+ * A store at `dir`. Touches nothing until the first save.
+ *
+ * Example:
+ *     store_at(data_dir(…)?)
+ */
+public fun store_at(dir: string): Store = Store { dir: dir, skip: [] };
+
+/**
+ * The same store, never writing `name` this session (it was written by a
+ * newer Rapidkoi).
+ *
+ * Example:
+ *     skipping(s, "pins")
+ */
+public fun skipping(s: Store, name: string): Store {
+    let mut skip = s.skip;
+    skip.push(name);
+    Store { skip: skip, ..s }
+}
+
+/**
+ * Makes the folder, owner-only (0700), if it isn't there yet.
+ *
+ * Example:
+ *     ensure(s)?
+ */
+public fun ensure(s: Store): Result<(), StoreError> {
+    if !fs.is_dir(s.dir) {
+        fs.make_dirs(s.dir).map_err(fun(e: string) = StoreError.Io(s.dir, e))?;
+        fs.set_mode(s.dir, OWNER_DIR).map_err(fun(e: string) = StoreError.Io(s.dir, e))?;
+    }
+    Ok(())
+}
+
+/**
+ * Saves a file safely: an owner-only temporary file, synced, renamed over
+ * the old one, and the folder synced. Makes the folder (0700) if needed. A
+ * skipped file is left as it is.
+ *
+ * @returns `Ok(())`; or `Io` with the step's path and why (the old file unchanged)
+ *
+ * Example:
+ *     save(s, "pins", bytes)?
+ */
+public fun save(s: Store, name: string, bytes: u8[]): Result<(), StoreError> {
+    if s.skip.any(fun(n: string) = n == name) {
+        return Ok(());
+    }
+    let at = fun(path: string) = fun(e: string) = StoreError.Io(path, e);
+    ensure(s)?;
+    let file = "{s.dir}/{name}";
+    let tmp = "{file}.tmp";
+    // Owner-only before anything is in it; whole before it's renamed in.
+    write_bytes(tmp, []).map_err(at(tmp))?;
+    fs.set_mode(tmp, OWNER_FILE).map_err(at(tmp))?;
+    write_bytes(tmp, bytes).map_err(at(tmp))?;
+    fs.sync(tmp).map_err(at(tmp))?;
+    fs.rename(tmp, file).map_err(at(file))?;
+    // The rename itself lives in the folder: sync it so it survives a power cut.
+    fs.sync(s.dir).map_err(at(s.dir))?;
+    Ok(())
+}
+
+/**
+ * Removes a file, when there's nothing left to remember in it. A missing
+ * file or a skipped one is left as it is.
+ *
+ * Example:
+ *     remove(s, "left-off")?
+ */
+public fun remove(s: Store, name: string): Result<(), StoreError> {
+    let file = "{s.dir}/{name}";
+    if s.skip.any(fun(n: string) = n == name) || !fs.exists(file) {
+        return Ok(());
+    }
+    fs.remove_file(file).map_err(fun(e: string) = StoreError.Io(file, e))?;
+    fs.sync(s.dir).map_err(fun(e: string) = StoreError.Io(s.dir, e))?;
+    Ok(())
+}
+
+/**
+ * Reads a file, refusing one over `max` bytes.
+ *
+ * @returns its bytes; `None` when there's no such file; or why not
+ *
+ * Example:
+ *     load(s, "trust", 1024 * 1024)?
+ */
+public fun load(s: Store, name: string, max: i64): Result<Option<u8[]>, StoreError> {
+    let file = "{s.dir}/{name}";
+    if !fs.exists(file) {
+        return Ok(None);
+    }
+    let bytes = read_bytes(file).map_err(fun(e: string) = StoreError.Io(file, e))?;
+    if bytes.len > max {
+        return Err(StoreError.TooLarge(name, bytes.len));
+    }
+    Ok(Some(bytes))
+}
+
+/**
+ * Sets a file aside as `NAME.broken`, replacing an older one, so it's kept
+ * for a look but no longer read.
+ *
+ * @returns where it went
+ *
+ * Example:
+ *     set_aside(s, "pins")?
+ */
+public fun set_aside(s: Store, name: string): Result<string, StoreError> {
+    let file = "{s.dir}/{name}";
+    let aside = "{file}.broken";
+    fs.rename(file, aside).map_err(fun(e: string) = StoreError.Io(file, e))?;
+    Ok(aside)
+}
+
+/**
+ * Returns a plain sentence for a store error.
+ *
+ * Example:
+ *     reason(e)
+ */
+public fun reason(e: StoreError): string = match e {
+    NoHome => "There's no home folder, so nothing will be saved this session",
+    Io(path, why) => "{path}: {why}",
+    TooLarge(name, size) => "Rapidkoi's {name} file is too large ({size} bytes)",
+};

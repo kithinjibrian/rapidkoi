@@ -1,0 +1,137 @@
+// Permission settings in the card, and the approval dialog (PRP-031): the
+// Permissions row and page, `controls` choosing a built-in app's rows and
+// icons, and Rapidkoi's own question. Through kivuli.testing; fixture
+// guests, no display.
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.ui.settings;
+import rapidkoi.ui.addressbox;
+import rapidkoi.window.actions { Msg, PanelPage, Approval, Answer };
+import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.bundles.bundle { Manifest, Controls };
+import rapidkoi.bundles.permissions { Permission, Setting };
+import rapidkoi.people.people { nobody, with_setting };
+import kivuli { View };
+import kivuli.testing { click, choose, texts };
+import wasmtime { Engine, Module };
+import support { echo };
+
+const ALL: string[] = ["read_pins", "read_left_off", "open_apps"];
+
+/** An app declaring every permission, with `controls` when given. */
+fun declaring(controls: Option<Controls>): AppPage {
+    let engine = Engine.new();
+    AppPage {
+        manifest: Some(Manifest {
+            contract: 3,
+            name: "New tab",
+            version: "0.1.0",
+            description: None,
+            state_version: 1,
+            icon: None,
+            banners: [],
+            servers: [],
+            permissions: ALL,
+            controls: controls,
+        }),
+        ..open_module(
+            "New tab",
+            "builtin:newtab",
+            engine,
+            Module.from_text(engine, echo()).unwrap(),
+        ),
+    }
+}
+
+fun front(m: Model): View<Msg> = settings.card(m, m.tabs[0].page, PanelPage.Main);
+
+fun shows(v: View<Msg>, s: string): bool = texts(v).any(fun(x: string) = x == s);
+
+@test
+fun permissions_sit_under_app_settings_with_a_summary() {
+    let m = with_pages(Engine.new(), [declaring(None)]);
+    let v = front(m);
+    assert(shows(v, "App settings"));
+    assert(shows(v, "3 allowed"));
+    assert_eq(click(v, "Permissions"), Ok(Msg.PanelGo(PanelPage.Permissions)));
+    let mixed = Model {
+        people: with_setting(
+            with_setting(nobody(), "builtin:newtab", Permission.ReadPins, Setting.Ask),
+            "builtin:newtab",
+            Permission.OpenApps,
+            Setting.Blocked,
+        ),
+        ..m,
+    };
+    assert(shows(front(mixed), "1 allowed · 1 needs approval · 1 blocked"));
+}
+
+@test
+fun each_permission_has_a_setting_to_choose() {
+    let m = with_pages(Engine.new(), [declaring(None)]);
+    let v = settings.card(m, m.tabs[0].page, PanelPage.Permissions);
+    assert(shows(v, "Reading your pins"));
+    assert_eq(
+        choose(v, "read_pins", "Blocked"),
+        Ok(Msg.SetPermission("read_pins", Setting.Blocked)),
+    );
+    assert_eq(
+        choose(v, "open_apps", "Needs approval"),
+        Ok(Msg.SetPermission("open_apps", Setting.Ask)),
+    );
+}
+
+@test
+fun an_app_declaring_nothing_has_no_permissions_row() {
+    let engine = Engine.new();
+    let m = with_pages(engine, [
+        open_module("Notes", "notes.wasm", engine, Module.from_text(engine, echo()).unwrap()),
+    ]);
+    assert(click(front(m), "Permissions").is_err());
+}
+
+@test
+fun controls_choose_a_built_in_apps_rows() {
+    let only = Some(Controls {
+        address: ["settings", "share"],
+        settings: ["app_settings.permissions"],
+    });
+    let v = front(with_pages(Engine.new(), [declaring(only)]));
+    assert(click(v, "Permissions").is_ok());
+    assert(click(v, "Servers").is_err());
+    assert(click(v, "Data").is_err());
+    assert(click(v, "Forget this app…").is_err());
+    assert(!shows(v, "App data"));
+}
+
+@test
+fun the_new_tab_shows_its_gear_as_its_controls_say() {
+    let only = Some(Controls {
+        address: ["settings", "share"],
+        settings: ["app_settings.permissions"],
+    });
+    let home = fun(n: Option<AppPage>): Model {
+        let (m, _) = update(Model { newtab: n, ..with_pages(Engine.new(), []) }, Msg.NewTab);
+        m
+    };
+    assert_eq(
+        click(addressbox.field(home(Some(declaring(only)))), "Site settings"),
+        Ok(Msg.TogglePanel),
+    );
+    assert(click(addressbox.field(home(None)), "Site settings").is_err());
+    // Without controls, the empty tab keeps share alone.
+    assert(click(addressbox.field(home(Some(declaring(None)))), "Site settings").is_err());
+}
+
+@test
+fun the_approval_dialog_asks_with_three_answers() {
+    let waiting = Model {
+        approval: Some(Approval { tab: None, permission: Permission.ReadPins, app: "New tab" }),
+        ..with_pages(Engine.new(), []),
+    };
+    assert(settings.dialog(waiting).is_some());
+    let v = settings.dialog_view(waiting);
+    assert(shows(v, "New tab wants to read your pins"));
+    assert_eq(click(v, "Don't allow"), Ok(Msg.Approve(Answer.Deny)));
+    assert_eq(click(v, "Allow once"), Ok(Msg.Approve(Answer.Once)));
+    assert_eq(click(v, "Always allow"), Ok(Msg.Approve(Answer.Always)));
+}

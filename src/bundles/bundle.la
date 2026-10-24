@@ -1,0 +1,456 @@
+/**
+ * Bundle format 1: an app in one `.rkb` file. A CBOR map holding the format
+ * number, the manifest, the module and the assets by name. Pure: reads and
+ * writes bytes, checking every rule in `rules.la` both ways. Unsigned and
+ * local; hashes and signatures come with format 2 (DECISION-009).
+ *
+ * Depends on: cbor, guest.limits, bundles.rules, net.network
+ * Used by: commands.pack, window.tabs, panel
+ */
+import cbor { Value, Entry, Limits, decode, encode };
+import guest.limits {
+    MAX_BUNDLE,
+    MAX_MODULE,
+    MAX_ASSETS,
+    MAX_ICON_PX,
+    MAX_BANNER_WIDTH,
+    MAX_BANNER_HEIGHT,
+    MAX_SERVERS,
+    MAX_PERMISSIONS,
+    MAX_PERMISSION_NAME,
+};
+public import bundles.rules { BundleError, reason };
+import net.network { check_server };
+
+/** The format this Rapidkoi reads and writes. */
+public const FORMAT: i64 = 1;
+
+/** What a bundle says about its app. */
+public struct Manifest {
+    /** The UI contract its module speaks. */
+    public contract: i64,
+    /** The app's name. */
+    public name: string,
+    /** Its version, MAJOR.MINOR.PATCH. */
+    public version: string,
+    /** A sentence about it, if given. */
+    public description: Option<string>,
+    /** The version of its state's shape, from 1. */
+    public state_version: i64,
+    /** The asset that is its icon, if any. */
+    public icon: Option<string>,
+    /** Page → asset name, for banners. */
+    public banners: (string, string)[],
+    /** The servers it may reach besides its own host (PRP-012); signed in format 2. */
+    public servers: string[],
+    /** What it may reach (PRP-030), by name; signed in format 2. Known and allowed is the loader's call. */
+    public permissions: string[],
+    /** The frame it shows (PRP-031): only an app built into `./main` may choose. */
+    public controls: Option<Controls>,
+}
+
+/**
+ * Which of Rapidkoi's own controls a built-in app shows (PRP-031): Rapidkoi
+ * still draws each one and decides what it does.
+ */
+public struct Controls {
+    /** Icons in the address box: `settings`, `share`. */
+    public address: string[],
+    /** Rows in its settings card: a group (`app_settings`) or one row (`app_settings.permissions`). */
+    public settings: string[],
+}
+
+/** The address box's icons a built-in app may show. */
+public const ADDRESS_ICONS: string[] = ["settings", "share"];
+
+/** The settings card's groups and rows, as `controls` names them. */
+public const SETTINGS_ROWS: string[] = [
+    "account",
+    "account.public_key",
+    "account.identity",
+    "app_settings",
+    "app_settings.servers",
+    "app_settings.permissions",
+    "app_data",
+    "app_data.state",
+    "forget",
+];
+
+/** An app, unpacked. */
+public struct Bundle {
+    /** What it says about itself. */
+    public manifest: Manifest,
+    /** Its WebAssembly module. */
+    public module: u8[],
+    /** Its assets, by name. */
+    public assets: (string, u8[])[],
+}
+
+/**
+ * Reads a `.rkb` file's bytes. Every rule is checked before anything is used.
+ *
+ * @param bytes the file's contents, possibly hostile
+ * @returns the bundle, or why not
+ *
+ * Example:
+ *     read(read_bytes("counter.rkb")?)?
+ */
+public fun read(bytes: u8[]): Result<Bundle, BundleError> {
+    if bytes.len > MAX_BUNDLE {
+        return Err(BundleError.TooLarge("bundle", bytes.len));
+    }
+    // A shallow map: the manifest's maps are the deepest part. Strings may be
+    // as long as a module; each asset's own cap is checked after.
+    let bounds = Limits {
+        max_depth: 8,
+        max_items: 4096,
+        max_bytes: MAX_BUNDLE,
+        max_string: MAX_MODULE,
+    };
+    let root = decode(bytes, bounds).map_err(fun(e) = BundleError.Decode("{e}"))?;
+    if root.as_map().is_none() {
+        return Err(BundleError.NotAMap);
+    }
+    let format = whole(root, "format")?;
+    if format != FORMAT {
+        return Err(BundleError.Format(format));
+    }
+    let m = root.get("manifest").ok_or(BundleError.Missing("manifest"))?;
+    if m.as_map().is_none() {
+        return Err(BundleError.Wrong("manifest", "must be a map"));
+    }
+    let module = match root.get("module") {
+        Some(Bytes(b)) => b,
+        Some(_) => {
+            return Err(BundleError.Wrong("module", "must be bytes"));
+        }
+        None => {
+            return Err(BundleError.Missing("module"));
+        }
+    };
+    let assets = assets_of(root)?;
+    let b = Bundle { manifest: manifest_of(m)?, module: module, assets: assets };
+    check(b)?;
+    Ok(b)
+}
+
+/**
+ * Writes a bundle as `.rkb` bytes, after checking the same rules `read` does.
+ *
+ * @param b the bundle
+ * @returns the bytes, or why not
+ *
+ * Example:
+ *     write_bytes("counter.rkb", write(b)?)
+ */
+public fun write(b: Bundle): Result<u8[], BundleError> {
+    check(b)?;
+    Ok(
+        encode(
+            Value.Map([
+                entry("format", Value.int(FORMAT)),
+                entry("manifest", Value.Map(manifest_fields(b.manifest))),
+                entry("module", Value.Bytes(b.module)),
+                entry("assets", assets_value(b.assets)),
+            ]),
+        ),
+    )
+}
+
+/** A manifest's fields, as format 1 writes them (format 2 adds its own). */
+fun manifest_fields(m: Manifest): Entry[] {
+    let mut fields = [
+        entry("contract", Value.int(m.contract)),
+        entry("name", Value.Text(m.name)),
+        entry("version", Value.Text(m.version)),
+        entry("state_version", Value.int(m.state_version)),
+        entry(
+            "banners",
+            Value.Map(m.banners.map(fun(p: (string, string)) = entry(p.0, Value.Text(p.1)))),
+        ),
+        entry("servers", Value.Array(m.servers.map(fun(n: string) = Value.Text(n)))),
+        entry("permissions", Value.Array(m.permissions.map(fun(n: string) = Value.Text(n)))),
+        entry("prerendered", Value.Array([])),
+    ];
+    if let Some(c) = m.controls {
+        fields.push(
+            entry(
+                "controls",
+                Value.Map([
+                    entry("address", Value.Array(c.address.map(fun(n: string) = Value.Text(n)))),
+                    entry("settings", Value.Array(c.settings.map(fun(n: string) = Value.Text(n)))),
+                ]),
+            ),
+        );
+    }
+    if let Some(d) = m.description {
+        fields.push(entry("description", Value.Text(d)));
+    }
+    if let Some(i) = m.icon {
+        fields.push(entry("icon", Value.Text(i)));
+    }
+    fields
+}
+
+/** Assets as a CBOR map of name → bytes. */
+fun assets_value(assets: (string, u8[])[]): Value = Value.Map(
+    assets.map(fun(p: (string, u8[])) = entry(p.0, Value.Bytes(p.1))),
+);
+
+/**
+ * Returns an asset's bytes by name.
+ *
+ * Example:
+ *     asset(b, "icon.png")
+ */
+public fun asset(b: Bundle, name: string): Option<u8[]> {
+    for a of b.assets {
+        if a.0 == name {
+            return Some(a.1);
+        }
+    }
+    None
+}
+
+/** Every rule of format 1, on an unpacked bundle. */
+fun check(b: Bundle): Result<(), BundleError> {
+    let m = b.manifest;
+    rules.check_name(m.name)?;
+    rules.check_version(m.version)?;
+    if m.state_version < 1 {
+        return Err(BundleError.Wrong("state_version", "must be at least 1"));
+    }
+    if let Some(d) = m.description {
+        rules.check_description(d)?;
+    }
+    if m.servers.len > MAX_SERVERS {
+        return Err(
+            BundleError.Wrong("servers", "lists too many ({m.servers.len}; at most {MAX_SERVERS})"),
+        );
+    }
+    for name of m.servers {
+        if check_server(name).is_err() {
+            return Err(BundleError.Wrong("servers", "lists \"{name}\", which isn't a server name"));
+        }
+    }
+    check_permissions(m.permissions)?;
+    if let Some(c) = m.controls {
+        check_controls(c)?;
+    }
+    rules.check_sizes(b.module.len, b.assets.len)?;
+    for a of b.assets {
+        rules.check_asset(a.0, a.1)?;
+    }
+    if let Some(i) = m.icon {
+        let bytes = asset(b, i).ok_or(BundleError.MissingAsset("icon", i))?;
+        rules.check_role("icon", bytes, MAX_ICON_PX, MAX_ICON_PX)?;
+    }
+    for banner of m.banners {
+        let bytes = asset(b, banner.1).ok_or(BundleError.MissingAsset("banners", banner.1))?;
+        rules.check_role("banners", bytes, MAX_BANNER_WIDTH, MAX_BANNER_HEIGHT)?;
+    }
+    Ok(())
+}
+
+fun manifest_of(m: Value): Result<Manifest, BundleError> {
+    let mut banners: (string, string)[] = [];
+    if let Some(given) = m.get("banners") {
+        let entries = given.as_map().ok_or(BundleError.Wrong("banners", "must be a map"))?;
+        for e of entries {
+            match (e.key, e.value) {
+                (Text(page), Text(name)) => banners.push((page, name)),
+                _ => {
+                    return Err(BundleError.Wrong("banners", "must map pages to asset names"));
+                }
+            }
+        }
+    }
+    // Missing in bundles from before PRP-012: nothing beyond the own host.
+    let mut servers: string[] = [];
+    if let Some(given) = m.get("servers") {
+        let names = match given {
+            Array(xs) => xs,
+            _ => {
+                return Err(BundleError.Wrong("servers", "must be a list of names"));
+            }
+        };
+        // Counted before anything is copied out.
+        if names.len > MAX_SERVERS {
+            return Err(
+                BundleError.Wrong("servers", "lists too many ({names.len}; at most {MAX_SERVERS})"),
+            );
+        }
+        for n of names {
+            match n {
+                Text(name) => servers.push(name),
+                _ => {
+                    return Err(BundleError.Wrong("servers", "must be a list of names"));
+                }
+            }
+        }
+    }
+    let permissions = names_of(m, "permissions", MAX_PERMISSIONS)?;
+    empty(m, "prerendered")?;
+    Ok(Manifest {
+        contract: whole(m, "contract")?,
+        name: text(m, "name")?,
+        version: text(m, "version")?,
+        description: maybe_text(m, "description")?,
+        state_version: whole(m, "state_version")?,
+        icon: maybe_text(m, "icon")?,
+        banners: banners,
+        servers: servers,
+        permissions: permissions,
+        controls: controls_of(m)?,
+    })
+}
+
+/** A manifest's `controls`, if it has them: two lists of names. */
+fun controls_of(m: Value): Result<Option<Controls>, BundleError> {
+    let given = match m.get("controls") {
+        None => {
+            return Ok(None);
+        }
+        Some(Map(_)) => m.get("controls").unwrap(),
+        Some(_) => {
+            return Err(
+                BundleError.Wrong("controls", "must map address and settings to lists of names"),
+            );
+        }
+    };
+    let shape = BundleError.Wrong("controls", "must map address and settings to lists of names");
+    let address = names_of(given, "address", ADDRESS_ICONS.len).map_err(fun(_) = shape)?;
+    let settings = names_of(given, "settings", SETTINGS_ROWS.len).map_err(fun(_) = shape)?;
+    Ok(Some(Controls { address: address, settings: settings }))
+}
+
+/** Each control a known one, named once. */
+fun check_controls(c: Controls): Result<(), BundleError> {
+    let mut seen: string[] = [];
+    for n of c.address {
+        if !ADDRESS_ICONS.any(fun(k: string) = k == n) {
+            return Err(BundleError.Wrong("controls", "names \"{n}\", which isn't an address icon"));
+        }
+        if seen.any(fun(s: string) = s == n) {
+            return Err(BundleError.Wrong("controls", "names \"{n}\" twice"));
+        }
+        seen.push(n);
+    }
+    let mut rows: string[] = [];
+    for n of c.settings {
+        if !SETTINGS_ROWS.any(fun(k: string) = k == n) {
+            return Err(BundleError.Wrong("controls", "names \"{n}\", which isn't a settings row"));
+        }
+        if rows.any(fun(s: string) = s == n) {
+            return Err(BundleError.Wrong("controls", "names \"{n}\" twice"));
+        }
+        rows.push(n);
+    }
+    Ok(())
+}
+
+/**
+ * A manifest's list of names (`permissions`), counted before anything is
+ * copied out; each name's own rules are `check_permissions`'.
+ */
+fun names_of(m: Value, field: string, most: i64): Result<string[], BundleError> {
+    let given = match m.get(field) {
+        Some(Array(xs)) => xs,
+        None => [],
+        Some(_) => {
+            return Err(BundleError.Wrong(field, "must be a list of names"));
+        }
+    };
+    if given.len > most {
+        return Err(BundleError.Wrong(field, "lists too many ({given.len}; at most {most})"));
+    }
+    let mut out: string[] = [];
+    for v of given {
+        match v {
+            Text(n) => out.push(n),
+            _ => {
+                return Err(BundleError.Wrong(field, "must be a list of names"));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/** Permission names: lowercase letters and `_`, 1 to `MAX_PERMISSION_NAME` bytes, each once. */
+fun check_permissions(names: string[]): Result<(), BundleError> {
+    if names.len > MAX_PERMISSIONS {
+        return Err(
+            BundleError.Wrong(
+                "permissions",
+                "lists too many ({names.len}; at most {MAX_PERMISSIONS})",
+            ),
+        );
+    }
+    let mut seen: string[] = [];
+    for n of names {
+        let shaped = n.len >= 1 && n.len <= MAX_PERMISSION_NAME && n.chars().all(
+            fun(c: char) = c >= 'a' && c <= 'z' || c == '_',
+        );
+        if !shaped {
+            return Err(
+                BundleError.Wrong("permissions", "lists \"{n}\", which isn't a permission name"),
+            );
+        }
+        if seen.any(fun(s: string) = s == n) {
+            return Err(BundleError.Wrong("permissions", "lists \"{n}\" twice"));
+        }
+        seen.push(n);
+    }
+    Ok(())
+}
+
+fun assets_of(root: Value): Result<(string, u8[])[], BundleError> {
+    let entries = match root.get("assets") {
+        Some(a) => a.as_map().ok_or(BundleError.Wrong("assets", "must be a map"))?,
+        None => [],
+    };
+    // Counted before anything is copied out.
+    if entries.len > MAX_ASSETS {
+        return Err(BundleError.TooManyAssets(entries.len));
+    }
+    let mut out: (string, u8[])[] = [];
+    for e of entries {
+        match (e.key, e.value) {
+            (Text(name), Bytes(b)) => out.push((name, b)),
+            (Text(name), _) => {
+                return Err(BundleError.AssetNotBytes(name));
+            }
+            _ => {
+                return Err(BundleError.Wrong("assets", "must be named by text"));
+            }
+        }
+    }
+    Ok(out)
+}
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };
+
+fun whole(m: Value, field: string): Result<i64, BundleError> = match m.get(field) {
+    Some(v) => v.as_i64().ok_or(BundleError.Wrong(field, "must be a whole number")),
+    None => Err(BundleError.Missing(field)),
+};
+
+fun text(m: Value, field: string): Result<string, BundleError> = match m.get(field) {
+    Some(Text(s)) => Ok(s),
+    Some(_) => Err(BundleError.Wrong(field, "must be text")),
+    None => Err(BundleError.Missing(field)),
+};
+
+fun maybe_text(m: Value, field: string): Result<Option<string>, BundleError> = match m.get(field) {
+    Some(Text(s)) => Ok(Some(s)),
+    Some(_) => Err(BundleError.Wrong(field, "must be text")),
+    None => Ok(None),
+};
+
+/** A field that, if present, must be an empty array in format 1. */
+fun empty(m: Value, field: string): Result<(), BundleError> = match m.get(field) {
+    Some(Array(xs)) if xs.len == 0 => Ok(()),
+    Some(Array(_)) => Err(BundleError.NotEmpty(field)),
+    Some(_) => Err(BundleError.Wrong(field, "must be a list")),
+    None => Ok(()),
+};

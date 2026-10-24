@@ -1,0 +1,169 @@
+/**
+ * Apps' requests (PRP-012): what a page may reach (`allowed`), asking for
+ * one (`ask`: checked, then sent in a kivuli task, at most
+ * `MAX_IN_FLIGHT` per page), sending it (`send`, in the task: no cookie
+ * jar, no redirects followed, bounded in time and size), and the result
+ * arriving (`arrive`: dropped for a closed tab or an older load, else
+ * answered through the app's `handle`). Nothing is sent from `update`.
+ *
+ * Depends on: kivuli, std.http, cbor, net.network, net.dialing, net.address, window.tabs, window.window, people.people, guest.contract, ui.render, window.actions, guest.limits
+ * Used by: guest.effects, shell
+ */
+import kivuli { Cmd };
+import std.http { Limits };
+import cbor { Value };
+import net.network { Request, Reply, Allowed, NetworkError, check_request, reason };
+import net.dialing { Network, Dialed, dial };
+import net.address { parse, shown };
+import window.tabs { AppPage, handle };
+import window.window { Model, with_tab, app };
+import people.people { person };
+import guest.contract { reply };
+import ui.render;
+import window.actions { Msg };
+import guest.limits { MAX_IN_FLIGHT, MAX_BODY_DOWN, REQUEST_TIMEOUT_MS };
+
+/**
+ * Returns what a page may reach: a signed app its host and declared
+ * servers, minus what you switched off; an unsigned one (a file, or a
+ * development server) only the servers on this computer, and its own
+ * development server.
+ *
+ * Example:
+ *     allowed(m, page)
+ */
+public fun allowed(m: Model, p: AppPage): Allowed {
+    let declared = match p.manifest {
+        Some(man) => man.servers,
+        None => [],
+    };
+    let at = parse(p.path);
+    // A path that isn't a remote address is a file, or this computer.
+    let local = match at {
+        Ok(a) => !a.remote,
+        Err(_) => true,
+    };
+    match p.trust {
+        Some(t) => Allowed {
+            own: Some(t.host),
+            servers: declared,
+            off: person(m.people, t.host, t.origin).off,
+            local: local,
+        },
+        None => Allowed {
+            own: match at {
+                Ok(a) if !a.remote => Some(shown(a)),
+                _ => None,
+            },
+            servers: declared.filter(fun(s: string) = s.starts_with("localhost:")),
+            off: [],
+            local: true,
+        },
+    }
+}
+
+/**
+ * Asks for one request for tab `id`: refused at once (with the sentence
+ * the app gets), or counted in flight and returned as a task.
+ *
+ * @returns the model; the answer to give now, if refused; the task
+ *
+ * Example:
+ *     ask(m, id, msg, request)
+ */
+public fun ask(m: Model, id: i64, msg: Value, r: Request): (Model, Option<Value>, Cmd<Msg>) {
+    let p = match app(m, id) {
+        Some(p) => p,
+        None => {
+            return (m, None, Cmd.none());
+        }
+    };
+    let nothing: Cmd<Msg> = Cmd.none();
+    let refuse = fun(e: NetworkError) = (m, Some(reply(Reply.Failed(reason(e, p.name)))), nothing);
+    let checked = match check_request(r, allowed(m, p)) {
+        Ok(c) => c,
+        Err(e) => {
+            return refuse(e);
+        }
+    };
+    if p.in_flight >= MAX_IN_FLIGHT {
+        return refuse(NetworkError.TooMany);
+    }
+    let load = p.load;
+    // Plain data for the task: the checked request and the window's network.
+    let net = m.network;
+    let task = Cmd.task(
+        fun(): Reply = send(checked, net, REQUEST_TIMEOUT_MS, MAX_BODY_DOWN),
+        fun(got: Reply) = Msg.Responded(id, load, msg, got),
+    );
+    let counted = with_tab(
+        m,
+        id,
+        fun(page: AppPage) = AppPage { in_flight: page.in_flight + 1, ..page },
+    );
+    (counted, None, task)
+}
+
+/**
+ * Sends one checked request and waits for it. Safe to run in a task; never
+ * call it from `update`.
+ *
+ * @param r a request `network.check_request` returned
+ * @param net the system's roots (and, in tests only, an extra CA)
+ * @param timeout_ms how long it may take
+ * @param max_body the largest response body, in bytes
+ * @returns the response, a redirect included; or why it failed, as a sentence
+ *
+ * Example:
+ *     send(checked, Network { ca_file: None, hosts: [] }, REQUEST_TIMEOUT_MS, MAX_BODY_DOWN)
+ */
+public fun send(r: Request, net: Network, timeout_ms: i64, max_body: i64): Reply {
+    let at = match parse(r.url) {
+        Ok(at) => at,
+        Err(_) => {
+            return Reply.Failed(reason(NetworkError.BadUrl, ""));
+        }
+    };
+    let host = shown(at);
+    let bounds = Limits { body: max_body, timeout_ms: timeout_ms, ..http.limits() };
+    let mut headers: Map<string, string> = #{};
+    for (k, v) of r.headers {
+        headers[k] = v;
+    }
+    // Looked up, checked and pinned (PRP-013): a refusal sends nothing.
+    match dial(at, r.method, r.url, headers, r.body, bounds, net) {
+        Ok(got) => Reply.Got(got.status, got.headers, got.body),
+        Err(Refused(e)) => Reply.Failed(reason(e, "")),
+        Err(Failed(why)) => Reply.Failed(failure(host, why, timeout_ms)),
+    }
+}
+
+/**
+ * Takes a request's result: dropped when its tab closed or loaded again
+ * since; otherwise answered to the app, which may ask again.
+ *
+ * Example:
+ *     arrive(m, id, load, msg, got)
+ */
+public fun arrive(m: Model, id: i64, load: i64, msg: Value, got: Reply): Model = match app(m, id) {
+    Some(p) if p.load == load => with_tab(m, id, fun(page: AppPage) {
+        let less = AppPage {
+            in_flight: if page.in_flight > 0 { page.in_flight - 1 } else { 0 },
+            ..page,
+        };
+        handle(less, render.Msg.Answer(msg, reply(got)))
+    }),
+    _ => m,
+};
+
+/** A plain sentence for a failed request, as `fetching` words a failed load. */
+fun failure(host: string, why: string, timeout_ms: i64): string = if why == "timed out" {
+    let n = timeout_ms / 1000;
+    "{host} didn't answer in {n} {if n == 1 { "second" } else { "seconds" }}"
+} else if why == "response too large" {
+    "The response from {host} was larger than {MAX_BODY_DOWN / (1024 * 1024)} MB"
+} else if why.contains("certificate verify failed") {
+    "{host}'s certificate couldn't be verified: {why}"
+} else {
+    "Couldn't reach {host}: {why}"
+};

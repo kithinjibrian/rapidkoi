@@ -1,6 +1,6 @@
 // Identity (PRP-011): the master secret, each app's key derived from it,
 // and host-bound sign-in signatures. Writes only under test/tmp/.
-import rapidkoi.identity {
+import rapidkoi.people.identity {
     Master,
     IdentityError,
     master,
@@ -10,7 +10,7 @@ import rapidkoi.identity {
     user_label,
     reason,
 };
-import rapidkoi.store { Store, store_at, save };
+import rapidkoi.data.store { Store, store_at, save };
 import std.crypto { ed25519_verify };
 import std.fs;
 

@@ -2,15 +2,33 @@
 // sign-in signatures, for signed apps only, as you've chosen in the Account
 // page. An echo guest's state becomes the answer it got, so each test reads
 // exactly what Rapidkoi sent. Writes only under test/tmp/.
-import rapidkoi.shell { Model, with_pages, view };
-import rapidkoi.effects { answer_all };
-import rapidkoi.saving { restore };
-import rapidkoi.tabs { AppPage, open_module, state_of, with_saved };
-import rapidkoi.verify { Trust, Standing };
-import rapidkoi.identity { master, public_key, sign_in_message };
-import rapidkoi.people { People, Person, person, with_person };
-import rapidkoi.contract { answer };
-import rapidkoi.store { Store, store_at };
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.guest.effects { answer_all };
+import rapidkoi.data.saving { restore };
+import rapidkoi.window.tabs { AppPage, Pin, Screen, open_module, state_of };
+import rapidkoi.window.restarts { with_saved };
+import rapidkoi.window.actions { Msg, Approval, Answer, PanelPage };
+import rapidkoi.bundles.permissions { Permission, Setting };
+import rapidkoi.people.access { key_of };
+import rapidkoi.bundles.bundle { Manifest };
+import rapidkoi.guest.home { pins_of, left_off_of, session_of };
+import rapidkoi.data.remembered { Open, OpenTab };
+import kivuli { Cmd };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.people.identity { master, public_key, sign_in_message };
+import rapidkoi.people.people {
+    People,
+    Person,
+    person,
+    with_person,
+    nobody,
+    with_setting,
+    setting_of,
+};
+import rapidkoi.guest.contract { answer };
+import rapidkoi.data.preferences { prefs_value };
+import rapidkoi.data.store { Store, store_at };
 import cbor { Value, Entry, encode, decode, Limits };
 import std.crypto { ed25519_verify };
 import std.fs;
@@ -170,7 +188,10 @@ fun greeting(): AppPage {
 fun an_app_shows_your_name_without_knowing_it() {
     let engine = Engine.new();
     let m = with_pages(engine, [greeting()]);
-    let named = Model { people: People { first: "Brian", last: "Kithinji", apps: [] }, ..m };
+    let named = Model {
+        people: People { first: "Brian", last: "Kithinji", apps: [], grants: [], looks: [] },
+        ..m,
+    };
     assert_eq(texts(view(named)).any(fun(x: string) = x == "Hello, Brian Kithinji!"), true);
     // No name set: nothing in its place.
     assert_eq(texts(view(m)).any(fun(x: string) = x == "Hello,  !"), true);
@@ -213,4 +234,210 @@ fun a_resumed_app_asks_again_when_opened() {
     let pk = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
     assert_eq(got(m), answer(t("me"), Value.Bytes(pk)));
     clean(s.dir);
+}
+
+/** A v2 echo page asking `kind` at init, its manifest declaring `permissions` (PRP-030). */
+fun holding(kind: string, extra: (string, Value)[], declared: string[]): AppPage {
+    let mut fields = [("kind", t(kind)), ("msg", t("got"))];
+    for e of extra {
+        fields.push(e);
+    }
+    AppPage {
+        manifest: Some(Manifest {
+            contract: 2,
+            name: "notes",
+            version: "1.0.0",
+            description: None,
+            state_version: 1,
+            icon: None,
+            banners: [],
+            servers: [],
+            permissions: declared,
+            controls: None,
+        }),
+        ..page([kv(fields)], false),
+    }
+}
+
+/** A window with your pins showing `p`, its effects answered: the model and the commands. */
+fun asked(p: AppPage): (Model, Cmd<Msg>) = answer_all(Model {
+    pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }],
+    ..with_pages(Engine.new(), [p]),
+});
+
+fun stopped_why(m: Model): string = match m.tabs[0].page.screen {
+    Stopped(why, _) => why,
+    _ => "running",
+};
+
+/** Every message a command sends after a delay. */
+fun later(c: Cmd<Msg>): Msg[] = match c {
+    After(_, msg) => [msg],
+    Batch(cs) => {
+        let mut all: Msg[] = [];
+        for inner of cs {
+            for msg of later(inner) {
+                all.push(msg);
+            }
+        }
+        all
+    }
+    _ => [],
+};
+
+@test
+fun a_holder_reads_your_pins_and_where_you_left_off() {
+    let (m, _) = asked(holding("pins", [], ["read_pins"]));
+    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), pins_of(m))));
+    let (left, _) = asked(holding("left_off", [], ["read_left_off"]));
+    assert_eq(state_of(left.tabs[0].page), Some(answer(t("got"), left_off_of(left))));
+}
+
+@test
+fun asking_without_declaring_stops_the_app() {
+    // The owner, session 166: reaching for what it didn't declare is a failure on screen.
+    let (m, c) = asked(holding("pins", [], ["read_left_off"]));
+    assert_eq(stopped_why(m), "This app asked for reading your pins without declaring it");
+    let (left, _) = asked(holding("left_off", [], []));
+    assert_eq(
+        stopped_why(left),
+        "This app asked for reading where you left off without declaring it",
+    );
+    let (open, sent) = asked(holding("open_pin", [("index", Value.int(0))], ["read_pins"]));
+    assert_eq(stopped_why(open), "This app asked for opening your apps without declaring it");
+    assert_eq(later(sent), []);
+    let (cont, _) = asked(holding("continue", [], []));
+    assert_eq(stopped_why(cont), "This app asked for opening your apps without declaring it");
+    assert_eq(later(c), []);
+}
+
+@test
+fun open_pin_and_continue_open_through_the_window() {
+    let (_, c) = asked(holding("open_pin", [("index", Value.int(0))], ["open_apps"]));
+    assert_eq(later(c), [Msg.OpenPinned("rapidkoi://quote.dafifi.net")]);
+    let (_, past) = asked(holding("open_pin", [("index", Value.int(1))], ["open_apps"]));
+    assert_eq(later(past), []);
+    // Nothing left off: Continue opens nothing.
+    let (_, none) = asked(holding("continue", [], ["open_apps"]));
+    assert_eq(later(none), []);
+}
+
+/** `asked`, with the person's setting for `p`'s permission. */
+fun set(p: AppPage, permission: Permission, s: Setting): (Model, Cmd<Msg>) = answer_all(Model {
+    pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }],
+    people: with_setting(nobody(), key_of(p), permission, s),
+    ..with_pages(Engine.new(), [p]),
+});
+
+@test
+fun blocked_answers_with_nothing_and_the_app_runs_on() {
+    // PRP-031: the person decides; blocking isn't the app's failure.
+    let (m, _) = set(holding("pins", [], ["read_pins"]), Permission.ReadPins, Setting.Blocked);
+    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), Value.Array([]))));
+    let (left, _) = set(
+        holding("left_off", [], ["read_left_off"]),
+        Permission.ReadLeftOff,
+        Setting.Blocked,
+    );
+    assert_eq(state_of(left.tabs[0].page), Some(answer(t("got"), Value.Null)));
+    let (_, c) = set(
+        holding("open_pin", [("index", Value.int(0))], ["open_apps"]),
+        Permission.OpenApps,
+        Setting.Blocked,
+    );
+    assert_eq(later(c), []);
+}
+
+@test
+fun needs_approval_waits_for_the_person() {
+    let p = holding("pins", [], ["read_pins"]);
+    let (m, _) = set(p, Permission.ReadPins, Setting.Ask);
+    assert_eq(
+        m.approval,
+        Some(Approval { tab: Some(0), permission: Permission.ReadPins, app: "notes" }),
+    );
+    assert_eq(m.tabs[0].page.asks.len, 1);
+    // Allow once: answered; the setting stays.
+    let (once, _) = update(m, Msg.Approve(Answer.Once));
+    assert_eq(state_of(once.tabs[0].page), Some(answer(t("got"), pins_of(once))));
+    assert_eq(
+        (once.approval, setting_of(once.people, key_of(p), Permission.ReadPins)),
+        (None, Setting.Ask),
+    );
+    // Always allow: answered, and allowed from now on.
+    let (always, _) = update(m, Msg.Approve(Answer.Always));
+    assert_eq(state_of(always.tabs[0].page), Some(answer(t("got"), pins_of(always))));
+    assert_eq(setting_of(always.people, key_of(p), Permission.ReadPins), Setting.Allowed);
+    // Don't allow: answered as blocked.
+    let (deny, _) = update(m, Msg.Approve(Answer.Deny));
+    assert_eq(state_of(deny.tabs[0].page), Some(answer(t("got"), Value.Array([]))));
+    assert_eq(deny.approval, None);
+}
+
+@test
+fun leaving_the_page_is_dont_allow() {
+    let p = holding("pins", [], ["read_pins"]);
+    let (m, _) = set(p, Permission.ReadPins, Setting.Ask);
+    let (left, _) = update(m, Msg.NewTab);
+    assert_eq(left.approval, None);
+    assert_eq(state_of(left.tabs[0].page), Some(answer(t("got"), Value.Array([]))));
+}
+
+@test
+fun an_approval_waits_while_a_card_is_open() {
+    // Session 171: not over the settings you're changing; asked once it closes.
+    let p = holding("pins", [], ["read_pins"]);
+    let m = Model {
+        pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }],
+        people: with_setting(nobody(), key_of(p), Permission.ReadPins, Setting.Ask),
+        panel: Some(PanelPage.Permissions),
+        ..with_pages(Engine.new(), [p]),
+    };
+    let (open, _) = answer_all(m);
+    assert_eq((open.approval, open.tabs[0].page.asks.len), (None, 1));
+    let (closed, _) = update(open, Msg.ClosePanel);
+    assert_eq(closed.approval.is_some(), true);
+}
+
+@test
+fun the_new_tab_reads_and_restores_the_last_session() {
+    // PRP-035: behind restore_session, like the other built-in reads.
+    let o = Open {
+        tabs: [OpenTab { link: [], path: "a.wasm", instance: "", label: None, seen: 0 }],
+        current: None,
+    };
+    let (m, _) = answer_all(Model {
+        previous: Some(o),
+        ..with_pages(Engine.new(), [holding("session", [], ["restore_session"])]),
+    });
+    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), session_of(m))));
+    let (_, c) = asked(holding("restore_session", [], ["restore_session"]));
+    assert_eq(later(c), [Msg.RestoreSession]);
+    let (refused, _) = asked(holding("restore_session", [], ["open_apps"]));
+    assert_eq(
+        stopped_why(refused),
+        "This app asked for restoring your last session without declaring it",
+    );
+}
+
+@test
+fun any_app_reads_the_person_s_choices() {
+    // PRP-038: theme, more contrast and text size, no permission needed.
+    let (m, _) = asked(holding("preferences", [], []));
+    assert_eq(state_of(m.tabs[0].page), Some(answer(t("got"), prefs_value(m.prefs))));
+}
+
+@test
+fun only_rapidkoi_s_settings_may_change_them() {
+    let light = [("name", t("theme")), ("value", t("light"))];
+    let (m, _) = asked(holding("set_preference", light, ["change_settings"]));
+    assert_eq((m.prefs.light, m.theme.name), (true, "light"));
+    let (no, _) = asked(holding("set_preference", light, []));
+    assert_eq(
+        stopped_why(no),
+        "This app asked for changing Rapidkoi's settings without declaring it",
+    );
+    let bad = [("name", t("text_size")), ("value", Value.int(135))];
+    let (refused, _) = asked(holding("set_preference", bad, ["change_settings"]));
+    assert_eq(stopped_why(refused), "text_size must be 80 to 200, in steps of 10");
 }

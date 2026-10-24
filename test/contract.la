@@ -1,6 +1,6 @@
 // Contract v1, pure: CBOR bytes to a Node tree, update results, and event
 // envelopes. No guest and no display.
-import rapidkoi.contract {
+import rapidkoi.guest.contract {
     Node,
     TextStyle,
     ButtonLook,
@@ -17,7 +17,7 @@ import rapidkoi.contract {
     envelope,
 };
 import cbor { Value, Entry, encode, decode, Limits };
-import rapidkoi.network { Request, Reply };
+import rapidkoi.net.network { Request, Reply };
 import support { t, kv, leaf, parent, wide, deep };
 
 fun tree(v: Value): Result<Node, ContractError> = read_tree(encode(v)).map(
@@ -447,5 +447,41 @@ fun events_say_what_happened() {
     assert_eq(
         envelope(t("name"), Some("Amina")),
         encode(kv([("event", t("message")), ("msg", t("name")), ("value", t("Amina"))])),
+    );
+}
+
+@test
+fun the_new_tabs_asks_decode() {
+    let u = read_update(
+        v2([
+            ask("pins", []),
+            ask("left_off", []),
+            ask("open_pin", [("index", Value.int(2))]),
+            ask("continue", []),
+            ask("session", []),
+            ask("restore_session", []),
+        ]),
+    ).unwrap();
+    assert_eq(u.effects, [
+        Effect.Pins(t("got")),
+        Effect.LeftOff(t("got")),
+        Effect.OpenPin(t("got"), 2),
+        Effect.Continue(t("got")),
+        Effect.Session(t("got")),
+        Effect.RestoreSession(t("got")),
+    ]);
+}
+
+@test
+fun open_pin_needs_an_index() {
+    assert_eq(
+        v2_why(v2([ask("open_pin", [])])).contains("an open_pin needs an index of 0 or more"),
+        true,
+    );
+    assert_eq(
+        v2_why(v2([ask("open_pin", [("index", Value.int(-1))])])).contains(
+            "an open_pin needs an index of 0 or more",
+        ),
+        true,
     );
 }

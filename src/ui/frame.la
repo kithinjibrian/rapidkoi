@@ -1,0 +1,188 @@
+/**
+ * Rapidkoi's own small pieces of the frame, pure: how it names an app and
+ * where it came from (the trust marker, drawn only by Rapidkoi, never by an
+ * app), app icons, and the changed-key question. The frame's
+ * layout is `layout.la`.
+ *
+ * Depends on: kivuli, window.actions, net.address, window.tabs, trust.verify, trust.keys, guest.nodes, ui.tokens, ui.themes
+ * Used by: ui.layout, ui.addressbox, ui.content
+ */
+import kivuli { View, Image, Align, button, column, row, text };
+import window.actions { Msg };
+import net.address { parse, link_of };
+import bundles.bundle { Manifest };
+import window.tabs { AppPage, is_loading };
+import trust.verify { Change, Standing };
+import trust.keys { fingerprint };
+import guest.nodes { ButtonLook };
+import ui.tokens { SPACE_SM, gap };
+import ui.themes { Theme, title, dim, button as button_look };
+
+/**
+ * Returns what a tab is called: "name · title", or the name alone.
+ *
+ * @param p the app page
+ * @returns its label
+ *
+ * Example:
+ *     label(page)
+ */
+public fun label(p: AppPage): string = match p.title {
+    Some(t) => "{p.name} · {t}",
+    None => p.name,
+};
+
+/**
+ * Returns a name's first character, upper-cased: the stand-in for app art
+ * until PRP-003 (DECISION-018).
+ *
+ * @param name the app's name
+ * @returns one character, or "?" for an empty name
+ *
+ * Example:
+ *     initial("counter")
+ */
+public fun initial(name: string): string {
+    for c of name.chars() {
+        return "{c.to_upper()}";
+    }
+    "?"
+}
+
+/**
+ * Returns how Rapidkoi names where an app came from: `✓ localhost:8000 ·
+ * verified (development)` from a signed site, `✓ host` for a signed file
+ * whose key is trusted, `⚠ host · not confirmed` for one whose isn't,
+ * `🛠 localhost:8000 · development` from an unsigned development server,
+ * `📦 file · local bundle` for a `.rkb`, `📄 file · local file` for a bare
+ * module, and `localhost:8000 · loading…` while it loads. Drawn only by
+ * Rapidkoi, never by an app.
+ *
+ * Example:
+ *     marker(page, "counter.rkb")
+ */
+public fun marker(p: AppPage, shown: string): string = match p.trust {
+    // Nothing claims verified or not confirmed before every check has passed.
+    None if is_loading(p) => "{p.name} · loading…",
+    // A signed app: its host, after the icon (`marker_icon`); the words are in `marker_note`.
+    Some(t) => match t.standing {
+        NotConfirmed => "{t.host} · not confirmed",
+        _ => if t.separate { "{t.host} · new publisher" } else { t.host },
+    },
+    None => match parse(p.path) {
+        Ok(a) => "🛠 {address.shown(a)} · development",
+        Err(_) => match p.manifest {
+            Some(_) => "📦 {shown} · local bundle",
+            None => "📄 {shown} · local file",
+        },
+    },
+};
+
+/**
+ * Returns the icon before a signed app's marker: a shield when its
+ * publisher's key is verified or trusted, a warning when it isn't
+ * confirmed; none for anything unsigned (its marker says it in words).
+ *
+ * Example:
+ *     marker_icon(page)
+ */
+public fun marker_icon(p: AppPage): Option<string> = match p.trust {
+    Some(t) => match t.standing {
+        NotConfirmed => Some("dialog-warning-symbolic"),
+        _ => Some("security-high-symbolic"),
+    },
+    None => None,
+};
+
+/**
+ * Returns what the marker means, in words, for its tooltip: `HOST ·
+ * verified` (`(development)` on this machine), `HOST · trusted` for a
+ * signed file, `HOST · not confirmed`; the marker itself otherwise.
+ *
+ * Example:
+ *     marker_note(page, "counter.rkb")
+ */
+public fun marker_note(p: AppPage, shown: string): string = match p.trust {
+    Some(t) => {
+        let separate = if t.separate { " · new publisher" } else { "" };
+        match t.standing {
+            // "(development)" only for this machine: a remote host is the real thing.
+            Verified => if remote(p.path) {
+                "{t.host} · verified{separate}"
+            } else {
+                "{t.host} · verified (development){separate}"
+            },
+            Trusted => "{t.host} · trusted{separate}",
+            NotConfirmed => "{t.host} · not confirmed",
+        }
+    }
+    None => marker(p, shown),
+};
+
+/** Whether a page came from another machine's address. */
+fun remote(path: string): bool = parse(path).map(fun(a) = a.remote).unwrap_or(false);
+
+/**
+ * The page asking about a key that changed without its old key's approval.
+ * There's no "run anyway": keep the version that was open, or open the new
+ * publisher as a separate app.
+ *
+ * @param c the change
+ * @param open whether a page was open before (otherwise keeping closes the tab)
+ * @param t the theme
+ *
+ * Example:
+ *     unapproved(change, true, m.theme)
+ */
+public fun unapproved(c: Change, open: bool, t: Theme): View<Msg> = column([
+    text("{c.host} is now signed by a different key").style(title(t)).align(Align.Start),
+    text("This can mean the site changed owners.").style(dim(t)).align(Align.Start),
+    text("Before: key {fingerprint(c.old)} · Now: key {fingerprint(c.new)}").style(dim(t)).align(
+        Align.Start,
+    ),
+    row([
+        button(if open { "Keep using my version" } else { "Don't open it" }, Msg.KeepMine).style(
+            button_look(t, ButtonLook.Primary),
+        ),
+        button("Open as a separate app", Msg.SeparateApp).style(button_look(t, ButtonLook.Normal)),
+    ]).style([gap(SPACE_SM)]),
+]).style([gap(SPACE_SM)]);
+
+/**
+ * Returns an app's icon as a kivuli image, keyed by its file and role, so
+ * kivuli decodes it once, not on every render.
+ *
+ * @param path the app's file
+ * @param icon its icon's PNG bytes, if any
+ * @returns the keyed image, or `None`
+ *
+ * Example:
+ *     icon_of(page.path, page.icon)
+ */
+public fun icon_of(path: string, icon: Option<u8[]>): Option<Image> = icon.map(
+    fun(b: u8[]) = Image.Bytes("{path}#icon", b),
+);
+
+/**
+ * Returns the last part of a path or address: what the bar shows for it.
+ *
+ * Example:
+ *     file_of("apps/counter.wasm")
+ */
+public fun file_of(path: string): string {
+    let parts = path.split("/");
+    parts[parts.len - 1]
+}
+
+/**
+ * Returns what the address box shows for an app (PRP-036): an address's
+ * full link, its running version and the fields the app named; a file's
+ * name.
+ *
+ * Example:
+ *     address_of(page)
+ */
+public fun address_of(p: AppPage): string = match parse(p.path) {
+    Ok(a) => link_of(a, p.manifest.map(fun(m: Manifest) = m.version), p.fields),
+    Err(_) => file_of(p.path),
+};

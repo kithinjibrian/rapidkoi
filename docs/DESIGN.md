@@ -1,140 +1,130 @@
 # Design System — rapidkoi
 
-rapidkoi draws nothing itself. kivuli renders to GTK 4 widgets, and every colour comes from the user's GTK theme (Adwaita by default). This file fixes the numbers the app passes to kivuli's modifiers and which kivuli styles mean what. See `../kivuli/docs/DESIGN.md` for how kivuli maps them onto GTK.
+rapidkoi draws nothing itself: kivuli (0.18) renders to GTK 4 widgets. Every colour comes from **Rapidkoi's theme** (`src/ui/themes.la`), never the desktop's GTK theme, light or dark (DECISION-031). Every size, spacing and text size comes from the tokens in `src/ui/tokens.la`. Both reach kivuli through `.style([...])`, its one way to style a node.
 
-The values below are a starting scale. Revisit them once DECISION-001 says what the app looks like.
+The screens of the old view (bar, rail, home, info panel, Account and Access pages) were deleted in PRP-017 (DECISION-030); their designs are in this file's git history, for when the redesign brings each back.
 
 ---
 
 ## Colour
 
-**App content** has no colour tokens. Colours come only from the GTK theme, through kivuli:
+**Everything** takes Rapidkoi's theme: its own parts and apps' content alike. Apps never set colours: they name a text style (`body`, `title`, `heading`, `dim`) or a button kind (`normal`, `primary`, `danger`, `subtle`), and the theme decides the look. Hex values live only in `src/ui/themes.la`.
 
-| Intent | kivuli |
-|--------|--------|
-| The one main action in a view | `button(…).style(ButtonStyle.Primary)` |
-| Deletes or discards | `.style(ButtonStyle.Danger)` |
-| Low-emphasis, toolbar-like | `.style(ButtonStyle.Subtle)` |
-| Secondary text | `text(…).dim()` |
+Dark is first and the default (the frame and page are the owner's colours, 2026-10-17; the rest proposed in PRP-017):
 
-**Rapidkoi's own parts** take colours from a **Rapidkoi theme** (`src/themes.la`), the owner's choice (2026-10-17, sessions 10 and 12; inspiration: `docs/source/meetings/2026-10-17-ui/inspiration-opera-frame.png`).
-- **The frame is one surface:** the top bar and the rail are the same colour, with no shadow or line between them.
-- **The page (home or an app) sits flush inside it**: it meets the header bar above, the rail on its right, and the window's edges. **Only its top-right corner curves** (`PAGE_RADIUS`), where the frame wraps it (the owner, session 14; screenshot `2026-10-17-ui/screenshot-4-after-header-look.png`).
-- Dark is first and the default:
+| Field | Dark | Used for |
+|-------|------|----------|
+| `frame` | `#242424` | the header bar, the sidebar and the window behind the page, one flat surface (back from the gradient, session 118); cards and popovers (`Token.Card`, `Popover`) |
+| `accent_end` | `#ff2e63` | the brand gradient's other end (`#ff7700 → #ff2e63`, session 112): kept, worn by nothing for now |
+| `on_frame` | `#ffffff` | icons, text and the window controls' glyphs on the frame (session 116) |
+| `frame_hover` | `#ffffff26` | a window control's round hover on the frame (`window_controls(t)`; close turns `danger`) |
+| `page` | `#161616` | the content area, the address box, the suggestions card, text fields |
+| `edge` | `#3a3a3a` | thin lines: the suggestions card, text fields |
+| `scrim` | `#00000060` | kept for the info panel's return |
+| `text` | `#e8e8e8` | all text |
+| `dim` | `#e8e8e88c` | secondary text (text at 55%) |
+| `control` / `_hover` / `_press` | `#2e2e2e` / `#383838` / `#424242` | normal buttons |
+| `accent` / `accent_hover`, `on_accent` | `#ff7700` / `#ff8c2e`, `#161616` | **Rapidkoi's brand colour** (the owner, session 111): primary buttons, focus rings, a focused field's edge; dark text on it (white reads at 2.66:1) |
+| `danger` / `danger_hover`, `on_danger` | `#c01c28` / `#d42c38`, `#ffffff` | danger buttons |
+| `subtle_hover` | `#ffffff14` | subtle buttons under the pointer (transparent at rest) |
+| `tooltip` | `#000000` | behind every tooltip's text (`tooltips(t)` on the root, padded `SPACE_MD` × `SPACE_SM`, rounded `BUTTON_RADIUS`, session 146) |
+| `clear` | `#00000000` | nothing: the click-catching layer |
 
-| Field | Dark | Look |
-|-------|------|------|
-| `frame` | `#242424`, flat (no shadow or edge line) | `Look.Frame`: the header bar (`.header_style`), the window around the page, and the rail on it |
-| `page` | `#161616` | `Look.Page`: the page; only its top-right corner curves, `PAGE_RADIUS` (12 px) |
-| `scrim` | `#00000060` | `Look.Scrim`: the dim layer over the app while the panel is open |
-| `edge` | `#3a3a3a` | the thin line around `Look.Panel` (the page's colour, rounded) |
+**Looks** are functions in `ui/themes.la` returning `Styling[]`: `frame`, `page`, `field`, `address`, `suggestions`, `clear`, `body`, `dim`, `title`, `heading`, `button(t, kind)`.
+- Buttons: the kind's colour, no border, `BUTTON_RADIUS` corners, the hover and pressed colours through `When(State.Hover | Press, …)`, half opacity while disabled.
+- Fields: the page's colour, an `EDGE_WIDTH` edge in `edge`, turning `accent` while focused.
+- The page: only its top-right corner curves (`PAGE_RADIUS`), where the frame wraps it.
 
-Only backgrounds and the one corner are set; text and borders stay the GTK theme's. Light and other themes come later, with settings. Hex values live only in `src/themes.la`.
-
-## Spacing (pixels: `.padding`, `.spacing`)
+## Spacing (pixels)
 
 | Token | Value | Use |
 |-------|-------|-----|
 | `SPACE_XS` | 4 | inside tight groups (icon + label) |
 | `SPACE_SM` | 8 | between related controls |
 | `SPACE_MD` | 12 | between rows of a form |
-| `SPACE_LG` | 24 | window padding, between sections |
+| `SPACE_LG` | 24 | the page's margin, between sections |
 | `SPACE_XL` | 36 | between major regions |
 
-## Typography (points: `.size`, `.bold`)
+Written through `ui/tokens.la`'s helpers: `margin(n)` (room outside a node), `padding(n)` (inside its border), `gap(n)` (between children), `at_least(w, h)`, `at_most(w)`. The contract's `padding` is a margin.
+
+## Typography (points)
 
 | Token | Value | Use |
 |-------|-------|-----|
-| (none) | theme default | body text: don't call `.size` |
-| `TEXT_TITLE` | 18 | a view's title, with `.bold()` |
-| `TEXT_HEADING` | 14 | section headings, with `.bold()` |
+| (none) | theme default | body text |
+| `TEXT_TITLE` | 18 | a view's title, bold (`title(t)`) |
+| `TEXT_HEADING` | 14 | section headings, bold (`heading(t)`) |
 
-## The frame (Rapidkoi's own UI)
+## The frame
 
-From `docs/source/meetings/2026-10-17-ui-design.md`. Pixels. The bar sits in the window's header bar (one row with the window controls), and the window opens maximized.
+The window opens maximized (`WINDOW_WIDTH` × `WINDOW_HEIGHT`, 960 × 700, when not).
+- **The header bar** (PRP-019, `src/ui/header.la`, in `frame(t)`): no ← ⌂ → (PRP-032, DECISION-041: in-app navigation is the app's own); the address box; 👤 account and ☰ menu; then the window controls, styled by `kivuli.ui`'s `WindowControls.look()` then `window_controls(t)`: white glyphs at `HEADER_ICON` (session 126), `SPACE_XS` either side, a round hover on each 24 × 24 icon box padded `SPACE_XS` (32 across, `CIRCLE`), red for close, the close button's own red cleared (session 119) (DECISION-035, session 116). Every header button has `SPACE_XS` either side. Each control is a `kivuli.ui` ghost icon button (`ui.button_with` + `Button.ghost()` + `Button.icon()`, 36 px) holding one of Rapidkoi's Iconsax icons (`src/ui/icons.la`, recoloured to the theme's `text`) at `HEADER_ICON` (20, the owner's call, session 125: every icon matches), capped with `square(n)` (DECISION-034), each button centred down the bar and each icon centred in its button. The shield and ☆ inside the address box are `ADDRESS_ICON` (20, session 125); the address box's icon buttons are circles, `SPACE_XS` around the icon, with a round hover and no focus ring (the box's edge shows the focus, session 161), and the shield and ⚙ sit in one row with no gap between their buttons (session 145). Back, forward, account and menu are disabled with a tooltip saying when they come. No reload (the owner, session 101).
+- **The sidebar:** empty, `FRAME_THICKNESS` (50) wide, the frame's colour: the frame is an even L.
+- **Instances** (PRP-033, `src/ui/strip.la`): the header's start shows the current app's instances, each a thin pill (`INSTANCE_CHIP` 26 high, `instance_chip`) holding a coloured circle as tall as the pill (`instance_dot`, flush at its start; `instance_colour`: the theme's `instances`, picked by the instance's key so a rename keeps it) and its name in the frame's white, the one in front ringed in the accent, and an × shown while it's hovered (`tab_close_on_hover`); right-click for Rename… and Close.  **+** ("New instance") opens another; past `MAX_STRIP` (3) the rest sit behind a bare white ⋯ (`Icon.More`, `3-dots-more.svg`, at `HEADER_ICON`, `SPACE_SM` either side) (the one in front always shows). A name longer than `INSTANCE_NAME_WIDTH` (88) is cut with "…", whole on hover. The strip is always `STRIP_WIDTH` (520) wide, on every tab and empty on an empty tab, so the address box never moves as instances come, go or are renamed (session 177). A single instance shows its pill too. Default names are the app's name and a number ("Notes", "Notes 2"); Rename… asks in Rapidkoi's dialog (empty, over 64 characters or taken isn't accepted, with the reason). The sidebar is a dock: one entry per app, its last-used instance, with a count when there are more: an accent badge (`count_badge`), the number centred and dark, up to 9 then "9+". The current entry's × (Ctrl+W) closes the instance in front; another entry's ×, and the menu's Close all, close every instance.
+- **The sidebar** (PRP-023, `src/ui/sidebar.la`; its apps `SPACE_SM` apart, session 178): pinned apps (open or not), a line, the other tabs, app and empty, in the order they were made (an empty tab: `tab-new-symbolic`, "New tab", PRP-024; at most one, and one tab per app, PRP-026), then + ("Add a tab", Ctrl+T) right after the last tab; once they don't fit they scroll (`scroll_fit`) and + stays at the bottom. Whenever the current tab changes, the sidebar scrolls to it (`Cmd.scroll_to("tab-{id}")`), the focus left where it is (PRP-028). Each app a round ghost icon button (`app_button`: a faint wash on hover), its icon at `HEADER_ICON` or its initial; the current one ringed in the accent (`app_current`, `RING_WIDTH` 1; every app button has a clear ring as wide, so ringing one doesn't shift its icon) with a small × at its top-right; every other open tab shows its × while hovered or holding the focus (`tab_close_on_hover`: hidden until its tab, a `Group.mark()`ed overlay, is, PRP-028) (`tab_close`, `TAB_CLOSE` 16, the desktop's `window-close-symbolic` at `TAB_CLOSE_ICON` 10; red on hover; Ctrl+W on the current tab's only). Right-click: Close / Pin or Unpin / Forget this app… (`Open` for a pin that isn't open).
+- **Launching and sessions** (`shell.start`, session 170; PRP-035): no app runs until the window it reads from is complete. 1. Restore the data folder (trust, pins, where you left off, people, permission settings, and the last session); 2. build the window: always the empty tab; 3. start the apps (the new tab, then one named on the command line); 4. answer what they asked for on opening. The new tab shows **Restore previous session (N)** all session while there's one: it stacks the last session under what's open: an app open now keeps only its current windows (the current session wins per app, session 187); an app that isn't comes back with all its windows, names and screens, and then they're part of the current session. Unrestored, the last session is replaced at the next launch by the session after it, unless that one was empty (the owner, session 186). Every window is the same, and its state lives with it (session 189): closing any window ends it and deletes its state; an app opened anew starts fresh; only Restore brings a saved window back. What should last belongs in storage (build step 4). The session is saved as it changes, so a crash leaves what a quit does.
+- **The content area:** the current app, `SPACE_LG` from its edges, scrolling; on an empty tab, the new-tab app built into Rapidkoi (PRP-027, PRP-030: the wordmark, where you left off with Continue, then Pinned with a button per pin; images and tiles wait for contract 3's step B), or nothing if it can't run. Its address box shows what its `controls` say: ⚙ (its Permissions) and share (PRP-031).
+- **The address box** (PRP-015, PRP-019, `src/ui/addressbox.la`): a `kivuli.ui` `input_group`, `ADDRESS_HEIGHT` (30) tall exactly on every tab (`fixed_height`, session 152), `SPACE_SM` above and below it in the bar (session 107), and at least `ADDRESS_WIDTH` (560) wide, rounded by `CIRCLE` (a pill at any height: GTK caps a radius at half the box, session 121); no focus glow, only a thin ring edge (session 117). At its start, on every app page, the shield (`shield-tick`, "Site information") in its look: white when verified, the accent orange for caution (a development address, a key not confirmed yet, a new publisher), `faint` grey when unsigned (PRP-021). Clicking it opens its card, a `kivuli.ui` popover hanging from the shield (its rows' hover rounded `BUTTON_RADIUS`, the app's icon `CARD_ICON` 20, session 136), `CARD_WIDTH` (360) on every page (session 134), its rows padded `SPACE_MD` above and below, `SPACE_SM` at the sides (sessions 135, 144): the app's icon and name, then "Connection secure" and "Signed app" rows (their words follow the state; words at the left, the `arrow-right4` icon in `faint` at the right, session 137; a pill hover), each opening a page with back (the `arrow-left4` icon, a round hover, session 138), then its facts (address; publisher and key, since when, version), no explaining sentences (session 143). Then site settings (`settings`, disabled "Site settings (coming soon)" until the settings exist, PRP-020) on any app page; at its end ☆ (`star`, Pin / Unpin) on an app page. In the middle one field on every tab (PRP-025): "Enter Address" on an empty tab, the app's whole link on an app (PRP-036: its address, the running version and the fields the app named, `https://counter.dafifi.net/@0.3.0?count=3`, a web address, never `rapidkoi://`, the owner, session 197; a file's name), typed in straight away. At the end: share (`export-circle2`, greyed "Share (coming soon)" until kivuli can copy, DECISION-047), then ☆ on an app. Its suggestions card is gone until its redesign (session 108); a failed open's reason stays in the model (`notice`) meanwhile.
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `FRAME_THICKNESS` | 50 | the rail's whole width, equal to the header bar's height: the frame is an even L (session 15) |
-| `RAIL_WIDTH` | 34 | the rail's column (`FRAME_THICKNESS` less `SPACE_SM` padding each side) |
-| `TAB_SIZE` | 34 | one tab button in the rail: the header's icon-button size |
-| `TAB_ICON` | 22 | an app's icon on its rail tab |
-| `TILE_ICON` | 64 | an app's icon on its home tile |
-| `TILE_SIZE` | 120 | a Pinned tile on home (square) |
-| `BANNER_HEIGHT` | 180 | "Where you left off" |
-| `PANEL_WIDTH` | 360 | the app info panel, fixed: its text never widens it (session 31) |
-| `PANEL_HEIGHT` | 520 | the app info panel over the app, the same for every page (session 52) |
-| `PANEL_CHARS` | 30 | the most characters a wrapped panel line asks for (`.wrap_at`), kept well under the width so the panel never shifts between pages; the name wraps at 14, the header's file name is cut at 18, paths are cut with … and shown whole on hover |
-| `PAGE_RADIUS` | 12 | the page's top-right curve |
-| `EDGE_WIDTH` | 1 | the floating info panel's edge |
-| `WINDOW_WIDTH` × `WINDOW_HEIGHT` | 960 × 700 | the window's default size |
+## Text alignment
 
-- Toolbar buttons are icon-only (`button("", msg).icon(name)` with a `.tooltip`), using symbolic theme icons:
-  - back `go-previous-symbolic`, home `go-home-symbolic`, forward `go-next-symbolic`
-  - info `dialog-information-symbolic`, share `emblem-shared-symbolic`
-  - new tab `list-add-symbolic`, settings `emblem-system-symbolic`, more `view-more-symbolic`
-- The current tab is `Primary`; the others are `Subtle`. Home isn't a tab: the rail lists apps only.
-- The verified mark is `✓`; a local file is marked `📄 … · local file`. Both are drawn only by Rapidkoi, never inside the app's area.
-- The art palette for generated app art comes with PRP-003.
-
-## Text alignment (session 28)
-
-kivuli centers text by default. Rapidkoi puts text at the **start of its line** (`.align(Align.Start)`): an app's text nodes, the error screen, home's headings and messages, and everything in the info panel. In a row, the label sits at the start and a `spacer()` takes the room, never an expanded label, which centers its text. Tile names stay centered under their tiles.
-
-## The bar and the info panel (sessions 26–27)
-
-- **The bar:** `‹ ⌂ › ⟳ [address ☆] ⓘ ⤴`.
-  - ⟳ (`view-refresh-symbolic`) reloads, keeping the app's state.
-  - ☆ (`non-starred-symbolic`, ★ `starred-symbolic` when pinned) pins.
-- **The info panel** (the owner's sketch, `docs/source/meetings/2026-10-17-ui/sketch-3-info-panel.png`):
-  - a header (a 48 px icon, the name in title style, `Version …` dim, and the marker as a subtle button opening About)
-  - the description
-  - the panel on the frame's colour at a fixed `PANEL_WIDTH` (the owner preferred it to a page-coloured panel, session 29; fixed whatever its text, session 31)
-  - **Your settings** and **On this device**, each a small dim heading over a `Look.Section` card (the frame's `#242424`, `PAGE_RADIUS` corners) of rows: the label, a dim summary, and a › arrow
-  - **Forget this app** (danger) and **Close**, side by side in the bottom row
-- Rows open pages with a ‹ Back arrow. **Start over** and **Forget** always ask first, in place, with [Cancel] and the danger action.
-
-## The panel, menus and home's grid (PRP-010)
-
-- **The info panel sits over the app** at `PANEL_WIDTH`, at the top right just under ⓘ, `PANEL_HEIGHT` tall on every page, inset by `SPACE_SM` (sessions 49–51): `Look.Panel`: the page's dark colour, a thin `EDGE_WIDTH` (1 px) edge in the theme's `edge` (`#3a3a3a`), every corner at `PAGE_RADIUS` (the owner, sessions 49–50). Its cards, in the frame's colour, stand out on it. The app keeps its width. A dim `Look.Scrim` layer (the theme's `scrim`, `#00000060` in dark) covers the rest of the app and blocks clicks, but a click on it does nothing (no accidental closing, the owner, session 51); Close (Escape) and ⓘ close the panel. The header's marker is cut with … at `PANEL_CHARS` so it can't widen the panel.
-- **A tab's right-click menu:** Reload (greyed while loading), Pin to home / Unpin, About this app, separator, Close tab, Forget this app…. The tab is selected first. Forget opens the panel at its question.
-- **A pinned tile's menu:** Open, Unpin, separator, Forget this app…. The "where you left off" card's Continue: Open, separator, Forget this app….
-- **Home's pinned tiles** wrap, all one width (`wrap(...).equal()`, `SPACE_MD`).
-- **Panel rows** are one `Subtle` button each (`button_with`): label, spacer, dim summary, ›.
-- **The Access page (PRP-012):** a dim "What Notes can reach", then each server: the own host first ("Its own server" dim beneath), then the declared ones in the manifest's order. On a signed app each is a `checkbox` named by the server (checked = on); an unsigned app's are plain text, with a dim line saying it can only reach this computer. "New" (bold) under a server an update added, until the page is left. The main page's summary: "None", "1 server", "3 servers, 1 off". An update adding servers says once, in the notice line, "Notes can now also reach X, Y".
+kivuli centers text by default. Rapidkoi puts text at the **start of its line** (`.align(Align.Start)`): an app's text nodes, the error screens.
 
 ## Where an app came from (PRP-006)
 
-- **Markers**, drawn by Rapidkoi only, in the bar and the panel's header (an icon, not the word "verified", session 53):
+- **Markers**, drawn by Rapidkoi only, in the address box:
   - `[security-high-symbolic] HOST`: a signed site whose checks all passed, or a signed file whose key is trusted
-  - `[dialog-warning-symbolic] HOST · not confirmed`: a signed file whose key Rapidkoi hasn't met (it runs, as a stranger)
+  - `[dialog-warning-symbolic] HOST · not confirmed`: a signed file whose key Rapidkoi hasn't met
   - `· new publisher` after the host when a changed key was opened as a separate app
   - `🛠 localhost:8000 · development`, `📦 file · local bundle`, `📄 file · local file`, `HOST · loading…` in words, no icon
-  - The tooltip says it in words first: "HOST · verified" (remote), "HOST · verified (development)" (this machine), "HOST · trusted", then "Click to search or type a path (Ctrl+K)"
-- **A failed check:** "Rapidkoi didn't run this app" (title style) over the reason (dim). No Restart and no run-anyway; ⟳ tries again.
-- **A changed key:** "HOST is now signed by a different key" (title style), "This can mean the site changed owners." and both fingerprints (dim), then **Keep using my version** (primary; "Don't open it" when nothing was open) and **Open as a separate app**.
-- **About** for a signed app: Publisher `host · key xxxx-xxxx-xxxx-xxxx`, Trust, Since ("Trusted since 18 Oct 2026, first use"), From, Version, Contract, Build `sha256` + 16 hex digits (all 64 on hover), Format.
+  - The address field's hover text says it in words ("HOST · verified", "· verified (development)", "· trusted")
+- **A failed check:** "Rapidkoi didn't run this app" (title) over the reason (dim). No Restart and no run-anyway.
+- **A changed key:** "HOST is now signed by a different key" (title), "This can mean the site changed owners." and both fingerprints (dim), then **Keep using my version** (primary; "Don't open it" when nothing was open) and **Open as a separate app** (normal).
 
-## In code
-
-The tokens are `public` constants in `src/theme.la`. Views use the names, never the numbers.
-
-## Component Rules
+## Component rules
 
 - Correct:
 
-      column([...]).padding(SPACE_LG).spacing(SPACE_MD)
-      button("Delete", Msg.Delete).style(ButtonStyle.Danger)
+      column([...]).style([margin(SPACE_LG), gap(SPACE_MD)])
+      button("Delete", Msg.Delete).style(button(m.theme, ButtonLook.Danger))
+      text(reason).style(dim(m.theme))
 
 - Wrong:
 
       // a bare number: drifts from the scale
-      column([...]).padding(20)
-      // custom CSS colour: breaks dark and high-contrast themes
-      button("Delete", Msg.Delete).css("color: #c01c28")
+      column([...]).style([Spacing { gap: Width.Px(20), ..Spacing.theme() }])
+      // a colour outside themes.la
+      text(reason).style([Text { color: Paint.Color(hex("#999")), ..Text.theme() }])
 
-## What Is Forbidden
+## What is forbidden
 
-- No numbers in `.padding`, `.spacing` or `.size` other than the tokens above.
-- No colours, custom CSS or inline styles, except Rapidkoi's themes in `src/themes.la`, applied as kivuli looks to Rapidkoi's own parts. Apps never get colours.
+- No numbers in a `Spacing`, `Sizing`, `Font` or `Border` other than the tokens above.
+- No colours outside `src/ui/themes.la`; nothing follows the desktop theme; apps never get colours.
 - Icons are theme icon names, preferably `…-symbolic`.
+
+## Apps' own looks (contract 5, PRP-037, DECISION-049)
+
+- Apps style their content themselves through `style` (`docs/specs/contract-5.md`). Rapidkoi's own screens keep the rules above.
+- Rapidkoi's names resolve as follows (`src/ui/paint.la`):
+  - **Colours:** `background` = `page`, `surface` = `control`, `text` = `text`, `text_dim` = `dim`, `accent`, `on_accent`, `border` = `edge`, `danger`, `on_danger`.
+  - **Spacing:** `xs`–`xl` = the `SPACE_*` tokens.
+  - **Corners:** `small` = `CORNER_SMALL` (4), `medium` = `BUTTON_RADIUS` (6), `large` = `PAGE_RADIUS` (12), `round` = `CIRCLE`.
+  - **Text:** `title` = `TEXT_TITLE`, `heading` = `TEXT_HEADING`; `body` and `small` are 1× and 0.875× the body size, as `rem` is.
+- A pressable box starts bare (no fill, edge or shadow) with an accent ring on focus; a text starts in `text`; a typing box in the field look.
+- An app can draw lookalikes of Rapidkoi's screens inside its content. The address, the shield and Rapidkoi's dialogs live in the frame and above the content, where apps can't draw.
+
+## The person's choices (PRP-038)
+
+- **Four colour sets** in `src/ui/schemes.la`: Dark (the owner's), Light, and a More contrast version of each, chosen in Settings (`theme_for`).
+  - Text, dim text, text on the accent and text on danger reach WCAG's 4.5:1, or 7:1 with More contrast, where borders reach 3:1 too.
+  - The ordinary sets keep subtle borders.
+  - Tested in `test/schemes.la`.
+- **Text size** (80%–200%) scales Rapidkoi's pages and apps' content. The page's body size is set by `ui.content`, and `title`, `heading` and `xs`–`xl` scale with it (`at_scale`, `paint.resolve_for`). The frame keeps its sizes: header, address box, strip, dock and card icons.
+- **☰** opens a card (a `kivuli.ui` popover) with ghost rows, hovering round: Settings, a separator, About Rapidkoi (a dialog: "Rapidkoi" and the version, dim), Quit.
+- **Settings** is a built-in app in its own tab:
+  - Theme as tabs (Dark, Light);
+  - More contrast as a checkbox;
+  - Text size as `−` `N%` `+`, disabled at 80 and 200.
+- **⚙'s card** has a Data row (PRP-041): the app's data size (`KB`/`MB`), and its page's "Clear…" asks first ("Clear {name}'s data?", Clear in danger).
+- **⚙'s card** has two switches under App settings, Use my colours and Use my text size, for apps whose `controls` allow `app_settings.looks` (any app without `controls`).
+

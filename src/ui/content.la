@@ -1,0 +1,88 @@
+/**
+ * The content area's page, pure: the current app, as it stands (running,
+ * loading, stopped, refused, or Rapidkoi's question about a changed key).
+ * Never calls a guest.
+ *
+ * Depends on: kivuli, window.actions, window.tabs, window.window, guest.placeholders, people.people, ui.render, ui.frame
+ * Used by: ui.layout
+ */
+import kivuli { View, Styling, Font, Size, column };
+import window.actions { Msg };
+import window.tabs { AppPage };
+import guest.placeholders { fill };
+import people.people { name_in, looks_of };
+import people.access { key_of };
+import ui.paint { Own };
+import window.window { Model };
+import ui.render { screen_as, stopped, refused, loading };
+import ui.frame { unapproved };
+
+/**
+ * Draws a tab's app, its messages tagged with the tab, so they reach only it.
+ *
+ * @param id the tab's id
+ * @param a its app page
+ * @param m the model: the time (for loading), the person's name (for placeholders) and the theme
+ * @returns the page's view
+ *
+ * Example:
+ *     app_view(id, a, m)
+ */
+public fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
+    let now = m.now;
+    let shown = match a.screen {
+        // {FIRST_NAME} and {LAST_NAME} are filled while drawing: the app
+        // can show your name, never know it (PRP-011).
+        Running(_, _, d) => {
+            let (first, last) = match a.trust {
+                Some(t) => name_in(m.people, t.host, t.origin),
+                None => (m.people.first, m.people.last),
+            };
+            screen_as(fill(d.root, first, last), m.theme, own_of(a, m))
+        }
+        Stopped(why, can_restart) => stopped(why, can_restart, m.theme),
+        Refused(why) => refused(why, m.theme),
+        Loading(p) => loading(a.name, if now > p.started { now - p.started } else { 0 }, m.theme),
+        // Rapidkoi's own question, not the app's: its buttons are the window's.
+        Unapproved(c, kept) => {
+            return unapproved(c, kept.len > 0, m.theme);
+        }
+    };
+    sized(shown, m).map(fun(inner: render.Msg) = Msg.Tab(id, inner))
+}
+
+/** The person's switch for an app's looks (PRP-038), from its ⚙ card. */
+fun own_of(a: AppPage, m: Model): Own {
+    let (colours, text_size) = looks_of(m.people, key_of(a));
+    Own { colours: colours, text_size: text_size }
+}
+
+/**
+ * The page at the person's text size (PRP-038): the body size set on the
+ * page, so every size relative to it (`body`, `small`, `rem`) follows.
+ */
+fun sized<M>(v: View<M>, m: Model): View<M> {
+    let base: Styling[] = [Font { size: Size.Scale(m.theme.scale), ..Font.theme() }];
+    column([v]).style(base)
+}
+
+/**
+ * Draws the new-tab app on the empty tab (PRP-027), or nothing: Rapidkoi's
+ * own page failing or missing isn't the person's to read.
+ *
+ * @param m the model: its new-tab app and the theme
+ * @returns the page's view
+ *
+ * Example:
+ *     newtab_view(m)
+ */
+public fun newtab_view(m: Model): View<Msg> = match m.newtab {
+    Some(p) => match p.screen {
+        // Its own messages go to it alone, as a tab's go to its app.
+        Running(_, _, d) => sized(screen_as(d.root, m.theme, own_of(p, m)), m).map(
+            fun(inner: render.Msg) = Msg.FromNewTab(inner),
+        ),
+        _ => column([]),
+    },
+    None => column([]),
+};

@@ -52,7 +52,7 @@ One PRP at a time. Never implement more than one feature's scope in a single ses
 
 If mid-implementation the scope turns out larger than the PRP described: stop, document what was discovered, update or create a PRP, and get approval before continuing. The human decides what is "small enough to add", not the model.
 
-**A missing or broken lughac, kivuli, lugha-wasmtime or lugha-cbor feature is never worked around silently.** Stop, record it in `DECISIONS.md`, and report it. It is fixed in its own repository (`../lugha`, `../kivuli`, `../lugha-wasmtime`, `../lugha-cbor`) under that repo's `CLAUDE.md`, never from a rapidkoi session.
+**A missing or broken lughac, kivuli, lugha-wasmtime, lugha-cbor, lugha-sqlite or rapidkoi-rust feature is never worked around silently.** Stop, record it in `DECISIONS.md`, and report it. It is fixed in its own repository (`../lugha`, `../kivuli`, `../lugha-wasmtime`, `../lugha-cbor`, `../lugha-sqlite`, `../rapidkoi-rust`) under that repo's `CLAUDE.md`, never from a rapidkoi session.
 
 **Generic code doesn't go in rapidkoi.** Anything another Lugha program could use unchanged (bindings to a C library, a general data structure) belongs in its own package. Propose it as a new package instead of writing it here.
 
@@ -63,7 +63,7 @@ If mid-implementation the scope turns out larger than the PRP described: stop, d
 Write the test before writing the implementation. No exceptions.
 
 - For every new function, write a failing `@test` first, then the minimum code to make it pass.
-- Tests live in `test/`, mirroring `src/`: `src/update.la` → `test/update.la`. Keep test code out of `src/`.
+- Tests live in `test/`, flat, each file named for the module it tests: `src/ui/layout.la` → `test/layout.la` (a test in a subfolder can't import `test/support.la`, DECISION-033). Keep test code out of `src/`.
 - `update` and `view` are pure: test them with no display. Use `kivuli.testing` to find and press buttons and type into inputs in a view tree.
 - Anything that opens a GTK window must start with `if !has_display() { skip("no display"); }` so it is skipped, not failed, without one.
 - Test behavior visible to callers: inputs, outputs, and every error variant. Do not test kivuli's, GTK's, or lughac's own behavior.
@@ -112,7 +112,9 @@ Ask before anything that leaves this machine: creating the GitHub repository, ad
 
 Read `docs/DESIGN.md` before writing any `view` code.
 
-Every spacing, padding, size and text size comes from the tokens in `docs/DESIGN.md`. App content's colours come only from the GTK theme through kivuli's styles (`ButtonStyle`, `.dim()`). Rapidkoi's own parts (bar, rail, home) take colours from its themes in `src/themes.la` and nowhere else. Never hardcode a colour outside `themes.la`, never give an app a way to set colours, never pass a bare number to `.padding`, `.spacing` or `.size`.
+Every spacing, size and text size in Rapidkoi's own screens comes from the tokens in `docs/DESIGN.md`. Every colour Rapidkoi draws comes from its theme in `src/ui/themes.la`, through kivuli's `.style`; the desktop's GTK theme is ignored (DECISION-031). Never hardcode a colour outside `ui/themes.la`, never write a bare number in a `Spacing`, `Sizing`, `Font` or `Border`: use a token.
+
+Apps style their own content freely (DECISION-049, contract 5, `docs/specs/contract-5.md`): their raw values are checked and bounded by `src/guest/styles.la`, and Rapidkoi's names they use are resolved from the theme and tokens by `src/ui/paint.la`. Rapidkoi's frame, address and dialogs stay Rapidkoi's, where apps can't draw.
 
 ---
 
@@ -151,7 +153,7 @@ Never read, modify, or delete:
 - `.env` and `.env.*`
 - `lugha.lock`: written only by `lughac build`/`update`, never hand-edited
 - Built executables (the paths in `.gitignore`)
-- `../lugha/`, `../kivuli/`, `../lugha-gtk/`, `../lugha-wasmtime/`, `../lugha-cbor/`: other repositories with their own rules. Read for reference; never write from a rapidkoi session
+- `../lugha/`, `../kivuli/`, `../lugha-gtk/`, `../lugha-wasmtime/`, `../lugha-cbor/`, `../lugha-sqlite/`, `../rapidkoi-rust/`: other repositories with their own rules. Read for reference; never write from a rapidkoi session
 
 If a task seems to require touching a protected file, stop and ask. See also `.llmignore`. `.claude/settings.json` denies Claude's Read and Edit tools on the same paths. Keep all three in sync.
 
@@ -169,53 +171,52 @@ lughac update src/main.la             # re-resolve git packages, rewrite lugha.l
 lughac explain E0312                  # what an error code means
 lughac spec                           # the full Lugha language reference: check it before assuming a feature exists
 
-# The Rust guest (guest/rust/): cargo, never lughac
+# Rapidkoi's own apps (guest/rust/: newtab, settings): cargo, never lughac. The Rust SDK is
+# ../rapidkoi-rust (a git dependency, by tag); its examples (counter, styled) are built there (its README)
 cargo test --manifest-path guest/rust/Cargo.toml
 cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown
-./main guest/rust/target/wasm32-unknown-unknown/release/counter.wasm   # opens a window: the user's
 
-# Bundles: pack the counter into one .rkb, then open it
-./main pack guest/rust/target/wasm32-unknown-unknown/release/counter.wasm --name Counter --version 0.1.0 \
-    --description "Counts, and says hello" --icon guest/rust/counter/icon.png -o counter.rkb
-./main counter.rkb                                                     # opens a window: the user's
+# Bundles: pack any app's .wasm into one .rkb, then open it
+./main pack app.wasm --name App --version 0.1.0 --description "What it does" --icon icon.png -o app.rkb
+./main app.rkb                                                         # opens a window: the user's
+
+# Rapidkoi's new-tab app (PRP-027): build and pack it into assets/apps/newtab.rkb (after building ./main)
+./scripts/newtab.sh
+# Rapidkoi's Settings app (PRP-038): the same, into assets/apps/settings.rkb; rebuild ./main after
+./scripts/settings.sh
+./main assets/apps/newtab.rkb                                          # opens a window: the user's
 
 # Local development: serve a bundle, open it at its address (Reload in ⓘ after a repack)
-./main serve counter.rkb --port 8000                                   # 127.0.0.1 only; Ctrl+C to stop
+./main serve app.rkb --port 8000                                       # 127.0.0.1 only; Ctrl+C to stop
 ./main rapidkoi://localhost:8000                                       # opens a window: the user's
 
-# Signed apps: rapidkoi.toml describes the app (the repo's own is the counter's)
+# Signed apps: rapidkoi.toml in the app's folder describes it (e.g. ../rapidkoi-rust/examples/counter/)
 ./main keygen          # once: the secret key at [publish].key, outside the project, mode 0600
 ./main publish         # signs and writes site/.well-known/rapidkoi/{key, index, builds/<sha256>.rkb}
 ./main publish --withdraw VERSION --reason TEXT
 ./main pack            # one .rkb from rapidkoi.toml, signed when it has a host and a key
 ./main serve site/     # serves the site; ./main rapidkoi://localhost:8000 opens it verified
 
-# The network demo (PRP-012): the quote app and its Lugha server, in examples/quote/
-cd examples/quote && ../../main keygen && ../../main publish && cd ../..
-lughac test examples/quote/server.la                                   # the server's own tests
-lughac build examples/quote/server.la -o quote-server
-./quote-server --site examples/quote/site --host localhost:8000 --port 8000
-./main rapidkoi://localhost:8000                                       # opens a window: the user's
 ```
 
-`test/counter.la` drives the built counter end to end; it skips itself until the guest is built.
+`test/counting.la` and `test/saving.la` drive a hand-written stand-in app (`support.counting`) end to end: the suite never needs Rust (PRP-042).
 
 A task is done only when `fmt --check` is clean, `lughac test test/` passes (skips allowed only for `no display`), and `lughac build src/main.la -o main` succeeds.
 
-> Needs: `lughac` (the user installs it from `../lugha` with `cargo install --path . --locked`; never do it yourself), `libgtk-4-dev`, `pkgconf`, `libgc-dev`, `cc`.
+> Needs: `lughac` (the user installs it from `../lugha` with `cargo install --path . --locked`; never do it yourself), `libgtk-4-dev`, `libsqlite3-dev`, `pkgconf`, `libgc-dev`, `cc`.
 
 ---
 
 ## STACK
 
 - **Lugha** via `lughac` 0.1.0. Use only what `lughac spec` documents. **Never build or reinstall `lughac` yourself**: when rapidkoi needs a newer one, stop and ask the user.
-- **kivuli 0.10** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.10" }`): the UI. 0.10 added `button_with` (a whole row as one button); 0.9 context menus (`.menu`); 0.8 `overlay`; 0.7 `wrap`; 0.6 added background tasks (`Cmd.task`, `Sub.receive`); 0.5 added images from bytes (`Image.Bytes(key, bytes)`, `.image(…)`); 0.4 added per-corner radius; 0.3 added `.header_style` and `Surface.flat`; 0.2 renamed `.style(ButtonStyle…)` to `.button_style(…)`; `.style([…])` takes looks. Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
+- **kivuli 0.54** (`kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.54" }`): the UI. Group states `Group.mark()`, `State.GroupHover`/`GroupFocusWithin` (0.52), `scroll_fit` (0.53), `Cmd.scroll_to(name)` (0.54). 0.19–0.49: clicking away clears focus, `kivuli.ui` components and palettes (Rapidkoi's header uses them), SVG images (0.48), styling the window controls (0.49), `Sizing.icon(px)` (0.50), popovers `popover(trigger, open, content, on_close)` / `ui.popover` (0.51). 0.11–0.17 made styling one door, `.style([...])` of typed values (`Font`, `Text`, `Background`, `Border`, `Spacing`, `Sizing`, `Shadow`, `Effects`, `Outline`, `When(State, …)`), removing `.bold`, `.dim`, `.padding`, `.spacing`, `.width`, `.height`, `.button_style` and named looks; there are no button looks (Rapidkoi styles buttons itself, DECISION-031). 0.18 made the header bar a node: `.header(header_bar(start, title, end).style([...]))`. Earlier: `button_with` (0.10), context menus `.menu` (0.9), `overlay` (0.8), `wrap` (0.7), background tasks `Cmd.task`/`Sub.receive` (0.6), images from bytes (0.5). Import through the package entry: `import kivuli { View, text, sandbox };`. Only the entry and `kivuli.testing` are public.
 - **lugha-gtk** comes in through kivuli. rapidkoi does not import `gtk` directly.
 - **GTK 4** + GLib, through kivuli.
 - **wasmtime** (C API v49.0.3) runs guests, through the package `wasmtime` (`wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }`; source in `../lugha-wasmtime`). rapidkoi never declares a wasmtime `extern` itself.
-- **CBOR** through the package `cbor` (`cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1" }`; source in `../lugha-cbor`). The guest↔shell contract is version 2 (MEMORY.md decision 10; PRP-011): exports `rapidkoi_version`, `alloc`, `handle(state, event)` and `view`, events for everything. Implement it exactly; any change is a DECISIONS.md entry and a version bump.
-- **Guests:** Rust (`wasm32-unknown-unknown`) under `guest/rust/`, built with cargo, never by `lughac`. The shell's tests use hand-written `.wat` fixtures and never need Rust.
-- **SQLite** for app data, from build path step 3 or 4 (MEMORY.md decision 5). Not before.
+- **CBOR** through the package `cbor` (`cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1" }`; source in `../lugha-cbor`). The guest↔shell contract is version 6 (contract 5 plus storage: the `sql` and `sql_batch` asks and `on_change`'s `tables`, DECISION-052, `docs/specs/contract-6.md`) on version 5 (MEMORY.md decisions 10, 21, 24, 25; PRP-011, PRP-030, PRP-036, PRP-037: boxes, texts, styles and roles, `docs/specs/contract-5.md`; closed with PRP-039), on top of version 4: exports `rapidkoi_version`, `alloc`, `handle(state, event)` and `view`, events for everything, named `on_` on the wire (`docs/specs/app-events.md`), and a state of named fields whose `link` names what goes in the window's address (`docs/specs/contract-4.md`). Contract 2 to 5 apps still run (DECISION-039, DECISION-048, DECISION-049, DECISION-052). Any change to a contract is a DECISIONS.md entry and a version bump.
+- **Guests:** Rapidkoi's own apps (newtab, settings) are Rust (`wasm32-unknown-unknown`) under `guest/rust/`, built with cargo, never by `lughac`, on the Rust SDK **rapidkoi-rust** (`rapidkoi = { git = "https://github.com/kithinjibrian/rapidkoi-rust", tag = "v0.1.0" }`; source in `../rapidkoi-rust`, with the example apps: counter, styled; Notes and Trip to come, PRP-042). A contract change is tagged there first, then the built-ins move to the tag and are repacked. The shell's tests use hand-written `.wat` fixtures and never need Rust.
+- **SQLite** through the package `sqlite` (`sqlite = { git = "https://github.com/kithinjibrian/lugha-sqlite", version = "0.1" }`; source in `../lugha-sqlite`): one database per app, contract 6 (MEMORY.md decision 26, DECISION-052, PRP-041, `docs/specs/contract-6.md`). Every connection is `Guard.untrusted()`; every call runs in a `Cmd.task`.
 
 ---
 
@@ -223,7 +224,7 @@ A task is done only when `fmt --check` is clean, `lughac test test/` passes (ski
 
 1. **The app is one kivuli program: a `Model`, a `Msg` enum, a pure `update`, and a pure `view`.** *Why:* that is kivuli's contract; state changed anywhere else is invisible to the diff and won't render.
 2. **Never touch a GTK widget or import `gtk` from rapidkoi.** *Why:* kivuli owns the widgets; reaching past it breaks its diff and pinned-closure bookkeeping.
-3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/limits.la`), it opens local app files the person chose (≤ 32 MB, PRP-002), and it reads and saves Rapidkoi's own small files in its data folder (`src/saving.la`, `src/states.la`: trust ≤ 1 MB, pins ≤ 32 MB, left-off ≤ 8 MB, each signed app's state ≤ `MAX_STATE` + 64 KB, written safely, PRP-007; it moves to `Cmd.task` when std's file I/O stops blocking the thread). Fetching an address is never done in `update`: it describes a `Cmd.task` (`src/loads.la`, `src/fetching.la`, PRP-008), and trust is recorded and the module compiled only when its result arrives. An app's requests are the same: each is checked (`src/network.la`) and sent in a `Cmd.task` (`src/requests.la`, PRP-012), never in `update`, and answered when its result arrives. *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
+3. **`view` never does I/O, and `update` does no file, process or network I/O.** That work goes through kivuli commands (`Cmd`) or a module that returns `Result`, called from a command. Two exceptions in the shell's `update` (`src/shell.la`, `src/window/tabs.la`): it calls running guests synchronously, each call bounded by fuel (`src/guest/limits.la`), it opens local app files the person chose (≤ 32 MB, PRP-002), and it reads and saves Rapidkoi's own small files in its data folder (`src/data/saving.la`, `src/data/states.la`: trust ≤ 1 MB, pins ≤ 32 MB, left-off ≤ 8 MB, each signed app's state ≤ `MAX_STATE` + 64 KB, written safely, PRP-007; it moves to `Cmd.task` when std's file I/O stops blocking the thread). Fetching an address is never done in `update`: it describes a `Cmd.task` (`src/net/loads.la`, `src/net/fetching.la`, PRP-008), and trust is recorded and the module compiled only when its result arrives. An app's requests are the same: each is checked (`src/net/network.la`) and sent in a `Cmd.task` (`src/net/requests.la`, PRP-012), never in `update`, and answered when its result arrives. An app's database calls are the same: checked (`src/guest/sqlasks.la`, `src/data/queries.la`) and run in a `Cmd.task` (`src/data/databases.la`, PRP-041); only Clear and Forget remove a database's files in `update`, as a data-folder change the person asked for. *Why:* blocking in `update` freezes the window; the guest is part of the shell's model, and fuel keeps each call short (PRP-001).
 4. **Keep `src/main.la` to wiring:** `main` calls kivuli with the initial model, `update` and `view` imported from their modules. *Why:* `main.la` can't be tested on its own; everything worth testing lives in a module.
 
 5. **Follow the vision's build path in order** (shell → links → a real app → storage and sync → live sessions → history). Never build part of a later step early. *Why:* each step shapes the next; a speculative later piece locks in guesses.
@@ -270,26 +271,28 @@ public fun load_settings(path: string): Settings { … }
 ├── .llmignore         — protected paths
 ├── .claude/           — settings.json: deny rules mirroring .llmignore
 ├── lugha.toml         — package `rapidkoi`, source `src`, depends on kivuli
-├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only),
-│                        window.la (the Model, and changes that open nothing: tabs, home, pins, left off), navigate.la (opening: the address box, files, addresses, Continue, Reload), themes.la (Rapidkoi's colours as kivuli looks; dark first),
-│                        bundle.la (pure: bundle format 1, read/write), rules.la (pure: every bundle rule, BundleError), loader.la (a path or address → manifest + compiled module, verified when signed),
-│                        signing.la (format 2: signed bundles, read either format), keys.la (secret keys: keygen, read, fingerprints), index.la (the signed index and the public key file, rotations),
-│                        project.la (rapidkoi.toml), publish.la (the `keygen` and `publish` commands, pack from rapidkoi.toml), verify.la (opening a signed site: every check, the keyring),
-│                        store.la (the data folder: safe writes, bounded reads, set aside), remembered.la (the trust, pins and left-off files), states.la (each signed app's state, by host and key),
-│                        identity.la (the master secret, per-app keys, sign-ins), people.la (sign-in settings and your name), effects.la (answering what apps ask for), account.la (the Account page), placeholders.la (pure: {FIRST_NAME}),
-│                        network.la (pure: which requests an app may make), requests.la (apps' requests: sent in tasks, answered on arrival), dialing.la (looking a name up, refusing local addresses, connecting to exactly the checked ones; Network), access.la (the Access page: servers, switches, the notice),
-│                        running.la (a guest's init and opened events, messages, answers and view), saving.la (restore at start, save on every change), fetching.la (a background load's work: fetch and check against a snapshot), loads.la (begin a load, take its result),
-│                        pack.la (the `./main pack` command), serve.la (the `./main serve` development server: a bundle or a site), address.la (pure: local development addresses),
-│                        tabs.la (Page, Tab, Pin; an app page's life: open, events, restart, resume), leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), actions.la (the shell's Msg),
-│                        frame.la (pure: the bar and the tab rail), home.la (pure: home and search), panel.la (pure: app info),
-│                        guest.la (a running guest: store, limits, calling convention), contract.la (pure: CBOR ↔ contract v1; re-exports nodes' types),
-│                        nodes.la (the decoded types: Node, style words, ContractError), props.la (reading one node's props),
-│                        render.la (pure: Node → kivuli View; the error screen), theme.la (DESIGN.md tokens), limits.la (every limit)
-│                        Imports run one way: nodes ← props ← contract ← theme ← render ← tabs ← actions ← frame ← home, panel ← window ← shell ← main; limits ← contract, guest ← tabs; themes ← window
-├── test/              — @test files mirroring src/, support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
-│                        counter.la (end to end with the Rust counter; skips until it's built)
-├── guest/rust/        — Cargo workspace: rapidkoi (contract 2 for Rust: View builder, App trait, export!, Request, SignIn), counter (the demo), quote (the network demo)
-├── examples/quote/    — the network demo's rapidkoi.toml, its server (server.la: the signed site, sign-in, /quote) and Dockerfile (the VM)
+├── src/               — main.la (entry: kivuli application, wiring only), shell.la (boot, update, view: composition only), and nine folders (PRP-018):
+│                        window/   window.la (the Model, and changes that open nothing: app and empty tabs, pins, left off), actions.la (the shell's Msg), tabs.la (Page, Tab, Pin; an app page's life, its link fields), restarts.la (resume, with_saved, load_again: a page started again from saved state),
+│                                  leftoff.la (LeftOff: leave, snapshot, recalled, signer_of), navigate.la (opening: the address box, files, addresses, Continue, Reload, another instance), newtab.la (the new-tab app, built in with include_bytes), settings_app.la (the Settings app, built in the same way), instances.la (named instances: names, last used, renaming, closing), pins.la (pinning and Forget, split from window.la)
+│                        ui/       layout.la (pure: the frame: header bar, sidebar, content area), addressbox.la (pure: the address box), suggestions.la (pure: what the box will suggest; Card, matches),
+│                                  content.la (pure: the current app; the new-tab app on the empty tab), header.la (pure: the header bar), strip.la (pure: the header's instance strip and the rename dialog), shield.la (pure: the shield's facts, look and card), settings.la (pure: site settings' card and the confirm dialog), grants.la (pure: the Permissions row and page, `controls`, the approval dialog), sidebar.la (pure: the apps down the right), cards.la (pure: the pieces both cards share), icons.la (Rapidkoi's Iconsax icons, built in from assets/icons/, recoloured), frame.la (pure: names, the trust marker, the changed-key question), render.la (pure: Node → kivuli View; error screens), paint.la (pure: an app's look resolved and turned into kivuli styles),
+│                                  tokens.la (DESIGN.md tokens and style helpers), schemes.la (the four colour sets, the person's Prefs, contrast), themes.la (the looks, from the theme), frame_looks.la (the frame's looks: header, sidebar, window controls, tooltips)
+│                        guest/    guest.la (a running guest: store, limits, calling convention), running.la (init and opened events, a link's fields, messages, answers, view), links.la (pure: contract 4's link names, an address's fields, a link set in a fresh state), events.la (pure: events named by contract version), home.la (pure: the new tab's reads), limits.la (every limit),
+│                                  contract.la (pure: CBOR ↔ contract; re-exports nodes' types), nodes.la (the decoded types), tree5.la (pure: contract 5's screens), styles.la (pure: contract 5's style map, checked), roles.la (pure: roles and their states), props.la (reading one node's props), sqlasks.la (pure: contract 6's sql and sql_batch asks, bounded), placeholders.la (pure: {FIRST_NAME}), effects.la (answering what apps ask for, behind their permissions)
+│                        bundles/  bundle.la (pure: format 1), rules.la (pure: every bundle rule, BundleError), permissions.la (pure: permissions, their tiers), signing.la (format 2: signed bundles), loader.la (a path or address → manifest + module, verified when signed), project.la (rapidkoi.toml)
+│                        trust/    keys.la (secret keys: keygen, read, fingerprints), index.la (the signed index and public key file, rotations), verify.la (opening a signed site: every check, the keyring)
+│                        net/      network.la (pure: which requests an app may make), requests.la (apps' requests, in tasks), dialing.la (lookups, refusing local addresses; Network),
+│                                  fetching.la (a background load's work), loads.la (begin a load, take its result), address.la (pure: addresses and links: parse, write, without_link)
+│                        data/     store.la (the data folder: safe writes, bounded reads), remembered.la (the trust, pins, left-off and open files), sessions.la (the current and previous sessions: launch, Restore), states.la (each signed app's state), preferences.la (the person's choices: the file, what apps read, a change), databases.la (each app's SQLite file, named by hash; one guarded call; size; Clear), queries.la (an app's sql asks: checked, run in a task, answered, other windows told), saving.la (restore at start, save on every change)
+│                        people/   identity.la (the master secret, per-app keys, sign-ins), people.la (sign-in settings and your name), account.la (an app's account: the model side), access.la (what an app can reach: the model side)
+│                        commands/ pack.la (`./main pack`), publish.la (`keygen`, `publish`), serve.la (`./main serve`: a bundle or a site), landing.la (pure: the landing page a browser shows)
+│                        Imports name the folder (`import ui.layout;` binds `layout`). They run one way: guest.nodes ← props ← contract ← ui.tokens ← themes ← render ← window.tabs ← actions ← ui.frame ← suggestions ← window.window ← ui.content, addressbox ← layout ← shell ← main
+├── test/              — @test files, flat, each named for the module it tests (DECISION-033), support.la (CBOR builders, fixture guests as WebAssembly text, settle), fixtures/tls/ (a throwaway test CA: tests only),
+│                        counting.la (end to end with support.counting, a stand-in app written as WebAssembly text)
+├── guest/rust/        — Cargo workspace of Rapidkoi's own apps, on rapidkoi-rust (git, by tag): newtab (Rapidkoi's new tab, PRP-027), settings (Rapidkoi's Settings, PRP-038)
+├── assets/apps/       — newtab.rkb and settings.rkb: Rapidkoi's built-in apps, packed unsigned by scripts/newtab.sh and scripts/settings.sh and committed; built into ./main by src/window/newtab.la and settings_app.la (repack, then rebuild ./main)
+├── scripts/           — newtab.sh, settings.sh: build and pack the built-in apps (their --permission and --control flags)
+├── assets/icons/      — the Iconsax SVGs, the only copy: `src/ui/icons.la` builds each in with include_str (PRP-029); change a file, then rebuild
 ├── PRPs/              — prp-{NNN}-{feature_name}.md (+ TEMPLATE.md, DISCOVERY.md)
 ├── docs/
 │   ├── CODE_STYLE.md  — documentation rules for .la code
@@ -321,11 +324,15 @@ Update this tree when modules are added.
 ## KNOWN ISSUES — DO NOT FIX
 
 - **A missing `update`, `alloc` or `view` export is only found on its first call**, not at load: lugha-wasmtime can't list exports yet (DECISION-017). The error screen still shows.
-- **A second `./main other.wasm` raises the first window** instead of opening the app: kivuli makes GTK single-instance (DECISION-014).
+- **A second `./main other.wasm` raises the first window** instead of opening the app: kivuli makes GTK single-instance (DECISION-014). So there's one window, and instances can't be side by side yet (DECISION-042).
+- **Instances don't share data** until storage (build step 4): each is the app with its own whole state (PRP-033).
+- **The instance strip doesn't adapt to the window** (DECISION-043, kivuli): it's a fixed 520 px with at most three pills, so in a narrower window the address box shifts, and the window can't shrink past the strip.
+- **After a pick in ⚙'s Permissions page, the card doesn't close on a click inside the window or Escape** (DECISION-040, kivuli): ⚙ again, or a click outside the window, closes it.
+- **No Ctrl+K for the address box**: kivuli gives shortcuts to buttons only, and the address is one field now (PRP-025).
 - **Placeholders until kivuli and PRP-003 catch up (DECISION-018), each to be replaced, never extended:**
   - Opening a file means typing its path into the box, since there's no file dialog.
   - An app without a bundle icon shows its initial on its tab and tile; there's no generated art or banners yet (PRP-004).
-  - Search is in memory only. Open tabs aren't restored on launch yet (the next PRP). Unsigned apps' state lasts only for the session (PRP-007 amendment 2).
-  - Back, forward, share, settings and more are shown disabled.
+  - Search is in memory only. A window's state lives with the window (session 189): closing it deletes its state, and an app opened anew starts fresh. Only Restore brings a signed window's state back; an unsigned one's lasts only for the run. What should last waits for storage (build step 4). Continue's meaning is parked (DECISION-044).
+  - Share and account are shown disabled (share needs kivuli's clipboard, DECISION-047; the address box's link can be selected and copied). There's no back, home or forward: in-app navigation is the app's own (DECISION-041).
   - Notifications and Data are placeholder pages until notifications and app data exist.
   - Remote apps open by host name over HTTPS only, signed only, with no redirects followed (PRP-009); plain http and unsigned bundles are for this machine's development servers. Loads run in the background (PRP-008), but a DNS lookup, a TLS handshake and compiling a module still briefly hold the window (kivuli's note). Reload is manual; there's no live reload yet.

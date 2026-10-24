@@ -1,0 +1,31 @@
+// The landing page (PRP-036), pure: what a browser shows at an app's
+// address, or any link to it, when it isn't opened in Rapidkoi.
+import rapidkoi.commands.landing { landing_page };
+
+@test
+fun the_landing_page_names_the_app_and_opens_it_in_rapidkoi() {
+    let page = landing_page(
+        "Counter",
+        Some("Counts"),
+        "counter.dafifi.net · key ab12-cd34",
+        "counter.dafifi.net",
+    );
+    assert_eq(page.starts_with("<!doctype html>"), true);
+    assert_eq(page.contains("<title>Counter</title>"), true);
+    assert_eq(page.contains("Counts"), true);
+    assert_eq(page.contains("counter.dafifi.net · key ab12-cd34"), true);
+    assert_eq(page.contains("href=\"rapidkoi://counter.dafifi.net/\""), true);
+    assert_eq(page.contains("Open in Rapidkoi"), true);
+}
+
+@test
+fun the_landing_page_escapes_what_the_project_says() {
+    let page = landing_page(
+        "<b>&\"Notes'",
+        None,
+        "localhost:8000 · key ab12-cd34",
+        "localhost:8000",
+    );
+    assert_eq(page.contains("&lt;b&gt;&amp;&quot;Notes&#39;"), true);
+    assert_eq(page.contains("<b>&"), false);
+}

@@ -1,0 +1,333 @@
+/**
+ * Rapidkoi's themes: every colour it shows, its own parts and apps' content
+ * alike, as kivuli style values (DECISION-031). The desktop's GTK theme is
+ * never followed. The frame (the header bar and the sidebar) is one flat
+ * colour, and the page sits flush inside it, curving only at its top-right
+ * corner. Apps name a button's kind; the theme decides its look. Dark is
+ * first and the default; others come later, with settings.
+ *
+ * Depends on: kivuli, guest.nodes, ui.tokens
+ * Used by: window.window, ui.layout, ui.addressbox, ui.frame, ui.content, ui.render
+ */
+import kivuli {
+    Styling,
+    Font,
+    Text,
+    Background,
+    Border,
+    Side,
+    Radius,
+    Shadow,
+    Effects,
+    Paint,
+    Size,
+    Weight,
+    Width,
+    When,
+    State,
+    Palette,
+    Token,
+    hex,
+};
+import guest.nodes { ButtonLook };
+public import ui.schemes { Theme, DARK };
+import ui.tokens { TEXT_TITLE, TEXT_HEADING, PAGE_RADIUS, EDGE_WIDTH, BUTTON_RADIUS, CIRCLE };
+
+/**
+ * Returns a theme as a `kivuli.ui` palette: its colours under shadcn's
+ * token names, so `kivuli.ui`'s components draw in them (PRP-019). The same
+ * colour for light and dark: Rapidkoi ignores the desktop's scheme
+ * (DECISION-031), and the root fixes it to dark besides.
+ *
+ * @param t the theme
+ * @returns the palette for the root's `.palette(…)`
+ *
+ * Example:
+ *     page.palette(palette(m.theme)).scheme(Scheme.Dark)
+ */
+public fun palette(t: Theme): Palette {
+    let pairs = [
+        (Token.Background, t.page),
+        (Token.Foreground, t.text),
+        // Cards and popovers float over the page in the frame's colour.
+        (Token.Card, t.frame),
+        (Token.CardForeground, t.text),
+        (Token.Popover, t.frame),
+        (Token.PopoverForeground, t.text),
+        (Token.Primary, t.accent),
+        (Token.PrimaryForeground, t.on_accent),
+        (Token.Secondary, t.control),
+        (Token.SecondaryForeground, t.text),
+        (Token.Muted, t.control),
+        (Token.MutedForeground, t.dim),
+        // What a ghost button turns under the pointer.
+        (Token.Accent, t.control_hover),
+        (Token.AccentForeground, t.text),
+        (Token.Destructive, t.danger),
+        (Token.DestructiveForeground, t.on_danger),
+        (Token.Border, t.edge),
+        (Token.Input, t.edge),
+        (Token.Ring, t.accent),
+    ];
+    let mut p = Palette.zinc();
+    for (token, colour) of pairs {
+        p = p.with(token, hex(colour), hex(colour));
+    }
+    p
+}
+
+/** A button kind's colours: at rest, under the pointer, pressed, and its text. */
+public struct ButtonPaint {
+    /** At rest. */
+    public background: string,
+    /** Under the pointer. */
+    public hover: string,
+    /** Being pressed. */
+    public press: string,
+    /** Its label and icon. */
+    public text: string,
+}
+
+/**
+ * Returns the colours a kind of button takes in a theme.
+ *
+ * Example:
+ *     button_paint(DARK, ButtonLook.Primary)
+ */
+public fun button_paint(t: Theme, kind: ButtonLook): ButtonPaint = match kind {
+    Normal => ButtonPaint {
+        background: t.control,
+        hover: t.control_hover,
+        press: t.control_press,
+        text: t.text,
+    },
+    Primary => ButtonPaint {
+        background: t.accent,
+        hover: t.accent_hover,
+        press: t.accent_hover,
+        text: t.on_accent,
+    },
+    Danger => ButtonPaint {
+        background: t.danger,
+        hover: t.danger_hover,
+        press: t.danger_hover,
+        text: t.on_danger,
+    },
+    Subtle => ButtonPaint {
+        background: t.clear,
+        hover: t.subtle_hover,
+        press: t.subtle_hover,
+        text: t.text,
+    },
+};
+
+/**
+ * Returns a look that draws nothing of its own in any state: no background,
+ * edge, shadow or focus ring. For a control inside something that frames it
+ * already, as the address button inside the address box: one outline, not
+ * two (the owner's screenshot, session 120).
+ *
+ * Example:
+ *     ui.button(address, Msg.EditAddress).style(bare(t))
+ */
+public fun bare(t: Theme): Styling[] {
+    let clear = Background { color: paint(t.clear), ..Background.theme() };
+    let none = Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() };
+    [
+        clear,
+        none,
+        Shadow.off(),
+        When(State.Hover, [clear]),
+        When(State.Press, [clear]),
+        When(State.Focus, [clear, none, Shadow.off()]),
+    ]
+}
+
+/**
+ * Returns a section's group in a card: its rows on the control grey, a
+ * little lighter than the card's frame colour, rounded (PRP-022).
+ *
+ * Example:
+ *     column(rows).style(group(t))
+ */
+public fun group(t: Theme): Styling[] = [
+    Background { color: paint(t.control), ..Background.theme() },
+    Border { radius: Radius.All(PAGE_RADIUS), ..Border.theme() },
+];
+
+/**
+ * Returns the page's look: the content area, its top-right corner curved
+ * where the frame wraps it.
+ *
+ * Example:
+ *     area.style(page(m.theme))
+ */
+public fun page(t: Theme): Styling[] = [
+    Background { color: paint(t.page), ..Background.theme() },
+    Border { radius: Radius.Corners(0, PAGE_RADIUS, 0, 0), ..Border.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+];
+
+/**
+ * Returns a text field's look: the page's colour, a thin edge that turns the
+ * accent while the field has focus.
+ *
+ * Example:
+ *     input(v, f).style(field(t))
+ */
+public fun field(t: Theme): Styling[] = [
+    Background { color: paint(t.page), ..Background.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+    Border { all: line(t.edge), radius: Radius.All(BUTTON_RADIUS), ..Border.theme() },
+    Shadow.off(),
+    When(State.Focus, [Border { all: line(t.accent), ..Border.theme() }]),
+];
+
+/**
+ * Returns the address box's look: a field whose ends are half circles.
+ *
+ * Example:
+ *     input(m.draft, Msg.Draft).style(address(m.theme))
+ */
+public fun address(t: Theme): Styling[] {
+    let mut all = field(t);
+    // Half the height rounds each end into a half circle (the owner,
+    // session 75). kivuli radii are pixels, so the box's height is fixed.
+    all.push(Border { radius: Radius.All(CIRCLE), ..Border.theme() });
+    all
+}
+
+/**
+ * Returns the suggestions card's look: the page's colour, a thin edge, rounded.
+ *
+ * Example:
+ *     column(rows).style(suggestions(m.theme))
+ */
+public fun suggestions(t: Theme): Styling[] = [
+    Background { color: paint(t.page), ..Background.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+    Border { all: line(t.edge), radius: Radius.All(PAGE_RADIUS), ..Border.theme() },
+    Shadow.off(),
+];
+
+/**
+ * Returns an invisible look: a layer that only catches clicks.
+ *
+ * Example:
+ *     button_with(column([]), Msg.Dismiss).style(clear(m.theme))
+ */
+public fun clear(t: Theme): Styling[] = flat(t.clear);
+
+/**
+ * Returns ordinary text's look.
+ *
+ * Example:
+ *     text(s).style(body(t))
+ */
+public fun body(t: Theme): Styling[] = [Text { color: paint(t.text), ..Text.theme() }];
+
+/**
+ * Returns secondary text's look: fainter.
+ *
+ * Example:
+ *     text(reason).style(dim(t))
+ */
+public fun dim(t: Theme): Styling[] = [Text { color: paint(t.dim), ..Text.theme() }];
+
+/**
+ * Returns a view's title's look: `TEXT_TITLE` points, bold.
+ *
+ * Example:
+ *     text("This app stopped working").style(title(t))
+ */
+public fun title(t: Theme): Styling[] = [
+    Font { size: Size.Pt(at_scale(TEXT_TITLE, t)), weight: Weight.Bold, ..Font.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+];
+
+/**
+ * Returns a section heading's look: `TEXT_HEADING` points, bold.
+ *
+ * Example:
+ *     text("Pinned").style(heading(t))
+ */
+public fun heading(t: Theme): Styling[] = [
+    Font { size: Size.Pt(at_scale(TEXT_HEADING, t)), weight: Weight.Bold, ..Font.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+];
+
+/**
+ * Returns a button's look for its kind: its colours at rest, under the
+ * pointer and pressed, rounded, and faded while disabled.
+ *
+ * Example:
+ *     button("Restart", Msg.Restart).style(button(t, ButtonLook.Primary))
+ */
+public fun button(t: Theme, kind: ButtonLook): Styling[] {
+    let p = button_paint(t, kind);
+    [
+        Background { color: paint(p.background), ..Background.theme() },
+        Text { color: paint(p.text), ..Text.theme() },
+        Border {
+            all: Side { width: Width.Px(0), ..Side.theme() },
+            radius: Radius.All(BUTTON_RADIUS),
+            ..Border.theme(),
+        },
+        Shadow.off(),
+        When(State.Hover, [Background { color: paint(p.hover), ..Background.theme() }]),
+        When(State.Press, [Background { color: paint(p.press), ..Background.theme() }]),
+        // Half as strong: still readable, plainly not clickable.
+        When(State.Disabled, [Effects { opacity: Some(0.5), ..Effects.theme() }]),
+    ]
+}
+
+/** A colour of the theme's, as kivuli paint. */
+/**
+ * Returns one of a theme's colours as kivuli paint: how `frame_looks.la`
+ * reads the theme without holding a hex value of its own.
+ *
+ * Example:
+ *     paint(t.accent)
+ */
+public fun paint(colour: string): Paint = Paint.Color(hex(colour));
+
+/** A thin solid line in a colour. */
+fun line(colour: string): Side = Side {
+    width: Width.Px(EDGE_WIDTH),
+    color: paint(colour),
+    ..Side.theme(),
+};
+
+/**
+ * Returns a flat surface in a colour: no border line or theme shadow.
+ *
+ * Example:
+ *     flat(t.frame)
+ */
+public fun flat(colour: string): Styling[] = [
+    Background { color: paint(colour), ..Background.theme() },
+    Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() },
+    Shadow.off(),
+];
+
+/**
+ * Returns an instance's dot colour (PRP-033), chosen by its stable key so
+ * renaming keeps it: the first instance ("") takes the first colour, "2"
+ * the second, and they go round.
+ *
+ * Example:
+ *     instance_colour(t, page.instance)
+ */
+public fun instance_colour(t: Theme, key: string): string {
+    let n = if key == "" { 1 } else { parse_i64(key).unwrap_or(1) };
+    t.instances[(n - 1) % t.instances.len]
+}
+
+/**
+ * A point size at the person's text size (PRP-038): Rapidkoi's titles and
+ * headings in its pages follow it. The frame passes a theme at scale 1.
+ *
+ * Example:
+ *     at_scale(TEXT_TITLE, t)
+ */
+public fun at_scale(pt: i64, t: Theme): i64 = (pt as f64 * t.scale + 0.5) as i64;

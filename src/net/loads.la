@@ -1,0 +1,309 @@
+/**
+ * Loading in the background (PRP-008): `begin` puts a loading page in a
+ * tab and describes the task (fetching and checking, away from the
+ * window); `arrive` takes its result. A result for a closed tab or an
+ * older load is ignored; one checked against a snapshot of trust that has
+ * since changed loads again, once. Trust is recorded and the app compiled
+ * only on arrival. `resumed` starts a signed app from its saved state,
+ * however it was opened.
+ *
+ * Depends on: kivuli, std.time, std.crypto, window.tabs, window.leftoff, window.window, net.fetching, bundles.loader, trust.verify, data.states, data.remembered, data.store, net.address, window.actions, guest.limits
+ * Used by: window.navigate, shell
+ */
+import kivuli { Cmd };
+import std.time;
+import std.crypto { equal };
+import window.tabs {
+    AppPage,
+    Pending,
+    loading,
+    from_loaded,
+    refused,
+    close_page,
+    failed_page,
+    state_of,
+    Screen,
+};
+import window.restarts { with_saved };
+import window.leftoff { LeftOff };
+import window.window { Model, with_tab, app };
+import net.fetching { Fetched, fetch_app };
+import net.dialing { Network };
+import bundles.loader { Refusal, from_fetched, current };
+import trust.verify { known_for, moves };
+import data.states { saved_state_in, move_state };
+import data.remembered { Recalled };
+import data.store { Store };
+import net.address { Address, parse, shown };
+import window.actions { Msg };
+import guest.limits { FETCH_TIMEOUT_MS };
+
+/**
+ * Puts a loading page in tab `id` (which must exist) and returns the task
+ * that fetches it. The task captures only plain data: the address and a
+ * snapshot of the trust for its host.
+ *
+ * @param path a local address that parses
+ * @param again whether this is the one retry after a changed snapshot
+ * @param saved state to continue with (⟳)
+ * @param kept the page this replaces, kept until the new one is ready (⟳)
+ *
+ * Example:
+ *     begin(m, id, "rapidkoi://localhost:8000", false, None, [])
+ */
+public fun begin(
+    m: Model,
+    id: i64,
+    path: string,
+    again: bool,
+    saved: Option<(u8[], i64)>,
+    kept: AppPage[],
+): (Model, Cmd<Msg>) = begin_at(m, id, path, again, saved, kept, None, []);
+
+/**
+ * Begins loading a link (PRP-036): as `begin`, at the version it names
+ * while its site lists it, with its fields set in the app's first state.
+ *
+ * Example:
+ *     begin_link(m, id, "rapidkoi://localhost:8000", Some("1.0.0"), [("count", "3")])
+ */
+public fun begin_link(
+    m: Model,
+    id: i64,
+    path: string,
+    version: Option<string>,
+    link: (string, string)[],
+): (Model, Cmd<Msg>) = begin_at(m, id, path, false, None, [], version, link);
+
+/** `begin`, with a link's version and fields. */
+fun begin_at(
+    m: Model,
+    id: i64,
+    path: string,
+    again: bool,
+    saved: Option<(u8[], i64)>,
+    kept: AppPage[],
+    version: Option<string>,
+    link: (string, string)[],
+): (Model, Cmd<Msg>) {
+    let parsed = match parse(path) {
+        Ok(a) => a,
+        // Callers parse first; an address that doesn't is shown as a stopped page.
+        Err(e) => {
+            return (
+                with_tab(m, id, fun(_: AppPage) = failed_page(path, address.reason(e))),
+                Cmd.none(),
+            );
+        }
+    };
+    // The link's version goes with the address to the task; its fields wait for the app.
+    let a = Address { version: version, ..parsed };
+    let number = m.loads + 1;
+    let now = time.now_ms();
+    let page = loading(path, number, Pending {
+        started: now,
+        again: again,
+        saved: saved,
+        kept: kept,
+        resume: false,
+        version: version,
+        link: link,
+    });
+    let known = known_for(m.ring, shown(a));
+    // Plain data for the task: the window's network is always the system's
+    // roots alone, except in tests (`window.with_network`).
+    let net = m.network;
+    let task = Cmd.task(
+        fun(): Fetched = fetch_app(a, known, net, FETCH_TIMEOUT_MS),
+        fun(f: Fetched) = Msg.Fetched(id, number, f),
+    );
+    // The tab's instance waits for its app under its name (PRP-033), with
+    // the fields its address named.
+    let waiting = fun(old: AppPage) = AppPage {
+        instance: old.instance,
+        label: old.label,
+        seen: old.seen,
+        link: old.link,
+        ..page,
+    };
+    (Model { loads: number, now: now, ..with_tab(m, id, waiting) }, task)
+}
+
+/**
+ * Begins loading a window restored from the last session (PRP-035): as
+ * `begin`, marked so its saved state is picked up when it arrives.
+ *
+ * Example:
+ *     begin_restoring(m, id, "rapidkoi://counter.dafifi.net")
+ */
+public fun begin_restoring(m: Model, id: i64, path: string): (Model, Cmd<Msg>) {
+    let (began, task) = begin(m, id, path, false, None, []);
+    (restoring(began, id), task)
+}
+
+/** Tab `id`'s load, marked as restoring. */
+fun restoring(m: Model, id: i64): Model = with_tab(m, id, fun(p: AppPage) = match p.screen {
+    Loading(x) => AppPage { screen: Screen.Loading(Pending { resume: true, ..x }), ..p },
+    _ => p,
+});
+
+/**
+ * Takes a background load's result: ignored when stale; loaded again once
+ * when trust changed meanwhile; otherwise the app (trust recorded, then
+ * compiled, then its saved state resumed) or the reason it isn't.
+ *
+ * Example:
+ *     arrive(m, id, number, fetched)
+ */
+public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
+    let p = match app(m, id) {
+        Some(p) if p.load == number => p,
+        // Closed, or ⟳ started another load since: drop it.
+        _ => {
+            return (m, Cmd.none());
+        }
+    };
+    let pending = match p.screen {
+        Loading(x) => x,
+        _ => {
+            return (m, Cmd.none());
+        }
+    };
+    if !current(m.ring, f) {
+        if !pending.again {
+            let (again, task) = begin_at(
+                m,
+                id,
+                p.path,
+                true,
+                pending.saved,
+                pending.kept,
+                pending.version,
+                pending.link,
+            );
+            return (if pending.resume { restoring(again, id) } else { again }, task);
+        }
+        let host = p.name;
+        close_page(p);
+        let gave_up = failed_page(p.path, "Trust for {host} changed while it loaded; try again");
+        return (with_tab(m, id, fun(_: AppPage) = gave_up), Cmd.none());
+    }
+    let (page, notice) = match from_fetched(m.engine, m.ring, f) {
+        Ok(l) => {
+            // The instance it was loading for, with that instance's state.
+            let fresh = AppPage {
+                instance: p.instance,
+                label: p.label,
+                seen: p.seen,
+                ..from_loaded(m.engine, l, p.path, pending.link),
+            };
+            // A link's version no longer listed opened the current one (PRP-036).
+            let instead = match (pending.version, fresh.manifest) {
+                (Some(v), Some(mf)) if mf.version != v => Some(
+                    "This link was made with {fresh.name} {v}; opened {mf.version}",
+                ),
+                _ => None,
+            };
+            for k of pending.kept {
+                close_page(k);
+            }
+            match pending.saved {
+                // ⟳ on a running page: continue with what it had.
+                Some((state, version)) => {
+                    let (s, over) = with_saved(fresh, state, version);
+                    (
+                        s,
+                        if over {
+                            Some("{s.name}'s saved state changed shape, so it started over")
+                        } else {
+                            None
+                        },
+                    )
+                }
+                // A window restored from the last session picks up its
+                // saved state; anything opened anew starts fresh: state
+                // lives with its window (session 189).
+                None => if pending.resume { resumed(m, fresh, p.link) } else { (fresh, instead) },
+            }
+        }
+        // A changed key asks first; a page being reloaded waits for the answer.
+        Err(Unapproved(host, c)) => (
+            AppPage {
+                screen: tabs.Screen.Unapproved(c, pending.kept),
+                ..refused(Refusal.Unapproved(host, c), p.path),
+            },
+            None,
+        ),
+        Err(r) => {
+            for k of pending.kept {
+                close_page(k);
+            }
+            (refused(r, p.path), None)
+        }
+    };
+    // Continue keeps "where you left off" until the app runs.
+    let ran = m.left_off.map(fun(l: LeftOff) = l.path == p.path).unwrap_or(false) && state_of(
+        page,
+    ).is_some();
+    let left = if ran { None } else { m.left_off };
+    (
+        Model { left_off: left, notice: notice, ..with_tab(m, id, fun(_: AppPage) = page) },
+        Cmd.none(),
+    )
+}
+
+/**
+ * A signed app's page, started from its saved state when there is one:
+ * whatever route opened it, the same host and key pick up the same state
+ * (PRP-007 amendment 2). Unsigned pages are left as they are.
+ *
+ * @param link the fields the window's address named, kept with its state (PRP-036)
+ * @returns the page, and a notice (a changed state shape, a broken file)
+ *
+ * Example:
+ *     resumed(m, page, page.link)
+ */
+public fun resumed(m: Model, page: AppPage, link: string[]): (AppPage, Option<string>) = match (
+    m.store,
+    page.trust,
+) {
+    (Some(s), Some(t)) => match saved_state_in(
+        arrived(s, m, t.host, t.key),
+        t.host,
+        t.key,
+        page.instance,
+    ) {
+        Read(sv) => {
+            let (p, over) = with_saved(AppPage { link: link, ..page }, sv.state, sv.state_version);
+            (
+                p,
+                if over {
+                    Some("{p.name}'s saved state changed shape, so it started over")
+                } else {
+                    None
+                },
+            )
+        }
+        Broken(aside, _) => (
+            page,
+            Some("Rapidkoi couldn't read {page.name}'s saved state, so it set it aside in {aside}"),
+        ),
+        _ => (page, None),
+    },
+    _ => (page, None),
+};
+
+/**
+ * The store, after moving a state that a rotation just carried to `key`
+ * (opening verified the rotation; `persist` would move it only after this
+ * open read the state). Moving twice does nothing.
+ */
+fun arrived(s: Store, m: Model, host: string, key: u8[]): Store {
+    for (h, old, new) of moves(m.ring) {
+        if h == host && equal(new, key) {
+            // A failed move leaves the old state in place: the app starts fresh, and nothing is lost.
+            move_state(s, h, old, new).unwrap_or(());
+        }
+    }
+    s
+}

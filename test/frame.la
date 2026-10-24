@@ -1,0 +1,116 @@
+// The frame's small pieces, pure (PRP-017): names, initials, icon keys,
+// matching, and the trust marker Rapidkoi draws for each app. No display.
+import rapidkoi.ui.frame { label, initial, icon_of, marker, marker_icon, marker_note, address_of };
+import rapidkoi.bundles.bundle { Manifest };
+import rapidkoi.ui.suggestions { matches };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.window.tabs { AppPage, open_module };
+import kivuli { Image };
+import wasmtime { Engine, Module };
+import support { fixed, titled_tree, result_of };
+
+fun counter(): AppPage {
+    let engine = Engine.new();
+    let wat = fixed(2, [1], titled_tree("Count: 0", "Counter"), result_of([2]));
+    open_module("counter", "apps/counter.wasm", engine, Module.from_text(engine, wat).unwrap())
+}
+
+@test
+fun labels_and_initials() {
+    assert_eq(label(counter()), "counter · Counter");
+    assert_eq(initial("counter"), "C");
+    assert_eq(initial(""), "?");
+}
+
+@test
+fun matching_ignores_case_and_reads_titles() {
+    assert_eq(matches("COUNT", "counter", None), true);
+    assert_eq(matches("sprint", "board", Some("Sprint 3")), true);
+    assert_eq(matches("mail", "board", Some("Sprint 3")), false);
+}
+
+@test
+fun icons_are_keyed_by_file() {
+    assert_eq(
+        icon_of("apps/counter.rkb", Some([1])),
+        Some(Image.Bytes("apps/counter.rkb#icon", [1])),
+    );
+    assert_eq(icon_of("apps/counter.rkb", None), None);
+}
+
+/** A page from `path` signed by a key trusted `standing`, first trusted at `since`. */
+fun signed_page(path: string, host: string, standing: Standing, since: i64): AppPage = AppPage {
+    path: path,
+    trust: Some(Trust {
+        host: host,
+        key: [7; 32],
+        standing: standing,
+        build: [1; 32],
+        separate: false,
+        since: since,
+        origin: [7; 32],
+    }),
+    ..counter(),
+};
+
+@test
+fun the_marker_is_an_icon_and_the_host_with_the_words_on_hover() {
+    let remote = signed_page(
+        "rapidkoi://counter.dafifi.net",
+        "counter.dafifi.net",
+        Standing.Verified,
+        0,
+    );
+    assert_eq(
+        (marker(remote, "x"), marker_icon(remote), marker_note(remote, "x")),
+        ("counter.dafifi.net", Some("security-high-symbolic"), "counter.dafifi.net · verified"),
+    );
+    let local = signed_page("rapidkoi://localhost:8000", "localhost:8000", Standing.Verified, 0);
+    assert_eq(
+        (marker(local, "x"), marker_note(local, "x")),
+        ("localhost:8000", "localhost:8000 · verified (development)"),
+    );
+    let file = signed_page("notes.rkb", "notes.acme.com", Standing.Trusted, 0);
+    assert_eq(
+        (marker(file, "x"), marker_icon(file)),
+        ("notes.acme.com", Some("security-high-symbolic")),
+    );
+    let stranger = signed_page("notes.rkb", "notes.acme.com", Standing.NotConfirmed, 0);
+    assert_eq(
+        (marker(stranger, "x"), marker_icon(stranger)),
+        ("notes.acme.com · not confirmed", Some("dialog-warning-symbolic")),
+    );
+    // Unsigned pages keep their words and no icon.
+    assert_eq(
+        (marker(counter(), "counter.wasm"), marker_icon(counter())),
+        ("📄 counter.wasm · local file", None),
+    );
+}
+
+@test
+fun the_address_box_shows_the_window_s_link() {
+    // PRP-036: what you see is what you'd share, the version included.
+    let p = counter();
+    assert_eq(address_of(p), "counter.wasm");
+    let site = AppPage { path: "rapidkoi://localhost:8000", ..p };
+    assert_eq(address_of(site), "rapidkoi://localhost:8000");
+    let versioned = AppPage {
+        manifest: Some(Manifest {
+            contract: 4,
+            name: "Counter",
+            version: "0.3.0",
+            description: None,
+            state_version: 1,
+            icon: None,
+            banners: [],
+            servers: [],
+            permissions: [],
+            controls: None,
+        }),
+        fields: [("count", "3")],
+        ..site,
+    };
+    assert_eq(address_of(versioned), "rapidkoi://localhost:8000/@0.3.0?count=3");
+    let remote = AppPage { path: "rapidkoi://counter.dafifi.net", ..versioned };
+    assert_eq(address_of(remote), "https://counter.dafifi.net/@0.3.0?count=3");
+}

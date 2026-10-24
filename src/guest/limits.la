@@ -1,0 +1,152 @@
+/**
+ * Every limit contract v1 puts on a guest app, in one place. A guest that
+ * passes one is stopped with an error screen; Rapidkoi keeps running.
+ * Values from `docs/source/meetings/2026-10-17-ui-contract.md`.
+ *
+ * Used by: guest.guest, guest.contract
+ */
+
+/** The newest contract this shell speaks (`rapidkoi_version()`): 6, contract 5 and storage (PRP-041). */
+public const CONTRACT_VERSION: i32 = 6;
+
+/** The deepest a contract 4 state may nest, as CBOR levels (PRP-036). */
+public const MAX_STATE_DEPTH: i64 = 64;
+
+/** The oldest UI contract this Rapidkoi still runs (DECISION-039: published bundles can't be recompiled). */
+public const OLDEST_CONTRACT: i32 = 2;
+
+/** The largest module file Rapidkoi will compile, in bytes. */
+public const MAX_MODULE: i64 = 32 * 1024 * 1024;
+
+/** The most a guest's linear memory may grow to, in bytes. */
+public const MEMORY_BYTES: i64 = 256 * 1024 * 1024;
+
+/** The largest state a guest may hand back, in bytes. */
+public const MAX_STATE: i64 = 16 * 1024 * 1024;
+
+/** The largest screen description a guest may hand back, in bytes. */
+public const MAX_VIEW: i64 = 4 * 1024 * 1024;
+
+/** The largest update result: the state plus room for its map and `effects`. */
+public const MAX_UPDATE: i64 = MAX_STATE + MAX_EFFECTS * (MAX_BODY_UP + 2 * MAX_URL) + 4096;
+
+/** The most nodes in one screen description. */
+public const MAX_NODES: i64 = 10_000;
+
+/** The deepest one node may sit: the root is depth 1. */
+public const MAX_NODE_DEPTH: i64 = 64;
+
+/** The longest one string in a screen description, in bytes. */
+public const MAX_STRING: i64 = 64 * 1024;
+
+/**
+ * Fuel for one call into a guest: about 100 ms of work.
+ *
+ * Calibrated 2026-10-17 (session 6) on an Intel Core i5-4308U (2.8 GHz):
+ * a busy `i32.add` loop, built with `lughac build -O 2`, ran out of 1, 2
+ * and 4 billion fuel in 0.14, 0.28 and 0.57 s (`/usr/bin/time`), about
+ * 7 billion fuel a second, so 100 ms is about 700 million. Fuel counts
+ * instructions, not time: slower instructions (calls, memory traffic)
+ * take longer per unit, so real code can run somewhat past 100 ms. It is a
+ * bound on work, not a timer (epoch interruption would be, if ever needed).
+ */
+public const FUEL_PER_CALL: u64 = 700_000_000;
+
+/** The largest `.rkb` bundle Rapidkoi will read, in bytes. */
+public const MAX_BUNDLE: i64 = 32 * 1024 * 1024;
+
+/** The largest one asset in a bundle, in bytes. */
+public const MAX_ASSET: i64 = 4 * 1024 * 1024;
+
+/** The most assets in one bundle. */
+public const MAX_ASSETS: i64 = 256;
+
+/** The longest app name in a manifest, in bytes. */
+public const MAX_NAME: i64 = 64;
+
+/** The longest description in a manifest, in bytes. */
+public const MAX_DESCRIPTION: i64 = 280;
+
+/** The longest asset name in a bundle, in bytes. */
+public const MAX_ASSET_NAME: i64 = 128;
+
+/** How long fetching a bundle from a development server may take, in milliseconds. */
+public const FETCH_TIMEOUT_MS: i64 = 30_000;
+
+/** The largest image any asset may declare, in pixels per side (kivuli's own cap). */
+public const MAX_IMAGE_PX: i64 = 4096;
+
+/** The largest icon, in pixels per side. */
+public const MAX_ICON_PX: i64 = 1024;
+
+/** The largest banner, in pixels: width. */
+public const MAX_BANNER_WIDTH: i64 = 2048;
+
+/** The largest banner, in pixels: height. */
+public const MAX_BANNER_HEIGHT: i64 = 1024;
+
+/** The most effects one `init` or `update` may ask for (contract v2, PRP-011). */
+public const MAX_EFFECTS: i64 = 8;
+
+/** The longest sign-in challenge an app may ask Rapidkoi to sign, in bytes. */
+public const MAX_CHALLENGE: i64 = 1024;
+
+/** The largest body an app's request may send, in bytes (PRP-012). */
+public const MAX_BODY_UP: i64 = 1024 * 1024;
+
+/** The largest response body an app's request may receive, in bytes. */
+public const MAX_BODY_DOWN: i64 = 8 * 1024 * 1024;
+
+/** The most requests in flight for one app. */
+public const MAX_IN_FLIGHT: i64 = 4;
+
+/** How long one request may take, in milliseconds. */
+public const REQUEST_TIMEOUT_MS: i64 = 30_000;
+
+/** The most servers a manifest may declare. */
+public const MAX_SERVERS: i64 = 32;
+
+/** The most pins the new tab is told about (PRP-030). */
+public const MAX_PLACES: i64 = 64;
+
+/** The largest icon handed to the new tab, in bytes; a bigger one is left out. */
+public const MAX_PLACE_ICON: i64 = 64 * 1024;
+
+/** The most permissions a manifest may declare (PRP-030). */
+public const MAX_PERMISSIONS: i64 = 16;
+
+/** The longest permission name, in bytes. */
+public const MAX_PERMISSION_NAME: i64 = 32;
+
+/** The longest URL in a request, in bytes; also the longest header value. */
+public const MAX_URL: i64 = 8192;
+
+/** The most headers in one request. */
+public const MAX_HEADERS: i64 = 64;
+
+/** The longest SQL text a `sql` ask may send, in bytes (PRP-041). */
+public const MAX_SQL: i64 = 100 * 1024;
+
+/** The most values one statement may bind. */
+public const MAX_SQL_PARAMS: i64 = 999;
+
+/** The longest text or bytes value a statement may bind or store. */
+public const MAX_SQL_VALUE: i64 = 4 * 1024 * 1024;
+
+/** The most rows one answer carries. */
+public const MAX_ROWS: i64 = 10_000;
+
+/** The most bytes one answer's rows carry; rows past it are cut. */
+public const MAX_ANSWER: i64 = 4 * 1024 * 1024;
+
+/** The most statements in one `sql_batch`. */
+public const MAX_STEPS: i64 = 100;
+
+/** An app's database's largest size, in bytes. */
+public const DATABASE_BYTES: i64 = 100 * 1024 * 1024;
+
+/** How long one call to an app's database may take, in milliseconds. */
+public const QUERY_MS: i64 = 1000;
+
+/** The memory SQLite may use across every app's database. */
+public const SQLITE_HEAP: i64 = 256 * 1024 * 1024;

@@ -1,0 +1,220 @@
+/**
+ * The sidebar, pure (PRP-023): Rapidkoi's apps down the window's right.
+ * Pinned apps first (open or not), a line, the other open apps, then +
+ * right after them; once they don't fit they scroll and + stays at the
+ * bottom (PRP-028).
+ * The current app's icon is ringed in the accent and has a × (Ctrl+W); any
+ * other open tab shows its × while hovered; each has a right-click menu.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, window.window, ui.frame, ui.tokens, ui.themes
+ * Used by: ui.layout
+ */
+import kivuli {
+    View,
+    Align,
+    Image,
+    MenuEntry,
+    column,
+    icon,
+    image,
+    item,
+    menu_separator,
+    overlay,
+    scroll_fit,
+    text,
+    Group,
+};
+import kivuli.ui { Button, button_with as ui_button_with, separator };
+import window.actions { Msg, TabAction, PinAction };
+import window.tabs { Tab, Pin, AppPage };
+import window.window { Model, order as tab_order, open_tab_of };
+import window.instances { instances_of };
+import ui.frame { label, initial, icon_of };
+import ui.tokens { SPACE_XS, SPACE_SM, HEADER_ICON, TAB_CLOSE, TAB_CLOSE_ICON, gap, square };
+import ui.themes { Theme, heading };
+import ui.frame_looks { app_button, app_current, tab_close, tab_close_on_hover, count_badge };
+
+/**
+ * Builds the sidebar's apps and +, top to bottom.
+ *
+ * @param m the model: its tabs, the current one, its pins
+ * @returns the sidebar's column
+ *
+ * Example:
+ *     sidebar.view(m)
+ */
+public fun view(m: Model): View<Msg> {
+    let t = m.theme;
+    let mut pinned: View<Msg>[] = [];
+    for p of m.pinned {
+        match tab_of(m, p.path) {
+            // Pinned and open: one button, its tab.
+            Some(tab) => pinned.push(open_app(m, tab, true)),
+            None => pinned.push(closed_pin(t, p)),
+        }
+    }
+    // The rest, app and empty tabs, in the order they were made (PRP-024).
+    let mut rest: View<Msg>[] = [];
+    for id of order(m) {
+        match tab_by_id(m, id) {
+            // A dock: one entry per app, its last-used instance's (PRP-033).
+            Some(tab) => if !m.pinned.any(fun(p: Pin) = p.path == tab.page.path) && open_tab_of(
+                m,
+                tab.page.path,
+            ) == Some(tab.id) {
+                rest.push(open_app(m, tab, false));
+            },
+            None => rest.push(empty_tab(m, id)),
+        }
+    }
+    let mut all = pinned;
+    if pinned.len > 0 && rest.len > 0 {
+        all.push(separator());
+    }
+    for v of rest {
+        all.push(v);
+    }
+    let plus = ui_button_with([icon("list-add-symbolic").size(HEADER_ICON)], Msg.NewTab).style(
+        app_button(t),
+    ).tooltip("Add a tab").shortcut("Ctrl+T").align(Align.Center);
+    // Chrome's way: + right after the last app, at the bottom once they
+    // scroll. No spacer: a fitting scroll takes no spare room.
+    // Room between apps, so each sits apart in the dock (the owner, session 178).
+    column([scroll_fit(column(all).style([gap(SPACE_SM)])), plus]).style([gap(SPACE_SM)])
+}
+
+/**
+ * Returns every tab's id, app and empty, in the order they were made: the
+ * sidebar's order for the tabs that aren't pinned.
+ *
+ * Example:
+ *     sidebar.order(m)
+ */
+public fun order(m: Model): i64[] = tab_order(m);
+
+/** The app tab with this id, if it's one. */
+fun tab_by_id(m: Model, id: i64): Option<Tab> {
+    for tab of m.tabs {
+        if tab.id == id {
+            return Some(tab);
+        }
+    }
+    None
+}
+
+/** An empty tab: the new-tab placeholder, ringed when current, its ×, a menu with Close. */
+fun empty_tab(m: Model, id: i64): View<Msg> {
+    let t = m.theme;
+    let current = m.current == Some(id);
+    let mut look = app_button(t);
+    if current {
+        for x of app_current(t) {
+            look.push(x);
+        }
+    }
+    let button = ui_button_with([icon("tab-new-symbolic").size(HEADER_ICON)], Msg.Select(id)).style(
+        look,
+    ).tooltip("New tab").menu([item("Close", Msg.CloseTab(id))]);
+    with_close(t, id, button, "New tab", current)
+}
+
+/** The open tab showing `path`, if one does: its last-used instance (PRP-033). */
+fun tab_of(m: Model, path: string): Option<Tab> = match open_tab_of(m, path) {
+    Some(id) => tab_by_id(m, id),
+    None => None,
+};
+
+/**
+ * An open app, as one entry however many instances it has (PRP-033): its
+ * icon, the ring when one of them is current, its ×, a count past one, and
+ * its menu. The current entry's × (Ctrl+W) closes the instance in front;
+ * another's, and the menu's Close, close every instance.
+ */
+fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
+    let t = m.theme;
+    let all = instances_of(m, tab.id);
+    let current = all.any(fun(x: Tab) = m.current == Some(x.id));
+    let mut look = app_button(t);
+    if current {
+        for x of app_current(t) {
+            look.push(x);
+        }
+    }
+    let button = ui_button_with(
+        [face(t, tab.page.name, tab.page.path, tab.page.icon)],
+        Msg.Select(tab.id),
+    ).style(look).tooltip(label(tab.page)).menu([
+        if all.len > 1 {
+            item("Close all", Msg.CloseApp(tab.id))
+        } else {
+            item("Close", Msg.OnTab(tab.id, TabAction.Close))
+        },
+        item(if pinned { "Unpin" } else { "Pin" }, Msg.OnTab(tab.id, TabAction.TogglePin)),
+        menu_separator(),
+        item("Forget this app…", Msg.OnTab(tab.id, TabAction.Forget)),
+    ]);
+    let closing = if current {
+        Msg.CloseTab(m.current.unwrap_or(tab.id))
+    } else {
+        Msg.CloseApp(tab.id)
+    };
+    let mut layers = [close_button(t, closing, tab.page.name, current)];
+    if all.len > 1 {
+        layers.push(text(count_text(all.len)).style(count_badge(t)).place(Align.End, Align.End));
+    }
+    overlay(button, layers).style([Group.mark()]).name("tab-{tab.id}").align(Align.Center)
+}
+
+/**
+ * Returns the dock's count of an app's instances, as its badge shows it:
+ * up to 9, then "9+", so the badge stays small.
+ *
+ * Example:
+ *     count_text(12)
+ */
+public fun count_text(n: i64): string = if n > 9 { "9+" } else { "{n}" };
+
+/**
+ * A tab's button with its × over the top-right corner, named `tab-{id}` so
+ * the shell can scroll it into view. The overlay is the group: a layer
+ * isn't inside its base, so marking the button wouldn't reach the ×.
+ */
+fun with_close(
+    t: Theme,
+    id: i64,
+    button: View<Msg>,
+    name: string,
+    current: bool,
+): View<Msg> = overlay(button, [close_button(t, Msg.CloseTab(id), name, current)]).style([
+    Group.mark(),
+]).name("tab-{id}").align(Align.Center);
+
+/** A tab's ×: always shown on the current tab, with Ctrl+W; on the others, while hovered. */
+fun close_button(t: Theme, closing: Msg, name: string, current: bool): View<Msg> {
+    let x = ui_button_with([icon("window-close-symbolic").size(TAB_CLOSE_ICON)], closing).tooltip(
+        "Close {name}",
+    ).place(Align.End, Align.Start);
+    // One Ctrl+W in the window: the current tab's.
+    if current { x.style(tab_close(t)).shortcut("Ctrl+W") } else { x.style(tab_close_on_hover(t)) }
+}
+
+/** A pinned app that isn't open: its icon, opening it, and its menu. */
+fun closed_pin(t: Theme, p: Pin): View<Msg> = ui_button_with(
+    [face(t, p.name, p.path, p.icon)],
+    Msg.OpenPinned(p.path),
+).style(app_button(t)).tooltip("Open {p.name}").menu([
+    item("Open", Msg.OnPin(p.path, PinAction.Open)),
+    item("Unpin", Msg.OnPin(p.path, PinAction.Unpin)),
+    menu_separator(),
+    item("Forget this app…", Msg.OnPin(p.path, PinAction.Forget)),
+]).align(Align.Center);
+
+/** An app's icon, or its initial without one. */
+fun face(t: Theme, name: string, path: string, bytes: Option<u8[]>): View<Msg> = match icon_of(
+    path,
+    bytes,
+) {
+    Some(img) => image(img).style([square(HEADER_ICON)]).align(Align.Center),
+    // The dock keeps its size whatever the text size (PRP-038).
+    None => text(initial(name)).style(heading(Theme { scale: 1.0, ..t })).align(Align.Center),
+};

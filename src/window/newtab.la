@@ -1,0 +1,36 @@
+/**
+ * Rapidkoi's new tab (PRP-027): the app every empty tab runs, a bundle
+ * built into ./main from `assets/apps/newtab.rkb` (`scripts/newtab.sh`
+ * packs it). Unsigned: it's trusted because it's part of Rapidkoi. Still a
+ * guest, under every limit.
+ *
+ * Depends on: wasmtime, bundles.loader, trust.verify, window.tabs
+ * Used by: shell
+ */
+import wasmtime { Engine };
+import bundles.loader { Origin, Refusal, from_bytes };
+import trust.verify { keyring };
+import window.tabs { AppPage, from_loaded };
+
+/** The new tab's path and settings key: no host or file, so a name of its own (PRP-031). */
+public const NEWTAB_KEY: string = "builtin:newtab";
+
+/** The new-tab app's bundle, as built into the program. */
+public const BUNDLE: u8[] = include_bytes("../../assets/apps/newtab.rkb");
+
+/**
+ * Starts the new-tab app.
+ *
+ * @param engine the engine to compile it with
+ * @returns its page, running; or why it couldn't start
+ *
+ * Example:
+ *     newtab.open(engine)
+ */
+public fun open(engine: Engine): Result<AppPage, Refusal> {
+    // An empty keyring: the bundle is unsigned, so nothing is looked up.
+    // Built in: the only bytes that may hold built-in permissions (PRP-030).
+    let l = from_bytes(engine, keyring(), "newtab.rkb", BUNDLE, Origin.BuiltIn)?;
+    // Its path is its key for your permission settings (`access.key_of`).
+    Ok(from_loaded(engine, l, NEWTAB_KEY, []))
+}

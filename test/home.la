@@ -1,0 +1,130 @@
+// What the new tab reads (PRP-030): your pins and where you left off, as
+// Rapidkoi answers them, and what open_pin and continue open. Pure apart
+// from fixture guests; no display.
+import rapidkoi.guest.home { place_of, pins_of, left_off_of, pin_msg, continue_msg, session_of };
+import rapidkoi.data.remembered { Open, OpenTab };
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.tabs { AppPage, Pin, open_module };
+import wasmtime { Engine, Module };
+import cbor { Value };
+import support { t, kv, echo };
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "apps/{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun pin(name: string, path: string, icon: Option<u8[]>): Pin = Pin {
+    name: name,
+    path: path,
+    icon: icon,
+};
+
+@test
+fun a_place_is_a_host_or_a_bare_file_name() {
+    assert_eq(place_of("rapidkoi://quote.dafifi.net"), "quote.dafifi.net");
+    assert_eq(place_of("rapidkoi://localhost:8000/"), "localhost:8000");
+    assert_eq(place_of("/home/amina/apps/counter.rkb"), "counter.rkb");
+    assert_eq(place_of("counter.wasm"), "counter.wasm");
+}
+
+@test
+fun pins_are_listed_in_order_without_paths() {
+    let m = Model {
+        pinned: [
+            pin("Quote", "rapidkoi://quote.dafifi.net", Some([1, 2])),
+            pin("Counter", "/home/amina/counter.rkb", None),
+        ],
+        ..with_pages(Engine.new(), []),
+    };
+    assert_eq(
+        pins_of(m),
+        Value.Array([
+            kv([
+                ("name", t("Quote")),
+                ("place", t("quote.dafifi.net")),
+                ("icon", Value.Bytes([1, 2])),
+            ]),
+            kv([("name", t("Counter")), ("place", t("counter.rkb"))]),
+        ]),
+    );
+    assert_eq(pins_of(with_pages(Engine.new(), [])), Value.Array([]));
+}
+
+@test
+fun at_most_64_pins_are_listed() {
+    let mut many: Pin[] = [];
+    for i of range(0, 70) {
+        many.push(pin("p{i}", "p{i}.wasm", None));
+    }
+    let listed = pins_of(Model { pinned: many, ..with_pages(Engine.new(), []) });
+    assert_eq(listed.as_array().map(fun(xs: Value[]) = xs.len), Some(64));
+}
+
+@test
+fun where_you_left_off_is_the_app_used_last() {
+    let engine = Engine.new();
+    let m = step(with_pages(engine, [app(engine, "notes")]), Msg.NewTab);
+    assert_eq(left_off_of(m), kv([("name", t("notes")), ("place", t("notes.wasm"))]));
+    assert_eq(continue_msg(m), Some(Msg.Select(0)));
+    // Closed: it's remembered, and Continue reopens it.
+    let closed = step(m, Msg.CloseTab(0));
+    assert_eq(left_off_of(closed), kv([("name", t("notes")), ("place", t("notes.wasm"))]));
+    assert_eq(continue_msg(closed), Some(Msg.Continue));
+}
+
+@test
+fun nothing_left_off_is_null() {
+    let m = with_pages(Engine.new(), []);
+    assert_eq(left_off_of(m), Value.Null);
+    assert_eq(continue_msg(m), None);
+}
+
+@test
+fun open_pin_is_checked_against_the_pins_now() {
+    let m = Model {
+        pinned: [pin("Quote", "rapidkoi://quote.dafifi.net", None)],
+        ..with_pages(Engine.new(), []),
+    };
+    assert_eq(pin_msg(m, 0), Some(Msg.OpenPinned("rapidkoi://quote.dafifi.net")));
+    assert_eq(pin_msg(m, 1), None);
+}
+
+@test
+fun the_last_session_is_its_size_and_its_apps() {
+    // PRP-035: what "Restore previous session" will bring back.
+    let tab = fun(path: string, instance: string) = OpenTab {
+        link: [],
+        path: path,
+        instance: instance,
+        label: None,
+        seen: 0,
+    };
+    let m = Model {
+        previous: Some(Open {
+            tabs: [
+                tab("rapidkoi://quote.dafifi.net", ""),
+                tab("apps/notes.wasm", ""),
+                tab("apps/notes.wasm", "2"),
+            ],
+            current: None,
+        }),
+        ..with_pages(Engine.new(), []),
+    };
+    assert_eq(
+        session_of(m),
+        kv([
+            ("count", Value.int(3)),
+            ("apps", Value.Array([t("quote.dafifi.net"), t("notes.wasm")])),
+        ]),
+    );
+    assert_eq(session_of(with_pages(Engine.new(), [])), Value.Null);
+}

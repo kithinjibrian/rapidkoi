@@ -1,0 +1,363 @@
+/**
+ * Opening things in the window: what the address box says (a local file or
+ * a local development address), a pinned app, Continue, and Reload. Each
+ * returns the next model and, for an address, the background load's task
+ * (`loads.la`); the state itself lives in `window.la`. Reads local files
+ * (CLAUDE.md rule 3).
+ *
+ * Depends on: std.fs, kivuli, window.tabs, window.leftoff, window.window, net.address, trust.verify, net.loads, window.actions
+ * Used by: shell
+ */
+import std.fs;
+import window.tabs { AppPage, Tab, open_path, close_page, state_of, state_version_of, failed_page };
+import window.restarts { resume, load_again };
+import window.instances { next_instance, another };
+import data.remembered { Open };
+import window.leftoff { LeftOff, leave, compiled };
+import trust.verify { separate };
+import net.loads { begin, begin_link, begin_restoring, resumed };
+import kivuli { Cmd };
+import window.actions { Msg };
+import window.window {
+    Model,
+    page_of,
+    with_tab,
+    add_tab,
+    app,
+    slot,
+    open_tab_of,
+    show_tab,
+    go_home,
+    same_app,
+};
+import net.address { is_address, parse, without_link };
+import window.settings_app;
+import bundles.loader { why };
+
+/**
+ * Opens what the address box says: a local file or development address,
+ * or a notice why not.
+ *
+ * Example:
+ *     go(m)
+ */
+public fun go(m: Model): (Model, Cmd<Msg>) {
+    let wanted = m.draft.trim();
+    if wanted == "" {
+        return (m, Cmd.none());
+    }
+    if is_address(wanted) {
+        // Local development addresses open; any other gets the reason why not yet.
+        return match parse(wanted) {
+            Ok(_) => open_file(m, wanted),
+            Err(e) => (Model { notice: Some(address.reason(e)), ..m }, Cmd.none()),
+        };
+    }
+    // An app already open is shown even if its file has gone since (PRP-026).
+    if fs.is_file(wanted) || open_tab_of(m, wanted).is_some() {
+        return open_file(m, wanted);
+    }
+    (Model { notice: Some("No app or file called “{wanted}”"), ..m }, Cmd.none())
+}
+
+/**
+ * Opens a local app file or address: in a new tab from home, or in place
+ * of the current tab's app (which becomes "where you left off"). A file
+ * opens at once; an address loads in the background (PRP-008). A link
+ * (PRP-036) opens at its version; one with fields always in a new window.
+ *
+ * @returns the model, and the load's task for an address
+ *
+ * Example:
+ *     open_file(m, "counter.wasm")
+ */
+public fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
+    // A link (PRP-036) is its app's address with a version and fields.
+    let (path, version, fields) = match parse(text) {
+        Ok(a) if is_address(text) => (without_link(text), a.version, a.fields),
+        _ => (text, None, []),
+    };
+    // A link's fields always open a new window, beside what's open.
+    if fields.len > 0 {
+        let placed = add_tab(m, AppPage {
+            instance: next_instance(m, path),
+            ..failed_page(path, ""),
+        });
+        let tidy = Model { draft: "", editing: false, notice: None, ..placed };
+        return begin_link(tidy, placed.current.unwrap_or(-1), path, version, fields);
+    }
+    // One tab per app (PRP-026): an app already open is shown, not started twice.
+    if let Some(id) = open_tab_of(m, path) {
+        return (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none());
+    }
+    let placed = match m.current {
+        // The app in this tab gives way to the new one, which starts as its
+        // first instance: the old one's name and key don't carry over.
+        Some(id) if app(m, id).is_some() => (
+            Model {
+                left_off: app(m, id).map(leave),
+                ..with_tab(m, id, fun(_: AppPage) = failed_page(path, "")),
+            },
+            id,
+        ),
+        // A new tab, or the current empty tab, filled in place (PRP-024).
+        _ => (add_tab(m, failed_page(path, "")), slot(m)),
+    };
+    let (base, id) = placed;
+    let tidy = Model { draft: "", editing: false, notice: None, ..base };
+    if is_address(path) && parse(path).is_ok() {
+        return begin_link(tidy, id, path, version, []);
+    }
+    // A new window starts fresh: state lives with its window, and only
+    // Restore brings a saved one back (session 189).
+    let page = open_path(m.engine, m.ring, path);
+    (with_tab(tidy, id, fun(_: AppPage) = page), Cmd.none())
+}
+
+/**
+ * Opens another instance of the current app (PRP-033): the strip's +. It
+ * starts fresh from the app's compiled program, in a new tab, under the
+ * next number.
+ * Nothing on an empty tab, or for an app that isn't running yet.
+ *
+ * Example:
+ *     new_instance(m)
+ */
+public fun new_instance(m: Model): (Model, Cmd<Msg>) {
+    let p = match page_of(m) {
+        App(a) => a,
+        Home => {
+            return (m, Cmd.none());
+        }
+    };
+    match another(p, next_instance(m, p.path)) {
+        // Fresh, as every new window is (session 189).
+        Some(fresh) => (add_tab(m, fresh), Cmd.none()),
+        None => (m, Cmd.none()),
+    }
+}
+
+/**
+ * Reopens a saved session (PRP-034, PRP-035), each window in its own tab
+ * in the order saved, except apps open now, whose current windows win: a file opened again, an address loading in the
+ * background, each as the same instance under the same name, a signed one
+ * from its saved state. The one that was in front is current. One that
+ * can't come back shows why in its tab.
+ *
+ * @param m the window, its data folder restored and no tabs yet
+ * @param o what was open
+ * @returns the window with its tabs, and the background loads
+ *
+ * Example:
+ *     reopen_all(m, open)
+ */
+public fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
+    let mut at = m;
+    let mut tasks: Cmd<Msg>[] = [];
+    let mut ids: i64[] = [];
+    // The current session wins per app (the owner, session 187): an app
+    // open now keeps only its current windows; one that isn't comes back
+    // with all of its own.
+    for t of o.tabs {
+        let current = m.tabs.filter(fun(x: Tab) = same_app(x.page.path, t.path));
+        if current.len > 0 {
+            ids.push(current[0].id);
+            continue;
+        }
+        let named = fun(p: AppPage) = AppPage {
+            instance: t.instance,
+            label: t.label,
+            seen: t.seen,
+            link: t.link,
+            ..p,
+        };
+        if t.path == settings_app.SETTINGS_KEY {
+            // Rapidkoi's own Settings comes back built in, never from a file (PRP-038).
+            if let Ok(page) = settings_app.open(at.engine) {
+                at = add_tab(at, named(page));
+            }
+        } else if is_address(t.path) && parse(t.path).is_ok() {
+            // Its tab first, under its name; begin keeps the instance (loads).
+            let placed = add_tab(at, named(failed_page(t.path, "")));
+            let id = placed.current.unwrap_or(-1);
+            let (loading, task) = begin_restoring(placed, id, t.path);
+            at = loading;
+            tasks.push(task);
+        } else {
+            let (page, said) = resumed(at, named(open_path(at.engine, at.ring, t.path)), t.link);
+            let notice = match (at.notice, said) {
+                (Some(a), Some(b)) => Some("{a} · {b}"),
+                (Some(a), None) => Some(a),
+                (None, b) => b,
+            };
+            at = Model { notice: notice, ..add_tab(at, page) };
+        }
+        ids.push(at.current.unwrap_or(-1));
+    }
+    let front = match o.current {
+        Some(i) if i < ids.len => Some(ids[i]),
+        _ => at.current,
+    };
+    (Model { current: front, ..at }, if tasks.len == 0 { Cmd.none() } else { Cmd.batch(tasks) })
+}
+
+/**
+ * Opens a pinned app: its tab when it's open (PRP-026), else in the empty
+ * tab (a new one when there's none).
+ *
+ * Example:
+ *     open_pin(m, "counter.wasm")
+ */
+public fun open_pin(m: Model, path: string): (Model, Cmd<Msg>) = match open_tab_of(m, path) {
+    Some(id) => (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none()),
+    None => open_file(go_home(m), path),
+};
+
+/**
+ * Reopens the last app closed, with its saved state, in a new tab.
+ *
+ * Example:
+ *     reopen(m)
+ */
+public fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
+    // Already open again (reopened at launch, PRP-034): shown, not started twice.
+    Some(l) if instance_open(m, l).is_some() => (
+        show_tab(m, instance_open(m, l).unwrap_or(-1)),
+        Cmd.none(),
+    ),
+    Some(l) if compiled(l) => (Model { left_off: None, ..add_tab(m, resume(l)) }, Cmd.none()),
+    // Remembered from an earlier run: open its path again; a signed app's
+    // state comes back from states/. Kept until it runs: a failed load
+    // leaves Continue in place.
+    Some(l) => {
+        let id = slot(m);
+        let tab = add_tab(m, failed_page(l.path, ""));
+        if is_address(l.path) && parse(l.path).is_ok() {
+            return begin(tab, id, l.path, false, None, []);
+        }
+        let opened = open_path(m.engine, m.ring, l.path);
+        let (page, notice) = resumed(tab, opened, opened.link);
+        let left = if state_of(page).is_some() { None } else { Some(l) };
+        (
+            Model { left_off: left, notice: notice, ..with_tab(tab, id, fun(_: AppPage) = page) },
+            Cmd.none(),
+        )
+    }
+    None => (m, Cmd.none()),
+};
+
+/** The tab showing a left-off's app as the same instance, if one is open. */
+fun instance_open(m: Model, l: LeftOff): Option<i64> {
+    for t of m.tabs {
+        if same_app(t.page.path, l.path) && t.page.instance == l.instance {
+            return Some(t.id);
+        }
+    }
+    None
+}
+
+/**
+ * ⟳ Reload: loads the current app again from its file or server and
+ * continues with its current state when the state's shape is unchanged; a
+ * changed shape starts fresh, with a notice. A stopped page starts fresh.
+ *
+ * Example:
+ *     reload(m)
+ */
+public fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
+    (Some(id), App(a)) if a.path == settings_app.SETTINGS_KEY => match settings_app.open(m.engine) {
+        // Built in: started again as it is, its settings read afresh.
+        Ok(page) => {
+            close_page(a);
+            let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
+            (with_tab(m, id, fun(_: AppPage) = same), Cmd.none())
+        }
+        Err(_) => (m, Cmd.none()),
+    },
+    (Some(id), App(a)) => {
+        let saved = state_of(a).map(fun(st: u8[]) = (st, state_version_of(a)));
+        if is_address(a.path) && parse(a.path).is_ok() {
+            // In the background: the running page stays until the new one
+            // is ready (or a changed key is answered); a loading one is
+            // simply started again, its result now stale.
+            return match a.screen {
+                Loading(p) => begin(m, id, a.path, false, p.saved, p.kept),
+                _ => begin(m, id, a.path, false, saved, [a]),
+            };
+        }
+        let (loaded, over) = load_again(m.engine, m.ring, a.path, saved, a.link);
+        // A changed key asks first: the open page waits, in case the
+        // person keeps using it.
+        let page = match loaded.screen {
+            Unapproved(c, _) => AppPage { screen: tabs.Screen.Unapproved(c, [a]), ..loaded },
+            _ => {
+                close_page(a);
+                loaded
+            }
+        };
+        let notice: Option<string> = if over {
+            Some("{page.name}'s saved state changed shape, so it started over")
+        } else {
+            None
+        };
+        // Reloaded, it's still the same instance.
+        let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
+        (Model { notice: notice, ..with_tab(m, id, fun(_: AppPage) = same) }, Cmd.none())
+    }
+    _ => (m, Cmd.none()),
+};
+
+/**
+ * "Keep using my version" on a changed key: back to the page that was
+ * open, or the tab closes when there wasn't one.
+ *
+ * Example:
+ *     keep_mine(m)
+ */
+public fun keep_mine(m: Model): Model = match (m.current, page_of(m)) {
+    (Some(id), App(a)) => match a.screen {
+        Unapproved(_, kept) if kept.len > 0 => with_tab(m, id, fun(_: AppPage) = kept[0]),
+        Unapproved(_, _) => window.close(m, id),
+        _ => m,
+    },
+    _ => m,
+};
+
+/**
+ * "Open as a separate app" on a changed key: trusts the new key as a
+ * second publisher for this session and opens it, marked so.
+ *
+ * Example:
+ *     separate_app(m)
+ */
+public fun separate_app(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
+    (Some(id), App(a)) => match a.screen {
+        Unapproved(c, _) => {
+            separate(m.ring, c);
+            close_page(a);
+            if is_address(a.path) && parse(a.path).is_ok() {
+                return begin(m, id, a.path, false, None, []);
+            }
+            (with_tab(m, id, fun(_: AppPage) = open_path(m.engine, m.ring, a.path)), Cmd.none())
+        }
+        _ => (m, Cmd.none()),
+    },
+    _ => (m, Cmd.none()),
+};
+
+/**
+ * Opens Rapidkoi's Settings app (PRP-038): its tab when it's open, else a
+ * new one. If it can't start, why is the notice.
+ *
+ * Example:
+ *     open_settings(m)
+ */
+public fun open_settings(m: Model): Model {
+    if let Some(id) = open_tab_of(m, settings_app.SETTINGS_KEY) {
+        return show_tab(m, id);
+    }
+    match settings_app.open(m.engine) {
+        Ok(page) => add_tab(m, page),
+        Err(r) => Model { notice: Some(why(r)), ..m },
+    }
+}

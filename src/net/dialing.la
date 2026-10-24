@@ -1,0 +1,184 @@
+/**
+ * Connecting to a named server (PRP-013), for app fetches and for opening
+ * apps: Rapidkoi looks the name up itself, refuses it whole if any address
+ * is on this computer or the local network (`network.check_addresses`),
+ * and then connects only to the addresses it checked, the name still used
+ * for `Host`, SNI and the certificate (`tls.Options.address`). A second
+ * DNS answer can't differ, because there's no second lookup. Development
+ * addresses (`localhost`, typed as such) are never looked up. Safe to run
+ * in a task; never called from `update`.
+ *
+ * Depends on: std.net, std.http, std.tls, std.time, net.network, net.address
+ * Used by: net.fetching, net.requests
+ */
+import std.net;
+import std.http { Response, Limits };
+import std.tls;
+import std.time;
+import net.network { NetworkError, check_addresses };
+import net.address { Address, shown };
+
+/**
+ * How Rapidkoi reaches the network: the system's trusted roots and
+ * resolver, plus, **in tests only**, a CA file and names pointed at chosen
+ * addresses. Rapidkoi itself always uses `Network { ca_file: None, hosts:
+ * [] }` and never reads either from a file, the environment or a flag
+ * (PRP-009, PRP-013).
+ */
+public struct Network {
+    /** A PEM file of extra certificates to trust: tests only. */
+    public ca_file: Option<string>,
+    /** Name → the addresses a lookup gives, in place of the resolver: tests only. */
+    public hosts: (string, string[])[],
+}
+
+/** Why a request didn't come back. */
+public enum Dialed {
+    /** Refused before anything was sent: where the name points, or its lookup. */
+    Refused(NetworkError),
+    /** Sent, or tried, and it failed: std's reason. */
+    Failed(string),
+}
+
+/**
+ * Sends one request to the server at `a`, as described above.
+ *
+ * @param a the server's address (its host and whether it's remote)
+ * @param url the request's URL on that server
+ * @param bounds std's limits; its timeout covers every address tried
+ * @returns the response, any status; or why not
+ *
+ * Example:
+ *     dial(at, "GET", url, #{}, [], bounds, reach)
+ */
+public fun dial(
+    a: Address,
+    method: string,
+    url: string,
+    headers: Map<string, string>,
+    body: u8[],
+    bounds: Limits,
+    reach: Network,
+): Result<Response, Dialed> {
+    if !a.remote {
+        return http.request_tls_with(
+            method,
+            url,
+            headers,
+            body,
+            bounds,
+            options(reach, bounds.timeout_ms, ""),
+        ).map_err(Dialed.Failed);
+    }
+    let host = shown(a);
+    let found = lookup(a.host, reach).map_err(
+        fun(why: string) = Dialed.Refused(NetworkError.Lookup(host, why)),
+    )?;
+    let addresses = check_addresses(host, found).map_err(Dialed.Refused)?;
+    try_each(
+        addresses,
+        bounds.timeout_ms,
+        fun(ip: string, left: i64) = send_to(
+            ip,
+            method,
+            url,
+            headers,
+            body,
+            Limits { timeout_ms: left, ..bounds },
+            reach,
+        ),
+    ).map_err(Dialed.Failed)
+}
+
+/**
+ * Looks a name up: the test names when the network has them, else the
+ * system's resolver.
+ *
+ * Example:
+ *     lookup("api.acme.com", reach)?
+ */
+public fun lookup(name: string, reach: Network): Result<string[], string> {
+    for (n, addresses) of reach.hosts {
+        if n == name {
+            return Ok(addresses);
+        }
+    }
+    net.resolve(name)
+}
+
+/**
+ * Sends one request to exactly `ip`, the URL's name kept for `Host`, SNI
+ * and the certificate. Checking `ip` is the caller's job.
+ *
+ * Example:
+ *     send_to("93.184.215.14", "GET", "https://api.acme.com/", #{}, [], bounds, reach)
+ */
+public fun send_to(
+    ip: string,
+    method: string,
+    url: string,
+    headers: Map<string, string>,
+    body: u8[],
+    bounds: Limits,
+    reach: Network,
+): Result<Response, string> = http.request_tls_with(
+    method,
+    url,
+    headers,
+    body,
+    bounds,
+    options(reach, bounds.timeout_ms, ip),
+);
+
+/**
+ * Tries each address in order until one answers, all within one
+ * deadline. An address that can't be reached gives way to the next; an
+ * answer that's wrong (a certificate, a response too large or malformed)
+ * or a timeout is final.
+ *
+ * @param attempt sends to one address with the milliseconds left
+ *
+ * Example:
+ *     try_each(addresses, 30_000, fun(ip: string, left: i64) = send_to(ip, …))
+ */
+public fun try_each(
+    addresses: string[],
+    timeout_ms: i64,
+    attempt: fun(string, i64): Result<Response, string>,
+): Result<Response, string> {
+    let deadline = time.now_ms() + timeout_ms;
+    let mut last = "timed out";
+    for ip of addresses {
+        let left = deadline - time.now_ms();
+        if left <= 0 {
+            return Err("timed out");
+        }
+        match attempt(ip, left) {
+            Ok(got) => {
+                return Ok(got);
+            }
+            Err(why) if final(why) => {
+                return Err(why);
+            }
+            Err(why) => {
+                last = why;
+            }
+        }
+    }
+    Err(last)
+}
+
+/** A failure that another address wouldn't change. */
+fun final(
+    why: string,
+): bool = why == "timed out" || why == "response too large" || why == "malformed response" || why.contains(
+    "certificate verify failed",
+);
+
+fun options(reach: Network, timeout_ms: i64, ip: string): tls.Options = tls.Options {
+    ca_file: reach.ca_file.unwrap_or(""),
+    timeout_ms: timeout_ms,
+    // Every field is set, so no `..tls.options()` (W0104). A field std adds
+    // later is a compile error here, to be decided, not silently defaulted.
+    address: ip,
+};

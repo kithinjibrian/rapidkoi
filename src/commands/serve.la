@@ -1,0 +1,198 @@
+/**
+ * The `serve` command: `./main serve BUNDLE.rkb [--port N]` serves one
+ * bundle to Rapidkoi at `rapidkoi://localhost:PORT`, for development, and
+ * `./main serve SITE/` serves a folder `publish` wrote. It listens on
+ * 127.0.0.1 only. A bundle is re-read (and re-checked) on every request, so
+ * a repack needs no restart. A site serves its key, its index and builds
+ * named by 64 lowercase hex digits, and its landing page for every other
+ * path (PRP-036), nothing else: no other request path reaches the disk.
+ *
+ * Depends on: std.http, std.fs, bundles.signing, bundles.bundle
+ * Used by: main
+ */
+import std.http { Request, Response };
+import std.fs;
+import bundles.signing { read_any };
+import bundles.bundle { reason };
+
+/** Where a development server serves its bundle: the well-known path from the packaging design. */
+public const BUNDLE_PATH: string = "/.well-known/rapidkoi/app.rkb";
+
+/** Where a site keeps Rapidkoi's files. */
+const SITE_PATH: string = "/.well-known/rapidkoi/";
+
+/**
+ * Runs `serve` from the program's arguments, forever: until Ctrl+C, or
+ * until it can't listen.
+ *
+ * @param argv the program's arguments: `argv[0]` its path, `argv[1]` "serve"
+ * @returns the exit code: 1 on any error (it never returns otherwise)
+ *
+ * Example:
+ *     if argv[1] == "serve" { return run(argv); }
+ */
+public fun run(argv: string[]): i32 {
+    let mut rest: string[] = [];
+    for i in 2..argv.len {
+        rest.push(argv[i]);
+    }
+    let (file, port) = match prepare(rest) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln("rapidkoi serve: {e}");
+            return 1;
+        }
+    };
+    let m = if fs.is_dir(file) {
+        "the site {file}"
+    } else {
+        read_any(read_bytes(file).unwrap_or([])).map(
+            fun(o) = "{o.bundle.manifest.name} {o.bundle.manifest.version}",
+        ).unwrap_or(file)
+    };
+    // stderr: unbuffered, so the line shows at once even in a log (std has no flush).
+    eprintln("serving {m} at rapidkoi://localhost:{port} (Ctrl+C to stop)");
+    // 127.0.0.1 only: a development server is never reachable from other machines.
+    match http.serve("127.0.0.1:{port}", fun(r: Request) = handle(file, port, r)) {
+        Ok(()) => 0,
+        Err(e) => {
+            eprintln("rapidkoi serve: can't listen on 127.0.0.1:{port}: {e}");
+            1
+        }
+    }
+}
+
+/**
+ * Checks `serve`'s arguments and the bundle before anything listens.
+ *
+ * @param args the bundle's or site's path, then `--port N` (default 8000)
+ * @returns the path and port, or what's wrong (no bundle, a bad flag or port,
+ *     a file that isn't a valid bundle, a folder that isn't a published site)
+ *
+ * Example:
+ *     prepare(["counter.rkb", "--port", "8000"])
+ */
+public fun prepare(args: string[]): Result<(string, i64), string> {
+    let mut file: Option<string> = None;
+    let mut port = 8000;
+    let mut i = 0;
+    while i < args.len {
+        let a = args[i];
+        if a == "--port" {
+            if i + 1 >= args.len {
+                return Err("--port needs a value");
+            }
+            port = parse_i64(args[i + 1]).ok_or("--port takes a number from 1 to 65535")?;
+            if port < 1 || port > 65535 {
+                return Err("--port takes a number from 1 to 65535");
+            }
+            i += 2;
+        } else if a.starts_with("-") {
+            return Err("unknown flag {a}");
+        } else {
+            file = Some(a);
+            i += 1;
+        }
+    }
+    let f = file.ok_or("no bundle given: rapidkoi serve BUNDLE.rkb [--port N]")?;
+    if fs.is_dir(f) {
+        if !fs.is_file("{f}{SITE_PATH}key") || !fs.is_file("{f}{SITE_PATH}index") {
+            return Err("{f} isn't a published site: run rapidkoi publish first");
+        }
+        return Ok((f, port));
+    }
+    let bytes = read_bytes(f).map_err(fun(e: string) = "can't read {f}: {e}")?;
+    read_any(bytes).map_err(reason)?;
+    Ok((f, port))
+}
+
+/**
+ * Answers one request: the bundle's current bytes at `BUNDLE_PATH` (or a
+ * site's files), a hint at `/`, 404 for any other path, 405 for any method
+ * but GET. Never maps a request's path to a file beyond a site's own names.
+ *
+ * @param file the bundle, re-read and re-checked on every request; or a site folder
+ * @param port the port, for the hint
+ * @param r the request
+ * @returns the response; 500 with the reason when the bundle is now broken
+ *
+ * Example:
+ *     handle("counter.rkb", 8000, request)
+ */
+public fun handle(file: string, port: i64, r: Request): Response {
+    if r.method != "GET" {
+        return http.text(405, "Only GET");
+    }
+    if fs.is_dir(file) {
+        return site(file, r.path);
+    }
+    if r.path == "/" {
+        return http.text(200, "Rapidkoi development server: open rapidkoi://localhost:{port}");
+    }
+    if r.path != BUNDLE_PATH {
+        return http.text(404, "Not here: Rapidkoi fetches {BUNDLE_PATH}");
+    }
+    let bytes = match read_bytes(file) {
+        Ok(b) => b,
+        Err(e) => {
+            return http.text(500, "can't read {file}: {e}");
+        }
+    };
+    // Checked again: a repack in progress or a broken build is refused here,
+    // not handed to Rapidkoi.
+    if let Err(e) = read_any(bytes) {
+        return http.text(500, reason(e));
+    }
+    Response {
+        status: 200,
+        headers: #{"content-type": "application/vnd.rapidkoi.bundle"},
+        body: bytes,
+    }
+}
+
+/**
+ * A published site's file, served as it is: `publish` signed it, and
+ * Rapidkoi checks it. Only three kinds of name are ever looked up.
+ */
+fun site(dir: string, path: string): Response {
+    // Any other path is a link to the app, or its address: the landing page (PRP-036).
+    if !path.starts_with(SITE_PATH) {
+        return match read_bytes("{dir}/index.html") {
+            Ok(bytes) => Response {
+                status: 200,
+                headers: #{"content-type": "text/html; charset=utf-8"},
+                body: bytes,
+            },
+            Err(_) => http.text(404, "Not here: this site has no landing page"),
+        };
+    }
+    let name = path.slice(SITE_PATH.len, path.len);
+    let kind = if name == "key" || name == "index" {
+        "application/cbor"
+    } else if is_build(name) {
+        "application/vnd.rapidkoi.bundle"
+    } else {
+        return http.text(
+            404,
+            "Not here: a site serves {SITE_PATH}key, index and builds/<sha256>.rkb",
+        );
+    };
+    match read_bytes("{dir}{SITE_PATH}{name}") {
+        Ok(bytes) => Response { status: 200, headers: #{"content-type": kind}, body: bytes },
+        Err(_) => http.text(404, "No such build"),
+    }
+}
+
+/** `builds/` then exactly 64 lowercase hex digits then `.rkb`. */
+fun is_build(name: string): bool {
+    if name.len != 7 + 64 + 4 || !name.starts_with("builds/") || !name.ends_with(".rkb") {
+        return false;
+    }
+    let digits = "0123456789abcdef";
+    for i in 7..71 {
+        if !digits.contains(name.slice(i, i + 1)) {
+            return false;
+        }
+    }
+    true
+}

@@ -1,0 +1,132 @@
+/**
+ * Starting an app page again (moved from `tabs.la`, PRP-036): reopening a
+ * window that was left, with its saved state; starting a page again from a
+ * saved state; and ⟳ Reload's load from where it came from.
+ *
+ * Depends on: wasmtime, bundles.loader, trust.verify, guest.running, window.tabs, window.leftoff
+ * Used by: window.navigate, net.loads
+ */
+import wasmtime { Engine };
+import bundles.loader { load };
+import trust.verify { Keyring };
+import guest.running { start };
+import window.leftoff { LeftOff };
+import window.tabs {
+    AppPage,
+    Screen,
+    Program,
+    ran,
+    close_page,
+    state_version_of,
+    refused,
+    failed,
+    open_program,
+};
+
+/**
+ * Reopens a page that was left, in a fresh store, with its saved state:
+ * `view(state)` without calling `init`. A page left stopped starts afresh.
+ *
+ * @param l what `leave` kept
+ * @returns the page, running or stopped
+ *
+ * Example:
+ *     resume(left)
+ */
+public fun resume(l: LeftOff): AppPage = match l.program {
+    Some(prog) => {
+        // Resumed from its state: no init, but it's opened, so it may ask.
+        ran(AppPage {
+            name: l.name,
+            manifest: l.manifest,
+            icon: l.icon,
+            path: l.path,
+            title: l.title,
+            trust: l.trust,
+            program: Some(prog),
+            asks: [],
+            load: 0,
+            in_flight: 0,
+            screen: Screen.Stopped("", true),
+            // The same instance, under its name (PRP-033).
+            instance: l.instance,
+            label: l.label,
+            seen: 0,
+            link: [],
+            fields: [],
+            data_size: None,
+        }, start(prog, l.state, []))
+    }
+    None => failed(l.name, l.path, "This app couldn't be reopened"),
+};
+
+/**
+ * Starts a page again from a saved state, when the state's version is the
+ * page's: how a signed app picks up where it was after a restart.
+ *
+ * @returns the page, and whether the saved state had to be dropped
+ *     because its shape changed (the page is left as it was then)
+ *
+ * Example:
+ *     with_saved(page, saved.state, saved.state_version)
+ */
+public fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = match p.program {
+    Some(prog) if state_version_of(p) == version => {
+        close_page(p);
+        // The window keeps the fields its address named.
+        (ran(p, start(prog, Some(state), [])), false)
+    }
+    Some(_) => (p, true),
+    None => (p, false),
+};
+
+/**
+ * Loads an app again from where it came from (its file, or its development
+ * server) and starts it with `saved` state when the new build's state
+ * version matches; otherwise fresh. ⟳ Reload uses it.
+ *
+ * @param engine the program's engine
+ * @param ring this session's trusted keys
+ * @param path the page's file or address
+ * @param saved the running page's state and state version, if it had one
+ * @param link the fields the running page's address named, kept with its state
+ * @returns the page, and whether a saved state had to be dropped because
+ *     its shape changed (`migrate` comes with PRP-006)
+ *
+ * Example:
+ *     load_again(engine, ring, page.path, Some((state, 1)), page.link)
+ */
+public fun load_again(
+    engine: Engine,
+    ring: Keyring,
+    path: string,
+    saved: Option<(u8[], i64)>,
+    link: string[],
+): (AppPage, bool) = match load(engine, ring, path) {
+    Err(r) => (refused(r, path), false),
+    Ok(l) => {
+        let fresh = AppPage {
+            manifest: l.manifest,
+            icon: l.icon,
+            trust: l.trust,
+            ..open_program(l.name, path, Program { engine: engine, module: l.module }, []),
+        };
+        let now = state_version_of(fresh);
+        match saved {
+            Some((state, version)) if version == now => {
+                close_page(fresh);
+                let program = Program { engine: engine, module: l.module };
+                // Continued with its state, the window keeps its address's fields.
+                (
+                    ran(
+                        AppPage { program: Some(program), link: link, ..fresh },
+                        start(program, Some(state), []),
+                    ),
+                    false,
+                )
+            }
+            Some(_) => (fresh, true),
+            None => (fresh, false),
+        }
+    }
+};

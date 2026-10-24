@@ -1,0 +1,173 @@
+// Rapidkoi's new-tab app (PRP-027): the bundle built into ./main, run in
+// the empty tab. Fixture guests stand in for it where a test needs another
+// app; no display.
+import rapidkoi.bundles.bundle { Bundle, Manifest, Controls, read, write };
+import rapidkoi.bundles.loader { Origin, from_bytes, why };
+import rapidkoi.trust.verify { keyring };
+import rapidkoi.window.newtab { BUNDLE, open };
+import rapidkoi.window.tabs { AppPage, Pin, failed_page };
+import rapidkoi.data.store { store_at, save };
+import rapidkoi.data.remembered { pins_file };
+import std.fs;
+import rapidkoi.shell { Model, start, with_pages, update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import kivuli.testing { texts };
+import wasmtime { Engine };
+
+fun fresh(): Model {
+    let (m, _) = start(["./main"], None);
+    m
+}
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+@test
+fun the_built_in_bundle_is_unsigned_and_named() {
+    // Format 1 is the unsigned format: read refuses a signed bundle.
+    let b = read(BUNDLE).unwrap();
+    assert_eq((b.manifest.name, b.manifest.version, b.manifest.contract), ("New tab", "0.1.0", 6));
+    assert_eq(b.manifest.permissions, [
+        "read_pins",
+        "read_left_off",
+        "open_apps",
+        "restore_session",
+    ]);
+    assert_eq(
+        b.manifest.controls,
+        Some(Controls { address: ["settings", "share"], settings: ["app_settings.permissions"] }),
+    );
+}
+
+/** A bundle declaring `permissions`, with a module too small to compile: the checks come first. */
+fun declaring(permissions: string[]): u8[] = declaring_all(permissions, None);
+
+fun declaring_all(permissions: string[], controls: Option<Controls>): u8[] = write(Bundle {
+    manifest: Manifest {
+        contract: 3,
+        name: "Sneaky",
+        version: "1.0.0",
+        description: None,
+        state_version: 1,
+        icon: None,
+        banners: [],
+        servers: [],
+        permissions: permissions,
+        controls: controls,
+    },
+    module: [0, 97, 115, 109, 1, 0, 0, 0],
+    assets: [],
+}).unwrap();
+
+fun refusal(bytes: u8[], origin: Origin): string = match from_bytes(
+    Engine.new(),
+    keyring(),
+    "x.rkb",
+    bytes,
+    origin,
+) {
+    Err(r) => why(r),
+    Ok(_) => "ok",
+};
+
+@test
+fun the_same_bytes_from_outside_are_refused() {
+    // PRP-030: built-in is where the bytes came from, never what they say.
+    // The new tab's controls are refused first, before its module or its
+    // permissions are looked at (PRP-031).
+    assert_eq(refusal(BUNDLE, Origin.External), "This app asks to change Rapidkoi's own controls");
+    assert_eq(
+        refusal(declaring(["read_pins"]), Origin.External),
+        "This app asks for something only Rapidkoi's own apps can have: reading your pins",
+    );
+    assert_eq(
+        refusal(declaring(["open_apps"]), Origin.External),
+        "This app asks for something only Rapidkoi's own apps can have: opening your apps",
+    );
+}
+
+@test
+fun an_unknown_permission_needs_a_newer_rapidkoi() {
+    assert_eq(
+        refusal(declaring(["camera"]), Origin.BuiltIn),
+        "This app needs a newer version of Rapidkoi",
+    );
+    assert_eq(
+        refusal(declaring(["camera"]), Origin.External),
+        "This app needs a newer version of Rapidkoi",
+    );
+}
+
+@test
+fun it_opens_and_runs() {
+    let p = open(Engine.new()).unwrap();
+    assert_eq((p.name, p.trust.is_none()), ("New tab", true));
+    assert_eq(p.manifest.map(fun(m: Manifest) = m.permissions.len), Some(4));
+}
+
+@test
+fun from_bytes_refuses_what_isnt_a_bundle() {
+    assert(from_bytes(Engine.new(), keyring(), "x.rkb", [1, 2, 3], Origin.BuiltIn).is_err());
+}
+
+@test
+fun an_empty_tab_shows_the_wordmark() {
+    assert(shows(fresh(), "Rapidkoi"));
+}
+
+@test
+fun an_app_tab_doesnt() {
+    let m = fresh();
+    let opened = step(step(m, Msg.Draft("lugha.toml")), Msg.Go);
+    assert(!shows(opened, "Rapidkoi"));
+    // The new-tab app is no tab, pin or "left off".
+    assert_eq((opened.tabs.len, opened.pinned.len), (1, 0));
+    assert(opened.left_off.is_none());
+}
+
+@test
+fun a_stopped_new_tab_leaves_the_area_empty() {
+    let broken = failed_page("newtab", "broken");
+    let m = Model { newtab: Some(broken), ..step(with_pages(Engine.new(), []), Msg.NewTab) };
+    // Rapidkoi's own page failing isn't the person's to read.
+    assert(!shows(m, "broken"));
+}
+
+@test
+fun with_no_new_tab_the_area_is_empty() {
+    let m = step(with_pages(Engine.new(), []), Msg.NewTab);
+    assert(!shows(m, "Rapidkoi"));
+}
+
+@test
+fun only_a_built_in_app_chooses_its_controls() {
+    // PRP-031: a site can't hide the shield or dress up as Rapidkoi's own page.
+    let hiding = declaring_all([], Some(Controls { address: [], settings: [] }));
+    assert_eq(refusal(hiding, Origin.External), "This app asks to change Rapidkoi's own controls");
+}
+
+@test
+fun the_first_screen_already_shows_what_s_remembered() {
+    // The launch order (session 170): restore, build the window, start the
+    // apps, answer them. The new tab's on_open sees your pins.
+    let dir = "test/tmp/newtab-launch";
+    if fs.is_file("{dir}/pins") {
+        fs.remove_file("{dir}/pins").unwrap();
+    }
+    let s = store_at(dir);
+    save(
+        s,
+        "pins",
+        pins_file([Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }]),
+    ).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    assert_eq(m.newtab.map(fun(p: AppPage) = p.asks.len), Some(0));
+    assert(shows(m, "Pinned"));
+    assert(shows(m, "Quote"));
+    fs.remove_file("{dir}/pins").unwrap();
+}

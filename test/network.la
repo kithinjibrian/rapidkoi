@@ -1,7 +1,7 @@
 // Which requests an app may make (PRP-012), pure: its own host and the
 // servers its manifest declares, HTTPS by name, localhost only for apps
 // from this machine, the switches, and the request's own shape.
-import rapidkoi.network {
+import rapidkoi.net.network {
     Request,
     Allowed,
     NetworkError,

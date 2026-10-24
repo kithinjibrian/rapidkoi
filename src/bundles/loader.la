@@ -1,0 +1,257 @@
+/**
+ * Loading an app: from a local file the person chose (a `.rkb` bundle,
+ * signed or not, or a bare `.wasm`) or a local development address. A
+ * signed site is verified first (`verify`), and a failed check never
+ * loads. A signed file says how far its key is trusted. Never runs it;
+ * `tabs` starts the guest.
+ *
+ * Depends on: wasmtime, std.http, guest.guest, bundles.bundle, bundles.signing, trust.verify, net.fetching, net.address, guest.limits
+ * Used by: window.tabs
+ */
+import wasmtime { Engine, Module };
+import guest.guest { compile, reason };
+import bundles.bundle { Manifest, asset, reason as bundle_reason };
+import bundles.signing { Opened, read_any };
+import trust.verify {
+    Trust,
+    Change,
+    Keyring,
+    VerifyError,
+    known_for,
+    record,
+    standing_of,
+    reason as verify_reason,
+};
+import net.fetching { Fetched, fetch_app };
+import net.dialing { Network };
+import net.address { Address, is_address, parse, url, shown };
+import guest.limits { MAX_BUNDLE, FETCH_TIMEOUT_MS, CONTRACT_VERSION, OLDEST_CONTRACT };
+import bundles.permissions { Tier, PermissionError, parse as parse_permissions, tier_of, words_of };
+import std.http { Limits };
+
+/** An app ready to start: what to call it, its manifest if it has one, and its compiled module. */
+public struct Loaded {
+    /** The manifest's name, or the file's name without `.wasm`. */
+    public name: string,
+    /** The bundle's manifest; `None` for a bare `.wasm`. */
+    public manifest: Option<Manifest>,
+    /** The icon's PNG bytes, checked by the bundle rules; `None` without one. */
+    public icon: Option<u8[]>,
+    /** The compiled module. */
+    public module: Module,
+    /** Who signed it and how far that's trusted; `None` when unsigned. */
+    public trust: Option<Trust>,
+}
+
+/**
+ * Where an app's bytes came from (PRP-030): only bytes compiled into
+ * `./main` may hold a built-in permission. Never read from the manifest,
+ * which can't vouch for itself.
+ */
+public enum Origin {
+    /** Compiled into `./main` (`window/newtab.la`). */
+    BuiltIn,
+    /** Any file or address. */
+    External,
+}
+
+/** Why an app wasn't loaded. */
+public enum Refusal {
+    /** It couldn't be loaded: what to call it, why. */
+    Failed(string, string),
+    /** A signed site failed a check: its host, why. No way past it. */
+    Unverified(string, string),
+    /** A signed site's key changed without approval: the person decides. */
+    Unapproved(string, Change),
+}
+
+/**
+ * Loads the app in a local file.
+ *
+ * @param engine the program's engine
+ * @param ring this session's trusted keys
+ * @param path a `.rkb` bundle, a `.wasm` module, or a local development address
+ * @returns the app; or why not (unreadable, not a bundle, a contract this
+ *     Rapidkoi doesn't speak, not a module, a failed check, a changed key)
+ *
+ * Example:
+ *     load(engine, ring, "counter.rkb")
+ */
+public fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Refusal> {
+    if is_address(path) {
+        // The same work a background load does, waited for (tests, and `load_again`'s files).
+        let a = parse(path).map_err(fun(e) = Refusal.Failed(path, address.reason(e)))?;
+        let f = fetch_app(
+            a,
+            known_for(ring, shown(a)),
+            Network { ca_file: None, hosts: [] },
+            FETCH_TIMEOUT_MS,
+        );
+        return from_fetched(engine, ring, f);
+    }
+    let file = name_of(path);
+    let bytes = read_bytes(path).map_err(
+        fun(e: string) = Refusal.Failed(file, "Couldn't read {path}: {e}"),
+    )?;
+    if !path.ends_with(".rkb") {
+        let module = compile(engine, bytes).map_err(fun(e) = Refusal.Failed(file, reason(e)))?;
+        return Ok(Loaded { name: file, manifest: None, icon: None, module: module, trust: None });
+    }
+    from_bundle(engine, ring, file, bytes, Origin.External)
+}
+
+/**
+ * Returns a plain sentence for a refusal.
+ *
+ * Example:
+ *     why(r)
+ */
+public fun why(r: Refusal): string = match r {
+    Failed(_, w) => w,
+    Unverified(_, w) => "This app couldn't be verified, so Rapidkoi didn't run it: {w}",
+    Unapproved(_, c) => verify_reason(VerifyError.Unapproved(c)),
+};
+
+/**
+ * Fetches a bundle from a local development server: at most `MAX_BUNDLE`
+ * bytes, within `FETCH_TIMEOUT_MS`. Waits on the window's thread (CLAUDE.md
+ * rule 3; DECISION-021 for loading in the background).
+ *
+ * @returns the bundle's bytes, unchecked; or why not (unreachable, timed
+ *     out, too large, a status other than 200)
+ *
+ * Example:
+ *     fetch(parse("rapidkoi://localhost:8000")?)
+ */
+public fun fetch(a: Address): Result<u8[], string> {
+    let bounds = Limits { body: MAX_BUNDLE, timeout_ms: FETCH_TIMEOUT_MS, ..http.limits() };
+    let r = http.request_with("GET", url(a), #{}, [], bounds).map_err(
+        fun(e: string) = "Couldn't reach rapidkoi://{shown(a)}: {e}",
+    )?;
+    if r.status != 200 {
+        return Err("The development server answered {r.status}");
+    }
+    Ok(r.body)
+}
+
+/**
+ * Turns what a background load fetched into an app: records the trust a
+ * signed site's check found, then compiles (only now, after every check
+ * passed). Call `current` first: a result checked against a snapshot
+ * that's since changed must load again instead.
+ *
+ * @returns the app; or why not (as `load`)
+ *
+ * Example:
+ *     from_fetched(engine, ring, fetched)
+ */
+public fun from_fetched(
+    engine: Engine,
+    ring: Keyring,
+    f: Fetched,
+): Result<Loaded, Refusal> = match f {
+    Signed(v, r, _) => {
+        record(ring, r);
+        from_opened(engine, v.trust.host, v.opened, Some(v.trust), Origin.External)
+    }
+    Unsigned(name, bytes) => from_bundle(engine, ring, name, bytes, Origin.External),
+    Refused(r) => Err(r),
+};
+
+/**
+ * Says whether a fetched result can be used as it is: a signed site's was
+ * checked against a snapshot of its host's trust, which must still be the
+ * keyring's. Otherwise (another tab recorded trust meanwhile) it loads again.
+ *
+ * Example:
+ *     if current(ring, fetched) { from_fetched(…) } else { … }
+ */
+public fun current(ring: Keyring, f: Fetched): bool = match f {
+    Signed(v, _, known) => known_for(ring, v.trust.host) == known,
+    _ => true,
+};
+
+/** A bundle's bytes (either format), checked; a signed one says how far its key is trusted. */
+/**
+ * Opens a bundle already in memory, as `load` opens a `.rkb` file: every
+ * rule checked, a signed one verified against `ring`.
+ *
+ * @param engine the engine to compile its module with
+ * @param ring the keys trusted, for a signed bundle
+ * @param file what to call it in a refusal
+ * @param bytes the bundle's bytes
+ * @param origin where they came from: `BuiltIn` only for bytes compiled into `./main`
+ * @returns the app; or why not
+ *
+ * Example:
+ *     from_bytes(engine, keyring(), "newtab.rkb", BUNDLE, Origin.BuiltIn)
+ */
+public fun from_bytes(
+    engine: Engine,
+    ring: Keyring,
+    file: string,
+    bytes: u8[],
+    origin: Origin,
+): Result<Loaded, Refusal> = from_bundle(engine, ring, file, bytes, origin);
+
+fun from_bundle(
+    engine: Engine,
+    ring: Keyring,
+    file: string,
+    bytes: u8[],
+    origin: Origin,
+): Result<Loaded, Refusal> {
+    let o = read_any(bytes).map_err(fun(e) = Refusal.Failed(file, bundle_reason(e)))?;
+    let trust = o.signed.map(fun(s) = standing_of(ring, s));
+    from_opened(engine, file, o, trust, origin)
+}
+
+/** A checked bundle's module compiled. */
+fun from_opened(
+    engine: Engine,
+    file: string,
+    o: Opened,
+    trust: Option<Trust>,
+    origin: Origin,
+): Result<Loaded, Refusal> {
+    let b = o.bundle;
+    let m = b.manifest;
+    let newer = Refusal.Failed(m.name, "This app needs a newer version of Rapidkoi");
+    if m.contract < OLDEST_CONTRACT as i64 || m.contract > CONTRACT_VERSION as i64 {
+        return Err(newer);
+    }
+    // Before compiling: a refused app's module is never touched. A site
+    // choosing Rapidkoi's own controls could hide the shield (PRP-031).
+    if m.controls.is_some() && origin == Origin.External {
+        return Err(Refusal.Failed(m.name, "This app asks to change Rapidkoi's own controls"));
+    }
+    let held = parse_permissions(m.permissions).map_err(fun(_: PermissionError) = newer)?;
+    for p of held {
+        if tier_of(p) == Tier.BuiltIn && origin == Origin.External {
+            return Err(
+                Refusal.Failed(
+                    m.name,
+                    "This app asks for something only Rapidkoi's own apps can have: {words_of(p)}",
+                ),
+            );
+        }
+    }
+    let module = compile(engine, b.module).map_err(fun(e) = Refusal.Failed(m.name, reason(e)))?;
+    let icon = match m.icon {
+        Some(name) => asset(b, name),
+        None => None,
+    };
+    Ok(Loaded { name: m.name, manifest: Some(m), icon: icon, module: module, trust: trust })
+}
+
+/**
+ * Returns a file path's last part, without `.wasm`.
+ *
+ * Example:
+ *     name_of("apps/counter.wasm")
+ */
+public fun name_of(path: string): string {
+    let parts = path.split("/");
+    let file = parts[parts.len - 1];
+    if file.ends_with(".wasm") && file.len > 5 { file.slice(0, file.len - 5) } else { file }
+}

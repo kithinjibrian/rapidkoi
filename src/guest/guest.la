@@ -1,0 +1,269 @@
+/**
+ * A running guest app: compiles and opens a module in its own store (fuel
+ * and memory limits, no host functions), checks its contract version, and
+ * calls `handle` and `view` through the contract's calling convention. Every pointer and length a guest hands back is checked. Knows
+ * nothing about what the bytes mean (that is `contract.la`).
+ *
+ * Depends on: wasmtime, guest.limits
+ * Used by: shell
+ */
+import wasmtime {
+    Engine,
+    Store,
+    Limits,
+    Module,
+    Linker,
+    Instance,
+    Val,
+    CallError,
+    LinkError,
+    Memory,
+    MemoryError,
+};
+import guest.limits {
+    CONTRACT_VERSION,
+    OLDEST_CONTRACT,
+    MAX_MODULE,
+    MEMORY_BYTES,
+    MAX_STATE,
+    MAX_VIEW,
+    MAX_UPDATE,
+    FUEL_PER_CALL,
+};
+
+/** Why a guest couldn't load or a call failed. Any of these stops the app. */
+public enum GuestError {
+    /** The module file is larger than `MAX_MODULE`, with its size in bytes. */
+    TooLarge(i64),
+    /** The module didn't compile; wasmtime's message. */
+    Compile(string),
+    /** Instantiation failed (a missing import, a limit); wasmtime's message. */
+    Link(string),
+    /** A required export, by name, isn't there. */
+    MissingExport(string),
+    /** An export, by name, isn't a function of the contract's type. */
+    WrongExport(string),
+    /** `rapidkoi_version()` returned another version. */
+    Version(i32),
+    /** The guest trapped; wasmtime's message. */
+    Trap(string),
+    /** The call used up its fuel. */
+    OutOfFuel,
+    /** A pointer and length the guest gave fall outside its memory. */
+    OutOfBounds,
+    /** What the guest returned was longer than its limit: which, and its length. */
+    TooLong(string, i64),
+    /** The guest was closed. */
+    Closed,
+}
+
+/** One instance of a guest app, in its own store. */
+public struct Guest {
+    store: Store,
+    instance: Instance,
+    memory: Memory,
+    /** The contract it speaks: 1, or 2 (effects and placeholders, PRP-011). */
+    public version: i32,
+}
+
+/**
+ * Compiles a module's bytes.
+ *
+ * @param engine the program's engine
+ * @param bytes the module file's contents
+ * @returns the module; `Err(TooLarge)` over `MAX_MODULE`, `Err(Compile)`
+ *
+ * Example:
+ *     compile(engine, read_bytes(path)?)?
+ */
+public fun compile(engine: Engine, bytes: u8[]): Result<Module, GuestError> {
+    if bytes.len > MAX_MODULE {
+        return Err(GuestError.TooLarge(bytes.len));
+    }
+    Module.new(engine, bytes).map_err(fun(e) = GuestError.Compile("{e}"))
+}
+
+/**
+ * Starts a guest in a fresh store and checks it speaks this contract (2).
+ *
+ * @param engine the engine the module was compiled with
+ * @param module the compiled module
+ * @returns the guest; `Err(Link)`, `Err(Trap)` or `Err(OutOfFuel)` from its
+ *     start function, `Err(MissingExport)` for `memory` or
+ *     `rapidkoi_version`, `Err(Version)` for a version outside 2 to 5
+ *
+ * Example:
+ *     let g = open(engine, module)?;
+ */
+public fun open(engine: Engine, module: Module): Result<Guest, GuestError> {
+    let store = Store.new(engine).map_err(fun(_) = GuestError.Closed)?;
+    // One instance with one memory and one table is all contract v1 needs;
+    // the memory cap is the contract's.
+    store.limit(Limits {
+        memory_bytes: Some(MEMORY_BYTES),
+        instances: Some(1),
+        memories: Some(1),
+        tables: Some(1),
+        table_elements: Some(100_000),
+    }).map_err(fun(_) = GuestError.Closed)?;
+    store.set_fuel(FUEL_PER_CALL).map_err(fun(_) = GuestError.Closed)?;
+    let started = start(engine, store, module);
+    if started.is_err() {
+        store.close();
+    }
+    started
+}
+
+/** Instantiates with no host functions, finds memory, checks the version. */
+fun start(engine: Engine, store: Store, module: Module): Result<Guest, GuestError> {
+    let linker = Linker.new(engine).map_err(fun(_) = GuestError.Closed)?;
+    let made = linker.instantiate(store, module);
+    linker.close();
+    let instance = made.map_err(linked)?;
+    let memory = match instance.memory("memory") {
+        Ok(m) => m,
+        Err(_) => {
+            return Err(GuestError.MissingExport("memory"));
+        }
+    };
+    let g = Guest { store: store, instance: instance, memory: memory, version: 0 };
+    match g.call("rapidkoi_version", [])? {
+        // Every contract from the oldest still run to the newest (DECISION-039).
+        I32(v) if v >= OLDEST_CONTRACT && v <= CONTRACT_VERSION => Ok(Guest { version: v, ..g }),
+        I32(v) => Err(GuestError.Version(v)),
+        I64(_) => Err(GuestError.WrongExport("rapidkoi_version")),
+    }
+}
+
+impl Guest {
+    /**
+     * Calls the guest's `handle` with the state and an event: everything
+     * that happens (init, opened, a message, an answer) comes this way.
+     *
+     * @param state the current state bytes (empty for the init event)
+     * @param event the encoded event (`contract.lifecycle`, `envelope`, `answer`)
+     * @returns the result's bytes, unread; any `GuestError`
+     *
+     * Example:
+     *     let result = g.handle(state, envelope(msg, None))?;
+     */
+    public fun handle(self, state: u8[], event: u8[]): Result<u8[], GuestError> {
+        let (sp, sl) = self.give(state)?;
+        let (ep, el) = self.give(event)?;
+        let r = self.packed("handle", [sp, sl, ep, el])?;
+        self.take(r, "the result", MAX_UPDATE)
+    }
+
+    /**
+     * Calls the guest's `view` with the state.
+     *
+     * @param state the current state bytes
+     * @returns the screen description's bytes, unread; any `GuestError`
+     *
+     * Example:
+     *     let tree = g.view(state)?;
+     */
+    public fun view(self, state: u8[]): Result<u8[], GuestError> {
+        let (sp, sl) = self.give(state)?;
+        let r = self.packed("view", [sp, sl])?;
+        self.take(r, "the screen description", MAX_VIEW)
+    }
+
+    /**
+     * Frees the guest's store; later calls are `Err(Closed)`. Closing twice
+     * does nothing.
+     *
+     * Example:
+     *     g.close();
+     */
+    public fun close(self) {
+        self.store.close();
+    }
+
+    /** Calls `name` with a fresh fuel budget, expecting one result. */
+    fun call(self, name: string, args: Val[]): Result<Val, GuestError> {
+        // A fresh budget for every call: one slow call can't starve the next.
+        self.store.set_fuel(FUEL_PER_CALL).map_err(fun(_) = GuestError.Closed)?;
+        match self.instance.call(name, args) {
+            Ok(results) if results.len == 1 => Ok(results[0]),
+            Ok(_) => Err(GuestError.WrongExport(name)),
+            Err(e) => Err(called(name, e)),
+        }
+    }
+
+    /** Calls `name`, expecting an i64 holding (pointer, length). */
+    fun packed(self, name: string, args: Val[]): Result<(u64, u64), GuestError> {
+        match self.call(name, args)? {
+            // Pointer in the high 32 bits, length in the low; both unsigned.
+            I64(r) => Ok((r as u64 >> 32, r as u64 & 0xffff_ffff)),
+            I32(_) => Err(GuestError.WrongExport(name)),
+        }
+    }
+
+    /** Copies `bytes` into the guest through its `alloc`; gives (pointer, length) as arguments. */
+    fun give(self, bytes: u8[]): Result<(Val, Val), GuestError> {
+        let ptr = match self.call("alloc", [Val.I32(bytes.len as i32)])? {
+            I32(p) => p,
+            I64(_) => {
+                return Err(GuestError.WrongExport("alloc"));
+            }
+        };
+        // The guest chose `ptr`; `write` refuses anything outside its memory.
+        self.memory.write(ptr as u32 as u64, bytes).map_err(bounds)?;
+        Ok((Val.I32(ptr), Val.I32(bytes.len as i32)))
+    }
+
+    /** Reads (pointer, length) out of the guest, after checking the length against `max`. */
+    fun take(self, at: (u64, u64), what: string, max: i64): Result<u8[], GuestError> {
+        let (ptr, len) = at;
+        // Checked before reading, so a guest claiming 2 GB costs nothing.
+        if len > max as u64 {
+            return Err(GuestError.TooLong(what, len as i64));
+        }
+        self.memory.read(ptr, len).map_err(bounds)
+    }
+}
+
+/**
+ * Returns a plain sentence for the error screen.
+ *
+ * @param e the error
+ * @returns what went wrong, for a person rather than a developer
+ *
+ * Example:
+ *     stopped(reason(e), true)
+ */
+public fun reason(e: GuestError): string = match e {
+    TooLarge(n) => "This app is too large to open ({n} bytes)",
+    Compile(m) => "This file isn't a WebAssembly app ({m})",
+    Link(m) => "This app couldn't start ({m})",
+    MissingExport(name) => "This app is missing \"{name}\"",
+    WrongExport(name) => "This app's \"{name}\" isn't what Rapidkoi expects",
+    Version(v) if v <= 0 => "This app isn't a Rapidkoi app",
+    Version(_) => "This app needs a newer version of Rapidkoi",
+    Trap(m) => "This app crashed ({m})",
+    OutOfFuel => "This app stopped responding",
+    OutOfBounds => "This app handed Rapidkoi a bad memory address",
+    TooLong(what, n) => "This app's {what} is too large ({n} bytes)",
+    Closed => "This app was closed",
+};
+
+fun called(name: string, e: CallError): GuestError = match e {
+    MissingExport(_) => GuestError.MissingExport(name),
+    NotAFunction(_) | Arguments(_) | UnsupportedType(_) => GuestError.WrongExport(name),
+    Trap(m) => GuestError.Trap(m),
+    OutOfFuel => GuestError.OutOfFuel,
+    Closed => GuestError.Closed,
+};
+
+fun linked(e: LinkError): GuestError = match e {
+    Define(m) | Instantiate(m) => GuestError.Link(m),
+    Trap(m) => GuestError.Trap(m),
+    OutOfFuel => GuestError.OutOfFuel,
+    Closed => GuestError.Closed,
+};
+
+fun bounds(e: MemoryError): GuestError = match e {
+    Closed => GuestError.Closed,
+    _ => GuestError.OutOfBounds,
+};

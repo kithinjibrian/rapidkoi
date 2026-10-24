@@ -1,0 +1,235 @@
+// Named instances (PRP-033): an app open more than once, each instance
+// with its own name and state; the header's strip; renaming; the dock's
+// one entry per app. Fixture guests; no display.
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.window.instances { display_name, instances_of, next_instance };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.tabs { AppPage, Tab, open_module, state_of };
+import rapidkoi.ui.strip;
+import rapidkoi.ui.sidebar;
+import rapidkoi.guest.contract { envelope };
+import rapidkoi.ui.render;
+import kivuli.testing { click, pick, texts, type_into };
+import wasmtime { Engine, Module };
+import support { t, echo };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.data.saving { restore };
+import rapidkoi.data.store { store_at };
+import rapidkoi.data.states { saved_state_in };
+import rapidkoi.data.remembered { Recalled };
+import rapidkoi.window.leftoff { LeftOff };
+import std.fs;
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+/** Notes (tab 0, current) and Mail (tab 1). */
+fun two(): Model {
+    let engine = Engine.new();
+    with_pages(engine, [app(engine, "notes"), app(engine, "mail")])
+}
+
+fun names(m: Model): string[] = instances_of(m, m.current.unwrap()).map(
+    fun(x: Tab) = display_name(x.page),
+);
+
+fun add(id: i64): Msg = Msg.Tab(id, render.Msg.Event(t("add"), None));
+
+@test
+fun plus_opens_another_instance_of_the_current_app() {
+    let m = step(two(), Msg.NewInstance);
+    assert_eq(m.tabs.len, 3);
+    assert_eq(names(m), ["notes", "notes 2"]);
+    // The new one is current, and its own guest: an event reaches only it.
+    let id = m.current.unwrap();
+    let echoed = step(m, add(id));
+    assert_eq(state_of(echoed.tabs[2].page), Some(envelope(t("add"), None)));
+    assert_eq(state_of(echoed.tabs[0].page), Some([]));
+}
+
+@test
+fun numbers_count_up_and_reuse_the_lowest_free() {
+    let m = step(step(two(), Msg.NewInstance), Msg.NewInstance);
+    assert_eq(names(m), ["notes", "notes 2", "notes 3"]);
+    let fewer = step(m, Msg.CloseTab(m.tabs[2].id));
+    assert_eq(next_instance(fewer, "notes.wasm"), "2");
+}
+
+@test
+fun the_strip_shows_the_current_apps_instances() {
+    let m = step(two(), Msg.NewInstance);
+    let v = strip.view(m);
+    assert_eq(click(v, "notes"), Ok(Msg.Select(0)));
+    assert_eq(click(v, "notes 2"), Ok(Msg.Select(m.current.unwrap())));
+    assert_eq(click(v, "New instance"), Ok(Msg.NewInstance));
+    // Mail isn't one of them.
+    assert(click(v, "mail").is_err());
+    assert_eq(pick(v, "notes 2", "Rename…"), Ok(Msg.RenameInstance(m.current.unwrap())));
+    assert_eq(pick(v, "notes 2", "Close"), Ok(Msg.CloseTab(m.current.unwrap())));
+    // Its × too, shown on hover.
+    assert_eq(click(v, "Close notes 2"), Ok(Msg.CloseTab(m.current.unwrap())));
+    // Every window is the same (session 189): the first closes on its own too.
+    assert_eq(click(v, "Close notes"), Ok(Msg.CloseTab(0)));
+}
+
+@test
+fun one_instance_shows_its_pill_and_the_empty_tab_nothing() {
+    // Session 177: the instance you're in always shows, so closing one of
+    // two never looks like closing both.
+    let v = strip.view(two());
+    assert_eq(click(v, "New instance"), Ok(Msg.NewInstance));
+    assert_eq(click(v, "notes"), Ok(Msg.Select(0)));
+    let home = strip.view(step(two(), Msg.NewTab));
+    assert(click(home, "New instance").is_err());
+}
+
+@test
+fun past_three_the_rest_wait_behind_more() {
+    // The strip's width is fixed, so the address box never moves.
+    let mut m = two();
+    for _ in 0..4 {
+        m = step(m, Msg.NewInstance);
+    }
+    let v = strip.view(m);
+    // Five instances: the first two and the one in front show; the others
+    // are behind ⋯.
+    assert_eq(click(v, "notes 5"), Ok(Msg.Select(m.current.unwrap())));
+    assert(click(v, "notes 3").is_err());
+    assert(click(v, "notes 4").is_err());
+}
+
+@test
+fun renaming_an_instance() {
+    let m = step(two(), Msg.NewInstance);
+    let id = m.current.unwrap();
+    let asked = step(m, Msg.RenameInstance(id));
+    assert_eq(asked.renaming, Some((id, "notes 2")));
+    let v = strip.rename_view(asked);
+    assert_eq(type_into(v, "Name", "Work"), Ok(Msg.InstanceName("Work")));
+    let named = step(step(asked, Msg.InstanceName("Work")), Msg.ConfirmRename);
+    assert_eq(named.renaming, None);
+    assert_eq(names(named), ["notes", "Work"]);
+    // Cancel leaves it as it was.
+    assert_eq(names(step(step(asked, Msg.InstanceName("Home")), Msg.Cancel)), ["notes", "notes 2"]);
+}
+
+@test
+fun a_name_must_be_new_and_short() {
+    let m = step(two(), Msg.NewInstance);
+    let asked = step(m, Msg.RenameInstance(m.current.unwrap()));
+    let long = many(65);
+    for (bad, why) of [
+        ("", "Give it a name"),
+        ("notes", "Another instance is called that"),
+        (long, "At most 64 characters"),
+    ] {
+        let typed = step(asked, Msg.InstanceName(bad));
+        assert(texts(strip.rename_view(typed)).any(fun(s: string) = s == why));
+        // Not applied: the dialog stays.
+        assert_eq(step(typed, Msg.ConfirmRename).renaming.is_some(), true);
+    }
+}
+
+@test
+fun opening_an_open_app_shows_its_last_used_instance() {
+    let m = step(two(), Msg.NewInstance);
+    let second = m.current.unwrap();
+    // Away to mail, then notes is asked for again (a pin, the address box).
+    let away = step(m, Msg.Select(1));
+    let back = step(away, Msg.OpenPinned("notes.wasm"));
+    assert_eq((back.current, back.tabs.len), (Some(second), 3));
+}
+
+@test
+fun the_dock_shows_one_entry_per_app_with_a_count() {
+    let m = step(two(), Msg.NewInstance);
+    let v = sidebar.view(m);
+    assert(texts(v).any(fun(s: string) = s == "2"));
+    // One notes entry: it shows the last-used instance.
+    assert_eq(click(v, "notes"), Ok(Msg.Select(m.current.unwrap())));
+}
+
+@test
+fun closing_one_of_several_stays_in_the_app() {
+    let m = step(two(), Msg.NewInstance);
+    let closed = step(m, Msg.CloseTab(m.current.unwrap()));
+    assert_eq((closed.tabs.len, closed.current), (2, Some(0)));
+    // Close all, from the dock's menu: every instance.
+    let all = step(m, Msg.CloseApp(0));
+    assert_eq(all.tabs.len, 1);
+    assert_eq(display_name(all.tabs[0].page), "mail");
+}
+
+fun many(n: i64): string {
+    let mut s = "";
+    for _ in 0..n {
+        s = s + "x";
+    }
+    s
+}
+
+/** Notes, signed by notes.acme.com, in a window saving to `dir`. */
+fun signed_window(dir: string): Model {
+    clean_dir(dir);
+    let engine = Engine.new();
+    let p = AppPage {
+        trust: Some(Trust {
+            host: "notes.acme.com",
+            key: [3; 32],
+            standing: Standing.Verified,
+            build: [0; 32],
+            separate: false,
+            since: 0,
+            origin: [3; 32],
+        }),
+        ..app(engine, "notes"),
+    };
+    restore(with_pages(engine, [p]), store_at(dir))
+}
+
+fun clean_dir(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean_dir("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun kept(dir: string, instance: string): bool = match saved_state_in(
+    store_at(dir),
+    "notes.acme.com",
+    [3; 32],
+    instance,
+) {
+    Read(_) => true,
+    _ => false,
+};
+
+@test
+fun closing_a_window_ends_it_and_its_state() {
+    // PRP-035, session 189: every window is the same.
+    let dir = "test/tmp/instances-close";
+    let two = step(step(signed_window(dir), add(0)), Msg.NewInstance);
+    let second = two.current.unwrap();
+    let echoed = step(two, add(second));
+    assert_eq((kept(dir, ""), kept(dir, "2")), (true, true));
+    // State lives with its window (session 189): closing either takes its
+    // state with it, the first included, and the other stays open.
+    let one = step(echoed, Msg.CloseTab(0));
+    assert_eq((one.tabs.len, kept(dir, ""), kept(dir, "2")), (1, false, true));
+    let gone = step(one, Msg.CloseTab(second));
+    assert_eq((gone.tabs.len, kept(dir, "2")), (0, false));
+    clean_dir(dir);
+}

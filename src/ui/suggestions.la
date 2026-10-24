@@ -1,0 +1,102 @@
+/**
+ * What the address box suggests, pure (PRP-015): what's already on this
+ * computer and matches what was typed. Nothing typed leaves the computer;
+ * an app's screens join once links exist.
+ *
+ * Depends on: kivuli, window.actions, window.tabs
+ * Used by: ui.addressbox, window.window
+ */
+import kivuli { Image };
+import window.actions { Msg };
+import window.tabs { Tab, Pin };
+
+/** "Where you left off": the app and its last screen, and what Continue sends. */
+public struct Card {
+    /** The app's name. */
+    public name: string,
+    /** Its last screen's title, if any. */
+    public title: Option<string>,
+    /** `Select(id)` for an open tab, `Continue` for a closed app. */
+    public msg: Msg,
+    /** The app's file or address, for its menu's Forget. */
+    public path: string,
+    /** The app's icon, keyed, if it has one. */
+    public icon: Option<Image>,
+}
+
+/** One suggestion: what it's called, and what choosing it sends. */
+public struct Suggestion {
+    /** The app's name. */
+    public label: string,
+    /** Its screen's title, when it has one. */
+    public detail: Option<string>,
+    /** `Select(id)` for an open tab, `OpenPinned(path)` for a pin, `Continue` for a closed app. */
+    public msg: Msg,
+}
+
+/**
+ * Returns what matches `query` by name or screen title, ignoring case:
+ * open tabs, then pins, then where-you-left-off when it's closed.
+ *
+ * @param query what's typed; blank suggests nothing
+ * @param open the open tabs
+ * @param pinned the pinned apps
+ * @param card where you left off, if anywhere
+ * @returns the suggestions, in that order
+ *
+ * Example:
+ *     suggest("count", m.tabs, m.pinned, window.card(m))
+ */
+public fun suggest(query: string, open: Tab[], pinned: Pin[], card: Option<Card>): Suggestion[] {
+    let q = query.trim();
+    let mut found: Suggestion[] = [];
+    if q == "" {
+        return found;
+    }
+    for t of open {
+        if matches(q, t.page.name, t.page.title) {
+            found.push(Suggestion {
+                label: t.page.name,
+                detail: t.page.title,
+                msg: Msg.Select(t.id),
+            });
+        }
+    }
+    for p of pinned {
+        if matches(q, p.name, None) {
+            found.push(Suggestion { label: p.name, detail: None, msg: Msg.OpenPinned(p.path) });
+        }
+    }
+    // An open tab is already among the tabs above; only a closed app is added.
+    if let Some(c) = card {
+        if c.msg == Msg.Continue && matches(q, c.name, c.title) {
+            found.push(Suggestion { label: c.name, detail: c.title, msg: Msg.Continue });
+        }
+    }
+    found
+}
+
+/**
+ * Says whether a search matches a name or title, ignoring case.
+ *
+ * @param query what the person typed
+ * @param name an app's name
+ * @param title its screen title, if any
+ * @returns true when either contains the query
+ *
+ * Example:
+ *     matches("COUNT", "counter", None)
+ */
+public fun matches(query: string, name: string, title: Option<string>): bool {
+    let q = lower(query);
+    lower(name).contains(q) || lower(title.unwrap_or("")).contains(q)
+}
+
+/** ASCII and Latin-1 lower case (what `char.to_lower` covers). */
+fun lower(s: string): string {
+    let mut out = "";
+    for c of s.chars() {
+        out = out + "{c.to_lower()}";
+    }
+    out
+}

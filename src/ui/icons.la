@@ -1,0 +1,116 @@
+/**
+ * Rapidkoi's own icons (PRP-019): the Iconsax SVGs in `assets/icons/`,
+ * built into the program with `include_str` (PRP-029: the files are the
+ * only copy), each drawn in a theme colour. Apps never reach these.
+ *
+ * Depends on: kivuli
+ * Used by: ui.header, ui.addressbox
+ */
+import kivuli { Image };
+
+/** An icon of Rapidkoi's, named for what it's for. */
+public enum Icon {
+    /** `arrow-left4.svg`. */
+    Back,
+    /** `arrow-right4.svg`. */
+    Forward,
+    /** `export-circle2.svg`. */
+    Share,
+    /** `home.svg`. */
+    Home,
+    /** `menu.svg`. */
+    Menu,
+    /** `profile-circle.svg`. */
+    Account,
+    /** `rotate-right.svg`. */
+    Reload,
+    /** `settings.svg`. */
+    Settings,
+    /** `shield-tick.svg`. */
+    Shield,
+    /** `star.svg`. */
+    Star,
+    /** `3-dots-more.svg`: the instance strip's overflow (PRP-033). */
+    More,
+}
+
+/** Every icon, for tests and for listing. */
+public const ALL: Icon[] = [
+    Icon.Back,
+    Icon.Forward,
+    Icon.Home,
+    Icon.Menu,
+    Icon.Account,
+    Icon.Reload,
+    Icon.Settings,
+    Icon.Shield,
+    Icon.Star,
+    Icon.More,
+];
+
+/**
+ * Returns the file in `assets/icons/` an icon came from.
+ *
+ * Example:
+ *     file(Icon.Home)
+ */
+public fun file(i: Icon): string = match i {
+    Back => "arrow-left4.svg",
+    Forward => "arrow-right4.svg",
+    Share => "export-circle2.svg",
+    Home => "home.svg",
+    Menu => "menu.svg",
+    Account => "profile-circle.svg",
+    Reload => "rotate-right.svg",
+    Settings => "settings.svg",
+    Shield => "shield-tick.svg",
+    Star => "star.svg",
+    More => "3-dots-more.svg",
+};
+
+/**
+ * Returns an icon's SVG, its file in `assets/icons/` as built in: white (`#ffffff`).
+ *
+ * Example:
+ *     svg(Icon.Home)
+ */
+public fun svg(i: Icon): string = match i {
+    Back => include_str("../../assets/icons/arrow-left4.svg"),
+    Forward => include_str("../../assets/icons/arrow-right4.svg"),
+    Share => include_str("../../assets/icons/export-circle2.svg"),
+    Home => include_str("../../assets/icons/home.svg"),
+    Menu => include_str("../../assets/icons/menu.svg"),
+    Account => include_str("../../assets/icons/profile-circle.svg"),
+    Reload => include_str("../../assets/icons/rotate-right.svg"),
+    Settings => include_str("../../assets/icons/settings.svg"),
+    Shield => include_str("../../assets/icons/shield-tick.svg"),
+    Star => include_str("../../assets/icons/star.svg"),
+    More => include_str("../../assets/icons/3-dots-more.svg"),
+};
+
+/**
+ * Returns an SVG with its white fill (`#ffffff`, as Iconsax ships it) in
+ * `colour` instead; nothing else changes.
+ *
+ * Example:
+ *     recolour(svg(Icon.Home), "#e8e8e8")
+ */
+// Lugha's strings have no replace: splitting at each white and joining
+// with the new colour is the same.
+public fun recolour(svg: string, colour: string): string = svg.split("#ffffff").join(colour);
+
+/**
+ * Returns an icon drawn in `colour`, as a picture kivuli shows. Keyed by the
+ * icon and the colour, so kivuli reads each pair once.
+ *
+ * @param i the icon
+ * @param colour a theme colour, `#rrggbb`
+ * @returns the SVG as image bytes
+ *
+ * Example:
+ *     image(icon(Icon.Home, t.text))
+ */
+public fun icon(i: Icon, colour: string): Image = Image.Bytes(
+    "icon:{file(i)}:{colour}",
+    recolour(svg(i), colour).to_bytes(),
+);

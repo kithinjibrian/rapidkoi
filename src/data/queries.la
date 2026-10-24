@@ -1,0 +1,107 @@
+/**
+ * An app's calls to its database (PRP-041, contract 6): each `sql` or
+ * `sql_batch` ask sent in a `Cmd.task`, never in `update`; its result
+ * answered to the app when it arrives; and the app's other windows told
+ * which tables a write changed. Mirrors `net.requests`.
+ *
+ * Depends on: kivuli, cbor, data.databases, window.window, window.tabs, window.actions, guest.contract, guest.limits, net.network, ui.render
+ * Used by: guest.effects, shell
+ */
+import kivuli { Cmd };
+import cbor { Value };
+import data.databases { Call, Queried, path_for, call };
+import window.window { Model, app, with_tab };
+import window.tabs { AppPage, Tab, handle, data_changed };
+import window.actions { Msg };
+import guest.contract { reply };
+import guest.limits { MAX_IN_FLIGHT };
+import net.network { Reply };
+import ui.render;
+
+/**
+ * Asks for one call to tab `id`'s app's database: refused at once (with
+ * the sentence the app gets), or counted in flight and returned as a task.
+ *
+ * @returns the model; the answer to give now, if refused; the task
+ *
+ * Example:
+ *     ask(m, id, msg, Call.Read(query))
+ */
+public fun ask(m: Model, id: i64, msg: Value, c: Call): (Model, Option<Value>, Cmd<Msg>) {
+    let p = match app(m, id) {
+        Some(p) => p,
+        None => {
+            return (m, None, Cmd.none());
+        }
+    };
+    let nothing: Cmd<Msg> = Cmd.none();
+    let refuse = fun(why: string) = (m, Some(reply(Reply.Failed(why))), nothing);
+    let path = match m.store.and_then(fun(s) = path_for(s, p)) {
+        Some(at) => at,
+        None => {
+            return refuse("This app can't keep data here");
+        }
+    };
+    if p.in_flight >= MAX_IN_FLIGHT {
+        return refuse("This app asked for too much at once");
+    }
+    let load = p.load;
+    // Plain data for the task: the file and the call.
+    let task = Cmd.task(
+        fun(): Queried = call(path, c),
+        fun(got: Queried) = Msg.Queried(id, load, msg, got),
+    );
+    let counted = with_tab(
+        m,
+        id,
+        fun(page: AppPage) = AppPage { in_flight: page.in_flight + 1, ..page },
+    );
+    (counted, None, task)
+}
+
+/**
+ * Takes a call's result: dropped when its tab closed or loaded again
+ * since; otherwise answered to the app (`on_answer`, or `on_fail` with
+ * the sentence), and, when it changed tables, each other running window of
+ * the same app told (`on_change` with the tables).
+ *
+ * Example:
+ *     arrive(m, id, load, msg, got)
+ */
+public fun arrive(m: Model, id: i64, load: i64, msg: Value, got: Queried): Model {
+    let p = match app(m, id) {
+        Some(p) if p.load == load => p,
+        _ => {
+            return m;
+        }
+    };
+    let (answer, tables) = match got {
+        Answer(v, ts) => (v, ts),
+        Failed(why) => (reply(Reply.Failed(why)), []),
+    };
+    let answered = with_tab(m, id, fun(page: AppPage) {
+        let less = AppPage {
+            in_flight: if page.in_flight > 0 { page.in_flight - 1 } else { 0 },
+            ..page,
+        };
+        handle(less, render.Msg.Answer(msg, answer))
+    });
+    if tables.len == 0 {
+        return answered;
+    }
+    let mine = match answered.store.and_then(fun(s) = path_for(s, p)) {
+        Some(at) => at,
+        None => {
+            return answered;
+        }
+    };
+    // The same database is the same app: only its own windows hear of it.
+    let mut told = answered;
+    for t of answered.tabs {
+        let same = answered.store.and_then(fun(s) = path_for(s, t.page)) == Some(mine);
+        if t.id != id && same {
+            told = with_tab(told, t.id, fun(page: AppPage) = data_changed(page, tables));
+        }
+    }
+    told
+}

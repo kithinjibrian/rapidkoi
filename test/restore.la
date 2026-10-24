@@ -1,0 +1,283 @@
+// Sessions (PRP-034, PRP-035; the owner's model, session 186): the open
+// file is the current session, saved as it changes. At launch a non-empty
+// one becomes the previous session, kept all session for Restore, which
+// stacks it under the current one (the current wins). Unrestored, it's
+// replaced at the next launch by the session after it, unless that one
+// was empty. A minimal module on disk stands
+// in for each app (it stops for want of memory, which is fine here: the
+// tab, its name and its place are what's checked). Writes only under
+// test/tmp/.
+import rapidkoi.shell { Model, start, update };
+import rapidkoi.ui.layout { view };
+import kivuli { Cmd };
+import kivuli.testing { click };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.instances { display_name };
+import rapidkoi.window.tabs { Tab };
+import rapidkoi.data.store { Store, store_at, save };
+import rapidkoi.data.remembered { Open, OpenTab, Recalled, open_file, read_open };
+import rapidkoi.data.states { Saved, keep_in, saved_state_in };
+import std.fs;
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+/** A clean data folder, with a minimal module beside it at `{dir}/m.wasm`. */
+fun folder(name: string): Store {
+    let dir = "test/tmp/restore-{name}";
+    clean(dir);
+    fs.make_dirs(dir).unwrap();
+    write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    store_at("{dir}/data")
+}
+
+fun module_of(s: Store): string = "{s.dir}/../m.wasm";
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun saved(s: Store): Option<Open> = match read_bytes("{s.dir}/open") {
+    Ok(b) => read_open(b).ok(),
+    Err(_) => None,
+};
+
+fun names(m: Model): string[] = m.tabs.map(fun(t: Tab) = display_name(t.page));
+
+@test
+fun what_is_open_is_saved_as_it_changes() {
+    let s = folder("saves");
+    let (m, _) = start(["./main", module_of(s)], Some(s));
+    let first = saved(s).unwrap();
+    assert_eq((first.tabs.len, first.current), (1, Some(0)));
+    // Typing changes nothing open: nothing is written.
+    fs.remove_file("{s.dir}/open").unwrap();
+    let typed = step(m, Msg.Draft("x"));
+    assert_eq(saved(s).is_none(), true);
+    // Closing the only tab saves an empty list.
+    let closed = step(typed, Msg.CloseTab(typed.tabs[0].id));
+    assert_eq(saved(s).unwrap().tabs.len, 0);
+    assert_eq(closed.tabs.len, 0);
+    clean("test/tmp/restore-saves");
+}
+
+/** A data folder whose last session had `m.wasm` open twice: "m" and "Work", Work in front. */
+fun with_session(name: string): Store {
+    let s = folder(name);
+    let path = module_of(s);
+    fs.make_dirs(s.dir).unwrap();
+    let o = Open {
+        tabs: [
+            OpenTab { link: [], path: path, instance: "", label: None, seen: 1 },
+            OpenTab { link: [], path: path, instance: "2", label: Some("Work"), seen: 2 },
+        ],
+        current: Some(1),
+    };
+    save(s, "open", open_file(o)).unwrap();
+    s
+}
+
+@test
+fun launch_keeps_the_last_session_for_restore() {
+    // PRP-035: nothing comes back on its own; the new tab offers it.
+    let s = with_session("keeps");
+    let (m, _) = start(["./main"], Some(s));
+    assert_eq((m.tabs.len, m.blanks.len), (0, 1));
+    assert_eq(m.previous.map(fun(o: Open) = o.tabs.len), Some(2));
+    clean("test/tmp/restore-keeps");
+}
+
+@test
+fun restore_brings_it_all_back_in_order_with_their_names() {
+    let s = with_session("reopen");
+    let (m, _) = start(["./main"], Some(s));
+    let back = step(m, Msg.RestoreSession);
+    assert_eq(names(back), ["m", "Work"]);
+    assert_eq(back.current, Some(back.tabs[1].id));
+    assert_eq(back.previous.is_none(), true);
+    clean("test/tmp/restore-reopen");
+}
+
+@test
+fun restore_adds_to_an_app_named_at_launch() {
+    // The app named on the command line is part of launch: the session is
+    // kept; "m" is open now, so the current one wins for m.
+    let s = with_session("adds");
+    let (m, _) = start(["./main", module_of(s)], Some(s));
+    assert_eq(m.previous.is_some(), true);
+    let back = step(m, Msg.RestoreSession);
+    assert_eq(names(back), ["m"]);
+    clean("test/tmp/restore-adds");
+}
+
+@test
+fun a_tab_that_cant_come_back_says_why_and_the_rest_open() {
+    let s = folder("gone");
+    let o = Open {
+        tabs: [
+            OpenTab {
+                link: [],
+                path: "test/tmp/restore-gone/missing.wasm",
+                instance: "",
+                label: None,
+                seen: 1,
+            },
+            OpenTab { link: [], path: module_of(s), instance: "", label: None, seen: 2 },
+        ],
+        current: Some(0),
+    };
+    fs.make_dirs(s.dir).unwrap();
+    save(s, "open", open_file(o)).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    assert_eq(step(m, Msg.RestoreSession).tabs.len, 2);
+    clean("test/tmp/restore-gone");
+}
+
+@test
+fun a_broken_open_file_is_set_aside_with_a_notice() {
+    let s = folder("broken");
+    fs.make_dirs(s.dir).unwrap();
+    save(s, "open", [1, 2, 3]).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    assert_eq(m.notice.unwrap_or("").contains("open apps"), true);
+    assert_eq(m.blanks.len, 1);
+    clean("test/tmp/restore-broken");
+}
+
+fun has_state(s: Store, instance: string): bool = match saved_state_in(
+    s,
+    "localhost:18798",
+    [3; 32],
+    instance,
+) {
+    Read(_) => true,
+    _ => false,
+};
+
+/** Every message a command sends after a delay. */
+fun later(c: Cmd<Msg>): Msg[] = match c {
+    After(_, msg) => [msg],
+    Batch(cs) => {
+        let mut all: Msg[] = [];
+        for inner of cs {
+            for msg of later(inner) {
+                all.push(msg);
+            }
+        }
+        all
+    }
+    _ => [],
+};
+
+@test
+fun the_new_tabs_restore_button_restores() {
+    // Session 185: the new tab's own buttons reach it (they were dropped).
+    let s = with_session("button");
+    let (m, _) = start(["./main"], Some(s));
+    let pressed = click(view(m), "Restore previous session (2)").unwrap();
+    let (_, c) = update(m, pressed);
+    assert_eq(later(c), [Msg.RestoreSession]);
+    clean("test/tmp/restore-button");
+}
+
+fun previous_file(s: Store): Option<Open> = match read_bytes("{s.dir}/previous") {
+    Ok(b) => read_open(b).ok(),
+    Err(_) => None,
+};
+
+@test
+fun opening_something_keeps_restore_on_offer() {
+    // Session 186: nothing is dropped by accident.
+    let s = with_session("keeps-offer");
+    let (m, _) = start(["./main"], Some(s));
+    let opened = step(step(m, Msg.Draft(module_of(s))), Msg.Go);
+    assert_eq(opened.previous.is_some(), true);
+    // Restore stacks it under what's open: "m" is open now, so the current
+    // session's m wins and none of the old m windows come back (session 187).
+    let back = step(opened, Msg.RestoreSession);
+    assert_eq(names(back), ["m"]);
+    // Restored: no longer offered, here or at the next launch.
+    assert_eq((back.previous.is_none(), previous_file(s).is_none()), (true, true));
+    clean("test/tmp/restore-keeps-offer");
+}
+
+@test
+fun unrestored_it_is_replaced_by_the_next_session() {
+    let s = with_session("replaced");
+    let (m, _) = start(["./main"], Some(s));
+    // This session opens one window, never restores, and closes.
+    step(step(m, Msg.Draft(module_of(s))), Msg.Go);
+    let (again, _) = start(["./main"], Some(s));
+    assert_eq(again.previous.map(fun(o: Open) = o.tabs.len), Some(1));
+    clean("test/tmp/restore-replaced");
+}
+
+@test
+fun an_empty_session_never_replaces_it() {
+    // The owner's exception (session 186): launch, open nothing, close.
+    let s = with_session("empty");
+    start(["./main"], Some(s));
+    let (again, _) = start(["./main"], Some(s));
+    assert_eq(again.previous.map(fun(o: Open) = o.tabs.len), Some(2));
+    clean("test/tmp/restore-empty");
+}
+
+@test
+fun a_replaced_session_takes_its_extra_windows_with_it() {
+    // Its windows' own state goes; each app's data (its first window) stays.
+    let s = folder("replaced-states");
+    fs.make_dirs(s.dir).unwrap();
+    let site = "rapidkoi://localhost:18798";
+    let o = Open {
+        tabs: [
+            OpenTab { link: [], path: site, instance: "", label: None, seen: 1 },
+            OpenTab { link: [], path: site, instance: "2", label: None, seen: 2 },
+        ],
+        current: Some(0),
+    };
+    save(s, "open", open_file(o)).unwrap();
+    let sv = Saved { host: "localhost:18798", key: [3; 32], state_version: 1, state: [1], used: 1 };
+    keep_in(s, sv, "").unwrap();
+    keep_in(s, sv, "2").unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    step(step(m, Msg.Draft(module_of(s))), Msg.Go);
+    start(["./main"], Some(s));
+    assert_eq((has_state(s, ""), has_state(s, "2")), (true, false));
+    clean("test/tmp/restore-replaced-states");
+}
+
+@test
+fun the_current_session_wins_per_app() {
+    // Session 187: an app open now keeps only its current windows; an app
+    // that isn't comes back with all of its windows.
+    let s = folder("per-app");
+    let dir = "test/tmp/restore-per-app";
+    write_bytes("{dir}/n.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    let n = "{s.dir}/../n.wasm";
+    let o = Open {
+        tabs: [
+            OpenTab { link: [], path: module_of(s), instance: "", label: None, seen: 1 },
+            OpenTab { link: [], path: module_of(s), instance: "2", label: None, seen: 2 },
+            OpenTab { link: [], path: module_of(s), instance: "3", label: None, seen: 3 },
+            OpenTab { link: [], path: n, instance: "", label: None, seen: 4 },
+            OpenTab { link: [], path: n, instance: "2", label: Some("Two"), seen: 5 },
+        ],
+        current: Some(0),
+    };
+    fs.make_dirs(s.dir).unwrap();
+    save(s, "open", open_file(o)).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    let opened = step(step(m, Msg.Draft(module_of(s))), Msg.Go);
+    let back = step(opened, Msg.RestoreSession);
+    assert_eq(names(back), ["m", "n", "Two"]);
+    clean(dir);
+}

@@ -1,0 +1,114 @@
+// Rapidkoi's theme (PRP-017): which colour goes where, and every style
+// building without kivuli refusing a value. No display.
+import rapidkoi.ui.themes {
+    DARK,
+    ButtonPaint,
+    button_paint,
+    bare,
+    group,
+    page,
+    address,
+    field,
+    suggestions,
+    clear,
+    body,
+    dim,
+    title,
+    heading,
+    button,
+    instance_colour,
+};
+import rapidkoi.ui.frame_looks {
+    frame,
+    header,
+    sidebar,
+    window_controls,
+    app_button,
+    app_current,
+    tab_close,
+    tooltips,
+};
+import rapidkoi.guest.nodes { ButtonLook };
+
+@test
+fun primary_buttons_are_the_accent() {
+    assert_eq(button_paint(DARK, ButtonLook.Primary), ButtonPaint {
+        background: DARK.accent,
+        hover: DARK.accent_hover,
+        press: DARK.accent_hover,
+        text: DARK.on_accent,
+    });
+}
+
+@test
+fun danger_buttons_are_the_danger_colour() {
+    let p = button_paint(DARK, ButtonLook.Danger);
+    assert_eq(p.background, DARK.danger);
+    assert_eq(p.text, DARK.on_danger);
+}
+
+@test
+fun normal_and_subtle_buttons_differ_at_rest_and_share_the_text_colour() {
+    let normal = button_paint(DARK, ButtonLook.Normal);
+    let subtle = button_paint(DARK, ButtonLook.Subtle);
+    assert_eq(normal.background, DARK.control);
+    assert_eq(normal.hover, DARK.control_hover);
+    assert_eq(normal.press, DARK.control_press);
+    assert_eq(subtle.background, DARK.clear);
+    assert_eq(subtle.hover, DARK.subtle_hover);
+    assert_eq(normal.text, DARK.text);
+    assert_eq(subtle.text, DARK.text);
+}
+
+@test
+fun every_style_builds() {
+    // kivuli stops on a bad colour when it's read: building each style once
+    // here turns a typo in the theme into a failed test, not a closed window.
+    let all = [
+        frame(DARK),
+        header(DARK),
+        sidebar(DARK),
+        window_controls(DARK),
+        app_button(DARK),
+        app_current(DARK),
+        tab_close(DARK),
+        tooltips(DARK),
+        bare(DARK),
+        group(DARK),
+        page(DARK),
+        address(DARK),
+        field(DARK),
+        suggestions(DARK),
+        clear(DARK),
+        body(DARK),
+        dim(DARK),
+        title(DARK),
+        heading(DARK),
+        button(DARK, ButtonLook.Normal),
+        button(DARK, ButtonLook.Primary),
+        button(DARK, ButtonLook.Danger),
+        button(DARK, ButtonLook.Subtle),
+    ];
+    for styles of all {
+        assert(styles.len > 0);
+    }
+}
+
+@test
+fun the_frame_is_flat_grey_with_white_icons() {
+    // The owner went back to the flat frame (session 118); the brand pair
+    // stays in the theme.
+    assert_eq(DARK.frame, "#242424");
+    assert_eq((DARK.accent, DARK.accent_end), ("#ff7700", "#ff2e63"));
+    assert_eq(DARK.on_frame, "#ffffff");
+}
+
+@test
+fun each_instance_keeps_its_colour() {
+    // PRP-033: by its stable key, so a renamed instance keeps its colour.
+    let c = DARK.instances;
+    assert_eq(instance_colour(DARK, ""), c[0]);
+    assert_eq(instance_colour(DARK, "2"), c[1]);
+    assert_eq(instance_colour(DARK, "{c.len + 1}"), c[0]);
+    assert_eq(instance_colour(DARK, "x"), c[0]);
+}

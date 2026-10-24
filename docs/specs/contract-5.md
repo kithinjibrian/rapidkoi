@@ -1,0 +1,98 @@
+# Contract 5: boxes, texts, styles and roles
+
+PRP-037, PRP-038 and PRP-039, DECISION-049. **Closed** (session 204): any change now is a DECISIONS.md entry and a version bump. Contract 4 (`contract-4.md`) with a new screen description: apps build every screen from three kinds of node, style them freely, and say what each piece is. Events, state, links and asks are contract 4's.
+
+## Nodes
+
+Every node is `{ "kind", "props", "children"? }`, as before.
+
+| Kind | Props | Children |
+|---|---|---|
+| `box` | `style`, `role`, `checked`, `selected`, `disabled`, `label`, `on_press`, and `title` on the root | yes |
+| `text` | `text` (required), `style`, `role`, `label` | no |
+| `input` | `value` (required), `placeholder`, `lines` (1–20; more than 1 is a box of several lines), `on_change` (none: disabled), `on_submit` (Enter, on one line; sent with the text as `value`), `style` | no |
+
+- **A box with `on_press`** is pressable: focusable, and pressed by a click, Enter or Space. It sends `on_message` with its message.
+- **`disabled: true`** greys a pressable box out, and it sends nothing.
+- **Any other kind** (contract 4's `button`, `column`, `row` included) is shown as an unsupported placeholder, its subtree still counted against the limits.
+
+Limits are those of earlier contracts: 4 MB, 10,000 nodes, 64 deep, and each string's length.
+
+## Style
+
+One map, every key optional, at most 32 keys. A known key with a bad value stops the app with its sentence. An unknown key is ignored, so later versions can add keys.
+
+| Key | Value |
+|---|---|
+| `direction` | `"column"` (default) or `"row"` |
+| `gap`, `padding` | `"xs"`…`"xl"` or 0–256 px; `padding` also `[vertical, horizontal]` |
+| `align` | `"start"`, `"center"`, `"end"`, `"stretch"` |
+| `grow` | `true`: take the spare room along the parent's direction |
+| `width`, `height`, `min_width`, `max_width`, `min_height`, `max_height` | 0–4096 px |
+| `background`, `color` | a colour |
+| `border` | `{ "width": 0–16, "color": colour }` |
+| `outline` | `{ "width": 0–8, "color": colour }` |
+| `corner` | `"small"`, `"medium"`, `"large"`, `"round"`, or 0–256 px |
+| `shadow` | `"none"`, `"sm"`, `"md"`, `"lg"` |
+| `opacity` | 0–1 |
+| `size` | `"title"`, `"heading"`, `"body"`, `"small"`, `{ "pt": 6–72 }` or `{ "rem": 0.5–6 }` |
+| `weight` | `"normal"`, `"medium"`, `"bold"` |
+| `font` | `"body"`, `"mono"`, `"serif"`, `"sans"` |
+| `italic` | `true` |
+| `hover`, `pressed`, `focus`, `disabled`, `checked` | a style map without these keys |
+
+The `checked` look is laid over the base when the node is `checked: true`.
+
+**A colour** is one of three things:
+- one of Rapidkoi's names: `background`, `surface`, `text`, `text_dim`, `accent`, `on_accent`, `border`, `danger`, `on_danger`;
+- the app's own: `#rrggbb` or `#rrggbbaa`;
+- `{ "mix": [colour, colour, 0–1] }`, the first moved towards the second, with no mix inside a mix.
+
+Rapidkoi's names, its spacing and corner sizes, and its text sizes are resolved when Rapidkoi draws. The app never learns their values, and they follow Rapidkoi's theme. Raw values stay as written.
+
+A pressable box starts with no look at all (no fill, edge or shadow) apart from an accent ring when it has the keyboard. A text starts in the theme's text colour. A typing box starts in Rapidkoi's field look.
+
+## Roles
+
+`role`: `button`, `checkbox`, `switch`, `tab`, `tab_list`, `heading`, `list`, `list_item`, `group`, `separator` (AccessKit's names).
+
+State:
+- `checked`: a checkbox or switch only;
+- `selected`: a tab or list item only;
+- `disabled`;
+- `label`: what a screen reader says when the text isn't enough.
+
+Rapidkoi uses roles for focus, pressing by keyboard and the checked look. Screen readers hear them once kivuli passes them on (DECISION-050).
+
+## Rust
+
+- `rapidkoi::raw` has the primitives: `boxed()`, `text()`, `field()`, `Role`, `.style([...])`, `.role()`, `.checked()`, `.on_press()`, `.on_submit()`, `.lines()`.
+- `rapidkoi::style` has the values: `Background`, `Text`, `Font`, `Border`, `Outline`, `Spacing`, `Sizing`, `Shadow`, `Effects`, `Layout`, `When(State, …)`, `Color::system`/`rgb`/`rgba`/`.mix`.
+- The widgets (`text().title()`, `button().primary()`, `checkbox`, `tabs`, `spacer`, `input`, `text_area`, `column`, `row`) are built from them, and `.style([...])` restyles any of them.
+
+## The person's choices (PRP-038)
+
+- **`preferences`** (an ask any app may make, no permission): answered with `{ "theme": "dark" | "light", "more_contrast": bool, "text_size": 80–200 }`. Nothing else about the person's settings is ever given. When one changes, every running app gets `on_change`: ask again.
+- **`set_preference`** `{ "name", "value" }` (needs the built-in `change_settings`, which only Rapidkoi's own Settings app holds): `theme` `"dark"`/`"light"`, `more_contrast` true/false, `text_size` 80–200 in steps of 10. Not answered. A bad name or value stops the app.
+- **Text size** sets the body size: `body`, `small`, `rem`, and Rapidkoi's `title`, `heading` and `xs`–`xl` follow it. Raw points and pixels don't, unless the person turns on **Use my text size** for the app.
+- **Use my colours** (per app, in its ⚙ card) turns the app's raw and mixed colours into Rapidkoi's:
+  - text → `text`;
+  - borders and outlines → `border`;
+  - a pressable box's fill → `surface`;
+  - other fills → none;
+  - shadows off.
+
+  Its named colours stay.
+
+## Link paths (PRP-039)
+
+- A `link` name, and a link's field name, may be a path into nested named fields: 1 to 4 segments of `[a-z0-9_]`, joined by `.`, at most 64 bytes (`editor.task`, `list.filter`).
+- Paths go through maps only, never list positions. An item is reached by an ID in a field.
+- **Reading for the address:** a path through anything but a map, or to a missing name, is left out. One ending on a list or map stops the app, as a top-level one does.
+- **Opening a link:** the value is set only where the fresh state has that path with the same kind of value. Nothing on the way is created or changed.
+- Contract 4 apps' `link` names stay single segments.
+
+## Messages (PRP-039)
+
+A message is any CBOR value, as before. The Rust library writes typed ones (`#[derive(Message)]`): a unit variant as its name (`"Add"`), one with fields as `["Toggle", 3]`, and a part's wrapped as `["List", ["Toggle", 3]]`.
+

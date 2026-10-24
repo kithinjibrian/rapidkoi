@@ -1,0 +1,267 @@
+/**
+ * The design tokens of `docs/DESIGN.md`, the contract's meaning words
+ * mapped onto them, and helpers that turn tokens into kivuli's style
+ * values. Every number the shell passes to kivuli comes from here.
+ *
+ * Depends on: kivuli, guest.contract
+ * Used by: ui.render, ui.themes, ui.layout, ui.addressbox, ui.frame, ui.content
+ */
+import kivuli { Spacing, Sizing, Edges, Width };
+import guest.contract { Space };
+
+/** Inside tight groups, in pixels. */
+public const SPACE_XS: i64 = 4;
+/** Between related controls, in pixels. */
+public const SPACE_SM: i64 = 8;
+/** Between rows of a form, in pixels. */
+public const SPACE_MD: i64 = 12;
+/** Window padding and between sections, in pixels. */
+public const SPACE_LG: i64 = 24;
+/** Between major regions, in pixels. */
+public const SPACE_XL: i64 = 36;
+
+/** A view's title, in points (with bold). */
+public const TEXT_TITLE: i64 = 18;
+/** A section heading, in points (with bold). */
+public const TEXT_HEADING: i64 = 14;
+
+/** The window's default width, in pixels. */
+public const WINDOW_WIDTH: i64 = 960;
+/** The window's default height, in pixels. */
+public const WINDOW_HEIGHT: i64 = 700;
+
+/**
+ * How thick the frame is: the rail's width, matching the header bar's height
+ * so the frame is an even L (the owner, session 15). The header bar is GTK's
+ * and measured about 50 px in the owner's screenshot (70 px against the old
+ * 80 px rail's 113).
+ */
+public const FRAME_THICKNESS: i64 = 50;
+/** A thin edge's width (the floating info panel), in pixels. */
+public const EDGE_WIDTH: i64 = 1;
+/** The address box's height, in pixels: thinner than `kivuli.ui`'s 36, so the bar shows room above and below it (the owner, session 107). */
+public const ADDRESS_HEIGHT: i64 = 30;
+/** The address box's width, and its suggestions card's, in pixels. */
+public const ADDRESS_WIDTH: i64 = 560;
+/** An icon on the header bar's buttons, in pixels: as inside the address box, so every icon matches (the owner: 20, session 125). */
+public const HEADER_ICON: i64 = 20;
+/** An icon inside the address box (the shield, ☆), in pixels: as on the header's buttons (the owner: 20, session 125). */
+public const ADDRESS_ICON: i64 = 20;
+/** The shield's card's width, in pixels: the same on each of its pages (the owner, session 134). */
+public const CARD_WIDTH: i64 = 360;
+/** The app's icon at the top of the shield's card, in pixels: every icon's 20 (the owner, session 136). */
+public const CARD_ICON: i64 = 20;
+/** The current app's ring in the sidebar, in pixels. */
+public const RING_WIDTH: i64 = 1;
+/** The sidebar's × button, in pixels (square). */
+public const TAB_CLOSE: i64 = 16;
+/** The × inside it, in pixels. */
+public const TAB_CLOSE_ICON: i64 = 10;
+/** An instance's pill in the header's strip: its height, thinner than a button's (PRP-033). */
+public const INSTANCE_CHIP: i64 = 26;
+/** The longest an instance's name shows in its pill before "…" (PRP-033). */
+public const INSTANCE_NAME_WIDTH: i64 = 88;
+/**
+ * The header's instance strip, always this wide (PRP-033): three pills, ⋯
+ * and +, so the address box never moves as instances come and go.
+ */
+public const STRIP_WIDTH: i64 = 520;
+/** A radius past half of any box Rapidkoi rounds: a circle, or a pill. */
+public const CIRCLE: i64 = 999;
+/** Small corners an app asks for (`corner: "small"`, PRP-037), in pixels. */
+public const CORNER_SMALL: i64 = 4;
+/** A button's and a text field's corners, in pixels: also an app's `corner: "medium"`. */
+public const BUTTON_RADIUS: i64 = 6;
+/** The page's top-right curve, in pixels: also an app's `corner: "large"`. */
+public const PAGE_RADIUS: i64 = 12;
+
+/**
+ * Returns the pixels a contract spacing or padding word stands for.
+ *
+ * @param s the word, as decoded
+ * @returns its token's pixels; `0` for `none`
+ *
+ * Example:
+ *     column(kids).style([gap(pixels(Space.Md))])
+ */
+public fun pixels(s: Space): i64 = match s {
+    Zero => 0,
+    Xs => SPACE_XS,
+    Sm => SPACE_SM,
+    Md => SPACE_MD,
+    Lg => SPACE_LG,
+    Xl => SPACE_XL,
+};
+
+/**
+ * Returns `n` pixels as a kivuli width.
+ *
+ * Example:
+ *     px(SPACE_SM)
+ */
+public fun px(n: i64): Width = Width.Px(n);
+
+/**
+ * Returns room outside a node, `n` pixels on every side (the contract's
+ * padding, and what kivuli 0.10 called padding).
+ *
+ * Example:
+ *     text("Hi").style([margin(SPACE_MD)])
+ */
+public fun margin(n: i64): Spacing = Spacing {
+    margin: Edges { all: Width.Px(n), ..Edges.theme() },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns room inside a node's border, `n` pixels on every side.
+ *
+ * Example:
+ *     column(rows).style([padding(SPACE_SM)])
+ */
+public fun padding(n: i64): Spacing = Spacing {
+    padding: Edges { all: Width.Px(n), ..Edges.theme() },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns room between a column's, row's or wrap's children, in pixels.
+ *
+ * Example:
+ *     row(parts).style([gap(SPACE_SM)])
+ */
+public fun gap(n: i64): Spacing = Spacing { gap: Width.Px(n), ..Spacing.theme() };
+
+/**
+ * Returns a size a node is never smaller than, in pixels; `0` leaves that way alone.
+ *
+ * Example:
+ *     sidebar.style([at_least(FRAME_THICKNESS, 0)])
+ */
+public fun at_least(width: i64, height: i64): Sizing = Sizing {
+    min_width: if width > 0 { Width.Px(width) } else { Width.Theme },
+    min_height: if height > 0 { Width.Px(height) } else { Width.Theme },
+    ..Sizing.theme(),
+};
+
+/**
+ * Returns a width a node never grows past, in pixels.
+ *
+ * Example:
+ *     box.style([at_most(ADDRESS_WIDTH)])
+ */
+public fun at_most(width: i64): Sizing = Sizing { max_width: Width.Px(width), ..Sizing.theme() };
+
+/**
+ * Returns an exact square size, `n` pixels, that the node never grows past.
+ *
+ * Example:
+ *     image(icon(Icon.Home, t.text)).style([square(HEADER_ICON)])
+ */
+// kivuli 0.48 applies a picture's `.size(n)` as GTK's size request, a
+// minimum, so an SVG still draws at its own size (DECISION-034); an exact
+// size with a maximum puts it in kivuli's clamp instead.
+public fun square(n: i64): Sizing = Sizing {
+    width: Width.Px(n),
+    height: Width.Px(n),
+    // Minimums as well, so a component's own can't exceed the maximum.
+    min_width: Width.Px(n),
+    min_height: Width.Px(n),
+    max_width: Width.Px(n),
+    max_height: Width.Px(n),
+    ..Sizing.theme(),
+};
+
+/**
+ * Returns room above and below a node, `n` pixels each, none at its sides.
+ *
+ * Example:
+ *     box.style([margin_y(SPACE_SM)])
+ */
+public fun margin_y(n: i64): Spacing = Spacing {
+    margin: Edges { top: Width.Px(n), bottom: Width.Px(n), ..Edges.theme() },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns room left and right of a node, `n` pixels each, none above or below.
+ *
+ * Example:
+ *     button.style([margin_x(SPACE_XS)])
+ */
+public fun margin_x(n: i64): Spacing = Spacing {
+    margin: Edges { left: Width.Px(n), right: Width.Px(n), ..Edges.theme() },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns no room above or below a node's content, inside its border.
+ *
+ * Example:
+ *     group_input(v, f).style([flush_y()])
+ */
+public fun flush_y(): Spacing = Spacing {
+    padding: Edges { top: Width.Px(0), bottom: Width.Px(0), ..Edges.theme() },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns an exact width a node keeps whatever its content: its text wraps
+ * to it instead of widening it.
+ *
+ * Example:
+ *     card.style([exactly(CARD_WIDTH)])
+ */
+public fun exactly(width: i64): Sizing = Sizing {
+    width: Width.Px(width),
+    min_width: Width.Px(width),
+    max_width: Width.Px(width),
+    ..Sizing.theme(),
+};
+
+/**
+ * Returns room inside a node's border: `x` pixels at its sides, `y` above
+ * and below.
+ *
+ * Example:
+ *     row.style([padding_xy(SPACE_SM, SPACE_MD)])
+ */
+public fun padding_xy(x: i64, y: i64): Spacing = Spacing {
+    padding: Edges {
+        top: Width.Px(y),
+        bottom: Width.Px(y),
+        left: Width.Px(x),
+        right: Width.Px(x),
+        ..Edges.theme(),
+    },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns no room inside a node's border, on any side.
+ *
+ * Example:
+ *     button.style([no_padding()])
+ */
+public fun no_padding(): Spacing = Spacing {
+    padding: Edges { all: Width.Px(0), ..Edges.theme() },
+    ..Spacing.theme(),
+};
+
+/**
+ * Returns a size at least `width` wide and exactly `height` high: the node
+ * keeps that height whatever it holds (kivuli's clamp), so long as its
+ * content fits.
+ *
+ * Example:
+ *     box.style([fixed_height(ADDRESS_WIDTH, ADDRESS_HEIGHT)])
+ */
+public fun fixed_height(width: i64, height: i64): Sizing = Sizing {
+    min_width: Width.Px(width),
+    // The minimum too: kivuli.ui's components set their own (36), and a
+    // minimum above the maximum stops the app (session 153).
+    min_height: Width.Px(height),
+    height: Width.Px(height),
+    max_height: Width.Px(height),
+    ..Sizing.theme(),
+};

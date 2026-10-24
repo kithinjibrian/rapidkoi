@@ -3,16 +3,18 @@
 // stale ones, a changed snapshot and refusals need no network. The end to
 // end case runs the task over a real local socket. Writes only under
 // test/tmp/.
-import rapidkoi.shell { Model, start, update, view, subscriptions };
-import rapidkoi.actions { Msg };
-import rapidkoi.fetching { Fetched };
-import rapidkoi.loader { Refusal };
-import rapidkoi.tabs { Screen };
-import rapidkoi.bundle { Bundle, Manifest, write };
-import rapidkoi.publish { make_key, publish_site };
-import rapidkoi.serve { handle };
-import rapidkoi.store { store_at };
-import kivuli { Cmd, Sub };
+import rapidkoi.shell { Model, start, update, subscriptions };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.window { page_of };
+import rapidkoi.ui.frame { marker_note, file_of };
+import rapidkoi.net.fetching { Fetched };
+import rapidkoi.bundles.loader { Refusal };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
+import rapidkoi.commands.publish { make_key, publish_site };
+import rapidkoi.commands.serve { handle };
+import rapidkoi.data.store { store_at };
+import kivuli { Cmd };
 import kivuli.testing { click, texts, Lookup };
 import std.http { Request };
 import std.env;
@@ -24,11 +26,11 @@ const ADDRESS: string = "rapidkoi://localhost:18771";
 
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
-/** The bar's marker, found by what it means (its tooltip leads with that). */
-fun marks(m: Model, s: string): bool = click(
-    view(m),
-    "{s}. Click to search or type a path (Ctrl+K)",
-) == Ok(Msg.EditAddress);
+/** What the trust marker says for the current app (its hover text in the address box, PRP-025). */
+fun marks(m: Model, s: string): bool = match page_of(m) {
+    App(p) => marker_note(p, file_of(p.path)) == s,
+    Home => false,
+};
 
 /** Opens ADDRESS from home, without running its task. */
 fun opening(): (Model, Cmd<Msg>) {
@@ -62,6 +64,8 @@ fun plain(): u8[] = write(Bundle {
         icon: None,
         banners: [],
         servers: [],
+        permissions: [],
+        controls: None,
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [],
@@ -99,10 +103,15 @@ fun the_spinner_turns_and_the_time_shows_after_3_s() {
 fun everything_else_works_while_it_loads() {
     let (m, _) = opening();
     let home = step(m, Msg.Home);
-    assert_eq((home.current, home.tabs.len), (None, 1));
+    // An empty tab beside the loading one (PRP-024).
+    assert_eq((home.blanks.len, home.tabs.len), (1, 1));
     let back = step(home, Msg.Select(m.tabs[0].id));
     assert_eq(loading(back), true);
-    let (more, cmd) = update(Model { draft: ADDRESS, ..step(back, Msg.NewTab) }, Msg.Go);
+    // Another address (the same one would switch to its tab, PRP-026).
+    let (more, cmd) = update(
+        Model { draft: "rapidkoi://localhost:18774", ..step(back, Msg.NewTab) },
+        Msg.Go,
+    );
     assert_eq((more.tabs.len, is_task(cmd)), (2, true));
 }
 
@@ -205,33 +214,31 @@ fun site(port: i64): string {
 fun a_changed_snapshot_loads_again_once_then_says_so() {
     let dir = site(18772);
     let (home, _) = start(["./main"], None);
-    // Two tabs start loading the same site with the same (empty) snapshot.
+    // One tab per app (PRP-026): the same site can't load in two tabs, so
+    // the load's task runs twice from one (empty) snapshot. The first result
+    // records the key in the keyring every copy of the model shares; the
+    // second then arrives at the load still waiting, its snapshot stale.
     let (one, c1) = update(Model { draft: "rapidkoi://localhost:18772", ..home }, Msg.Go);
-    let (two, c2) = update(
-        Model { draft: "rapidkoi://localhost:18772", ..step(one, Msg.NewTab) },
-        Msg.Go,
-    );
     let first = match c1 {
         Task(job) => job(),
         _ => Msg.Home,
     };
-    let second = match c2 {
+    let second = match c1 {
         Task(job) => job(),
         _ => Msg.Home,
     };
-    // The first records the key (a first use); the second's snapshot is now stale.
-    let (a, _) = update(two, first);
-    let (b, again) = update(a, second);
+    let _ = update(one, first);
+    let (b, again) = update(one, second);
     assert_eq(is_task(again), true);
     assert_eq(
-        match b.tabs[1].page.screen {
+        match b.tabs[0].page.screen {
             Loading(_) => true,
             _ => false,
         },
         true,
     );
     // Stale a second time (a hand-made stale result): the page says so.
-    let id = b.tabs[1].id;
+    let id = b.tabs[0].id;
     let stale = match second {
         Fetched(_, _, f) => f,
         _ => Fetched.Unsigned("", []),

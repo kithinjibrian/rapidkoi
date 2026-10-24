@@ -1,16 +1,14 @@
 // Loading from a development server, over a real local socket: a server
 // on a spawned green thread, a client in the test. Each test has its own
 // port (tests run in parallel processes). Writes only under test/tmp/.
-import rapidkoi.loader { load, fetch, why };
-import rapidkoi.verify { keyring };
-import rapidkoi.address { parse };
-import rapidkoi.serve { handle };
-import rapidkoi.bundle { Bundle, Manifest, write };
-import rapidkoi.shell { Model, with_pages, update, view };
-import rapidkoi.navigate { reload };
-import rapidkoi.actions { Msg, PanelPage };
-import rapidkoi.tabs { AppPage, open_path };
-import kivuli.testing { texts };
+import rapidkoi.bundles.loader { load, fetch, why };
+import rapidkoi.trust.verify { keyring };
+import rapidkoi.net.address { parse };
+import rapidkoi.commands.serve { handle };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.window.navigate { reload };
+import rapidkoi.window.tabs { open_path };
 import std.http { Request };
 import wasmtime { Engine };
 import std.task { sleep };
@@ -28,6 +26,8 @@ fun bundle_file(tag: string, version: string): string {
         icon: None,
         banners: [],
         servers: [],
+        permissions: [],
+        controls: None,
     };
     write_bytes(
         p,
@@ -118,16 +118,4 @@ fun reload_fetches_the_new_build() {
     bundle_file("loader-reload", "1.1.0");
     let (loading, cmd) = reload(m);
     assert_eq(version_of(settle(loading, cmd, update)), "1.1.0");
-}
-
-@test
-fun the_panel_says_where_it_came_from() {
-    serving(bundle_file("loader-panel", "1.0.0"), 18736);
-    let engine = Engine.new();
-    let m = with_pages(engine, [open_path(engine, keyring(), "rapidkoi://localhost:18736")]);
-    let (open, _) = update(m, Msg.TogglePanel);
-    let (about, _) = update(open, Msg.PanelGo(PanelPage.About));
-    let lines = texts(view(about));
-    assert_eq(lines.any(fun(s: string) = s == "Development server, unsigned"), true);
-    assert_eq(lines.any(fun(s: string) = s == "rapidkoi://localhost:18736"), true);
 }

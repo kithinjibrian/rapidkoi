@@ -1,0 +1,456 @@
+/**
+ * The window's state and the changes that open nothing: tabs (apps only;
+ * home isn't a tab), the current one or home, the address box's text,
+ * pins, "where you left off" and the theme. Opening files and addresses is
+ * `navigate.la`. Never draws.
+ *
+ * Depends on: wasmtime, trust.verify, data.store, net.fetching, people.people, people.identity, window.actions, window.tabs, window.leftoff, ui.suggestions, ui.frame, ui.themes
+ * Used by: window.navigate, shell
+ */
+import wasmtime { Engine };
+import trust.verify { Keyring, keyring };
+import data.store { Store };
+import net.dialing { Network };
+import people.people { People, nobody };
+import people.identity { Master };
+import net.address { parse };
+import window.actions { Msg, PanelPage, ShieldPage, Confirm, Approval };
+import window.tabs { Page, Tab, Pin, AppPage, state_of };
+import window.leftoff { LeftOff, leave, snapshot };
+import data.remembered { Open };
+import ui.suggestions { Card };
+import ui.frame { icon_of };
+import ui.themes { Theme, DARK };
+import ui.schemes { Prefs, DEFAULT_PREFS, theme_for };
+
+/** The window's state. */
+public struct Model {
+    engine: Engine,
+    /** The keys trusted, remembered across restarts by `saving`. */
+    ring: Keyring,
+    /** Where the window remembers things; `None` (tests, no home) saves nothing. */
+    store: Option<Store>,
+    /** The open apps (their order of creation is their ids'; `order` merges them with the empty tabs). */
+    public tabs: Tab[],
+    /** The empty tabs' ids (PRP-024): tabs showing the new-tab page, one id sequence with the app tabs. */
+    public blanks: i64[],
+    /** The new-tab app the empty tab shows (PRP-027); `None` if it couldn't start, or in tests. */
+    public newtab: Option<AppPage>,
+    /** The current tab's id, app or empty; `None` only before the first tab exists. */
+    public current: Option<i64>,
+    next: i64,
+    /** The address box's text. */
+    public draft: string,
+    /** Whether an app page's address is being edited. */
+    public editing: bool,
+    /** The info panel's page, or `None` when it's closed. */
+    public panel: Option<PanelPage>,
+    /** The shield's card, open on a page, or `None` while closed (PRP-021). */
+    public shield: Option<ShieldPage>,
+    /** A destructive action waiting for "yes". */
+    public confirm: Option<Confirm>,
+    /** An app's ask waiting for your approval (PRP-031). */
+    public approval: Option<Approval>,
+    /** The instance being renamed and the name typed so far (PRP-033). */
+    public renaming: Option<(i64, string)>,
+    /** The last session, until it's restored or something else is opened (PRP-035). */
+    public previous: Option<Open>,
+    /** Pinned apps, remembered across restarts by `saving`. */
+    public pinned: Pin[],
+    /** The last app tab visited before home, if it's still open. */
+    public last: Option<i64>,
+    /** The last app closed, with its state, in this session. */
+    public left_off: Option<LeftOff>,
+    /** A short message under the bar (an address that can't be opened yet). */
+    public notice: Option<string>,
+    /** Rapidkoi's own colours and text size: `theme_for(prefs)`. */
+    public theme: Theme,
+    /** What the person chose in Settings (PRP-038). */
+    public prefs: Prefs,
+    /** Whether ☰'s card is open. */
+    public menu: bool,
+    /** Whether the About dialog is shown. */
+    public about: bool,
+    /** The last loading tick, in milliseconds since 1970: how long a load has taken. */
+    public now: i64,
+    /** The last load number given out (PRP-008). */
+    loads: i64,
+    /** How loads reach the network: the system's roots alone, except in tests (PRP-009). */
+    network: Network,
+    /** Your sign-in settings and name, per app (PRP-011). */
+    public people: People,
+    /** This computer's master secret, once read or made: never shown. */
+    master: Option<Master>,
+}
+
+/**
+ * Builds a window with one tab per page, the first current; none shows home.
+ *
+ * @param engine the engine the pages' apps were compiled with
+ * @param pages the apps to open
+ * @returns the model, in the dark theme
+ *
+ * Example:
+ *     with_pages(engine, [])
+ */
+public fun with_pages(engine: Engine, pages: AppPage[]): Model {
+    let mut made: Tab[] = [];
+    for p of pages {
+        made.push(Tab { id: made.len, page: p });
+    }
+    Model {
+        engine: engine,
+        ring: keyring(),
+        store: None,
+        tabs: made,
+        blanks: [],
+        newtab: None,
+        current: if made.len > 0 { Some(0) } else { None },
+        next: made.len,
+        draft: "",
+        editing: false,
+        panel: None,
+        shield: None,
+        confirm: None,
+        approval: None,
+        renaming: None,
+        previous: None,
+        pinned: [],
+        last: None,
+        left_off: None,
+        notice: None,
+        theme: DARK,
+        prefs: DEFAULT_PREFS,
+        menu: false,
+        about: false,
+        now: 0,
+        loads: 0,
+        network: Network { ca_file: None, hosts: [] },
+        people: nobody(),
+        master: None,
+    }
+}
+
+/**
+ * The same window, loading through `net`. **Tests only**: it's how a test
+ * trusts its own CA. Rapidkoi never calls it, so the app always uses the
+ * system's roots alone (PRP-009).
+ *
+ * Example:
+ *     with_network(m, Network { ca_file: Some("test/fixtures/tls/ca.pem"), hosts: [] })
+ */
+public fun with_network(m: Model, net: Network): Model = Model { network: net, ..m };
+
+/**
+ * Returns what the window shows: home, or the current tab's app.
+ *
+ * Example:
+ *     page_of(m)
+ */
+public fun page_of(m: Model): Page = match m.current {
+    Some(id) => match app(m, id) {
+        Some(a) => Page.App(a),
+        None => Page.Home,
+    },
+    None => Page.Home,
+};
+
+/**
+ * Returns the window's title: "Rapidkoi" on home, "Rapidkoi — {title or name}" on an app.
+ *
+ * Example:
+ *     title_of(m)
+ */
+public fun title_of(m: Model): string = match page_of(m) {
+    Home => "Rapidkoi",
+    App(a) => "Rapidkoi — {a.title.unwrap_or(a.name)}",
+};
+
+/**
+ * Returns "Where you left off": the last app visited if its tab is open,
+ * else the last app closed.
+ *
+ * Example:
+ *     card(m)
+ */
+public fun card(m: Model): Option<Card> {
+    if let Some(id) = m.last {
+        if let Some(a) = app(m, id) {
+            return Some(Card {
+                name: a.name,
+                title: a.title,
+                msg: Msg.Select(id),
+                path: a.path,
+                icon: icon_of(a.path, a.icon),
+            });
+        }
+    }
+    m.left_off.map(
+        fun(l: LeftOff) = Card {
+            name: l.name,
+            title: l.title,
+            msg: Msg.Continue,
+            path: l.path,
+            icon: icon_of(l.path, l.icon),
+        },
+    )
+}
+
+/**
+ * Returns what to remember as "where you left off": the app used last.
+ * That's the current tab's, else the last visited tab's while it's open,
+ * else the last app closed; an open page that isn't running doesn't
+ * replace a remembered one. Saved as it changes, so quitting at any moment
+ * keeps it (PRP-007 amendment 1).
+ *
+ * Example:
+ *     used_last(m)
+ */
+public fun used_last(m: Model): Option<LeftOff> {
+    // On an empty tab, as on home before it, the last app visited counts.
+    let open = match m.current.and_then(fun(id: i64) = app(m, id)) {
+        Some(a) => Some(a),
+        None => m.last.and_then(fun(id: i64) = app(m, id)),
+    };
+    match open {
+        // A page that isn't running (its file gone, its server down) never
+        // replaces a remembered app's state with nothing.
+        Some(a) if state_of(a).is_some() || m.left_off.is_none() => Some(snapshot(a)),
+        _ => m.left_off,
+    }
+}
+
+/**
+ * Shows an empty tab (PRP-024): the current one if it's empty, else a new
+ * one. The app that was showing stays open in its tab and becomes "where
+ * you left off".
+ *
+ * Example:
+ *     go_home(m)
+ */
+public fun go_home(m: Model): Model = match m.current {
+    Some(id) if is_blank(m, id) => Model {
+        draft: "",
+        editing: false,
+        panel: None,
+        confirm: None,
+        notice: None,
+        ..m,
+    },
+    _ => new_blank(m),
+};
+
+/**
+ * Shows the empty tab, opening one when there's none (PRP-024, PRP-026:
+ * at most one): + and Ctrl+T.
+ *
+ * Example:
+ *     new_blank(m)
+ */
+public fun new_blank(m: Model): Model {
+    // At most one empty tab (PRP-026): + goes to it when there is one.
+    if m.blanks.len > 0 {
+        let id = m.blanks[0];
+        return Model {
+            current: Some(id),
+            last: match m.current {
+                Some(c) if app(m, c).is_some() => Some(c),
+                _ => m.last,
+            },
+            draft: "",
+            editing: false,
+            panel: None,
+            confirm: None,
+            notice: None,
+            ..m,
+        };
+    }
+    let mut more = m.blanks;
+    more.push(m.next);
+    Model {
+        blanks: more,
+        current: Some(m.next),
+        next: m.next + 1,
+        // The app that was showing is the one to go back to.
+        last: match m.current {
+            Some(id) if app(m, id).is_some() => Some(id),
+            _ => m.last,
+        },
+        draft: "",
+        editing: false,
+        panel: None,
+        confirm: None,
+        notice: None,
+        ..m,
+    }
+}
+
+/**
+ * Says whether two paths are the same app (PRP-026): one address (host and
+ * port, whatever the scheme, with or without a route), or one file path.
+ *
+ * Example:
+ *     same_app("rapidkoi://localhost:8000", "rapidkoi://localhost:8000/")
+ */
+public fun same_app(a: string, b: string): bool = match (parse(a), parse(b)) {
+    (Ok(x), Ok(y)) => x.host == y.host && x.port == y.port,
+    (Err(_), Err(_)) => a == b,
+    _ => false,
+};
+
+/**
+ * Returns the tab already showing the app at `path`, loading or running:
+ * its last-used instance when it has several (PRP-033).
+ *
+ * Example:
+ *     open_tab_of(m, "counter.wasm")
+ */
+public fun open_tab_of(m: Model, path: string): Option<i64> {
+    let mut found: Option<Tab> = None;
+    for t of m.tabs {
+        if same_app(t.page.path, path) && found.map(
+            fun(f: Tab) = t.page.seen > f.page.seen,
+        ).unwrap_or(true) {
+            found = Some(t);
+        }
+    }
+    found.map(fun(t: Tab) = t.id)
+}
+
+/**
+ * Says whether `id` is an empty tab.
+ *
+ * Example:
+ *     is_blank(m, 3)
+ */
+public fun is_blank(m: Model, id: i64): bool = m.blanks.any(fun(b: i64) = b == id);
+
+/**
+ * Returns every tab's id, app and empty, in the order they were made.
+ *
+ * Example:
+ *     order(m)
+ */
+public fun order(m: Model): i64[] {
+    let mut all: i64[] = m.tabs.map(fun(t: Tab) = t.id);
+    for b of m.blanks {
+        all.push(b);
+    }
+    all.sort();
+    all
+}
+
+/**
+ * Returns the id the next app placed will take: the current empty tab's,
+ * which it fills, else a new one.
+ *
+ * Example:
+ *     slot(m)
+ */
+public fun slot(m: Model): i64 = match m.current {
+    Some(id) if is_blank(m, id) => id,
+    _ => m.next,
+};
+
+/**
+ * Shows a tab, if it's open.
+ *
+ * Example:
+ *     show_tab(m, 2)
+ */
+public fun show_tab(m: Model, id: i64): Model = if app(m, id).is_some() || is_blank(m, id) {
+    Model { current: Some(id), editing: false, notice: None, confirm: None, ..m }
+} else {
+    m
+};
+
+/**
+ * Changes one tab's app.
+ *
+ * Example:
+ *     with_tab(m, id, fun(a) = handle(a, msg))
+ */
+public fun with_tab(m: Model, id: i64, f: fun(AppPage): AppPage): Model = Model {
+    tabs: m.tabs.map(fun(t: Tab) = if t.id == id { Tab { page: f(t.page), ..t } } else { t }),
+    ..m,
+};
+
+/**
+ * Closes a tab, app or empty; an app becomes "where you left off". The tab
+ * after it in creation order (else the one before) becomes current; closing
+ * the last tab leaves one empty tab (PRP-024).
+ *
+ * Example:
+ *     close(m, 2)
+ */
+public fun close(m: Model, id: i64): Model {
+    let all = order(m);
+    let mut at = -1;
+    let mut i = 0;
+    while i < all.len {
+        if all[i] == id {
+            at = i;
+        }
+        i = i + 1;
+    }
+    if at < 0 {
+        return m;
+    }
+    let left = match app(m, id) {
+        Some(a) => Some(leave(a)),
+        None => m.left_off,
+    };
+    let rest = all.filter(fun(x: i64) = x != id);
+    let current: Option<i64> = if m.current != Some(id) {
+        m.current
+    } else if rest.len == 0 {
+        None
+    } else {
+        Some(rest[if at < rest.len { at } else { rest.len - 1 }])
+    };
+    let closed = Model {
+        tabs: m.tabs.filter(fun(t: Tab) = t.id != id),
+        blanks: m.blanks.filter(fun(b: i64) = b != id),
+        current: current,
+        left_off: left,
+        panel: None,
+        confirm: None,
+        ..m,
+    };
+    // The window always has a tab.
+    if rest.len == 0 { new_blank(closed) } else { closed }
+}
+
+fun add_tab(m: Model, page: AppPage): Model {
+    let id = slot(m);
+    let mut more = m.tabs;
+    more.push(Tab { id: id, page: page });
+    // An app opened from an empty tab fills it: its id and its place (PRP-024).
+    if id != m.next {
+        return Model {
+            tabs: more,
+            blanks: m.blanks.filter(fun(b: i64) = b != id),
+            current: Some(id),
+            ..m,
+        };
+    }
+    Model { tabs: more, current: Some(m.next), next: m.next + 1, ..m }
+}
+
+fun app(m: Model, id: i64): Option<AppPage> {
+    for t of m.tabs {
+        if t.id == id {
+            return Some(t.page);
+        }
+    }
+    None
+}
+
+/**
+ * The window with the person's new choices (PRP-038): its theme follows at
+ * once, colours and text size.
+ *
+ * Example:
+ *     with_prefs(m, Prefs { light: true, ..m.prefs })
+ */
+public fun with_prefs(m: Model, p: Prefs): Model = Model { prefs: p, theme: theme_for(p), ..m };

@@ -1,15 +1,16 @@
-// The panel's Access page (PRP-012): what an app can reach, a switch for
-// each server, "new" after an update adds one, and the one-time notice.
-// Writes only under test/tmp/.
-import rapidkoi.shell { Model, with_pages, update, view };
-import rapidkoi.saving { restore };
-import rapidkoi.actions { Msg, PanelPage };
-import rapidkoi.tabs { AppPage, Tab, open_module };
-import rapidkoi.bundle { Manifest };
-import rapidkoi.verify { Trust, Standing };
-import rapidkoi.people { person };
-import rapidkoi.store { Store, store_at };
-import kivuli.testing { click, texts, toggle };
+// What an app can reach (PRP-012): its servers, a switch for each, "new"
+// after an update adds one, and the one-time notice. The facts the Access
+// page will show, checked on the model: its page comes back natively later
+// (DECISION-030). Writes only under test/tmp/.
+import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.people.access { Access, access_of };
+import rapidkoi.data.saving { restore };
+import rapidkoi.window.actions { Msg, PanelPage };
+import rapidkoi.window.tabs { AppPage, Tab, open_module };
+import rapidkoi.bundles.bundle { Manifest };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.people.people { person };
+import rapidkoi.data.store { Store, store_at };
 import std.fs;
 import wasmtime { Engine, Module };
 import support { echo };
@@ -42,6 +43,8 @@ fun manifest(servers: string[]): Manifest = Manifest {
     icon: None,
     banners: [],
     servers: servers,
+    permissions: [],
+    controls: None,
 };
 
 /** Notes declaring `servers`, signed by HOST when `signed`, from `path`. */
@@ -79,7 +82,8 @@ fun step(m: Model, msg: Msg): Model {
     next
 }
 
-fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+/** What the first tab's app can reach. */
+fun facts(m: Model): Access = access_of(m, m.tabs[0].page);
 
 fun signed(s: Store, servers: string[]): Model = window(
     s,
@@ -89,14 +93,11 @@ fun signed(s: Store, servers: string[]): Model = window(
 @test
 fun it_lists_the_own_host_then_the_declared_servers() {
     let s = folder("list");
-    let m = signed(s, ["api.acme.com", "files.acme.com"]);
-    assert_eq(shows(m, "3 servers"), true);
-    let at = step(m, Msg.PanelGo(PanelPage.Access));
-    // A signed app's servers are switches, named by the server.
-    assert_eq(toggle(view(at), HOST), Ok(Msg.ToggleServer(HOST)));
-    assert_eq(shows(at, "Its own server"), true);
-    assert_eq(toggle(view(at), "api.acme.com").is_ok(), true);
-    assert_eq(toggle(view(at), "files.acme.com").is_ok(), true);
+    let a = facts(signed(s, ["api.acme.com", "files.acme.com"]));
+    // A signed app's servers are switches.
+    assert_eq(a.own, Some(HOST));
+    assert_eq(a.servers, ["api.acme.com", "files.acme.com"]);
+    assert_eq(a.switches, true);
     clean(s.dir);
 }
 
@@ -104,10 +105,9 @@ fun it_lists_the_own_host_then_the_declared_servers() {
 fun a_switch_turns_a_server_off_and_on() {
     let s = folder("switch");
     let at = step(signed(s, ["api.acme.com"]), Msg.PanelGo(PanelPage.Access));
-    assert_eq(toggle(view(at), "api.acme.com"), Ok(Msg.ToggleServer("api.acme.com")));
     let off = step(at, Msg.ToggleServer("api.acme.com"));
     assert_eq(person(off.people, HOST, [3; 32]).off, ["api.acme.com"]);
-    assert_eq(shows(step(off, Msg.PanelGo(PanelPage.Main)), "2 servers, 1 off"), true);
+    assert_eq(facts(off).off, ["api.acme.com"]);
     let on = step(off, Msg.ToggleServer("api.acme.com"));
     assert_eq(person(on.people, HOST, [3; 32]).off.len, 0);
     clean(s.dir);
@@ -137,11 +137,11 @@ fun an_update_that_adds_a_server_tells_you_once_and_marks_it_new() {
     // Once: the next message doesn't say it again.
     assert_eq(step(Model { notice: None, ..told }, Msg.PanelGo(PanelPage.Main)).notice, None);
     let at = step(told, Msg.PanelGo(PanelPage.Access));
-    assert_eq(shows(at, "New"), true);
+    assert_eq(facts(at).fresh, ["files.acme.com"]);
     // Looked at: leaving the page clears the mark.
     let left = step(at, Msg.PanelGo(PanelPage.Main));
     assert_eq(person(left.people, HOST, [3; 32]).fresh.len, 0);
-    assert_eq(shows(step(left, Msg.PanelGo(PanelPage.Access)), "New"), false);
+    assert_eq(facts(step(left, Msg.PanelGo(PanelPage.Access))).fresh.len, 0);
     clean(s.dir);
 }
 
@@ -161,13 +161,10 @@ fun forget_clears_the_switches() {
 @test
 fun an_unsigned_app_reaches_only_this_computer() {
     let s = folder("unsigned");
-    let m = window(s, notes("notes.rkb", ["api.acme.com", "localhost:9000"], false));
-    assert_eq(shows(m, "1 server"), true);
-    let at = step(m, Msg.PanelGo(PanelPage.Access));
-    assert_eq(shows(at, "localhost:9000"), true);
-    assert_eq(shows(at, "api.acme.com"), false);
-    assert_eq(toggle(view(at), "localhost:9000").is_err(), true);
-    let none = window(s, notes("notes.rkb", [], false));
-    assert_eq(shows(none, "None"), true);
+    let a = facts(window(s, notes("notes.rkb", ["api.acme.com", "localhost:9000"], false)));
+    assert_eq(a.servers, ["localhost:9000"]);
+    assert_eq(a.switches, false);
+    let none = facts(window(s, notes("notes.rkb", [], false)));
+    assert_eq((none.own, none.servers.len), (None, 0));
     clean(s.dir);
 }

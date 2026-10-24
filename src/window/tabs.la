@@ -1,0 +1,462 @@
+/**
+ * Pages and tabs: what one tab holds, and the life of an app page. Starting
+ * a guest from a file or a module, sending it events, and Restart; starting
+ * one again from saved state is `restarts.la`. Calls guests (bounded by
+ * fuel); never draws.
+ *
+ * Depends on: cbor, wasmtime, guest.guest, bundles.bundle, bundles.loader, trust.verify, net.address, guest.contract, ui.render, guest.running
+ * Used by: window.actions, ui.frame, home, panel, shell
+ */
+import cbor { Value };
+import wasmtime { Engine, Module };
+import guest.guest { Guest, open, reason };
+import bundles.bundle { Manifest };
+import bundles.loader { Loaded, Refusal, load, why };
+import net.address;
+import trust.verify { Trust, Change, Keyring };
+import guest.contract { Described, ContractError, Effect, LinkChange, read_tree };
+import guest.events { Happened };
+import ui.render { Msg };
+import guest.running { Ran, start, happen };
+import guest.links { fields_in };
+
+/** What an app page shows. */
+public enum Screen {
+    /** The guest, its state, and its decoded screen. */
+    Running(Guest, u8[], Described),
+    /** Why the app isn't running, and whether Restart can help. */
+    Stopped(string, bool),
+    /** A signed site failed a check, so it never ran: why. Only ⟳ tries again. */
+    Refused(string),
+    /**
+     * A signed site's key changed without approval: the change, and the
+     * page that was open before (when reloading), kept until the person decides.
+     */
+    Unapproved(Change, AppPage[]),
+    /** Loading in the background (PRP-008): when it started, and what to do when it arrives. */
+    Loading(Pending),
+}
+
+/** A load in progress: what the page needs when its result arrives. */
+public struct Pending {
+    /** When it started, in milliseconds since 1970. */
+    public started: i64,
+    /** Whether this is the one retry after a changed snapshot. */
+    public again: bool,
+    /** The state to continue with (⟳ on a running page), and its version. */
+    public saved: Option<(u8[], i64)>,
+    /** The page this replaces (⟳), kept running until the new one is ready or refused. */
+    public kept: AppPage[],
+    /**
+     * Whether this load restores a window from the last session (PRP-035):
+     * only then is the app's saved state picked up; anything opened anew
+     * starts fresh (session 189).
+     */
+    public resume: bool,
+    /** The version a link named (PRP-036), opened while its site lists it. */
+    public version: Option<string>,
+    /** A link's fields, set in the app's first state. */
+    public link: (string, string)[],
+}
+
+/** A compiled app, kept so Restart and Continue can start it again. */
+public struct Program {
+    engine: Engine,
+    module: Module,
+}
+
+/** One app in a tab. */
+public struct AppPage {
+    /** The manifest's name, or the file's name without `.wasm`: what Rapidkoi calls the app. */
+    public name: string,
+    /** The bundle's manifest; `None` for a bare `.wasm`. */
+    public manifest: Option<Manifest>,
+    /** The app's icon as PNG bytes, from its bundle. */
+    public icon: Option<u8[]>,
+    /** The file it came from, as the person gave it. */
+    public path: string,
+    /** The current screen's title, if the app gives one. */
+    public title: Option<string>,
+    /** Who signed it and how far that's trusted; `None` when unsigned. */
+    public trust: Option<Trust>,
+    program: Option<Program>,
+    /** What the app asked for and Rapidkoi hasn't answered yet (contract v2, PRP-011). */
+    public asks: Effect[],
+    /** Which load this page is waiting for (0 when none): a result for another is stale. */
+    public load: i64,
+    /** Its requests sent and not yet answered (PRP-012), at most `MAX_IN_FLIGHT`. */
+    public in_flight: i64,
+    /** What's on screen. */
+    public screen: Screen,
+    /**
+     * Which instance of its app this is (PRP-033): "" for the first, then
+     * "2", "3"… Stable: its saved state is kept under it, whatever it's called.
+     */
+    public instance: string,
+    /** The name the person gave this instance, if they renamed it. */
+    public label: Option<string>,
+    /** When it was last the current tab, as a count: the app's last-used instance has the highest. */
+    public seen: i64,
+    /** The fields the app put in its address (contract 4, PRP-036), in order. */
+    public link: string[],
+    /** Those fields' current values, as the address shows them. */
+    public fields: (string, string)[],
+    /** How big its app's database is, in bytes, once asked for its ⚙ card (PRP-041). */
+    public data_size: Option<i64>,
+}
+
+/** What the window shows: home, or the current tab's app. */
+public enum Page {
+    /** Home: no tab is current. */
+    Home,
+    /** An app. */
+    App(AppPage),
+}
+
+/** One tab: always an app (home isn't a tab). Ids are never reused, so a message for a closed tab finds nothing. */
+public struct Tab {
+    /** The tab's id. */
+    public id: i64,
+    /** Its app. */
+    public page: AppPage,
+}
+
+/** A pinned app on home. */
+public struct Pin {
+    /** The app's name. */
+    public name: string,
+    /** Its file. */
+    public path: string,
+    /** Its icon, if it has one. */
+    public icon: Option<u8[]>,
+}
+
+/**
+ * Opens the app in a local file the person chose: a `.rkb` bundle or a `.wasm`.
+ *
+ * @param engine the program's engine
+ * @param ring this session's trusted keys
+ * @param path the file or address
+ * @returns the page: running, or stopped with the reason (no Restart when
+ *     the file couldn't be read or compiled), refused, or asking about a
+ *     changed key
+ *
+ * Example:
+ *     open_path(engine, ring, "counter.wasm")
+ */
+public fun open_path(engine: Engine, ring: Keyring, path: string): AppPage = match load(
+    engine,
+    ring,
+    path,
+) {
+    Ok(l) => AppPage {
+        manifest: l.manifest,
+        icon: l.icon,
+        trust: l.trust,
+        ..open_module(l.name, path, engine, l.module),
+    },
+    Err(r) => refused(r, path),
+};
+
+/**
+ * Says whether a page is loading in the background.
+ *
+ * Example:
+ *     is_loading(page)
+ */
+public fun is_loading(p: AppPage): bool = match p.screen {
+    Loading(_) => true,
+    _ => false,
+};
+
+/**
+ * A stopped page with a reason and no Restart, named after its file or
+ * address (⟳ tries again).
+ *
+ * Example:
+ *     failed_page("rapidkoi://localhost:8000", "Trust for localhost:8000 changed while it loaded; try again")
+ */
+public fun failed_page(path: string, why: string): AppPage = failed(
+    address.parse(path).map(fun(a) = address.shown(a)).unwrap_or(path),
+    path,
+    why,
+);
+
+/**
+ * A page loading in the background: its address as its name until the
+ * app arrives.
+ *
+ * @param path the address
+ * @param number this load's number (`AppPage.load`)
+ * @param pending when it started, and what to do on arrival
+ *
+ * Example:
+ *     loading("rapidkoi://localhost:8000", 3, Pending { started: now, again: false, saved: None, kept: [], resume: false, version: None, link: [] })
+ */
+public fun loading(path: string, number: i64, pending: Pending): AppPage = AppPage {
+    name: address.parse(path).map(fun(a) = address.shown(a)).unwrap_or(path),
+    load: number,
+    screen: Screen.Loading(pending),
+    ..failed(path, path, ""),
+};
+
+/**
+ * The page for an app that arrived: started fresh, as `open_path` starts
+ * one, with a link's fields set in its first state (PRP-036).
+ *
+ * Example:
+ *     from_loaded(engine, loaded, "rapidkoi://localhost:8000", [])
+ */
+public fun from_loaded(
+    engine: Engine,
+    l: Loaded,
+    path: string,
+    link: (string, string)[],
+): AppPage = AppPage {
+    manifest: l.manifest,
+    icon: l.icon,
+    trust: l.trust,
+    ..open_program(l.name, path, Program { engine: engine, module: l.module }, link),
+};
+
+/**
+ * Starts a compiled app as a page.
+ *
+ * @param name what to call it
+ * @param path where it came from
+ * @param engine the engine `module` was compiled with
+ * @param module the app
+ * @returns the page, running or stopped (with Restart)
+ *
+ * Example:
+ *     open_module("counter", "counter.wasm", engine, module)
+ */
+public fun open_module(
+    name: string,
+    path: string,
+    engine: Engine,
+    module: Module,
+): AppPage = open_program(name, path, Program { engine: engine, module: module }, []);
+
+/**
+ * Starts a compiled app as a page opened from a link (PRP-036): its fields
+ * are set in the fresh state where it has them with the same kind of value.
+ *
+ * Example:
+ *     open_module_at("counter", "counter.wasm", engine, module, [("count", "3")])
+ */
+public fun open_module_at(
+    name: string,
+    path: string,
+    engine: Engine,
+    module: Module,
+    link: (string, string)[],
+): AppPage = open_program(name, path, Program { engine: engine, module: module }, link);
+
+/** A page running `program`, fresh, with whatever its `init` asked for. */
+fun open_program(name: string, path: string, program: Program, link: (string, string)[]): AppPage {
+    ran(
+        AppPage {
+            name: name,
+            manifest: None,
+            icon: None,
+            path: path,
+            title: None,
+            trust: None,
+            program: Some(program),
+            asks: [],
+            load: 0,
+            in_flight: 0,
+            screen: Screen.Stopped("", true),
+            instance: "",
+            label: None,
+            seen: 0,
+            link: [],
+            fields: [],
+            data_size: None,
+        },
+        start(program, None, link),
+    )
+}
+
+/**
+ * Handles a message from the page's own screen.
+ *
+ * @param p the page
+ * @param msg an event for the guest, or Restart
+ * @returns the next page; any guest or contract failure stops it
+ *
+ * Example:
+ *     handle(page, Msg.Restart)
+ */
+public fun handle(p: AppPage, msg: Msg): AppPage = match (p.screen, msg) {
+    (Running(g, state, _), Event(value, text)) => sent(p, g, state, Happened.Message(value, text)),
+    // Rapidkoi's answer to an effect: sent to `update` like an event.
+    (Running(g, state, _), Answer(msg, value)) => sent(p, g, state, Happened.Answer(msg, value)),
+    // Events and answers only reach a running screen; otherwise, ignore them.
+    (_, Event(_, _)) => p,
+    (_, Answer(_, _)) => p,
+    (_, Restart) => {
+        close_page(p);
+        match p.program {
+            // A fresh start: the address names nothing until the app says.
+            Some(prog) => ran(AppPage { link: [], ..p }, start(prog, None, [])),
+            None => p,
+        }
+    }
+};
+
+/**
+ * Tells a running page it's back at the front (`on_resume`, PRP-030): its
+ * tab became current again, or, for the new tab, the empty tab is shown.
+ * A contract 2 app, or a page not running, is left as it is.
+ *
+ * @param p the page
+ * @returns the page after the event, with whatever it asked for
+ *
+ * Example:
+ *     to_front(page)
+ */
+public fun to_front(p: AppPage): AppPage = match p.screen {
+    Running(g, state, _) => sent(p, g, state, Happened.Resume),
+    _ => p,
+};
+
+/**
+ * Tells a running page something it may read changed (`on_change`,
+ * PRP-031). A contract 2 app, or a page not running, is left as it is.
+ *
+ * Example:
+ *     changed(page)
+ */
+public fun changed(p: AppPage): AppPage = match p.screen {
+    Running(g, state, _) => sent(p, g, state, Happened.Change),
+    _ => p,
+};
+
+/**
+ * Tells a running page its data changed in another of its windows
+ * (`on_change` with the tables, PRP-041). Before contract 6, nothing.
+ *
+ * Example:
+ *     data_changed(page, ["tasks"])
+ */
+public fun data_changed(p: AppPage, tables: string[]): AppPage = match p.screen {
+    Running(g, state, _) => sent(p, g, state, Happened.DataChanged(tables)),
+    _ => p,
+};
+
+/** `p` after `h`, if its contract has it; any failure stops it. */
+fun sent(p: AppPage, g: Guest, state: u8[], h: Happened): AppPage = match happen(g, state, h) {
+    Some(r) => ran(p, r),
+    None => p,
+};
+
+/**
+ * `p` after its guest ran: the new screen and asks, the address's fields
+ * as the app last named them, with their values read from the new state.
+ * A field that can't go in an address stops the app (PRP-036).
+ */
+fun ran(p: AppPage, r: Ran): AppPage {
+    let link = match r.link {
+        Keep => p.link,
+        Clear => [],
+        Set(names) => names,
+    };
+    let after = AppPage { screen: r.screen, asks: r.asks, link: link, ..p };
+    match r.screen {
+        Running(g, state, _) => match fields_in(state, link) {
+            Ok(fs) => titled(AppPage { fields: fs, ..after }),
+            Err(why) => {
+                g.close();
+                AppPage { screen: Screen.Stopped(why, true), asks: [], ..after }
+            }
+        },
+        _ => after,
+    }
+}
+
+/**
+ * Frees a page's guest. Closing twice does nothing.
+ *
+ * Example:
+ *     close_page(page)
+ */
+public fun close_page(p: AppPage) {
+    match p.screen {
+        Running(g, _, _) => g.close(),
+        Unapproved(_, kept) => {
+            for k of kept {
+                close_page(k);
+            }
+        }
+        Loading(pending) => {
+            for k of pending.kept {
+                close_page(k);
+            }
+        }
+        _ => {}
+    }
+}
+
+/**
+ * Returns the version of a page's state shape: its manifest's, or 1 for a
+ * bare module.
+ *
+ * Example:
+ *     state_version_of(page)
+ */
+public fun state_version_of(p: AppPage): i64 = p.manifest.map(
+    fun(m: Manifest) = m.state_version,
+).unwrap_or(1);
+
+/**
+ * Returns a page's current state.
+ *
+ * @returns the state bytes; `None` when the page has stopped
+ *
+ * Example:
+ *     state_of(page)
+ */
+public fun state_of(p: AppPage): Option<u8[]> = match p.screen {
+    Running(_, state, _) => Some(state),
+    _ => None,
+};
+
+fun failed(name: string, path: string, why: string): AppPage = AppPage {
+    name: name,
+    manifest: None,
+    icon: None,
+    path: path,
+    title: None,
+    trust: None,
+    program: None,
+    asks: [],
+    load: 0,
+    in_flight: 0,
+    screen: Screen.Stopped(why, false),
+    instance: "",
+    label: None,
+    seen: 0,
+    link: [],
+    fields: [],
+    data_size: None,
+};
+
+/**
+ * A page for an app that wasn't loaded: stopped, refused, or asking about its key.
+ *
+ * Example:
+ *     refused(r, "rapidkoi://localhost:8000")
+ */
+public fun refused(r: Refusal, path: string): AppPage = match r {
+    Failed(name, w) => failed(name, path, w),
+    Unverified(host, _) => AppPage { screen: Screen.Refused(why(r)), ..failed(host, path, "") },
+    Unapproved(host, c) => AppPage { screen: Screen.Unapproved(c, []), ..failed(host, path, "") },
+};
+
+/** Copies the running screen's title onto the page; a stopped page keeps its last one. */
+fun titled(p: AppPage): AppPage = match p.screen {
+    Running(_, _, d) => AppPage { title: d.title, ..p },
+    _ => p,
+};

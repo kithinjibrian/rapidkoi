@@ -1,6 +1,17 @@
 // Addresses, pure: local development addresses and remote HTTPS hosts,
 // what each one fetches, and the plain reason when one can't open.
-import rapidkoi.address { Address, AddressError, parse, url, site_url, shown, is_address, reason };
+import rapidkoi.net.address {
+    Address,
+    AddressError,
+    parse,
+    without_link,
+    url,
+    site_url,
+    shown,
+    is_address,
+    reason,
+    link_of,
+};
 
 fun ok(text: string): Address = parse(text).unwrap();
 
@@ -31,6 +42,11 @@ fun what_each_one_fetches() {
         "http://localhost:8000/.well-known/rapidkoi/app.rkb",
     );
     assert_eq(url(ok("http://127.0.0.1:9000/x.rkb")), "http://127.0.0.1:9000/x.rkb");
+    // An http:// link names no bundle: it's the site's own address (PRP-036).
+    assert_eq(
+        url(ok("http://localhost:8000/@0.3.0?count=3")),
+        "http://localhost:8000/.well-known/rapidkoi/app.rkb",
+    );
     assert_eq(shown(ok("rapidkoi://localhost:8000/a")), "localhost:8000");
 }
 
@@ -96,4 +112,104 @@ fun what_counts_as_an_address() {
     assert_eq(is_address("https://x"), true);
     assert_eq(is_address("counter.rkb"), false);
     assert_eq(is_address("my notes"), false);
+}
+
+@test
+fun a_link_carries_a_version_and_fields() {
+    // PRP-036: https://host/@version?fields, a real web address.
+    let a = ok("https://counter.dafifi.net/@0.3.0?count=3&filter=work%20items");
+    assert_eq(
+        (a.host, a.version, a.fields),
+        ("counter.dafifi.net", Some("0.3.0"), [("count", "3"), ("filter", "work items")]),
+    );
+    // The route is what's left: the bundle's own URL is unchanged.
+    assert_eq(ok("http://localhost:8000/@1.0.0?count=3").route, "/");
+    assert_eq(ok("http://localhost:8000/@1.0.0?count=3").version, Some("1.0.0"));
+    // rapidkoi:// has the same shape: the hand-off from a browser.
+    assert_eq(ok("rapidkoi://counter.dafifi.net/@0.3.0?count=3").fields, [("count", "3")]);
+    // No version, no fields: as today.
+    let plain = ok("https://counter.dafifi.net");
+    assert_eq((plain.version, plain.fields.len), (None, 0));
+}
+
+@test
+fun a_bad_link_says_why() {
+    assert_eq(
+        why("https://counter.dafifi.net/@0.3?count=3"),
+        "A link's version must be like 1.4.0",
+    );
+    assert_eq(
+        why("https://counter.dafifi.net/?Count=3"),
+        "A link's field names are lowercase letters, digits and _, joined by .",
+    );
+    assert_eq(why("https://counter.dafifi.net/?count=3&count=4"), "A link names count twice");
+    let mut many = "https://counter.dafifi.net/?";
+    for i in 0..17 {
+        many = many + "f{i}=1&";
+    }
+    assert_eq(why(many), "A link has at most 16 fields");
+    // host@version is a web login, not a version: refused as a host.
+    assert_eq(why("https://counter.dafifi.net@0.3.0/"), "This address has no host");
+}
+
+@test
+fun a_link_is_written_back_the_same_way() {
+    let a = ok("https://counter.dafifi.net");
+    assert_eq(
+        link_of(a, Some("0.3.0"), [("count", "3")]),
+        "https://counter.dafifi.net/@0.3.0?count=3",
+    );
+    assert_eq(link_of(a, Some("0.3.0"), []), "https://counter.dafifi.net/@0.3.0");
+    assert_eq(link_of(a, None, [("q", "a b&c")]), "https://counter.dafifi.net/?q=a%20b%26c");
+    // A rapidkoi:// address is written as the web address it is (the owner, session 197).
+    assert_eq(
+        link_of(ok("rapidkoi://counter.dafifi.net"), Some("0.3.0"), []),
+        "https://counter.dafifi.net/@0.3.0",
+    );
+    let local = ok("rapidkoi://localhost:8000");
+    assert_eq(
+        link_of(local, Some("1.0.0"), [("count", "3")]),
+        "rapidkoi://localhost:8000/@1.0.0?count=3",
+    );
+    // A development server's bundle keeps its own path, after the version.
+    assert_eq(
+        link_of(ok("http://localhost:8000/counter.rkb"), Some("1.0.0"), [("count", "3")]),
+        "http://localhost:8000/@1.0.0/counter.rkb?count=3",
+    );
+}
+
+@test
+fun a_window_is_kept_under_its_address_without_the_link() {
+    assert_eq(
+        without_link("https://counter.dafifi.net/@0.3.0?count=3"),
+        "https://counter.dafifi.net",
+    );
+    assert_eq(without_link("rapidkoi://localhost:8000?count=3"), "rapidkoi://localhost:8000");
+    assert_eq(
+        without_link("http://localhost:8000/@1.0.0/counter.rkb?count=3"),
+        "http://localhost:8000/counter.rkb",
+    );
+    assert_eq(without_link("rapidkoi://localhost:8000"), "rapidkoi://localhost:8000");
+}
+
+@test
+fun a_link_s_fields_can_be_paths() {
+    // PRP-039: a name can reach inside the state, through named fields only.
+    let a = ok("https://tasks.example.com/@1.0.0?page=task&editor.task=42");
+    assert_eq(a.fields, [("page", "task"), ("editor.task", "42")]);
+    assert_eq(ok("rapidkoi://localhost:8000?a.b.c.d=1").fields, [("a.b.c.d", "1")]);
+    for bad of ["?editor..task=1", "?.task=1", "?task.=1", "?editor.Task=1"] {
+        assert_eq(
+            why("https://tasks.example.com/{bad}"),
+            "A link's field names are lowercase letters, digits and _, joined by .",
+        );
+    }
+    assert_eq(
+        why("https://tasks.example.com/?a.b.c.d.e=1"),
+        "A link's field paths are at most 4 deep",
+    );
+    assert_eq(
+        link_of(ok("https://tasks.example.com"), Some("1.0.0"), [("editor.task", "42")]),
+        "https://tasks.example.com/@1.0.0?editor.task=42",
+    );
 }

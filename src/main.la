@@ -6,14 +6,14 @@
  * development, all without a window. Wiring only; the work lives in
  * `shell`, `pack`, `publish` and `serve`.
  *
- * Depends on: kivuli, shell, actions, pack, publish, serve
+ * Depends on: kivuli, shell, window.actions, commands.pack, commands.publish, commands.serve
  */
 import kivuli { App, application };
 import shell { Model, boot, update, view, subscriptions };
-import actions { Msg };
-import pack;
-import serve;
-import publish;
+import window.actions { Msg };
+import commands.pack;
+import commands.serve;
+import commands.publish;
 
 fun main(): i32 {
     let argv = args();

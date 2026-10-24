@@ -1,0 +1,137 @@
+/**
+ * The header bar, pure (PRP-019): the current app's instances (PRP-033);
+ * the address box; 👤 account and ☰ menu;
+ * then GTK's window controls, styled as ghost
+ * buttons like the rest (`WindowControls.look()`). Every icon is one
+ * of Rapidkoi's own (`ui/icons.la`) in the theme's text colour, on a
+ * `kivuli.ui` ghost icon button. What isn't built yet is shown disabled,
+ * saying when it comes.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.addressbox, ui.icons, ui.tokens, ui.themes
+ * Used by: ui.layout
+ */
+import kivuli {
+    View,
+    Align,
+    Bar,
+    Border,
+    Radius,
+    header_bar,
+    image,
+    text,
+    column,
+    button_with,
+    separator,
+};
+import kivuli.ui { Button, WindowControls, button_with as ui_button_with, popover as ui_popover };
+import window.actions { Msg };
+import window.window { Model };
+import ui.addressbox;
+import ui.strip;
+import ui.icons { Icon, icon };
+import ui.tokens {
+    HEADER_ICON,
+    SPACE_XS,
+    SPACE_SM,
+    SPACE_MD,
+    CIRCLE,
+    square,
+    margin_x,
+    padding_xy,
+    gap,
+};
+import ui.themes { Theme, body };
+import ui.frame_looks { header, window_controls };
+
+/**
+ * Builds the header bar, on the dimmed brand gradient (orange into pink).
+ *
+ * @param m the model
+ * @returns the bar for the root's `.header(…)`
+ *
+ * Example:
+ *     page.header(header.bar(m))
+ */
+public fun bar(m: Model): Bar<Msg> {
+    // kivuli packs the end outermost first, so the bar takes it reversed:
+    // ☰ next to the window controls, 👤 before it (seen in session 104).
+    let shown = end(m);
+    let mut packed: View<Msg>[] = [];
+    let mut i = shown.len - 1;
+    while i >= 0 {
+        packed.push(shown[i]);
+        i = i - 1;
+    }
+    // GTK's own − □ × as ghost buttons in the palette, close red on hover
+    // (kivuli 0.49; DECISION-035, A). GTK still decides which show and where.
+    let mut look = header(m.theme);
+    look.push(WindowControls.look());
+    // Rapidkoi's own touches on GTK's − □ ×: white, round, with room (session 116).
+    for x of window_controls(m.theme) {
+        look.push(x);
+    }
+    // The start is the current app's instances (PRP-033), where ← ⌂ → were:
+    // moving around inside an app is the app's own UI (PRP-032).
+    header_bar([strip.view(m)], addressbox.field(m), packed).style(look)
+}
+
+/**
+ * Returns the bar's end, before the window controls, in order: 👤 account,
+ * disabled until its own PRP, and ☰ with its card (PRP-038).
+ *
+ * Example:
+ *     header.end(m)
+ */
+public fun end(m: Model): View<Msg>[] = [
+    tool(m.theme, Icon.Account, "Account (coming soon)", None),
+    // Centred down the bar as the button inside is: the popover around it
+    // otherwise sits at the bar's top (the owner's screenshot, session 202).
+    ui_popover(
+        tool(m.theme, Icon.Menu, "Menu", Some(Msg.Menu(!m.menu))),
+        m.menu,
+        menu_card(m.theme),
+        Msg.Menu(false),
+    ).align(Align.Center),
+];
+
+/**
+ * ☰'s card (PRP-038): Settings, then About Rapidkoi and Quit.
+ *
+ * Example:
+ *     menu_card(m.theme)
+ */
+public fun menu_card(t: Theme): View<Msg> = column([
+    item(t, "Settings", Msg.OpenSettings),
+    separator(),
+    item(t, "About Rapidkoi", Msg.About(true)),
+    item(t, "Quit", Msg.Quit),
+]).style([gap(SPACE_XS)]);
+
+/** One of the card's rows: its words at the start; the whole row is the button, hovering round. */
+fun item(t: Theme, label: string, msg: Msg): View<Msg> = button_with(
+    text(label).style(body(t)).align(Align.Start),
+    msg,
+).style([
+    Button.ghost(),
+    padding_xy(SPACE_MD, SPACE_SM),
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+]);
+
+/** An icon button: a ghost square holding the icon, found by its tooltip; `None` shows it disabled. */
+fun tool(t: Theme, i: Icon, tip: string, msg: Option<Msg>): View<Msg> {
+    // Centred in the button: an exact size puts the picture in kivuli's
+    // clamp, which fills the button's height and draws it at the top
+    // otherwise (session 106).
+    let face: View<Msg>[] = [
+        image(icon(i, t.on_frame)).style([square(HEADER_ICON)]).align(Align.Center),
+    ];
+    let b = match msg {
+        Some(m) => ui_button_with(face, m),
+        // kivuli: `.disabled(true)` drops the message, so any one will do.
+        None => ui_button_with(face, Msg.Home).disabled(true),
+    };
+    // Centred down the bar, as the address box is: GTK puts a header bar's
+    // children at its top otherwise (the owner's screenshot, session 105).
+    // Room on each side, so the buttons don't crowd (the owner, session 116).
+    b.style([Button.ghost(), Button.icon(), margin_x(SPACE_XS)]).tooltip(tip).align(Align.Center)
+}

@@ -1,7 +1,7 @@
 // The three remembered files: each round trips, and every way one can be
 // wrong is Broken (naming the field) or Newer, never a panic. Writes only
 // under test/tmp/.
-import rapidkoi.remembered {
+import rapidkoi.data.remembered {
     Unreadable,
     Recalled,
     trust_file,
@@ -11,11 +11,16 @@ import rapidkoi.remembered {
     left_file,
     read_left,
     recall,
+    Open,
+    OpenTab,
+    MAX_OPEN,
+    open_file,
+    read_open,
 };
-import rapidkoi.verify { Identity };
-import rapidkoi.tabs { Pin };
-import rapidkoi.leftoff { LeftOff, recalled, signer_of };
-import rapidkoi.store { Store, store_at, save };
+import rapidkoi.trust.verify { Identity };
+import rapidkoi.window.tabs { Pin };
+import rapidkoi.window.leftoff { LeftOff, recalled, signer_of, as_instance };
+import rapidkoi.data.store { Store, store_at, save };
 import cbor { Value, Entry, encode };
 import std.fs;
 import support { png };
@@ -106,6 +111,18 @@ fun pins_round_trip_and_a_bad_icon_drops_only_the_icon() {
             Pin { name: "Junk", path: "junk.rkb", icon: None },
         ]),
     );
+}
+
+@test
+fun where_you_left_off_keeps_its_instance() {
+    // PRP-033: Continue reopens that instance, under its name.
+    let l = as_instance(recalled("Notes", "notes.wasm", None, None, None), "2", Some("Work"));
+    let back = read_left(left_file(l)).unwrap();
+    assert_eq((back.instance, back.label), ("2", Some("Work")));
+    let first = read_left(left_file(recalled("Notes", "notes.wasm", None, None, None))).unwrap();
+    assert_eq((first.instance, first.label), ("", None));
+    let odd = as_instance(recalled("Notes", "notes.wasm", None, None, None), "../x", None);
+    assert_eq(broken(read_left(left_file(odd))), "the app's instance isn't one Rapidkoi gave");
 }
 
 @test
@@ -211,4 +228,71 @@ fun trust_format_1_still_reads_with_no_date() {
         Value.Map([entry("format", Value.int(4)), entry("kind", Value.Text("rapidkoi trust"))]),
     );
     assert_eq(broken(read_trust(three)), "newer 4");
+}
+
+fun tab(path: string, instance: string, label: Option<string>, seen: i64): OpenTab = OpenTab {
+    link: [],
+    path: path,
+    instance: instance,
+    label: label,
+    seen: seen,
+};
+
+@test
+fun the_open_tabs_round_trip() {
+    // PRP-034: what's open when Rapidkoi closes, to reopen at launch.
+    let o = Open {
+        tabs: [
+            tab("rapidkoi://counter.dafifi.net", "", None, 3),
+            tab("rapidkoi://counter.dafifi.net", "2", Some("Work"), 5),
+            tab("/home/amina/notes.rkb", "", None, 1),
+        ],
+        current: Some(1),
+    };
+    assert_eq(read_open(open_file(o)).unwrap() == o, true);
+    // A window keeps the fields its address names (PRP-036).
+    let linked = Open {
+        tabs: [
+            OpenTab { link: ["count", "filter"], ..tab("rapidkoi://localhost:8000", "", None, 1) },
+        ],
+        current: Some(0),
+    };
+    assert_eq(read_open(open_file(linked)).unwrap() == linked, true);
+    let none = Open { tabs: [], current: None };
+    assert_eq(read_open(open_file(none)).unwrap() == none, true);
+}
+
+@test
+fun a_bad_open_file_is_broken_naming_why() {
+    let one = fun(t: OpenTab) = open_file(Open { tabs: [t], current: Some(0) });
+    assert_eq(broken(read_open(one(tab("", "", None, 0)))), "a tab's path is empty or too long");
+    assert_eq(
+        broken(read_open(one(tab("a.wasm", "1", None, 0)))),
+        "a tab's instance isn't one Rapidkoi gave",
+    );
+    assert_eq(
+        broken(read_open(one(tab("a.wasm", "", Some(""), 0)))),
+        "a tab's name is empty or too long",
+    );
+    let twice = Open {
+        tabs: [tab("a.wasm", "", None, 0), tab("a.wasm", "", None, 1)],
+        current: None,
+    };
+    assert_eq(broken(read_open(open_file(twice))), "an instance is listed twice");
+    let named = fun(names: string[]) = broken(
+        read_open(one(OpenTab { link: names, ..tab("a.wasm", "", None, 0) })),
+    );
+    assert_eq(named(["Count"]), "a tab's link isn't field names");
+    assert_eq(named(["count", "count"]), "a tab's link isn't field names");
+    let off = Open { tabs: [tab("a.wasm", "", None, 0)], current: Some(3) };
+    assert_eq(broken(read_open(open_file(off))), "the tab in front isn't one of them");
+    let mut many: OpenTab[] = [];
+    for i in 0..MAX_OPEN + 1 {
+        many.push(tab("a{i}.wasm", "", None, i));
+    }
+    assert_eq(
+        broken(read_open(open_file(Open { tabs: many, current: None }))),
+        "it lists more than 64 tabs",
+    );
+    assert_eq(broken(read_open(trust_file([]))), "it isn't Rapidkoi's open file");
 }

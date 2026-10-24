@@ -1,0 +1,335 @@
+// Links (PRP-036, contract 4): a window's state is named fields, the app
+// names which go in its address after each event, and a link's fields are
+// set in a fresh state where it has them with the same kind of value.
+// Pure; no guest, no display.
+import rapidkoi.guest.contract { LinkChange, read_update_of };
+import rapidkoi.guest.links { fields_in, with_link };
+import rapidkoi.window.tabs { AppPage, Pending, open_module_at, handle, state_of };
+import rapidkoi.ui.render { Msg };
+import wasmtime { Engine, Module };
+import cbor { Value, encode };
+import rapidkoi.shell { Model, start, update };
+import rapidkoi.window.actions { Msg as AppMsg };
+import rapidkoi.net.fetching { Fetched };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
+import support { t, kv, linking, echo_v3 };
+
+fun result(state: Value, link: Option<Value>): u8[] {
+    let mut pairs = [("state", state), ("effects", Value.Array([]))];
+    if let Some(l) = link {
+        pairs.push(("link", l));
+    }
+    encode(kv(pairs))
+}
+
+fun names(xs: string[]): Value = Value.Array(xs.map(fun(x: string) = t(x)));
+
+@test
+fun a_contract_4_result_carries_named_fields_and_its_link() {
+    let state = kv([("count", Value.int(3))]);
+    let u = read_update_of(result(state, Some(names(["count"]))), 4).unwrap();
+    assert_eq((u.state, u.link), (encode(state), LinkChange.Set(["count"])));
+    // Absent keeps the window's link; null clears it.
+    assert_eq(read_update_of(result(state, None), 4).unwrap().link, LinkChange.Keep);
+    assert_eq(read_update_of(result(state, Some(Value.Null)), 4).unwrap().link, LinkChange.Clear);
+    // Contract 3 never has a link.
+    assert_eq(
+        read_update_of(result(Value.Bytes([1]), Some(names(["count"]))), 3).unwrap().link,
+        LinkChange.Keep,
+    );
+}
+
+@test
+fun a_broken_contract_4_result_says_why() {
+    let state = kv([("count", Value.int(3))]);
+    let bad = fun(bytes: u8[]) = read_update_of(bytes, 4).is_err();
+    assert_eq(bad(result(Value.Bytes([1]), None)), true);
+    assert_eq(read_update_of(result(state, None), 3).is_err(), true);
+    assert_eq(
+        bad(result(Value.Map([cbor.Entry { key: Value.int(1), value: t("x") }]), None)),
+        true,
+    );
+    assert_eq(bad(result(state, Some(Value.Array([Value.int(1)])))), true);
+    assert_eq(bad(result(state, Some(names(["Count"])))), true);
+    assert_eq(bad(result(state, Some(t("count")))), true);
+    let many: string[] = range(0, 17).map(fun(i: i64) = "f{i}").collect();
+    assert_eq(bad(result(state, Some(names(many)))), true);
+}
+
+@test
+fun the_address_shows_the_named_fields_current_values() {
+    let state = encode(
+        kv([
+            ("count", Value.int(-3)),
+            ("filter", t("work items")),
+            ("done", Value.Bool(true)),
+            ("gone", Value.Null),
+            ("notes", Value.Array([t("a")])),
+        ]),
+    );
+    assert_eq(
+        fields_in(state, ["count", "filter", "done", "gone", "missing"]),
+        Ok([("count", "-3"), ("filter", "work items"), ("done", "true")]),
+    );
+    assert_eq(fields_in(state, []), Ok([]));
+    assert_eq(fields_in(state, ["notes"]), Err("This app put a list in its address"));
+    let mut x = "";
+    for _ of range(0, 1025) {
+        x = x + "x";
+    }
+    let long = encode(kv([("q", t(x))]));
+    assert_eq(fields_in(long, ["q"]), Err("This app put more than 1 KB in its address"));
+}
+
+@test
+fun a_links_fields_are_set_where_the_fresh_state_has_that_kind() {
+    let fresh = encode(
+        kv([
+            ("count", Value.int(0)),
+            ("filter", t("")),
+            ("done", Value.Bool(false)),
+            ("note", Value.Null),
+            ("list", Value.Array([])),
+        ]),
+    );
+    let set = with_link(fresh, [
+        ("count", "3"),
+        ("filter", "a b"),
+        ("done", "true"),
+        ("note", "x"),
+        ("list", "1"),
+        ("other", "1"),
+    ]);
+    assert_eq(
+        set,
+        encode(
+            kv([
+                ("count", Value.int(3)),
+                ("filter", t("a b")),
+                ("done", Value.Bool(true)),
+                ("note", Value.Null),
+                ("list", Value.Array([])),
+            ]),
+        ),
+    );
+    // A value of another kind is ignored: the app's state stays its own.
+    assert_eq(with_link(fresh, [("count", "three"), ("done", "yes")]), fresh);
+    assert_eq(with_link([1, 2], [("count", "3")]), [1, 2]);
+}
+
+/** A contract 4 result: `state`, and `link` when given. */
+fun named_result(state: Value, link: Option<Value>): u8[] = result(state, link);
+
+fun linked(init: u8[], next: u8[], link: (string, string)[]): AppPage {
+    let engine = Engine.new();
+    open_module_at(
+        "fixture",
+        "fixture.wasm",
+        engine,
+        Module.from_text(engine, linking(init, next)).unwrap(),
+        link,
+    )
+}
+
+fun count(n: i64): Value = kv([("count", Value.int(n)), ("notes", Value.Array([]))]);
+
+fun stopped(p: AppPage): string = match p.screen {
+    Stopped(why, _) => why,
+    _ => "running",
+};
+
+@test
+fun the_address_follows_the_named_fields_after_each_event() {
+    // init names count; the next event changes it and leaves the link as it was.
+    let p = linked(
+        named_result(count(0), Some(names(["count"]))),
+        named_result(count(3), None),
+        [],
+    );
+    assert_eq((p.link, p.fields), (["count"], [("count", "0")]));
+    let next = handle(p, Msg.Event(t("add"), None));
+    assert_eq((next.link, next.fields), (["count"], [("count", "3")]));
+}
+
+@test
+fun null_clears_the_address_and_a_list_stops_the_app() {
+    let cleared = handle(
+        linked(
+            named_result(count(0), Some(names(["count"]))),
+            named_result(count(1), Some(Value.Null)),
+            [],
+        ),
+        Msg.Event(t("add"), None),
+    );
+    assert_eq((cleared.link, cleared.fields), ([], []));
+    let listed = handle(
+        linked(named_result(count(0), None), named_result(count(1), Some(names(["notes"]))), []),
+        Msg.Event(t("add"), None),
+    );
+    assert_eq(stopped(listed), "This app put a list in its address");
+}
+
+@test
+fun a_link_sets_its_fields_before_on_open() {
+    // The fresh state has count; `notes` is a list and `other` isn't there: both ignored.
+    let p = linked(named_result(count(0), Some(names(["count"]))), named_result(count(9), None), [
+        ("count", "3"),
+        ("notes", "x"),
+        ("other", "1"),
+    ]);
+    assert_eq(state_of(p), Some(encode(count(3))));
+    assert_eq(p.fields, [("count", "3")]);
+    // A value of another kind leaves the app's own.
+    let q = linked(named_result(count(0), None), named_result(count(9), None), [
+        ("count", "three"),
+    ]);
+    assert_eq(state_of(q), Some(encode(count(0))));
+}
+
+@test
+fun contract_3_apps_have_no_links() {
+    let engine = Engine.new();
+    let p = open_module_at(
+        "fixture",
+        "fixture.wasm",
+        engine,
+        Module.from_text(engine, echo_v3()).unwrap(),
+        [("count", "3")],
+    );
+    let next = handle(p, Msg.Event(t("add"), None));
+    assert_eq((next.link, next.fields, stopped(next)), ([], [], "running"));
+}
+
+const SITE_ADDRESS: string = "rapidkoi://localhost:18779";
+
+fun going(m: Model, text: string): Model {
+    let (next, _) = update(Model { draft: text, ..m }, AppMsg.Go);
+    next
+}
+
+fun pending_of(p: AppPage): Option<Pending> = match p.screen {
+    Loading(x) => Some(x),
+    _ => None,
+};
+
+/** A format 1 bundle named Plain at `version`, as an unsigned server would send. */
+fun plain(version: string): u8[] = write(Bundle {
+    manifest: Manifest {
+        contract: 4,
+        name: "Plain",
+        version: version,
+        description: None,
+        state_version: 1,
+        icon: None,
+        banners: [],
+        servers: [],
+        permissions: [],
+        controls: None,
+    },
+    module: [0, 97, 115, 109, 1, 0, 0, 0],
+    assets: [],
+}).unwrap();
+
+@test
+fun a_link_opens_a_new_window_and_a_bare_address_switches() {
+    let (home, _) = start(["./main"], None);
+    let first = going(home, SITE_ADDRESS);
+    assert_eq(first.tabs.len, 1);
+    // The bare address of an open app shows it.
+    assert_eq(going(first, SITE_ADDRESS).tabs.len, 1);
+    // A link with fields is a new window of the same app, kept under its address.
+    let linked = going(first, "{SITE_ADDRESS}/@1.0.0?count=3");
+    assert_eq(linked.tabs.len, 2);
+    let p = linked.tabs[1].page;
+    assert_eq((p.path, p.instance, linked.current), (SITE_ADDRESS, "2", Some(linked.tabs[1].id)));
+    let x = pending_of(p).unwrap();
+    assert_eq((x.version, x.link), (Some("1.0.0"), [("count", "3")]));
+    // A broken link says why, and opens nothing.
+    let bad = going(first, "{SITE_ADDRESS}/@1.0?count=3");
+    assert_eq((bad.tabs.len, bad.notice), (1, Some("A link's version must be like 1.4.0")));
+}
+
+@test
+fun a_version_no_longer_there_opens_the_current_one_with_a_notice() {
+    let (home, _) = start(["./main"], None);
+    let m = going(home, "{SITE_ADDRESS}/@0.3.0?count=3");
+    let p = m.tabs[0].page;
+    let arrived = step_with(
+        m,
+        AppMsg.Fetched(m.tabs[0].id, p.load, Fetched.Unsigned("localhost:18779", plain("0.5.0"))),
+    );
+    assert_eq(arrived.notice, Some("This link was made with Plain 0.3.0; opened 0.5.0"));
+    let n = going(home, "{SITE_ADDRESS}/@0.5.0?count=3");
+    let same = step_with(
+        n,
+        AppMsg.Fetched(
+            n.tabs[0].id,
+            n.tabs[0].page.load,
+            Fetched.Unsigned("localhost:18779", plain("0.5.0")),
+        ),
+    );
+    assert_eq(same.notice, None);
+}
+
+fun step_with(m: Model, msg: AppMsg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+@test
+fun contract_5_links_name_paths_and_contract_4_s_don_t() {
+    // PRP-039.
+    let state = kv([("editor", kv([("task", Value.int(42))]))]);
+    let u = read_update_of(result(state, Some(names(["editor.task"]))), 5).unwrap();
+    assert_eq(u.link, LinkChange.Set(["editor.task"]));
+    assert_eq(read_update_of(result(state, Some(names(["editor.task"]))), 4).is_err(), true);
+    assert_eq(read_update_of(result(state, Some(names(["a.b.c.d.e"]))), 5).is_err(), true);
+}
+
+@test
+fun a_path_is_read_through_named_fields_only() {
+    let state = encode(
+        kv([
+            ("page", t("task")),
+            ("editor", kv([("task", Value.int(42)), ("draft", kv([("title", t("Pay rent"))]))])),
+            ("list", kv([("tasks", Value.Array([kv([("id", Value.int(1))])]))])),
+        ]),
+    );
+    assert_eq(
+        fields_in(state, [
+            "page",
+            "editor.task",
+            "editor.draft.title",
+            "list.tasks.id",
+            "nowhere.x",
+        ]),
+        Ok([("page", "task"), ("editor.task", "42"), ("editor.draft.title", "Pay rent")]),
+    );
+    // A path ending on a list is still a list in the address: it stops the app.
+    assert_eq(fields_in(state, ["list.tasks"]), Err("This app put a list in its address"));
+}
+
+@test
+fun a_path_is_set_only_where_the_fresh_state_has_it() {
+    let fresh = encode(
+        kv([("editor", kv([("task", Value.int(0)), ("title", t(""))])), ("list", Value.Array([]))]),
+    );
+    let set = with_link(fresh, [
+        ("editor.task", "42"),
+        ("editor.title", "Pay rent"),
+        ("editor.gone", "1"),
+        ("list.x", "1"),
+        ("nowhere.x", "1"),
+    ]);
+    assert_eq(
+        set,
+        encode(
+            kv([
+                ("editor", kv([("task", Value.int(42)), ("title", t("Pay rent"))])),
+                ("list", Value.Array([])),
+            ]),
+        ),
+    );
+    // Another kind at the end leaves it.
+    assert_eq(with_link(fresh, [("editor.task", "forty")]), fresh);
+}

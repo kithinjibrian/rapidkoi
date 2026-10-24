@@ -1,0 +1,136 @@
+/**
+ * An app's account (PRP-011), the model side: who you are to the app
+ * ("User 4f9a"), signing out and in, signing in automatically, starting
+ * over as someone new, and the name it may show with `{FIRST_NAME}` and
+ * `{LAST_NAME}`. Its page was the old info panel's; the redesign draws it
+ * natively again later (DECISION-030). Keys are worked out from the cached
+ * master secret, never read here.
+ *
+ * Depends on: window.actions, window.tabs, window.window, people.people, people.identity, ui.render
+ * Used by: shell
+ */
+import window.actions { Msg };
+import window.tabs { AppPage, Page, handle };
+import window.window { Model, with_tab, page_of };
+import people.people { Person, MAX_NAME, person, with_person, forget_person };
+import people.identity { public_key, user_label };
+import ui.render;
+
+/** What the Account page shows for one app. */
+public struct Account {
+    /** The app's name. */
+    public app: string,
+    /** You to this app; `None` for an unsigned app (no account possible). */
+    public person: Option<Person>,
+    /** "User 4f9a", once the app has asked and the key is known. */
+    public label: Option<string>,
+}
+
+/**
+ * Works out the Account page's facts for an app page.
+ *
+ * Example:
+ *     account_of(m, page)
+ */
+public fun account_of(m: Model, p: AppPage): Account {
+    match p.trust {
+        None => Account { app: p.name, person: None, label: None },
+        Some(t) => {
+            let x = person(m.people, t.host, t.origin);
+            // The label needs the master secret, which is read only when an app asks.
+            let label = match m.master {
+                Some(mm) => public_key(mm, t.host, t.origin, x.generation).ok().map(user_label),
+                None => None,
+            };
+            Account { app: p.name, person: Some(x), label: label }
+        }
+    }
+}
+
+/**
+ * Applies an Account page message to the current app (the panel's app).
+ * A message for an unsigned app, or with no app open, changes nothing.
+ *
+ * Example:
+ *     on_account(m, Msg.SignOut)
+ */
+public fun on_account(m: Model, msg: Msg): Model {
+    // Your name for every app needs no app.
+    if let SetName(Everywhere, part, s) = msg {
+        let clipped = clip(s);
+        return Model {
+            people: match part {
+                First => {
+                    let mut p = m.people;
+                    p.first = clipped;
+                    p
+                }
+                Last => {
+                    let mut p = m.people;
+                    p.last = clipped;
+                    p
+                }
+            },
+            ..m,
+        };
+    }
+    let (id, a) = match (m.current, page_of(m)) {
+        (Some(id), App(a)) => (id, a),
+        _ => {
+            return m;
+        }
+    };
+    let t = match a.trust {
+        Some(t) => t,
+        None => {
+            return m;
+        }
+    };
+    let x = person(m.people, t.host, t.origin);
+    let next = match msg {
+        SetName(_, First, s) => Person { first: clip(s), ..x },
+        SetName(_, Last, s) => Person { last: clip(s), ..x },
+        ToggleAutoSignIn => Person { auto: !x.auto, ..x },
+        SignOut => Person { signed_out: true, ..x },
+        SignIn => Person { signed_out: false, ..x },
+        StartOverIdentity => Person { generation: x.generation + 1, signed_out: false, ..x },
+        _ => x,
+    };
+    let saved = Model { people: with_person(m.people, next), confirm: None, ..m };
+    match msg {
+        // A new person: the app starts again, so its init asks for the new key.
+        StartOverIdentity => with_tab(saved, id, fun(p: AppPage) = handle(p, render.Msg.Restart)),
+        _ => saved,
+    }
+}
+
+/**
+ * Forget this app: its Account settings and name go too (the name for
+ * every app stays).
+ *
+ * @param before the model with the app still current
+ * @param after the model `window.forget` gave
+ *
+ * Example:
+ *     forget_account(m, window.forget(m))
+ */
+public fun forget_account(before: Model, after: Model): Model = match page_of(before) {
+    App(a) => match a.trust {
+        Some(t) => Model { people: forget_person(after.people, t.host, t.origin), ..after },
+        None => after,
+    },
+    _ => after,
+};
+
+/** At most `MAX_NAME` characters. */
+fun clip(s: string): string {
+    let mut out = "";
+    let mut count = 0;
+    for c of s.chars() {
+        if count < MAX_NAME {
+            out = out + "{c}";
+            count += 1;
+        }
+    }
+    out
+}

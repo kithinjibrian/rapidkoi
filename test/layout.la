@@ -1,0 +1,88 @@
+// The frame (PRP-014, PRP-015, PRP-023): the header bar with the address
+// box, the sidebar with the apps, and the content area showing the current
+// app. No display.
+import rapidkoi.shell { Model, start, with_pages, update, view };
+import rapidkoi.ui.layout;
+import rapidkoi.ui.content { newtab_view };
+import rapidkoi.window.actions { Msg, TabAction };
+import rapidkoi.window.tabs { AppPage, open_module };
+import kivuli.testing { click, is_disabled, pick, texts };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+/** A window with two echo apps open and a notice showing. */
+fun busy(): Model {
+    let engine = Engine.new();
+    let m = with_pages(engine, [app(engine, "a"), app(engine, "b")]);
+    Model { notice: Some("Something happened"), ..m }
+}
+
+@test
+fun a_fresh_window_shows_only_the_new_tab() {
+    // The empty tab runs the new-tab app (PRP-027): its wordmark is the page.
+    let (m, _) = start(["main"], None);
+    assert_eq(texts(newtab_view(m)), ["Rapidkoi"]);
+    // The frame's only other texts are its cards', built while closed: ⚙
+    // for the new tab (PRP-031) and ☰ (PRP-038).
+    assert_eq(texts(layout.view(m)), [
+        "Rapidkoi",
+        "N",
+        "New tab",
+        "0.1.0",
+        "App settings",
+        "Permissions",
+        "4 allowed",
+        "Settings",
+        "About Rapidkoi",
+        "Quit",
+    ]);
+}
+
+@test
+fun the_sidebar_and_no_notice_above_the_page() {
+    let v = layout.view(busy());
+    assert(!texts(v).any(fun(s: string) = s == "Something happened"));
+    // The sidebar (PRP-023): its apps and +. The current app, a, also has
+    // its pill in the header's strip, with a menu of its own (PRP-033), so
+    // the dock's menu is picked on b.
+    assert_eq(click(v, "Add a tab"), Ok(Msg.NewTab));
+    assert_eq(pick(v, "b", "Close"), Ok(Msg.OnTab(1, TabAction.Close)));
+}
+
+@test
+fun the_content_area_shows_the_current_app() {
+    let v = layout.view(busy());
+    assert(texts(v).any(fun(s: string) = s == "echo"));
+    assert(click(v, "Add").is_ok());
+}
+
+@test
+fun homes_content_area_is_empty() {
+    let (m, _) = update(busy(), Msg.Home);
+    let v = layout.view(Model { notice: None, ..m });
+    assert(!texts(v).any(fun(s: string) = s == "echo"));
+    assert(click(v, "Add").is_err());
+}
+
+@test
+fun the_shell_shows_the_layout() {
+    let m = busy();
+    assert_eq(texts(view(m)), texts(layout.view(m)));
+}
+
+@test
+fun account_and_menu_wait_greyed_out_on_home_and_on_apps() {
+    let (home, _) = update(busy(), Msg.Home);
+    for m of [home, busy()] {
+        let v = layout.view(m);
+        assert_eq(is_disabled(v, "Account (coming soon)"), Ok(true));
+        assert_eq(is_disabled(v, "Menu"), Ok(false));
+    }
+}

@@ -1,12 +1,13 @@
 // Pages in tabs: starting a guest, events and Restart, leaving a page and
 // resuming it with its saved state. Fixture guests; no display.
-import rapidkoi.bundle { Bundle, Manifest, write };
-import rapidkoi.tabs { AppPage, open_module, open_path, handle, resume, state_of };
-import rapidkoi.leftoff { leave };
-import rapidkoi.render { Msg };
-import rapidkoi.contract { envelope };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
+import rapidkoi.window.tabs { AppPage, open_module, open_path, handle, state_of };
+import rapidkoi.window.restarts { resume };
+import rapidkoi.window.leftoff { leave };
+import rapidkoi.ui.render { Msg };
+import rapidkoi.guest.contract { envelope };
 import wasmtime { Engine, Module };
-import rapidkoi.verify { keyring };
+import rapidkoi.trust.verify { keyring };
 import support { t, fixed, counter_tree, result_of, echo, titled_tree, crashing };
 
 fun page(wat: string): AppPage {
@@ -93,6 +94,8 @@ fun rkb(tag: string, speaks: i64): string {
         icon: None,
         banners: [],
         servers: [],
+        permissions: [],
+        controls: None,
     };
     // An empty module: it compiles, then stops for want of `memory`.
     let bytes = write(Bundle {
@@ -116,7 +119,7 @@ fun opening_a_bundle_uses_its_manifest() {
 
 @test
 fun a_bundle_for_a_newer_contract_says_so() {
-    let p = open_path(Engine.new(), keyring(), rkb("newer", 3));
+    let p = open_path(Engine.new(), keyring(), rkb("newer", 7));
     assert_eq(reason_of(p), "This app needs a newer version of Rapidkoi");
     assert_eq(p.name, "Bundled");
 }

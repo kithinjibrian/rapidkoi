@@ -1,0 +1,123 @@
+// Empty tabs (PRP-024): + adds them, opening from one fills it in place,
+// closing the last leaves one, and they sit among the apps in creation
+// order. Fixture guests; no display.
+import rapidkoi.shell { Model, start, with_pages, update };
+import rapidkoi.ui.sidebar;
+import rapidkoi.window.window { page_of, card };
+import rapidkoi.window.actions { Msg, TabAction };
+import rapidkoi.window.tabs { AppPage, Page, Pin, open_module };
+import kivuli.testing { click, pick, press };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun on_home(m: Model): bool = match page_of(m) {
+    Home => true,
+    App(_) => false,
+};
+
+fun fresh(): Model {
+    let (m, _) = start(["./main"], None);
+    m
+}
+
+@test
+fun a_fresh_window_has_one_empty_tab() {
+    let m = fresh();
+    assert_eq((m.tabs.len, m.blanks.len), (0, 1));
+    assert_eq(m.current, Some(m.blanks[0]));
+    assert(on_home(m));
+    assert_eq(click(sidebar.view(m), "New tab"), Ok(Msg.Select(m.blanks[0])));
+}
+
+@test
+fun plus_goes_to_the_one_empty_tab() {
+    // At most one empty tab (PRP-026): + shows it rather than adding more.
+    let m = step(step(fresh(), Msg.NewTab), Msg.NewTab);
+    assert_eq(m.blanks.len, 1);
+    assert_eq(m.current, Some(m.blanks[0]));
+    assert_eq(click(sidebar.view(m), "Add a tab"), Ok(Msg.NewTab));
+    assert_eq(press(sidebar.view(m), "Ctrl+T"), Ok(Msg.NewTab));
+}
+
+@test
+fun opening_from_an_empty_tab_fills_it() {
+    let m = fresh();
+    let id = m.blanks[0];
+    // A missing file still opens a tab, showing why: in the empty tab's place.
+    let opened = step(step(m, Msg.Draft("lugha.toml")), Msg.Go);
+    assert_eq((opened.tabs.len, opened.blanks.len), (1, 0));
+    assert_eq((opened.tabs[0].id, opened.current), (id, Some(id)));
+}
+
+@test
+fun a_pin_and_continue_fill_the_empty_tab_too() {
+    let m = Model { pinned: [Pin { name: "gone", path: "gone.wasm", icon: None }], ..fresh() };
+    let id = m.blanks[0];
+    let pinned = step(m, Msg.OpenPinned("gone.wasm"));
+    assert_eq((pinned.tabs.len, pinned.blanks.len, pinned.tabs[0].id), (1, 0, id));
+    // From an app tab, another pin opens in a tab of its own; the same one
+    // is already open, so it's shown (PRP-026).
+    let other = Model { pinned: [Pin { name: "else", path: "else.wasm", icon: None }], ..pinned };
+    assert_eq(step(other, Msg.OpenPinned("else.wasm")).tabs.len, 2);
+    assert_eq(step(pinned, Msg.OpenPinned("gone.wasm")).tabs.len, 1);
+}
+
+@test
+fun closing_selects_a_neighbour_and_the_last_leaves_one_empty() {
+    let engine = Engine.new();
+    let m = step(with_pages(engine, [app(engine, "a")]), Msg.NewTab);
+    let blank = m.blanks[0];
+    // Close the empty tab: the app beside it is current.
+    let closed = step(m, Msg.CloseTab(blank));
+    assert_eq((closed.blanks.len, closed.current), (0, Some(0)));
+    // Close the app, the last tab: one empty tab remains.
+    let last = step(closed, Msg.CloseTab(0));
+    assert_eq((last.tabs.len, last.blanks.len), (0, 1));
+    assert(on_home(last));
+}
+
+@test
+fun the_current_empty_tab_closes_with_its_x_and_ctrl_w() {
+    let m = step(fresh(), Msg.NewTab);
+    let id = m.blanks[0];
+    let v = sidebar.view(m);
+    assert_eq(click(v, "Close New tab"), Ok(Msg.CloseTab(id)));
+    assert_eq(press(v, "Ctrl+W"), Ok(Msg.CloseTab(id)));
+    assert_eq(pick(v, "New tab", "Close").is_ok(), true);
+}
+
+@test
+fun app_and_empty_tabs_keep_their_creation_order() {
+    let engine = Engine.new();
+    // a (0), then an empty tab (1), then a missing file opened from it
+    // fills it, then + makes a new empty tab (2).
+    let m = step(with_pages(engine, [app(engine, "a")]), Msg.NewTab);
+    let filled = step(step(m, Msg.Draft("lugha.toml")), Msg.Go);
+    let ids = sidebar.order(step(filled, Msg.NewTab));
+    assert_eq(ids, [0, 1, 2]);
+}
+
+@test
+fun home_shows_an_empty_tab() {
+    let engine = Engine.new();
+    let m = with_pages(engine, [app(engine, "a")]);
+    let home = step(m, Msg.Home);
+    assert(on_home(home));
+    assert_eq(home.blanks.len, 1);
+    // On an empty tab already: it stays.
+    assert_eq(step(home, Msg.Home).blanks.len, 1);
+    // The app is still "where you left off".
+    assert_eq(card(home).map(fun(c) = c.msg), Some(Msg.Select(0)));
+}

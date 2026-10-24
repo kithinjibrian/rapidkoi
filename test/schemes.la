@@ -1,0 +1,53 @@
+// Rapidkoi's colour sets (PRP-038), pure: each meets WCAG's contrast for its
+// text, and the person's choices pick one.
+import rapidkoi.ui.schemes {
+    Theme,
+    Prefs,
+    DEFAULT_PREFS,
+    DARK,
+    LIGHT,
+    DARK_CONTRAST,
+    LIGHT_CONTRAST,
+    theme_for,
+    contrast,
+};
+
+fun at_least(t: Theme, text: f64, borders: f64): bool {
+    let ok = contrast(t.text, t.page) >= text && contrast(t.dim, t.page) >= text && contrast(
+        t.on_accent,
+        t.accent,
+    ) >= text && contrast(t.on_danger, t.danger) >= text && contrast(t.text, t.control) >= text;
+    ok && contrast(t.edge, t.page) >= borders
+}
+
+@test
+fun every_set_meets_its_contrast() {
+    // Text 4.5:1; borders are left subtle in the ordinary sets (the owner's dark).
+    assert_eq(at_least(DARK, 4.5, 1.0), true);
+    assert_eq(at_least(LIGHT, 4.5, 1.0), true);
+    // More contrast: 7:1 for text, 3:1 for borders.
+    assert_eq(at_least(DARK_CONTRAST, 7.0, 3.0), true);
+    assert_eq(at_least(LIGHT_CONTRAST, 7.0, 3.0), true);
+}
+
+@test
+fun contrast_is_wcag_s_ratio() {
+    let black_on_white = contrast("#000000", "#ffffff");
+    assert_eq(black_on_white > 20.9 && black_on_white < 21.1, true);
+    assert_eq(contrast("#ffffff", "#ffffff"), 1.0);
+    // A translucent colour is laid over the background: white at no opacity is the background.
+    assert_eq(contrast("#ffffff00", "#000000"), 1.0);
+}
+
+@test
+fun the_person_s_choices_pick_the_set_and_scale() {
+    assert_eq(theme_for(DEFAULT_PREFS).name, "dark");
+    assert_eq(theme_for(DEFAULT_PREFS).scale, 1.0);
+    assert_eq(theme_for(Prefs { light: true, more_contrast: false, text_size: 100 }).name, "light");
+    assert_eq(
+        theme_for(Prefs { light: false, more_contrast: true, text_size: 100 }).name,
+        "dark, more contrast",
+    );
+    let big = theme_for(Prefs { light: true, more_contrast: true, text_size: 150 });
+    assert_eq((big.name, big.scale), ("light, more contrast", 1.5));
+}

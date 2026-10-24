@@ -1,0 +1,68 @@
+// The person's choices (PRP-038), pure: the preferences file, what apps
+// read, and a change from the Settings app, each checked.
+import rapidkoi.data.preferences { prefs_file, read_prefs, prefs_value, apply };
+import rapidkoi.data.remembered { Unreadable };
+import rapidkoi.ui.schemes { Prefs, DEFAULT_PREFS };
+import cbor { Value, Entry, encode };
+import support { t, kv };
+
+@test
+fun the_file_round_trips() {
+    let p = Prefs { light: true, more_contrast: true, text_size: 150 };
+    assert_eq(read_prefs(prefs_file(p)) == Ok(p), true);
+    assert_eq(read_prefs(prefs_file(DEFAULT_PREFS)) == Ok(DEFAULT_PREFS), true);
+}
+
+@test
+fun a_bad_text_size_is_the_default() {
+    let file = fun(size: i64) = encode(
+        kv([
+            ("format", Value.int(1)),
+            ("kind", t("rapidkoi preferences")),
+            ("light", Value.Bool(true)),
+            ("more_contrast", Value.Bool(false)),
+            ("text_size", Value.int(size)),
+        ]),
+    );
+    for size of [70, 210, 155] {
+        assert_eq(read_prefs(file(size)).unwrap().text_size, 100);
+    }
+    assert_eq(read_prefs(file(180)).unwrap().text_size, 180);
+}
+
+@test
+fun a_broken_or_newer_file_is_refused() {
+    assert_eq(read_prefs([1, 2, 3]).is_err(), true);
+    let newer = encode(kv([("format", Value.int(9)), ("kind", t("rapidkoi preferences"))]));
+    assert_eq(read_prefs(newer) == Err(Unreadable.Newer(9)), true);
+    let other = encode(kv([("format", Value.int(1)), ("kind", t("rapidkoi pins"))]));
+    assert_eq(read_prefs(other).is_err(), true);
+}
+
+@test
+fun apps_read_three_coarse_values() {
+    let v = prefs_value(Prefs { light: false, more_contrast: true, text_size: 120 });
+    assert_eq(
+        v == kv([
+            ("theme", t("dark")),
+            ("more_contrast", Value.Bool(true)),
+            ("text_size", Value.int(120)),
+        ]),
+        true,
+    );
+}
+
+@test
+fun a_change_is_checked() {
+    let p = DEFAULT_PREFS;
+    assert_eq(apply(p, "theme", t("light")).unwrap().light, true);
+    assert_eq(apply(p, "more_contrast", Value.Bool(true)).unwrap().more_contrast, true);
+    assert_eq(apply(p, "text_size", Value.int(130)).unwrap().text_size, 130);
+    assert_eq(apply(p, "theme", t("blue")), Err("theme must be dark or light"));
+    assert_eq(
+        apply(p, "text_size", Value.int(135)),
+        Err("text_size must be 80 to 200, in steps of 10"),
+    );
+    assert_eq(apply(p, "more_contrast", t("yes")), Err("more_contrast must be true or false"));
+    assert_eq(apply(p, "colours", t("x")), Err("there's no preference called colours"));
+}

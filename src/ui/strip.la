@@ -1,0 +1,213 @@
+/**
+ * The header's instance strip and the rename dialog (PRP-033), pure: the
+ * current app's instances where ← ⌂ → were, the one in front ringed, each
+ * with a menu (Rename…, Close) and an × on hover; + for another; ⋯ for
+ * those past three. Always `STRIP_WIDTH` wide, so the address box never
+ * moves; an empty tab shows it empty.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.window, window.instances, window.tabs, ui.tokens, ui.themes, ui.frame_looks
+ * Used by: ui.header, ui.settings
+ */
+import kivuli {
+    View,
+    Align,
+    MenuEntry,
+    Styling,
+    Text,
+    Sizing,
+    Width,
+    When,
+    State,
+    column,
+    row,
+    text,
+    icon,
+    item,
+    menu_separator,
+    image,
+};
+import kivuli.ui {
+    button as ui_button,
+    button_with as ui_button_with,
+    dropdown_menu,
+    dialog_header,
+    dialog_footer,
+    input as ui_input,
+};
+import window.actions { Msg };
+import window.window { Model, is_blank };
+import window.instances { display_name, instances_of, rename_problem };
+import window.tabs { Tab };
+import guest.nodes { ButtonLook };
+import ui.tokens {
+    HEADER_ICON,
+    SPACE_SM,
+    square,
+    margin_x,
+    TAB_CLOSE_ICON,
+    INSTANCE_CHIP,
+    INSTANCE_NAME_WIDTH,
+    STRIP_WIDTH,
+    SPACE_XS,
+    gap,
+    no_padding,
+};
+import ui.themes { dim, bare, paint, instance_colour, button as button_look };
+import ui.icons { Icon, icon as iconsax };
+import ui.frame_looks { app_button, instance_chip, instance_dot, tab_close_on_hover };
+
+/** The most instances shown in the strip before the rest go behind ⋯. */
+public const MAX_STRIP: i64 = 3;
+
+/**
+ * Builds the strip for the header's start.
+ *
+ * @param m the model: the current tab and its app's instances
+ * @returns the strip's row (empty on an empty tab)
+ *
+ * Example:
+ *     header_bar([strip.view(m)], …)
+ */
+public fun view(m: Model): View<Msg> {
+    let t = m.theme;
+    let none: View<Msg>[] = [];
+    // Always this wide, on every tab: the header centres the address box
+    // only while its sides fit, so a strip that grew would push it over.
+    let fixed: Styling = Sizing {
+        min_width: Width.Px(STRIP_WIDTH),
+        max_width: Width.Px(STRIP_WIDTH),
+        ..Sizing.theme(),
+    };
+    let id = match m.current {
+        Some(id) if !is_blank(m, id) => id,
+        _ => {
+            return row(none).style([fixed]);
+        }
+    };
+    let plus = ui_button_with([icon("list-add-symbolic").size(HEADER_ICON)], Msg.NewInstance).style(
+        app_button(t),
+    ).tooltip("New instance").align(Align.Center);
+    let all = instances_of(m, id);
+    // The one in front always shows: it takes the last place if it would
+    // otherwise be behind ⋯.
+    let mut shown: Tab[] = [];
+    let mut hidden: Tab[] = [];
+    for x of all {
+        if shown.len < MAX_STRIP {
+            shown.push(x);
+        } else {
+            hidden.push(x);
+        }
+    }
+    if hidden.any(fun(x: Tab) = x.id == id) {
+        let last = shown[shown.len - 1];
+        shown = shown.filter(fun(x: Tab) = x.id != last.id);
+        for x of hidden {
+            if x.id == id {
+                shown.push(x);
+            }
+        }
+        hidden = hidden.filter(fun(x: Tab) = x.id != id);
+        hidden.push(last);
+    }
+    let mut parts: View<Msg>[] = shown.map(fun(x: Tab) = chip(m, x, x.id == id));
+    if hidden.len > 0 {
+        let entries: MenuEntry<Msg>[] = hidden.map(
+            fun(x: Tab) = item(display_name(x.page), Msg.Select(x.id)),
+        );
+        // Bare, white: the Iconsax dots (the owner, session 177), set apart
+        // from the last pill.
+        // The picture exactly its size; the room around it on a box of its
+        // own, so GTK never measures the picture narrower than it needs.
+        let dots: View<Msg> = image(iconsax(Icon.More, t.on_frame)).style([
+            square(HEADER_ICON),
+        ]).align(Align.Center);
+        let more: View<Msg> = row([dots]).style([margin_x(SPACE_SM)]).tooltip("More instances");
+        parts.push(dropdown_menu(more, entries).align(Align.Center));
+    }
+    parts.push(plus);
+    row(parts).style([fixed])
+}
+
+/**
+ * One instance in the strip: its coloured circle and name, showing it; its
+ * menu (Rename…, Close); and its ×, shown while the pill is hovered.
+ */
+fun chip(m: Model, x: Tab, current: bool): View<Msg> {
+    let t = m.theme;
+    let name = display_name(x.page);
+    let none: View<Msg>[] = [];
+    let dot = column(none).style(instance_dot(instance_colour(t, x.page.instance))).align(
+        Align.Center,
+    );
+    // The frame's white, no padding, and the pill's height: kivuli.ui's
+    // button otherwise brings its own colour, 16 px sides and 36 px height.
+    let white = Text { color: paint(t.on_frame), ..Text.theme() };
+    let flush: Styling[] = [
+        white,
+        // kivuli.ui's button turns its text dark under the pointer: white throughout.
+        When(State.Hover, [white]),
+        When(State.Press, [white]),
+        When(State.Focus, [white]),
+        no_padding(),
+        Sizing {
+            min_height: Width.Px(INSTANCE_CHIP),
+            max_height: Width.Px(INSTANCE_CHIP),
+            ..Sizing.theme(),
+        },
+    ];
+    let face = ui_button_with(
+        [
+            row([
+                dot,
+                // Cut with "…" past its width; the whole name on hover.
+                text(name).ellipsize().style([
+                    Sizing { max_width: Width.Px(INSTANCE_NAME_WIDTH), ..Sizing.theme() },
+                ]).align(Align.Center),
+            ]).style([gap(SPACE_XS)]),
+        ],
+        Msg.Select(x.id),
+    ).style(bare(t) + flush).tooltip(name);
+    // Every window is the same (the owner, session 189): each closes on its own.
+    let named = face.menu([
+        item("Rename…", Msg.RenameInstance(x.id)),
+        menu_separator(),
+        item("Close", Msg.CloseTab(x.id)),
+    ]).align(Align.Center);
+    let close = ui_button_with(
+        [icon("window-close-symbolic").size(TAB_CLOSE_ICON)],
+        Msg.CloseTab(x.id),
+    ).style(tab_close_on_hover(t)).tooltip("Close {name}").align(Align.Center);
+    row([named, close]).style(instance_chip(t, current)).align(Align.Center)
+}
+
+/**
+ * Builds the rename dialog's content while an instance is being renamed:
+ * the name, why it can't be used if so, Cancel and Rename.
+ *
+ * Example:
+ *     ui_dialog(Msg.Cancel, [strip.rename_view(m)])
+ */
+public fun rename_view(m: Model): View<Msg> {
+    let t = m.theme;
+    let typed = m.renaming.map(fun(r: (i64, string)) = r.1).unwrap_or("");
+    let problem = rename_problem(m);
+    let mut parts: View<Msg>[] = [
+        dialog_header("Rename instance", ""),
+        ui_input(typed, fun(s: string) = Msg.InstanceName(s)).placeholder("Name").name(
+            "Name",
+        ).on_submit(Msg.ConfirmRename),
+    ];
+    if let Some(why) = problem {
+        parts.push(text(why).style(dim(t)).align(Align.Start));
+    }
+    parts.push(
+        dialog_footer([
+            ui_button("Cancel", Msg.Cancel).style(button_look(t, ButtonLook.Normal)),
+            ui_button("Rename", Msg.ConfirmRename).style(
+                button_look(t, ButtonLook.Primary),
+            ).disabled(problem.is_some()),
+        ]),
+    );
+    column(parts)
+}

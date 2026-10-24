@@ -1,0 +1,208 @@
+/**
+ * Permissions (PRP-030), pure: what an app's manifest says it needs, by
+ * name, and who may hold each. A built-in permission is only for an app
+ * compiled into `./main`; an `Any` one is for every app (none yet). Fine
+ * grained: one per thing an app can reach (the owner, session 166).
+ *
+ * Depends on: nothing
+ * Used by: bundles.loader, guest.effects, window.tabs
+ */
+
+/** Something an app may reach, declared in its manifest. */
+public enum Permission {
+    /** Your pins: name, place and icon. */
+    ReadPins,
+    /** The app you left off: name, place, icon and screen title. */
+    ReadLeftOff,
+    /** Opening one of your pins, or where you left off. */
+    OpenApps,
+    /** Reading and restoring your last session (PRP-035). */
+    RestoreSession,
+    /** Changing Rapidkoi's settings: light or dark, contrast, text size (PRP-038). */
+    ChangeSettings,
+}
+
+/** Who may hold a permission. */
+public enum Tier {
+    /** Only an app compiled into `./main`. */
+    BuiltIn,
+    /** Any app that declares it. */
+    Any,
+}
+
+/** What the person lets an app do with a permission it declared (PRP-031). */
+public enum Setting {
+    /** Answered at once. */
+    Allowed,
+    /** Rapidkoi asks the person first; the app waits. */
+    Ask,
+    /** Answered with nothing; the app keeps running. */
+    Blocked,
+}
+
+/** Every setting, in the order the Permissions page offers them. */
+public const SETTINGS: Setting[] = [Setting.Allowed, Setting.Ask, Setting.Blocked];
+
+/**
+ * Returns a permission's setting until the person changes it: built-in
+ * ones are allowed, since being built in is the grant (the owner, session 168).
+ *
+ * Example:
+ *     default_of(Permission.ReadPins)
+ */
+public fun default_of(p: Permission): Setting = match tier_of(p) {
+    BuiltIn => Setting.Allowed,
+    Any => Setting.Ask,
+};
+
+/**
+ * Returns a setting's name, as the people file keeps it.
+ *
+ * Example:
+ *     setting_name(Setting.Blocked)
+ */
+public fun setting_name(s: Setting): string = match s {
+    Allowed => "allowed",
+    Ask => "ask",
+    Blocked => "blocked",
+};
+
+/**
+ * Returns a setting in words, as the Permissions page shows it.
+ *
+ * Example:
+ *     setting_words(Setting.Ask)
+ */
+public fun setting_words(s: Setting): string = match s {
+    Allowed => "Always allowed",
+    Ask => "Needs approval",
+    Blocked => "Blocked",
+};
+
+/**
+ * Reads a setting's name; `None` for one this Rapidkoi doesn't know.
+ *
+ * Example:
+ *     parse_setting("ask")
+ */
+public fun parse_setting(name: string): Option<Setting> {
+    for s of SETTINGS {
+        if setting_name(s) == name {
+            return Some(s);
+        }
+    }
+    None
+}
+
+/** Why a manifest's permissions can't be read. */
+public enum PermissionError {
+    /** A name this Rapidkoi doesn't know (a newer one might). */
+    Unknown(string),
+}
+
+/** Every permission, in the order they're listed. */
+public const ALL: Permission[] = [
+    Permission.ReadPins,
+    Permission.ReadLeftOff,
+    Permission.OpenApps,
+    Permission.RestoreSession,
+    Permission.ChangeSettings,
+];
+
+/**
+ * Returns a permission's name, as a manifest lists it.
+ *
+ * Example:
+ *     name_of(Permission.ReadPins)
+ */
+public fun name_of(p: Permission): string = match p {
+    ReadPins => "read_pins",
+    ReadLeftOff => "read_left_off",
+    OpenApps => "open_apps",
+    RestoreSession => "restore_session",
+    ChangeSettings => "change_settings",
+};
+
+/**
+ * Returns who may hold a permission.
+ *
+ * Example:
+ *     tier_of(Permission.OpenApps)
+ */
+public fun tier_of(p: Permission): Tier = match p {
+    ReadPins => Tier.BuiltIn,
+    ReadLeftOff => Tier.BuiltIn,
+    OpenApps => Tier.BuiltIn,
+    RestoreSession => Tier.BuiltIn,
+    ChangeSettings => Tier.BuiltIn,
+};
+
+/**
+ * Returns what a permission lets an app do, in words for a sentence.
+ *
+ * Example:
+ *     "This app asks for something only Rapidkoi's own apps can have: {words_of(p)}"
+ */
+public fun words_of(p: Permission): string = match p {
+    ReadPins => "reading your pins",
+    ReadLeftOff => "reading where you left off",
+    OpenApps => "opening your apps",
+    RestoreSession => "restoring your last session",
+    ChangeSettings => "changing Rapidkoi's settings",
+};
+
+/**
+ * Returns a permission as a row's label: "Reading your pins".
+ *
+ * Example:
+ *     label_of(Permission.ReadPins)
+ */
+public fun label_of(p: Permission): string = match p {
+    ReadPins => "Reading your pins",
+    ReadLeftOff => "Reading where you left off",
+    OpenApps => "Opening your apps",
+    RestoreSession => "Restoring your last session",
+    ChangeSettings => "Changing Rapidkoi's settings",
+};
+
+/**
+ * Returns what an app asking for a permission wants to do: "read your pins".
+ *
+ * Example:
+ *     "{app} wants to {wish_of(p)}"
+ */
+public fun wish_of(p: Permission): string = match p {
+    ReadPins => "read your pins",
+    ReadLeftOff => "read where you left off",
+    OpenApps => "open your apps",
+    RestoreSession => "restore your last session",
+    ChangeSettings => "change Rapidkoi's settings",
+};
+
+/**
+ * Reads a manifest's permission names.
+ *
+ * @param names the names, as the bundle's rules let them through
+ * @returns the permissions in order; `Err(Unknown)` naming the first one this Rapidkoi doesn't know
+ *
+ * Example:
+ *     parse(manifest.permissions)
+ */
+public fun parse(names: string[]): Result<Permission[], PermissionError> {
+    let mut out: Permission[] = [];
+    for n of names {
+        let mut found: Option<Permission> = None;
+        for p of ALL {
+            if name_of(p) == n {
+                found = Some(p);
+            }
+        }
+        match found {
+            Some(p) => out.push(p),
+            None => {
+                return Err(PermissionError.Unknown(n));
+            }
+        }
+    }
+    Ok(out)
+}
