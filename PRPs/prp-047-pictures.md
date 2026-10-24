@@ -90,3 +90,4 @@ Checking 8,000 px and 40 MP before decoding means reading PNG, JPEG and WebP hea
 - **The broken-picture mark** is Iconsax's gallery-slash (`assets/icons/gallery-slash.svg`, from the owner), in the theme's dim text colour.
 - **Pages keep their bundle's pictures in `Program`** (engine, module, assets), so every way a page opens or restarts has them.
 - **A switched-off server** (⚙ → Access) fails the picture with its sentence; the app runs on. Any other refusal stops the app.
+- **The SDK:** `image`, `Fit`, `.color`, `.on_load`, `.on_fail` tagged and pushed as `rapidkoi-rust` `v0.2.0-pre.3`; the built-ins moved to it and were repacked; the full suite passed (568). `v0.2.0` follows once Notes and the examples run on it.
