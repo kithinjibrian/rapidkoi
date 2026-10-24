@@ -97,9 +97,19 @@ One map, every key optional, at most 32 keys. A known key with a bad value stops
 | `weight` | `"normal"`, `"medium"`, `"bold"` |
 | `font` | `"body"`, `"mono"`, `"serif"`, `"sans"` |
 | `italic` | `true` |
+| `scroll` | `"vertical"`, `"horizontal"` or `"both"`, on a box's own look (below) |
 | `hover`, `pressed`, `focus`, `disabled`, `checked` | a style map without these keys |
 
 **A colour** is one of Rapidkoi's names (`background`, `surface`, `text`, `text_dim`, `accent`, `on_accent`, `border`, `danger`, `on_danger`), the app's own `#rrggbb`/`#rrggbbaa`, or `{ "mix": [colour, colour, 0–1] }` (no mix inside a mix). Rapidkoi's names, spacing, corner and text sizes are resolved when Rapidkoi draws: the app never learns their values, and they follow the theme. A pressable box starts with no look but an accent ring when it has the keyboard; a text in the theme's text colour; a typing box in Rapidkoi's field look.
+
+### Scrolling
+
+Rapidkoi builds apps, not sites (PRP-046): an app's page is exactly the window's content area, and Rapidkoi never scrolls it. The app lays its screen out for the window and marks what scrolls:
+
+- A box with `scroll` shows what fits and scrolls the rest: as tall as its content until its parent runs out of room, or, with `grow`, the room left. Its sizes bound the scrolled area.
+- A scrolling box inside another that scrolls the same way (`both` shares both) stops the app: "This app put a scrolling box inside another that scrolls the same way". Across is fine: a row of thumbnails in a list.
+- What still doesn't fit is clipped: silently in a published app; in development (a local file or a `localhost` address), with a striped band at the cut edge, "Bottom overflowed by 42 px". Both wait on kivuli (DECISION-057); until then an overflowing app pushes the window's minimum size.
+- Until kivuli can scroll one way only, a `vertical` box also scrolls sideways when its content is wider (DECISION-057).
 
 ### Roles
 

@@ -127,8 +127,20 @@ struct Look {
     /** `body`, `mono`, `serif` or `sans`. */
     font: Option<string>,
     italic: bool,
+    /** Which way the box scrolls (PRP-046): it shows what fits and scrolls the rest. */
+    scroll: Option<Axis>,
     /** Looks for `hover`, `pressed`, `focus`, `disabled` and `checked`, none of which has its own. */
     states: (string, Self)[],
+}
+
+/** Which way a box scrolls (PRP-046). */
+enum Axis {
+    /** Up and down. */
+    Vertical,
+    /** Side to side. */
+    Horizontal,
+    /** Both ways. */
+    Both,
 }
 
 /** What a node is (PRP-037): AccessKit's names. */

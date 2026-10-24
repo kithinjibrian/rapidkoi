@@ -29,6 +29,30 @@ import ui.themes { page, palette };
 import ui.frame_looks { tooltips, frame as frame_look, sidebar as side_look };
 
 /**
+ * Builds the content area's view: a running app (the new tab too) gets
+ * exactly the area and lays itself out, never scrolled by Rapidkoi
+ * (PRP-046); Rapidkoi's own screens (loading, stopped, refused) scroll
+ * when long.
+ *
+ * Example:
+ *     content_area(m)
+ */
+fun content_area(m: Model): View<Msg> = match page_of(m) {
+    // On an app page m.current is Some: page_of found its tab.
+    App(a) => {
+        let shown = app_view(m.current.unwrap_or(-1), a, m);
+        // An app pads itself, so what it scrolls is cut at the window's edge
+        // (PRP-046); Rapidkoi's own screens keep Rapidkoi's margin.
+        match a.screen {
+            Running(_, _, _) => shown,
+            _ => scroll(shown.style([margin(SPACE_LG)])),
+        }
+    }
+    // The new-tab app, a bundled app like any other (DECISION-027, PRP-027).
+    Home => newtab_view(m),
+};
+
+/**
  * Draws the frame: the header bar (and GTK's window controls), the sidebar
  * on the right, and the current app in the content area.
  *
@@ -42,13 +66,7 @@ fun view(m: Model): View<Msg> {
     let t = m.theme;
     // The content area meets the window's left and bottom edges; the page's
     // look rounds only its top-right corner, where the frame wraps it.
-    let shown = match page_of(m) {
-        // On an app page m.current is Some: page_of found its tab.
-        App(a) => scroll(app_view(m.current.unwrap_or(-1), a, m).style([margin(SPACE_LG)])),
-        // The new-tab app, a bundled app like any other (DECISION-027, PRP-027).
-        Home => scroll(newtab_view(m).style([margin(SPACE_LG)])),
-    };
-    let area = column([shown.expand()]).expand().style(page(t));
+    let area = column([content_area(m).expand()]).expand().style(page(t));
     // Empty and as wide as the header bar is tall, so the frame is an even L.
     // The root's frame look paints it, as one surface with the header bar.
     let mut side = side_look(t);

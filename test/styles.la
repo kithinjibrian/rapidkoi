@@ -1,7 +1,16 @@
 // Contract 5's styles (PRP-037), pure: every key, every kind of value, and
 // each bad value refused with why. No guest, no display.
 import rapidkoi.guest.styles { read_style, plain };
-import rapidkoi.guest.nodes { Look, Colour, Measure, TextSize, Direction, Place, ContractError };
+import rapidkoi.guest.nodes {
+    Look,
+    Colour,
+    Measure,
+    TextSize,
+    Direction,
+    Place,
+    ContractError,
+    Axis,
+};
 import cbor { Value };
 import support { t, kv };
 
@@ -159,4 +168,24 @@ fun a_bad_style_says_why() {
         many.push(("k{i}", n(i)));
     }
     assert_eq(why(many), "style has more than 32 keys");
+}
+
+@test
+fun scroll_reads_each_axis() {
+    // PRP-046: an app chooses which boxes scroll.
+    assert_eq(
+        read([("scroll", t("vertical"))]).map(fun(l: Look) = l.scroll),
+        Ok(Some(Axis.Vertical)),
+    );
+    assert_eq(
+        read([("scroll", t("horizontal"))]).map(fun(l: Look) = l.scroll),
+        Ok(Some(Axis.Horizontal)),
+    );
+    assert_eq(read([("scroll", t("both"))]).map(fun(l: Look) = l.scroll), Ok(Some(Axis.Both)));
+    assert_eq(plain().scroll, None);
+    assert_eq(why([("scroll", t("up"))]), "style.scroll must be vertical, horizontal or both");
+    assert_eq(
+        why([("hover", kv([("scroll", t("vertical"))]))]),
+        "style.hover.scroll only goes on a box's own look",
+    );
 }

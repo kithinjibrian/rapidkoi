@@ -8,6 +8,7 @@
 //! Build and pack: `scripts/newtab.sh`, which writes `assets/apps/newtab.rkb`.
 
 use minicbor::{Decode, Encode};
+use rapidkoi::style::Layout;
 use rapidkoi::{button, column, row, text, App, Ask, Event, Message, Next, Place, Session, Space, State, View};
 
 /// What the new tab's screen sends.
@@ -113,7 +114,8 @@ impl NewTab {
             let buttons = self.pins.iter().enumerate().map(|(i, p)| button(&p.name).on_press(Msg::Pin(i as u32)));
             parts.push(column([text("Pinned").heading(), row(buttons).spacing(Space::Sm)]).spacing(Space::Sm));
         }
-        column(parts).spacing(Space::Lg)
+        // Rapidkoi never scrolls an app's page (PRP-046): pins can outgrow the window.
+        column(parts).spacing(Space::Lg).padding(Space::Lg).style([Layout::scroll(), Layout::grow()])
     }
 }
 
@@ -140,7 +142,7 @@ mod tests {
 
     #[test]
     fn with_nothing_it_shows_the_wordmark() {
-        assert_eq!(NewTab::default().view(), column([text("Rapidkoi").title()]).spacing(Space::Lg));
+        assert_eq!(NewTab::default().view(), column([text("Rapidkoi").title()]).spacing(Space::Lg).padding(Space::Lg).style([Layout::scroll(), Layout::grow()]));
     }
 
     #[test]
@@ -158,7 +160,7 @@ mod tests {
                 ])
                 .spacing(Space::Sm),
             ])
-            .spacing(Space::Lg)
+            .spacing(Space::Lg).padding(Space::Lg).style([Layout::scroll(), Layout::grow()])
         );
         assert_eq!(message(Msg::Continue), vec![Ask::continue_left_off("continue")]);
     }
@@ -176,7 +178,7 @@ mod tests {
                 ])
                 .spacing(Space::Sm),
             ])
-            .spacing(Space::Lg)
+            .spacing(Space::Lg).padding(Space::Lg).style([Layout::scroll(), Layout::grow()])
         );
         assert_eq!(message(Msg::Pin(1)), vec![Ask::open_pin("open", 1)]);
     }
@@ -188,7 +190,7 @@ mod tests {
         assert_eq!(
             t.view(),
             column([text("Rapidkoi").title(), button("Restore previous session (2)").primary().on_press(Msg::Restore)])
-                .spacing(Space::Lg)
+                .spacing(Space::Lg).padding(Space::Lg).style([Layout::scroll(), Layout::grow()])
         );
         assert_eq!(message(Msg::Restore), vec![Ask::restore_session("restore")]);
         let (t, _) = t.step(Event::Answer { msg: "session".into(), value: None });

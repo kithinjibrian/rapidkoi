@@ -14,6 +14,8 @@ Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fi
 8. [Knowing what fits: the window's width, or a row that overflows](#8-knowing-what-fits-the-windows-width-or-a-row-that-overflows) (DECISION-043)
 9. [Bug: a drop-down inside a popover breaks the popover's dismissal](#9-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
 10. [Bug: a picture's `.size(n)` doesn't cap it](#10-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
+11. [A container that clips, and says how far its content overflows](#11-a-container-that-clips-and-says-how-far-its-content-overflows) (DECISION-057)
+12. [Scrolling one way only](#12-scrolling-one-way-only) (DECISION-057)
 
 ---
 
@@ -234,3 +236,34 @@ DECISION-034.
 **What to add.** `.size(n)` as a box: a clamp, as an exact `Sizing` already is.
 
 **Meanwhile in Rapidkoi.** Its icons are sized with `tokens.square(n)`, an exact `Sizing` with a maximum, which kivuli documents as clamping. Once `.size` is fixed, `square` can go.
+
+---
+
+## 11. A container that clips, and says how far its content overflows
+
+DECISION-057 (PRP-046).
+
+**What Rapidkoi needs.** Rapidkoi never scrolls an app's page: an app gets exactly the window's content area and lays itself out. Content that doesn't fit must be **cut off**, never allowed to make the window bigger: in GTK a widget's minimum size pushes the window's, so today an overflowing app keeps the window from shrinking, or runs off the screen. In development, Rapidkoi also shows where it's cut (Flutter's "BOTTOM OVERFLOWED BY 42 PIXELS"), so it needs to know by how much.
+
+**What to add.**
+
+```
+// Suggested API (kivuli's to decide)
+clip(child, fun(o: Overflow) = Msg.Overflowed(o))   // Overflow { top, right, bottom, left } in pixels, 0 when it fits
+```
+
+GTK 4: a `GtkScrolledWindow` with `gtk_scrolled_window_set_policy(sw, GTK_POLICY_EXTERNAL, GTK_POLICY_EXTERNAL)` gives its child the room it has and no scrollbars, and never asks for the child's size. The overflow: `gtk_widget_measure(child, orientation, for_size, &minimum, …)` for each orientation against the container's allocation, after each size allocation; send it only when it changes.
+
+**How Rapidkoi will use it.** `ui.layout.content_area` puts a running app's view in `clip`. For an app in development (`ui.frame.in_development`), each side with overflow gets a striped band in the theme's danger red, "Bottom overflowed by 42 px"; published apps clip silently. No contract change.
+
+---
+
+## 12. Scrolling one way only
+
+DECISION-057 (PRP-046).
+
+**What Rapidkoi needs.** An app's box can scroll `vertical`, `horizontal` or `both`. kivuli's `scroll` and `scroll_fit` are `GtkScrolledWindow`s with the automatic policy both ways, so a list meant to scroll up and down also scrolls sideways when something in it is wider.
+
+**What to add.** An axis on `scroll` and `scroll_fit` (`scroll_y`, `scroll_x`, or an argument): `gtk_scrolled_window_set_policy(sw, h, v)` with `GTK_POLICY_NEVER` for the other axis (the child then gets the scrolled window's width, and wraps or is cut).
+
+**How Rapidkoi will use it.** `ui.render.boxed` passes the box's `scroll` axis through. No contract change.

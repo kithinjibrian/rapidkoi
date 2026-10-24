@@ -9,7 +9,7 @@
  * Used by: guest.running
  */
 import cbor { Value, Limits, decode };
-import guest.nodes { Node, Typing, Described, ContractError, invalid };
+import guest.nodes { Node, Typing, Described, ContractError, Axis, invalid };
 import guest.limits { MAX_VIEW, MAX_NODES, MAX_NODE_DEPTH, MAX_STRING };
 import guest.props { text, optional_text, maybe_text };
 import guest.styles { read_style };
@@ -48,7 +48,7 @@ fun read_tree(bytes: u8[]): Result<Described, ContractError> {
     };
     let value = decode(bytes, bounds).map_err(ContractError.Decode)?;
     let count = Ref.new(0);
-    let root = node(value, "", 0, 1, count)?;
+    let root = node(value, "", 0, 1, count, None)?;
     let title = match (value.get("kind"), value.get("props")) {
         (Some(Text(kind)), Some(given)) => maybe_text(given, "title", "root > {kind}")?,
         _ => None,
@@ -56,13 +56,17 @@ fun read_tree(bytes: u8[]): Result<Described, ContractError> {
     Ok(Described { root: root, title: title })
 }
 
-/** One node and its subtree, counted in `count`; paths read `root > box > text[1]`. */
+/**
+ * One node and its subtree, counted in `count`; paths read `root > box >
+ * text[1]`. `scrolling` is which ways the boxes around it already scroll.
+ */
 fun node(
     v: Value,
     parent: string,
     index: i64,
     depth: i64,
     count: Ref<i64>,
+    scrolling: Option<Axis>,
 ): Result<Node, ContractError> {
     let path = if parent == "" { "root" } else { "{parent} > [{index}]" };
     if v.as_map().is_none() {
@@ -95,7 +99,29 @@ fun node(
     if kind == "box" {
         let look = read_style(given.get("style"), here)?;
         let facts = read_facts(given, here)?;
-        return Ok(Node.Boxed(look, facts, given.get("on_press"), children(v, here, depth, count)?));
+        // A scroll inside one that scrolls the same way never scrolls: say so (PRP-046).
+        if let Some(a) = look.scroll {
+            if overlaps(scrolling, a) {
+                return Err(
+                    invalid(
+                        here,
+                        "This app put a scrolling box inside another that scrolls the same way",
+                    ),
+                );
+            }
+        }
+        let inside = match look.scroll {
+            Some(a) => Some(joined(scrolling, a)),
+            None => scrolling,
+        };
+        return Ok(
+            Node.Boxed(
+                look,
+                facts,
+                given.get("on_press"),
+                children(v, here, depth, count, inside)?,
+            ),
+        );
     }
     if kind == "text" {
         let s = text(given, "text", here)?;
@@ -135,8 +161,14 @@ fun node(
     Ok(Node.Unsupported(kind))
 }
 
-/** A box's `children`, each at the next depth. */
-fun children(v: Value, here: string, depth: i64, count: Ref<i64>): Result<Node[], ContractError> {
+/** A box's `children`, each at the next depth, inside what `scrolling` scrolls. */
+fun children(
+    v: Value,
+    here: string,
+    depth: i64,
+    count: Ref<i64>,
+    scrolling: Option<Axis>,
+): Result<Node[], ContractError> {
     let items = match v.get("children") {
         Some(Array(xs)) => xs,
         None => [],
@@ -147,11 +179,26 @@ fun children(v: Value, here: string, depth: i64, count: Ref<i64>): Result<Node[]
     let mut out: Node[] = [];
     let mut i = 0;
     for item of items {
-        out.push(node(item, here, i, depth + 1, count)?);
+        out.push(node(item, here, i, depth + 1, count, scrolling)?);
         i += 1;
     }
     Ok(out)
 }
+
+/** Whether scrolling `a` shares a way with what already scrolls around it. */
+fun overlaps(around: Option<Axis>, a: Axis): bool = match (around, a) {
+    (None, _) => false,
+    (Some(Both), _) | (_, Both) => true,
+    (Some(Vertical), Vertical) | (Some(Horizontal), Horizontal) => true,
+    _ => false,
+};
+
+/** The ways scrolled once `a` is inside what already scrolls: one way, or both. */
+fun joined(around: Option<Axis>, a: Axis): Axis = match around {
+    None => a,
+    Some(b) if b == a => a,
+    _ => Axis.Both,
+};
 
 /** Counts an unread node's subtree against the limits. */
 fun tally(v: Value, here: string, depth: i64, count: Ref<i64>): Result<(), ContractError> {

@@ -28,11 +28,13 @@ import kivuli {
     row,
     text,
     text_area,
+    scroll,
+    scroll_fit,
 };
 import cbor { Value };
 
 import guest.nodes { Look, Facts, Typing, Direction, Node, ButtonLook };
-import ui.tokens { SPACE_SM, RING_WIDTH, gap, margin };
+import ui.tokens { SPACE_SM, RING_WIDTH, gap, margin, padding_xy };
 import ui.themes { body, dim, title, heading, field, paint as theme_paint, button as button_look };
 import ui.schemes { Theme };
 import ui.paint { Own, AS_STYLED, resolve_for, styles_of, align_of };
@@ -101,14 +103,27 @@ fun boxed(
         Row => row(inside),
         Column => column(inside),
     };
-    let spaced = match look.gap {
-        Some(_) => {
-            let g: Styling[] = [gap(resolve_for(look, t, own, false).gap.unwrap_or(0))];
-            layout.style(g)
+    let resolved = resolve_for(look, t, own, false);
+    let mut inner: Styling[] = [];
+    if look.gap.is_some() {
+        inner.push(gap(resolved.gap.unwrap_or(0)));
+    }
+    // A scrolling box's padding scrolls with what it holds (PRP-046), as in
+    // CSS, so its content is cut at the box's edge, not short of it.
+    if look.scroll.is_some() {
+        if let Some((v, h)) = resolved.padding {
+            inner.push(padding_xy(h, v));
         }
-        None => layout,
+    }
+    let spaced = if inner.len > 0 { layout.style(inner) } else { layout };
+    let styles = drawn(drawn_on_box(look), facts, t, own, press.is_some());
+    // A scrolling box (PRP-046): as tall as its content until its parent runs
+    // out of room (`scroll_fit`), or, with `grow`, the room left (`scroll`).
+    // The rest of its style goes on the scrolled area, so its sizes bound what scrolls.
+    let spaced = match look.scroll {
+        Some(_) => if look.grow { scroll(spaced) } else { scroll_fit(spaced) },
+        None => spaced,
     };
-    let styles = drawn(Look { gap: None, ..look }, facts, t, own, press.is_some());
     match press {
         Some(m) => {
             let pressed = button_with(spaced, Msg.Event(m, None)).style(bare(t) + styles);
@@ -117,6 +132,12 @@ fun boxed(
         None => placed(spaced.style(styles), look, Align.Fill),
     }
 }
+
+/** What a box draws on itself: its gap is its children's, and a scrolling box's padding scrolls with them. */
+fun drawn_on_box(look: Look): Look = match look.scroll {
+    Some(_) => Look { gap: None, padding: None, ..look },
+    None => Look { gap: None, ..look },
+};
 
 /** A pressable box's look before the app's: no fill, edge or shadow; the accent ring on focus. */
 fun bare(t: Theme): Styling[] = [

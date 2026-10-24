@@ -370,6 +370,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-057 — Clipping an app's page, showing its overflow, and scrolling one way (kivuli)
+
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 11, § 12)
+**Raised:** 2026-10-24, PRP-046
+
+**Question:** Rapidkoi never scrolls an app's page (the owner: "we are building apps not sites"). What doesn't fit must be clipped, silently when published and with a striped band in development; and a box scrolling `vertical` shouldn't scroll sideways. kivuli 0.54 has no clipping container, no overflow measure, and no one-axis scroll.
+
+**Meanwhile:** an overflowing app pushes the window's minimum size (visible, the developer's to fix); a scrolling box scrolls whichever way its content overflows; `ui.frame.in_development` already says where a band would show. Nothing is worked around.
+
+---
+
 ### DECISION-055 — A text area's placeholder (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 1)
