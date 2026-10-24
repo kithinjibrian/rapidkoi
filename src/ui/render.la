@@ -188,9 +188,9 @@ fun typing_box(f: Typing, t: Theme): View<Msg> {
     let change = f.on_change;
     let send = fun(s: string) = Msg.Event(change.unwrap_or(Value.Null), Some(s));
     if f.lines > 1 {
-        // kivuli's text area shows no placeholder (DECISION-055): named by it,
-        // so it can be found as a one-line field is.
-        let area = text_area(f.value, send).name(f.label.unwrap_or(f.placeholder));
+        let area = text_area(f.value, send).placeholder(f.placeholder).name(
+            f.label.unwrap_or(f.placeholder),
+        );
         return if change.is_none() { area.disabled(true) } else { area };
     }
     // Named by its label when it has one (DECISION-056), so it's found by it.

@@ -392,17 +392,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
-### DECISION-055 — A text area's placeholder (kivuli)
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 1)
-**Raised:** 2026-10-24 (the owner, after Notes: its empty text box shows nothing)
-
-**Question:** Contract 5's typing box of several lines has a `placeholder`, and kivuli 0.54 draws placeholders on one-line fields only (`GtkTextView` has none). How does an empty text area say what it's for?
-
-**Meanwhile:** `ui.render.typing_box` names the text area by its placeholder (kivuli `.name`), so it's found as a one-line field is. Nothing is drawn in its place: no workaround with visible text.
-
----
-
 ### DECISION-054 — Knowing when Rapidkoi's window comes back to the front (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 2)
@@ -721,6 +710,19 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-055 — A text area's placeholder (kivuli)
+
+**Status:** resolved (kivuli 0.58, 2026-10-24)
+**Raised:** 2026-10-24 (the owner, after Notes: its empty text box shows nothing)
+
+**Question:** Contract 5's typing box of several lines has a `placeholder`, and kivuli 0.54 draws placeholders on one-line fields only (`GtkTextView` has none). How does an empty text area say what it's for?
+
+**Meanwhile:** `ui.render.typing_box` names the text area by its placeholder (kivuli `.name`), so it's found as a one-line field is. Nothing is drawn in its place: no workaround with visible text.
+
+**Outcome:** kivuli 0.55 draws a text area's placeholder: `ui.render.typing_box` passes it, and still names the box by its label or placeholder.
+
+---
 
 ### DECISION-056 — Contract 7: one contract, scrolling, pictures
 

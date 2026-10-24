@@ -87,7 +87,6 @@ fun a_typing_box_sends_edits_and_enter() {
 
 @test
 fun a_box_of_several_lines_is_found_by_its_placeholder() {
-    // kivuli draws no placeholder in a text area (DECISION-055), so it's named by it.
     let f = Typing {
         value: "",
         placeholder: "Write something",
@@ -115,6 +114,22 @@ fun a_typing_box_is_named_by_its_label() {
     assert_eq(type_into(v, "Search notes", "garden"), Ok(Msg.Event(t("search"), Some("garden"))));
     let area = screen(Node.Field(Typing { lines: 10, label: Some("Note"), ..f }, plain()), DARK);
     assert_eq(type_into(area, "Note", "Sukuma"), Ok(Msg.Event(t("search"), Some("Sukuma"))));
+}
+
+@test
+fun a_box_of_several_lines_shows_its_placeholder() {
+    // kivuli 0.55 draws it (DECISION-055): found by it even when a label names the box.
+    let f = Typing {
+        value: "",
+        placeholder: "Write something",
+        label: Some("Note"),
+        lines: 10,
+        on_change: Some(t("body")),
+        on_submit: None,
+    };
+    let v = screen(Node.Field(f, plain()), DARK);
+    assert_eq(type_into(v, "Write something", "Sukuma"), Ok(Msg.Event(t("body"), Some("Sukuma"))));
+    assert_eq(type_into(v, "Note", "Sukuma"), Ok(Msg.Event(t("body"), Some("Sukuma"))));
 }
 
 /** Whether a view is a scrolled area, under its modifiers. */
