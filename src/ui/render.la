@@ -31,6 +31,8 @@ import kivuli {
     scroll,
     scroll_fit,
     Overflow,
+    Accessible,
+    Role as Spoken,
 };
 import cbor { Value };
 
@@ -79,7 +81,7 @@ fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
         Align.Start,
     ),
     Field(typing, look) => placed(
-        typing_box(typing, t).style(field(t) + drawn(look, facts_none(), t, own, false)),
+        typing_box(typing, t).style(field(t) + drawn(look, typing_facts(typing), t, own, false)),
         look,
         Align.Fill,
     ),
@@ -189,9 +191,10 @@ fun bare(t: Theme): Styling[] = [
     ]),
 ];
 
-/** A look's styles, with the `checked` look laid over when the node is checked. */
+/** A look's styles, with the `checked` look laid over when the node is checked, and what a screen reader hears. */
 fun drawn(look: Look, facts: Facts, t: Theme, own: Own, pressable: bool): Styling[] {
-    let base = styles_of(resolve_for(look, t, own, pressable));
+    let mut base = styles_of(resolve_for(look, t, own, pressable));
+    base.push(heard(facts));
     if facts.checked != Some(true) {
         return base;
     }
@@ -232,6 +235,36 @@ fun typing_box(f: Typing, t: Theme): View<Msg> {
     };
     if change.is_none() { submitting.disabled(true) } else { submitting }
 }
+
+/**
+ * What a screen reader hears for a node (kivuli 0.59, DECISION-050): the
+ * app's role, its checked and selected state, and its label.
+ *
+ * Example:
+ *     heard(facts)
+ */
+fun heard(f: Facts): Accessible {
+    let role = match f.role {
+        Some(Button) => Spoken.Button,
+        Some(Checkbox) => Spoken.Checkbox,
+        Some(Switch) => Spoken.Switch,
+        Some(Tab) => Spoken.Tab,
+        Some(TabList) => Spoken.TabList,
+        Some(Heading) => Spoken.Heading,
+        Some(List) => Spoken.List,
+        Some(ListItem) => Spoken.ListItem,
+        Some(Group) => Spoken.Group,
+        Some(Separator) => Spoken.Separator,
+        None => Spoken.Theme,
+    };
+    Accessible { role: role, checked: f.checked, selected: f.selected, label: f.label }
+}
+
+/** A typing box's: heard by its label, else its placeholder, as it's named (DECISION-056). */
+fun typing_facts(f: Typing): Facts = Facts {
+    label: Some(f.label.unwrap_or(f.placeholder)),
+    ..facts_none(),
+};
 
 /** No role, no state: for nodes that can't have them. */
 fun facts_none(): Facts = Facts {

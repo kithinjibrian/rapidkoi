@@ -405,21 +405,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
-### DECISION-050 — Screen readers need accessible roles from kivuli
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 1)
-**Raised:** 2026-10-23 — Session 198 (PRP-037: roles in contract 5)
-
-**Question:** Contract 5 lets any node say what it is (`role`, `checked`, `selected`, `label`), so a library-built checkbox can read as "Buy milk, checkbox, ticked". kivuli 0.54 can't set a GTK accessible role, state or label on a node.
-
-**Meanwhile:** roles drive what Rapidkoi does itself: focus, pressing by keyboard, the `Checked` look. A screen reader hears what GTK infers from the widget. No workaround through visible text.
-
-**Revisit when:** kivuli sets accessible roles and states; then they're passed through with no contract change.
-
-**Typing boxes (the owner, 2026-10-24):** contract 5 gives an `input` no `label`, and Rapidkoi's `Typing` has none, so an app's label on a typing box (the SDK lets it write one) is ignored. When kivuli lands accessible labels, typing boxes gain `label` in the contract (a DECISIONS entry and a version bump) and it's passed through with the rest.
-
----
-
 ### DECISION-047 — Share needs a clipboard command (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 2)
@@ -700,6 +685,23 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-050 — Screen readers need accessible roles from kivuli
+
+**Status:** resolved (kivuli 0.59, 2026-10-25)
+**Raised:** 2026-10-23 — Session 198 (PRP-037: roles in contract 5)
+
+**Question:** Contract 5 lets any node say what it is (`role`, `checked`, `selected`, `label`), so a library-built checkbox can read as "Buy milk, checkbox, ticked". kivuli 0.54 can't set a GTK accessible role, state or label on a node.
+
+**Meanwhile:** roles drive what Rapidkoi does itself: focus, pressing by keyboard, the `Checked` look. A screen reader hears what GTK infers from the widget. No workaround through visible text.
+
+**Revisit when:** kivuli sets accessible roles and states; then they're passed through with no contract change.
+
+**Typing boxes (the owner, 2026-10-24):** contract 5 gives an `input` no `label`, and Rapidkoi's `Typing` has none, so an app's label on a typing box (the SDK lets it write one) is ignored. When kivuli lands accessible labels, typing boxes gain `label` in the contract (a DECISIONS entry and a version bump) and it's passed through with the rest.
+
+**Outcome:** kivuli 0.59's `Accessible` style: `ui.render.heard` gives each box and text the app's role, checked, selected and label; a typing box is heard by its label (else its placeholder), a picture by its label.
+
+---
 
 ### DECISION-014 — Running two apps at once (kivuli single-instance)
 

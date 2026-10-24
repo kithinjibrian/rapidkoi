@@ -1,14 +1,24 @@
 // Rendering, pure: decoded trees become kivuli views, checked through
 // kivuli.testing with no display.
 
-import rapidkoi.ui.render { Msg, screen, stopped, drawn_on_box, one_way, Flow, flow_of };
+import rapidkoi.ui.render {
+    Msg,
+    screen,
+    stopped,
+    drawn_on_box,
+    one_way,
+    Flow,
+    flow_of,
+    heard,
+    typing_facts,
+};
 import rapidkoi.ui.schemes { DARK };
 import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, submit, texts };
 import rapidkoi.guest.nodes { Look, Facts, Role, Colour, Typing, Node, Axis };
 import rapidkoi.guest.styles { plain, read_style };
 import rapidkoi.guest.roles { no_facts };
 import support { t, kv };
-import kivuli { View, Overflow };
+import kivuli { View, Overflow, Accessible, Role as Spoken };
 import cbor { Value };
 
 @test
@@ -189,4 +199,55 @@ fun a_box_scrolls_only_the_way_it_says() {
 fun a_text_wraps_unless_it_s_truncated() {
     assert_eq(flow_of(plain()) == Flow.Wrap, true);
     assert_eq(flow_of(Look { truncate: true, ..plain() }) == Flow.Truncate, true);
+}
+
+@test
+fun what_a_screen_reader_hears_is_the_app_s_role_state_and_label() {
+    // kivuli 0.59 (DECISION-050): roles, checked, selected and label reach GTK's accessibility.
+    let facts = Facts {
+        role: Some(Role.Checkbox),
+        checked: Some(true),
+        selected: None,
+        disabled: false,
+        label: Some("Done"),
+    };
+    assert_eq(
+        heard(facts) == Accessible {
+            role: Spoken.Checkbox,
+            checked: Some(true),
+            selected: None,
+            label: Some("Done"),
+        },
+        true,
+    );
+    let item = Facts {
+        role: Some(Role.ListItem),
+        checked: None,
+        selected: Some(false),
+        disabled: false,
+        label: None,
+    };
+    assert_eq(
+        heard(item) == Accessible {
+            role: Spoken.ListItem,
+            selected: Some(false),
+            ..Accessible.theme(),
+        },
+        true,
+    );
+    assert_eq(heard(no_facts()) == Accessible.theme(), true);
+}
+
+@test
+fun a_typing_box_is_heard_by_its_label_else_its_placeholder() {
+    let f = Typing {
+        value: "",
+        placeholder: "Search",
+        label: Some("Search notes"),
+        lines: 1,
+        on_change: None,
+        on_submit: None,
+    };
+    assert_eq(typing_facts(f).label, Some("Search notes"));
+    assert_eq(typing_facts(Typing { label: None, ..f }).label, Some("Search"));
 }
