@@ -356,6 +356,19 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## OPEN — Requires human input before implementation
 
+### DECISION-059 — Rapidkoi crashes on a screen nested about 13 deep (lughac, kivuli)
+
+**Status:** deferred (reported: `docs/specs/lughac-stack-frames.md`)
+**Raised:** 2026-10-24, opening Notes 0.3.0
+
+**Question:** kivuli's `resolve` uses 289 KB of stack a call in Rapidkoi's `./main` (lughac's `-O 0`; 122 KB at `-O 2`), and a screen costs two or three calls a level, so about 13 levels of nesting overflow the 8 MB main stack and Rapidkoi segfaults. Apps may nest 64 deep: any app can crash the shell. The fix is lughac's (frames that don't grow with every `match` arm's temporaries) or kivuli's (boxing `Style` in `View`, or walking without deep recursion). What does Rapidkoi do until then?
+
+**Options:** (a) nothing in Rapidkoi: wait for lughac or kivuli; Notes can't be opened meanwhile. (b) build `./main` with `-O 2` (frames 122 KB: about 30 levels), as a build setting, until the fix. (c) (b) and lower `MAX_NODE_DEPTH` for now. Any of these leaves the root cause to lughac and kivuli.
+
+**Meanwhile (the owner: (b)):** `./main` is built with `lughac build -O 2` (CLAUDE.md, the scripts): about 30 levels fit, so Notes opens. An app nesting deeper still crashes the shell until lughac or kivuli is fixed; nothing else is worked around.
+
+---
+
 ### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
 
 **Status:** open (parked by the owner, session 189)
@@ -369,6 +382,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## DEFERRED — Acknowledged, not yet needed
+
+### DECISION-061 — A box with a maximum width can't be centred (kivuli)
+
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 10)
+**Raised:** 2026-10-24, Notes 0.3.3
+
+**Question:** An app's `max_width` with `align: center` should give a box as much room as there is, at most its maximum, in the middle. kivuli's clamp puts its child at the start, and a centred one shrinks to its content's natural width: Notes' note wrapped in a narrow strip.
+
+**Meanwhile (the owner):** apps' maximum-width boxes fill from the start; Notes doesn't centre its note. Nothing is worked around.
+
+---
 
 ### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
 
@@ -688,6 +712,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-060 — An app's long text: wraps, or is truncated
+
+**Status:** resolved (the owner, 2026-10-24)
+**Raised:** 2026-10-24, Notes 0.3.0: a long preview pushed its 296 px list wider
+
+**Question:** An app's text was one unwrapped line, and GTK never lets a box be narrower than its widest line, so long text pushed its box (and the window) wider. Apps lay themselves out (PRP-046), so they need to say what long text does.
+
+**Outcome:** as on the web, text wraps to its box's width; a new style key `truncate: true` keeps it on one line, cut with "…" (kivuli's `.wrap()` and `.ellipsize()`). Contract 7 isn't released, so no version bump; the SDK gets `Text::truncate()`.
+
+---
 
 ### DECISION-054 — Knowing when Rapidkoi's window comes back to the front (kivuli)
 

@@ -28,7 +28,7 @@ Where things are recorded: **DECISIONS.md** (every decision and its why: core de
 - Anything that opens a GTK window starts with `if !has_display() { skip("no display"); }`.
 - The shell's tests never need Rust: stand-in apps are WebAssembly text in `test/support.la` (`counting()` for a real-looking one).
 - **Run the headless tests yourself** while working (the files covering the change), and the full suite before saying a task is done. The owner checks anything visual: never claim something looks or works on screen because it compiled.
-- A task is done when `lughac fmt --check src test` is clean, `lughac test test/` passes (skips only for "no display"), and `lughac build src/main.la -o main` succeeds.
+- A task is done when `lughac fmt --check src test` is clean, `lughac test test/` passes (skips only for "no display"), and `lughac build -O 2 src/main.la -o main` succeeds.
 
 ## SECURITY — NON-NEGOTIABLE
 
@@ -54,7 +54,7 @@ Never read, modify or delete: `.env` and `.env.*`; `lugha.lock` (written only by
 
 ```bash
 lughac check src/main.la              # type-check
-lughac build src/main.la -o main      # build ./main (needs gtk4 via pkg-config)
+lughac build -O 2 src/main.la -o main # build ./main (needs gtk4 via pkg-config); -O 2 until DECISION-059 is fixed upstream
 lughac test test/                     # every @test (or name files: lughac test test/tabs.la)
 lughac fmt --check src test           # formatting; drop --check to rewrite
 lughac update src/main.la             # re-resolve git packages (rewrites lugha.lock)

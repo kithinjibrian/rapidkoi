@@ -13,6 +13,7 @@ Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fi
 7. [Bug: a drop-down inside a popover breaks the popover's dismissal](#7-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
 8. [Bug: a picture's `.size(n)` doesn't cap it](#8-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
 9. [Pictures: WebP, larger pictures, and a decode that fails](#9-pictures-webp-larger-pictures-and-a-decode-that-fails) (DECISION-058)
+10. [A box with a maximum width, centred](#10-a-box-with-a-maximum-width-centred) (DECISION-061)
 
 ---
 
@@ -215,3 +216,15 @@ DECISION-058 (PRP-047).
 3. **Knowing a picture failed to decode**: a message, for example `image(img).on_error(fun(why: string) = Msg.Broken(why))`, sent when the texture can't be made (the `GError` from `gdk_texture_new_from_bytes`).
 
 **How Rapidkoi will use it.** `net.downloads.checked` lets WebP and larger pictures through; `ui.pictured` passes `on_error` through, and a failed decode is kept as gone and sent to the app as its `on_fail`. No contract change: only fewer refusals.
+
+---
+
+## 10. A box with a maximum width, centred
+
+DECISION-061 (2026-10-24, Notes 0.3.3).
+
+**What Rapidkoi needs.** An app's box can say `max_width` and `align: center`: as wide as there's room for, at most that, in the middle (CSS's `max-width` with `margin: 0 auto`). Notes centres its note in a column at most 680 px wide. kivuli draws a maximum size with lugha-gtk's clamp (`src/c/clamp.c`), which allocates its child at (0, 0): a clamp wider than its maximum leaves the child at the start, and a centred node's clamp gets its natural width, so a column of wrapping text shrinks to a narrow strip.
+
+**What to add.** When the node is centred (or always, as libadwaita's `AdwClamp` does), a clamp given more room than its maximum allocates its child at the maximum and centres it in that room: in `lgtk_clamp_size_allocate`, `gtk_widget_allocate(child, w, h, -1, transform)` with the child translated by `(width - w) / 2` (and `(height - h) / 2` for a maximum height), and the clamp keeps its parent's fill and expand rather than taking the node's `center`.
+
+**How Rapidkoi will use it.** Nothing changes in Rapidkoi: `ui.render` already passes `max_width` and `align`. Notes puts `Layout::align(Align::Center)` back on its note's column (its DECISION-004).

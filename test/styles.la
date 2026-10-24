@@ -189,3 +189,15 @@ fun scroll_reads_each_axis() {
         "style.hover.scroll only goes on a box's own look",
     );
 }
+
+@test
+fun truncate_reads_and_text_wraps_otherwise() {
+    // The owner, 2026-10-24: text wraps to its box; `truncate` keeps it one line with "…".
+    assert_eq(plain().truncate, false);
+    let l = read_style(Some(kv([("truncate", Value.Bool(true))])), "root > text").unwrap();
+    assert_eq(l.truncate, true);
+    assert_eq(
+        read_style(Some(kv([("truncate", t("yes"))])), "root > text").map(fun(_l) = ()),
+        Err(ContractError.Invalid("root > text", "style.truncate must be true or false")),
+    );
+}

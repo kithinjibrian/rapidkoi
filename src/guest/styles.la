@@ -66,6 +66,7 @@ fun plain(): Look = Look {
     weight: None,
     font: None,
     italic: false,
+    truncate: false,
     scroll: None,
     states: [],
 };
@@ -172,6 +173,8 @@ fun look(entries: Entry[], here: string, at: string, top: bool): Result<Look, Co
             l = Look { grow: flag(v, here, name)?, ..l };
         } else if key == "italic" {
             l = Look { italic: flag(v, here, name)?, ..l };
+        } else if key == "truncate" {
+            l = Look { truncate: flag(v, here, name)?, ..l };
         } else if key == "width" {
             l = Look { width: Some(size(v, here, name)?), ..l };
         } else if key == "height" {

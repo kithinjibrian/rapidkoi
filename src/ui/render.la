@@ -74,7 +74,7 @@ fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
     Unsupported(kind) => text("Unsupported component: {kind}").style(dim(t)).align(Align.Start),
     Boxed(look, facts, press, kids) => boxed(look, facts, press, kids, t, own),
     Words(s, look, facts) => placed(
-        text(s).style(body(t) + drawn(look, facts, t, own, false)),
+        flowing(text(s), look).style(body(t) + drawn(look, facts, t, own, false)),
         look,
         Align.Start,
     ),
@@ -147,6 +147,21 @@ fun one_way(axis: Axis): Option<Overflow> = match axis {
     Vertical => Some(Overflow.scroll_y()),
     Horizontal => Some(Overflow.scroll_x()),
     Both => None,
+};
+
+/** How an app's text fits its box: wrapped to its width, or one line cut with "…". */
+enum Flow {
+    Wrap,
+    Truncate,
+}
+
+/** A text's flow, as its look says: wrapping, as on the web, unless it's truncated. */
+fun flow_of(look: Look): Flow = if look.truncate { Flow.Truncate } else { Flow.Wrap };
+
+/** A text set to flow as its look says, so it never pushes its box wider. */
+fun flowing<M>(v: View<M>, look: Look): View<M> = match flow_of(look) {
+    Wrap => v.wrap(),
+    Truncate => v.ellipsize(),
 };
 
 /** What a box draws on itself: its gap is its children's, and a scrolling box's padding scrolls with them. */
