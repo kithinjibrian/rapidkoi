@@ -10954,3 +10954,7 @@ From chat with the owner (drawing on Android, what to build next, then the clean
 ```
 PRPs/prp-042-repo_cleanup.md, CONTEXT.md
 ```
+
+## SESSION 216 — 2026-10-24 — PRP-042 approved: the wat_to_wasm request to lugha-wasmtime — open
+
+Branch: prp-017-kivuli_0_17
