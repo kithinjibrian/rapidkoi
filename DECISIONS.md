@@ -356,19 +356,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## OPEN — Requires human input before implementation
 
-### DECISION-059 — Rapidkoi crashes on a screen nested about 13 deep (lughac, kivuli)
-
-**Status:** deferred (reported: `docs/specs/lughac-stack-frames.md`)
-**Raised:** 2026-10-24, opening Notes 0.3.0
-
-**Question:** kivuli's `resolve` uses 289 KB of stack a call in Rapidkoi's `./main` (lughac's `-O 0`; 122 KB at `-O 2`), and a screen costs two or three calls a level, so about 13 levels of nesting overflow the 8 MB main stack and Rapidkoi segfaults. Apps may nest 64 deep: any app can crash the shell. The fix is lughac's (frames that don't grow with every `match` arm's temporaries) or kivuli's (boxing `Style` in `View`, or walking without deep recursion). What does Rapidkoi do until then?
-
-**Options:** (a) nothing in Rapidkoi: wait for lughac or kivuli; Notes can't be opened meanwhile. (b) build `./main` with `-O 2` (frames 122 KB: about 30 levels), as a build setting, until the fix. (c) (b) and lower `MAX_NODE_DEPTH` for now. Any of these leaves the root cause to lughac and kivuli.
-
-**Meanwhile (the owner: (b)):** `./main` is built with `lughac build -O 2` (CLAUDE.md, the scripts): about 30 levels fit, so Notes opens. An app nesting deeper still crashes the shell until lughac or kivuli is fixed; nothing else is worked around.
-
----
-
 ### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
 
 **Status:** open (parked by the owner, session 189)
@@ -383,20 +370,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## DEFERRED — Acknowledged, not yet needed
 
-### DECISION-061 — A box with a maximum width can't be centred (kivuli)
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 10)
-**Raised:** 2026-10-24, Notes 0.3.3
-
-**Question:** An app's `max_width` with `align: center` should give a box as much room as there is, at most its maximum, in the middle. kivuli's clamp puts its child at the start, and a centred one shrinks to its content's natural width: Notes' note wrapped in a narrow strip.
-
-**Meanwhile (the owner):** apps' maximum-width boxes fill from the start; Notes doesn't centre its note. Nothing is worked around.
-
----
-
 ### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 9)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 6)
 **Raised:** 2026-10-24, PRP-047
 
 **Question:** DECISION-056 Q3 agreed PNG, JPEG and WebP from servers, up to 8,000 px a side and 40 MP, and `on_fail` for every picture that can't be shown. kivuli 0.54 shows PNG, JPEG and SVG only, up to 4,096 × 4,096 px and 16 MB, and shows nothing, silently, for one it can't decode.
@@ -424,7 +400,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-043 — The instance strip can't adapt to the window's width (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 6)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 3)
 **Raised:** 2026-10-23 — Session 177 (the owner's screenshot: a narrower window shifts the address box and won't shrink further; "keep taking off instances and putting them in the more menu")
 
 **Question:** For the strip to move pills into ⋯ as the window narrows, Rapidkoi needs the window's width, or a kivuli row that shows what fits and reports the rest. kivuli 0.54 has neither.
@@ -437,7 +413,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-042 — Several Rapidkoi windows (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 5)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 2)
 **Raised:** 2026-10-23 — Session 177 (PRP-033; the owner: people who want two instances side by side "can open multiple windows")
 
 **Question:** A second `./main` only raises the first window (DECISION-014): kivuli makes the GTK application single-instance. Should kivuli support several windows in one program (one model, a view per window), or let a second launch run separately?
@@ -450,7 +426,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-040 — A drop-down inside a popover breaks the popover's dismissal (kivuli)
 
-**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 7)
+**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 4)
 **Raised:** 2026-10-22 — Session 172 (the owner: after changing a permission in ⚙'s card, it couldn't be dismissed; the owner's run of a kivuli-only repro: "it's stuck here too")
 
 **Question:** After a pick in a `ui.dropdown` inside a `popover`, a click inside the window and Escape no longer close the popover. Only a click on another surface does, and kivuli's model and the widget drift apart. kivuli 0.54, no Rapidkoi code in the repro.
@@ -505,7 +481,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-034 — A picture's `.size(n)` doesn't cap it (kivuli)
 
-**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 8; Rapidkoi uses kivuli's documented exact `Sizing` meanwhile)
+**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 5; Rapidkoi uses kivuli's documented exact `Sizing` meanwhile)
 **Raised:** 2026-10-21 — Session 104 (the owner's screenshot: the header's icons far bigger than `HEADER_ICON`)
 
 **Question:** kivuli 0.48's README says `.size(n)` on a picture is "an n × n box", but `render/styling.la` applies it as GTK's size request, a minimum, so an SVG (the Iconsax icons) draws at its own larger size. Should kivuli make `.size(n)` a box (a clamp, as an exact `Sizing` gets)?
@@ -623,7 +599,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-020 — What kivuli needs for Rapidkoi's frame
 
-**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018; the file dialog requested: `docs/specs/kivuli-requests.md` § 4)
+**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018; the file dialog requested: `docs/specs/kivuli-requests.md` § 1)
 **Raised:** 2026-10-17 — Session 10
 **Revisit when:** Each kivuli release. Swap the matching placeholder out.
 
@@ -671,6 +647,34 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-061 — A box with a maximum width can't be centred (kivuli)
+
+**Status:** resolved (kivuli 0.62, 2026-10-25)
+**Raised:** 2026-10-24, Notes 0.3.3
+
+**Question:** An app's `max_width` with `align: center` should give a box as much room as there is, at most its maximum, in the middle. kivuli's clamp puts its child at the start, and a centred one shrinks to its content's natural width: Notes' note wrapped in a narrow strip.
+
+**Meanwhile (the owner):** apps' maximum-width boxes fill from the start; Notes doesn't centre its note. Nothing is worked around.
+
+**Outcome:** kivuli 0.62 (PRP-066): a node with a maximum size and an alignment other than fill is as big as there's room for, up to its maximum, where its alignment says. Nothing changes in Rapidkoi; Notes centres its note again.
+
+---
+
+### DECISION-059 — Rapidkoi crashes on a screen nested about 13 deep (lughac, kivuli)
+
+**Status:** resolved (lughac PRP-167, 2026-10-25)
+**Raised:** 2026-10-24, opening Notes 0.3.0
+
+**Question:** kivuli's `resolve` uses 289 KB of stack a call in Rapidkoi's `./main` (lughac's `-O 0`; 122 KB at `-O 2`), and a screen costs two or three calls a level, so about 13 levels of nesting overflow the 8 MB main stack and Rapidkoi segfaults. Apps may nest 64 deep: any app can crash the shell. The fix is lughac's (frames that don't grow with every `match` arm's temporaries) or kivuli's (boxing `Style` in `View`, or walking without deep recursion). What does Rapidkoi do until then?
+
+**Options:** (a) nothing in Rapidkoi: wait for lughac or kivuli; Notes can't be opened meanwhile. (b) build `./main` with `-O 2` (frames 122 KB: about 30 levels), as a build setting, until the fix. (c) (b) and lower `MAX_NODE_DEPTH` for now. Any of these leaves the root cause to lughac and kivuli.
+
+**Meanwhile (the owner: (b)):** `./main` is built with `lughac build -O 2` (CLAUDE.md, the scripts): about 30 levels fit, so Notes opens. An app nesting deeper still crashes the shell until lughac or kivuli is fixed; nothing else is worked around.
+
+**Outcome:** lughac's PRP-167 (milestone 135): stack slots shared between `match` arms, and stack probes, so running out of stack panics with `stack overflow` instead of a segfault. Measured on `./main` (2026-10-25): `resolve` 73 KB at `-O 0` (was 289 KB), 51 KB at `-O 2` (was 122 KB). `./main` stays built with `-O 2` (the owner): a 64-deep screen needs about 7 MB of the 8 MB stack, by estimate; drawing one is for the owner to check.
+
+---
 
 ### DECISION-047 — Share needs a clipboard command (kivuli)
 

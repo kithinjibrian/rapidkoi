@@ -4,82 +4,16 @@ Everything Rapidkoi needs from kivuli and doesn't have yet, in one place, most u
 
 Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fit-and-scroll-to.md` (0.53, 0.54).
 
-1. [Accessible roles, states and labels on any node](#1-accessible-roles-states-and-labels-on-any-node) (DECISION-050)
-2. [Writing text to the clipboard](#2-writing-text-to-the-clipboard) (DECISION-047)
-3. [Application flags: opening from outside, not single-instance](#3-application-flags-opening-from-outside-not-single-instance) (DECISION-014)
-4. [A file dialog](#4-a-file-dialog) (DECISION-020)
-5. [More than one window of one app](#5-more-than-one-window-of-one-app) (DECISION-042)
-6. [Knowing what fits: the window's width, or a row that overflows](#6-knowing-what-fits-the-windows-width-or-a-row-that-overflows) (DECISION-043)
-7. [Bug: a drop-down inside a popover breaks the popover's dismissal](#7-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
-8. [Bug: a picture's `.size(n)` doesn't cap it](#8-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
-9. [Pictures: WebP, larger pictures, and a decode that fails](#9-pictures-webp-larger-pictures-and-a-decode-that-fails) (DECISION-058)
-10. [A box with a maximum width, centred](#10-a-box-with-a-maximum-width-centred) (DECISION-061)
+1. [A file dialog](#1-a-file-dialog) (DECISION-020)
+2. [More than one window of one app](#2-more-than-one-window-of-one-app) (DECISION-042)
+3. [Knowing what fits: the window's width, or a row that overflows](#3-knowing-what-fits-the-windows-width-or-a-row-that-overflows) (DECISION-043)
+4. [Bug: a drop-down inside a popover breaks the popover's dismissal](#4-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
+5. [Bug: a picture's `.size(n)` doesn't cap it](#5-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
+6. [Pictures: WebP, larger pictures, and a decode that fails](#6-pictures-webp-larger-pictures-and-a-decode-that-fails) (DECISION-058)
 
 ---
 
-## 1. Accessible roles, states and labels on any node
-
-DECISION-050 (session 198, PRP-037).
-
-**What Rapidkoi needs.** Rapidkoi's apps build widgets from styled boxes: a checkbox is a small styled square and a text inside a pressable box. Rapidkoi knows what it is, because the app says so (`role: checkbox, checked: true`). A screen reader doesn't: kivuli gives GTK no way to hear it, so it announces "button" instead of "Buy milk, checkbox, ticked". Typing boxes need a label too ("Search notes").
-
-**What to add.** Modifiers that set a node's accessible role, state and label, mapped onto GTK 4's `GtkAccessible`:
-
-```
-// Suggested API (kivuli's to decide)
-button_with(row([square, text("Buy milk")]), Msg.Toggle(3))
-    .role(Role.Checkbox)        // GTK_ACCESSIBLE_ROLE_CHECKBOX (at construction)
-    .checked(true)              // gtk_accessible_update_state(GTK_ACCESSIBLE_STATE_CHECKED)
-    .label("Buy milk")          // gtk_accessible_update_property(GTK_ACCESSIBLE_PROPERTY_LABEL)
-```
-
-Roles first: button, checkbox, switch, tab, tab list, heading, list, list item, group, separator. States: checked, selected, disabled. A label on text fields and text areas as well as boxes. A role is fixed when a widget is made (`accessible-role` is construct-only in GTK 4), so a node whose role changes is rebuilt.
-
-**How Rapidkoi will use it.** `ui.render` passes each contract 5 node's `role`, `checked`, `selected` and `label` straight through; typing boxes gain `label` in the contract then (a version bump, Rapidkoi's own).
-
----
-
-## 2. Writing text to the clipboard
-
-DECISION-047 (session 193, PRP-036).
-
-**What Rapidkoi needs.** Every app window has a link (`https://counter.dafifi.net/@0.3.0?count=3`). The address box shows it, and a share button beside it should copy it. kivuli 0.54 can't put text on the clipboard, and Rapidkoi doesn't reach past kivuli to GTK, so share stays disabled.
-
-**What to add.** A command that sets the clipboard's text, used from `update` like any other effect:
-
-```
-// Suggested API (kivuli's to decide)
-Msg.Share => (m, Cmd.copy_text(link)),
-```
-
-GTK 4: `gdk_display_get_clipboard(gdk_display_get_default())`, then `gdk_clipboard_set_text(clipboard, text)`. Reading the clipboard isn't needed: pasting into a field already works.
-
-**How Rapidkoi will use it.** `Msg.Share` copies `ui.frame.address_of(page)`, and the button is enabled.
-
----
-
-## 3. Application flags: opening from outside, not single-instance
-
-DECISION-014.
-
-**What Rapidkoi needs.** kivuli starts GTK with `gtk_application_new(program.id, 0)` (`src/render/live.la:109`). With no flags, GApplication is single-instance: a second `./main other.rkb` (or `./main rapidkoi://notes.dafifi.net`) finds the first one on D-Bus, raises its window, and the app it named is dropped. So opening an app from outside a running Rapidkoi (a terminal, a launcher, a `rapidkoi://` link in another program) only raises the window, and Rapidkoi can't run twice side by side.
-
-**What to add.** Let a program pass `GApplicationFlags`, and hand it what it's asked to open:
-
-```
-// Suggested API (kivuli's to decide)
-application(id, init, update, view)
-    .flags([AppFlag.HandlesOpen])          // or AppFlag.NonUnique
-    .on_open(fun(uris: string[]) = Msg.Open(uris))
-```
-
-GLib (`gio/gioenums.h`): `G_APPLICATION_HANDLES_OPEN` (1 << 2) delivers a second launch's arguments to the first instance's `open` signal (`GApplication::open`, a `GFile` array, `g_file_get_uri`); `G_APPLICATION_NON_UNIQUE` (1 << 5) makes each launch its own instance.
-
-**How Rapidkoi will use it.** `HANDLES_OPEN`: a second launch's address or file opens in the running window, in a new tab, as if typed in the address box. Registering the `rapidkoi://` scheme with the desktop (`MimeType=x-scheme-handler/rapidkoi`) is Rapidkoi's packaging, later. No contract change.
-
----
-
-## 4. A file dialog
+## 1. A file dialog
 
 DECISION-020 (and DECISION-018's placeholders).
 
@@ -98,7 +32,7 @@ GTK 4.10+ (`gtk/gtkfiledialog.h`; GTK 4.22 here): `gtk_file_dialog_new`, `gtk_fi
 
 ---
 
-## 5. More than one window of one app
+## 2. More than one window of one app
 
 DECISION-042 (session 177).
 
@@ -112,7 +46,7 @@ Option 1 fits Rapidkoi better: instances, pins and trust stay one model.
 
 ---
 
-## 6. Knowing what fits: the window's width, or a row that overflows
+## 3. Knowing what fits: the window's width, or a row that overflows
 
 DECISION-043 (session 177).
 
@@ -126,7 +60,7 @@ Either is enough.
 
 ---
 
-## 7. Bug: a drop-down inside a popover breaks the popover's dismissal
+## 4. Bug: a drop-down inside a popover breaks the popover's dismissal
 
 DECISION-040 (session 172).
 
@@ -192,7 +126,7 @@ fun main(): i32 = application(App {
 
 ---
 
-## 8. Bug: a picture's `.size(n)` doesn't cap it
+## 5. Bug: a picture's `.size(n)` doesn't cap it
 
 DECISION-034.
 
@@ -204,7 +138,7 @@ DECISION-034.
 
 ---
 
-## 9. Pictures: WebP, larger pictures, and a decode that fails
+## 6. Pictures: WebP, larger pictures, and a decode that fails
 
 DECISION-058 (PRP-047).
 
@@ -216,15 +150,3 @@ DECISION-058 (PRP-047).
 3. **Knowing a picture failed to decode**: a message, for example `image(img).on_error(fun(why: string) = Msg.Broken(why))`, sent when the texture can't be made (the `GError` from `gdk_texture_new_from_bytes`).
 
 **How Rapidkoi will use it.** `net.downloads.checked` lets WebP and larger pictures through; `ui.pictured` passes `on_error` through, and a failed decode is kept as gone and sent to the app as its `on_fail`. No contract change: only fewer refusals.
-
----
-
-## 10. A box with a maximum width, centred
-
-DECISION-061 (2026-10-24, Notes 0.3.3).
-
-**What Rapidkoi needs.** An app's box can say `max_width` and `align: center`: as wide as there's room for, at most that, in the middle (CSS's `max-width` with `margin: 0 auto`). Notes centres its note in a column at most 680 px wide. kivuli draws a maximum size with lugha-gtk's clamp (`src/c/clamp.c`), which allocates its child at (0, 0): a clamp wider than its maximum leaves the child at the start, and a centred node's clamp gets its natural width, so a column of wrapping text shrinks to a narrow strip.
-
-**What to add.** When the node is centred (or always, as libadwaita's `AdwClamp` does), a clamp given more room than its maximum allocates its child at the maximum and centres it in that room: in `lgtk_clamp_size_allocate`, `gtk_widget_allocate(child, w, h, -1, transform)` with the child translated by `(width - w) / 2` (and `(height - h) / 2` for a maximum height), and the clamp keeps its parent's fill and expand rather than taking the node's `center`.
-
-**How Rapidkoi will use it.** Nothing changes in Rapidkoi: `ui.render` already passes `max_width` and `align`. Notes puts `Layout::align(Align::Center)` back on its note's column (its DECISION-004).

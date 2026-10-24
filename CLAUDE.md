@@ -54,7 +54,7 @@ Never read, modify or delete: `.env` and `.env.*`; `lugha.lock` (written only by
 
 ```bash
 lughac check src/main.la              # type-check
-lughac build -O 2 src/main.la -o main # build ./main (needs gtk4 via pkg-config); -O 2 until DECISION-059 is fixed upstream
+lughac build -O 2 src/main.la -o main # build ./main (needs gtk4 via pkg-config); -O 2 for smaller stack frames (DECISION-059)
 lughac test test/                     # every @test (or name files: lughac test test/tabs.la)
 lughac fmt --check src test           # formatting; drop --check to rewrite
 lughac update src/main.la             # re-resolve git packages (rewrites lugha.lock)
