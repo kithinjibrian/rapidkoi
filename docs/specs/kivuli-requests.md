@@ -4,56 +4,19 @@ Everything Rapidkoi needs from kivuli and doesn't have yet, in one place, most u
 
 Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fit-and-scroll-to.md` (0.53, 0.54).
 
-1. [A placeholder in a text area](#1-a-placeholder-in-a-text-area) (DECISION-055)
-2. [Knowing when the window comes back to the front](#2-knowing-when-the-window-comes-back-to-the-front) (DECISION-054)
-3. [Accessible roles, states and labels on any node](#3-accessible-roles-states-and-labels-on-any-node) (DECISION-050)
-4. [Writing text to the clipboard](#4-writing-text-to-the-clipboard) (DECISION-047)
-5. [Application flags: opening from outside, not single-instance](#5-application-flags-opening-from-outside-not-single-instance) (DECISION-014)
-6. [A file dialog](#6-a-file-dialog) (DECISION-020)
-7. [More than one window of one app](#7-more-than-one-window-of-one-app) (DECISION-042)
-8. [Knowing what fits: the window's width, or a row that overflows](#8-knowing-what-fits-the-windows-width-or-a-row-that-overflows) (DECISION-043)
-9. [Bug: a drop-down inside a popover breaks the popover's dismissal](#9-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
-10. [Bug: a picture's `.size(n)` doesn't cap it](#10-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
-11. [A container that clips, and says how far its content overflows](#11-a-container-that-clips-and-says-how-far-its-content-overflows) (DECISION-057)
-12. [Scrolling one way only](#12-scrolling-one-way-only) (DECISION-057)
-13. [Pictures: WebP, larger pictures, and a decode that fails](#13-pictures-webp-larger-pictures-and-a-decode-that-fails) (DECISION-058)
+1. [Accessible roles, states and labels on any node](#1-accessible-roles-states-and-labels-on-any-node) (DECISION-050)
+2. [Writing text to the clipboard](#2-writing-text-to-the-clipboard) (DECISION-047)
+3. [Application flags: opening from outside, not single-instance](#3-application-flags-opening-from-outside-not-single-instance) (DECISION-014)
+4. [A file dialog](#4-a-file-dialog) (DECISION-020)
+5. [More than one window of one app](#5-more-than-one-window-of-one-app) (DECISION-042)
+6. [Knowing what fits: the window's width, or a row that overflows](#6-knowing-what-fits-the-windows-width-or-a-row-that-overflows) (DECISION-043)
+7. [Bug: a drop-down inside a popover breaks the popover's dismissal](#7-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
+8. [Bug: a picture's `.size(n)` doesn't cap it](#8-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
+9. [Pictures: WebP, larger pictures, and a decode that fails](#9-pictures-webp-larger-pictures-and-a-decode-that-fails) (DECISION-058)
 
 ---
 
-## 1. A placeholder in a text area
-
-DECISION-055 (2026-10-24).
-
-**What Rapidkoi needs.** An app's typing box of several lines can say what it's for while it's empty: Notes' text box says "Write something". Contract 5 carries it (`placeholder` on an `input` with `lines` over 1), and Rapidkoi passes it on, but kivuli 0.54 applies `.placeholder` to one-line fields only: `GtkEntry` has `gtk_entry_set_placeholder_text`, and `GtkTextView` has nothing like it. An empty text area shows nothing, and on a page with no field border (Notes) there's no sign where to type.
-
-**What to add.** `.placeholder(hint)` on `text_area` showing `hint`, dimmed, while the buffer is empty, gone as soon as there's text. The view API is already there; only the drawing is missing. GTK 4 has no built-in way; two known ones:
-- a `GtkLabel` overlaid at the text view's top start (`GtkOverlay`), dimmed, hidden when the buffer's `changed` signal leaves it non-empty, and not taking the pointer (`gtk_widget_set_can_target(label, FALSE)`);
-- or drawing the text in a `snapshot` override.
-
-**How Rapidkoi will use it.** `ui.render.typing_box` already calls `text_area(…).name(placeholder)`; it adds `.placeholder(placeholder)`. No contract change.
-
----
-
-## 2. Knowing when the window comes back to the front
-
-DECISION-054 (2026-10-24, PRP-044).
-
-**What Rapidkoi needs.** Rapidkoi checks the app in front for a newer version every 15 minutes (`Sub.every`). The owner also asked for a check when Rapidkoi's window comes back to the front: someone who left it in the background for an hour sees the upgrade button as soon as they return. kivuli 0.54 can't say the window became active again.
-
-**What to add.** A subscription that sends a message when the window becomes active (and inactive):
-
-```
-// Suggested API (kivuli's to decide)
-Sub.window_active(fun(active: bool) = Msg.WindowActive(active))
-```
-
-GTK 4: `GtkWindow`'s `is-active` property: `g_signal_connect(window, "notify::is-active", …)`, reading `gtk_window_is_active(window)` (`gtk/gtkwindow.h`). The first value can be sent when the subscription starts.
-
-**How Rapidkoi will use it.** `shell.subscriptions` listens while a kept app is in front; `Msg.WindowActive(true)` runs `loads.check_current`, as `Msg.CheckForUpdates` does. No contract change.
-
----
-
-## 3. Accessible roles, states and labels on any node
+## 1. Accessible roles, states and labels on any node
 
 DECISION-050 (session 198, PRP-037).
 
@@ -75,7 +38,7 @@ Roles first: button, checkbox, switch, tab, tab list, heading, list, list item, 
 
 ---
 
-## 4. Writing text to the clipboard
+## 2. Writing text to the clipboard
 
 DECISION-047 (session 193, PRP-036).
 
@@ -94,7 +57,7 @@ GTK 4: `gdk_display_get_clipboard(gdk_display_get_default())`, then `gdk_clipboa
 
 ---
 
-## 5. Application flags: opening from outside, not single-instance
+## 3. Application flags: opening from outside, not single-instance
 
 DECISION-014.
 
@@ -115,7 +78,7 @@ GLib (`gio/gioenums.h`): `G_APPLICATION_HANDLES_OPEN` (1 << 2) delivers a second
 
 ---
 
-## 6. A file dialog
+## 4. A file dialog
 
 DECISION-020 (and DECISION-018's placeholders).
 
@@ -134,7 +97,7 @@ GTK 4.10+ (`gtk/gtkfiledialog.h`; GTK 4.22 here): `gtk_file_dialog_new`, `gtk_fi
 
 ---
 
-## 7. More than one window of one app
+## 5. More than one window of one app
 
 DECISION-042 (session 177).
 
@@ -148,7 +111,7 @@ Option 1 fits Rapidkoi better: instances, pins and trust stay one model.
 
 ---
 
-## 8. Knowing what fits: the window's width, or a row that overflows
+## 6. Knowing what fits: the window's width, or a row that overflows
 
 DECISION-043 (session 177).
 
@@ -162,7 +125,7 @@ Either is enough.
 
 ---
 
-## 9. Bug: a drop-down inside a popover breaks the popover's dismissal
+## 7. Bug: a drop-down inside a popover breaks the popover's dismissal
 
 DECISION-040 (session 172).
 
@@ -228,7 +191,7 @@ fun main(): i32 = application(App {
 
 ---
 
-## 10. Bug: a picture's `.size(n)` doesn't cap it
+## 8. Bug: a picture's `.size(n)` doesn't cap it
 
 DECISION-034.
 
@@ -240,38 +203,7 @@ DECISION-034.
 
 ---
 
-## 11. A container that clips, and says how far its content overflows
-
-DECISION-057 (PRP-046).
-
-**What Rapidkoi needs.** Rapidkoi never scrolls an app's page: an app gets exactly the window's content area and lays itself out. Content that doesn't fit must be **cut off**, never allowed to make the window bigger: in GTK a widget's minimum size pushes the window's, so today an overflowing app keeps the window from shrinking, or runs off the screen. In development, Rapidkoi also shows where it's cut (Flutter's "BOTTOM OVERFLOWED BY 42 PIXELS"), so it needs to know by how much.
-
-**What to add.**
-
-```
-// Suggested API (kivuli's to decide)
-clip(child, fun(o: Overflow) = Msg.Overflowed(o))   // Overflow { top, right, bottom, left } in pixels, 0 when it fits
-```
-
-GTK 4: a `GtkScrolledWindow` with `gtk_scrolled_window_set_policy(sw, GTK_POLICY_EXTERNAL, GTK_POLICY_EXTERNAL)` gives its child the room it has and no scrollbars, and never asks for the child's size. The overflow: `gtk_widget_measure(child, orientation, for_size, &minimum, …)` for each orientation against the container's allocation, after each size allocation; send it only when it changes.
-
-**How Rapidkoi will use it.** `ui.layout.content_area` puts a running app's view in `clip`. For an app in development (`ui.frame.in_development`), each side with overflow gets a striped band in the theme's danger red, "Bottom overflowed by 42 px"; published apps clip silently. No contract change.
-
----
-
-## 12. Scrolling one way only
-
-DECISION-057 (PRP-046).
-
-**What Rapidkoi needs.** An app's box can scroll `vertical`, `horizontal` or `both`. kivuli's `scroll` and `scroll_fit` are `GtkScrolledWindow`s with the automatic policy both ways, so a list meant to scroll up and down also scrolls sideways when something in it is wider.
-
-**What to add.** An axis on `scroll` and `scroll_fit` (`scroll_y`, `scroll_x`, or an argument): `gtk_scrolled_window_set_policy(sw, h, v)` with `GTK_POLICY_NEVER` for the other axis (the child then gets the scrolled window's width, and wraps or is cut).
-
-**How Rapidkoi will use it.** `ui.render.boxed` passes the box's `scroll` axis through. No contract change.
-
----
-
-## 13. Pictures: WebP, larger pictures, and a decode that fails
+## 9. Pictures: WebP, larger pictures, and a decode that fails
 
 DECISION-058 (PRP-047).
 

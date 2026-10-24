@@ -372,7 +372,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 13)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 9)
 **Raised:** 2026-10-24, PRP-047
 
 **Question:** DECISION-056 Q3 agreed PNG, JPEG and WebP from servers, up to 8,000 px a side and 40 MP, and `on_fail` for every picture that can't be shown. kivuli 0.54 shows PNG, JPEG and SVG only, up to 4,096 × 4,096 px and 16 MB, and shows nothing, silently, for one it can't decode.
@@ -383,7 +383,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-050 — Screen readers need accessible roles from kivuli
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 3)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 1)
 **Raised:** 2026-10-23 — Session 198 (PRP-037: roles in contract 5)
 
 **Question:** Contract 5 lets any node say what it is (`role`, `checked`, `selected`, `label`), so a library-built checkbox can read as "Buy milk, checkbox, ticked". kivuli 0.54 can't set a GTK accessible role, state or label on a node.
@@ -398,7 +398,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-047 — Share needs a clipboard command (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 4)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 2)
 **Raised:** 2026-10-23 — Session 193 (PRP-036: links)
 
 **Question:** Share should copy the window's link. kivuli 0.54 has no command that writes to the clipboard, and rapidkoi never touches GTK itself (architecture rule 2).
@@ -429,7 +429,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-043 — The instance strip can't adapt to the window's width (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 8)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 6)
 **Raised:** 2026-10-23 — Session 177 (the owner's screenshot: a narrower window shifts the address box and won't shrink further; "keep taking off instances and putting them in the more menu")
 
 **Question:** For the strip to move pills into ⋯ as the window narrows, Rapidkoi needs the window's width, or a kivuli row that shows what fits and reports the rest. kivuli 0.54 has neither.
@@ -442,7 +442,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-042 — Several Rapidkoi windows (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 7)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 5)
 **Raised:** 2026-10-23 — Session 177 (PRP-033; the owner: people who want two instances side by side "can open multiple windows")
 
 **Question:** A second `./main` only raises the first window (DECISION-014): kivuli makes the GTK application single-instance. Should kivuli support several windows in one program (one model, a view per window), or let a second launch run separately?
@@ -455,7 +455,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-040 — A drop-down inside a popover breaks the popover's dismissal (kivuli)
 
-**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 9)
+**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 7)
 **Raised:** 2026-10-22 — Session 172 (the owner: after changing a permission in ⚙'s card, it couldn't be dismissed; the owner's run of a kivuli-only repro: "it's stuck here too")
 
 **Question:** After a pick in a `ui.dropdown` inside a `popover`, a click inside the window and Escape no longer close the popover. Only a click on another surface does, and kivuli's model and the widget drift apart. kivuli 0.54, no Rapidkoi code in the repro.
@@ -510,7 +510,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-034 — A picture's `.size(n)` doesn't cap it (kivuli)
 
-**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 10; Rapidkoi uses kivuli's documented exact `Sizing` meanwhile)
+**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 8; Rapidkoi uses kivuli's documented exact `Sizing` meanwhile)
 **Raised:** 2026-10-21 — Session 104 (the owner's screenshot: the header's icons far bigger than `HEADER_ICON`)
 
 **Question:** kivuli 0.48's README says `.size(n)` on a picture is "an n × n box", but `render/styling.la` applies it as GTK's size request, a minimum, so an SVG (the Iconsax icons) draws at its own larger size. Should kivuli make `.size(n)` a box (a clamp, as an exact `Sizing` gets)?
@@ -592,7 +592,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-014 — Running two apps at once (kivuli single-instance)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 5)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 3)
 **Raised:** 2026-10-17 — Session 5
 **Revisit when:** The shell runs more than one app, or a second launch must open a second app.
 
@@ -640,7 +640,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-020 — What kivuli needs for Rapidkoi's frame
 
-**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018; the file dialog requested: `docs/specs/kivuli-requests.md` § 6)
+**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018; the file dialog requested: `docs/specs/kivuli-requests.md` § 4)
 **Raised:** 2026-10-17 — Session 10
 **Revisit when:** Each kivuli release. Swap the matching placeholder out.
 
