@@ -26,6 +26,8 @@ import kivuli {
     When,
     State,
     Palette,
+    Stop,
+    Gradient,
     Token,
     hex,
 };
@@ -331,3 +333,27 @@ fun instance_colour(t: Theme, key: string): string {
  *     at_scale(TEXT_TITLE, t)
  */
 fun at_scale(pt: i64, t: Theme): i64 = (pt as f64 * t.scale + 0.5) as i64;
+
+/**
+ * The band at an edge where an app in development is cut off (PRP-046):
+ * stripes of the theme's danger red and its darker step, across the edge.
+ */
+fun overflow_stripes(t: Theme): Styling[] {
+    let mut stops: Stop[] = [];
+    // Hard stops: each stripe begins where the last ends.
+    let count = 24;
+    for i in 0..count {
+        let colour = paint(if i % 2 == 0 { t.danger } else { t.danger_hover });
+        let from = i as f64 / count as f64;
+        let to = (i + 1) as f64 / count as f64;
+        stops.push(Stop { color: colour, at: from });
+        stops.push(Stop { color: colour, at: to });
+    }
+    [Background { gradient: Gradient.Linear(45, stops), ..Background.theme() }]
+}
+
+/** The words on that band: the danger colour's own text, on it. */
+fun overflow_label(t: Theme): Styling[] = [
+    Background { color: paint(t.danger), ..Background.theme() },
+    Text { color: paint(t.on_danger), ..Text.theme() },
+];

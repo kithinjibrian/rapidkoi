@@ -1,14 +1,14 @@
 // Rendering, pure: decoded trees become kivuli views, checked through
 // kivuli.testing with no display.
 
-import rapidkoi.ui.render { Msg, screen, stopped, drawn_on_box };
+import rapidkoi.ui.render { Msg, screen, stopped, drawn_on_box, one_way };
 import rapidkoi.ui.schemes { DARK };
 import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, submit, texts };
-import rapidkoi.guest.nodes { Look, Facts, Role, Colour, Typing, Node };
+import rapidkoi.guest.nodes { Look, Facts, Role, Colour, Typing, Node, Axis };
 import rapidkoi.guest.styles { plain, read_style };
 import rapidkoi.guest.roles { no_facts };
 import support { t, kv };
-import kivuli { View };
+import kivuli { View, Overflow };
 import cbor { Value };
 
 @test
@@ -87,7 +87,6 @@ fun a_typing_box_sends_edits_and_enter() {
 
 @test
 fun a_box_of_several_lines_is_found_by_its_placeholder() {
-    // kivuli draws no placeholder in a text area (DECISION-055), so it's named by it.
     let f = Typing {
         value: "",
         placeholder: "Write something",
@@ -115,6 +114,22 @@ fun a_typing_box_is_named_by_its_label() {
     assert_eq(type_into(v, "Search notes", "garden"), Ok(Msg.Event(t("search"), Some("garden"))));
     let area = screen(Node.Field(Typing { lines: 10, label: Some("Note"), ..f }, plain()), DARK);
     assert_eq(type_into(area, "Note", "Sukuma"), Ok(Msg.Event(t("search"), Some("Sukuma"))));
+}
+
+@test
+fun a_box_of_several_lines_shows_its_placeholder() {
+    // kivuli 0.55 draws it (DECISION-055): found by it even when a label names the box.
+    let f = Typing {
+        value: "",
+        placeholder: "Write something",
+        label: Some("Note"),
+        lines: 10,
+        on_change: Some(t("body")),
+        on_submit: None,
+    };
+    let v = screen(Node.Field(f, plain()), DARK);
+    assert_eq(type_into(v, "Write something", "Sukuma"), Ok(Msg.Event(t("body"), Some("Sukuma"))));
+    assert_eq(type_into(v, "Note", "Sukuma"), Ok(Msg.Event(t("body"), Some("Sukuma"))));
 }
 
 /** Whether a view is a scrolled area, under its modifiers. */
@@ -160,4 +175,12 @@ fun a_scrolling_box_s_padding_scrolls_with_its_content() {
     assert_eq(drawn_on_box(look([("scroll", t("vertical")), padded])).padding.is_some(), false);
     assert_eq(drawn_on_box(look([padded])).padding.is_some(), true);
     assert_eq(drawn_on_box(look([("gap", Value.int(8))])).gap.is_some(), false);
+}
+
+@test
+fun a_box_scrolls_only_the_way_it_says() {
+    // kivuli 0.57 (DECISION-057): vertical never scrolls sideways, and the reverse.
+    assert_eq(one_way(Axis.Vertical) == Some(Overflow.scroll_y()), true);
+    assert_eq(one_way(Axis.Horizontal) == Some(Overflow.scroll_x()), true);
+    assert_eq(one_way(Axis.Both).is_none(), true);
 }

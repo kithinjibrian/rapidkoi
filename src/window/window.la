@@ -81,6 +81,8 @@ struct Model {
     people: People,
     /** This computer's master secret, once read or made: never shown. */
     master: Option<Master>,
+    /** How far the app in a tab sticks out past the window, across and down (PRP-046): its tab's id, then pixels; reported in development only. */
+    overflow: (i64, i64, i64),
 }
 
 /**
@@ -128,6 +130,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         network: Network { ca_file: None, hosts: [] },
         people: nobody(),
         master: None,
+        overflow: (-1, 0, 0),
     }
 }
 

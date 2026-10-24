@@ -113,7 +113,8 @@ fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
 /**
  * What the window listens to: the loading tick (120 ms) while some tab is
  * loading in the background, and, while a kept app is in front, a check
- * against its site every `CHECK_EVERY_MS` (PRP-044).
+ * against its site every `CHECK_EVERY_MS` and when the window comes back to
+ * the front (PRP-044).
  *
  * Example:
  *     App { subscriptions: subscriptions, … }
@@ -129,6 +130,8 @@ fun subscriptions(m: Model): Sub<Msg> {
     };
     if in_front {
         subs.push(Sub.every(CHECK_EVERY_MS, Msg.CheckForUpdates));
+        // And when the window comes back to the front (PRP-044, DECISION-054).
+        subs.push(Sub.window_active(fun(on: bool) = Msg.WindowActive(on)));
     }
     match subs.len {
         0 => Sub.none(),
@@ -346,8 +349,10 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Fetched(id, number, f) => loads.arrive(m, id, number, f),
     Refreshed(id, build, r) => (loads.refreshed(m, id, build, r), Cmd.none()),
     CheckForUpdates(_) => (m, loads.check_current(m)),
+    WindowActive(on) => (m, if on { loads.check_current(m) } else { Cmd.none() }),
     Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
     Pictured(id, load, source, got) => (downloads.arrive(m, id, load, source, got), Cmd.none()),
+    Overflowed(id, across, down) => (Model { overflow: (id, across, down), ..m }, Cmd.none()),
     Queried(id, load, msg, got) => (queries.arrive(m, id, load, msg, got), Cmd.none()),
     DataSized(id, n) => (
         window.with_tab(m, id, fun(a: AppPage) = AppPage { data_size: Some(n), ..a }),
