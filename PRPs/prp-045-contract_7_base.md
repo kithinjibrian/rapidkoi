@@ -42,14 +42,21 @@ Rapidkoi's new tab and Settings are contract 6 bundles built with `rapidkoi-rust
 - `window/tabs.la`, `window/restarts.la`, `net/loads.la`, `data/states.la`: the version branches go.
 
 ## TESTS
-- [ ] A guest exporting `rapidkoi_version` 2–6 (and 8) is refused with the sentence; 7 runs
-- [ ] A kept copy of an older app is refused and the next open asks the site
-- [ ] `kinds` lets a link set a field that starts null; a value that doesn't parse as its kind is ignored; a bad `kinds` stops the app with its sentence
-- [ ] A typing box with a `label` is found by it; without one, by its placeholder; a bad label (empty, over 200 bytes, not text) stops the app
-- [ ] Every existing behaviour still covered, on contract 7 fixtures: events, links, storage, styles, roles, effects, sign-in, restore, keeping, upgrade
-- [ ] The new tab and Settings run on the SDK's contract 7
+- [x] A guest exporting `rapidkoi_version` 2–6 (and 8) is refused with the sentence; 7 runs
+- [x] A kept copy of an older app is refused and the next open asks the site
+- [x] `kinds` lets a link set a field that starts null; a value that doesn't parse as its kind is ignored; a bad `kinds` stops the app with its sentence
+- [x] A typing box with a `label` is found by it; without one, by its placeholder; a bad label (empty, over 200 bytes, not text) stops the app
+- [x] Every existing behaviour still covered, on contract 7 fixtures: events, links, storage, styles, roles, effects, sign-in, restore, keeping, upgrade
+- [x] The new tab and Settings run on the SDK's contract 7
 
 ## ACCEPTANCE
-- [ ] Every test above passes; no test or source mentions contracts 2–6 except DECISIONS' history
-- [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build src/main.la -o main` pass
+- [x] Every test above passes; no test or source mentions contracts 2–6 except DECISIONS' history
+- [x] `lughac test test/`, `lughac fmt --check src test` and `lughac build src/main.la -o main` pass
 - [ ] For the owner, by eye: the new tab and Settings as before
+
+## AMENDMENTS
+
+- **Q1 (the owner, at approval):** (a). Rapidkoi's side first (fixtures only); then, at the owner's word, the SDK changes were written in `../rapidkoi-rust` from this session (`docs/specs/rapidkoi-rust-contract-7.md`): version 7; `#[derive(State)]` writes `kinds` (`rapidkoi::__kinds`, an `Option` as its inner kind, nested states by path), sent with the init result; tagged and pushed as `v0.2.0-pre.1`. The built-ins moved to it and were repacked; the full suite passed (540).
+- **The fixtures** are one family in `test/support.la`: `guest_of(init, opened, other, tree)`, with `echo`, `echo_init`, `echo_opening`, `fixed`, `linking`, `counting`, `crashing` on it; `event_in` reads which event an echo got. Tests that expected contract 2's silence now expect contract 7's events (`on_resume`, `on_change` after a permission choice).
+- **An empty state** (`{}`, one CBOR byte) shows "Nothing saved" in ⚙ → Data.
+- **No `public`** (the owner, during this PRP): Rapidkoi is a program, so every `public` and re-export went, on the `no-public` branch merged with this one.

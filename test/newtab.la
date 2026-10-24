@@ -32,7 +32,7 @@ fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == 
 fun the_built_in_bundle_is_unsigned_and_named() {
     // Format 1 is the unsigned format: read refuses a signed bundle.
     let b = read(BUNDLE).unwrap();
-    assert_eq((b.manifest.name, b.manifest.version, b.manifest.contract), ("New tab", "0.1.0", 6));
+    assert_eq((b.manifest.name, b.manifest.version, b.manifest.contract), ("New tab", "0.1.0", 7));
     assert_eq(b.manifest.permissions, [
         "read_pins",
         "read_left_off",

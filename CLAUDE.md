@@ -85,7 +85,7 @@ Needs: `lughac` (the owner installs it from `../lugha`), `libgtk-4-dev`, `libsql
 - **wasmtime** (C API 49) through `lugha-wasmtime` 0.1 (`wat_to_wasm` since 0.1.1). rapidkoi declares no wasmtime `extern`.
 - **CBOR** through `lugha-cbor` 0.1. **SQLite** through `lugha-sqlite` 0.1: one database per app, every connection `Guard.untrusted()`, every call in a `Cmd.task`.
 - **The contract is version 7, the only one** (`docs/specs/contract-7.md`, DECISION-056): named-field state, links (with `kinds`), `on_` events, boxes, texts and typing boxes (with `label`), styles, roles, storage. Older apps are refused, never run. Any change to it is a DECISIONS.md entry and a version bump, and the guest↔host contract carries its version from its first commit: published bundles can't be recompiled.
-- **The Rust SDK is `rapidkoi-rust`** (`../rapidkoi-rust`, a git dependency by tag) with the examples counter and styled. Notes is its own repository, `../notes` (core decision 27). A contract change is tagged there first; then the built-ins move to the tag and are repacked.
+- **The Rust SDK is `rapidkoi-rust`** (`../rapidkoi-rust`, a git dependency by tag, now `v0.2.0-pre.1`: contract 7's base) with the examples counter and styled. Notes is its own repository, `../notes` (core decision 27). A contract change is tagged there first; then the built-ins move to the tag and are repacked.
 
 ## ARCHITECTURE
 
