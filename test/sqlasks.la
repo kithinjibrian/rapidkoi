@@ -1,6 +1,7 @@
 // Storage asks (PRP-041), pure: `sql` and `sql_batch` read from
 // a `handle` result and held to their bounds. No guest, no database.
-import rapidkoi.guest.contract { Effect, Query, read_update };
+import rapidkoi.guest.contract { read_update };
+import rapidkoi.guest.nodes { Effect, Query };
 import rapidkoi.guest.limits { MAX_SQL, MAX_SQL_PARAMS, MAX_ROWS, MAX_STEPS };
 import cbor { Value, encode };
 import support { t, kv };

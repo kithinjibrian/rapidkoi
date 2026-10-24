@@ -20,59 +20,59 @@ import guest.links { read_link };
 import net.address { MAX_LINK_FIELDS };
 
 /** The format the pins, left-off and state files are written in. */
-public const FORMAT: i64 = 1;
+const FORMAT: i64 = 1;
 
 /** The trust file's format: 2 added when each key was first trusted (PRP-009), 3 each app's origin key (PRP-011). */
-public const TRUST_FORMAT: i64 = 3;
+const TRUST_FORMAT: i64 = 3;
 
 /** The most identities the trust file holds. */
-public const MAX_IDENTITIES: i64 = 10_000;
+const MAX_IDENTITIES: i64 = 10_000;
 
 /** The most pins the pins file holds. */
-public const MAX_PINS: i64 = 256;
+const MAX_PINS: i64 = 256;
 
 /** The trust file's cap in bytes. */
-public const MAX_TRUST_FILE: i64 = 1024 * 1024;
+const MAX_TRUST_FILE: i64 = 1024 * 1024;
 
 /** The pins file's cap in bytes (icons are kept with their pins). */
-public const MAX_PINS_FILE: i64 = 32 * 1024 * 1024;
+const MAX_PINS_FILE: i64 = 32 * 1024 * 1024;
 
 /** The left-off file's cap in bytes: a name, a path and an icon. */
-public const MAX_LEFT_FILE: i64 = 8 * 1024 * 1024;
+const MAX_LEFT_FILE: i64 = 8 * 1024 * 1024;
 
 /** The most tabs the open file lists (PRP-034). */
-public const MAX_OPEN: i64 = 64;
+const MAX_OPEN: i64 = 64;
 
 /** The open file's cap in bytes: paths and names, no icons. */
-public const MAX_OPEN_FILE: i64 = 1024 * 1024;
+const MAX_OPEN_FILE: i64 = 1024 * 1024;
 
 /** The longest path the open file keeps. */
 const MAX_OPEN_PATH: i64 = 4096;
 
 /** One instance that was open when Rapidkoi closed (PRP-034). */
-public struct OpenTab {
+struct OpenTab {
     /** Where its app came from: a file or an address, as opened. */
-    public path: string,
+    path: string,
     /** Its instance's key: "" for the first, then "2", "3"… */
-    public instance: string,
+    instance: string,
     /** The name the person gave it, if any. */
-    public label: Option<string>,
+    label: Option<string>,
     /** When it was last in front, as a count. */
-    public seen: i64,
+    seen: i64,
     /** The fields its address named (PRP-036), in order. */
-    public link: string[],
+    link: string[],
 }
 
 /** What was open when Rapidkoi closed: its instances in order, and which was in front. */
-public struct Open {
+struct Open {
     /** The open instances, in the order their tabs were made. */
-    public tabs: OpenTab[],
+    tabs: OpenTab[],
     /** The index in `tabs` of the one in front; `None` on an empty tab. */
-    public current: Option<i64>,
+    current: Option<i64>,
 }
 
 /** Why a file's bytes can't be used. */
-public enum Unreadable {
+enum Unreadable {
     /** Damaged or not Rapidkoi's: why, naming the field. */
     Broken(string),
     /** Written by a newer Rapidkoi: its format number. */
@@ -80,7 +80,7 @@ public enum Unreadable {
 }
 
 /** What reading one remembered file came to. */
-public enum Recalled<T> {
+enum Recalled<T> {
     /** No file: a first run. */
     Fresh,
     /** Read. */
@@ -103,7 +103,7 @@ public enum Recalled<T> {
  * Example:
  *     recall(s, "trust", MAX_TRUST_FILE, read_trust)
  */
-public fun recall<T>(
+fun recall<T>(
     s: Store,
     name: string,
     max: i64,
@@ -134,7 +134,7 @@ public fun recall<T>(
  * Example:
  *     save(s, "trust", trust_file(identities(ring)))?
  */
-public fun trust_file(ids: Identity[]): u8[] = file(
+fun trust_file(ids: Identity[]): u8[] = file(
     "trust",
     "entries",
     Value.Array(
@@ -158,7 +158,7 @@ public fun trust_file(ids: Identity[]): u8[] = file(
  * Example:
  *     read_trust(bytes)?
  */
-public fun read_trust(bytes: u8[]): Result<Identity[], Unreadable> {
+fun read_trust(bytes: u8[]): Result<Identity[], Unreadable> {
     let items = list(bytes, "trust", "entries", 4, 16 * MAX_IDENTITIES, 1024 * 1024)?;
     if items.len > MAX_IDENTITIES {
         return Err(Unreadable.Broken("it has more than 10,000 entries"));
@@ -219,7 +219,7 @@ public fun read_trust(bytes: u8[]): Result<Identity[], Unreadable> {
  * Example:
  *     save(s, "pins", pins_file(m.pinned))?
  */
-public fun pins_file(pins: Pin[]): u8[] = file("pins", "pins", Value.Array(pins.map(fun(p: Pin) {
+fun pins_file(pins: Pin[]): u8[] = file("pins", "pins", Value.Array(pins.map(fun(p: Pin) {
     let mut fields = [entry("name", Value.Text(p.name)), entry("path", Value.Text(p.path))];
     if let Some(icon) = p.icon {
         fields.push(entry("icon", Value.Bytes(icon)));
@@ -234,7 +234,7 @@ public fun pins_file(pins: Pin[]): u8[] = file("pins", "pins", Value.Array(pins.
  * Example:
  *     read_pins(bytes)?
  */
-public fun read_pins(bytes: u8[]): Result<Pin[], Unreadable> {
+fun read_pins(bytes: u8[]): Result<Pin[], Unreadable> {
     let items = list(bytes, "pins", "pins", 4, 16 * MAX_PINS, MAX_PINS_FILE)?;
     if items.len > MAX_PINS {
         return Err(Unreadable.Broken("it has more than 256 pins"));
@@ -255,7 +255,7 @@ public fun read_pins(bytes: u8[]): Result<Pin[], Unreadable> {
  * Example:
  *     save(s, "left-off", left_file(l))?
  */
-public fun left_file(l: LeftOff): u8[] {
+fun left_file(l: LeftOff): u8[] {
     let mut fields = [entry("name", Value.Text(l.name)), entry("path", Value.Text(l.path))];
     if let Some(t) = l.title {
         fields.push(entry("title", Value.Text(t)));
@@ -283,7 +283,7 @@ public fun left_file(l: LeftOff): u8[] {
  * Example:
  *     read_left(bytes)?
  */
-public fun read_left(bytes: u8[]): Result<LeftOff, Unreadable> {
+fun read_left(bytes: u8[]): Result<LeftOff, Unreadable> {
     let v = root(bytes, "left-off", 4, 64, MAX_LEFT_FILE)?.get("app").ok_or(
         Unreadable.Broken("there's no app"),
     )?;
@@ -327,7 +327,7 @@ public fun read_left(bytes: u8[]): Result<LeftOff, Unreadable> {
  * Example:
  *     save(s, "open", open_file(o))?
  */
-public fun open_file(o: Open): u8[] = encode(Value.Map([
+fun open_file(o: Open): u8[] = encode(Value.Map([
     entry("format", Value.int(FORMAT)),
     entry("kind", Value.Text("rapidkoi open")),
     entry("tabs", Value.Array(o.tabs.map(fun(t: OpenTab) {
@@ -358,7 +358,7 @@ public fun open_file(o: Open): u8[] = encode(Value.Map([
  * Example:
  *     read_open(bytes)?
  */
-public fun read_open(bytes: u8[]): Result<Open, Unreadable> {
+fun read_open(bytes: u8[]): Result<Open, Unreadable> {
     // A tab's link is one level deeper, and up to 16 names more.
     let v = root(bytes, "open", 5, (8 + MAX_LINK_FIELDS) * MAX_OPEN + 16, MAX_OPEN_FILE)?;
     let items = match v.get("tabs") {

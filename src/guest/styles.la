@@ -13,7 +13,7 @@ import cbor { Value, Entry };
 import guest.nodes { Look, Colour, Measure, TextSize, Direction, Place, ContractError };
 
 /** The most keys one style map may have. */
-public const MAX_STYLE_KEYS: i64 = 32;
+const MAX_STYLE_KEYS: i64 = 32;
 
 /** The largest width or height, in pixels. */
 const MAX_SIZE: i64 = 4096;
@@ -22,7 +22,7 @@ const MAX_SIZE: i64 = 4096;
 const MAX_SPACE: i64 = 256;
 
 /** Rapidkoi's colour names (`themes.la` gives their values). */
-public const COLOUR_NAMES: string[] = [
+const COLOUR_NAMES: string[] = [
     "background",
     "surface",
     "text",
@@ -43,7 +43,7 @@ const STATES: string[] = ["hover", "pressed", "focus", "disabled", "checked"];
  * Example:
  *     plain()
  */
-public fun plain(): Look = Look {
+fun plain(): Look = Look {
     direction: Direction.Column,
     gap: None,
     padding: None,
@@ -79,7 +79,7 @@ public fun plain(): Look = Look {
  * Example:
  *     read_style(props.get("style"), "root > box[1]")?
  */
-public fun read_style(v: Option<Value>, here: string): Result<Look, ContractError> = match v {
+fun read_style(v: Option<Value>, here: string): Result<Look, ContractError> = match v {
     None => Ok(plain()),
     Some(Map(entries)) => look(entries, here, "style", true),
     Some(_) => Err(bad(here, "style must be a map")),

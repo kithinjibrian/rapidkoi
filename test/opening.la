@@ -3,11 +3,11 @@
 // has its own port. Writes only under test/tmp/.
 import rapidkoi.commands.publish { make_key, publish_site, pack_project };
 import rapidkoi.commands.serve { handle };
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.navigate { open_file, reload };
 import rapidkoi.window.actions { Msg };
-import rapidkoi.window.window { page_of };
+import rapidkoi.window.window { page_of, Model, with_pages };
 import rapidkoi.ui.frame { marker_note, file_of };
 import kivuli.testing { texts, click, Lookup };
 import std.http { Request };

@@ -1,7 +1,8 @@
 // Opening signed apps from their kept copies (PRP-043), through the window
 // with no display: sites published into test/tmp/ and served on local
 // sockets, one port per test; a port nothing serves stands in for offline.
-import rapidkoi.shell { Model, start, update };
+import rapidkoi.shell { start, update };
+import rapidkoi.window.window { Model };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage, Cached };

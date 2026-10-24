@@ -3,7 +3,8 @@
 // from fixture guests; no display.
 import rapidkoi.guest.home { place_of, pins_of, left_off_of, pin_msg, continue_msg, session_of };
 import rapidkoi.data.remembered { Open, OpenTab };
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage, Pin, open_module };
 import wasmtime { Engine, Module };

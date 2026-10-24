@@ -26,7 +26,8 @@ import ui.tokens {
     exactly,
     padding_xy,
 };
-import ui.themes { Theme, body, dim, heading };
+import ui.themes { body, dim, heading };
+import ui.schemes { Theme };
 
 /**
  * Wraps a card's content at its one width, so turning a page doesn't resize
@@ -35,7 +36,7 @@ import ui.themes { Theme, body, dim, heading };
  * Example:
  *     sized(content)
  */
-public fun sized(content: View<Msg>): View<Msg> = column([content]).style([exactly(CARD_WIDTH)]);
+fun sized(content: View<Msg>): View<Msg> = column([content]).style([exactly(CARD_WIDTH)]);
 
 /**
  * Builds the card's top: the app's icon (its initial without one) and name,
@@ -44,7 +45,7 @@ public fun sized(content: View<Msg>): View<Msg> = column([content]).style([exact
  * Example:
  *     identity(t, page, Some("1.2.0"))
  */
-public fun identity(t: Theme, p: AppPage, under: Option<string>): View<Msg> {
+fun identity(t: Theme, p: AppPage, under: Option<string>): View<Msg> {
     let face: View<Msg> = match icon_of(p.path, p.icon) {
         Some(img) => image(img).style([square(CARD_ICON)]).align(Align.Center),
         // The card's icon keeps its size whatever the text size (PRP-038).
@@ -69,7 +70,7 @@ public fun identity(t: Theme, p: AppPage, under: Option<string>): View<Msg> {
 // centres its content; the owner wanted them left, session 133). Room inside
 // each row, so it reads as a target (session 135); its hover a pill (the
 // owner's rounding, session 136); the arrow an icon (session 137).
-public fun choice(t: Theme, label: string, summary: Option<string>, msg: Msg): View<Msg> {
+fun choice(t: Theme, label: string, summary: Option<string>, msg: Msg): View<Msg> {
     let mut parts: View<Msg>[] = [text(label).style(body(t)).align(Align.Center), spacer()];
     if let Some(s) = summary {
         parts.push(text(s).style(dim(t)).align(Align.Center));
@@ -89,7 +90,7 @@ public fun choice(t: Theme, label: string, summary: Option<string>, msg: Msg): V
  * Example:
  *     detail(t, "Servers", Msg.PanelBack, parts)
  */
-public fun detail(t: Theme, title: string, back: Msg, parts: View<Msg>[]): View<Msg> {
+fun detail(t: Theme, title: string, back: Msg, parts: View<Msg>[]): View<Msg> {
     // The arrow-left icon, as the rows end in arrow-right; a circle when
     // hovered, as the rows are pills (the owner, session 138).
     let button = ui_button_with(
@@ -115,7 +116,7 @@ public fun detail(t: Theme, title: string, back: Msg, parts: View<Msg>[]): View<
  * Example:
  *     sentence(t, "Nothing vouches for this app.")
  */
-public fun sentence(t: Theme, s: string): View<Msg> = text(s).style(body(t)).wrap();
+fun sentence(t: Theme, s: string): View<Msg> = text(s).style(body(t)).wrap();
 
 /**
  * Builds a fact: its name, dim, above its value.
@@ -123,7 +124,7 @@ public fun sentence(t: Theme, s: string): View<Msg> = text(s).style(body(t)).wra
  * Example:
  *     line(t, "Version", "1.2.0")
  */
-public fun line(t: Theme, name: string, value: string): View<Msg> = column([
+fun line(t: Theme, name: string, value: string): View<Msg> = column([
     text(name).style(dim(t)),
     text(value).style(body(t)).wrap(),
 ]);

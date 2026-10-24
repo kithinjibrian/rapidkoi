@@ -2,7 +2,8 @@
 // Permissions row and page, `controls` choosing a built-in app's rows and
 // icons, and Rapidkoi's own question. Through kivuli.testing; fixture
 // guests, no display.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.settings;
 import rapidkoi.ui.addressbox;
 import rapidkoi.window.actions { Msg, PanelPage, Approval, Answer };

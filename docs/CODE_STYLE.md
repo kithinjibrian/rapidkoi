@@ -11,7 +11,9 @@ Formatting is not a style choice: `lughac fmt` decides it. Run it, and don't arg
 
 ### Layer 1 — Doc comments (what this is)
 
-Every `public` function, method, struct, enum, interface and variant gets a `/** … */` doc comment. `lughac lsp` shows them on hover. Package-level and private items get one only if their purpose isn't obvious.
+Rapidkoi is a program, not a library: nothing is `public`. An item with no keyword is visible to the whole package, `test/` included; `public` only exposes it to other packages, and none import Rapidkoi. `private` marks a helper only its own module may use.
+
+Every function, method, struct, enum, interface and variant used outside its own module gets a `/** … */` doc comment. `lughac lsp` shows them on hover. Items used only inside their module get one only if their purpose isn't obvious.
 
 **Format:**
 
@@ -28,8 +30,8 @@ Every `public` function, method, struct, enum, interface and variant gets a `/**
 
 Rules:
 - The first line is one sentence starting with the verb: "Builds", "Returns", "Loads". Never "This function…".
-- `@param` for every parameter whose meaning isn't plain from its name and type. `@returns` on every public function that returns something.
-- One example on every public function.
+- `@param` for every parameter whose meaning isn't plain from its name and type. `@returns` on every such function that returns something.
+- One example on every function used outside its module.
 - Short items take a one-line doc comment: `/** The message sent when the user saves. */`
 - Mention units every time: durations in **milliseconds**, sizes in **pixels**.
 
@@ -81,14 +83,14 @@ Every file starts with a doc comment:
      * Example:
      *     update(initial(), Msg.Add)
      */
-    public fun update(m: Model, msg: Msg): Model = …
+    fun update(m: Model, msg: Msg): Model = …
 
 ---
 
 ## What Bad Documentation Looks Like — Do Not Write This
 
-    // BAD: public with no doc comment, no units
-    public fun delay(t: i64): Cmd<Msg> = …
+    // BAD: used by other modules, no doc comment, no units
+    fun delay(t: i64): Cmd<Msg> = …
 
     // BAD: describes what, not why
     // loop over the items

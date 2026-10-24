@@ -18,7 +18,7 @@ import guest.limits {
 };
 
 /** Why a bundle was refused. */
-public enum BundleError {
+enum BundleError {
     /** The bytes aren't CBOR this reader accepts, with the decoder's reason. */
     Decode(string),
     /** Not a map at its top level. */
@@ -66,7 +66,7 @@ public enum BundleError {
  * Example:
  *     reason(BundleError.Missing("name"))
  */
-public fun reason(e: BundleError): string = match e {
+fun reason(e: BundleError): string = match e {
     Decode(d) => "This file isn't a Rapidkoi bundle ({d})",
     NotAMap => "This file isn't a Rapidkoi bundle (it isn't a map)",
     TooLarge(what, n) => if what == "bundle" {
@@ -97,7 +97,7 @@ public fun reason(e: BundleError): string = match e {
  * Example:
  *     check_name("Counter")?
  */
-public fun check_name(name: string): Result<(), BundleError> {
+fun check_name(name: string): Result<(), BundleError> {
     if name.len < 1 || name.len > MAX_NAME {
         return Err(BundleError.Wrong("name", "must be 1 to {MAX_NAME} bytes"));
     }
@@ -110,7 +110,7 @@ public fun check_name(name: string): Result<(), BundleError> {
  * Example:
  *     check_description("Counts")?
  */
-public fun check_description(text: string): Result<(), BundleError> {
+fun check_description(text: string): Result<(), BundleError> {
     if text.len > MAX_DESCRIPTION {
         return Err(BundleError.Wrong("description", "must be at most {MAX_DESCRIPTION} bytes"));
     }
@@ -124,7 +124,7 @@ public fun check_description(text: string): Result<(), BundleError> {
  * Example:
  *     check_version("1.4.0")?
  */
-public fun check_version(v: string): Result<(), BundleError> {
+fun check_version(v: string): Result<(), BundleError> {
     let wrong = BundleError.Wrong("version", "must be MAJOR.MINOR.PATCH, like 1.4.0");
     let parts = v.split(".");
     if parts.len != 3 {
@@ -152,7 +152,7 @@ public fun check_version(v: string): Result<(), BundleError> {
  * Example:
  *     check_asset_name("banner/home.png")?
  */
-public fun check_asset_name(name: string): Result<(), BundleError> {
+fun check_asset_name(name: string): Result<(), BundleError> {
     let bad = BundleError.BadName(name);
     if name.len < 1 || name.len > MAX_ASSET_NAME || name.starts_with("/") || name.ends_with(
         "/",
@@ -178,7 +178,7 @@ public fun check_asset_name(name: string): Result<(), BundleError> {
  * Example:
  *     check_asset("icon.png", bytes)?
  */
-public fun check_asset(name: string, bytes: u8[]): Result<(), BundleError> {
+fun check_asset(name: string, bytes: u8[]): Result<(), BundleError> {
     check_asset_name(name)?;
     if bytes.len > MAX_ASSET {
         return Err(BundleError.TooLarge("asset \"{name}\"", bytes.len));
@@ -200,7 +200,7 @@ public fun check_asset(name: string, bytes: u8[]): Result<(), BundleError> {
  * Example:
  *     check_role("icon", bytes, 1024, 1024)?
  */
-public fun check_role(field: string, bytes: u8[], max_w: i64, max_h: i64): Result<(), BundleError> {
+fun check_role(field: string, bytes: u8[], max_w: i64, max_h: i64): Result<(), BundleError> {
     match png_size(bytes) {
         Some((w, h)) if w > max_w || h > max_h => Err(
             BundleError.ImageTooLarge("\"{field}\"", w, h, max_w, max_h),
@@ -219,7 +219,7 @@ public fun check_role(field: string, bytes: u8[], max_w: i64, max_h: i64): Resul
  * Example:
  *     png_size(bytes)
  */
-public fun png_size(bytes: u8[]): Option<(i64, i64)> {
+fun png_size(bytes: u8[]): Option<(i64, i64)> {
     let head: u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82];
     if bytes.len < 24 {
         return None;
@@ -246,7 +246,7 @@ fun big_endian(
  * Example:
  *     check_host("notes.acme.com")?
  */
-public fun check_host(host: string): Result<(), BundleError> {
+fun check_host(host: string): Result<(), BundleError> {
     let bad = BundleError.BadHost(host);
     if host.len < 1 || host.len > 253 || host.starts_with(".") || host.starts_with("-") {
         return Err(bad);
@@ -266,7 +266,7 @@ public fun check_host(host: string): Result<(), BundleError> {
  * Example:
  *     check_sizes(module.len, assets.len)?
  */
-public fun check_sizes(module: i64, assets: i64): Result<(), BundleError> {
+fun check_sizes(module: i64, assets: i64): Result<(), BundleError> {
     if module > MAX_MODULE {
         return Err(BundleError.TooLarge("module", module));
     }

@@ -32,7 +32,7 @@ import net.dialing { Network, Dialed, dial };
 import net.network { reason as network_reason };
 
 /** What a background load came back with. */
-public enum Fetched {
+enum Fetched {
     /** A signed site, checked: the build, what to record, the snapshot it was checked against, and where it came from. */
     Signed(Verified, Record, Identity[], Source),
     /** A bundle from a server with no key (or an `http://` address): what to call it, its bytes, unchecked. */
@@ -42,21 +42,21 @@ public enum Fetched {
 }
 
 /** Where a signed load's build came from, and the site's files it checked (PRP-043). */
-public struct Source {
+struct Source {
     /** The site's key file, as checked; empty when read from the kept copy. */
-    public key: u8[],
+    key: u8[],
     /** The site's index, as checked; empty when read from the kept copy. */
-    public index: u8[],
+    index: u8[],
     /** The build, as checked; empty when read from the kept copy. */
-    public build: u8[],
+    build: u8[],
     /** How many bytes the app takes kept: its build, key and index. */
-    public size: i64,
+    size: i64,
     /** Read from the kept copy rather than fetched. */
-    public kept: bool,
+    kept: bool,
     /** The site couldn't be reached, so the kept copy opened in place of what was asked. */
-    public offline: bool,
+    offline: bool,
     /** When the site was last reached and checked, in milliseconds since 1970: now, when fetched. */
-    public checked: i64,
+    checked: i64,
 }
 
 /**
@@ -73,7 +73,7 @@ public struct Source {
  * Example:
  *     Cmd.task(fun(): Fetched = fetch_app(a, known, Network { ca_file: None, hosts: [] }, FETCH_TIMEOUT_MS), done)
  */
-public fun fetch_app(a: Address, known: Identity[], net: Network, timeout_ms: i64): Fetched {
+fun fetch_app(a: Address, known: Identity[], net: Network, timeout_ms: i64): Fetched {
     let host = shown(a);
     let fail = fun(why: string) = Fetched.Refused(Refusal.Failed(host, why));
     // An http:// address naming no file is a site's own (a link, PRP-036).
@@ -119,7 +119,7 @@ public fun fetch_app(a: Address, known: Identity[], net: Network, timeout_ms: i6
  * Example:
  *     let (checked, source) = check_signed(a, known, net, FETCH_TIMEOUT_MS, None);
  */
-public fun check_signed(
+fun check_signed(
     a: Address,
     known: Identity[],
     net: Network,

@@ -16,7 +16,7 @@ import guest.limits { MAX_SQL, MAX_SQL_PARAMS, MAX_SQL_VALUE, MAX_ROWS, MAX_STEP
  * Example:
  *     sql_of(effect)?
  */
-public fun sql_of(e: Value): Result<Query, ContractError> {
+fun sql_of(e: Value): Result<Query, ContractError> {
     let q = query_of(e, "an sql")?;
     let wanted = e.get("max_rows").and_then(fun(n: Value) = n.as_i64()).unwrap_or(MAX_ROWS);
     Ok(Query { max_rows: if wanted < 1 || wanted > MAX_ROWS { MAX_ROWS } else { wanted }, ..q })
@@ -28,7 +28,7 @@ public fun sql_of(e: Value): Result<Query, ContractError> {
  * Example:
  *     batch_of(effect)?
  */
-public fun batch_of(e: Value): Result<Query[], ContractError> {
+fun batch_of(e: Value): Result<Query[], ContractError> {
     let steps = match e.get("steps") {
         Some(Array(xs)) => xs,
         _ => {

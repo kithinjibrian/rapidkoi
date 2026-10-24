@@ -9,7 +9,8 @@ import rapidkoi.window.tabs { AppPage, Pin, failed_page };
 import rapidkoi.data.store { store_at, save };
 import rapidkoi.data.remembered { pins_file };
 import std.fs;
-import rapidkoi.shell { Model, start, with_pages, update };
+import rapidkoi.shell { start, update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
 import kivuli.testing { texts };
@@ -31,7 +32,7 @@ fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == 
 fun the_built_in_bundle_is_unsigned_and_named() {
     // Format 1 is the unsigned format: read refuses a signed bundle.
     let b = read(BUNDLE).unwrap();
-    assert_eq((b.manifest.name, b.manifest.version, b.manifest.contract), ("New tab", "0.1.0", 6));
+    assert_eq((b.manifest.name, b.manifest.version, b.manifest.contract), ("New tab", "0.1.0", 7));
     assert_eq(b.manifest.permissions, [
         "read_pins",
         "read_left_off",

@@ -40,7 +40,8 @@ import ui.tokens {
     padding_xy,
     gap,
 };
-import ui.themes { Theme, body };
+import ui.themes { body };
+import ui.schemes { Theme };
 import ui.frame_looks { header, window_controls };
 
 /**
@@ -52,7 +53,7 @@ import ui.frame_looks { header, window_controls };
  * Example:
  *     page.header(header.bar(m))
  */
-public fun bar(m: Model): Bar<Msg> {
+fun bar(m: Model): Bar<Msg> {
     // kivuli packs the end outermost first, so the bar takes it reversed:
     // ☰ next to the window controls, 👤 before it (seen in session 104).
     let shown = end(m);
@@ -82,7 +83,7 @@ public fun bar(m: Model): Bar<Msg> {
  * Example:
  *     header.end(m)
  */
-public fun end(m: Model): View<Msg>[] = [
+fun end(m: Model): View<Msg>[] = [
     tool(m.theme, Icon.Account, "Account (coming soon)", None),
     // Centred down the bar as the button inside is: the popover around it
     // otherwise sits at the bar's top (the owner's screenshot, session 202).
@@ -100,7 +101,7 @@ public fun end(m: Model): View<Msg>[] = [
  * Example:
  *     menu_card(m.theme)
  */
-public fun menu_card(t: Theme): View<Msg> = column([
+fun menu_card(t: Theme): View<Msg> = column([
     item(t, "Settings", Msg.OpenSettings),
     separator(),
     item(t, "About Rapidkoi", Msg.About(true)),

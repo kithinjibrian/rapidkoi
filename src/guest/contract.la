@@ -19,7 +19,7 @@ import guest.limits {
     MAX_STATE_DEPTH,
 };
 import net.network { Request, Reply };
-public import guest.nodes {
+import guest.nodes {
     ButtonLook,
     Node,
     Described,
@@ -85,7 +85,7 @@ fun read_state(bytes: u8[]): Result<(Value, u8[]), ContractError> {
  * Example:
  *     read_update(bytes)?
  */
-public fun read_update(bytes: u8[]): Result<Update, ContractError> {
+fun read_update(bytes: u8[]): Result<Update, ContractError> {
     let (value, state) = read_state(bytes)?;
     let link = read_link(value.get("link"))?;
     let kinds = read_kinds(value.get("kinds"))?;
@@ -211,7 +211,7 @@ fun fetch_of(e: Value): Result<Request, ContractError> {
  * Example:
  *     answer(msg, reply(Reply.Failed("You turned off api.acme.com for Notes")))
  */
-public fun reply(r: Reply): Value = match r {
+fun reply(r: Reply): Value = match r {
     Got(status, headers, body) => {
         let mut named: Entry[] = [];
         for (k, v) of headers {

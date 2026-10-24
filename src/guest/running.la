@@ -9,20 +9,21 @@
  * Used by: window.tabs
  */
 import guest.guest { Guest, open, reason };
-import guest.contract { ContractError, Effect, Update, LinkChange, read_update };
+import guest.contract { read_update };
+import guest.nodes { ContractError, Effect, Update, LinkChange };
 import guest.events { Happened, event_for };
 import guest.links { with_link };
 import guest.tree { read_tree };
 import window.tabs { Screen, Program };
 
 /** What one or more events left: the screen, what they asked for, and the address's change. */
-public struct Ran {
+struct Ran {
     /** The screen: running, or stopped with why. */
-    public screen: Screen,
+    screen: Screen,
     /** What the events asked for, in order. */
-    public asks: Effect[],
+    asks: Effect[],
     /** The last change to the address's fields. */
-    public link: LinkChange,
+    link: LinkChange,
 }
 
 /**
@@ -77,7 +78,7 @@ fun stopped(why: string): Ran = Ran {
  * Example:
  *     happen(g, state, Happened.Resume)
  */
-public fun happen(g: Guest, state: u8[], h: Happened): Ran = match settle(
+fun happen(g: Guest, state: u8[], h: Happened): Ran = match settle(
     g,
     state,
     event_for(h),

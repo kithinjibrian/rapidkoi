@@ -24,11 +24,10 @@ import trust.index {
 };
 import bundles.signing { Opened, Signed, read_any };
 import trust.keys { fingerprint, hex };
-import bundles.rules { BundleError };
-import bundles.bundle { reason as bundle_reason };
+import bundles.rules { BundleError, reason as bundle_reason };
 
 /** How far Rapidkoi trusts where an app came from. */
-public enum Standing {
+enum Standing {
     /** Its site's key, index and build all checked out (development: this machine). */
     Verified,
     /** A signed file whose key is trusted for its host this session. */
@@ -38,35 +37,35 @@ public enum Standing {
 }
 
 /** What Rapidkoi knows about a signed app's publisher, for the marker and About. */
-public struct Trust {
+struct Trust {
     /** The app's host. */
-    public host: string,
+    host: string,
     /** The publisher's public key. */
-    public key: u8[],
+    key: u8[],
     /** How it was trusted. */
-    public standing: Standing,
+    standing: Standing,
     /** The SHA-256 of the `.rkb` that's running. */
-    public build: u8[],
+    build: u8[],
     /** Whether this is a second publisher for the host, opened as a separate app. */
-    public separate: bool,
+    separate: bool,
     /** When its key was first trusted, in ms since 1970; 0 when not recorded or not trusted. */
-    public since: i64,
+    since: i64,
     /** The key first trusted for this app, kept through signed rotations: who the app is (PRP-011). */
-    public origin: u8[],
+    origin: u8[],
 }
 
 /** A key change no signed trail explains: what the person is asked about. */
-public struct Change {
+struct Change {
     /** The host. */
-    public host: string,
+    host: string,
     /** The key trusted before. */
-    public old: u8[],
+    old: u8[],
     /** The key the site has now. */
-    public new: u8[],
+    new: u8[],
 }
 
 /** Why a site couldn't be verified. */
-public enum VerifyError {
+enum VerifyError {
     /** No key file (a 404): an unsigned development server. */
     Unsigned,
     /** A file couldn't be fetched: which, why. */
@@ -96,23 +95,23 @@ public enum VerifyError {
 }
 
 /** One identity Rapidkoi trusts: a host, its key, and how far its index got. */
-public struct Identity {
+struct Identity {
     /** The host. */
-    public host: string,
+    host: string,
     /** Its 32-byte public key. */
-    public key: u8[],
+    key: u8[],
     /** The highest index sequence seen for it. */
-    public sequence: i64,
+    sequence: i64,
     /** Whether it's a second publisher for the host, opened as a separate app. */
-    public separate: bool,
+    separate: bool,
     /** When it was first trusted, in milliseconds since 1970; 0 when not recorded (format 1). */
-    public since: i64,
+    since: i64,
     /** The key first trusted for this app, kept through signed rotations: who the app is (PRP-011). */
-    public origin: u8[],
+    origin: u8[],
 }
 
 /** The keys trusted this session, shared by every copy (it's a box). */
-public struct Keyring {
+struct Keyring {
     known: Ref<Identity[]>,
     /** How many times trust was recorded: a save is due when it moves. */
     count: Ref<i64>,
@@ -121,15 +120,15 @@ public struct Keyring {
 }
 
 /** A verified site's current build. */
-public struct Verified {
+struct Verified {
     /** The build's checked contents. */
-    public opened: Opened,
+    opened: Opened,
     /** Who signed it. */
-    public trust: Trust,
+    trust: Trust,
 }
 
 /** Where a site keeps Rapidkoi's files. */
-public const SITE: string = "/.well-known/rapidkoi";
+const SITE: string = "/.well-known/rapidkoi";
 
 /**
  * An empty keyring, for a new session.
@@ -137,7 +136,7 @@ public const SITE: string = "/.well-known/rapidkoi";
  * Example:
  *     let ring = keyring();
  */
-public fun keyring(): Keyring = keyring_of([]);
+fun keyring(): Keyring = keyring_of([]);
 
 /**
  * A keyring trusting `ids`: what was saved.
@@ -145,7 +144,7 @@ public fun keyring(): Keyring = keyring_of([]);
  * Example:
  *     keyring_of(read_trust(bytes)?)
  */
-public fun keyring_of(ids: Identity[]): Keyring = Keyring {
+fun keyring_of(ids: Identity[]): Keyring = Keyring {
     known: Ref.new(ids),
     count: Ref.new(0),
     moved: Ref.new([]),
@@ -157,7 +156,7 @@ public fun keyring_of(ids: Identity[]): Keyring = Keyring {
  * Example:
  *     trust_file(identities(ring))
  */
-public fun identities(ring: Keyring): Identity[] = ring.known.get();
+fun identities(ring: Keyring): Identity[] = ring.known.get();
 
 /**
  * Returns the rotations this keyring followed (host, old key, new key),
@@ -166,7 +165,7 @@ public fun identities(ring: Keyring): Identity[] = ring.known.get();
  * Example:
  *     moves(ring)
  */
-public fun moves(ring: Keyring): (string, u8[], u8[])[] = ring.moved.get();
+fun moves(ring: Keyring): (string, u8[], u8[])[] = ring.moved.get();
 
 /**
  * Returns how many times trust was recorded in this keyring: compare two
@@ -175,10 +174,10 @@ public fun moves(ring: Keyring): (string, u8[], u8[])[] = ring.moved.get();
  * Example:
  *     if changes(ring) != before { save(…) }
  */
-public fun changes(ring: Keyring): i64 = ring.count.get();
+fun changes(ring: Keyring): i64 = ring.count.get();
 
 /** What a check found to trust: recorded with `record` when it's used. */
-public struct Record {
+struct Record {
     /** The identity it was checked as (the one it replaces); none on first use. */
     from: Option<Identity>,
     /** The identity to trust now: its key and the sequence reached. */
@@ -197,7 +196,7 @@ public struct Record {
  * Example:
  *     verify_site(ring, "localhost:8000", fetcher)?
  */
-public fun verify_site(
+fun verify_site(
     ring: Keyring,
     host: string,
     get: fun(string): Result<(i64, u8[]), string>,
@@ -214,7 +213,7 @@ public fun verify_site(
  * Example:
  *     known_for(ring, "localhost:8000")
  */
-public fun known_for(ring: Keyring, host: string): Identity[] = ring.known.get().filter(
+fun known_for(ring: Keyring, host: string): Identity[] = ring.known.get().filter(
     fun(k: Identity) = k.host == host,
 );
 
@@ -225,7 +224,7 @@ public fun known_for(ring: Keyring, host: string): Identity[] = ring.known.get()
  * Example:
  *     record(ring, r)
  */
-public fun record(ring: Keyring, r: Record) = remember(ring, r.from, r.now);
+fun record(ring: Keyring, r: Record) = remember(ring, r.from, r.now);
 
 /**
  * Verifies a site against a snapshot of the identities trusted for its
@@ -238,7 +237,7 @@ public fun record(ring: Keyring, r: Record) = remember(ring, r.from, r.now);
  * Example:
  *     check_site(known_for(ring, host), host, fetcher)?
  */
-public fun check_site(
+fun check_site(
     known_all: Identity[],
     host: string,
     get: fun(string): Result<(i64, u8[]), string>,
@@ -255,7 +254,7 @@ public fun check_site(
  * Example:
  *     check_site_at(known_for(ring, host), host, fetcher, Some("1.4.0"))?
  */
-public fun check_site_at(
+fun check_site_at(
     known_all: Identity[],
     host: string,
     get: fun(string): Result<(i64, u8[]), string>,
@@ -359,7 +358,7 @@ public fun check_site_at(
  * Example:
  *     separate(ring, change)
  */
-public fun separate(ring: Keyring, c: Change) {
+fun separate(ring: Keyring, c: Change) {
     ring.known.update(fun(all: Identity[]) {
         let mut next = all;
         next.push(Identity {
@@ -382,7 +381,7 @@ public fun separate(ring: Keyring, c: Change) {
  * Example:
  *     standing_of(ring, opened.signed?)
  */
-public fun standing_of(ring: Keyring, s: Signed): Trust {
+fun standing_of(ring: Keyring, s: Signed): Trust {
     let found = first(ring.known.get(), fun(k: Identity) = k.host == s.host && equal(k.key, s.key));
     Trust {
         host: s.host,
@@ -402,7 +401,7 @@ public fun standing_of(ring: Keyring, s: Signed): Trust {
  * Example:
  *     reason(e)
  */
-public fun reason(e: VerifyError): string = match e {
+fun reason(e: VerifyError): string = match e {
     Unsigned => "The site has no key: it isn't signed",
     Fetch(what, why) => "The app's {what} couldn't be fetched ({why})",
     Index(i) => index_reason(i),

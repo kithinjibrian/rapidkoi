@@ -25,7 +25,7 @@ import net.address { MAX_LINK_FIELDS, MAX_LINK_VALUE, name_ok };
  * Example:
  *     read_link(value.get("link"))?
  */
-public fun read_link(v: Option<Value>): Result<LinkChange, ContractError> {
+fun read_link(v: Option<Value>): Result<LinkChange, ContractError> {
     let items = match v {
         None => {
             return Ok(LinkChange.Keep);
@@ -73,7 +73,7 @@ public fun read_link(v: Option<Value>): Result<LinkChange, ContractError> {
  * Example:
  *     read_kinds(value.get("kinds"))?
  */
-public fun read_kinds(v: Option<Value>): Result<(string, string)[], ContractError> {
+fun read_kinds(v: Option<Value>): Result<(string, string)[], ContractError> {
     let entries = match v {
         None => {
             return Ok([]);
@@ -117,7 +117,7 @@ public fun read_kinds(v: Option<Value>): Result<(string, string)[], ContractErro
  * Example:
  *     fields_in(state, ["count"])
  */
-public fun fields_in(state: u8[], names: string[]): Result<(string, string)[], string> {
+fun fields_in(state: u8[], names: string[]): Result<(string, string)[], string> {
     if names.len == 0 {
         return Ok([]);
     }
@@ -188,7 +188,7 @@ fun at_path(v: Value, segments: string[]): Option<Value> {
  * Example:
  *     with_link(state, [("note", "7")], [("note", "number")])
  */
-public fun with_link(state: u8[], fields: (string, string)[], kinds: (string, string)[]): u8[] {
+fun with_link(state: u8[], fields: (string, string)[], kinds: (string, string)[]): u8[] {
     let mut entries = match entries_of(state) {
         Some(es) => es,
         None => {

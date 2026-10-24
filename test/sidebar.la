@@ -1,7 +1,8 @@
 // The sidebar (PRP-023): pinned apps, open apps, the current one's ×, +,
 // their shortcuts and menus. Through kivuli.testing; fixture guests, no
 // display.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.sidebar;
 import rapidkoi.window.actions { Msg, TabAction, PinAction };
 import rapidkoi.window.tabs { AppPage, Pin, open_module };

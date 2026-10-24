@@ -1,9 +1,9 @@
 // End to end with the `counting` fixture (test/support.la), standing in for
 // a real app (PRP-042): a count that changes on a press, kept across Home,
 // a closed tab, a pin and a packed bundle. No display, no Rust.
-import rapidkoi.shell { Model, start, update };
+import rapidkoi.shell { start, update };
 import rapidkoi.ui.layout { view };
-import rapidkoi.window.window { card, page_of };
+import rapidkoi.window.window { card, page_of, Model };
 import rapidkoi.ui.content { app_view };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.commands.pack { make };

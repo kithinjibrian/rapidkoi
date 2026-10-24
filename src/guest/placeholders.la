@@ -21,7 +21,7 @@ import guest.nodes { Node };
  * Example:
  *     fill(described.root, "Brian", "Kithinji")
  */
-public fun fill(n: Node, first: string, last: string): Node = match n {
+fun fill(n: Node, first: string, last: string): Node = match n {
     Words(s, look, facts) => Node.Words(substitute(s, first, last), look, facts),
     Boxed(look, facts, press, kids) => Node.Boxed(
         look,

@@ -15,7 +15,7 @@ import wasmtime { wat_to_wasm };
  * `update` and settling what that returns, as kivuli would in the
  * background. Other commands (focus, after, quit) are dropped.
  */
-public fun settle<M, Msg>(m: M, c: Cmd<Msg>, update: fun(M, Msg): (M, Cmd<Msg>)): M = match c {
+fun settle<M, Msg>(m: M, c: Cmd<Msg>, update: fun(M, Msg): (M, Cmd<Msg>)): M = match c {
     Task(job) => {
         let (next, more) = update(m, job());
         settle(next, more, update)
@@ -31,28 +31,28 @@ public fun settle<M, Msg>(m: M, c: Cmd<Msg>, update: fun(M, Msg): (M, Cmd<Msg>))
 };
 
 /** A text value. */
-public fun t(s: string): Value = Value.Text(s);
+fun t(s: string): Value = Value.Text(s);
 
 /** A map from text keys, in order. */
-public fun kv(pairs: (string, Value)[]): Value = Value.Map(
+fun kv(pairs: (string, Value)[]): Value = Value.Map(
     pairs.map(fun(p: (string, Value)) = Entry { key: Value.Text(p.0), value: p.1 }),
 );
 
 /** A contract node without children. */
-public fun leaf(kind: string, props: (string, Value)[]): Value = kv([
+fun leaf(kind: string, props: (string, Value)[]): Value = kv([
     ("kind", t(kind)),
     ("props", kv(props)),
 ]);
 
 /** A contract container node. */
-public fun parent(kind: string, props: (string, Value)[], children: Value[]): Value = kv([
+fun parent(kind: string, props: (string, Value)[], children: Value[]): Value = kv([
     ("kind", t(kind)),
     ("props", kv(props)),
     ("children", Value.Array(children)),
 ]);
 
 /** A column of `n` text nodes. */
-public fun wide(n: i64): Value {
+fun wide(n: i64): Value {
     let mut kids: Value[] = [];
     for i in 0..n {
         kids.push(leaf("text", [("text", t("{i}"))]));
@@ -61,7 +61,7 @@ public fun wide(n: i64): Value {
 }
 
 /** `depth` nodes: columns nested inside each other, a text at the bottom. */
-public fun deep(depth: i64): Value {
+fun deep(depth: i64): Value {
     let mut v = leaf("text", [("text", t("bottom"))]);
     for _ in 1..depth {
         v = parent("column", [], [v]);
@@ -73,7 +73,7 @@ public fun deep(depth: i64): Value {
 fun hex(n: u8): string = "0123456789abcdef".slice(n as i64, n as i64 + 1);
 
 /** The bytes as a WebAssembly text data string: every byte escaped as `\hh`. */
-public fun wat_bytes(bytes: u8[]): string {
+fun wat_bytes(bytes: u8[]): string {
     let mut parts: string[] = [];
     for b of bytes {
         parts.push("\\" + hex(b >> 4) + hex(b & 15));
@@ -82,7 +82,7 @@ public fun wat_bytes(bytes: u8[]): string {
 }
 
 /** A (pointer, length) packed the contract's way: pointer high, length low. */
-public fun pack(ptr: i64, len: i64): i64 = ptr << 32 | len;
+fun pack(ptr: i64, len: i64): i64 = ptr << 32 | len;
 
 /**
  * A guest for the tests, speaking contract 7. `on_init` answers `init`;
@@ -92,7 +92,7 @@ public fun pack(ptr: i64, len: i64): i64 = ptr << 32 | len;
  * (`event_in`). `view` returns `tree`. `alloc` bumps from 65536 and resets
  * at each call.
  */
-public fun guest_of(init: u8[], opened: Option<u8[]>, other: Option<u8[]>, tree: u8[]): string {
+fun guest_of(init: u8[], opened: Option<u8[]>, other: Option<u8[]>, tree: u8[]): string {
     let o = opened.unwrap_or([]);
     let x = other.unwrap_or([]);
     let i_at = 1024;
@@ -196,7 +196,7 @@ fun results(): string {
  * keeps the state it was given, and any other event gets `result`; `view`
  * returns `tree`.
  */
-public fun fixed(state: Value, tree: u8[], result: u8[]): string = guest_of(
+fun fixed(state: Value, tree: u8[], result: u8[]): string = guest_of(
     result_of(state),
     None,
     Some(result),
@@ -204,33 +204,29 @@ public fun fixed(state: Value, tree: u8[], result: u8[]): string = guest_of(
 );
 
 /** A box of children, top to bottom; `props` as given. */
-public fun boxed(props: (string, Value)[], kids: Value[]): Value = parent("box", props, kids);
+fun boxed(props: (string, Value)[], kids: Value[]): Value = parent("box", props, kids);
 
 /** A text node. */
-public fun words(s: string): Value = leaf("text", [("text", t(s))]);
+fun words(s: string): Value = leaf("text", [("text", t(s))]);
 
 /** A pressable box labelled `label`, sending `msg`. */
-public fun press(label: string, msg: string): Value = parent("box", [("on_press", t(msg))], [
+fun press(label: string, msg: string): Value = parent("box", [("on_press", t(msg))], [
     words(label),
 ]);
 
 /** A tree: a box holding a text and a pressable "Add" sending "add". */
-public fun counter_tree(label: string): u8[] = encode(
-    boxed([], [words(label), press("Add", "add")]),
-);
+fun counter_tree(label: string): u8[] = encode(boxed([], [words(label), press("Add", "add")]));
 
 /** A counter tree whose root carries `title`. */
-public fun titled_tree(label: string, title: string): u8[] = encode(
+fun titled_tree(label: string, title: string): u8[] = encode(
     boxed([("title", t(title))], [words(label), press("Add", "add")]),
 );
 
 /** A `handle` result holding `state` (a map of named fields), asking for nothing. */
-public fun result_of(state: Value): u8[] = encode(
-    kv([("state", state), ("effects", Value.Array([]))]),
-);
+fun result_of(state: Value): u8[] = encode(kv([("state", state), ("effects", Value.Array([]))]));
 
 /** The event an echoing guest's state holds (`guest_of` with no `other`); empty when none. */
-public fun event_in(state: u8[]): u8[] = match decode(state, Limits {
+fun event_in(state: u8[]): u8[] = match decode(state, Limits {
     max_depth: 8,
     max_items: 64,
     max_bytes: 1024 * 1024,
@@ -248,13 +244,13 @@ public fun event_in(state: u8[]): u8[] = match decode(state, Limits {
  * `{event: <bytes>}`); it starts with an empty state and keeps it when
  * opened. Its `view` shows a counter tree.
  */
-public fun echo(): string = guest_of(result_of(kv([])), None, None, counter_tree("echo"));
+fun echo(): string = guest_of(result_of(kv([])), None, None, counter_tree("echo"));
 
 /** `echo` whose `on_init` answers `init` (a whole result, which may ask for things). */
-public fun echo_init(init: u8[]): string = guest_of(init, None, None, counter_tree("echo"));
+fun echo_init(init: u8[]): string = guest_of(init, None, None, counter_tree("echo"));
 
 /** `echo` that asks for things every time it's opened (`opened`, a whole result). */
-public fun echo_opening(opened: u8[]): string = guest_of(
+fun echo_opening(opened: u8[]): string = guest_of(
     result_of(kv([])),
     Some(opened),
     None,
@@ -262,7 +258,7 @@ public fun echo_opening(opened: u8[]): string = guest_of(
 );
 
 /** A guest that starts and opens fine and traps on any other event; its view shows a counter tree. */
-public fun crashing(): string {
+fun crashing(): string {
     let first = result_of(kv([]));
     let tree = counter_tree("x");
     [
@@ -284,7 +280,7 @@ public fun crashing(): string {
  * `on_open` keeps its state, and any other event gets `result`; `view`
  * shows a counter tree.
  */
-public fun linking(init: u8[], result: u8[]): string = guest_of(
+fun linking(init: u8[], result: u8[]): string = guest_of(
     init,
     None,
     Some(result),
@@ -295,7 +291,7 @@ public fun linking(init: u8[], result: u8[]): string = guest_of(
  * The start of a PNG declaring `w` × `h` pixels: its signature and IHDR
  * chunk header, which is all Rapidkoi reads (GTK decodes the rest).
  */
-public fun png(w: i64, h: i64): u8[] {
+fun png(w: i64, h: i64): u8[] {
     let mut b: u8[] = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82];
     for v of [w, h] {
         b.push((v >> 24 & 255) as u8);
@@ -316,7 +312,7 @@ public fun png(w: i64, h: i64): u8[] {
  * adds one. `on_init` starts at 0; every other event keeps the count. Good
  * to 9: one CBOR byte, one digit.
  */
-public fun counting(): string {
+fun counting(): string {
     let result = encode(
         kv([("state", kv([("count", Value.int(0))])), ("effects", Value.Array([]))]),
     );
@@ -356,7 +352,7 @@ public fun counting(): string {
 }
 
 /** Writes `counting()` to `path` as WebAssembly bytes, for what reads a module from disk. */
-public fun write_counting(path: string) {
+fun write_counting(path: string) {
     write_bytes(
         path,
         wat_to_wasm(counting()).expect("the counting fixture is valid text"),

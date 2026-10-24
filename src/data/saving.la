@@ -132,7 +132,7 @@ const LEFT: Part = Part {
  * Example:
  *     session_store()?
  */
-public fun session_store(): Result<Store, StoreError> = data_dir(
+fun session_store(): Result<Store, StoreError> = data_dir(
     env.get("XDG_DATA_HOME"),
     env.get("HOME"),
 ).map(store_at);
@@ -148,7 +148,7 @@ public fun session_store(): Result<Store, StoreError> = data_dir(
  * Example:
  *     restore(with_pages(engine, []), session_store()?)
  */
-public fun restore(m: Model, s: Store): Model {
+fun restore(m: Model, s: Store): Model {
     let notes: Ref<string[]> = Ref.new([]);
     let held: Ref<Store> = Ref.new(s);
     let ids = settle(
@@ -206,7 +206,7 @@ public fun restore(m: Model, s: Store): Model {
 }
 
 /** Where the shared keyring was before a message: `before` can't tell, since every copy shares it. */
-public struct Mark {
+struct Mark {
     changes: i64,
     moves: i64,
 }
@@ -217,7 +217,7 @@ public struct Mark {
  * Example:
  *     let at = mark(m);
  */
-public fun mark(m: Model): Mark = Mark { changes: changes(m.ring), moves: moves(m.ring).len };
+fun mark(m: Model): Mark = Mark { changes: changes(m.ring), moves: moves(m.ring).len };
 
 /**
  * Saves whatever a message changed: the pins; trust (when the keyring's
@@ -232,7 +232,7 @@ public fun mark(m: Model): Mark = Mark { changes: changes(m.ring), moves: moves(
  * Example:
  *     persist(m, next, at)
  */
-public fun persist(before: Model, after: Model, at: Mark): Model {
+fun persist(before: Model, after: Model, at: Mark): Model {
     let s = match after.store {
         Some(s) => s,
         None => {
@@ -340,7 +340,7 @@ public fun persist(before: Model, after: Model, at: Mark): Model {
  * Example:
  *     forgotten(m, window.forget(m))
  */
-public fun forgotten(before: Model, after: Model): Model {
+fun forgotten(before: Model, after: Model): Model {
     let (s, l) = match (after.store, used_last(before)) {
         (Some(s), Some(l)) => (s, l),
         _ => {
@@ -415,7 +415,7 @@ fun say_to(notes: Ref<string[]>, s: string) = notes.update(fun(all: string[]) {
  * Example:
  *     open_of(m)
  */
-public fun open_of(m: Model): Open {
+fun open_of(m: Model): Open {
     let mut current: Option<i64> = None;
     let mut i = 0;
     for t of m.tabs {
@@ -449,7 +449,7 @@ public fun open_of(m: Model): Open {
  * Example:
  *     let (m, open) = restore_open(restore(m, s), s);
  */
-public fun restore_open(m: Model, s: Store): (Model, Option<Open>) {
+fun restore_open(m: Model, s: Store): (Model, Option<Open>) {
     let notes: Ref<string[]> = Ref.new([]);
     let held: Ref<Store> = Ref.new(m.store.unwrap_or(s));
     let open = settle(recall(s, OPEN.file, MAX_OPEN_FILE, read_open), OPEN, notes, held);

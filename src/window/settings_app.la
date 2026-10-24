@@ -13,10 +13,10 @@ import trust.verify { keyring };
 import window.tabs { AppPage, from_loaded };
 
 /** Settings' path and settings key: no host or file, so a name of its own. */
-public const SETTINGS_KEY: string = "builtin:settings";
+const SETTINGS_KEY: string = "builtin:settings";
 
 /** The Settings app's bundle, as built into the program. */
-public const BUNDLE: u8[] = include_bytes("../../assets/apps/settings.rkb");
+const BUNDLE: u8[] = include_bytes("../../assets/apps/settings.rkb");
 
 /**
  * Starts the Settings app.
@@ -27,7 +27,7 @@ public const BUNDLE: u8[] = include_bytes("../../assets/apps/settings.rkb");
  * Example:
  *     settings_app.open(engine)
  */
-public fun open(engine: Engine): Result<AppPage, Refusal> {
+fun open(engine: Engine): Result<AppPage, Refusal> {
     // Built in: the only bytes that may hold built-in permissions (PRP-030).
     let l = from_bytes(engine, keyring(), "settings.rkb", BUNDLE, Origin.BuiltIn)?;
     Ok(from_loaded(engine, l, SETTINGS_KEY, []))

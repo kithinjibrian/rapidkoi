@@ -9,7 +9,7 @@
 import kivuli { Image };
 
 /** An icon of Rapidkoi's, named for what it's for. */
-public enum Icon {
+enum Icon {
     /** `arrow-left4.svg`. */
     Back,
     /** `arrow-right4.svg`. */
@@ -39,7 +39,7 @@ public enum Icon {
 }
 
 /** Every icon, for tests and for listing. */
-public const ALL: Icon[] = [
+const ALL: Icon[] = [
     Icon.Back,
     Icon.Forward,
     Icon.Home,
@@ -60,7 +60,7 @@ public const ALL: Icon[] = [
  * Example:
  *     file(Icon.Home)
  */
-public fun file(i: Icon): string = match i {
+fun file(i: Icon): string = match i {
     Back => "arrow-left4.svg",
     Forward => "arrow-right4.svg",
     Share => "export-circle2.svg",
@@ -82,7 +82,7 @@ public fun file(i: Icon): string = match i {
  * Example:
  *     svg(Icon.Home)
  */
-public fun svg(i: Icon): string = match i {
+fun svg(i: Icon): string = match i {
     Back => include_str("../../assets/icons/arrow-left4.svg"),
     Forward => include_str("../../assets/icons/arrow-right4.svg"),
     Share => include_str("../../assets/icons/export-circle2.svg"),
@@ -107,7 +107,7 @@ public fun svg(i: Icon): string = match i {
  */
 // Lugha's strings have no replace: splitting at each white and joining
 // with the new colour is the same.
-public fun recolour(svg: string, colour: string): string = svg.split("#ffffff").join(colour);
+fun recolour(svg: string, colour: string): string = svg.split("#ffffff").join(colour);
 
 /**
  * Returns an icon drawn in `colour`, as a picture kivuli shows. Keyed by the
@@ -120,7 +120,7 @@ public fun recolour(svg: string, colour: string): string = svg.split("#ffffff").
  * Example:
  *     image(icon(Icon.Home, t.text))
  */
-public fun icon(i: Icon, colour: string): Image = Image.Bytes(
+fun icon(i: Icon, colour: string): Image = Image.Bytes(
     "icon:{file(i)}:{colour}",
     recolour(svg(i), colour).to_bytes(),
 );

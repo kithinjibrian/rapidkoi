@@ -1,7 +1,7 @@
 // One tab per app, at most one empty tab (PRP-026). Fixture guests; no
 // display, no network (addresses stay loading: their tasks aren't run).
-import rapidkoi.shell { Model, start, with_pages, update };
-import rapidkoi.window.window { same_app };
+import rapidkoi.shell { start, update };
+import rapidkoi.window.window { same_app, Model, with_pages };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage, Pin, open_module };
 import wasmtime { Engine, Module };

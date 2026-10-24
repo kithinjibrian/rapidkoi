@@ -2,7 +2,8 @@
 // after an update adds one, and the one-time notice. The facts the Access
 // page will show, checked on the model: its page comes back natively later
 // (DECISION-030). Writes only under test/tmp/.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window as windows { Model, with_pages };
 import rapidkoi.people.access { Access, access_of };
 import rapidkoi.data.saving { restore };
 import rapidkoi.window.actions { Msg, PanelPage };

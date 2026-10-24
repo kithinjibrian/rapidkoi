@@ -16,10 +16,10 @@ import guest.styles { read_style };
 import guest.roles { read_facts };
 
 /** The most lines a typing box may have. */
-public const MAX_LINES: i64 = 20;
+const MAX_LINES: i64 = 20;
 
 /** The longest label a typing box may have, in bytes (DECISION-056). */
-public const MAX_LABEL: i64 = 200;
+const MAX_LABEL: i64 = 200;
 
 /**
  * Decodes a screen and its title.
@@ -32,7 +32,7 @@ public const MAX_LABEL: i64 = 200;
  * Example:
  *     read_tree(bytes)?.root
  */
-public fun read_tree(bytes: u8[]): Result<Described, ContractError> {
+fun read_tree(bytes: u8[]): Result<Described, ContractError> {
     if bytes.len > MAX_VIEW {
         return Err(ContractError.TooLong("the screen description", bytes.len));
     }

@@ -30,23 +30,15 @@ import kivuli {
     text_area,
 };
 import cbor { Value };
-import guest.contract { Node, ButtonLook };
-import guest.nodes { Look, Facts, Typing, Direction };
+
+import guest.nodes { Look, Facts, Typing, Direction, Node, ButtonLook };
 import ui.tokens { SPACE_SM, RING_WIDTH, gap, margin };
-import ui.themes {
-    Theme,
-    body,
-    dim,
-    title,
-    heading,
-    field,
-    paint as theme_paint,
-    button as button_look,
-};
+import ui.themes { body, dim, title, heading, field, paint as theme_paint, button as button_look };
+import ui.schemes { Theme };
 import ui.paint { Own, AS_STYLED, resolve_for, styles_of, align_of };
 
 /** What the shell's window sends its `update`. */
-public enum Msg {
+enum Msg {
     /** A node's message, and the event's data (an input's new text). */
     Event(Value, Option<string>),
     /** Start the app again in a fresh store. */
@@ -65,7 +57,7 @@ public enum Msg {
  * Example:
  *     screen(tree, m.theme)
  */
-public fun screen(n: Node, t: Theme): View<Msg> = screen_as(n, t, AS_STYLED);
+fun screen(n: Node, t: Theme): View<Msg> = screen_as(n, t, AS_STYLED);
 
 /**
  * Builds the kivuli view of a decoded tree with the person's switch for
@@ -74,7 +66,7 @@ public fun screen(n: Node, t: Theme): View<Msg> = screen_as(n, t, AS_STYLED);
  * Example:
  *     screen_as(tree, m.theme, own)
  */
-public fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
+fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
     Unsupported(kind) => text("Unsupported component: {kind}").style(dim(t)).align(Align.Start),
     Boxed(look, facts, press, kids) => boxed(look, facts, press, kids, t, own),
     Words(s, look, facts) => placed(
@@ -209,7 +201,7 @@ fun facts_none(): Facts = Facts {
  * Example:
  *     stopped("This app stopped responding", true, m.theme)
  */
-public fun stopped(reason: string, can_restart: bool, t: Theme): View<Msg> {
+fun stopped(reason: string, can_restart: bool, t: Theme): View<Msg> {
     let mut kids: View<Msg>[] = [
         text("This app stopped working").style(title(t)).align(Align.Start),
         text(reason).style(dim(t)).align(Align.Start),
@@ -227,7 +219,7 @@ public fun stopped(reason: string, can_restart: bool, t: Theme): View<Msg> {
  * Example:
  *     refused("This app couldn't be verified, so Rapidkoi didn't run it: …", m.theme)
  */
-public fun refused(reason: string, t: Theme): View<Msg> = column([
+fun refused(reason: string, t: Theme): View<Msg> = column([
     text("Rapidkoi didn't run this app").style(title(t)).align(Align.Start),
     text(reason).style(dim(t)).align(Align.Start),
 ]).style([gap(SPACE_SM)]);
@@ -243,7 +235,7 @@ public fun refused(reason: string, t: Theme): View<Msg> = column([
  * Example:
  *     loading("localhost:8000", 4100, m.theme)
  */
-public fun loading(address: string, elapsed: i64, t: Theme): View<Msg> {
+fun loading(address: string, elapsed: i64, t: Theme): View<Msg> {
     let frame = ["◐", "◓", "◑", "◒"][elapsed / 120 % 4];
     let label = if elapsed >= 3000 { "Loading… {elapsed / 1000} s" } else { "Loading…" };
     column([

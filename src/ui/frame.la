@@ -16,7 +16,8 @@ import trust.verify { Change, Standing };
 import trust.keys { fingerprint };
 import guest.nodes { ButtonLook };
 import ui.tokens { SPACE_SM, gap };
-import ui.themes { Theme, title, dim, button as button_look };
+import ui.themes { title, dim, button as button_look };
+import ui.schemes { Theme };
 
 /**
  * Returns what a tab is called: "name · title", or the name alone.
@@ -27,7 +28,7 @@ import ui.themes { Theme, title, dim, button as button_look };
  * Example:
  *     label(page)
  */
-public fun label(p: AppPage): string = match p.title {
+fun label(p: AppPage): string = match p.title {
     Some(t) => "{p.name} · {t}",
     None => p.name,
 };
@@ -42,7 +43,7 @@ public fun label(p: AppPage): string = match p.title {
  * Example:
  *     initial("counter")
  */
-public fun initial(name: string): string {
+fun initial(name: string): string {
     for c of name.chars() {
         return "{c.to_upper()}";
     }
@@ -61,7 +62,7 @@ public fun initial(name: string): string {
  * Example:
  *     marker(page, "counter.rkb")
  */
-public fun marker(p: AppPage, shown: string): string = match p.trust {
+fun marker(p: AppPage, shown: string): string = match p.trust {
     // Nothing claims verified or not confirmed before every check has passed.
     None if is_loading(p) => "{p.name} · loading…",
     // A signed app: its host, after the icon (`marker_icon`); the words are in `marker_note`.
@@ -86,7 +87,7 @@ public fun marker(p: AppPage, shown: string): string = match p.trust {
  * Example:
  *     marker_icon(page)
  */
-public fun marker_icon(p: AppPage): Option<string> = match p.trust {
+fun marker_icon(p: AppPage): Option<string> = match p.trust {
     Some(t) => match t.standing {
         NotConfirmed => Some("dialog-warning-symbolic"),
         _ => Some("security-high-symbolic"),
@@ -102,7 +103,7 @@ public fun marker_icon(p: AppPage): Option<string> = match p.trust {
  * Example:
  *     marker_note(page, "counter.rkb")
  */
-public fun marker_note(p: AppPage, shown: string): string = match p.trust {
+fun marker_note(p: AppPage, shown: string): string = match p.trust {
     Some(t) => {
         let separate = if t.separate { " · new publisher" } else { "" };
         match t.standing {
@@ -134,7 +135,7 @@ fun remote(path: string): bool = parse(path).map(fun(a) = a.remote).unwrap_or(fa
  * Example:
  *     unapproved(change, true, m.theme)
  */
-public fun unapproved(c: Change, open: bool, t: Theme): View<Msg> = column([
+fun unapproved(c: Change, open: bool, t: Theme): View<Msg> = column([
     text("{c.host} is now signed by a different key").style(title(t)).align(Align.Start),
     text("This can mean the site changed owners.").style(dim(t)).align(Align.Start),
     text("Before: key {fingerprint(c.old)} · Now: key {fingerprint(c.new)}").style(dim(t)).align(
@@ -159,7 +160,7 @@ public fun unapproved(c: Change, open: bool, t: Theme): View<Msg> = column([
  * Example:
  *     icon_of(page.path, page.icon)
  */
-public fun icon_of(path: string, icon: Option<u8[]>): Option<Image> = icon.map(
+fun icon_of(path: string, icon: Option<u8[]>): Option<Image> = icon.map(
     fun(b: u8[]) = Image.Bytes("{path}#icon", b),
 );
 
@@ -169,7 +170,7 @@ public fun icon_of(path: string, icon: Option<u8[]>): Option<Image> = icon.map(
  * Example:
  *     file_of("apps/counter.wasm")
  */
-public fun file_of(path: string): string {
+fun file_of(path: string): string {
     let parts = path.split("/");
     parts[parts.len - 1]
 }
@@ -182,7 +183,7 @@ public fun file_of(path: string): string {
  * Example:
  *     address_of(page)
  */
-public fun address_of(p: AppPage): string = match parse(p.path) {
+fun address_of(p: AppPage): string = match parse(p.path) {
     Ok(a) => link_of(a, p.manifest.map(fun(m: Manifest) = m.version), p.fields),
     Err(_) => file_of(p.path),
 };

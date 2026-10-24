@@ -2,7 +2,7 @@
 // runs it, its size, and Clear. Real SQLite files under test/tmp/.
 import rapidkoi.data.databases { Call, Queried, path_for, call, size_of, clear };
 import rapidkoi.data.store { store_at };
-import rapidkoi.guest.contract { Query };
+import rapidkoi.guest.nodes { Query };
 import rapidkoi.guest.limits { MAX_ROWS };
 import rapidkoi.window.tabs { AppPage, failed_page };
 import rapidkoi.trust.verify { Trust, Standing };

@@ -3,13 +3,15 @@
 // fresh state where it has them with the same kind of value, or where
 // they're empty and their kind is declared (DECISION-056).
 // Pure; no guest, no display.
-import rapidkoi.guest.contract { LinkChange, read_update };
+import rapidkoi.guest.contract { read_update };
+import rapidkoi.guest.nodes { LinkChange };
 import rapidkoi.guest.links { fields_in, with_link };
 import rapidkoi.window.tabs { AppPage, Pending, open_module_at, handle, state_of };
 import rapidkoi.ui.render { Msg };
 import wasmtime { Engine, Module };
 import cbor { Value, encode };
-import rapidkoi.shell { Model, start, update };
+import rapidkoi.shell { start, update };
+import rapidkoi.window.window { Model };
 import rapidkoi.window.actions { Msg as AppMsg };
 import rapidkoi.net.fetching { Fetched };
 import rapidkoi.bundles.bundle { Bundle, Manifest, write };

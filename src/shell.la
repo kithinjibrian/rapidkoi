@@ -22,7 +22,7 @@ import guest.limits { SQLITE_HEAP, CHECK_EVERY_MS };
 import people.account { on_account, forget_account };
 import people.access { on_access, looked, news, set_permission };
 import people.people { with_looks };
-public import window.window { Model, with_pages, title_of };
+import window.window { Model, with_pages, title_of };
 import window.navigate;
 import window.pins;
 import window.instances { close_instance, close_app, start_rename, confirm_rename, touched };
@@ -44,7 +44,7 @@ import ui.layout;
  * Example:
  *     App { init: boot(args()), … }
  */
-public fun boot(argv: string[]): (Model, Cmd<Msg>) = match session_store() {
+fun boot(argv: string[]): (Model, Cmd<Msg>) = match session_store() {
     Ok(s) => start(argv, Some(s)),
     Err(e) => {
         let (m, cmd) = start(argv, None);
@@ -67,7 +67,7 @@ public fun boot(argv: string[]): (Model, Cmd<Msg>) = match session_store() {
  * Example:
  *     start(["./main"], Some(store_at("test/tmp/s")))
  */
-public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
+fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     let engine = Engine.new();
     // Every app's database shares SQLite's memory: one cap for all (PRP-041).
     sqlite.heap_limit(SQLITE_HEAP);
@@ -117,7 +117,7 @@ public fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
  * Example:
  *     App { subscriptions: subscriptions, … }
  */
-public fun subscriptions(m: Model): Sub<Msg> {
+fun subscriptions(m: Model): Sub<Msg> {
     let mut subs: Sub<Msg>[] = [];
     if m.tabs.any(fun(t: Tab) = is_loading(t.page)) {
         subs.push(Sub.every(120, Msg.Tick));
@@ -143,7 +143,7 @@ public fun subscriptions(m: Model): Sub<Msg> {
  * Example:
  *     update(m, Msg.NewTab)
  */
-public fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
+fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     // The keyring is shared by every copy of the model: mark it first.
     let at = mark(m);
     let (handled, cmd) = handle_msg(m, msg);
@@ -419,7 +419,7 @@ fun on_pin(m: Model, path: string, action: PinAction): (Model, Cmd<Msg>) = match
  * Example:
  *     view(m)
  */
-public fun view(m: Model): View<Msg> = layout.view(m);
+fun view(m: Model): View<Msg> = layout.view(m);
 
 /**
  * Removes tab `id`'s app's kept copy (PRP-043), when it's a signed app: a

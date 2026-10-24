@@ -55,7 +55,7 @@ import guest.limits { FETCH_TIMEOUT_MS };
  * Example:
  *     begin(m, id, "rapidkoi://localhost:8000", false, None, [])
  */
-public fun begin(
+fun begin(
     m: Model,
     id: i64,
     path: string,
@@ -71,7 +71,7 @@ public fun begin(
  * Example:
  *     begin_link(m, id, "rapidkoi://localhost:8000", Some("1.0.0"), [("count", "3")])
  */
-public fun begin_link(
+fun begin_link(
     m: Model,
     id: i64,
     path: string,
@@ -145,7 +145,7 @@ fun begin_at(
  * Example:
  *     begin_restoring(m, id, "rapidkoi://counter.dafifi.net")
  */
-public fun begin_restoring(m: Model, id: i64, path: string): (Model, Cmd<Msg>) {
+fun begin_restoring(m: Model, id: i64, path: string): (Model, Cmd<Msg>) {
     let (began, task) = begin(m, id, path, false, None, []);
     (restoring(began, id), task)
 }
@@ -164,7 +164,7 @@ fun restoring(m: Model, id: i64): Model = with_tab(m, id, fun(p: AppPage) = matc
  * Example:
  *     arrive(m, id, number, fetched)
  */
-public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
+fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
     let p = match app(m, id) {
         Some(p) if p.load == number => p,
         // Closed, or ⟳ started another load since: drop it.
@@ -291,7 +291,7 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
  * Example:
  *     refreshed(m, id, build, r)
  */
-public fun refreshed(m: Model, id: i64, build: u8[], r: Refreshed): Model {
+fun refreshed(m: Model, id: i64, build: u8[], r: Refreshed): Model {
     let p = match app(m, id) {
         Some(p) if p.trust.map(fun(t) = equal(t.build, build)).unwrap_or(false) => p,
         _ => {
@@ -330,7 +330,7 @@ public fun refreshed(m: Model, id: i64, build: u8[], r: Refreshed): Model {
  * Example:
  *     check_current(m)
  */
-public fun check_current(m: Model): Cmd<Msg> = match m.current {
+fun check_current(m: Model): Cmd<Msg> = match m.current {
     Some(id) => match app(m, id) {
         Some(p) => check_page(m, id, p),
         None => Cmd.none(),
@@ -446,7 +446,7 @@ fun pinned_hosts(m: Model): string[] {
  * Example:
  *     resumed(m, page, page.link)
  */
-public fun resumed(m: Model, page: AppPage, link: string[]): (AppPage, Option<string>) = match (
+fun resumed(m: Model, page: AppPage, link: string[]): (AppPage, Option<string>) = match (
     m.store,
     page.trust,
 ) {

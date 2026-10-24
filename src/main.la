@@ -9,7 +9,8 @@
  * Depends on: kivuli, shell, window.actions, commands.pack, commands.publish, commands.serve
  */
 import kivuli { App, application };
-import shell { Model, boot, update, view, subscriptions };
+import shell { boot, update, view, subscriptions };
+import window.window { Model };
 import window.actions { Msg };
 import commands.pack;
 import commands.serve;

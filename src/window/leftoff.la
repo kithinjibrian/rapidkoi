@@ -12,28 +12,28 @@ import trust.verify { Trust };
 import window.tabs { AppPage, Program, close_page, state_of, state_version_of };
 
 /** The app page the person last left, for "Where you left off". */
-public struct LeftOff {
+struct LeftOff {
     /** The app's name. */
-    public name: string,
+    name: string,
     /** Its file. */
-    public path: string,
+    path: string,
     /** Its last screen title, if any. */
-    public title: Option<string>,
+    title: Option<string>,
     /** Its state when left; `None` when it had stopped. */
-    public state: Option<u8[]>,
+    state: Option<u8[]>,
     /** The version of that state's shape (1 for a bare `.wasm`). */
-    public state_version: i64,
+    state_version: i64,
     manifest: Option<Manifest>,
     /** Its icon, if it had one. */
-    public icon: Option<u8[]>,
+    icon: Option<u8[]>,
     trust: Option<Trust>,
     /** Which signed app it is, when read back from disk (no `trust` then). */
     signer: Option<(string, u8[])>,
     program: Option<Program>,
     /** Which instance of its app it was (PRP-033): "" for the first. */
-    public instance: string,
+    instance: string,
     /** The name the person gave that instance, if any. */
-    public label: Option<string>,
+    label: Option<string>,
 }
 
 /**
@@ -45,7 +45,7 @@ public struct LeftOff {
  * Example:
  *     let left = leave(page);
  */
-public fun leave(p: AppPage): LeftOff {
+fun leave(p: AppPage): LeftOff {
     let left = LeftOff {
         name: p.name,
         path: p.path,
@@ -71,7 +71,7 @@ public fun leave(p: AppPage): LeftOff {
  * Example:
  *     snapshot(page)
  */
-public fun snapshot(p: AppPage): LeftOff = LeftOff {
+fun snapshot(p: AppPage): LeftOff = LeftOff {
     name: p.name,
     path: p.path,
     title: p.title,
@@ -94,7 +94,7 @@ public fun snapshot(p: AppPage): LeftOff = LeftOff {
  * Example:
  *     if compiled(l) { resume(l) } else { … }
  */
-public fun compiled(l: LeftOff): bool = l.program.is_some();
+fun compiled(l: LeftOff): bool = l.program.is_some();
 
 /**
  * A "where you left off" read back from disk: no compiled program and no
@@ -104,7 +104,7 @@ public fun compiled(l: LeftOff): bool = l.program.is_some();
  * Example:
  *     recalled("Counter", "rapidkoi://localhost:8000", Some("Count: 3"), None, Some((host, key)))
  */
-public fun recalled(
+fun recalled(
     name: string,
     path: string,
     title: Option<string>,
@@ -132,7 +132,7 @@ public fun recalled(
  * Example:
  *     as_instance(recalled(…), "2", Some("Work"))
  */
-public fun as_instance(l: LeftOff, instance: string, label: Option<string>): LeftOff = LeftOff {
+fun as_instance(l: LeftOff, instance: string, label: Option<string>): LeftOff = LeftOff {
     instance: instance,
     label: label,
     ..l,
@@ -145,7 +145,7 @@ public fun as_instance(l: LeftOff, instance: string, label: Option<string>): Lef
  * Example:
  *     signer_of(left)
  */
-public fun signer_of(l: LeftOff): Option<(string, u8[])> = match l.trust {
+fun signer_of(l: LeftOff): Option<(string, u8[])> = match l.trust {
     Some(t) => Some((t.host, t.key)),
     None => l.signer,
 };

@@ -31,7 +31,8 @@ import window.window { Model, order as tab_order, open_tab_of };
 import window.instances { instances_of };
 import ui.frame { label, initial, icon_of };
 import ui.tokens { SPACE_XS, SPACE_SM, HEADER_ICON, TAB_CLOSE, TAB_CLOSE_ICON, gap, square };
-import ui.themes { Theme, heading };
+import ui.themes { heading };
+import ui.schemes { Theme };
 import ui.frame_looks { app_button, app_current, tab_close, tab_close_on_hover, count_badge };
 
 /**
@@ -43,7 +44,7 @@ import ui.frame_looks { app_button, app_current, tab_close, tab_close_on_hover, 
  * Example:
  *     sidebar.view(m)
  */
-public fun view(m: Model): View<Msg> {
+fun view(m: Model): View<Msg> {
     let t = m.theme;
     let mut pinned: View<Msg>[] = [];
     for p of m.pinned {
@@ -90,7 +91,7 @@ public fun view(m: Model): View<Msg> {
  * Example:
  *     sidebar.order(m)
  */
-public fun order(m: Model): i64[] = tab_order(m);
+fun order(m: Model): i64[] = tab_order(m);
 
 /** The app tab with this id, if it's one. */
 fun tab_by_id(m: Model, id: i64): Option<Tab> {
@@ -172,7 +173,7 @@ fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
  * Example:
  *     count_text(12)
  */
-public fun count_text(n: i64): string = if n > 9 { "9+" } else { "{n}" };
+fun count_text(n: i64): string = if n > 9 { "9+" } else { "{n}" };
 
 /**
  * A tab's button with its × over the top-right corner, named `tab-{id}` so

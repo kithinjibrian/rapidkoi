@@ -25,73 +25,73 @@ import bundles.permissions {
 };
 
 /** The longest name part, in characters. */
-public const MAX_NAME: i64 = 64;
+const MAX_NAME: i64 = 64;
 
 /** The people file's format: 3 adds permission settings (PRP-031), 4 each app's look switches (PRP-038). */
-public const FORMAT: i64 = 4;
+const FORMAT: i64 = 4;
 
 /** The most apps the file holds. */
-public const MAX_PEOPLE: i64 = 10_000;
+const MAX_PEOPLE: i64 = 10_000;
 
 /** The file's cap in bytes. */
-public const MAX_PEOPLE_FILE: i64 = 4 * 1024 * 1024;
+const MAX_PEOPLE_FILE: i64 = 4 * 1024 * 1024;
 
 /** You, to one app. */
-public struct Person {
+struct Person {
     /** The app's host. */
-    public host: string,
+    host: string,
     /** The key first trusted for the app (its identity, kept through rotations). */
-    public origin: u8[],
+    origin: u8[],
     /** How many times you started over with it: a new key each time. */
-    public generation: i64,
+    generation: i64,
     /** Whether it signs you in when it asks (on by default). */
-    public auto: bool,
+    auto: bool,
     /** Whether you signed out of it. */
-    public signed_out: bool,
+    signed_out: bool,
     /** Your first name in this app only; "" uses the one for every app. */
-    public first: string,
+    first: string,
     /** Your last name in this app only; "" uses the one for every app. */
-    public last: string,
+    last: string,
     /** The servers you switched off for it, its own host included (PRP-012). */
-    public off: string[],
+    off: string[],
     /** The servers it declared that you've been told about (the notice, or its first open). */
-    public seen: string[],
+    seen: string[],
     /** Those told about since you last looked at its Access page: marked new there. */
-    public fresh: string[],
+    fresh: string[],
 }
 
 /** Everything in the people file. */
-public struct People {
+struct People {
     /** Your first name for every app ("" for none). */
-    public first: string,
+    first: string,
     /** Your last name for every app ("" for none). */
-    public last: string,
+    last: string,
     /** The apps you've signed in to or changed settings for. */
-    public apps: Person[],
+    apps: Person[],
     /** The permission settings you changed from their defaults (PRP-031). */
-    public grants: Grant[],
+    grants: Grant[],
     /** The apps you switched to your colours or text size (PRP-038). */
-    public looks: OwnLooks[],
+    looks: OwnLooks[],
 }
 
 /** The person's switch for one app's looks (PRP-038). */
-public struct OwnLooks {
+struct OwnLooks {
     /** The app's key, as for permissions. */
-    public app: string,
+    app: string,
     /** Use my colours. */
-    public colours: bool,
+    colours: bool,
     /** Use my text size. */
-    public text_size: bool,
+    text_size: bool,
 }
 
 /** One permission setting you chose for one app. */
-public struct Grant {
+struct Grant {
     /** The app: `builtin:<file>` for one built into `./main`. */
-    public app: string,
+    app: string,
     /** The permission's name (`read_pins`). */
-    public permission: string,
+    permission: string,
     /** What you chose. */
-    public setting: Setting,
+    setting: Setting,
 }
 
 /**
@@ -100,7 +100,7 @@ public struct Grant {
  * Example:
  *     nobody()
  */
-public fun nobody(): People = People { first: "", last: "", apps: [], grants: [], looks: [] };
+fun nobody(): People = People { first: "", last: "", apps: [], grants: [], looks: [] };
 
 /**
  * Returns you to one app: its saved settings, or the defaults (generation
@@ -109,7 +109,7 @@ public fun nobody(): People = People { first: "", last: "", apps: [], grants: []
  * Example:
  *     person(people, host, origin)
  */
-public fun person(p: People, host: string, origin: u8[]): Person {
+fun person(p: People, host: string, origin: u8[]): Person {
     for x of p.apps {
         if x.host == host && equal(x.origin, origin) {
             return x;
@@ -136,7 +136,7 @@ public fun person(p: People, host: string, origin: u8[]): Person {
  * Example:
  *     known(people, host, origin)
  */
-public fun known(p: People, host: string, origin: u8[]): bool = p.apps.any(
+fun known(p: People, host: string, origin: u8[]): bool = p.apps.any(
     fun(x: Person) = x.host == host && equal(x.origin, origin),
 );
 
@@ -146,7 +146,7 @@ public fun known(p: People, host: string, origin: u8[]): bool = p.apps.any(
  * Example:
  *     with_person(people, Person { auto: false, ..person(people, host, origin) })
  */
-public fun with_person(p: People, x: Person): People {
+fun with_person(p: People, x: Person): People {
     let mut apps = forget_person(p, x.host, x.origin).apps;
     apps.push(x);
     People { apps: apps, ..p }
@@ -158,7 +158,7 @@ public fun with_person(p: People, x: Person): People {
  * Example:
  *     forget_person(people, host, origin)
  */
-public fun forget_person(p: People, host: string, origin: u8[]): People = People {
+fun forget_person(p: People, host: string, origin: u8[]): People = People {
     apps: p.apps.filter(fun(x: Person) = !(x.host == host && equal(x.origin, origin))),
     ..p,
 };
@@ -170,7 +170,7 @@ public fun forget_person(p: People, host: string, origin: u8[]): People = People
  * Example:
  *     name_in(people, host, origin)
  */
-public fun name_in(p: People, host: string, origin: u8[]): (string, string) {
+fun name_in(p: People, host: string, origin: u8[]): (string, string) {
     let x = person(p, host, origin);
     (if x.first != "" { x.first } else { p.first }, if x.last != "" { x.last } else { p.last })
 }
@@ -181,7 +181,7 @@ public fun name_in(p: People, host: string, origin: u8[]): (string, string) {
  * Example:
  *     save(s, "people", people_file(people))?
  */
-public fun people_file(p: People): u8[] = encode(
+fun people_file(p: People): u8[] = encode(
     Value.Map([
         entry("format", Value.int(FORMAT)),
         entry("kind", Value.Text("rapidkoi people")),
@@ -240,7 +240,7 @@ public fun people_file(p: People): u8[] = encode(
  * Example:
  *     read_people(bytes)?
  */
-public fun read_people(bytes: u8[]): Result<People, Unreadable> {
+fun read_people(bytes: u8[]): Result<People, Unreadable> {
     let bad = fun(why: string) = Unreadable.Broken(why);
     let v = decode(bytes, Limits {
         max_depth: 5,
@@ -320,7 +320,7 @@ public fun read_people(bytes: u8[]): Result<People, Unreadable> {
  * Example:
  *     setting_of(people, "builtin:newtab", Permission.ReadPins)
  */
-public fun setting_of(p: People, app: string, permission: Permission): Setting {
+fun setting_of(p: People, app: string, permission: Permission): Setting {
     for g of p.grants {
         if g.app == app && g.permission == name_of(permission) {
             return g.setting;
@@ -335,7 +335,7 @@ public fun setting_of(p: People, app: string, permission: Permission): Setting {
  * Example:
  *     with_setting(people, "builtin:newtab", Permission.ReadPins, Setting.Blocked)
  */
-public fun with_setting(p: People, app: string, permission: Permission, s: Setting): People {
+fun with_setting(p: People, app: string, permission: Permission, s: Setting): People {
     let name = name_of(permission);
     let mut kept = p.grants.filter(fun(g: Grant) = !(g.app == app && g.permission == name));
     if s != default_of(permission) {
@@ -350,7 +350,7 @@ public fun with_setting(p: People, app: string, permission: Permission, s: Setti
  * Example:
  *     looks_of(people, "notes.acme.com")
  */
-public fun looks_of(p: People, app: string): (bool, bool) {
+fun looks_of(p: People, app: string): (bool, bool) {
     for l of p.looks {
         if l.app == app {
             return (l.colours, l.text_size);
@@ -365,7 +365,7 @@ public fun looks_of(p: People, app: string): (bool, bool) {
  * Example:
  *     with_looks(people, "notes.acme.com", true, false)
  */
-public fun with_looks(p: People, app: string, colours: bool, text_size: bool): People {
+fun with_looks(p: People, app: string, colours: bool, text_size: bool): People {
     let mut kept = p.looks.filter(fun(l: OwnLooks) = l.app != app);
     if colours || text_size {
         kept.push(OwnLooks { app: app, colours: colours, text_size: text_size });

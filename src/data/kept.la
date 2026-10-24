@@ -19,21 +19,21 @@ import trust.verify { SITE };
 import guest.limits { MAX_BUNDLE };
 
 /** One app's kept copy: its folder. */
-public struct Kept {
+struct Kept {
     /** `kept/<sha256 of the host>` in the data folder. */
-    public dir: string,
+    dir: string,
 }
 
 /** What's known about a kept copy beyond its files. */
-public struct Meta {
+struct Meta {
     /** When its site was last reached and checked, in milliseconds since 1970. */
-    public checked: i64,
+    checked: i64,
     /** When it was last opened: eviction goes oldest first. */
-    public opened: i64,
+    opened: i64,
 }
 
 /** Why a kept copy couldn't be written or removed. */
-public enum KeptError {
+enum KeptError {
     /** A file system failure: the path, the system's message. */
     Io(string, string),
 }
@@ -48,7 +48,7 @@ const MAX_META: i64 = 4096;
  * Example:
  *     kept_for(store, "notes.dafifi.net")
  */
-public fun kept_for(s: Store, host: string): Kept = Kept {
+fun kept_for(s: Store, host: string): Kept = Kept {
     dir: "{s.dir}/kept/{hex(sha256("host\n{host}".to_bytes()))}",
 };
 
@@ -58,7 +58,7 @@ public fun kept_for(s: Store, host: string): Kept = Kept {
  * Example:
  *     if has(k) { … }
  */
-public fun has(k: Kept): bool = fs.is_file("{k.dir}/index");
+fun has(k: Kept): bool = fs.is_file("{k.dir}/index");
 
 /**
  * Returns a `get` over the kept files, for `verify.check_site_at`: the key,
@@ -68,7 +68,7 @@ public fun has(k: Kept): bool = fs.is_file("{k.dir}/index");
  * Example:
  *     check_site_at(known, host, files(k), None)
  */
-public fun files(k: Kept): fun(string): Result<(i64, u8[]), string> = fun(path: string) {
+fun files(k: Kept): fun(string): Result<(i64, u8[]), string> = fun(path: string) {
     let name = match file_of(path) {
         Some(n) => n,
         None => {
@@ -97,7 +97,7 @@ public fun files(k: Kept): fun(string): Result<(i64, u8[]), string> = fun(path: 
  * Example:
  *     keep(k, key, index, build)?
  */
-public fun keep(k: Kept, key: u8[], index: u8[], build: u8[]): Result<(), KeptError> {
+fun keep(k: Kept, key: u8[], index: u8[], build: u8[]): Result<(), KeptError> {
     let at = store_at(k.dir);
     let name = "{hex(sha256(build))}.rkb";
     for (file, bytes) of [(name, build), ("index", index), ("key", key)] {
@@ -118,7 +118,7 @@ public fun keep(k: Kept, key: u8[], index: u8[], build: u8[]): Result<(), KeptEr
  * Example:
  *     read_meta(k).map(fun(m: Meta) = m.checked)
  */
-public fun read_meta(k: Kept): Option<Meta> {
+fun read_meta(k: Kept): Option<Meta> {
     let file = "{k.dir}/meta";
     if !fs.is_file(file) {
         return None;
@@ -139,7 +139,7 @@ public fun read_meta(k: Kept): Option<Meta> {
  * Example:
  *     write_meta(k, Meta { opened: now, ..m })?
  */
-public fun write_meta(k: Kept, m: Meta): Result<(), KeptError> {
+fun write_meta(k: Kept, m: Meta): Result<(), KeptError> {
     let entries = [
         entry("format", Value.int(1)),
         entry("kind", Value.Text("rapidkoi kept")),
@@ -157,7 +157,7 @@ public fun write_meta(k: Kept, m: Meta): Result<(), KeptError> {
  * Example:
  *     size_of(k)
  */
-public fun size_of(k: Kept): i64 {
+fun size_of(k: Kept): i64 {
     let names = match fs.list_dir(k.dir) {
         Ok(n) => n,
         Err(_) => {
@@ -180,7 +180,7 @@ public fun size_of(k: Kept): i64 {
  * Example:
  *     remove(kept_for(store, host))?
  */
-public fun remove(k: Kept): Result<(), KeptError> {
+fun remove(k: Kept): Result<(), KeptError> {
     if !fs.is_dir(k.dir) {
         return Ok(());
     }
@@ -203,7 +203,7 @@ public fun remove(k: Kept): Result<(), KeptError> {
  * Example:
  *     evict(store, ["notes.dafifi.net"], KEPT_BYTES)?
  */
-public fun evict(s: Store, pinned: string[], limit: i64): Result<i64, KeptError> {
+fun evict(s: Store, pinned: string[], limit: i64): Result<i64, KeptError> {
     let root = "{s.dir}/kept";
     if !fs.is_dir(root) {
         return Ok(0);
@@ -237,7 +237,7 @@ public fun evict(s: Store, pinned: string[], limit: i64): Result<i64, KeptError>
  * Example:
  *     reason(e)
  */
-public fun reason(e: KeptError): string = match e {
+fun reason(e: KeptError): string = match e {
     Io(path, why) => "{path}: {why}",
 };
 

@@ -15,7 +15,7 @@ import cbor { Value };
 import bundles.permissions { Permission, Setting };
 
 /** A message to the shell. */
-public enum Msg {
+enum Msg {
     /** A message from a tab's own screen (a guest event, or Restart), by tab id. */
     Tab(i64, render.Msg),
     /** Show this tab. */
@@ -129,7 +129,7 @@ public enum Msg {
 }
 
 /** Which name a field sets. */
-public enum NameScope {
+enum NameScope {
     /** The one every app shows. */
     Everywhere,
     /** This app's own, over the one for every app. */
@@ -137,7 +137,7 @@ public enum NameScope {
 }
 
 /** Which part of a name. */
-public enum NamePart {
+enum NamePart {
     /** {FIRST_NAME} */
     First,
     /** {LAST_NAME} */
@@ -145,7 +145,7 @@ public enum NamePart {
 }
 
 /** What a tab's menu can do: what the bar and panel already do. */
-public enum TabAction {
+enum TabAction {
     /** ⟳ */
     Reload,
     /** Pin it to home, or unpin it. */
@@ -159,7 +159,7 @@ public enum TabAction {
 }
 
 /** What a home tile's menu can do. */
-public enum PinAction {
+enum PinAction {
     /** Open it, as a click on the tile does. */
     Open,
     /** Take it off home. */
@@ -169,7 +169,7 @@ public enum PinAction {
 }
 
 /** The shield's card's pages (PRP-021). */
-public enum ShieldPage {
+enum ShieldPage {
     /** The app, and a row each for its connection and its signature. */
     Main,
     /** How Rapidkoi reached it. */
@@ -179,7 +179,7 @@ public enum ShieldPage {
 }
 
 /** Site settings' pages (PRP-022): the card behind ⚙. */
-public enum PanelPage {
+enum PanelPage {
     /** The app, its sections, and Forget. */
     Main,
     /** Public key: who you are to the app. */
@@ -195,17 +195,17 @@ public enum PanelPage {
 }
 
 /** An app's ask waiting for the person (PRP-031): Rapidkoi's own dialog. */
-public struct Approval {
+struct Approval {
     /** The asking page's tab; `None` for the new tab. */
-    public tab: Option<i64>,
+    tab: Option<i64>,
     /** What it asked to do. */
-    public permission: Permission,
+    permission: Permission,
     /** The app's name, for the dialog. */
-    public app: string,
+    app: string,
 }
 
 /** The approval dialog's buttons. */
-public enum Answer {
+enum Answer {
     /** Answer this ask; the next one asks again. */
     Once,
     /** Answer it, and allow it from now on. */
@@ -215,7 +215,7 @@ public enum Answer {
 }
 
 /** A destructive action waiting for "yes". */
-public enum Confirm {
+enum Confirm {
     /** Clear the app's state. */
     StartOver,
     /** Forget the app entirely. */

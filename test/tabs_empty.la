@@ -1,9 +1,9 @@
 // Empty tabs (PRP-024): + adds them, opening from one fills it in place,
 // closing the last leaves one, and they sit among the apps in creation
 // order. Fixture guests; no display.
-import rapidkoi.shell { Model, start, with_pages, update };
+import rapidkoi.shell { start, update };
 import rapidkoi.ui.sidebar;
-import rapidkoi.window.window { page_of, card };
+import rapidkoi.window.window { page_of, card, Model, with_pages };
 import rapidkoi.window.actions { Msg, TabAction };
 import rapidkoi.window.tabs { AppPage, Page, Pin, open_module };
 import kivuli.testing { click, pick, press };

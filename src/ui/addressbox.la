@@ -50,7 +50,7 @@ import ui.tokens {
 };
 
 /** The upgrade button's tooltip (PRP-044): the owner's words. */
-public const UPGRADE: string = "A new version of this app is available: upgrade";
+const UPGRADE: string = "A new version of this app is available: upgrade";
 
 /**
  * Builds the address box for the header bar, one framed group: on an app
@@ -66,7 +66,7 @@ public const UPGRADE: string = "A new version of this app is available: upgrade"
  * Example:
  *     addressbox.field(m)
  */
-public fun field(m: Model): View<Msg> {
+fun field(m: Model): View<Msg> {
     let t = m.theme;
     let page = page_of(m);
     // kivuli.ui makes fields and buttons at least 36 high; inside the box's

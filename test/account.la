@@ -2,7 +2,8 @@
 // starting over as someone new, and your name. The facts the Account page
 // will show, checked on the model: its page comes back natively later
 // (DECISION-030). Writes only under test/tmp/.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.people.account { Account, account_of };
 import rapidkoi.data.saving { restore };
 import rapidkoi.window.actions { Msg, PanelPage, Confirm, NameScope, NamePart };

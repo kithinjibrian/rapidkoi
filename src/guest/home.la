@@ -21,7 +21,7 @@ import window.actions { Msg };
  * Example:
  *     place_of("rapidkoi://quote.dafifi.net")
  */
-public fun place_of(path: string): string {
+fun place_of(path: string): string {
     if is_address(path) {
         if let Ok(a) = parse(path) {
             return shown(a);
@@ -38,7 +38,7 @@ public fun place_of(path: string): string {
  * Example:
  *     pins_of(m)
  */
-public fun pins_of(m: Model): Value {
+fun pins_of(m: Model): Value {
     let mut out: Value[] = [];
     for p of m.pinned {
         if out.len >= MAX_PLACES {
@@ -56,7 +56,7 @@ public fun pins_of(m: Model): Value {
  * Example:
  *     left_off_of(m)
  */
-public fun left_off_of(m: Model): Value {
+fun left_off_of(m: Model): Value {
     if let Some(id) = m.last {
         if let Some(a) = page(m, id) {
             return Value.Map(fields(a.name, a.path, a.icon, a.title));
@@ -75,7 +75,7 @@ public fun left_off_of(m: Model): Value {
  * Example:
  *     pin_msg(m, 0)
  */
-public fun pin_msg(m: Model, index: i64): Option<Msg> = if index >= 0 && index < m.pinned.len {
+fun pin_msg(m: Model, index: i64): Option<Msg> = if index >= 0 && index < m.pinned.len {
     Some(Msg.OpenPinned(m.pinned[index].path))
 } else {
     None
@@ -88,7 +88,7 @@ public fun pin_msg(m: Model, index: i64): Option<Msg> = if index >= 0 && index <
  * Example:
  *     continue_msg(m)
  */
-public fun continue_msg(m: Model): Option<Msg> = card(m).map(fun(c) = c.msg);
+fun continue_msg(m: Model): Option<Msg> = card(m).map(fun(c) = c.msg);
 
 /**
  * Returns the `session` answer (PRP-035): how many windows the last
@@ -98,7 +98,7 @@ public fun continue_msg(m: Model): Option<Msg> = card(m).map(fun(c) = c.msg);
  * Example:
  *     session_of(m)
  */
-public fun session_of(m: Model): Value = match m.previous {
+fun session_of(m: Model): Value = match m.previous {
     Some(o) if o.tabs.len > 0 => {
         let mut apps: string[] = [];
         for t of o.tabs {

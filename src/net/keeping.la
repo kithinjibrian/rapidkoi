@@ -34,17 +34,17 @@ import bundles.loader { Refusal };
 import guest.limits { KEPT_BYTES };
 
 /** Where a load keeps what it opens. */
-public struct Keeping {
+struct Keeping {
     /** The data folder. */
-    public store: Store,
+    store: Store,
     /** The hosts of pinned apps: never evicted. */
-    public pinned: string[],
+    pinned: string[],
     /** Whether to open from the kept copy before asking the site: not for ⟳, which goes to the site first. */
-    public cache_first: bool,
+    cache_first: bool,
 }
 
 /** What the check after an open from the kept copy found. */
-public enum Refreshed {
+enum Refreshed {
     /**
      * The site was reached and its current build checked: the trust to
      * record, the snapshot it was checked against, the version of a newer
@@ -71,7 +71,7 @@ public enum Refreshed {
  * Example:
  *     open_app(a, known, net, FETCH_TIMEOUT_MS, Some(Keeping { store: s, pinned: [], cache_first: true }))
  */
-public fun open_app(
+fun open_app(
     a: Address,
     known: Identity[],
     net: Network,
@@ -119,7 +119,7 @@ public fun open_app(
  * Example:
  *     refresh(a, known, net, FETCH_TIMEOUT_MS, s, pinned, t.build, "1.0.0")
  */
-public fun refresh(
+fun refresh(
     a: Address,
     known: Identity[],
     net: Network,

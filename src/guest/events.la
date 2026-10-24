@@ -8,7 +8,7 @@
 import cbor { Value, Entry, encode };
 
 /** Something that happened, for an app. */
-public enum Happened {
+enum Happened {
     /** A fresh start: make a first state. */
     Init,
     /** Every start, fresh or from saved state. */
@@ -34,7 +34,7 @@ public enum Happened {
  * Example:
  *     event_for(Happened.Resume)
  */
-public fun event_for(h: Happened): u8[] = match h {
+fun event_for(h: Happened): u8[] = match h {
     Init => named("on_init", []),
     Open => named("on_open", []),
     Resume => named("on_resume", []),

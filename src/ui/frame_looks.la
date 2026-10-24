@@ -43,7 +43,8 @@ import ui.tokens {
     square,
     INSTANCE_CHIP,
 };
-import ui.themes { Theme, paint, flat };
+import ui.themes { paint, flat };
+import ui.schemes { Theme };
 
 /**
  * Returns the frame's look: the window behind the page, one flat colour
@@ -53,7 +54,7 @@ import ui.themes { Theme, paint, flat };
  * Example:
  *     column([body]).style(frame(m.theme))
  */
-public fun frame(t: Theme): Styling[] {
+fun frame(t: Theme): Styling[] {
     let mut all = flat(t.frame);
     all.push(Text { color: paint(t.on_frame), ..Text.theme() });
     all
@@ -65,7 +66,7 @@ public fun frame(t: Theme): Styling[] {
  * Example:
  *     header_bar(start, title, end).style(header(m.theme))
  */
-public fun header(t: Theme): Styling[] = frame(t);
+fun header(t: Theme): Styling[] = frame(t);
 
 /**
  * Returns the sidebar's look: the frame's, so the header bar and sidebar
@@ -74,7 +75,7 @@ public fun header(t: Theme): Styling[] = frame(t);
  * Example:
  *     column([]).style(sidebar(m.theme))
  */
-public fun sidebar(t: Theme): Styling[] = frame(t);
+fun sidebar(t: Theme): Styling[] = frame(t);
 
 /**
  * Returns an app's button in the sidebar: a ghost icon button, round, washed
@@ -83,7 +84,7 @@ public fun sidebar(t: Theme): Styling[] = frame(t);
  * Example:
  *     ui.button_with([face], Msg.Select(id)).style(app_button(t))
  */
-public fun app_button(t: Theme): Styling[] = [
+fun app_button(t: Theme): Styling[] = [
     Button.ghost(),
     Button.icon(),
     // A clear ring as wide as the current app's, so ringing one only
@@ -103,7 +104,7 @@ public fun app_button(t: Theme): Styling[] = [
  * Example:
  *     look + app_current(t)
  */
-public fun app_current(t: Theme): Styling[] = [
+fun app_current(t: Theme): Styling[] = [
     Border {
         all: Side { width: Width.Px(RING_WIDTH), color: paint(t.accent), ..Side.theme() },
         ..Border.theme(),
@@ -117,7 +118,7 @@ public fun app_current(t: Theme): Styling[] = [
  * Example:
  *     ui.button_with([x], Msg.CloseTab(id)).style(tab_close(t))
  */
-public fun tab_close(t: Theme): Styling[] = [
+fun tab_close(t: Theme): Styling[] = [
     Button.ghost(),
     Background { color: paint(t.control), ..Background.theme() },
     Text { color: paint(t.on_frame), ..Text.theme() },
@@ -137,7 +138,7 @@ public fun tab_close(t: Theme): Styling[] = [
  * Example:
  *     row([name, close]).style(instance_chip(t, true))
  */
-public fun instance_chip(t: Theme, current: bool): Styling[] {
+fun instance_chip(t: Theme, current: bool): Styling[] {
     let mut look: Styling[] = [
         Group.mark(),
         Text { color: paint(t.on_frame), ..Text.theme() },
@@ -172,7 +173,7 @@ public fun instance_chip(t: Theme, current: bool): Styling[] {
  * Example:
  *     column(none).style(instance_dot(instance_colour(t, page.instance)))
  */
-public fun instance_dot(colour: string): Styling[] = [
+fun instance_dot(colour: string): Styling[] = [
     Background { color: paint(colour), ..Background.theme() },
     Border { radius: Radius.All(CIRCLE), ..Border.theme() },
     square(INSTANCE_CHIP),
@@ -185,7 +186,7 @@ public fun instance_dot(colour: string): Styling[] = [
  * Example:
  *     text("2").style(count_badge(t))
  */
-public fun count_badge(t: Theme): Styling[] = [
+fun count_badge(t: Theme): Styling[] = [
     Background { color: paint(t.accent), ..Background.theme() },
     // kivuli starts a label's text at its left; the badge centres it.
     Text { color: paint(t.on_accent), align: TextAlign.Center, ..Text.theme() },
@@ -202,7 +203,7 @@ public fun count_badge(t: Theme): Styling[] = [
  * Example:
  *     close.style(tab_close_on_hover(t))
  */
-public fun tab_close_on_hover(t: Theme): Styling[] {
+fun tab_close_on_hover(t: Theme): Styling[] {
     let hidden: Styling[] = [
         Effects.opacity(0.0),
         When(State.GroupHover, [Effects.opacity(1.0)]),
@@ -222,7 +223,7 @@ public fun tab_close_on_hover(t: Theme): Styling[] {
  * Example:
  *     header_bar(start, title, end).style(window_controls(t))
  */
-public fun window_controls(t: Theme): Styling[] = [
+fun window_controls(t: Theme): Styling[] = [
     Inside(Part.WindowButton, [
         Text { color: paint(t.on_frame), ..Text.theme() },
         Background { color: paint(t.clear), ..Background.theme() },
@@ -261,7 +262,7 @@ public fun window_controls(t: Theme): Styling[] = [
  * Example:
  *     root.style(tooltips(t))
  */
-public fun tooltips(t: Theme): Styling[] = [
+fun tooltips(t: Theme): Styling[] = [
     Inside(Part.Tooltip, [
         Background { color: paint(t.tooltip), ..Background.theme() },
         Text { color: paint(t.text), ..Text.theme() },

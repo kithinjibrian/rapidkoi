@@ -2,7 +2,8 @@
 // then act as the bar or panel would. The menus themselves come back with
 // the redesign's tabs and new tab (DECISION-030). Fixture guests; no
 // display, no network.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.actions { Msg, ShieldPage, PanelPage, Confirm, TabAction, PinAction };
 import rapidkoi.window.tabs { AppPage, open_module };
 import wasmtime { Engine, Module };

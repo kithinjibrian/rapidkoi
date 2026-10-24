@@ -2,7 +2,8 @@
 // change the person's choices, and those choices remembered across
 // restarts. The real bundle built into ./main; no display. Writes only
 // under test/tmp/.
-import rapidkoi.shell { Model, with_pages, start, update };
+import rapidkoi.shell { start, update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.settings_app { SETTINGS_KEY, BUNDLE };

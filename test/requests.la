@@ -6,7 +6,8 @@
 import rapidkoi.net.requests { send, arrive };
 import rapidkoi.net.network { Request, Reply };
 import rapidkoi.net.dialing { Network };
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.guest.effects { answer_all };
 import rapidkoi.window.tabs { AppPage, open_module, state_of };
 import rapidkoi.trust.verify { Trust, Standing };

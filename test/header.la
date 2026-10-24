@@ -1,6 +1,7 @@
 // The header bar (PRP-019, PRP-021, PRP-032): the address box with its
 // shield (and its card) and pin, then account and menu; no ← ⌂ →. Through kivuli.testing; no display.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window as windows { Model, with_pages };
 import rapidkoi.ui.header;
 import rapidkoi.ui.addressbox;
 import rapidkoi.ui.layout;

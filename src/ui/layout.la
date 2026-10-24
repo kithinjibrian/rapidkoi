@@ -38,7 +38,7 @@ import ui.frame_looks { tooltips, frame as frame_look, sidebar as side_look };
  * Example:
  *     layout.view(m)
  */
-public fun view(m: Model): View<Msg> {
+fun view(m: Model): View<Msg> {
     let t = m.theme;
     // The content area meets the window's left and bottom edges; the page's
     // look rounds only its top-right corner, where the frame wraps it.

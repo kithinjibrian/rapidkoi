@@ -12,27 +12,27 @@
 import bundles.rules { check_host };
 
 /** A parsed address. */
-public struct Address {
+struct Address {
     /** `localhost`, `127.0.0.1`, `[::1]`, or a remote host name. */
-    public host: string,
+    host: string,
     /** From 1 to 65535. */
-    public port: i64,
+    port: i64,
     /** The path after the port, `/` without one: kept for the links step, not yet given to apps. */
-    public route: string,
+    route: string,
     /** Whether it was an `http://` address (the bundle's own URL) rather than `rapidkoi://`. */
-    public http: bool,
+    http: bool,
     /** Whether the host is another machine: then it's always HTTPS, and must be signed. */
-    public remote: bool,
+    remote: bool,
     /** Whether it's fetched over HTTPS. */
-    public secure: bool,
+    secure: bool,
     /** The version a link names (`/@1.2.0`, PRP-036), if it names one. */
-    public version: Option<string>,
+    version: Option<string>,
     /** A link's fields (`?count=3`), decoded, in order: the app's, not Rapidkoi's. */
-    public fields: (string, string)[],
+    fields: (string, string)[],
 }
 
 /** Why an address can't open. */
-public enum AddressError {
+enum AddressError {
     /** Plain `http://` to another machine: remote apps are HTTPS only. */
     NotSecure(string),
     /** A remote IP address: apps are opened by host name. */
@@ -55,7 +55,7 @@ public enum AddressError {
  * Example:
  *     is_address("rapidkoi://localhost:8000")
  */
-public fun is_address(text: string): bool = text.starts_with("rapidkoi://") || text.starts_with(
+fun is_address(text: string): bool = text.starts_with("rapidkoi://") || text.starts_with(
     "http://",
 ) || text.starts_with("https://");
 
@@ -70,7 +70,7 @@ public fun is_address(text: string): bool = text.starts_with("rapidkoi://") || t
  * Example:
  *     parse("rapidkoi://localhost:8000/folder/42")?
  */
-public fun parse(text: string): Result<Address, AddressError> {
+fun parse(text: string): Result<Address, AddressError> {
     let scheme = if text.starts_with("https://") {
         "https"
     } else if text.starts_with("http://") {
@@ -129,13 +129,13 @@ public fun parse(text: string): Result<Address, AddressError> {
 }
 
 /** The most fields a link carries. */
-public const MAX_LINK_FIELDS: i64 = 16;
+const MAX_LINK_FIELDS: i64 = 16;
 
 /** The longest field name in a link, in bytes. */
-public const MAX_LINK_NAME: i64 = 64;
+const MAX_LINK_NAME: i64 = 64;
 
 /** How deep a link field's path may reach (PRP-039): `a.b.c.d`. */
-public const MAX_LINK_DEPTH: i64 = 4;
+const MAX_LINK_DEPTH: i64 = 4;
 
 /**
  * Checks a link field's name: 1 to 64 bytes of lowercase letters, digits
@@ -147,7 +147,7 @@ public const MAX_LINK_DEPTH: i64 = 4;
  * Example:
  *     name_ok("editor.task", true)
  */
-public fun name_ok(name: string, paths: bool): Result<(), string> {
+fun name_ok(name: string, paths: bool): Result<(), string> {
     let words = if paths {
         "A link's field names are lowercase letters, digits and _, joined by ."
     } else {
@@ -175,10 +175,10 @@ public fun name_ok(name: string, paths: bool): Result<(), string> {
 }
 
 /** The longest field value in a link, in bytes, decoded. */
-public const MAX_LINK_VALUE: i64 = 1024;
+const MAX_LINK_VALUE: i64 = 1024;
 
 /** The longest query a link carries, in bytes, encoded. */
-public const MAX_LINK_QUERY: i64 = 4096;
+const MAX_LINK_QUERY: i64 = 4096;
 
 /**
  * Writes a link (PRP-036): the address's scheme and host, `/@version` when
@@ -193,7 +193,7 @@ public const MAX_LINK_QUERY: i64 = 4096;
  * Example:
  *     link_of(a, Some("0.3.0"), [("count", "3")])
  */
-public fun link_of(a: Address, version: Option<string>, fields: (string, string)[]): string {
+fun link_of(a: Address, version: Option<string>, fields: (string, string)[]): string {
     let scheme = if a.remote {
         "https"
     } else if a.http {
@@ -221,7 +221,7 @@ public fun link_of(a: Address, version: Option<string>, fields: (string, string)
  * Example:
  *     without_link("https://counter.dafifi.net/@0.3.0?count=3")
  */
-public fun without_link(text: string): string {
+fun without_link(text: string): string {
     let q = find(text, "?");
     let base = if q < 0 { text } else { text.slice(0, q) };
     let at = find(base, "/@");
@@ -350,7 +350,7 @@ fun hex_digit(b: u8): Option<i64> {
  * Example:
  *     site_url(a, "/.well-known/rapidkoi/key")
  */
-public fun site_url(
+fun site_url(
     a: Address,
     path: string,
 ): string = "{if a.secure { "https" } else { "http" }}://{authority(a)}{path}";
@@ -363,7 +363,7 @@ public fun site_url(
  * Example:
  *     url(a)
  */
-public fun url(a: Address): string = if a.http && a.route != "/" {
+fun url(a: Address): string = if a.http && a.route != "/" {
     "http://{a.host}:{a.port}{a.route}"
 } else {
     site_url(a, "/.well-known/rapidkoi/app.rkb")
@@ -376,7 +376,7 @@ public fun url(a: Address): string = if a.http && a.route != "/" {
  * Example:
  *     shown(a)
  */
-public fun shown(a: Address): string = authority(a);
+fun shown(a: Address): string = authority(a);
 
 /** host:port, or the host alone on HTTPS's own port. */
 fun authority(a: Address): string = if a.secure && a.port == 443 {
@@ -400,7 +400,7 @@ fun is_ip(host: string): bool {
  * Example:
  *     reason(AddressError.NotYet)
  */
-public fun reason(e: AddressError): string = match e {
+fun reason(e: AddressError): string = match e {
     NotSecure(host) => "Remote apps open over HTTPS only: rapidkoi://{host}",
     IpAddress(_) => "Open apps by their host name, not an IP address",
     NotAnAddress => "This isn't a rapidkoi://, https:// or http:// address",

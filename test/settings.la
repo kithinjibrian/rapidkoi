@@ -1,7 +1,8 @@
 // Site settings (PRP-022): ⚙'s card (the app, Account, App settings, App
 // data, Forget), its pages, and the dialogs that ask first. Through
 // kivuli.testing; fixture guests, no display.
-import rapidkoi.shell { Model, with_pages, update };
+import rapidkoi.shell { update };
+import rapidkoi.window.window as windows { Model, with_pages };
 import rapidkoi.ui.settings;
 import rapidkoi.ui.addressbox;
 import rapidkoi.window.actions { Msg, PanelPage, ShieldPage, Confirm, NameScope, NamePart };
