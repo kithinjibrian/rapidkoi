@@ -349,6 +349,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Fetched(id, number, f) => loads.arrive(m, id, number, f),
     Refreshed(id, build, r) => (loads.refreshed(m, id, build, r), Cmd.none()),
     CheckForUpdates(_) => (m, loads.check_current(m)),
+    Launched(items) => navigate.open_launched(m, items),
     WindowActive(on) => (m, if on { loads.check_current(m) } else { Cmd.none() }),
     Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
     Pictured(id, load, source, got) => (downloads.arrive(m, id, load, source, got), Cmd.none()),

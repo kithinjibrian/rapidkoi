@@ -614,18 +614,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
-### DECISION-014 — Running two apps at once (kivuli single-instance)
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 3)
-**Raised:** 2026-10-17 — Session 5
-**Revisit when:** The shell runs more than one app, or a second launch must open a second app.
-
-**Question:** kivuli starts GTK with `gtk_application_new(id, 0)` (`../kivuli/src/render/live.la:109`), so GTK makes the program single-instance: a second `./main other.wasm` raises the first window and drops the new app. Should kivuli accept application flags (e.g. `G_APPLICATION_NON_UNIQUE`, or `HANDLES_OPEN` for links later)?
-
-**Notes:** A kivuli gap, fixed upstream when needed. Step 1 runs one app, so it's a known limitation. Build path step 2 (links) will need `HANDLES_OPEN`-style behaviour anyway.
-
----
-
 ### DECISION-015 — A file-size query in std.fs (lughac)
 
 **Status:** deferred
@@ -712,6 +700,20 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-014 — Running two apps at once (kivuli single-instance)
+
+**Status:** resolved (kivuli 0.61, 2026-10-25)
+**Raised:** 2026-10-17 — Session 5
+**Revisit when:** The shell runs more than one app, or a second launch must open a second app.
+
+**Question:** kivuli starts GTK with `gtk_application_new(id, 0)` (`../kivuli/src/render/live.la:109`), so GTK makes the program single-instance: a second `./main other.wasm` raises the first window and drops the new app. Should kivuli accept application flags (e.g. `G_APPLICATION_NON_UNIQUE`, or `HANDLES_OPEN` for links later)?
+
+**Notes:** A kivuli gap, fixed upstream when needed. Step 1 runs one app, so it's a known limitation. Build path step 2 (links) will need `HANDLES_OPEN`-style behaviour anyway.
+
+**Outcome:** kivuli 0.61's `App.on_open`: what a launch names arrives as `Msg.Launched` and opens as the address box would (`navigate.open_launched`); a second `./main …` hands its items to the running window and exits. Instances side by side in separate windows are still DECISION-042.
+
+---
 
 ### DECISION-060 — An app's long text: wraps, or is truncated
 
