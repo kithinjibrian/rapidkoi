@@ -11042,3 +11042,7 @@ Branch: prp-017-kivuli_0_17
 ```
 PRPs/prp-042-repo_cleanup.md, CONTEXT.md (and on the VM, as above)
 ```
+
+## SESSION 221 — 2026-10-24 — Merge prp-017-kivuli_0_17 into main — open
+
+Branch: prp-017-kivuli_0_17 (merged into main)
