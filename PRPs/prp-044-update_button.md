@@ -10,6 +10,12 @@ When Rapidkoi's background check (PRP-043) finds and keeps a newer version of th
 - Reuses `navigate.reload` (`Msg.Reload`, which nothing in the UI sends since session 101): a load from the site first, the window's state carried over, `state_version` guarding a changed shape; offline, the kept copy, which is the new version.
 - Decisions: core decision 28 (amended by this PRP), DECISION-031 (colours from the theme). None open.
 
+## Q1: checking while the app stays open (needs the owner)
+
+Today the check runs once, when an app opens from its kept copy. An app left open never checks again, so a version deployed while it's open isn't offered until the next open.
+- **(a) Recommended:** also check every 15 minutes while a signed app is open and in front, and when Rapidkoi's window comes back to the front. Each check fetches only the key and index (a few hundred bytes); the build only when it's new.
+- (b) Only on open, as now: simplest, but the arrow shows only after closing and reopening.
+
 ## REQUIREMENTS
 
 ### Must Do
