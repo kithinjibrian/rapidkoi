@@ -227,10 +227,8 @@ public fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>)
                 (Some(v), Some(mf)) if mf.version != v => Some(
                     "This link was made with {fresh.name} {v}; opened {mf.version}",
                 ),
-                _ => match source.and_then(fun(src: Source) = src.updated) {
-                    Some(u) => Some("{fresh.name} updated to {u}"),
-                    None => None,
-                },
+                // A routine update is silent: it changes nothing for the person (PRP-043).
+                _ => None,
             };
             for k of pending.kept {
                 close_page(k);

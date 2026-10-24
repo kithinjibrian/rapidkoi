@@ -57,8 +57,6 @@ public struct Source {
     public offline: bool,
     /** When the site was last reached and checked, in milliseconds since 1970: now, when fetched. */
     public checked: i64,
-    /** A version kept since the app last opened, to announce. */
-    public updated: Option<string>,
 }
 
 /**
@@ -161,7 +159,6 @@ public fun check_signed(
             kept: false,
             offline: false,
             checked: time.now_ms(),
-            updated: None,
         },
     )
 }
