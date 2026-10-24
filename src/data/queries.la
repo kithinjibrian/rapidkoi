@@ -1,5 +1,5 @@
 /**
- * An app's calls to its database (PRP-041, contract 6): each `sql` or
+ * An app's calls to its database (PRP-041): each `sql` or
  * `sql_batch` ask sent in a `Cmd.task`, never in `update`; its result
  * answered to the app when it arrives; and the app's other windows told
  * which tables a write changed. Mirrors `net.requests`.

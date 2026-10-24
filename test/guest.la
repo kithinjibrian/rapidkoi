@@ -3,8 +3,9 @@
 // Rust and no display needed.
 import rapidkoi.guest.guest { Guest, GuestError, compile, open, reason };
 import wasmtime { Engine, Module };
-import support { fixed, pack, counter_tree, result_of };
-import rapidkoi.guest.contract { lifecycle };
+import support { fixed, pack, counter_tree, result_of, kv };
+import rapidkoi.guest.events { Happened, event_for };
+import cbor { Value, encode };
 
 /** Opens WebAssembly text as a guest. */
 fun start(wat: string): Result<Guest, GuestError> {
@@ -29,7 +30,7 @@ fun with(version: i32, funcs: string): string = [
 
 /** The usual exports, each returning (0, 0), with `view` replaced. */
 fun with_view(view: string): string = with(
-    2,
+    7,
     ["(func (export \"handle\") (param i32 i32 i32 i32) (result i64) (i64.const 0))", view].join(
         "\n",
     ),
@@ -37,13 +38,13 @@ fun with_view(view: string): string = with(
 
 @test
 fun a_good_guest_answers_each_call() {
-    let state: u8[] = [7, 7];
+    let state = kv([("count", Value.int(7))]);
     let tree = counter_tree("0");
-    let result = result_of([8]);
-    let g = start(fixed(2, state, tree, result)).unwrap();
-    assert_eq(g.handle([], lifecycle("init")), Ok(result_of(state)));
-    assert_eq(g.view(state), Ok(tree));
-    assert_eq(g.handle(state, [1, 2, 3]), Ok(result));
+    let result = result_of(kv([("count", Value.int(8))]));
+    let g = start(fixed(state, tree, result)).unwrap();
+    assert_eq(g.handle([], event_for(Happened.Init)), Ok(result_of(state)));
+    assert_eq(g.view(encode(state)), Ok(tree));
+    assert_eq(g.handle(encode(state), event_for(Happened.Resume)), Ok(result));
     g.close();
 }
 
@@ -52,7 +53,7 @@ fun handle_receives_the_bytes_written() {
     // handle returns (event_ptr, event_len): the event bytes, read back.
     let g = start(
         with(
-            2,
+            7,
             [
                 "(func (export \"view\") (param i32 i32) (result i64) (i64.const 0))",
                 "(func (export \"handle\") (param i32 i32 i32 i32) (result i64)",
@@ -63,23 +64,29 @@ fun handle_receives_the_bytes_written() {
     assert_eq(g.handle([1, 2], [9, 8, 7]), Ok([9, 8, 7]));
 }
 
+/** A guest exporting `rapidkoi_version` `v`, otherwise answering nothing. */
+fun at_version(v: i32): Result<Guest, GuestError> = start(
+    with(
+        v,
+        [
+            "(func (export \"view\") (param i32 i32) (result i64) (i64.const 0))",
+            "(func (export \"handle\") (param i32 i32 i32 i32) (result i64) (i64.const 0))",
+        ].join("\n"),
+    ),
+);
+
 @test
-fun another_version_is_refused() {
-    let tree = counter_tree("0");
-    // 2 to 6 are spoken (DECISION-039, PRP-036, PRP-037, PRP-041): an older module and a newer one are refused.
-    match start(fixed(1, [], tree, [])) {
-        Err(Version(1)) => (),
-        _ => panic("expected Version(1)"),
+fun only_contract_7_runs() {
+    // DECISION-056: older apps are rebuilt, never run; a newer one waits for a newer Rapidkoi.
+    for v of [2, 3, 4, 5, 6, 8] {
+        match at_version(v as i32) {
+            Err(Version(got)) => assert_eq(got, v as i32),
+            _ => panic("expected Version({v})"),
+        }
     }
-    match start(fixed(7, [], tree, [])) {
-        Err(Version(7)) => (),
-        _ => panic("expected Version(7)"),
-    }
-    assert(start(fixed(3, [], tree, [])).is_ok());
-    assert(start(fixed(4, [], tree, [])).is_ok());
-    assert(start(fixed(5, [], tree, [])).is_ok());
-    assert(start(fixed(6, [], tree, [])).is_ok());
-    assert_eq(reason(GuestError.Version(6)), "This app needs a newer version of Rapidkoi");
+    assert(at_version(7).is_ok());
+    assert_eq(reason(GuestError.Version(6)), "This app needs to be rebuilt for this Rapidkoi");
+    assert_eq(reason(GuestError.Version(8)), "This app needs a newer version of Rapidkoi");
     assert_eq(reason(GuestError.Version(0)), "This app isn't a Rapidkoi app");
 }
 
@@ -98,7 +105,7 @@ fun a_missing_memory_or_version_is_refused() {
 @test
 fun a_missing_export_is_named() {
     let g = start(
-        with(2, "(func (export \"handle\") (param i32 i32 i32 i32) (result i64) (i64.const 0))"),
+        with(7, "(func (export \"handle\") (param i32 i32 i32 i32) (result i64) (i64.const 0))"),
     ).unwrap();
     assert_eq(g.view([]), Err(GuestError.MissingExport("view")));
 }
@@ -106,7 +113,7 @@ fun a_missing_export_is_named() {
 @test
 fun a_mistyped_export_is_named() {
     let g = start(
-        with(2, "(func (export \"handle\") (param i32) (result i64) (i64.const 0))"),
+        with(7, "(func (export \"handle\") (param i32) (result i64) (i64.const 0))"),
     ).unwrap();
     assert_eq(g.handle([], []), Err(GuestError.WrongExport("handle")));
 }
@@ -159,7 +166,7 @@ fun a_bad_alloc_pointer_is_out_of_bounds() {
     let g = start(
         [
             "(module (memory (export \"memory\") 1)",
-            "(func (export \"rapidkoi_version\") (result i32) (i32.const 2))",
+            "(func (export \"rapidkoi_version\") (result i32) (i32.const 7))",
             "(func (export \"alloc\") (param i32) (result i32) (i32.const -256))",
             "(func (export \"view\") (param i32 i32) (result i64) (i64.const 0)))",
         ].join("\n"),
@@ -169,7 +176,7 @@ fun a_bad_alloc_pointer_is_out_of_bounds() {
 
 @test
 fun a_closed_guest_says_so() {
-    let g = start(fixed(2, [], counter_tree("0"), [])).unwrap();
+    let g = start(fixed(kv([]), counter_tree("0"), [])).unwrap();
     g.close();
     assert_eq(g.handle([], []), Err(GuestError.Closed));
 }

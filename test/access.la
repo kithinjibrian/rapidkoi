@@ -35,7 +35,7 @@ fun folder(name: string): Store {
 }
 
 fun manifest(servers: string[]): Manifest = Manifest {
-    contract: 2,
+    contract: 7,
     name: "Notes",
     version: "1.0.0",
     description: None,

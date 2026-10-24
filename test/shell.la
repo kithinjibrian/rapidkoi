@@ -10,12 +10,11 @@ import rapidkoi.bundles.permissions { Permission, Setting };
 import rapidkoi.people.people { nobody, with_setting };
 import rapidkoi.window.tabs { AppPage, open_module, state_of };
 import rapidkoi.ui.render;
-import rapidkoi.guest.contract { envelope };
 import rapidkoi.guest.events { Happened, event_for };
 import kivuli { Cmd };
 import kivuli.testing { texts, type_into };
 import wasmtime { Engine, Module };
-import support { t, fixed, echo, echo_v3, crashing, titled_tree, result_of };
+import support { t, fixed, echo, event_in, crashing, titled_tree, result_of, kv };
 
 fun app(engine: Engine, name: string, wat: string): AppPage = open_module(
     name,
@@ -23,6 +22,12 @@ fun app(engine: Engine, name: string, wat: string): AppPage = open_module(
     engine,
     Module.from_text(engine, wat).unwrap(),
 );
+
+/** The event an echo page got last, as its state holds it (`support.event_in`). */
+fun ev(p: AppPage): Option<u8[]> = state_of(p).map(event_in);
+
+/** The event pressing an echo app's "Add" sends it. */
+fun added(): u8[] = event_for(Happened.Message(t("add"), None));
 
 /** A window with two echo apps, tabs 0 and 1, tab 0 current. */
 fun two(): Model {
@@ -75,8 +80,8 @@ fun booting_a_bad_file_shows_why_in_its_tab() {
 @test
 fun an_event_reaches_only_its_tab() {
     let m = step(two(), add(0));
-    assert_eq(state_of(page(m, 0)), Some(envelope(t("add"), None)));
-    assert_eq(state_of(page(m, 1)), Some([]));
+    assert_eq(ev(page(m, 0)), Some(added()));
+    assert_eq(ev(page(m, 1)), Some([]));
 }
 
 @test
@@ -84,9 +89,9 @@ fun a_crash_stays_in_its_tab_and_restart_brings_it_back() {
     let engine = Engine.new();
     let m = with_pages(engine, [app(engine, "bad", crashing()), app(engine, "good", echo())]);
     let crashed = step(m, add(0));
-    assert_eq(state_of(page(crashed, 0)), None);
-    assert_eq(state_of(page(crashed, 1)), Some([]));
-    assert_eq(state_of(page(step(crashed, Msg.Tab(0, render.Msg.Restart)), 0)), Some([]));
+    assert_eq(ev(page(crashed, 0)), None);
+    assert_eq(ev(page(crashed, 1)), Some([]));
+    assert_eq(ev(page(step(crashed, Msg.Tab(0, render.Msg.Restart)), 0)), Some([]));
 }
 
 @test
@@ -98,7 +103,7 @@ fun new_tab_and_home_show_an_empty_tab_and_keep_every_app() {
     assert(on_home(home));
     assert_eq(home.tabs.len, 2);
     // The app kept its state while home showed.
-    assert_eq(state_of(page(home, 0)), Some(envelope(t("add"), None)));
+    assert_eq(ev(page(home, 0)), Some(added()));
 }
 
 @test
@@ -129,14 +134,15 @@ fun continue_restores_the_closed_apps_state() {
     let back = step(step(closed, Msg.Home), Msg.Continue);
     let reopened = page(back, back.current.unwrap());
     // init gives [], so this state comes from view(saved state).
-    assert_eq(state_of(reopened), Some(envelope(t("add"), None)));
+    assert_eq(ev(reopened), Some(added()));
 }
 
 @test
 fun closing_tabs_picks_a_neighbour_then_home() {
     let m = step(two(), Msg.CloseTab(0));
     assert_eq(m.current, Some(1));
-    assert_eq(state_of(page(step(m, add(0)), 1)), Some([]));
+    // Brought to the front, the other tab heard on_resume (PRP-030).
+    assert_eq(ev(page(step(m, add(0)), 1)), Some(event_for(Happened.Resume)));
     // The last tab closed: one empty tab remains (PRP-024).
     let none = step(m, Msg.CloseTab(1));
     assert_eq((none.tabs.len, none.blanks.len), (0, 1));
@@ -197,7 +203,7 @@ fun the_info_panel_opens_and_closes() {
 fun window_titles() {
     let engine = Engine.new();
     let titled = with_pages(engine, [
-        app(engine, "counter", fixed(2, [], titled_tree("0", "Counter"), result_of([]))),
+        app(engine, "counter", fixed(kv([]), titled_tree("0", "Counter"), result_of(kv([])))),
     ]);
     assert_eq(title_of(titled), "Rapidkoi — Counter");
     assert_eq(title_of(two()), "Rapidkoi — a");
@@ -218,8 +224,8 @@ fun start_over_asks_first() {
     let m = step(step(step(two(), add(0)), Msg.TogglePanel), Msg.PanelGo(PanelPage.State));
     let asking = step(m, Msg.Ask(Confirm.StartOver));
     assert_eq(asking.confirm, Some(Confirm.StartOver));
-    assert_eq(state_of(page(step(asking, Msg.Cancel), 0)), Some(envelope(t("add"), None)));
-    assert_eq(state_of(page(step(asking, Msg.StartOver), 0)), Some([]));
+    assert_eq(ev(page(step(asking, Msg.Cancel), 0)), Some(added()));
+    assert_eq(ev(page(step(asking, Msg.StartOver), 0)), Some([]));
 }
 
 @test
@@ -292,25 +298,22 @@ fun nothing_scrolls_when_the_current_tab_stays() {
     assert_eq(scrolled(m, Msg.Select(0)), []);
 }
 
-/** Two contract 3 echo apps, tabs 0 and 1, tab 0 current: each one's state is the last event it got. */
-fun two_v3(): Model {
-    let engine = Engine.new();
-    with_pages(engine, [app(engine, "a", echo_v3()), app(engine, "b", echo_v3())])
-}
+fun last_event(m: Model, id: i64): Option<u8[]> = ev(page(m, id));
 
-fun last_event(m: Model, id: i64): Option<u8[]> = state_of(page(m, id));
+fun v3(h: Happened): Option<u8[]> = Some(event_for(h));
 
-fun v3(h: Happened): Option<u8[]> = event_for(h, 3);
+/** What an echo page holds when nothing reached it since it opened. */
+fun quiet(): Option<u8[]> = Some([]);
 
 @test
 fun a_tab_brought_back_hears_on_resume() {
     // PRP-030: back to the front while running.
-    let m = two_v3();
-    assert_eq(last_event(m, 1), v3(Happened.Open));
+    let m = two();
+    assert_eq(last_event(m, 1), quiet());
     let back = step(m, Msg.Select(1));
     assert_eq(last_event(back, 1), v3(Happened.Resume));
     // The tab that was current, and selecting it again, hear nothing.
-    assert_eq(last_event(back, 0), v3(Happened.Open));
+    assert_eq(last_event(back, 0), quiet());
     assert_eq(last_event(step(back, Msg.Select(1)), 1), v3(Happened.Resume));
     // Closing the tab in front brings the other back.
     let closed = step(back, Msg.CloseTab(1));
@@ -318,27 +321,20 @@ fun a_tab_brought_back_hears_on_resume() {
 }
 
 @test
-fun a_contract_2_app_hears_nothing_when_brought_back() {
-    let m = two();
-    let before = state_of(page(m, 1));
-    assert_eq(state_of(page(step(m, Msg.Select(1)), 1)), before);
-}
-
-@test
 fun the_new_tab_hears_on_resume_when_the_empty_tab_shows() {
     let engine = Engine.new();
-    let m = Model { newtab: Some(app(engine, "newtab", echo_v3())), ..two_v3() };
+    let m = Model { newtab: Some(app(engine, "newtab", echo())), ..two() };
     let home = step(m, Msg.NewTab);
-    assert_eq(home.newtab.and_then(fun(p: AppPage) = state_of(p)), v3(Happened.Resume));
+    assert_eq(home.newtab.and_then(fun(p: AppPage) = ev(p)), v3(Happened.Resume));
 }
 
-/** A contract 3 echo app on tab 0, current, declaring `permissions`. */
+/** An echo app on tab 0, current, declaring `permissions`. */
 fun reading(declared: string[]): Model {
     let engine = Engine.new();
-    let p = app(engine, "a", echo_v3());
+    let p = app(engine, "a", echo());
     let declared = AppPage {
         manifest: Some(Manifest {
-            contract: 3,
+            contract: 7,
             name: "a",
             version: "1.0.0",
             description: None,
@@ -351,7 +347,7 @@ fun reading(declared: string[]): Model {
         }),
         ..p,
     };
-    with_pages(engine, [declared, app(engine, "b", echo_v3())])
+    with_pages(engine, [declared, app(engine, "b", echo())])
 }
 
 @test
@@ -362,13 +358,13 @@ fun the_page_in_front_hears_on_change() {
     assert_eq(last_event(pinned, 0), v3(Happened.Change));
     // Without the permission, nothing to tell.
     let blind = step(reading([]), Msg.TogglePin);
-    assert_eq(last_event(blind, 0), v3(Happened.Open));
+    assert_eq(last_event(blind, 0), quiet());
     // Blocked: nothing it can read moved.
     let blocked = Model {
         people: with_setting(nobody(), "a.wasm", Permission.ReadPins, Setting.Blocked),
         ..m,
     };
-    assert_eq(last_event(step(blocked, Msg.TogglePin), 0), v3(Happened.Open));
+    assert_eq(last_event(step(blocked, Msg.TogglePin), 0), quiet());
 }
 
 @test

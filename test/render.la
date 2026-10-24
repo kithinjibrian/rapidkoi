@@ -1,6 +1,6 @@
 // Rendering, pure: decoded trees become kivuli views, checked through
 // kivuli.testing with no display.
-import rapidkoi.guest.contract { Node, TextStyle, ButtonLook, Space };
+import rapidkoi.guest.contract { Node };
 import rapidkoi.ui.render { Msg, screen, stopped };
 import rapidkoi.ui.themes { DARK };
 import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, submit, texts };
@@ -10,48 +10,9 @@ import rapidkoi.guest.roles { no_facts };
 import support { t };
 
 @test
-fun texts_appear() {
-    let v = screen(
-        Node.Column(Space.Zero, Space.Zero, [
-            Node.Text("Counter", TextStyle.Title),
-            Node.Text("3", TextStyle.Body),
-            Node.Text("hint", TextStyle.Dim),
-            Node.Text("Section", TextStyle.Heading),
-        ]),
-        DARK,
-    );
-    assert_eq(texts(v), ["Counter", "3", "hint", "Section"]);
-}
-
-@test
-fun a_button_sends_its_message() {
-    let v = screen(
-        Node.Row(Space.Sm, Space.Zero, [Node.Button("Add", ButtonLook.Primary, Some(t("add")))]),
-        DARK,
-    );
-    assert_eq(click(v, "Add"), Ok(Msg.Event(t("add"), None)));
-    assert_eq(is_disabled(v, "Add"), Ok(false));
-}
-
-@test
-fun a_button_without_a_message_is_disabled() {
-    let v = screen(Node.Button("Reset", ButtonLook.Normal, None), DARK);
-    assert_eq(is_disabled(v, "Reset"), Ok(true));
-}
-
-@test
-fun typing_sends_the_message_and_the_text() {
-    let v = screen(Node.Input("", "Your name", Some(t("name"))), DARK);
-    assert_eq(type_into(v, "Your name", "Amina"), Ok(Msg.Event(t("name"), Some("Amina"))));
-}
-
-@test
 fun an_unsupported_kind_shows_a_placeholder() {
     let v = screen(
-        Node.Column(Space.Zero, Space.Zero, [
-            Node.Unsupported("map"),
-            Node.Text("after", TextStyle.Body),
-        ]),
+        plain_box([Node.Unsupported("map"), Node.Words("after", plain(), no_facts())]),
         DARK,
     );
     assert_eq(texts(v), ["Unsupported component: map", "after"]);
@@ -68,17 +29,6 @@ fun the_error_screen_offers_restart() {
 fun no_restart_when_the_app_never_loaded() {
     let v = stopped("Couldn't read app.wasm", false, DARK);
     assert_eq(click(v, "Restart"), Err(Lookup.NotFound("button \"Restart\"")));
-}
-
-@test
-fun an_input_without_a_message_is_disabled() {
-    let v = screen(Node.Input("Amina", "Your name", None), DARK);
-    assert_eq(is_field_disabled(v, "Your name"), Ok(true));
-    assert_eq(type_into(v, "Your name", "x"), Err(Lookup.Silent("text field \"Your name\"")));
-    assert_eq(
-        is_field_disabled(screen(Node.Input("", "Your name", Some(t("n"))), DARK), "Your name"),
-        Ok(false),
-    );
 }
 
 fun plain_box(kids: Node[]): Node = Node.Boxed(plain(), no_facts(), None, kids);
@@ -118,6 +68,7 @@ fun a_typing_box_sends_edits_and_enter() {
     let f = Typing {
         value: "Buy milk",
         placeholder: "What needs doing?",
+        label: None,
         lines: 1,
         on_change: Some(t("draft")),
         on_submit: Some(t("add")),
@@ -138,10 +89,28 @@ fun a_box_of_several_lines_is_found_by_its_placeholder() {
     let f = Typing {
         value: "",
         placeholder: "Write something",
+        label: None,
         lines: 20,
         on_change: Some(t("body")),
         on_submit: None,
     };
     let v = screen(Node.Field(f, plain()), DARK);
     assert_eq(type_into(v, "Write something", "Sukuma"), Ok(Msg.Event(t("body"), Some("Sukuma"))));
+}
+
+@test
+fun a_typing_box_is_named_by_its_label() {
+    // DECISION-056: the label names it; the placeholder only when there's none.
+    let f = Typing {
+        value: "",
+        placeholder: "Search",
+        label: Some("Search notes"),
+        lines: 1,
+        on_change: Some(t("search")),
+        on_submit: None,
+    };
+    let v = screen(Node.Field(f, plain()), DARK);
+    assert_eq(type_into(v, "Search notes", "garden"), Ok(Msg.Event(t("search"), Some("garden"))));
+    let area = screen(Node.Field(Typing { lines: 10, label: Some("Note"), ..f }, plain()), DARK);
+    assert_eq(type_into(area, "Note", "Sukuma"), Ok(Msg.Event(t("search"), Some("Sukuma"))));
 }

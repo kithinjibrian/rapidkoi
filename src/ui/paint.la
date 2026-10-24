@@ -1,5 +1,5 @@
 /**
- * Contract 5's looks drawn (PRP-037), pure: an app's checked `Look` turned
+ * Apps' looks drawn (PRP-037), pure: an app's checked `Look` turned
  * into kivuli styles. Rapidkoi's names become the theme's colours
  * (`themes.la`) and DESIGN.md's tokens here, at draw time, so the app never
  * learns them. Raw values stay as the app wrote them. `resolve` gives a

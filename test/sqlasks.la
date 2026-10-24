@@ -1,13 +1,13 @@
-// Contract 6's storage asks (PRP-041), pure: `sql` and `sql_batch` read from
+// Storage asks (PRP-041), pure: `sql` and `sql_batch` read from
 // a `handle` result and held to their bounds. No guest, no database.
-import rapidkoi.guest.contract { Effect, Query, read_update_of };
+import rapidkoi.guest.contract { Effect, Query, read_update };
 import rapidkoi.guest.limits { MAX_SQL, MAX_SQL_PARAMS, MAX_ROWS, MAX_STEPS };
 import cbor { Value, encode };
 import support { t, kv };
 
-fun asking(effect: Value, version: i32): Result<Effect[], string> {
+fun asking(effect: Value): Result<Effect[], string> {
     let result = encode(kv([("state", kv([])), ("effects", Value.Array([effect]))]));
-    match read_update_of(result, version) {
+    match read_update(result) {
         Ok(u) => Ok(u.effects),
         Err(Invalid(_, why)) => Err(why),
         Err(_) => Err("another error"),
@@ -37,7 +37,6 @@ fun repeat(s: string, n: i64): string {
 fun a_query_reads_with_its_parameters() {
     let got = asking(
         sql("SELECT * FROM t WHERE id = ? AND done = ?", [Value.int(2), Value.Bool(false)]),
-        6,
     ).unwrap();
     match got[0] {
         Sql(msg, q) => {
@@ -57,7 +56,7 @@ fun a_query_reads_with_its_parameters() {
         ("params", Value.Array([])),
         ("max_rows", Value.int(99999)),
     ]);
-    match asking(capped, 6).unwrap()[0] {
+    match asking(capped).unwrap()[0] {
         Sql(_, q) => assert_eq(q.max_rows, MAX_ROWS),
         _ => panic("expected a query"),
     }
@@ -74,7 +73,7 @@ fun a_batch_reads_its_steps() {
             Value.Array([step("INSERT INTO t VALUES (?)"), step("DELETE FROM t WHERE x = ?")]),
         ),
     ]);
-    match asking(batch, 6).unwrap()[0] {
+    match asking(batch).unwrap()[0] {
         SqlBatch(msg, steps) => assert_eq(
             (msg == t("saved"), steps.len, steps[1].sql),
             (true, 2, "DELETE FROM t WHERE x = ?"),
@@ -85,18 +84,18 @@ fun a_batch_reads_its_steps() {
 
 @test
 fun bad_shapes_say_why() {
-    assert_eq(asking(sql(repeat("x", MAX_SQL + 1), []), 6), Err("an sql's text is over 100 KB"));
+    assert_eq(asking(sql(repeat("x", MAX_SQL + 1), [])), Err("an sql's text is over 100 KB"));
     let mut many: Value[] = [];
     for i in 0..MAX_SQL_PARAMS + 1 {
         many.push(Value.int(i));
     }
-    assert_eq(asking(sql("SELECT 1", many), 6), Err("an sql takes at most 999 values"));
+    assert_eq(asking(sql("SELECT 1", many)), Err("an sql takes at most 999 values"));
     assert_eq(
-        asking(sql("SELECT ?", [Value.Array([])]), 6),
+        asking(sql("SELECT ?", [Value.Array([])])),
         Err("an sql's values are numbers, text, bytes, true/false or null"),
     );
     assert_eq(
-        asking(kv([("kind", t("sql")), ("msg", t("m")), ("params", Value.Array([]))]), 6),
+        asking(kv([("kind", t("sql")), ("msg", t("m")), ("params", Value.Array([]))])),
         Err("an sql needs its text"),
     );
     let mut steps: Value[] = [];
@@ -104,10 +103,5 @@ fun bad_shapes_say_why() {
         steps.push(kv([("sql", t("SELECT 1")), ("params", Value.Array([]))]));
     }
     let big = kv([("kind", t("sql_batch")), ("msg", t("m")), ("steps", Value.Array(steps))]);
-    assert_eq(asking(big, 6), Err("an sql_batch takes at most 100 steps"));
-}
-
-@test
-fun earlier_contracts_have_no_storage() {
-    assert_eq(asking(sql("SELECT 1", []), 5), Err("unknown effect \"sql\""));
+    assert_eq(asking(big), Err("an sql_batch takes at most 100 steps"));
 }

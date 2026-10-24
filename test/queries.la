@@ -1,6 +1,6 @@
 // An app's calls to its database (PRP-041), end to end through the window:
 // asked, run as a task, answered, and the app's other windows told. A
-// contract 6 fixture keeps the last event it got as its state. Real SQLite
+// fixture keeps the last event it got as its state. Real SQLite
 // files under test/tmp/.
 import rapidkoi.shell { Model, with_pages, update };
 import rapidkoi.guest.effects { answer_all };
@@ -10,7 +10,7 @@ import rapidkoi.data.store { store_at };
 import kivuli { Cmd };
 import cbor { Value, Limits, encode, decode };
 import wasmtime { Engine, Module };
-import support { t, kv, echo_v6 };
+import support { t, kv, echo_init };
 import std.fs;
 
 fun clean(path: string) {
@@ -49,7 +49,7 @@ fun app(engine: Engine, init: u8[]): AppPage = open_module(
     "notes",
     "notes.wasm",
     engine,
-    Module.from_text(engine, echo_v6(init)).unwrap(),
+    Module.from_text(engine, echo_init(init)).unwrap(),
 );
 
 /** A window of `pages`, its data folder at test/tmp/queries-`name`. */

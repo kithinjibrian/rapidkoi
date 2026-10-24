@@ -22,7 +22,7 @@ fun declaring(controls: Option<Controls>): AppPage {
     let engine = Engine.new();
     AppPage {
         manifest: Some(Manifest {
-            contract: 3,
+            contract: 7,
             name: "New tab",
             version: "0.1.0",
             description: None,

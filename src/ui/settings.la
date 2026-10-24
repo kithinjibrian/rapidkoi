@@ -404,10 +404,10 @@ fun servers_summary(a: Access): string {
 /** What the app keeps here, in words: its state and its database, once its size is known. */
 fun kept(p: AppPage): string = size(saved(p) + p.data_size.unwrap_or(0));
 
-/** How many bytes the app saved: its state, 0 for none. */
+/** How many bytes the app saved: its state, 0 for none or an empty one (`{}`, one CBOR byte). */
 fun saved(p: AppPage): i64 = match state_of(p) {
-    Some(bytes) => bytes.len,
-    None => 0,
+    Some(bytes) if bytes != [0xa0] => bytes.len,
+    _ => 0,
 };
 
 /** A size in plain words: "Nothing saved", "900 B", "12 KB", "3.4 MB" (the old panel's). */

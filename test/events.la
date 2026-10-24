@@ -1,50 +1,46 @@
-// Events by contract version (PRP-030, docs/specs/app-events.md): contract
-// 3's `on_` names, contract 2's own. Pure; no guest, no display.
+// Events (contract 7, docs/specs/contract-7.md): what Rapidkoi sends an
+// app's `handle`, named `on_…`. Pure; no guest, no display.
 import rapidkoi.guest.events { Happened, event_for };
-import rapidkoi.guest.contract { lifecycle, envelope, answer, reply };
+import rapidkoi.guest.contract { reply };
 import rapidkoi.net.network { Reply };
 import cbor { Value, encode };
 import support { t, kv };
 
 @test
-fun contract_3_names_its_events_on_() {
-    // PRP-030, docs/specs/app-events.md.
-    let named = fun(h: Happened) = event_for(h, 3);
-    assert_eq(named(Happened.Init), Some(encode(kv([("event", t("on_init"))]))));
-    assert_eq(named(Happened.Open), Some(encode(kv([("event", t("on_open"))]))));
-    assert_eq(named(Happened.Resume), Some(encode(kv([("event", t("on_resume"))]))));
-    assert_eq(named(Happened.Change), Some(encode(kv([("event", t("on_change"))]))));
+fun events_are_named_on_() {
+    let named = fun(h: Happened) = event_for(h);
+    assert_eq(named(Happened.Init), encode(kv([("event", t("on_init"))])));
+    assert_eq(named(Happened.Open), encode(kv([("event", t("on_open"))])));
+    assert_eq(named(Happened.Resume), encode(kv([("event", t("on_resume"))])));
+    assert_eq(named(Happened.Change), encode(kv([("event", t("on_change"))])));
     assert_eq(
         named(Happened.Message(t("name"), Some("Amina"))),
-        Some(encode(kv([("event", t("on_message")), ("msg", t("name")), ("value", t("Amina"))]))),
+        encode(kv([("event", t("on_message")), ("msg", t("name")), ("value", t("Amina"))])),
+    );
+    assert_eq(
+        named(Happened.Message(t("add"), None)),
+        encode(kv([("event", t("on_message")), ("msg", t("add"))])),
     );
     assert_eq(
         named(Happened.Answer(t("me"), Value.Bytes([1]))),
-        Some(
-            encode(kv([("event", t("on_answer")), ("msg", t("me")), ("value", Value.Bytes([1]))])),
-        ),
+        encode(kv([("event", t("on_answer")), ("msg", t("me")), ("value", Value.Bytes([1]))])),
     );
     let got = reply(Reply.Got(200, #{"content-type": "text/plain"}, [7]));
     assert_eq(
         named(Happened.Answer(t("q"), got)),
-        Some(encode(kv([("event", t("on_response")), ("msg", t("q")), ("value", got)]))),
+        encode(kv([("event", t("on_response")), ("msg", t("q")), ("value", got)])),
     );
     let failed = reply(Reply.Failed("off"));
     assert_eq(
         named(Happened.Answer(t("q"), failed)),
-        Some(encode(kv([("event", t("on_fail")), ("msg", t("q")), ("value", failed)]))),
+        encode(kv([("event", t("on_fail")), ("msg", t("q")), ("value", failed)])),
     );
 }
 
 @test
-fun contract_2_keeps_its_names_and_has_no_resume() {
-    assert_eq(event_for(Happened.Init, 2), Some(lifecycle("init")));
-    assert_eq(event_for(Happened.Open, 2), Some(lifecycle("opened")));
-    assert_eq(event_for(Happened.Message(t("add"), None), 2), Some(envelope(t("add"), None)));
+fun a_data_change_names_its_tables() {
     assert_eq(
-        event_for(Happened.Answer(t("me"), Value.Null), 2),
-        Some(answer(t("me"), Value.Null)),
+        event_for(Happened.DataChanged(["notes"])),
+        encode(kv([("event", t("on_change")), ("tables", Value.Array([t("notes")]))])),
     );
-    assert_eq(event_for(Happened.Resume, 2), None);
-    assert_eq(event_for(Happened.Change, 2), None);
 }

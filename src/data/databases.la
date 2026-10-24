@@ -1,5 +1,5 @@
 /**
- * Each app's database (PRP-041, contract 6): where it lives in the data
+ * Each app's database (PRP-041): where it lives in the data
  * folder, one call run against it, its size, and Clear. A file is named by
  * a hash of the app (its host and origin key, or its local address or
  * file), so nothing an app says becomes a path. Every connection is guarded

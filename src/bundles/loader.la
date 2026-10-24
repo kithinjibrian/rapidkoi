@@ -9,7 +9,7 @@
  * Used by: window.tabs
  */
 import wasmtime { Engine, Module };
-import guest.guest { compile, reason };
+import guest.guest { compile, reason, OLDER };
 import bundles.bundle { Manifest, asset, reason as bundle_reason };
 import bundles.signing { Opened, read_any };
 import trust.verify {
@@ -25,7 +25,7 @@ import trust.verify {
 import net.fetching { Fetched, fetch_app };
 import net.dialing { Network };
 import net.address { Address, is_address, parse, url, shown };
-import guest.limits { MAX_BUNDLE, FETCH_TIMEOUT_MS, CONTRACT_VERSION, OLDEST_CONTRACT };
+import guest.limits { MAX_BUNDLE, FETCH_TIMEOUT_MS, CONTRACT_VERSION };
 import bundles.permissions { Tier, PermissionError, parse as parse_permissions, tier_of, words_of };
 import std.http { Limits };
 
@@ -217,7 +217,10 @@ fun from_opened(
     let b = o.bundle;
     let m = b.manifest;
     let newer = Refusal.Failed(m.name, "This app needs a newer version of Rapidkoi");
-    if m.contract < OLDEST_CONTRACT as i64 || m.contract > CONTRACT_VERSION as i64 {
+    if m.contract < CONTRACT_VERSION as i64 {
+        return Err(Refusal.Failed(m.name, OLDER));
+    }
+    if m.contract > CONTRACT_VERSION as i64 {
         return Err(newer);
     }
     // Before compiling: a refused app's module is never touched. A site

@@ -1,6 +1,6 @@
 /**
  * Your name in an app's screen (PRP-011), pure: `{FIRST_NAME}` and
- * `{LAST_NAME}` in a contract v2 app's text and button labels become your
+ * `{LAST_NAME}` in an app's texts become your
  * name while Rapidkoi draws it. The app never receives the result, so it
  * can show your name but never know it. Text fields are never filled
  * (editing one would send the name back), nor are screen titles (the
@@ -22,18 +22,6 @@ import guest.nodes { Node };
  *     fill(described.root, "Brian", "Kithinji")
  */
 public fun fill(n: Node, first: string, last: string): Node = match n {
-    Text(s, style) => Node.Text(substitute(s, first, last), style),
-    Button(label, look, msg) => Node.Button(substitute(label, first, last), look, msg),
-    Column(spacing, padding, kids) => Node.Column(
-        spacing,
-        padding,
-        kids.map(fun(k: Node) = fill(k, first, last)),
-    ),
-    Row(spacing, padding, kids) => Node.Row(
-        spacing,
-        padding,
-        kids.map(fun(k: Node) = fill(k, first, last)),
-    ),
     Words(s, look, facts) => Node.Words(substitute(s, first, last), look, facts),
     Boxed(look, facts, press, kids) => Node.Boxed(
         look,

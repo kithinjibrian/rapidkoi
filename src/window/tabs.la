@@ -14,7 +14,7 @@ import bundles.bundle { Manifest };
 import bundles.loader { Loaded, Refusal, load, why };
 import net.address;
 import trust.verify { Trust, Change, Keyring };
-import guest.contract { Described, ContractError, Effect, LinkChange, read_tree };
+import guest.contract { Described, ContractError, Effect, LinkChange };
 import guest.events { Happened };
 import ui.render { Msg };
 import guest.running { Ran, start, happen };
@@ -80,7 +80,7 @@ public struct AppPage {
     /** Who signed it and how far that's trusted; `None` when unsigned. */
     public trust: Option<Trust>,
     program: Option<Program>,
-    /** What the app asked for and Rapidkoi hasn't answered yet (contract v2, PRP-011). */
+    /** What the app asked for and Rapidkoi hasn't answered yet (PRP-011). */
     public asks: Effect[],
     /** Which load this page is waiting for (0 when none): a result for another is stale. */
     public load: i64,
@@ -97,7 +97,7 @@ public struct AppPage {
     public label: Option<string>,
     /** When it was last the current tab, as a count: the app's last-used instance has the highest. */
     public seen: i64,
-    /** The fields the app put in its address (contract 4, PRP-036), in order. */
+    /** The fields the app put in its address (PRP-036), in order. */
     public link: string[],
     /** Those fields' current values, as the address shows them. */
     public fields: (string, string)[],
@@ -324,7 +324,7 @@ public fun handle(p: AppPage, msg: Msg): AppPage = match (p.screen, msg) {
 /**
  * Tells a running page it's back at the front (`on_resume`, PRP-030): its
  * tab became current again, or, for the new tab, the empty tab is shown.
- * A contract 2 app, or a page not running, is left as it is.
+ * A page not running is left as it is.
  *
  * @param p the page
  * @returns the page after the event, with whatever it asked for
@@ -339,7 +339,7 @@ public fun to_front(p: AppPage): AppPage = match p.screen {
 
 /**
  * Tells a running page something it may read changed (`on_change`,
- * PRP-031). A contract 2 app, or a page not running, is left as it is.
+ * PRP-031). A page not running is left as it is.
  *
  * Example:
  *     changed(page)
@@ -351,7 +351,7 @@ public fun changed(p: AppPage): AppPage = match p.screen {
 
 /**
  * Tells a running page its data changed in another of its windows
- * (`on_change` with the tables, PRP-041). Before contract 6, nothing.
+ * (`on_change` with the tables, PRP-041).
  *
  * Example:
  *     data_changed(page, ["tasks"])
@@ -361,11 +361,8 @@ public fun data_changed(p: AppPage, tables: string[]): AppPage = match p.screen 
     _ => p,
 };
 
-/** `p` after `h`, if its contract has it; any failure stops it. */
-fun sent(p: AppPage, g: Guest, state: u8[], h: Happened): AppPage = match happen(g, state, h) {
-    Some(r) => ran(p, r),
-    None => p,
-};
+/** `p` after `h`; any failure stops it. */
+fun sent(p: AppPage, g: Guest, state: u8[], h: Happened): AppPage = ran(p, happen(g, state, h));
 
 /**
  * `p` after its guest ran: the new screen and asks, the address's fields

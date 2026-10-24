@@ -139,7 +139,7 @@ public const MAX_LINK_DEPTH: i64 = 4;
 
 /**
  * Checks a link field's name: 1 to 64 bytes of lowercase letters, digits
- * and `_`; with `paths` (contract 5, PRP-039), up to `MAX_LINK_DEPTH` such
+ * and `_`; with `paths` (PRP-039), up to `MAX_LINK_DEPTH` such
  * segments joined by `.`.
  *
  * @returns `Ok`, or why not as a sentence

@@ -7,7 +7,6 @@
  * Used by: ui.render, ui.themes, ui.layout, ui.addressbox, ui.frame, ui.content
  */
 import kivuli { Spacing, Sizing, Edges, Width };
-import guest.contract { Space };
 
 /** Inside tight groups, in pixels. */
 public const SPACE_XS: i64 = 4;
@@ -76,24 +75,6 @@ public const CORNER_SMALL: i64 = 4;
 public const BUTTON_RADIUS: i64 = 6;
 /** The page's top-right curve, in pixels: also an app's `corner: "large"`. */
 public const PAGE_RADIUS: i64 = 12;
-
-/**
- * Returns the pixels a contract spacing or padding word stands for.
- *
- * @param s the word, as decoded
- * @returns its token's pixels; `0` for `none`
- *
- * Example:
- *     column(kids).style([gap(pixels(Space.Md))])
- */
-public fun pixels(s: Space): i64 = match s {
-    Zero => 0,
-    Xs => SPACE_XS,
-    Sm => SPACE_SM,
-    Md => SPACE_MD,
-    Lg => SPACE_LG,
-    Xl => SPACE_XL,
-};
 
 /**
  * Returns `n` pixels as a kivuli width.

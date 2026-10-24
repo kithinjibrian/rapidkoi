@@ -205,7 +205,7 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
             // The new tab has no server of its own to reach.
             NewTab => (m, Some(reply(Reply.Failed("The new tab can't make requests"))), msg),
         },
-        // Its own database (contract 6, PRP-041): a task, answered when it arrives.
+        // Its own database (PRP-041): a task, answered when it arrives.
         Sql(msg, q) => match slot {
             InTab(id) => {
                 let (held, now, send) = queries.ask(m, id, msg, Call.Read(q));

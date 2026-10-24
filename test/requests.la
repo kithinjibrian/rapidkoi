@@ -11,12 +11,13 @@ import rapidkoi.guest.effects { answer_all };
 import rapidkoi.window.tabs { AppPage, open_module, state_of };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.people.people { Person, person, with_person };
-import rapidkoi.guest.contract { answer, reply };
+import rapidkoi.guest.contract { reply };
+import rapidkoi.guest.events { Happened, event_for };
 import cbor { Value, Entry, encode, decode, Limits };
 import std.http { Request as Incoming, Response };
 import std.task { sleep };
 import wasmtime { Engine, Module };
-import support { echo_v2, t, kv, settle };
+import support { echo_init, t, kv, settle, event_in };
 
 const TLS: string = "test/fixtures/tls";
 
@@ -56,6 +57,9 @@ fun failed(r: Reply): string = match r {
     Failed(why) => why,
     Got(status, _, _) => "got {status}",
 };
+
+/** The event Rapidkoi sends with an answer. */
+fun answer(msg: Value, value: Value): u8[] = event_for(Happened.Answer(msg, value));
 
 @test
 fun a_get_and_a_post_come_back_whole() {
@@ -135,7 +139,7 @@ fun https_is_checked_against_the_trusted_roots() {
 /** An init result asking for `wanted`. */
 fun asking(wanted: Value[]): u8[] = encode(
     Value.Map([
-        Entry { key: t("state"), value: Value.Bytes([]) },
+        Entry { key: t("state"), value: kv([]) },
         Entry { key: t("effects"), value: Value.Array(wanted) },
     ]),
 );
@@ -154,7 +158,7 @@ fun page(path: string, wanted: Value[], host: Option<string>): AppPage {
         "notes",
         path,
         engine,
-        Module.from_text(engine, echo_v2(asking(wanted))).unwrap(),
+        Module.from_text(engine, echo_init(asking(wanted))).unwrap(),
     );
     match host {
         Some(h) => AppPage {
@@ -173,7 +177,8 @@ fun page(path: string, wanted: Value[], host: Option<string>): AppPage {
     }
 }
 
-fun got(m: Model): u8[] = state_of(m.tabs[0].page).unwrap_or([]);
+/** The event the echo page got last: what its state holds. */
+fun got(m: Model): u8[] = event_in(state_of(m.tabs[0].page).unwrap_or([]));
 
 /** The answer's value the echo page holds. */
 fun value(m: Model): Value = decode(got(m), Limits.default()).unwrap().get("value").unwrap_or(

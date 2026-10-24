@@ -5,10 +5,11 @@ import rapidkoi.window.tabs { AppPage, open_module, open_path, handle, state_of 
 import rapidkoi.window.restarts { resume };
 import rapidkoi.window.leftoff { leave };
 import rapidkoi.ui.render { Msg };
-import rapidkoi.guest.contract { envelope };
+import rapidkoi.guest.events { Happened, event_for };
+import cbor { Value, encode };
 import wasmtime { Engine, Module };
 import rapidkoi.trust.verify { keyring };
-import support { t, fixed, counter_tree, result_of, echo, titled_tree, crashing };
+import support { t, kv, fixed, counter_tree, result_of, echo, event_in, titled_tree, crashing };
 
 fun page(wat: string): AppPage {
     let engine = Engine.new();
@@ -21,10 +22,16 @@ fun reason_of(p: AppPage): string = match p.screen {
     _ => "running",
 };
 
+/** The event pressing an echo app's "Add" sends it. */
+fun added(): u8[] = event_for(Happened.Message(t("add"), None));
+
 @test
 fun a_page_starts_and_keeps_its_title() {
-    let p = page(fixed(2, [5], titled_tree("Count: 0", "Counter"), result_of([6])));
-    assert_eq(state_of(p), Some([5]));
+    let five = kv([("count", Value.int(5))]);
+    let p = page(
+        fixed(five, titled_tree("Count: 0", "Counter"), result_of(kv([("count", Value.int(6))]))),
+    );
+    assert_eq(state_of(p), Some(encode(five)));
     assert_eq(p.title, Some("Counter"));
     assert_eq(p.name, "fixture");
 }
@@ -33,9 +40,9 @@ fun a_page_starts_and_keeps_its_title() {
 fun events_and_restart() {
     let p = page(echo());
     let next = handle(p, Msg.Event(t("add"), None));
-    assert_eq(state_of(next), Some(envelope(t("add"), None)));
+    assert_eq(state_of(next).map(event_in), Some(added()));
     let again = handle(next, Msg.Restart);
-    assert_eq(state_of(again), Some([]));
+    assert_eq(state_of(again).map(event_in), Some([]));
 }
 
 @test
@@ -50,9 +57,9 @@ fun a_crash_stops_the_page_and_events_are_then_ignored() {
 fun leaving_keeps_the_state_and_resume_restores_it() {
     let p = handle(page(echo()), Msg.Event(t("add"), None));
     let left = leave(p);
-    assert_eq(left.state, Some(envelope(t("add"), None)));
-    // `init` would give [], so this state can only come from `view(saved)`.
-    assert_eq(state_of(resume(left)), Some(envelope(t("add"), None)));
+    assert_eq(left.state.map(event_in), Some(added()));
+    // `init` would give an empty state, so this one can only come from `view(saved)`.
+    assert_eq(state_of(resume(left)).map(event_in), Some(added()));
 }
 
 @test
@@ -60,7 +67,7 @@ fun leaving_a_stopped_page_resumes_fresh() {
     let p = handle(page(crashing()), Msg.Event(t("add"), None));
     let left = leave(p);
     assert_eq(left.state, None);
-    assert_eq(state_of(resume(left)), Some([]));
+    assert_eq(state_of(resume(left)).map(event_in), Some([]));
 }
 
 @test
@@ -109,7 +116,7 @@ fun rkb(tag: string, speaks: i64): string {
 
 @test
 fun opening_a_bundle_uses_its_manifest() {
-    let p = open_path(Engine.new(), keyring(), rkb("opening", 2));
+    let p = open_path(Engine.new(), keyring(), rkb("opening", 7));
     assert_eq(p.name, "Bundled");
     assert_eq(p.manifest.map(fun(m: Manifest) = m.version), Some("2.0.1"));
     // The module compiled; the empty module has no memory, so it stops with Restart offered.
@@ -119,9 +126,18 @@ fun opening_a_bundle_uses_its_manifest() {
 
 @test
 fun a_bundle_for_a_newer_contract_says_so() {
-    let p = open_path(Engine.new(), keyring(), rkb("newer", 7));
+    let p = open_path(Engine.new(), keyring(), rkb("newer", 8));
     assert_eq(reason_of(p), "This app needs a newer version of Rapidkoi");
     assert_eq(p.name, "Bundled");
+}
+
+@test
+fun a_bundle_for_an_older_contract_is_to_be_rebuilt() {
+    // DECISION-056: refused before its module is touched.
+    for v of [2, 6] {
+        let p = open_path(Engine.new(), keyring(), rkb("older-{v}", v));
+        assert_eq(reason_of(p), "This app needs to be rebuilt for this Rapidkoi");
+    }
 }
 
 @test

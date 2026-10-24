@@ -1,8 +1,9 @@
-// Links (PRP-036, contract 4): a window's state is named fields, the app
-// names which go in its address after each event, and a link's fields are
-// set in a fresh state where it has them with the same kind of value.
+// Links (PRP-036): a window's state is named fields, the app names which
+// go in its address after each event, and a link's fields are set in a
+// fresh state where it has them with the same kind of value, or where
+// they're empty and their kind is declared (DECISION-056).
 // Pure; no guest, no display.
-import rapidkoi.guest.contract { LinkChange, read_update_of };
+import rapidkoi.guest.contract { LinkChange, read_update };
 import rapidkoi.guest.links { fields_in, with_link };
 import rapidkoi.window.tabs { AppPage, Pending, open_module_at, handle, state_of };
 import rapidkoi.ui.render { Msg };
@@ -12,7 +13,7 @@ import rapidkoi.shell { Model, start, update };
 import rapidkoi.window.actions { Msg as AppMsg };
 import rapidkoi.net.fetching { Fetched };
 import rapidkoi.bundles.bundle { Bundle, Manifest, write };
-import support { t, kv, linking, echo_v3 };
+import support { t, kv, linking };
 
 fun result(state: Value, link: Option<Value>): u8[] {
     let mut pairs = [("state", state), ("effects", Value.Array([]))];
@@ -25,26 +26,20 @@ fun result(state: Value, link: Option<Value>): u8[] {
 fun names(xs: string[]): Value = Value.Array(xs.map(fun(x: string) = t(x)));
 
 @test
-fun a_contract_4_result_carries_named_fields_and_its_link() {
+fun a_result_carries_named_fields_and_its_link() {
     let state = kv([("count", Value.int(3))]);
-    let u = read_update_of(result(state, Some(names(["count"]))), 4).unwrap();
+    let u = read_update(result(state, Some(names(["count"])))).unwrap();
     assert_eq((u.state, u.link), (encode(state), LinkChange.Set(["count"])));
     // Absent keeps the window's link; null clears it.
-    assert_eq(read_update_of(result(state, None), 4).unwrap().link, LinkChange.Keep);
-    assert_eq(read_update_of(result(state, Some(Value.Null)), 4).unwrap().link, LinkChange.Clear);
-    // Contract 3 never has a link.
-    assert_eq(
-        read_update_of(result(Value.Bytes([1]), Some(names(["count"]))), 3).unwrap().link,
-        LinkChange.Keep,
-    );
+    assert_eq(read_update(result(state, None)).unwrap().link, LinkChange.Keep);
+    assert_eq(read_update(result(state, Some(Value.Null))).unwrap().link, LinkChange.Clear);
 }
 
 @test
-fun a_broken_contract_4_result_says_why() {
+fun a_broken_result_says_why() {
     let state = kv([("count", Value.int(3))]);
-    let bad = fun(bytes: u8[]) = read_update_of(bytes, 4).is_err();
+    let bad = fun(bytes: u8[]) = read_update(bytes).is_err();
     assert_eq(bad(result(Value.Bytes([1]), None)), true);
-    assert_eq(read_update_of(result(state, None), 3).is_err(), true);
     assert_eq(
         bad(result(Value.Map([cbor.Entry { key: Value.int(1), value: t("x") }]), None)),
         true,
@@ -92,14 +87,18 @@ fun a_links_fields_are_set_where_the_fresh_state_has_that_kind() {
             ("list", Value.Array([])),
         ]),
     );
-    let set = with_link(fresh, [
-        ("count", "3"),
-        ("filter", "a b"),
-        ("done", "true"),
-        ("note", "x"),
-        ("list", "1"),
-        ("other", "1"),
-    ]);
+    let set = with_link(
+        fresh,
+        [
+            ("count", "3"),
+            ("filter", "a b"),
+            ("done", "true"),
+            ("note", "x"),
+            ("list", "1"),
+            ("other", "1"),
+        ],
+        [],
+    );
     assert_eq(
         set,
         encode(
@@ -113,8 +112,8 @@ fun a_links_fields_are_set_where_the_fresh_state_has_that_kind() {
         ),
     );
     // A value of another kind is ignored: the app's state stays its own.
-    assert_eq(with_link(fresh, [("count", "three"), ("done", "yes")]), fresh);
-    assert_eq(with_link([1, 2], [("count", "3")]), [1, 2]);
+    assert_eq(with_link(fresh, [("count", "three"), ("done", "yes")], []), fresh);
+    assert_eq(with_link([1, 2], [("count", "3")], []), [1, 2]);
 }
 
 /** A contract 4 result: `state`, and `link` when given. */
@@ -186,20 +185,6 @@ fun a_link_sets_its_fields_before_on_open() {
     assert_eq(state_of(q), Some(encode(count(0))));
 }
 
-@test
-fun contract_3_apps_have_no_links() {
-    let engine = Engine.new();
-    let p = open_module_at(
-        "fixture",
-        "fixture.wasm",
-        engine,
-        Module.from_text(engine, echo_v3()).unwrap(),
-        [("count", "3")],
-    );
-    let next = handle(p, Msg.Event(t("add"), None));
-    assert_eq((next.link, next.fields, stopped(next)), ([], [], "running"));
-}
-
 const SITE_ADDRESS: string = "rapidkoi://localhost:18779";
 
 fun going(m: Model, text: string): Model {
@@ -215,7 +200,7 @@ fun pending_of(p: AppPage): Option<Pending> = match p.screen {
 /** A format 1 bundle named Plain at `version`, as an unsigned server would send. */
 fun plain(version: string): u8[] = write(Bundle {
     manifest: Manifest {
-        contract: 4,
+        contract: 7,
         name: "Plain",
         version: version,
         description: None,
@@ -277,13 +262,12 @@ fun step_with(m: Model, msg: AppMsg): Model {
 }
 
 @test
-fun contract_5_links_name_paths_and_contract_4_s_don_t() {
+fun links_name_paths_of_four_segments_at_most() {
     // PRP-039.
     let state = kv([("editor", kv([("task", Value.int(42))]))]);
-    let u = read_update_of(result(state, Some(names(["editor.task"]))), 5).unwrap();
+    let u = read_update(result(state, Some(names(["editor.task"])))).unwrap();
     assert_eq(u.link, LinkChange.Set(["editor.task"]));
-    assert_eq(read_update_of(result(state, Some(names(["editor.task"]))), 4).is_err(), true);
-    assert_eq(read_update_of(result(state, Some(names(["a.b.c.d.e"]))), 5).is_err(), true);
+    assert_eq(read_update(result(state, Some(names(["a.b.c.d.e"])))).is_err(), true);
 }
 
 @test
@@ -314,13 +298,17 @@ fun a_path_is_set_only_where_the_fresh_state_has_it() {
     let fresh = encode(
         kv([("editor", kv([("task", Value.int(0)), ("title", t(""))])), ("list", Value.Array([]))]),
     );
-    let set = with_link(fresh, [
-        ("editor.task", "42"),
-        ("editor.title", "Pay rent"),
-        ("editor.gone", "1"),
-        ("list.x", "1"),
-        ("nowhere.x", "1"),
-    ]);
+    let set = with_link(
+        fresh,
+        [
+            ("editor.task", "42"),
+            ("editor.title", "Pay rent"),
+            ("editor.gone", "1"),
+            ("list.x", "1"),
+            ("nowhere.x", "1"),
+        ],
+        [],
+    );
     assert_eq(
         set,
         encode(
@@ -331,5 +319,23 @@ fun a_path_is_set_only_where_the_fresh_state_has_it() {
         ),
     );
     // Another kind at the end leaves it.
-    assert_eq(with_link(fresh, [("editor.task", "forty")]), fresh);
+    assert_eq(with_link(fresh, [("editor.task", "forty")], []), fresh);
+}
+
+@test
+fun a_declared_kind_lets_a_link_set_an_empty_field() {
+    // DECISION-056: `note` starts null (an Option), and `kinds` says it's a number.
+    let fresh = encode(kv([("note", Value.Null), ("query", Value.Null), ("open", Value.Null)]));
+    let kinds = [("note", "number"), ("query", "text"), ("open", "bool")];
+    assert_eq(
+        with_link(fresh, [("note", "7"), ("query", "garden plan"), ("open", "true")], kinds),
+        encode(
+            kv([("note", Value.int(7)), ("query", t("garden plan")), ("open", Value.Bool(true))]),
+        ),
+    );
+    // A value that isn't its kind is ignored; so is a null field with no kind.
+    assert_eq(with_link(fresh, [("note", "seven"), ("open", "yes")], kinds), fresh);
+    assert_eq(with_link(fresh, [("note", "7")], []), fresh);
+    // A kind never makes a field the state doesn't have.
+    assert_eq(with_link(fresh, [("missing", "7")], [("missing", "number")]), fresh);
 }

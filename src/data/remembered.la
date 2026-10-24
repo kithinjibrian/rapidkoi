@@ -389,7 +389,7 @@ public fun read_open(bytes: u8[]): Result<Open, Unreadable> {
         }
         let seen = x.get("seen").and_then(fun(n: Value) = n.as_i64()).unwrap_or(0);
         // Read back as an app's result is (PRP-036); none before links.
-        let link = match read_link(x.get("link"), true) {
+        let link = match read_link(x.get("link")) {
             Ok(Set(names)) => names,
             Ok(_) => [],
             Err(_) => {

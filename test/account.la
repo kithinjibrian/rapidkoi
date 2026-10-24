@@ -10,12 +10,12 @@ import rapidkoi.window.tabs { AppPage, open_module, state_of };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.people.people { person };
 import rapidkoi.people.identity { master, public_key, user_label };
-import rapidkoi.guest.contract { answer };
+import rapidkoi.guest.events { Happened, event_for };
 import rapidkoi.data.store { Store, store_at };
 import cbor { Value, Entry, encode };
 import std.fs;
 import wasmtime { Engine, Module };
-import support { echo_v2, t, kv, echo };
+import support { echo_init, t, kv, echo, event_in };
 
 const HOST: string = "notes.acme.com";
 
@@ -38,7 +38,7 @@ fun folder(name: string): Store {
 
 fun asking(): u8[] = encode(
     Value.Map([
-        Entry { key: t("state"), value: Value.Bytes([]) },
+        Entry { key: t("state"), value: kv([]) },
         Entry {
             key: t("effects"),
             value: Value.Array([kv([("kind", t("identity")), ("msg", t("me"))])]),
@@ -65,7 +65,7 @@ fun notes(s: Store): Model {
             "Notes",
             "rapidkoi://notes.acme.com",
             engine,
-            Module.from_text(engine, echo_v2(asking())).unwrap(),
+            Module.from_text(engine, echo_init(asking())).unwrap(),
         ),
     };
     let (m, _) = update(restore(with_pages(engine, [p]), s), Msg.TogglePanel);
@@ -86,6 +86,9 @@ fun key(s: Store, generation: i64): u8[] = public_key(
     [3; 32],
     generation,
 ).unwrap();
+
+/** The event Rapidkoi sends with an answer. */
+fun answer(msg: Value, value: Value): u8[] = event_for(Happened.Answer(msg, value));
 
 @test
 fun it_says_who_you_are_to_this_app() {
@@ -115,7 +118,10 @@ fun starting_over_asks_then_gives_a_new_key() {
     let over = step(asked, Msg.StartOverIdentity);
     assert_eq(person(over.people, HOST, [3; 32]).generation, 1);
     // The app starts again and asks again: it now gets the new key.
-    assert_eq(state_of(over.tabs[0].page), Some(answer(t("me"), Value.Bytes(key(s, 1)))));
+    assert_eq(
+        state_of(over.tabs[0].page).map(event_in),
+        Some(answer(t("me"), Value.Bytes(key(s, 1)))),
+    );
     clean(s.dir);
 }
 

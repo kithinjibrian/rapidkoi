@@ -1,5 +1,5 @@
 /**
- * Contract 5's styles (PRP-037), pure: an app's `style` map read into a
+ * Apps' styles (PRP-037), pure: an app's `style` map read into a
  * checked `Look`. Every value is hostile input, so each is held to its
  * kind and range, and a bad one stops the app with why. An unknown key is
  * ignored, so a later contract can add keys. Rapidkoi's names are kept as
@@ -7,7 +7,7 @@
  * their values.
  *
  * Depends on: cbor, guest.nodes
- * Used by: guest.tree5
+ * Used by: guest.tree
  */
 import cbor { Value, Entry };
 import guest.nodes { Look, Colour, Measure, TextSize, Direction, Place, ContractError };
