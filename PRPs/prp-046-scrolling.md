@@ -58,4 +58,4 @@ PRP-046 of three for contract 7 (DECISION-056 Q4): after the base (PRP-045), bef
 - **`scroll` only on a box's own look:** a hover or pressed look can't change what scrolls.
 - **Nesting** carries the union of the axes scrolling around a box (vertical then horizontal is both), so a third box scrolling either way inside them is refused.
 - **Built here, waiting on kivuli (DECISION-057, `kivuli-requests.md` § 11–12):** the clip, the development band, one-axis scrolling. `ui.frame.in_development` is built and tested.
-- **The SDK** (`../rapidkoi-rust`, at the owner's word): `Layout::scroll`, `scroll_x`, `scroll_both`, on its branch `scrolling`, to be tagged `v0.2.0-pre.2`.
+- **The SDK** (`../rapidkoi-rust`, at the owner's word): `Layout::scroll`, `scroll_x`, `scroll_both`, tagged and pushed as `v0.2.0-pre.2`; the built-ins moved to it and were repacked; the full suite passed (545).
