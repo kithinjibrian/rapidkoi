@@ -6,7 +6,8 @@ import rapidkoi.net.downloads { fetch_all, arrive, kept_in, stamp };
 import rapidkoi.net.network { Reply };
 import rapidkoi.shell { update };
 import rapidkoi.window.window { Model, with_pages };
-import rapidkoi.window.tabs { AppPage, Tab, Kept, Program, open_program, state_of };
+import rapidkoi.window.tabs { AppPage, Tab, Program, open_program, state_of };
+import rapidkoi.window.downloaded { Kept };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.guest.events { Happened, event_for };
 import rapidkoi.guest.limits { MAX_DOWNLOADS, MAX_DECODED };
@@ -144,12 +145,11 @@ fun fails_with(port: i64, src: string, why: string) {
         Some(Gone) => {}
         _ => panic("{src} should be gone"),
     }
-    let error = Value.Map([cbor.Entry { key: t("error"), value: t(why) }]);
-    assert_eq(got(done), event_for(Happened.Answer(t("broken"), error)));
+    assert_eq(got(done), event_for(Happened.Message(t("broken"), Some(why))));
 }
 
 @test
-fun a_picture_that_can_t_be_shown_sends_on_fail_with_why() {
+fun a_picture_that_can_t_be_shown_sends_its_on_fail_with_why() {
     server(18953);
     fails_with(
         18953,

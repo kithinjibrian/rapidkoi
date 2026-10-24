@@ -85,3 +85,8 @@ Checking 8,000 px and 40 MP before decoding means reading PNG, JPEG and WebP hea
 ## AMENDMENTS
 
 - **Approved by the owner, 2026-10-24, "a for all"**, the security section reviewed with it. Q1 (a): built to what kivuli shows today (PNG, JPEG, SVG; 4,096 px a side, 16 MP; WebP refused with its sentence; a decode failure unreported), the gaps asked of kivuli (DECISION-058). Q2 (a): headers read by a new package, `lugha-imagesize`. Q3 (a): at most 256 pictures a view.
+- **A picture's messages arrive as `on_message`** (the owner, during the build): `on_load` with no value, `on_fail` with Rapidkoi's sentence as `value`, as a press and an input's text do, so a typed message (`Msg::PhotoFailed(3)`) arrives whole in Rust. `on_fail` the event stays for asks.
+- **`Kept` moved to `src/window/downloaded.la`** (the owner approved the split at 501 lines; named `downloaded` because `kept` clashes with locals).
+- **The broken-picture mark** is Iconsax's gallery-slash (`assets/icons/gallery-slash.svg`, from the owner), in the theme's dim text colour.
+- **Pages keep their bundle's pictures in `Program`** (engine, module, assets), so every way a page opens or restarts has them.
+- **A switched-off server** (⚙ → Access) fails the picture with its sentence; the app runs on. Any other refusal stops the app.

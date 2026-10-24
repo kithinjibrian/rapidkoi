@@ -1,7 +1,7 @@
 // The content area (PRP-047): each picture drawn as its page has it.
 
 import rapidkoi.ui.content { with_shown };
-import rapidkoi.window.tabs { Kept };
+import rapidkoi.window.downloaded { Kept };
 import rapidkoi.guest.nodes { Node, Picture, Fitting, Shown };
 import rapidkoi.guest.styles { plain };
 import rapidkoi.guest.roles { no_facts };

@@ -5,23 +5,23 @@
  * may reach, or the app stops. Those not yet kept are downloaded in kivuli
  * tasks, at most `MAX_DOWNLOADS` a page at a time, in the order the screen
  * shows them; a plain GET, no headers. A result is checked by its header
- * (`lugha-imagesize`) before it's kept, and the app is told (`on_load`,
- * `on_fail`). Kept pictures off screen are dropped, least recently shown
+ * (`lugha-imagesize`) before it's kept, and the app is told (its `on_load`,
+ * or `on_fail`, as `on_message`). Kept pictures off screen are dropped, least recently shown
  * first, past `MAX_DECODED`. Nothing is sent from `update`.
  *
- * Depends on: kivuli, imagesize, net.network, net.requests, window.tabs, window.window, window.actions, guest.pictures, guest.contract, guest.limits, ui.render
+ * Depends on: kivuli, imagesize, net.network, net.requests, window.tabs, window.downloaded, window.window, window.actions, guest.pictures, guest.limits, ui.render
  * Used by: shell
  */
 import kivuli { Cmd };
 import imagesize { Format, size_of, format_of };
 import net.network { Request, Reply, NetworkError, check_request, reason };
 import net.requests { allowed, send };
-import window.tabs { AppPage, Tab, Kept, Screen, handle, close_page };
+import window.tabs { AppPage, Tab, Screen, handle, close_page };
+import window.downloaded { Kept };
 import window.window { Model, with_tab, app };
 import window.actions { Msg };
 import guest.nodes { Picture };
 import guest.pictures { pictures_in, asset_of };
-import guest.contract { reply };
 import guest.limits {
     MAX_DOWNLOADS,
     MAX_DECODED,
@@ -303,7 +303,7 @@ fun checked(got: Reply, held: i64): Result<(u8[], i64), string> {
     Ok((body, size))
 }
 
-/** Tells the app a picture came (`on_load`) or why not (`on_fail`), when it gave a message. */
+/** Tells the app a picture came (its `on_load`) or why not (its `on_fail`, the sentence as `value`), as `on_message`. */
 fun told(page: AppPage, source: string, outcome: Result<(), string>): AppPage {
     let pic = match page.screen {
         Running(_, _, d) => pictures_in(d.root).filter(fun(q: Picture) = q.source == source),
@@ -314,7 +314,8 @@ fun told(page: AppPage, source: string, outcome: Result<(), string>): AppPage {
     }
     match (outcome, pic[0].on_load, pic[0].on_fail) {
         (Ok(_), Some(msg), _) => handle(page, render.Msg.Event(msg, None)),
-        (Err(why), _, Some(msg)) => handle(page, render.Msg.Answer(msg, reply(Reply.Failed(why)))),
+        // As a press is, so a typed message arrives whole; the sentence rides as its value.
+        (Err(why), _, Some(msg)) => handle(page, render.Msg.Event(msg, Some(why))),
         _ => page,
     }
 }

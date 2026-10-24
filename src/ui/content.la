@@ -8,7 +8,8 @@
  */
 import kivuli { View, Styling, Font, Size, column };
 import window.actions { Msg };
-import window.tabs { AppPage, Kept };
+import window.tabs { AppPage };
+import window.downloaded { Kept };
 import guest.nodes { Node, Picture, Shown };
 import guest.pictures { asset_of };
 import guest.placeholders { fill };

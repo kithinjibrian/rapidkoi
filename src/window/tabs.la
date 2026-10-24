@@ -19,6 +19,7 @@ import guest.events { Happened };
 import ui.render { Msg };
 import guest.running { Ran, start, happen };
 import guest.links { fields_in };
+import window.downloaded { Kept };
 
 /** What an app page shows. */
 enum Screen {
@@ -109,16 +110,6 @@ struct AppPage {
     cached: Option<Cached>,
     /** The pictures its screens named from servers, by source (PRP-047). */
     pictures: (string, Kept)[],
-}
-
-/** What a page has of a picture from a server (PRP-047). */
-enum Kept {
-    /** Downloading. */
-    Coming,
-    /** Its bytes, checked; its decoded size (width × height × 4); when it was last on screen, as `seen` counts. */
-    Here(u8[], i64, i64),
-    /** It can't be shown. */
-    Gone,
 }
 
 /** What Rapidkoi knows of a signed app's kept copy (PRP-043): for its Signed app page and ⚙ → Data. */
