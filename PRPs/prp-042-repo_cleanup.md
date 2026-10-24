@@ -127,7 +127,7 @@ If this needs to be abandoned mid-way:
 - [x] `examples/`, the root `rapidkoi.toml`, `test/counter.la` and `test/tasks.la` are gone
 - [x] No test skips for a missing Rust build (`grep -rn "build guest/rust" test` finds nothing)
 - [ ] The repacked built-ins load and run (`test/newtab.la`, `test/settings_app.la`), and the owner sees the new tab and Settings unchanged
-- [ ] quote.dafifi.net is down (the owner said yes)
+- [x] quote.dafifi.net is down (the owner said yes)
 - [x] CLAUDE.md, `.llmignore` and `.claude/settings.json` protect `../rapidkoi-rust/`
 - [ ] `lughac test test/` passes
 - [x] `lughac build src/main.la -o main` succeeds

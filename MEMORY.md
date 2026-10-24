@@ -349,7 +349,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ### In Progress
 - Build step 3, a real app: the tasks app (PRP-040, session 206) proved it, then was removed with the repo cleanup (PRP-042, decision 27); Notes and Trip replace it as rapidkoi-rust examples.
 - Build step 4, storage: part 1 (a SQLite database per app, PRP-041) built in session 209, checked by the owner in session 214. Sync parked by the owner (session 215).
-- PRP-042, the repo cleanup (sessions 215–219): rapidkoi-rust published at v0.1.0; the built-ins build from it. Left: the VM (quote.dafifi.net down, asked first).
+- PRP-042, the repo cleanup (sessions 215–219): rapidkoi-rust published at v0.1.0; the built-ins build from it. quote.dafifi.net taken down (session 220). Left: the owner's test runs and look.
 
 ### Not Started
 - Build path step 2 (links). Next: DECISION-016, then the links discovery interview.
