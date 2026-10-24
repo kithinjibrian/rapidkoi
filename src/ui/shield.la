@@ -12,7 +12,7 @@
 import kivuli { View, column };
 import kivuli.ui { separator };
 import window.actions { Msg, ShieldPage };
-import window.tabs { AppPage };
+import window.tabs { AppPage, Cached };
 import net.address { parse, shown };
 import trust.keys { fingerprint };
 import ui.frame { file_of };
@@ -149,7 +149,44 @@ public fun known_since(since: i64): string {
     if since <= 0 {
         return "Same publisher since first use (date not recorded)";
     }
-    let (y, m, d) = civil(since / 86_400_000);
+    "Same publisher since {date(since)}"
+}
+
+/**
+ * Returns when a kept app was last checked against its site (PRP-043):
+ * "Checked 5 min ago", or, offline, "Not checked since 18 Oct 2026".
+ *
+ * @param c its kept copy
+ * @param now the time now, in milliseconds since 1970
+ *
+ * Example:
+ *     checked_words(cached, m.now)
+ */
+public fun checked_words(c: Cached, now: i64): string {
+    if !c.reached {
+        return if c.checked <= 0 {
+            "Not checked yet"
+        } else {
+            "Not checked since {date(c.checked)}"
+        };
+    }
+    let ago = now - c.checked;
+    if ago < 60_000 {
+        return "Checked just now";
+    }
+    if ago < 3_600_000 {
+        return "Checked {ago / 60_000} min ago";
+    }
+    if ago < 86_400_000 {
+        let hours = ago / 3_600_000;
+        return "Checked {hours} {if hours == 1 { "hour" } else { "hours" }} ago";
+    }
+    "Checked {date(c.checked)}"
+}
+
+/** A day as "18 Oct 2026", from milliseconds since 1970. */
+fun date(ms: i64): string {
+    let (y, m, d) = civil(ms / 86_400_000);
     let months = [
         "Jan",
         "Feb",
@@ -164,7 +201,7 @@ public fun known_since(since: i64): string {
         "Nov",
         "Dec",
     ];
-    "Same publisher since {d} {months[m - 1]} {y}"
+    "{d} {months[m - 1]} {y}"
 }
 
 /**
@@ -187,12 +224,13 @@ public fun look_colour(t: Theme, look: ShieldLook): string = match look {
  * @param t the theme
  * @param p the app page
  * @param page which page of the card
+ * @param now the time now, for when its kept copy was last checked
  * @returns the card's content, for the popover
  *
  * Example:
- *     card(m.theme, page, ShieldPage.Main)
+ *     card(m.theme, page, ShieldPage.Main, m.now)
  */
-public fun card(t: Theme, p: AppPage, page: ShieldPage): View<Msg> {
+public fun card(t: Theme, p: AppPage, page: ShieldPage, now: i64): View<Msg> {
     let f = facts(p);
     let back = Msg.Shield(Some(ShieldPage.Main));
     let shown = match page {
@@ -220,6 +258,10 @@ public fun card(t: Theme, p: AppPage, page: ShieldPage): View<Msg> {
             }
             if let Some(v) = f.version {
                 lines.push(line(t, "Version", v));
+            }
+            // Kept apps say when their site was last checked (PRP-043).
+            if let Some(c) = p.cached {
+                lines.push(line(t, "Updates", checked_words(c, now)));
             }
             detail(t, signature_label(f.signature), back, lines)
         }

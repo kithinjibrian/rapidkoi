@@ -91,7 +91,7 @@ Needs: `lughac` (the owner installs it from `../lugha`), `libgtk-4-dev`, `libsql
 
 1. **The app is one kivuli program:** a `Model`, a `Msg` enum, a pure `update` and a pure `view`. State changed anywhere else doesn't render.
 2. **Never touch a GTK widget or import `gtk`.** kivuli owns the widgets.
-3. **`view` does no I/O, and `update` does no file, process or network I/O**: that goes through `Cmd` (`Cmd.task`) or a module returning `Result` called from one. Fetches, apps' requests and apps' database calls are checked, then run in tasks, and answered when the result arrives. The exceptions, in `update`: calling running guests (bounded by fuel), opening a local app file the person chose (≤ 32 MB), Rapidkoi's own small files in its data folder (`data/saving.la`, `data/states.la`), and Clear and Forget removing a database.
+3. **`view` does no I/O, and `update` does no file, process or network I/O**: that goes through `Cmd` (`Cmd.task`) or a module returning `Result` called from one. Fetches, apps' requests and apps' database calls are checked, then run in tasks, and answered when the result arrives. The exceptions, in `update`: calling running guests (bounded by fuel), opening a local app file the person chose (≤ 32 MB), Rapidkoi's own small files in its data folder (`data/saving.la`, `data/states.la`), and Clear and Forget removing a database (and Forget an app's kept copy, PRP-043).
 4. **`src/main.la` is wiring only**: everything worth testing lives in a module.
 5. **Follow the build path in order** (shell → links → a real app → storage and sync → live sessions → history). Steps 1–3 and storage are done; sync is parked by the owner. Never build part of a later step early.
 

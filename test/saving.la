@@ -114,6 +114,9 @@ fun trust_survives_a_restart() {
     assert_eq(read_trust(read_bytes("{s.dir}/trust").unwrap()).unwrap().len, 1);
     // A new window on the same folder still knows the key: a swap asks.
     swap_key(dir);
+    // PRP-043: this open runs the kept copy, still verified under the old
+    // key; its check finds the new key and drops the copy, so the next open asks.
+    started(s, ["./main", "rapidkoi://localhost:18751"]);
     let again = started(s, ["./main", "rapidkoi://localhost:18751"]);
     assert_eq(shows(again, "localhost:18751 is now signed by a different key"), true);
     // A separate app is remembered as separate.
@@ -316,6 +319,9 @@ fun a_changed_state_version_starts_over() {
     add(started(s, ["./main", "rapidkoi://localhost:18758"]));
     write_toml(dir, 18758, counter("18758"), "2.0.0", 2);
     publish_site(dir).unwrap();
+    // PRP-043: this restore runs the kept 1.0.0, and keeps 2.0.0 for the next open.
+    let kept_run = step(started(s, ["./main"]), Msg.RestoreSession);
+    assert_eq(shows(kept_run, "Count: 1"), true);
     let after = step(started(s, ["./main"]), Msg.RestoreSession);
     assert_eq(shows(after, "Count: 0"), true);
     assert_eq(after.notice, Some("Counter's saved state changed shape, so it started over"));

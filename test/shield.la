@@ -2,9 +2,17 @@
 // signature, publisher, since when, version), and opening, paging and
 // closing its card. Fixture guests; no display.
 import rapidkoi.shell { Model, with_pages, update };
-import rapidkoi.ui.shield { ShieldFacts, ShieldLook, Connection, Signature, facts, known_since };
+import rapidkoi.ui.shield {
+    ShieldFacts,
+    ShieldLook,
+    Connection,
+    Signature,
+    facts,
+    known_since,
+    checked_words,
+};
 import rapidkoi.window.actions { Msg, ShieldPage };
-import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.window.tabs { AppPage, Cached, open_module };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.trust.keys { fingerprint };
 import rapidkoi.bundles.bundle { Manifest };
@@ -127,4 +135,22 @@ fun the_card_opens_pages_and_closes() {
     // Leaving the page closes it: another tab, or home.
     assert_eq(step(open, Msg.Select(1)).shield, None);
     assert_eq(step(open, Msg.Home).shield, None);
+}
+
+@test
+fun checked_words_say_how_long_ago_or_since_when() {
+    // 18 October 2026, 09:00 UTC.
+    let at = 1_792_314_000_000;
+    let seen = fun(checked: i64, reached: bool, now: i64) = checked_words(
+        Cached { checked: checked, reached: reached, size: 0 },
+        now,
+    );
+    assert_eq(seen(at, true, at + 20_000), "Checked just now");
+    assert_eq(seen(at, true, at + 5 * 60_000), "Checked 5 min ago");
+    assert_eq(seen(at, true, at + 60 * 60_000), "Checked 1 hour ago");
+    assert_eq(seen(at, true, at + 3 * 60 * 60_000), "Checked 3 hours ago");
+    assert_eq(seen(at, true, at + 3 * 86_400_000), "Checked 18 Oct 2026");
+    // Offline: since when it hasn't been.
+    assert_eq(seen(at, false, at + 3 * 86_400_000), "Not checked since 18 Oct 2026");
+    assert_eq(seen(0, false, at), "Not checked yet");
 }

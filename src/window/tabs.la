@@ -103,6 +103,18 @@ public struct AppPage {
     public fields: (string, string)[],
     /** How big its app's database is, in bytes, once asked for its ⚙ card (PRP-041). */
     public data_size: Option<i64>,
+    /** Its kept copy, when it's a signed app Rapidkoi keeps (PRP-043). */
+    public cached: Option<Cached>,
+}
+
+/** What Rapidkoi knows of a signed app's kept copy (PRP-043): for its Signed app page and ⚙ → Data. */
+public struct Cached {
+    /** When its site was last reached and checked, in milliseconds since 1970 (0: never). */
+    public checked: i64,
+    /** Whether the last try reached the site: false when offline. */
+    public reached: bool,
+    /** How many bytes the kept copy takes. */
+    public size: i64,
 }
 
 /** What the window shows: home, or the current tab's app. */
@@ -274,6 +286,7 @@ fun open_program(name: string, path: string, program: Program, link: (string, st
             link: [],
             fields: [],
             data_size: None,
+            cached: None,
         },
         start(program, None, link),
     )
@@ -441,6 +454,7 @@ fun failed(name: string, path: string, why: string): AppPage = AppPage {
     link: [],
     fields: [],
     data_size: None,
+    cached: None,
 };
 
 /**

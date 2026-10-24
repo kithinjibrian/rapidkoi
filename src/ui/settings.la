@@ -58,12 +58,19 @@ public fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
         Access => detail(t, "Servers", Msg.PanelBack, servers_page(t, reach)),
         Permissions => detail(t, "Permissions", Msg.PanelBack, grants.page(m, t, p)),
         // Everything the app keeps here: its window's state and its database (PRP-041).
-        State => detail(t, "Data", Msg.PanelBack, [
-            line(t, "Size", kept(p)),
-            ui_button("Clear…", Msg.Ask(Confirm.ClearData)).style(
-                button_look(t, ButtonLook.Danger),
-            ),
-        ]),
+        State => {
+            let mut lines = [line(t, "Size", kept(p))];
+            // A kept app's own copy (PRP-043): Forget removes it, not Clear.
+            if let Some(c) = p.cached {
+                lines.push(line(t, "App", size(c.size)));
+            }
+            lines.push(
+                ui_button("Clear…", Msg.Ask(Confirm.ClearData)).style(
+                    button_look(t, ButtonLook.Danger),
+                ),
+            );
+            detail(t, "Data", Msg.PanelBack, lines)
+        }
     };
     sized(shown)
 }
