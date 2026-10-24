@@ -342,11 +342,13 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### 28. Signed apps are kept on the device (PRP-043)
 
-**Decision:** Every signed app opened is kept: its site's key and index and the one build they name, in `kept/<sha256 of host>/`. It opens from there at once, re-checked exactly as a site is (`check_site_at` over the kept files), then the site is checked in the background. A newer version is used from the next open, with a notice. A withdrawn running version stops its window once Rapidkoi sees the withdrawal; offline, the kept copy runs. 500 MB in all, least recently opened first, pins never evicted; one build per app; Forget removes it. ⟳ asks the site first. Compiled code is never kept.
+**Decision:** Every signed app opened is kept: its site's key and index and the one build they name, in `kept/<sha256 of host>/`. It opens from there at once, re-checked exactly as a site is (`check_site_at` over the kept files), then the site is checked in the background. A newer version is used from the next open, silently. A withdrawn running version stops its window once Rapidkoi sees the withdrawal; offline, the kept copy runs. 500 MB in all, least recently opened first, pins never evicted; one build per app; Forget removes it. ⟳ asks the site first. Compiled code is never kept.
 
 **Why:** The owner (2026-10-24): kept apps must run without a connection (the vision's "offline by default"); every open fetching and compiling was slow and broke offline use.
 
 **Rules out:** Trusting a file because it's on disk; swapping code under a running window (except stopping a withdrawn one); keeping a link's older version; caching compiled machine code.
+
+**Amended (the owner, 2026-10-24):** updates are silent. A person hears about an update only when it changes something for them: their window stopped (a withdrawal), their state lost (its shape changed), the app asking for more (a new server or permission), the publisher's key changed, or a link not getting the version it named. A routine new version says nothing; its version is on the Signed app page. What's new in an app is the app's own to say.
 
 ---
 

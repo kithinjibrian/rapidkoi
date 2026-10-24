@@ -147,7 +147,7 @@ fun meta_round_trips() {
     let s = folder("meta");
     let k = kept_for(s, "localhost:18805");
     assert(read_meta(k).is_none());
-    let m = Meta { checked: 10, opened: 20, updated: Some("1.1.0") };
+    let m = Meta { checked: 10, opened: 20 };
     write_meta(k, m).unwrap();
     assert_eq(read_meta(k), Some(m));
     clean(s.dir);
@@ -179,7 +179,7 @@ fun kept_of(s: Store, host: string, n: i64, opened: i64) {
         build.push(opened as u8);
     }
     keep(k, [1], [2], build).unwrap();
-    write_meta(k, Meta { checked: 0, opened: opened, updated: None }).unwrap();
+    write_meta(k, Meta { checked: 0, opened: opened }).unwrap();
 }
 
 @test

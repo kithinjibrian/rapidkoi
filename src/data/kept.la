@@ -1,7 +1,7 @@
 /**
  * The kept copy of each signed app (PRP-043): its site's `key` and `index`
  * as last fetched, the one build that index names, and `meta` (when it was
- * last checked and opened, and an update to announce). Nothing here
+ * last checked and opened). Nothing here
  * trusts what's on disk: `files` serves the copy to `verify.check_site_at`,
  * which checks it exactly as it checks a site. Each app's folder is
  * `kept/<sha256 of its host>`, so no host becomes a path. Touches the
@@ -30,8 +30,6 @@ public struct Meta {
     public checked: i64,
     /** When it was last opened: eviction goes oldest first. */
     public opened: i64,
-    /** A version kept since it last opened, to announce on the next open. */
-    public updated: Option<string>,
 }
 
 /** Why a kept copy couldn't be written or removed. */
@@ -132,11 +130,7 @@ public fun read_meta(k: Kept): Option<Meta> {
         return None;
     }
     let number = fun(name: string) = v.get(name).and_then(fun(x: Value) = x.as_i64()).unwrap_or(0);
-    Some(Meta {
-        checked: number("checked"),
-        opened: number("opened"),
-        updated: v.get("updated").and_then(fun(x: Value) = x.as_text()),
-    })
+    Some(Meta { checked: number("checked"), opened: number("opened") })
 }
 
 /**
@@ -146,15 +140,12 @@ public fun read_meta(k: Kept): Option<Meta> {
  *     write_meta(k, Meta { opened: now, ..m })?
  */
 public fun write_meta(k: Kept, m: Meta): Result<(), KeptError> {
-    let mut entries = [
+    let entries = [
         entry("format", Value.int(1)),
         entry("kind", Value.Text("rapidkoi kept")),
         entry("checked", Value.int(m.checked)),
         entry("opened", Value.int(m.opened)),
     ];
-    if let Some(v) = m.updated {
-        entries.push(entry("updated", Value.Text(v)));
-    }
     save(store_at(k.dir), "meta", encode(Value.Map(entries))).map_err(
         fun(e) = KeptError.Io("{k.dir}/meta", store_reason(e)),
     )

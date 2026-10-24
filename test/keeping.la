@@ -6,7 +6,7 @@ import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage, Cached };
 import rapidkoi.data.store { Store, store_at };
-import rapidkoi.data.kept { kept_for, keep, has, read_meta, Meta };
+import rapidkoi.data.kept { kept_for, keep, has };
 import rapidkoi.commands.publish { make_key, publish_site, withdraw_version };
 import rapidkoi.commands.serve { handle };
 import kivuli.testing { click, texts };
@@ -133,7 +133,7 @@ fun the_first_open_keeps_it_and_the_next_opens_from_it() {
 }
 
 @test
-fun a_newer_version_is_used_from_the_next_open_with_a_notice() {
+fun a_newer_version_is_used_from_the_next_open_silently() {
     let s = folder("newer");
     let dir = site(18813, "1.0.0");
     served(dir, 18813);
@@ -141,16 +141,10 @@ fun a_newer_version_is_used_from_the_next_open_with_a_notice() {
     republish(dir, 18813, "2.0.0");
     // This open runs the kept 1.0.0; its check keeps 2.0.0 for next time.
     let second = started(s, ["./main", "rapidkoi://localhost:18813"]);
-    assert_eq(version(second), "1.0.0");
-    assert_eq(
-        read_meta(kept_for(s, "localhost:18813")).and_then(fun(x: Meta) = x.updated),
-        Some("2.0.0"),
-    );
+    assert_eq((version(second), second.notice), ("1.0.0", None));
+    // A routine update changes nothing for the person: no notice.
     let third = started(s, ["./main", "rapidkoi://localhost:18813"]);
-    assert_eq(version(third), "2.0.0");
-    assert_eq(third.notice, Some("Counting updated to 2.0.0"));
-    // Announced once.
-    assert_eq(started(s, ["./main", "rapidkoi://localhost:18813"]).notice, None);
+    assert_eq((version(third), third.notice), ("2.0.0", None));
     done(s, dir);
 }
 
