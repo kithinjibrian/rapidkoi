@@ -370,6 +370,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
+
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md`)
+**Raised:** 2026-10-24, PRP-047
+
+**Question:** DECISION-056 Q3 agreed PNG, JPEG and WebP from servers, up to 8,000 px a side and 40 MP, and `on_fail` for every picture that can't be shown. kivuli 0.54 shows PNG, JPEG and SVG only, up to 4,096 × 4,096 px and 16 MB, and shows nothing, silently, for one it can't decode.
+
+**Meanwhile (the owner, PRP-047 Q1 (a)):** Rapidkoi refuses WebP with its sentence ("This picture is WebP, which Rapidkoi can't show yet") and pictures over 4,096 px a side or 16 MP; a picture whose header passes but whose decoding fails shows nothing and sends no `on_fail`. Raising the limits later only refuses less: no contract change.
+
+---
+
 ### DECISION-057 — Clipping an app's page, showing its overflow, and scrolling one way (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 11, § 12)

@@ -81,3 +81,7 @@ Checking 8,000 px and 40 MP before decoding means reading PNG, JPEG and WebP hea
 - [ ] Every test above passes
 - [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build src/main.la -o main` pass
 - [ ] For the owner, by eye: Notes with its icons from its bundle, recoloured in light and dark; a test page of photos from a local server, one broken, loading in the background without holding the window
+
+## AMENDMENTS
+
+- **Approved by the owner, 2026-10-24, "a for all"**, the security section reviewed with it. Q1 (a): built to what kivuli shows today (PNG, JPEG, SVG; 4,096 px a side, 16 MP; WebP refused with its sentence; a decode failure unreported), the gaps asked of kivuli (DECISION-058). Q2 (a): headers read by a new package, `lugha-imagesize`. Q3 (a): at most 256 pictures a view.
