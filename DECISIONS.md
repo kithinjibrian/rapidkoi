@@ -370,17 +370,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## DEFERRED — Acknowledged, not yet needed
 
-### DECISION-062 — An overlay layer with a maximum size swallows the clicks under it (kivuli 0.62)
-
-**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 7)
-**Raised:** 2026-10-25, the owner: "update button not clickable"
-
-**Question:** kivuli 0.62's clamp fills its parent when its node has a maximum size, so an overlay layer's clamp covers the whole base and takes its clicks: the update button (under its red dot) can't be pressed, and the overflow band in development would cover a whole app. kivuli fixes it. Meanwhile: stay on 0.62 (centring works, the update button doesn't), or go back to 0.61 (the update button works, a centred box with a maximum width shrinks again, as Notes 0.3.5's note would)?
-
-
-**Meanwhile (the owner):** wait for kivuli's fix; Rapidkoi stays on 0.62 on its branch, unmerged, so `main` keeps 0.58 and a working update button. Nothing is worked around.
-
----
 ### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 6)
@@ -658,6 +647,20 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-062 — An overlay layer with a maximum size swallows the clicks under it (kivuli 0.62)
+
+**Status:** resolved (kivuli 0.62.1, 2026-10-25)
+**Raised:** 2026-10-25, the owner: "update button not clickable"
+
+**Question:** kivuli 0.62's clamp fills its parent when its node has a maximum size, so an overlay layer's clamp covers the whole base and takes its clicks: the update button (under its red dot) can't be pressed, and the overflow band in development would cover a whole app. kivuli fixes it. Meanwhile: stay on 0.62 (centring works, the update button doesn't), or go back to 0.61 (the update button works, a centred box with a maximum width shrinks again, as Notes 0.3.5's note would)?
+
+
+**Meanwhile (the owner):** wait for kivuli's fix; Rapidkoi stays on 0.62 on its branch, unmerged, so `main` keeps 0.58 and a working update button. Nothing is worked around.
+
+**Outcome:** kivuli 0.62.1 with lugha-gtk 0.1.55: a clamp takes the pointer only where its node is, so an overlay layer with a maximum size no longer takes the clicks under it; the update button works again.
+
+---
 
 ### DECISION-061 — A box with a maximum width can't be centred (kivuli)
 
