@@ -10,6 +10,7 @@ Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fi
 4. [Bug: a drop-down inside a popover breaks the popover's dismissal](#4-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
 5. [Bug: a picture's `.size(n)` doesn't cap it](#5-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
 6. [Pictures: WebP, larger pictures, and a decode that fails](#6-pictures-webp-larger-pictures-and-a-decode-that-fails) (DECISION-058)
+7. [Bug: an overlay layer with a maximum size takes the clicks of everything under it (0.62)](#7-bug-an-overlay-layer-with-a-maximum-size-takes-the-clicks-of-everything-under-it-062) (DECISION-062)
 
 ---
 
@@ -150,3 +151,15 @@ DECISION-058 (PRP-047).
 3. **Knowing a picture failed to decode**: a message, for example `image(img).on_error(fun(why: string) = Msg.Broken(why))`, sent when the texture can't be made (the `GError` from `gdk_texture_new_from_bytes`).
 
 **How Rapidkoi will use it.** `net.downloads.checked` lets WebP and larger pictures through; `ui.pictured` passes `on_error` through, and a failed decode is kept as gone and sent to the app as its `on_fail`. No contract change: only fewer refusals.
+
+---
+
+## 7. Bug: an overlay layer with a maximum size takes the clicks of everything under it (0.62)
+
+DECISION-062 (2026-10-25).
+
+**What happens.** Since 0.62 (PRP-066), a node with a maximum size and an alignment other than fill gets a clamp that fills its parent and places the node itself. In an `overlay`, a layer's clamp then covers the whole base: it's invisible, but GTK picks it for every click in that area, so nothing under it can be pressed. Rapidkoi's update button is an overlay of the button and a 7 px red dot (`square(7)`, `.place(Align.End, Align.Start)`): the button can't be clicked. The striped overflow band in development (`fixed_height`, `.place(Align.Fill, Align.End)`) would cover a whole app the same way.
+
+**What would fix it.** The clamp takes input only where its child is: `contains` (or `pick`) answering for the child's allocation alone, or `gtk_widget_set_can_target(clamp, FALSE)` with the child targetable, when the clamp is larger than its child. Or, in an overlay layer, keep the pre-0.62 placement (the clamp at the node's alignment).
+
+**How Rapidkoi will use it.** Nothing changes in Rapidkoi: the update button and the overflow band work again.

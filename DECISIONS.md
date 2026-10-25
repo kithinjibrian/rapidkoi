@@ -356,6 +356,15 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## OPEN — Requires human input before implementation
 
+### DECISION-062 — An overlay layer with a maximum size swallows the clicks under it (kivuli 0.62)
+
+**Status:** open (reported: `docs/specs/kivuli-requests.md` § 7)
+**Raised:** 2026-10-25, the owner: "update button not clickable"
+
+**Question:** kivuli 0.62's clamp fills its parent when its node has a maximum size, so an overlay layer's clamp covers the whole base and takes its clicks: the update button (under its red dot) can't be pressed, and the overflow band in development would cover a whole app. kivuli fixes it. Meanwhile: stay on 0.62 (centring works, the update button doesn't), or go back to 0.61 (the update button works, a centred box with a maximum width shrinks again, as Notes 0.3.5's note would)?
+
+---
+
 ### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
 
 **Status:** open (parked by the owner, session 189)
