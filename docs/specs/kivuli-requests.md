@@ -10,6 +10,7 @@ Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fi
 4. [Bug: a drop-down inside a popover breaks the popover's dismissal](#4-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
 5. [Bug: a picture's `.size(n)` doesn't cap it](#5-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
 6. [Pictures: WebP, larger pictures, and a decode that fails](#6-pictures-webp-larger-pictures-and-a-decode-that-fails) (DECISION-058)
+7. [Bug: a popover's `destroy` handler unparents a popover GTK already took apart (a crash)](#7-bug-a-popovers-destroy-handler-unparents-a-popover-gtk-already-took-apart-a-crash) (DECISION-063)
 
 ---
 
@@ -150,3 +151,26 @@ DECISION-058 (PRP-047).
 3. **Knowing a picture failed to decode**: a message, for example `image(img).on_error(fun(why: string) = Msg.Broken(why))`, sent when the texture can't be made (the `GError` from `gdk_texture_new_from_bytes`).
 
 **How Rapidkoi will use it.** `net.downloads.checked` lets WebP and larger pictures through; `ui.pictured` passes `on_error` through, and a failed decode is kept as gone and sent to the app as its `on_fail`. No contract change: only fewer refusals.
+
+---
+
+## 7. Bug: a popover's `destroy` handler unparents a popover GTK already took apart (a crash)
+
+DECISION-063 (2026-10-25).
+
+**What happens.** Clicking ⚙ in Rapidkoi's address box (its settings card is a kivuli popover) sometimes crashes Rapidkoi with a segfault, after `Gtk-CRITICAL: gtk_widget_unparent: assertion 'GTK_IS_WIDGET (widget)' failed`. With `G_DEBUG=fatal-criticals`, the critical comes from `render/patch/apply`'s closure dropping a node (`g_object_unref`), which emits a signal whose handler calls `gtk_widget_unparent` on something that is no longer a widget:
+
+```
+#9  g_object_unref ()                                   libgobject
+#10 kivuli/render/patch/apply<Msg>.6
+#11 kivuli/core/paths/update_in<Msg>
+…
+#18 kivuli/render/patch/apply<Msg>
+#19 kivuli/render/live/dispatch<Model, Msg>
+```
+
+`render/panels.la` (a popover node) connects `box`'s `destroy` to `gtk_widget_unparent(pop)`; `render/popovers.la` does the same for a context menu's `popover`. When the box is disposed, GTK may already have unparented and finalized the popover (a widget's dispose takes its children apart), so the handler unparents a freed pointer: the critical, and sometimes a crash.
+
+**What would fix it.** Hold a reference on the popover for as long as the handler can run (`g_object_ref` when parenting, `g_object_unref` after unparenting), and unparent only if it's still the box's child (`gtk_widget_get_parent(pop) == box`); or unparent the popover before the box is dropped, in the patch, instead of in `destroy`.
+
+**How Rapidkoi will use it.** Nothing changes in Rapidkoi: ⚙'s card, ☰'s menu and the tabs' context menus stop risking a crash.

@@ -370,6 +370,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-063 — Opening ⚙'s card can crash Rapidkoi (kivuli's popover cleanup)
+
+**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 7)
+**Raised:** 2026-10-25, the owner: a segfault after clicking ⚙ in the address box
+
+**Question:** kivuli's popover and context-menu nodes unparent their popover from their box's `destroy` handler; when GTK has already taken the popover apart, that's a freed pointer (`gtk_widget_unparent: assertion 'GTK_IS_WIDGET (widget)' failed`), and sometimes a segfault. Traced with `G_DEBUG=fatal-criticals` to `render/patch/apply` dropping a node.
+
+**Meanwhile:** nothing in Rapidkoi can avoid it: every popover is kivuli's. Fixed in kivuli; nothing is worked around.
+
+---
+
 ### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 6)
