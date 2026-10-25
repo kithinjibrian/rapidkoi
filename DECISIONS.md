@@ -370,17 +370,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## DEFERRED — Acknowledged, not yet needed
 
-### DECISION-063 — Opening ⚙'s card can crash Rapidkoi (kivuli's popover cleanup)
-
-**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 7)
-**Raised:** 2026-10-25, the owner: a segfault after clicking ⚙ in the address box
-
-**Question:** kivuli's popover and context-menu nodes unparent their popover from their box's `destroy` handler; when GTK has already taken the popover apart, that's a freed pointer (`gtk_widget_unparent: assertion 'GTK_IS_WIDGET (widget)' failed`), and sometimes a segfault. Traced with `G_DEBUG=fatal-criticals` to `render/patch/apply` dropping a node.
-
-**Meanwhile:** nothing in Rapidkoi can avoid it: every popover is kivuli's. Fixed in kivuli; nothing is worked around.
-
----
-
 ### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 6)
@@ -432,19 +421,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 **Meanwhile:** one window; instances are switched in the header's strip. Panes were weighed and deferred by the owner (session 176).
 
 **Revisit when:** kivuli offers several windows; then a "New window" for an instance.
-
----
-
-### DECISION-040 — A drop-down inside a popover breaks the popover's dismissal (kivuli)
-
-**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 4)
-**Raised:** 2026-10-22 — Session 172 (the owner: after changing a permission in ⚙'s card, it couldn't be dismissed; the owner's run of a kivuli-only repro: "it's stuck here too")
-
-**Question:** After a pick in a `ui.dropdown` inside a `popover`, a click inside the window and Escape no longer close the popover. Only a click on another surface does, and kivuli's model and the widget drift apart. kivuli 0.54, no Rapidkoi code in the repro.
-
-**Meanwhile:** no workaround. The card still closes with ⚙ or a click outside the window (CLAUDE.md KNOWN ISSUES). Session 171's `ClosePanel` stays: it's how a popover's on_close should read anyway (the shield's does), not a fix for this. Session 171's "approvals wait while a card is open" stays as a rule of its own (the owner left it to me, session 173: no dialog over the settings you're changing), not as a fix for this.
-
-**Revisit when:** kivuli fixes it; then check ⚙'s Permissions page closes normally after a pick.
 
 ---
 
@@ -658,6 +634,36 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-063 — Opening ⚙'s card can crash Rapidkoi (kivuli's popover cleanup)
+
+**Status:** resolved (kivuli 0.62.2, 2026-10-25)
+**Was:** deferred (reported: `docs/specs/kivuli-requests.md` § 7)
+**Raised:** 2026-10-25, the owner: a segfault after clicking ⚙ in the address box
+
+**Question:** kivuli's popover and context-menu nodes unparent their popover from their box's `destroy` handler; when GTK has already taken the popover apart, that's a freed pointer (`gtk_widget_unparent: assertion 'GTK_IS_WIDGET (widget)' failed`), and sometimes a segfault. Traced with `G_DEBUG=fatal-criticals` to `render/patch/apply` dropping a node.
+
+**Meanwhile:** nothing in Rapidkoi can avoid it: every popover is kivuli's. Fixed in kivuli; nothing is worked around.
+
+**Outcome:** kivuli 0.62.2 holds each popover until its widget's `destroy` and unparents it only while it's still attached (kivuli DECISION-044). Rapidkoi is on 0.63.1; the owner checked: ⚙ no longer crashes.
+
+---
+
+### DECISION-040 — A drop-down inside a popover breaks the popover's dismissal (kivuli)
+
+**Status:** resolved (kivuli 0.63.1 with lugha-gtk 0.1.58, 2026-10-25)
+**Was:** deferred (reported: `docs/specs/kivuli-requests.md` § 4)
+**Raised:** 2026-10-22 — Session 172 (the owner: after changing a permission in ⚙'s card, it couldn't be dismissed; the owner's run of a kivuli-only repro: "it's stuck here too")
+
+**Question:** After a pick in a `ui.dropdown` inside a `popover`, a click inside the window and Escape no longer close the popover. Only a click on another surface does, and kivuli's model and the widget drift apart. kivuli 0.54, no Rapidkoi code in the repro.
+
+**Meanwhile:** no workaround. The card still closes with ⚙ or a click outside the window (CLAUDE.md KNOWN ISSUES). Session 171's `ClosePanel` stays: it's how a popover's on_close should read anyway (the shield's does), not a fix for this. Session 171's "approvals wait while a card is open" stays as a rule of its own (the owner left it to me, session 173: no dialog over the settings you're changing), not as a fix for this.
+
+**Revisit when:** kivuli fixes it; then check ⚙'s Permissions page closes normally after a pick.
+
+**Outcome:** GTK drops the seat's grab when a drop-down's list hides; a kivuli popover now takes its grab again when a drop-down, context menu or popover inside it closes (kivuli DECISION-045). The owner checked: ⚙'s Permissions card closes normally after a pick.
+
+---
 
 ### DECISION-062 — An overlay layer with a maximum size swallows the clicks under it (kivuli 0.62)
 
