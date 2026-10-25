@@ -115,6 +115,42 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
 }
 
 /**
+ * Opens what a launch named, each as `open_file` would (kivuli 0.61's
+ * `on_open`, DECISION-014): the first launch's command line, or a later
+ * one's, handed over to this window.
+ *
+ * Example:
+ *     open_launched(m, ["/home/a/counter.rkb"])
+ */
+fun open_launched(m: Model, items: string[]): (Model, Cmd<Msg>) {
+    let mut at = m;
+    let mut cmds: Cmd<Msg>[] = [];
+    for item of items {
+        let (next, cmd) = open_file(at, from_outside(item));
+        at = next;
+        cmds.push(cmd);
+    }
+    (at, Cmd.batch(cmds))
+}
+
+/**
+ * An item as GIO hands it over, as it would be typed: an address's bare
+ * host loses the `/` GIO adds; a path after it, or a file's path, stays.
+ *
+ * Example:
+ *     from_outside("rapidkoi://notes.dafifi.net/") == "rapidkoi://notes.dafifi.net"
+ */
+fun from_outside(item: string): string {
+    let scheme = item.split("://");
+    if scheme.len == 2 && item.ends_with("/") && !scheme[1].slice(0, scheme[1].len - 1).contains(
+        "/",
+    ) {
+        return item.slice(0, item.len - 1);
+    }
+    item
+}
+
+/**
  * Opens another instance of the current app (PRP-033): the strip's +. It
  * starts fresh from the app's compiled program, in a new tab, under the
  * next number.

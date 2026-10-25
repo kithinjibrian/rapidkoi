@@ -73,7 +73,7 @@ An app that doesn't know an event changes nothing. There's no event when Rapidko
 | `image` | `src` (required: `asset:NAME` or an `http(s)://` address, at most 2 KB), `fit` (`contain`, the default, or `cover`), `color` (an `asset:` SVG only), `label` (1–200 bytes), `on_load`, `on_fail`, `style` | no |
 
 - A **box with `on_press`** is pressable: focusable, and pressed by a click, Enter or Space; it sends `on_message` with its message. `disabled: true` greys it, and it sends nothing.
-- A typing box's **`label`** says what it's for: Rapidkoi names the box by it, and screen readers hear it once kivuli can tell them (DECISION-050). Without one, its placeholder names it.
+- A typing box's **`label`** says what it's for: Rapidkoi names the box by it, and screen readers hear it. Without one, its placeholder names it.
 - Any other kind is shown as an unsupported placeholder, its subtree still counted against the limits.
 - `{FIRST_NAME}` and `{LAST_NAME}` in a text become your name for this app while Rapidkoi draws it; the app never learns it. Typing boxes and titles are never filled.
 

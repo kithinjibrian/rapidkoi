@@ -356,19 +356,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## OPEN — Requires human input before implementation
 
-### DECISION-059 — Rapidkoi crashes on a screen nested about 13 deep (lughac, kivuli)
-
-**Status:** deferred (reported: `docs/specs/lughac-stack-frames.md`)
-**Raised:** 2026-10-24, opening Notes 0.3.0
-
-**Question:** kivuli's `resolve` uses 289 KB of stack a call in Rapidkoi's `./main` (lughac's `-O 0`; 122 KB at `-O 2`), and a screen costs two or three calls a level, so about 13 levels of nesting overflow the 8 MB main stack and Rapidkoi segfaults. Apps may nest 64 deep: any app can crash the shell. The fix is lughac's (frames that don't grow with every `match` arm's temporaries) or kivuli's (boxing `Style` in `View`, or walking without deep recursion). What does Rapidkoi do until then?
-
-**Options:** (a) nothing in Rapidkoi: wait for lughac or kivuli; Notes can't be opened meanwhile. (b) build `./main` with `-O 2` (frames 122 KB: about 30 levels), as a build setting, until the fix. (c) (b) and lower `MAX_NODE_DEPTH` for now. Any of these leaves the root cause to lughac and kivuli.
-
-**Meanwhile (the owner: (b)):** `./main` is built with `lughac build -O 2` (CLAUDE.md, the scripts): about 30 levels fit, so Notes opens. An app nesting deeper still crashes the shell until lughac or kivuli is fixed; nothing else is worked around.
-
----
-
 ### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
 
 **Status:** open (parked by the owner, session 189)
@@ -383,20 +370,9 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## DEFERRED — Acknowledged, not yet needed
 
-### DECISION-061 — A box with a maximum width can't be centred (kivuli)
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 10)
-**Raised:** 2026-10-24, Notes 0.3.3
-
-**Question:** An app's `max_width` with `align: center` should give a box as much room as there is, at most its maximum, in the middle. kivuli's clamp puts its child at the start, and a centred one shrinks to its content's natural width: Notes' note wrapped in a narrow strip.
-
-**Meanwhile (the owner):** apps' maximum-width boxes fill from the start; Notes doesn't centre its note. Nothing is worked around.
-
----
-
 ### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 9)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 6)
 **Raised:** 2026-10-24, PRP-047
 
 **Question:** DECISION-056 Q3 agreed PNG, JPEG and WebP from servers, up to 8,000 px a side and 40 MP, and `on_fail` for every picture that can't be shown. kivuli 0.54 shows PNG, JPEG and SVG only, up to 4,096 × 4,096 px and 16 MB, and shows nothing, silently, for one it can't decode.
@@ -404,35 +380,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 **Meanwhile (the owner, PRP-047 Q1 (a)):** Rapidkoi refuses WebP with its sentence ("This picture is WebP, which Rapidkoi can't show yet") and pictures over 4,096 px a side or 16 MP; a picture whose header passes but whose decoding fails shows nothing and sends no `on_fail`. Raising the limits later only refuses less: no contract change.
 
 ---
-
-### DECISION-050 — Screen readers need accessible roles from kivuli
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 1)
-**Raised:** 2026-10-23 — Session 198 (PRP-037: roles in contract 5)
-
-**Question:** Contract 5 lets any node say what it is (`role`, `checked`, `selected`, `label`), so a library-built checkbox can read as "Buy milk, checkbox, ticked". kivuli 0.54 can't set a GTK accessible role, state or label on a node.
-
-**Meanwhile:** roles drive what Rapidkoi does itself: focus, pressing by keyboard, the `Checked` look. A screen reader hears what GTK infers from the widget. No workaround through visible text.
-
-**Revisit when:** kivuli sets accessible roles and states; then they're passed through with no contract change.
-
-**Typing boxes (the owner, 2026-10-24):** contract 5 gives an `input` no `label`, and Rapidkoi's `Typing` has none, so an app's label on a typing box (the SDK lets it write one) is ignored. When kivuli lands accessible labels, typing boxes gain `label` in the contract (a DECISIONS entry and a version bump) and it's passed through with the rest.
-
----
-
-### DECISION-047 — Share needs a clipboard command (kivuli)
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 2)
-**Raised:** 2026-10-23 — Session 193 (PRP-036: links)
-
-**Question:** Share should copy the window's link. kivuli 0.54 has no command that writes to the clipboard, and rapidkoi never touches GTK itself (architecture rule 2).
-
-**Meanwhile:** share stays disabled. The address box shows the full link, and its text can be selected and copied. No workaround.
-
-**Revisit when:** kivuli offers a clipboard command; then share copies `address_of(page)`.
-
----
-
 
 ### DECISION-045 — Apps keep nothing between calls: by convention, checked in development
 
@@ -453,7 +400,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-043 — The instance strip can't adapt to the window's width (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 6)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 3)
 **Raised:** 2026-10-23 — Session 177 (the owner's screenshot: a narrower window shifts the address box and won't shrink further; "keep taking off instances and putting them in the more menu")
 
 **Question:** For the strip to move pills into ⋯ as the window narrows, Rapidkoi needs the window's width, or a kivuli row that shows what fits and reports the rest. kivuli 0.54 has neither.
@@ -466,7 +413,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-042 — Several Rapidkoi windows (kivuli)
 
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 5)
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 2)
 **Raised:** 2026-10-23 — Session 177 (PRP-033; the owner: people who want two instances side by side "can open multiple windows")
 
 **Question:** A second `./main` only raises the first window (DECISION-014): kivuli makes the GTK application single-instance. Should kivuli support several windows in one program (one model, a view per window), or let a second launch run separately?
@@ -479,7 +426,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-040 — A drop-down inside a popover breaks the popover's dismissal (kivuli)
 
-**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 7)
+**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 4)
 **Raised:** 2026-10-22 — Session 172 (the owner: after changing a permission in ⚙'s card, it couldn't be dismissed; the owner's run of a kivuli-only repro: "it's stuck here too")
 
 **Question:** After a pick in a `ui.dropdown` inside a `popover`, a click inside the window and Escape no longer close the popover. Only a click on another surface does, and kivuli's model and the widget drift apart. kivuli 0.54, no Rapidkoi code in the repro.
@@ -534,7 +481,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-034 — A picture's `.size(n)` doesn't cap it (kivuli)
 
-**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 8; Rapidkoi uses kivuli's documented exact `Sizing` meanwhile)
+**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 5; Rapidkoi uses kivuli's documented exact `Sizing` meanwhile)
 **Raised:** 2026-10-21 — Session 104 (the owner's screenshot: the header's icons far bigger than `HEADER_ICON`)
 
 **Question:** kivuli 0.48's README says `.size(n)` on a picture is "an n × n box", but `render/styling.la` applies it as GTK's size request, a minimum, so an SVG (the Iconsax icons) draws at its own larger size. Should kivuli make `.size(n)` a box (a clamp, as an exact `Sizing` gets)?
@@ -614,18 +561,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
-### DECISION-014 — Running two apps at once (kivuli single-instance)
-
-**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 3)
-**Raised:** 2026-10-17 — Session 5
-**Revisit when:** The shell runs more than one app, or a second launch must open a second app.
-
-**Question:** kivuli starts GTK with `gtk_application_new(id, 0)` (`../kivuli/src/render/live.la:109`), so GTK makes the program single-instance: a second `./main other.wasm` raises the first window and drops the new app. Should kivuli accept application flags (e.g. `G_APPLICATION_NON_UNIQUE`, or `HANDLES_OPEN` for links later)?
-
-**Notes:** A kivuli gap, fixed upstream when needed. Step 1 runs one app, so it's a known limitation. Build path step 2 (links) will need `HANDLES_OPEN`-style behaviour anyway.
-
----
-
 ### DECISION-015 — A file-size query in std.fs (lughac)
 
 **Status:** deferred
@@ -664,7 +599,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ### DECISION-020 — What kivuli needs for Rapidkoi's frame
 
-**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018; the file dialog requested: `docs/specs/kivuli-requests.md` § 4)
+**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018; the file dialog requested: `docs/specs/kivuli-requests.md` § 1)
 **Raised:** 2026-10-17 — Session 10
 **Revisit when:** Each kivuli release. Swap the matching placeholder out.
 
@@ -712,6 +647,94 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-062 — An overlay layer with a maximum size swallows the clicks under it (kivuli 0.62)
+
+**Status:** resolved (kivuli 0.62.1, 2026-10-25)
+**Raised:** 2026-10-25, the owner: "update button not clickable"
+
+**Question:** kivuli 0.62's clamp fills its parent when its node has a maximum size, so an overlay layer's clamp covers the whole base and takes its clicks: the update button (under its red dot) can't be pressed, and the overflow band in development would cover a whole app. kivuli fixes it. Meanwhile: stay on 0.62 (centring works, the update button doesn't), or go back to 0.61 (the update button works, a centred box with a maximum width shrinks again, as Notes 0.3.5's note would)?
+
+
+**Meanwhile (the owner):** wait for kivuli's fix; Rapidkoi stays on 0.62 on its branch, unmerged, so `main` keeps 0.58 and a working update button. Nothing is worked around.
+
+**Outcome:** kivuli 0.62.1 with lugha-gtk 0.1.55: a clamp takes the pointer only where its node is, so an overlay layer with a maximum size no longer takes the clicks under it; the update button works again.
+
+---
+
+### DECISION-061 — A box with a maximum width can't be centred (kivuli)
+
+**Status:** resolved (kivuli 0.62, 2026-10-25)
+**Raised:** 2026-10-24, Notes 0.3.3
+
+**Question:** An app's `max_width` with `align: center` should give a box as much room as there is, at most its maximum, in the middle. kivuli's clamp puts its child at the start, and a centred one shrinks to its content's natural width: Notes' note wrapped in a narrow strip.
+
+**Meanwhile (the owner):** apps' maximum-width boxes fill from the start; Notes doesn't centre its note. Nothing is worked around.
+
+**Outcome:** kivuli 0.62 (PRP-066): a node with a maximum size and an alignment other than fill is as big as there's room for, up to its maximum, where its alignment says. Nothing changes in Rapidkoi; Notes centres its note again.
+
+---
+
+### DECISION-059 — Rapidkoi crashes on a screen nested about 13 deep (lughac, kivuli)
+
+**Status:** resolved (lughac PRP-167, 2026-10-25)
+**Raised:** 2026-10-24, opening Notes 0.3.0
+
+**Question:** kivuli's `resolve` uses 289 KB of stack a call in Rapidkoi's `./main` (lughac's `-O 0`; 122 KB at `-O 2`), and a screen costs two or three calls a level, so about 13 levels of nesting overflow the 8 MB main stack and Rapidkoi segfaults. Apps may nest 64 deep: any app can crash the shell. The fix is lughac's (frames that don't grow with every `match` arm's temporaries) or kivuli's (boxing `Style` in `View`, or walking without deep recursion). What does Rapidkoi do until then?
+
+**Options:** (a) nothing in Rapidkoi: wait for lughac or kivuli; Notes can't be opened meanwhile. (b) build `./main` with `-O 2` (frames 122 KB: about 30 levels), as a build setting, until the fix. (c) (b) and lower `MAX_NODE_DEPTH` for now. Any of these leaves the root cause to lughac and kivuli.
+
+**Meanwhile (the owner: (b)):** `./main` is built with `lughac build -O 2` (CLAUDE.md, the scripts): about 30 levels fit, so Notes opens. An app nesting deeper still crashes the shell until lughac or kivuli is fixed; nothing else is worked around.
+
+**Outcome:** lughac's PRP-167 (milestone 135): stack slots shared between `match` arms, and stack probes, so running out of stack panics with `stack overflow` instead of a segfault. Measured on `./main` (2026-10-25): `resolve` 73 KB at `-O 0` (was 289 KB), 51 KB at `-O 2` (was 122 KB). `./main` stays built with `-O 2` (the owner): a 64-deep screen needs about 7 MB of the 8 MB stack, by estimate; drawing one is for the owner to check.
+
+---
+
+### DECISION-047 — Share needs a clipboard command (kivuli)
+
+**Status:** resolved (kivuli 0.60, 2026-10-25)
+**Raised:** 2026-10-23 — Session 193 (PRP-036: links)
+
+**Question:** Share should copy the window's link. kivuli 0.54 has no command that writes to the clipboard, and rapidkoi never touches GTK itself (architecture rule 2).
+
+**Meanwhile:** share stays disabled. The address box shows the full link, and its text can be selected and copied. No workaround.
+
+**Revisit when:** kivuli offers a clipboard command; then share copies `address_of(page)`.
+
+**Outcome:** kivuli 0.60's `Cmd.copy_text`: on an app, share copies its link (`address_of`), or a local file's path; on the empty tab there's nothing to share, so it stays greyed. Nothing is shown when it's copied (no unasked copy).
+
+---
+
+### DECISION-050 — Screen readers need accessible roles from kivuli
+
+**Status:** resolved (kivuli 0.59, 2026-10-25)
+**Raised:** 2026-10-23 — Session 198 (PRP-037: roles in contract 5)
+
+**Question:** Contract 5 lets any node say what it is (`role`, `checked`, `selected`, `label`), so a library-built checkbox can read as "Buy milk, checkbox, ticked". kivuli 0.54 can't set a GTK accessible role, state or label on a node.
+
+**Meanwhile:** roles drive what Rapidkoi does itself: focus, pressing by keyboard, the `Checked` look. A screen reader hears what GTK infers from the widget. No workaround through visible text.
+
+**Revisit when:** kivuli sets accessible roles and states; then they're passed through with no contract change.
+
+**Typing boxes (the owner, 2026-10-24):** contract 5 gives an `input` no `label`, and Rapidkoi's `Typing` has none, so an app's label on a typing box (the SDK lets it write one) is ignored. When kivuli lands accessible labels, typing boxes gain `label` in the contract (a DECISIONS entry and a version bump) and it's passed through with the rest.
+
+**Outcome:** kivuli 0.59's `Accessible` style: `ui.render.heard` gives each box and text the app's role, checked, selected and label; a typing box is heard by its label (else its placeholder), a picture by its label.
+
+---
+
+### DECISION-014 — Running two apps at once (kivuli single-instance)
+
+**Status:** resolved (kivuli 0.61, 2026-10-25)
+**Raised:** 2026-10-17 — Session 5
+**Revisit when:** The shell runs more than one app, or a second launch must open a second app.
+
+**Question:** kivuli starts GTK with `gtk_application_new(id, 0)` (`../kivuli/src/render/live.la:109`), so GTK makes the program single-instance: a second `./main other.wasm` raises the first window and drops the new app. Should kivuli accept application flags (e.g. `G_APPLICATION_NON_UNIQUE`, or `HANDLES_OPEN` for links later)?
+
+**Notes:** A kivuli gap, fixed upstream when needed. Step 1 runs one app, so it's a known limitation. Build path step 2 (links) will need `HANDLES_OPEN`-style behaviour anyway.
+
+**Outcome:** kivuli 0.61's `App.on_open`: what a launch names arrives as `Msg.Launched` and opens as the address box would (`navigate.open_launched`); a second `./main …` hands its items to the running window and exits. Instances side by side in separate windows are still DECISION-042.
+
+---
 
 ### DECISION-060 — An app's long text: wraps, or is truncated
 

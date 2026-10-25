@@ -5,7 +5,7 @@ import rapidkoi.commands.publish { make_key, publish_site, pack_project };
 import rapidkoi.commands.serve { handle };
 import rapidkoi.shell { update };
 import rapidkoi.ui.layout { view };
-import rapidkoi.window.navigate { open_file, reload };
+import rapidkoi.window.navigate { open_file, reload, from_outside };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.window { page_of, Model, with_pages };
 import rapidkoi.ui.frame { marker_note, file_of };
@@ -15,7 +15,7 @@ import std.env;
 import std.fs;
 import std.task { sleep };
 import wasmtime { Engine };
-import support { png, settle };
+import support { png, settle, write_counting };
 
 fun clean(path: string) {
     if fs.is_dir(path) {
@@ -155,4 +155,33 @@ fun a_signed_file_is_not_confirmed_until_its_key_is_trusted() {
     assert_eq(marks(both, "localhost:18744 · trusted"), true);
     clean(dir);
     clean("{dir}.key");
+}
+
+@test
+fun what_gio_hands_over_opens_as_typed() {
+    // kivuli 0.61's on_open: GIO gives an address's bare host a trailing /.
+    assert_eq(from_outside("rapidkoi://notes.dafifi.net/"), "rapidkoi://notes.dafifi.net");
+    assert_eq(from_outside("https://notes.dafifi.net/"), "https://notes.dafifi.net");
+    assert_eq(from_outside("rapidkoi://localhost:8000/"), "rapidkoi://localhost:8000");
+    // A path after the host, and a file's absolute path, stay as they are.
+    assert_eq(
+        from_outside("https://notes.dafifi.net/@0.3.4?note=1"),
+        "https://notes.dafifi.net/@0.3.4?note=1",
+    );
+    assert_eq(from_outside("/home/a/counter.rkb"), "/home/a/counter.rkb");
+}
+
+@test
+fun a_launch_opens_what_it_names_in_the_running_window() {
+    // A second ./main hands its items to the first (kivuli 0.61, DECISION-014).
+    fs.make_dirs("test/tmp/launched").unwrap();
+    let path = "{env.current_dir().unwrap()}/test/tmp/launched/counting.wasm";
+    write_counting(path);
+    let (m, _) = update(with_pages(Engine.new(), []), Msg.Launched([path]));
+    assert_eq(m.tabs.len, 1);
+    assert(texts(view(m)).any(fun(x: string) = x == "Count: 0"));
+    // The same again is shown, not started twice (one tab per app).
+    let (again, _) = update(m, Msg.Launched([path]));
+    assert_eq(again.tabs.len, 1);
+    clean("test/tmp/launched");
 }

@@ -1,6 +1,7 @@
 /**
  * Rapidkoi's entry: `./main` opens home; `./main path/to/app.rkb` (or a
- * `.wasm`, or `rapidkoi://localhost:PORT`) opens that app; `./main pack …`
+ * `.wasm`, or `rapidkoi://localhost:PORT`) opens that app, and so does a
+ * second `./main …` while one runs, in the running window; `./main pack …`
  * packs a bundle, `./main keygen` and `./main publish` sign and publish
  * one to a site folder, and `./main serve …` serves a bundle or a site for
  * development, all without a window. Wiring only; the work lives in
@@ -27,11 +28,14 @@ fun main(): i32 {
     if argv.len >= 2 && argv[1] == "serve" {
         return serve.run(argv);
     }
+    // What the command line names arrives as `Launched`, through GIO, as a
+    // later launch's does (kivuli 0.61): opened once, by the same path.
     application(App {
         id: "app.rapidkoi.shell",
-        init: boot(argv),
+        init: boot([argv[0]]),
         update: update,
         view: view,
         subscriptions: subscriptions,
+        on_open: Some(Msg.Launched),
     })
 }

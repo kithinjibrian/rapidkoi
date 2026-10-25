@@ -7,7 +7,7 @@
  * Depends on: kivuli, guest.nodes, ui.paint, ui.icons, ui.schemes
  * Used by: ui.render
  */
-import kivuli { View, Fit, Image, column, image };
+import kivuli { View, Fit, Image, Accessible, column, image };
 import guest.nodes { Look, Picture, Fitting, Colour };
 import guest.pictures { asset_of };
 import ui.paint { Own, resolve_for, styles_of, align_of, rgba };
@@ -30,8 +30,9 @@ fun picture_view<M>(p: Picture, look: Look, t: Theme, own: Own): View<M> {
         }),
         Broken => image(icon(Icon.BrokenPicture, t.dim)).fit(Fit.Contain),
     };
+    // Named for tests, and heard by screen readers (kivuli 0.59).
     let named = match p.label {
-        Some(l) => drawn.name(l),
+        Some(l) => drawn.name(l).style([Accessible.label(l)]),
         None => drawn,
     };
     let styled = named.style(styles_of(resolve_for(look, t, own, false)));

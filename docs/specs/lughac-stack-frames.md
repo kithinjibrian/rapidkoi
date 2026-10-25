@@ -1,4 +1,4 @@
-# Request: lughac's stack frames, and kivuli's `resolve` (a crash)
+# Request: lughac's stack frames, and kivuli's `resolve` (a crash) — fixed: lughac PRP-167 (DECISION-059 resolved)
 
 From Rapidkoi, DECISION-059 (2026-10-24). For sessions in `../lugha` and `../kivuli`, each under its own rules.
 

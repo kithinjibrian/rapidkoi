@@ -54,7 +54,7 @@ Never read, modify or delete: `.env` and `.env.*`; `lugha.lock` (written only by
 
 ```bash
 lughac check src/main.la              # type-check
-lughac build -O 2 src/main.la -o main # build ./main (needs gtk4 via pkg-config); -O 2 until DECISION-059 is fixed upstream
+lughac build -O 2 src/main.la -o main # build ./main (needs gtk4 via pkg-config); -O 2 for smaller stack frames (DECISION-059)
 lughac test test/                     # every @test (or name files: lughac test test/tabs.la)
 lughac fmt --check src test           # formatting; drop --check to rewrite
 lughac update src/main.la             # re-resolve git packages (rewrites lugha.lock)
@@ -80,7 +80,7 @@ Needs: `lughac` (the owner installs it from `../lugha`), `libgtk-4-dev`, `libsql
 ## STACK
 
 - **Lugha** via `lughac` 0.1.0: only what `lughac spec` documents.
-- **kivuli 0.58** (git package): the UI. Import through its entry (`import kivuli { View, text };`); only the entry and `kivuli.testing` are public. Styling is one door, `.style([...])` of typed values (`Font`, `Spacing`, `Sizing`, `Background`, `Border`, `When(State, …)`, …). Read `../kivuli/README.md` or its source before using any API.
+- **kivuli 0.62** (git package): the UI. Import through its entry (`import kivuli { View, text };`); only the entry and `kivuli.testing` are public. Styling is one door, `.style([...])` of typed values (`Font`, `Spacing`, `Sizing`, `Background`, `Border`, `When(State, …)`, …). Read `../kivuli/README.md` or its source before using any API.
 - **GTK 4** only through kivuli. rapidkoi never imports `gtk`.
 - **wasmtime** (C API 49) through `lugha-wasmtime` 0.1 (`wat_to_wasm` since 0.1.1). rapidkoi declares no wasmtime `extern`.
 - **Picture headers** through `lugha-imagesize` 0.1 (PRP-047): a picture's format and size before anything decodes it.

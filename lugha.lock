@@ -1,8 +1,8 @@
 # Written by lughac; `lughac update` refreshes it.
 [locked]
 cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1.0", commit = "eaad158c396e96afc03422509c9c92710909da90" }
-gtk = { git = "https://github.com/kithinjibrian/lugha-gtk", version = "0.1.51", commit = "88f740de135dea6600fdba1138df197acdd391d2" }
+gtk = { git = "https://github.com/kithinjibrian/lugha-gtk", version = "0.1.55", commit = "bd70f8f788355881c341bd2fde17c6684ca72a93" }
 imagesize = { git = "https://github.com/kithinjibrian/lugha-imagesize", version = "0.1.0", commit = "458a0b5a40d36f12b2a74878309217cb82806019" }
-kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.58.0", commit = "406cd9def2633c5b2d2d7b76197e30097b6b2ac1" }
+kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.62.1", commit = "cf837b4f1ecee010b01d4ae1fd11aa6a7cf8201f" }
 sqlite = { git = "https://github.com/kithinjibrian/lugha-sqlite", version = "0.1.0", commit = "9d809ba0941033e20d994d217f449e1fef458855" }
 wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1.1", commit = "279f41f51f7523dd4b706b9cddaf196c298d76a4" }
