@@ -19,6 +19,7 @@ import ui.paint { Own };
 import window.window { Model };
 import ui.render { screen_as, stopped, refused, loading };
 import ui.frame { unapproved };
+import ui.asking { which_view };
 
 /**
  * Draws a tab's app, its messages tagged with the tab, so they reach only it.
@@ -32,6 +33,10 @@ import ui.frame { unapproved };
  *     app_view(id, a, m)
  */
 fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
+    // An address with several apps asks which first (PRP-049).
+    if m.choosing.map(fun(c: (i64, string)) = c.0 == id).unwrap_or(false) {
+        return which_view(m);
+    }
     let now = m.now;
     let shown = match a.screen {
         // {FIRST_NAME} and {LAST_NAME} are filled while drawing: the app

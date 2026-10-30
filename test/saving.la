@@ -7,7 +7,8 @@ import rapidkoi.window.actions { Msg };
 import rapidkoi.window.window { page_of, Model };
 import rapidkoi.ui.frame { marker_note, file_of };
 import rapidkoi.data.store { Store, store_at, save };
-import rapidkoi.data.remembered { read_pins, read_trust, read_left, left_file };
+import rapidkoi.data.remembered { read_trust };
+import rapidkoi.data.pinfiles { read_pins, read_left, left_file };
 import rapidkoi.window.leftoff { LeftOff, recalled };
 import rapidkoi.commands.publish { make_key, publish_site };
 import rapidkoi.trust.keys { read_secret };
@@ -114,16 +115,18 @@ fun trust_survives_a_restart() {
     assert_eq(read_trust(read_bytes("{s.dir}/trust").unwrap()).unwrap().len, 1);
     // A new window on the same folder still knows the key: a swap asks.
     swap_key(dir);
-    // PRP-043: this open runs the kept copy, still verified under the old
-    // key; its check finds the new key and drops the copy, so the next open asks.
+    // PRP-043, PRP-049: this open runs the kept copy, still verified under
+    // the old key; its check finds the new key and keeps the copy as your
+    // version, so the next open asks which.
     started(s, ["./main", "rapidkoi://localhost:18751"]);
     let again = started(s, ["./main", "rapidkoi://localhost:18751"]);
     assert_eq(shows(again, "localhost:18751 is now signed by a different key"), true);
-    // A separate app is remembered as separate.
-    let other = step(again, Msg.SeparateApp);
+    // A separate app is remembered, under its name: the next open asks which.
+    let named = step(step(again, Msg.SeparateApp), Msg.NameSeparate("Other"));
+    let other = step(named, Msg.ConfirmSeparate);
+    assert_eq(other.tabs.len, 2);
     let third = started(s, ["./main", "rapidkoi://localhost:18751"]);
-    assert_eq(marks(third, "localhost:18751 · verified (development) · new publisher"), true);
-    assert_eq(other.tabs.len, 1);
+    assert_eq((shows(third, "Which app?"), click(view(third), "Other").is_ok()), (true, true));
     clean(dir);
     clean("{dir}.key");
     clean(s.dir);

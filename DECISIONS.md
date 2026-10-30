@@ -354,6 +354,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Amended (the owner, PRP-048, 2026-10-30):** an app's windows share its database, so they all run one version. Upgrading or reloading any window (the arrow, Reload, the tab menu's Reload; signed, local development and built-in apps alike) loads the new version once and moves every window of the app onto it, each keeping its state; if it can't be loaded, no window changes. A second upgrade waits for the first. A link's new window of an app already open runs the version open. An older version opening a database a newer one changed is a separate question, not decided here.
 
+**Amended (the owner, PRP-049, DECISION-064, 2026-10-30):** a copy is kept per app (host and first key), not per host. A site now signed by another key with no signed trail no longer removes the copy: it stays as the person's version, opens online or offline, and stops updating until its own key (or a rotation from it) signs the site again.
+
 ---
 
 ## OPEN — Requires human input before implementation

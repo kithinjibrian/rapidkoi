@@ -28,21 +28,16 @@ import data.store {
 import data.remembered {
     Recalled,
     MAX_TRUST_FILE,
-    MAX_PINS_FILE,
-    MAX_LEFT_FILE,
     recall,
     read_trust,
-    read_pins,
-    read_left,
     trust_file,
-    pins_file,
-    left_file,
     Open,
     OpenTab,
     MAX_OPEN_FILE,
     open_file,
     read_open,
 };
+import data.pinfiles { MAX_PINS_FILE, MAX_LEFT_FILE, read_pins, read_left, pins_file, left_file };
 import trust.verify { keyring, keyring_of, identities, changes, moves };
 import window.window { Model, used_last };
 import window.tabs { Tab, state_of, state_version_of };
@@ -432,6 +427,12 @@ fun open_of(m: Model): Open {
                 label: t.page.label,
                 seen: t.page.seen,
                 link: t.page.link,
+                // A window still loading is saved as the app it loads (PRP-049).
+                origin: match (t.page.trust, t.page.screen) {
+                    (Some(tr), _) => Some(tr.origin),
+                    (None, Loading(p)) => p.origin,
+                    _ => None,
+                },
             },
         ),
         current: current,

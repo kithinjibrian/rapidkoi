@@ -27,6 +27,7 @@ fun pin(name: string, path: string, icon: Option<u8[]>): Pin = Pin {
     name: name,
     path: path,
     icon: icon,
+    origin: None,
 };
 
 @test
@@ -95,7 +96,7 @@ fun open_pin_is_checked_against_the_pins_now() {
         pinned: [pin("Quote", "rapidkoi://quote.dafifi.net", None)],
         ..with_pages(Engine.new(), []),
     };
-    assert_eq(pin_msg(m, 0), Some(Msg.OpenPinned("rapidkoi://quote.dafifi.net")));
+    assert_eq(pin_msg(m, 0), Some(Msg.OpenPinned("rapidkoi://quote.dafifi.net", None)));
     assert_eq(pin_msg(m, 1), None);
 }
 
@@ -108,6 +109,7 @@ fun the_last_session_is_its_size_and_its_apps() {
         instance: instance,
         label: None,
         seen: 0,
+        origin: None,
     };
     let m = Model {
         previous: Some(Open {

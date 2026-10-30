@@ -1,19 +1,18 @@
 /**
- * The three files Rapidkoi remembers across restarts, as CBOR maps that
- * start with their format and kind: `trust` (identities: host, key,
- * sequence, separate), `pins` (name, path, icon) and `left-off` (the app
- * used last; a signed app's state is in `states/`). Reading treats every file as hostile: CBOR
- * limits, then every field checked. `recall` adds the store: a missing file
- * is Fresh, a broken one is set aside, a newer one is left alone.
+ * The files Rapidkoi remembers across restarts, as CBOR maps that start
+ * with their format and kind: `trust` (identities: host, key, sequence,
+ * separate) and `open` (the session); `pins` and `left-off` are
+ * `data.pinfiles`'s, written with the helpers here. Reading treats every
+ * file as hostile: CBOR limits, then every field checked. `recall` adds
+ * the store: a missing file is Fresh, a broken one is set aside, a newer
+ * one is left alone.
  *
- * Depends on: cbor, data.store, trust.verify, window.tabs, window.leftoff, bundles.rules, guest.limits
- * Used by: data.saving
+ * Depends on: cbor, data.store, trust.verify, bundles.rules, guest.limits, guest.links, net.address
+ * Used by: data.saving, data.pinfiles
  */
 import cbor { Value, Entry, Limits, decode, encode };
 import data.store { Store, StoreError, load, set_aside, reason as store_reason };
 import trust.verify { Identity };
-import window.tabs { Pin };
-import window.leftoff { LeftOff, recalled, signer_of, as_instance };
 import bundles.rules { check_host, check_asset, check_role };
 import guest.limits { MAX_ICON_PX };
 import guest.links { read_link };
@@ -22,23 +21,20 @@ import net.address { MAX_LINK_FIELDS };
 /** The format the pins, left-off and state files are written in. */
 const FORMAT: i64 = 1;
 
-/** The trust file's format: 2 added when each key was first trusted (PRP-009), 3 each app's origin key (PRP-011). */
-const TRUST_FORMAT: i64 = 3;
+/**
+ * The trust file's format: 2 added when each key was first trusted
+ * (PRP-009), 3 each app's origin key (PRP-011), 4 a separate app's name (PRP-049).
+ */
+const TRUST_FORMAT: i64 = 4;
+
+/** The longest name a separate app is given (as an instance's, PRP-033). */
+const MAX_NAME: i64 = 64;
 
 /** The most identities the trust file holds. */
 const MAX_IDENTITIES: i64 = 10_000;
 
-/** The most pins the pins file holds. */
-const MAX_PINS: i64 = 256;
-
 /** The trust file's cap in bytes. */
 const MAX_TRUST_FILE: i64 = 1024 * 1024;
-
-/** The pins file's cap in bytes (icons are kept with their pins). */
-const MAX_PINS_FILE: i64 = 32 * 1024 * 1024;
-
-/** The left-off file's cap in bytes: a name, a path and an icon. */
-const MAX_LEFT_FILE: i64 = 8 * 1024 * 1024;
 
 /** The most tabs the open file lists (PRP-034). */
 const MAX_OPEN: i64 = 64;
@@ -61,6 +57,8 @@ struct OpenTab {
     seen: i64,
     /** The fields its address named (PRP-036), in order. */
     link: string[],
+    /** Which app at its address, by first key (PRP-049); `None` when unsigned or saved before. */
+    origin: Option<u8[]>,
 }
 
 /** What was open when Rapidkoi closed: its instances in order, and which was in front. */
@@ -146,14 +144,16 @@ fun trust_file(ids: Identity[]): u8[] = file(
                 entry("separate", Value.Bool(i.separate)),
                 entry("since", Value.int(i.since)),
                 entry("origin", Value.Bytes(i.origin)),
+                entry("name", i.name.map(fun(n: string) = Value.Text(n)).unwrap_or(Value.Null)),
             ]),
         ),
     ),
 );
 
 /**
- * Reads the trust file (format 1 or 2): every host a host name, every key
- * 32 bytes; format 1's entries have no first-use date (0).
+ * Reads the trust file (formats 1 to 4): every host a host name, every key
+ * 32 bytes; format 1's entries have no first-use date (0), and those
+ * before 4 no name.
  *
  * Example:
  *     read_trust(bytes)?
@@ -201,6 +201,14 @@ fun read_trust(bytes: u8[]): Result<Identity[], Unreadable> {
                 return Err(Unreadable.Broken("an entry's origin key isn't 32 bytes"));
             }
         };
+        // Formats 1 to 3 didn't record it: no name, so its manifest's.
+        let name = match v.get("name") {
+            Some(Text(n)) if n != "" && n.char_count() <= MAX_NAME => Some(n),
+            None | Some(Null) => None,
+            _ => {
+                return Err(Unreadable.Broken("an entry's name is empty or too long"));
+            }
+        };
         ids.push(Identity {
             host: host,
             key: key,
@@ -208,117 +216,10 @@ fun read_trust(bytes: u8[]): Result<Identity[], Unreadable> {
             separate: separate,
             since: since,
             origin: origin,
+            name: name,
         });
     }
     Ok(ids)
-}
-
-/**
- * Encodes the pins file.
- *
- * Example:
- *     save(s, "pins", pins_file(m.pinned))?
- */
-fun pins_file(pins: Pin[]): u8[] = file("pins", "pins", Value.Array(pins.map(fun(p: Pin) {
-    let mut fields = [entry("name", Value.Text(p.name)), entry("path", Value.Text(p.path))];
-    if let Some(icon) = p.icon {
-        fields.push(entry("icon", Value.Bytes(icon)));
-    }
-    Value.Map(fields)
-})));
-
-/**
- * Reads the pins file. An icon that fails the bundle's icon rules is
- * dropped, keeping the pin.
- *
- * Example:
- *     read_pins(bytes)?
- */
-fun read_pins(bytes: u8[]): Result<Pin[], Unreadable> {
-    let items = list(bytes, "pins", "pins", 4, 16 * MAX_PINS, MAX_PINS_FILE)?;
-    if items.len > MAX_PINS {
-        return Err(Unreadable.Broken("it has more than 256 pins"));
-    }
-    let mut pins: Pin[] = [];
-    for v of items {
-        let name = text(v, "name").ok_or(Unreadable.Broken("a pin has no name"))?;
-        let path = text(v, "path").ok_or(Unreadable.Broken("a pin has no path"))?;
-        pins.push(Pin { name: name, path: path, icon: icon(blob(v, "icon")) });
-    }
-    Ok(pins)
-}
-
-/**
- * Encodes the left-off file: which app was used last, and (for a signed
- * one) its host and key. Its state lives in `states/`.
- *
- * Example:
- *     save(s, "left-off", left_file(l))?
- */
-fun left_file(l: LeftOff): u8[] {
-    let mut fields = [entry("name", Value.Text(l.name)), entry("path", Value.Text(l.path))];
-    if let Some(t) = l.title {
-        fields.push(entry("title", Value.Text(t)));
-    }
-    if let Some(i) = l.icon {
-        fields.push(entry("icon", Value.Bytes(i)));
-    }
-    if let Some((host, key)) = signer_of(l) {
-        fields.push(entry("host", Value.Text(host)));
-        fields.push(entry("key", Value.Bytes(key)));
-    }
-    // Which instance (PRP-033); the first's names none, as before.
-    if l.instance != "" {
-        fields.push(entry("instance", Value.Text(l.instance)));
-    }
-    if let Some(n) = l.label {
-        fields.push(entry("label", Value.Text(n)));
-    }
-    file("left-off", "app", Value.Map(fields))
-}
-
-/**
- * Reads the left-off file: an app to reopen by its path.
- *
- * Example:
- *     read_left(bytes)?
- */
-fun read_left(bytes: u8[]): Result<LeftOff, Unreadable> {
-    let v = root(bytes, "left-off", 4, 64, MAX_LEFT_FILE)?.get("app").ok_or(
-        Unreadable.Broken("there's no app"),
-    )?;
-    let name = text(v, "name").ok_or(Unreadable.Broken("the app has no name"))?;
-    let path = text(v, "path").ok_or(Unreadable.Broken("the app has no path"))?;
-    let signer = match text(v, "host") {
-        None => None,
-        Some(host) => {
-            if check_host(host).is_err() {
-                return Err(Unreadable.Broken("the app's host isn't a host name"));
-            }
-            let key = blob(v, "key").unwrap_or([]);
-            if key.len != 32 {
-                return Err(Unreadable.Broken("the app's key isn't 32 bytes"));
-            }
-            Some((host, key))
-        }
-    };
-    let instance = text(v, "instance").unwrap_or("");
-    // A key Rapidkoi gave: "" or a number from 2, short.
-    let numbered = instance.len <= 4 && instance.chars().all(fun(c: char) = c >= '0' && c <= '9');
-    if !numbered || instance == "0" || instance == "1" {
-        return Err(Unreadable.Broken("the app's instance isn't one Rapidkoi gave"));
-    }
-    let label = text(v, "label");
-    if label.map(fun(n: string) = n == "" || n.char_count() > 64).unwrap_or(false) {
-        return Err(Unreadable.Broken("the app's instance name is empty or too long"));
-    }
-    Ok(
-        as_instance(
-            recalled(name, path, text(v, "title"), icon(blob(v, "icon")), signer),
-            instance,
-            label,
-        ),
-    )
 }
 
 /**
@@ -341,6 +242,9 @@ fun open_file(o: Open): u8[] = encode(Value.Map([
         }
         if t.link.len > 0 {
             fields.push(entry("link", Value.Array(t.link.map(fun(n: string) = Value.Text(n)))));
+        }
+        if let Some(o) = t.origin {
+            fields.push(entry("origin", Value.Bytes(o)));
         }
         Value.Map(fields)
     }))),
@@ -384,7 +288,17 @@ fun read_open(bytes: u8[]): Result<Open, Unreadable> {
         if label.map(fun(n: string) = n == "" || n.char_count() > 64).unwrap_or(false) {
             return Err(Unreadable.Broken("a tab's name is empty or too long"));
         }
-        if found.any(fun(t: OpenTab) = t.path == path && t.instance == instance) {
+        // Which app at the address (PRP-049); none before, or unsigned.
+        let origin = match blob(x, "origin") {
+            Some(o) if o.len == 32 => Some(o),
+            None => None,
+            _ => {
+                return Err(Unreadable.Broken("a tab's app key isn't 32 bytes"));
+            }
+        };
+        if found.any(
+            fun(t: OpenTab) = t.path == path && t.instance == instance && t.origin == origin,
+        ) {
             return Err(Unreadable.Broken("an instance is listed twice"));
         }
         let seen = x.get("seen").and_then(fun(n: Value) = n.as_i64()).unwrap_or(0);
@@ -402,6 +316,7 @@ fun read_open(bytes: u8[]): Result<Open, Unreadable> {
             label: label,
             seen: seen,
             link: link,
+            origin: origin,
         });
     }
     let current = match v.get("current") {

@@ -5,7 +5,7 @@ import rapidkoi.window.window { Model };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage, Cached };
-import rapidkoi.data.kept { kept_for, keep, has };
+import rapidkoi.data.kept { old_for, keep };
 import rapidkoi.commands.publish { withdraw_version };
 import kivuli.testing { click };
 import std.fs;
@@ -22,6 +22,7 @@ import sites {
     republish,
     served,
     kept_by_hand,
+    kept_count,
     done,
 };
 
@@ -45,7 +46,7 @@ fun the_first_open_keeps_it_and_the_next_opens_from_it() {
     let dir = site(18812, "1.0.0");
     served(dir, 18812);
     let first = started(s, ["./main", "rapidkoi://localhost:18812"]);
-    assert((shows(first, "Count: 0"), has(kept_for(s, "localhost:18812"))) == (true, true));
+    assert((shows(first, "Count: 0"), kept_count(s) == 1) == (true, true));
     let again = started(s, ["./main", "rapidkoi://localhost:18812"]);
     assert(shows(again, "Count: 0"));
     // Opened from the copy, then checked against the live site.
@@ -94,7 +95,7 @@ fun with_every_version_withdrawn_the_copy_goes() {
     withdraw_version(dir, "1.0.0", "it lost data").unwrap();
     let m = started(s, ["./main", "rapidkoi://localhost:18815"]);
     assert(shows(m, "Counting 1.0.0 was withdrawn: it lost data"));
-    assert(!has(kept_for(s, "localhost:18815")));
+    assert_eq(kept_count(s), 0);
     done(s, dir);
 }
 
@@ -136,7 +137,7 @@ fun offline_a_link_to_another_version_opens_the_kept_one_with_a_notice() {
     );
     let root = "{dir}/site/.well-known/rapidkoi";
     keep(
-        kept_for(s, "localhost:18818"),
+        old_for(s, "localhost:18818"),
         read_bytes("{root}/key").unwrap(),
         read_bytes("{root}/index").unwrap(),
         read_bytes("{builds}/{current[0]}").unwrap(),
@@ -165,7 +166,7 @@ fun forget_removes_the_kept_copy() {
     kept_by_hand(s, dir, 18819);
     let m = started(s, ["./main", "rapidkoi://localhost:18819"]);
     step(m, Msg.Forget);
-    assert(!has(kept_for(s, "localhost:18819")));
+    assert_eq(kept_count(s), 0);
     done(s, dir);
 }
 

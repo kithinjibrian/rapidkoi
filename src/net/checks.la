@@ -1,0 +1,238 @@
+/**
+ * Checking kept apps against their sites (split from `net.loads`, PRP-049;
+ * PRP-043, PRP-044): the check that follows an open from the kept copy and
+ * the one every `CHECK_EVERY_MS`, and what each found: trust recorded, the
+ * site noted as reached, a newer version offered to every window of the
+ * app, a withdrawn window stopped.
+ *
+ * Depends on: kivuli, std.time, std.crypto, window.tabs, window.window, window.apps, net.fetching, net.keeping, net.address, bundles.loader, trust.verify, trust.publishers, data.kept, window.actions, guest.limits
+ * Used by: net.loads, shell
+ */
+import kivuli { Cmd };
+import std.time;
+import std.crypto { equal };
+import window.tabs { AppPage, Cached, close_page, refused };
+import window.window { Model, with_tab, app };
+import net.fetching { Source };
+import net.keeping { Refreshed, refresh };
+import net.address { parse, shown };
+import bundles.loader { Refusal };
+import trust.verify { Identity, known_for, record };
+import trust.publishers { known_of, apps_at };
+import data.kept { Kept, kept_for };
+import window.apps { same };
+
+import window.actions { Msg };
+import guest.limits { FETCH_TIMEOUT_MS };
+
+/**
+ * Takes a check of a kept app against its site (PRP-043, PRP-044):
+ * records the trust it found, notes whether the site was reached, offers a
+ * newer version kept to every window of the app running another one, and
+ * stops the window when its running version was withdrawn. A result for a
+ * closed tab, or one now running another build, is dropped.
+ *
+ * @param build the SHA-256 of the build that was running when the check began
+ *
+ * Example:
+ *     refreshed(m, id, build, r)
+ */
+fun refreshed(m: Model, id: i64, build: u8[], r: Refreshed): Model {
+    let p = match app(m, id) {
+        Some(p) if p.trust.map(fun(t) = equal(t.build, build)).unwrap_or(false) => p,
+        _ => {
+            return m;
+        }
+    };
+    let now = time.now_ms();
+    match r {
+        Checked(rec, known, fresher, withdrawn) => {
+            // Checked against trust that's since changed: the next open records it.
+            if mine(m, rec.now.host, rec.now.origin) == known {
+                record(m.ring, rec);
+            }
+            let after = match withdrawn {
+                Some(why) => stopped(m, id, p, why),
+                None => m,
+            };
+            // Its site is its own again, if it had moved on (DECISION-064).
+            offered(moved_on(noted(after, id, true, now), p, None), p.path, fresher)
+        }
+        Moved(key) => moved_on(noted(m, id, true, now), p, Some(key)),
+        Gone(withdrawn) => {
+            let after = match withdrawn {
+                Some(why) => stopped(m, id, p, why),
+                None => m,
+            };
+            noted(after, id, true, now)
+        }
+        Unreachable => noted(m, id, false, now),
+        Refused => m,
+    }
+}
+
+/**
+ * Marks every window of `p`'s app with the key its site moved on to, or
+ * clears it (PRP-049): its shield says so, and it's offered no upgrade.
+ */
+fun moved_on(m: Model, p: AppPage, key: Option<u8[]>): Model {
+    let mut at = m;
+    for t of m.tabs {
+        if same(t.page, p) {
+            at = with_tab(
+                at,
+                t.id,
+                fun(a: AppPage) = AppPage {
+                    cached: a.cached.map(
+                        fun(c: Cached) = Cached {
+                            moved: key,
+                            newer: if key.is_some() { None } else { c.newer },
+                            ..c,
+                        },
+                    ),
+                    ..a,
+                },
+            );
+        }
+    }
+    at
+}
+
+/** The identities trusted for one app: its host's, by its first key. */
+fun mine(m: Model, host: string, origin: u8[]): Identity[] = known_of(
+    known_for(m.ring, host),
+    host,
+    origin,
+);
+
+/**
+ * Checks the app in front against its site, when it's a kept one: the
+ * check every `CHECK_EVERY_MS` while an app stays open (PRP-044).
+ *
+ * Example:
+ *     check_current(m)
+ */
+fun check_current(m: Model): Cmd<Msg> = match m.current {
+    Some(id) => match app(m, id) {
+        Some(p) => check_page(m, id, p),
+        None => Cmd.none(),
+    },
+    None => Cmd.none(),
+};
+
+/** Whether the site was reached, and when: tab `id`'s kept copy, noted. */
+fun noted(m: Model, id: i64, reached: bool, now: i64): Model = with_tab(
+    m,
+    id,
+    fun(a: AppPage) = AppPage {
+        cached: a.cached.map(
+            fun(c: Cached) = Cached {
+                checked: if reached { now } else { c.checked },
+                reached: reached,
+                ..c,
+            },
+        ),
+        ..a,
+    },
+);
+
+/** A newer version kept for the app at `path`: offered in each of its windows running another one. */
+fun offered(m: Model, path: string, fresher: Option<string>): Model {
+    let v = match fresher {
+        Some(v) => v,
+        None => {
+            return m;
+        }
+    };
+    let mut at = m;
+    for t of m.tabs {
+        let running = t.page.manifest.map(fun(mf) = mf.version);
+        if t.page.path == path && running != Some(v) {
+            at = with_tab(
+                at,
+                t.id,
+                fun(a: AppPage) = AppPage {
+                    cached: a.cached.map(fun(c: Cached) = Cached { newer: Some(v), ..c }),
+                    ..a,
+                },
+            );
+        }
+    }
+    at
+}
+
+/** The check that follows an open from the kept copy, when it opened from one and isn't offline. */
+fun check_after(m: Model, id: i64, page: AppPage, source: Option<Source>): Cmd<Msg> = match source {
+    Some(src) if src.kept && !src.offline => check_page(m, id, page),
+    _ => Cmd.none(),
+};
+
+/** A kept app's page checked against its site, in a task. */
+fun check_page(m: Model, id: i64, page: AppPage): Cmd<Msg> = match (
+    m.store,
+    page.cached,
+    page.trust,
+    page.manifest,
+    parse(page.path),
+) {
+    (Some(s), Some(_), Some(t), Some(mf), Ok(a)) => {
+        // Only this app's keys: another publisher's site is this app's moved on (PRP-049).
+        let known = mine(m, t.host, t.origin);
+        let net = m.network;
+        let held = held_of(m);
+        let build = t.build;
+        let version = mf.version;
+        let origin = t.origin;
+        Cmd.task(
+            fun(): Refreshed = refresh(
+                a,
+                known,
+                net,
+                FETCH_TIMEOUT_MS,
+                s,
+                held,
+                build,
+                version,
+                origin,
+            ),
+            fun(r: Refreshed) = Msg.Refreshed(id, build, r),
+        )
+    }
+    _ => Cmd.none(),
+};
+
+/**
+ * The window, its running version withdrawn: stopped, saying why. Its
+ * kept copy's facts stay, so a newer version kept is offered (PRP-044).
+ */
+fun stopped(m: Model, id: i64, p: AppPage, why: string): Model {
+    let version = p.manifest.map(fun(mf) = mf.version).unwrap_or("");
+    close_page(p);
+    let page = AppPage {
+        instance: p.instance,
+        label: p.label,
+        seen: p.seen,
+        cached: p.cached,
+        ..refused(Refusal.Failed(p.name, "{p.name} {version} was withdrawn: {why}"), p.path),
+    };
+    with_tab(m, id, fun(_: AppPage) = page)
+}
+
+/**
+ * The kept copies never evicted: every app at a pinned address (PRP-049:
+ * a pin of either app at an address holds both).
+ */
+fun held_of(m: Model): Kept[] {
+    let mut held: Kept[] = [];
+    if let Some(s) = m.store {
+        for pin of m.pinned {
+            if let Ok(a) = parse(pin.path) {
+                let host = shown(a);
+                for i of apps_at(known_for(m.ring, host), host) {
+                    held.push(kept_for(s, host, i.origin));
+                }
+            }
+        }
+    }
+    held
+}

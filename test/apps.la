@@ -1,0 +1,41 @@
+// An app's identity (PRP-049, DECISION-064): a signed app is its host and
+// its first trusted key, carried through signed rotations; anything else
+// is its file or address.
+import rapidkoi.window.apps { same };
+import rapidkoi.trust.verify { Trust, Standing };
+import rapidkoi.window.tabs { AppPage, failed_page };
+
+fun signed(path: string, host: string, key: u8, origin: u8): AppPage = AppPage {
+    trust: Some(Trust {
+        host: host,
+        key: [key; 32],
+        standing: Standing.Verified,
+        build: [1; 32],
+        separate: false,
+        since: 0,
+        origin: [origin; 32],
+    }),
+    ..failed_page(path, ""),
+};
+
+const NOTES: string = "rapidkoi://notes.dafifi.net";
+
+@test
+fun a_signed_app_is_its_host_and_first_key() {
+    let alice = signed(NOTES, "notes.dafifi.net", 1, 1);
+    // A signed rotation to key 3 is still Alice's app.
+    let rotated = signed(NOTES, "notes.dafifi.net", 3, 1);
+    let bob = signed(NOTES, "notes.dafifi.net", 2, 2);
+    assert(same(alice, rotated));
+    assert(!same(alice, bob));
+    assert(!same(alice, signed("rapidkoi://other.dafifi.net", "other.dafifi.net", 1, 1)));
+}
+
+@test
+fun a_page_with_no_trust_is_its_address() {
+    // A file, a development address, or a page still loading or stopped.
+    assert(same(failed_page("notes.wasm", ""), failed_page("notes.wasm", "")));
+    assert(!same(failed_page("notes.wasm", ""), failed_page("other.wasm", "")));
+    let loading = failed_page(NOTES, "");
+    assert(same(loading, signed(NOTES, "notes.dafifi.net", 1, 1)));
+}

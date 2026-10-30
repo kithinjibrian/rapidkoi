@@ -1,0 +1,142 @@
+/**
+ * The pins and left-off files (split from `data.remembered`, PRP-049):
+ * `pins` (name, path, icon, which app) and `left-off` (the app used last; a signed
+ * app's state is in `states/`), read as hostile, every field checked.
+ *
+ * Depends on: cbor, data.remembered, window.tabs, window.leftoff, bundles.rules
+ * Used by: data.saving
+ */
+import cbor { Value };
+import data.remembered { Unreadable, file, list, root, icon, entry, text, blob };
+import window.tabs { Pin };
+import window.leftoff { LeftOff, recalled, signer_of, as_instance };
+import bundles.rules { check_host };
+
+/** The most pins the pins file holds. */
+const MAX_PINS: i64 = 256;
+
+/** The pins file's cap in bytes (icons are kept with their pins). */
+const MAX_PINS_FILE: i64 = 32 * 1024 * 1024;
+
+/** The left-off file's cap in bytes: a name, a path and an icon. */
+const MAX_LEFT_FILE: i64 = 8 * 1024 * 1024;
+
+/**
+ * Encodes the pins file.
+ *
+ * Example:
+ *     save(s, "pins", pins_file(m.pinned))?
+ */
+fun pins_file(pins: Pin[]): u8[] = file("pins", "pins", Value.Array(pins.map(fun(p: Pin) {
+    let mut fields = [entry("name", Value.Text(p.name)), entry("path", Value.Text(p.path))];
+    if let Some(icon) = p.icon {
+        fields.push(entry("icon", Value.Bytes(icon)));
+    }
+    // Which app at the address (PRP-049).
+    if let Some(o) = p.origin {
+        fields.push(entry("origin", Value.Bytes(o)));
+    }
+    Value.Map(fields)
+})));
+
+/**
+ * Reads the pins file. An icon that fails the bundle's icon rules is
+ * dropped, keeping the pin.
+ *
+ * Example:
+ *     read_pins(bytes)?
+ */
+fun read_pins(bytes: u8[]): Result<Pin[], Unreadable> {
+    let items = list(bytes, "pins", "pins", 4, 16 * MAX_PINS, MAX_PINS_FILE)?;
+    if items.len > MAX_PINS {
+        return Err(Unreadable.Broken("it has more than 256 pins"));
+    }
+    let mut pins: Pin[] = [];
+    for v of items {
+        let name = text(v, "name").ok_or(Unreadable.Broken("a pin has no name"))?;
+        let path = text(v, "path").ok_or(Unreadable.Broken("a pin has no path"))?;
+        // A pin made before PRP-049 names no app: the only one at its address, or "Which app?".
+        let origin = match blob(v, "origin") {
+            Some(o) if o.len == 32 => Some(o),
+            None => None,
+            _ => {
+                return Err(Unreadable.Broken("a pin's app key isn't 32 bytes"));
+            }
+        };
+        pins.push(Pin { name: name, path: path, icon: icon(blob(v, "icon")), origin: origin });
+    }
+    Ok(pins)
+}
+
+/**
+ * Encodes the left-off file: which app was used last, and (for a signed
+ * one) its host and key. Its state lives in `states/`.
+ *
+ * Example:
+ *     save(s, "left-off", left_file(l))?
+ */
+fun left_file(l: LeftOff): u8[] {
+    let mut fields = [entry("name", Value.Text(l.name)), entry("path", Value.Text(l.path))];
+    if let Some(t) = l.title {
+        fields.push(entry("title", Value.Text(t)));
+    }
+    if let Some(i) = l.icon {
+        fields.push(entry("icon", Value.Bytes(i)));
+    }
+    if let Some((host, key)) = signer_of(l) {
+        fields.push(entry("host", Value.Text(host)));
+        fields.push(entry("key", Value.Bytes(key)));
+    }
+    // Which instance (PRP-033); the first's names none, as before.
+    if l.instance != "" {
+        fields.push(entry("instance", Value.Text(l.instance)));
+    }
+    if let Some(n) = l.label {
+        fields.push(entry("label", Value.Text(n)));
+    }
+    file("left-off", "app", Value.Map(fields))
+}
+
+/**
+ * Reads the left-off file: an app to reopen by its path.
+ *
+ * Example:
+ *     read_left(bytes)?
+ */
+fun read_left(bytes: u8[]): Result<LeftOff, Unreadable> {
+    let v = root(bytes, "left-off", 4, 64, MAX_LEFT_FILE)?.get("app").ok_or(
+        Unreadable.Broken("there's no app"),
+    )?;
+    let name = text(v, "name").ok_or(Unreadable.Broken("the app has no name"))?;
+    let path = text(v, "path").ok_or(Unreadable.Broken("the app has no path"))?;
+    let signer = match text(v, "host") {
+        None => None,
+        Some(host) => {
+            if check_host(host).is_err() {
+                return Err(Unreadable.Broken("the app's host isn't a host name"));
+            }
+            let key = blob(v, "key").unwrap_or([]);
+            if key.len != 32 {
+                return Err(Unreadable.Broken("the app's key isn't 32 bytes"));
+            }
+            Some((host, key))
+        }
+    };
+    let instance = text(v, "instance").unwrap_or("");
+    // A key Rapidkoi gave: "" or a number from 2, short.
+    let numbered = instance.len <= 4 && instance.chars().all(fun(c: char) = c >= '0' && c <= '9');
+    if !numbered || instance == "0" || instance == "1" {
+        return Err(Unreadable.Broken("the app's instance isn't one Rapidkoi gave"));
+    }
+    let label = text(v, "label");
+    if label.map(fun(n: string) = n == "" || n.char_count() > 64).unwrap_or(false) {
+        return Err(Unreadable.Broken("the app's instance name is empty or too long"));
+    }
+    Ok(
+        as_instance(
+            recalled(name, path, text(v, "title"), icon(blob(v, "icon")), signer),
+            instance,
+            label,
+        ),
+    )
+}

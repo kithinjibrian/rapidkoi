@@ -141,7 +141,13 @@ fun data_offers_to_clear_after_asking() {
 fun data_shows_the_kept_app_beside_its_data() {
     // PRP-043: a signed app's kept copy takes room too.
     let kept = AppPage {
-        cached: Some(Cached { checked: 0, reached: true, size: 70 * 1024, newer: None }),
+        cached: Some(Cached {
+            checked: 0,
+            reached: true,
+            size: 70 * 1024,
+            newer: None,
+            moved: None,
+        }),
         ..signed(),
     };
     let v = card(window(kept), PanelPage.State);

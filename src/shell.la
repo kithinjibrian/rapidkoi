@@ -12,6 +12,8 @@ import wasmtime { Engine };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm, TabAction, PinAction };
 import window.tabs { AppPage, Tab, Pin, handle, is_loading, to_front };
 import net.loads;
+import net.checks;
+import window.choosing;
 import guest.effects { answer_all, approve, left_behind, tell_changes, tell_prefs };
 import net.requests;
 import net.downloads;
@@ -292,7 +294,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         App(a) => (Model { editing: true, draft: a.path, ..m }, Cmd.focus("address")),
         Home => (m, Cmd.focus("address")),
     },
-    OpenPinned(path) => navigate.open_pin(m, path),
+    OpenPinned(path, origin) => navigate.open_pin(m, path, origin),
     Continue => navigate.reopen(Model { draft: "", editing: false, ..m }),
     Approve(a) => approve(m, a),
     SetPermission(name, s) => (set_permission(m, name, s), Cmd.none()),
@@ -350,16 +352,21 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     FocusSearch => (m, Cmd.focus("address")),
     Reload => navigate.reload(m),
     KeepMine => (navigate.keep_mine(m), Cmd.none()),
-    SeparateApp => navigate.separate_app(m),
+    SeparateApp => (choosing.start_naming(m), Cmd.none()),
+    SeparateMoved => choosing.separate_moved(m),
+    NameSeparate(typed) => (choosing.name_typed(m, typed), Cmd.none()),
+    ConfirmSeparate => choosing.confirm_naming(m),
+    CancelSeparate => (choosing.cancel_naming(m), Cmd.none()),
+    Choose(origin) => choosing.choose(m, origin),
     Fetched(id, number, f) => loads.arrive(m, id, number, f),
-    Refreshed(id, build, r) => (loads.refreshed(m, id, build, r), Cmd.none()),
-    CheckForUpdates(_) => (m, loads.check_current(m)),
+    Refreshed(id, build, r) => (checks.refreshed(m, id, build, r), Cmd.none()),
+    CheckForUpdates(_) => (m, checks.check_current(m)),
     Launched(items) => navigate.open_launched(m, items),
     Share => (m, match window.page_of(m) {
         App(p) => Cmd.copy_text(shared(p)),
         Home => Cmd.none(),
     }),
-    WindowActive(on) => (m, if on { loads.check_current(m) } else { Cmd.none() }),
+    WindowActive(on) => (m, if on { checks.check_current(m) } else { Cmd.none() }),
     Responded(id, load, msg, got) => (requests.arrive(m, id, load, msg, got), Cmd.none()),
     Pictured(id, load, source, got) => (downloads.arrive(m, id, load, source, got), Cmd.none()),
     Overflowed(id, across, down) => (Model { overflow: (id, across, down), ..m }, Cmd.none()),
@@ -390,7 +397,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     ToggleServer(server) => (on_access(m, server), Cmd.none()),
     Tick(now) => (Model { now: now, ..m }, Cmd.none()),
     OnTab(id, action) => on_tab(m, id, action),
-    OnPin(path, action) => on_pin(m, path, action),
+    OnPin(path, origin, action) => navigate.on_pin(m, path, origin, action),
     SetName(_, _, _) | ToggleAutoSignIn | SignOut | SignIn | StartOverIdentity => (
         on_account(m, msg),
         Cmd.none(),
@@ -422,16 +429,6 @@ fun on_tab(m: Model, id: i64, action: TabAction): (Model, Cmd<Msg>) {
     }
 }
 
-/** A home tile's menu item, for the app at `path`. Forget opens it, then the panel at its question. */
-fun on_pin(m: Model, path: string, action: PinAction): (Model, Cmd<Msg>) = match action {
-    Open => navigate.open_pin(m, path),
-    Unpin => (Model { pinned: m.pinned.filter(fun(p: Pin) = p.path != path), ..m }, Cmd.none()),
-    Forget => {
-        let (opened, cmd) = navigate.open_pin(m, path);
-        (Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget), ..opened }, cmd)
-    }
-};
-
 /**
  * Draws the window: the bare frame (PRP-014). Never calls a guest.
  *
@@ -452,7 +449,7 @@ fun copy_removed(m: Model, id: i64): Option<string> = match (
     m.store,
     m.tabs.iter().find(fun(t: Tab) = t.id == id).and_then(fun(t: Tab) = t.page.trust),
 ) {
-    (Some(s), Some(tr)) => match kept.remove(kept.kept_for(s, tr.host)) {
+    (Some(s), Some(tr)) => match kept.remove(kept.kept_for(s, tr.host, tr.origin)) {
         Ok(()) => None,
         Err(e) => Some(kept.reason(e)),
     },

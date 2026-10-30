@@ -108,6 +108,8 @@ struct Identity {
     since: i64,
     /** The key first trusted for this app, kept through signed rotations: who the app is (PRP-011). */
     origin: u8[],
+    /** The name the person gave a separate app before opening it (PRP-049); `None` uses its manifest's. */
+    name: Option<string>,
 }
 
 /** The keys trusted this session, shared by every copy (it's a box). */
@@ -328,8 +330,13 @@ fun check_site_at(
             sequence: ix.sequence,
             separate: separate,
             since: from.map(fun(k: Identity) = k.since).unwrap_or(time.now_ms()),
-            // A rotation keeps who the app is; a first use starts it here.
+            // A rotation keeps who the app is, and its name; a first use starts it here.
             origin: from.map(fun(k: Identity) = k.origin).unwrap_or(key),
+            // The person's name for it, else its own, for "Which app?" (PRP-049).
+            name: match from.and_then(fun(k: Identity) = k.name) {
+                Some(n) => Some(n),
+                None => named(opened.bundle.manifest.name),
+            },
         },
     };
     Ok(
@@ -352,13 +359,14 @@ fun check_site_at(
 }
 
 /**
- * Trusts a site's new key as a separate app for this session ("Open as a
- * separate app"): the old key stays trusted too.
+ * Trusts a site's new key as a separate app ("Open as a separate app"),
+ * under the name the person gave it (PRP-049): the old key stays trusted
+ * too, as another app.
  *
  * Example:
- *     separate(ring, change)
+ *     separate(ring, change, "Bob's Notes")
  */
-fun separate(ring: Keyring, c: Change) {
+fun separate(ring: Keyring, c: Change, name: string) {
     ring.known.update(fun(all: Identity[]) {
         let mut next = all;
         next.push(Identity {
@@ -368,6 +376,7 @@ fun separate(ring: Keyring, c: Change) {
             separate: true,
             since: time.now_ms(),
             origin: c.new,
+            name: Some(name),
         });
         next
     });
@@ -417,6 +426,13 @@ fun reason(e: VerifyError): string = match e {
     BuildHost(h) => "The app's build is for {h}, not this site",
 };
 
+/** An app's own name, kept with its identity when it's one a person could have given (PRP-049). */
+fun named(name: string): Option<string> = if name != "" && name.char_count() <= 64 {
+    Some(name)
+} else {
+    None
+};
+
 /** Records an identity, in place of the one it was checked as (after a rotation, its old key). */
 fun remember(ring: Keyring, from: Option<Identity>, now: Identity) {
     // Nothing new (the same key at the same sequence): nothing to save.
@@ -424,7 +440,7 @@ fun remember(ring: Keyring, from: Option<Identity>, now: Identity) {
         if f.host == now.host && equal(
             f.key,
             now.key,
-        ) && f.sequence == now.sequence && f.separate == now.separate {
+        ) && f.sequence == now.sequence && f.separate == now.separate && f.name == now.name {
             return;
         }
     }

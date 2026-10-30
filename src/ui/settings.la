@@ -21,6 +21,7 @@ import kivuli.ui {
     dialog_footer,
     input as ui_input,
 };
+import ui.asking;
 import window.actions { Msg, PanelPage, Confirm, NameScope, NamePart, Answer };
 import window.tabs { AppPage, state_of };
 import window.window { Model, page_of };
@@ -87,6 +88,10 @@ fun dialog(m: Model): Option<Dialog<Msg>> {
     // Renaming an instance (PRP-033): closing it is Cancel.
     if m.renaming.is_some() {
         return Some(ui_dialog(Msg.Cancel, [dialog_view(m)]));
+    }
+    // Naming a separate app (PRP-049): closing it is Cancel.
+    if m.naming.is_some() {
+        return Some(ui_dialog(Msg.CancelSeparate, [asking.naming_view(m)]));
     }
     // An app waiting for your approval first (PRP-031): closing it is Don't allow.
     if m.approval.is_some() {

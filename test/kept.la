@@ -4,6 +4,8 @@
 import rapidkoi.data.kept {
     Meta,
     kept_for,
+    old_for,
+    adopt,
     keep,
     files,
     has,
@@ -20,6 +22,10 @@ import support { write_counting };
 import std.crypto { sha256, equal };
 import std.env;
 import std.fs;
+
+/** The first keys of two apps at one address (PRP-049). */
+const ALICE: u8[] = [1; 32];
+const BOB: u8[] = [2; 32];
 
 fun clean(path: string) {
     if fs.is_dir(path) {
@@ -77,7 +83,7 @@ fun a_kept_copy_passes_the_sites_own_checks() {
     let host = "localhost:18801";
     let site = published("checks", host);
     let (key, index, build) = site_files(site);
-    let k = kept_for(s, host);
+    let k = kept_for(s, host, ALICE);
     assert(!has(k));
     keep(k, key, index, build).unwrap();
     assert(has(k));
@@ -94,7 +100,7 @@ fun a_changed_byte_anywhere_fails_the_check() {
     let host = "localhost:18802";
     let site = published("tamper", host);
     let (key, index, build) = site_files(site);
-    let k = kept_for(s, host);
+    let k = kept_for(s, host, ALICE);
     let mut bad = build;
     bad[bad.len - 1] = bad[bad.len - 1] ^ 1;
     keep(k, key, index, bad).unwrap();
@@ -112,7 +118,7 @@ fun an_index_older_than_one_seen_is_refused() {
     let host = "localhost:18803";
     let site = published("older", host);
     let (key, index, build) = site_files(site);
-    let k = kept_for(s, host);
+    let k = kept_for(s, host, ALICE);
     keep(k, key, index, build).unwrap();
     let (_, r) = check_site_at([], host, files(k), None).unwrap();
     // The keyring has seen a later sequence than the kept index's.
@@ -130,7 +136,7 @@ const ZEROS: string = "000000000000000000000000000000000000000000000000000000000
 @test
 fun one_build_is_kept_and_a_missing_file_is_a_404() {
     let s = folder("one");
-    let k = kept_for(s, "localhost:18804");
+    let k = kept_for(s, "localhost:18804", ALICE);
     keep(k, [1], [2], [3, 3]).unwrap();
     keep(k, [1], [2], [4, 4, 4]).unwrap();
     // Only the newer build is left: key, index and one .rkb.
@@ -145,9 +151,9 @@ fun one_build_is_kept_and_a_missing_file_is_a_404() {
 @test
 fun meta_round_trips() {
     let s = folder("meta");
-    let k = kept_for(s, "localhost:18805");
+    let k = kept_for(s, "localhost:18805", ALICE);
     assert(read_meta(k).is_none());
-    let m = Meta { checked: 10, opened: 20 };
+    let m = Meta { checked: 10, opened: 20, moved: Some([9; 32]) };
     write_meta(k, m).unwrap();
     assert_eq(read_meta(k), Some(m));
     clean(s.dir);
@@ -156,7 +162,7 @@ fun meta_round_trips() {
 @test
 fun remove_takes_it_all_and_size_counts_it() {
     let s = folder("remove");
-    let k = kept_for(s, "localhost:18806");
+    let k = kept_for(s, "localhost:18806", ALICE);
     assert_eq(size_of(k), 0);
     let mut build: u8[] = [];
     for _ in 0..100 {
@@ -173,13 +179,13 @@ fun remove_takes_it_all_and_size_counts_it() {
 
 /** A kept copy for `host` of about `n` bytes, last opened at `opened`. */
 fun kept_of(s: Store, host: string, n: i64, opened: i64) {
-    let k = kept_for(s, host);
+    let k = kept_for(s, host, ALICE);
     let mut build: u8[] = [];
     for _ in 0..n {
         build.push(opened as u8);
     }
     keep(k, [1], [2], build).unwrap();
-    write_meta(k, Meta { checked: 0, opened: opened }).unwrap();
+    write_meta(k, Meta { checked: 0, opened: opened, moved: None }).unwrap();
 }
 
 @test
@@ -189,17 +195,17 @@ fun eviction_goes_oldest_first_and_never_takes_a_pin() {
     kept_of(s, "b", 1000, 2);
     kept_of(s, "c", 1000, 3);
     // Over 2500: the least recently opened unpinned one goes, and no more.
-    assert_eq(evict(s, ["a"], 2500), Ok(1));
+    assert_eq(evict(s, [kept_for(s, "a", ALICE)], 2500), Ok(1));
     assert(
-        (has(kept_for(s, "a")), has(kept_for(s, "b")), has(kept_for(s, "c"))) == (
-            true,
-            false,
-            true,
-        ),
+        (
+            has(kept_for(s, "a", ALICE)),
+            has(kept_for(s, "b", ALICE)),
+            has(kept_for(s, "c", ALICE)),
+        ) == (true, false, true),
     );
     // Under any limit, a pinned app stays.
-    assert_eq(evict(s, ["a"], 10), Ok(1));
-    assert((has(kept_for(s, "a")), has(kept_for(s, "c"))) == (true, false));
+    assert_eq(evict(s, [kept_for(s, "a", ALICE)], 10), Ok(1));
+    assert((has(kept_for(s, "a", ALICE)), has(kept_for(s, "c", ALICE))) == (true, false));
     clean(s.dir);
 }
 
@@ -207,4 +213,49 @@ fun eviction_goes_oldest_first_and_never_takes_a_pin() {
 fun nothing_kept_is_nothing_to_evict() {
     let s = folder("empty");
     assert_eq(evict(s, [], 0), Ok(0));
+}
+
+@test
+fun two_apps_at_one_address_keep_their_own_copies() {
+    // PRP-049: a copy per app, its host and first key.
+    let s = folder("two");
+    keep(kept_for(s, "notes.dafifi.net", ALICE), [1], [1], [1]).unwrap();
+    keep(kept_for(s, "notes.dafifi.net", BOB), [2], [2], [2]).unwrap();
+    let alice = files(kept_for(s, "notes.dafifi.net", ALICE));
+    let bob = files(kept_for(s, "notes.dafifi.net", BOB));
+    assert_eq(alice("/.well-known/rapidkoi/key"), Ok((200, [1])));
+    assert_eq(bob("/.well-known/rapidkoi/key"), Ok((200, [2])));
+    clean(s.dir);
+}
+
+@test
+fun a_copy_kept_per_host_goes_to_the_app_whose_key_signed_it() {
+    let s = folder("adopt");
+    let dir = published("adopt", "localhost:18807");
+    let (key, index, build) = site_files(dir);
+    keep(old_for(s, "localhost:18807"), key, index, build).unwrap();
+    let signer = check_site_at(
+        [],
+        "localhost:18807",
+        files(old_for(s, "localhost:18807")),
+        None,
+    ).unwrap().0.trust.key;
+    // Another app's keys: it stays where it is.
+    adopt(s, "localhost:18807", BOB, [BOB]);
+    assert(
+        (has(old_for(s, "localhost:18807")), has(kept_for(s, "localhost:18807", BOB))) == (
+            true,
+            false,
+        ),
+    );
+    adopt(s, "localhost:18807", signer, [signer]);
+    assert(
+        (has(old_for(s, "localhost:18807")), has(kept_for(s, "localhost:18807", signer))) == (
+            false,
+            true,
+        ),
+    );
+    clean(s.dir);
+    clean(dir);
+    clean("{dir}.key");
 }

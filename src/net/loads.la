@@ -9,7 +9,7 @@
  * is checked against its site after (PRP-043, `net.keeping`); `refreshed`
  * takes that check.
  *
- * Depends on: kivuli, std.time, std.crypto, window.tabs, window.leftoff, window.window, window.upgrades, net.fetching, net.keeping, bundles.loader, trust.verify, data.states, data.remembered, data.store, net.address, window.actions, guest.limits
+ * Depends on: kivuli, std.time, std.crypto, window.tabs, window.leftoff, window.window, window.upgrades, net.fetching, net.keeping, net.checks, bundles.loader, trust.verify, data.states, data.remembered, data.store, net.address, window.actions, guest.limits
  * Used by: window.navigate, shell
  */
 import kivuli { Cmd };
@@ -32,12 +32,14 @@ import window.upgrades { landed, adopted };
 import window.leftoff { LeftOff };
 import window.window { Model, with_tab, app };
 import net.fetching { Fetched, Source };
-import net.keeping { Keeping, Refreshed, open_app, refresh };
-import net.dialing { Network };
+import net.keeping { Keeping, open_app };
+import net.checks { check_after, held_of };
+
 import bundles.loader { Refusal, from_fetched, current };
-import trust.verify { known_for, moves, record };
+import trust.verify { Change, known_for, moves };
+import trust.publishers { apps_at, known_of };
 import data.states { saved_state_in, move_state };
-import data.remembered { Recalled };
+
 import data.store { Store };
 import net.address { Address, parse, shown };
 import window.actions { Msg };
@@ -63,7 +65,58 @@ fun begin(
     again: bool,
     saved: Option<(u8[], i64)>,
     kept: AppPage[],
-): (Model, Cmd<Msg>) = begin_at(m, id, path, again, saved, kept, None, []);
+): (Model, Cmd<Msg>) {
+    // ⟳ reloads the app it replaces; anything else, the only app known there.
+    let origin = match kept.len {
+        0 => the_app(m, path),
+        _ => kept[0].trust.map(fun(t) = t.origin),
+    };
+    begin_at(m, id, path, again, saved, kept, None, [], origin, false)
+}
+
+/**
+ * Begins loading one app at an address (PRP-049): the one picked from
+ * "Which app?", a separate app just named, a pin or Continue. A site that
+ * moved on opens it as the person's version without asking.
+ *
+ * Example:
+ *     begin_app(m, id, "rapidkoi://notes.dafifi.net", origin)
+ */
+fun begin_app(m: Model, id: i64, path: string, origin: u8[]): (Model, Cmd<Msg>) = begin_at(
+    m,
+    id,
+    path,
+    false,
+    None,
+    [],
+    None,
+    [],
+    Some(origin),
+    false,
+);
+
+/** A separate app goes by the name the person gave it (PRP-049); any other by its own. */
+fun named(m: Model, p: AppPage): AppPage {
+    let t = match p.trust {
+        Some(t) if t.separate => t,
+        _ => {
+            return p;
+        }
+    };
+    for i of known_of(known_for(m.ring, t.host), t.host, t.origin) {
+        if let Some(n) = i.name {
+            return AppPage { name: n, ..p };
+        }
+    }
+    p
+}
+
+/** The only app known at `path`'s host, by its first key; `None` for none or several. */
+fun the_app(m: Model, path: string): Option<u8[]> {
+    let host = shown(parse(path).ok()?);
+    let apps = apps_at(known_for(m.ring, host), host);
+    if apps.len == 1 { Some(apps[0].origin) } else { None }
+}
 
 /**
  * Begins loading a link (PRP-036): as `begin`, at the version it names
@@ -78,9 +131,21 @@ fun begin_link(
     path: string,
     version: Option<string>,
     link: (string, string)[],
-): (Model, Cmd<Msg>) = begin_at(m, id, path, false, None, [], version, link);
+): (Model, Cmd<Msg>) = begin_at(
+    m,
+    id,
+    path,
+    false,
+    None,
+    [],
+    version,
+    link,
+    the_app(m, path),
+    // Typed or followed: a site that moved on asks which (PRP-049).
+    true,
+);
 
-/** `begin`, with a link's version and fields. */
+/** `begin`, with a link's version and fields, which app it opens, and whether a moved-on site asks. */
 fun begin_at(
     m: Model,
     id: i64,
@@ -90,6 +155,8 @@ fun begin_at(
     kept: AppPage[],
     version: Option<string>,
     link: (string, string)[],
+    origin: Option<u8[]>,
+    ask: bool,
 ): (Model, Cmd<Msg>) {
     let parsed = match parse(path) {
         Ok(a) => a,
@@ -113,6 +180,8 @@ fun begin_at(
         resume: false,
         version: version,
         link: link,
+        origin: origin,
+        ask: ask,
     });
     let known = known_for(m.ring, shown(a));
     // Plain data for the task: the window's network is always the system's
@@ -121,7 +190,12 @@ fun begin_at(
     // Kept apps open from their copy first, except on ⟳ (a page kept
     // while it reloads), which asks the site first (PRP-043).
     let keep = m.store.map(
-        fun(s: Store) = Keeping { store: s, pinned: pinned_hosts(m), cache_first: kept.len == 0 },
+        fun(s: Store) = Keeping {
+            store: s,
+            held: held_of(m),
+            cache_first: kept.len == 0,
+            origin: origin,
+        },
     );
     let task = Cmd.task(
         fun(): Fetched = open_app(a, known, net, FETCH_TIMEOUT_MS, keep),
@@ -144,10 +218,14 @@ fun begin_at(
  * `begin`, marked so its saved state is picked up when it arrives.
  *
  * Example:
- *     begin_restoring(m, id, "rapidkoi://counter.dafifi.net")
+ *     begin_restoring(m, id, "rapidkoi://counter.dafifi.net", None)
  */
-fun begin_restoring(m: Model, id: i64, path: string): (Model, Cmd<Msg>) {
-    let (began, task) = begin(m, id, path, false, None, []);
+fun begin_restoring(m: Model, id: i64, path: string, origin: Option<u8[]>): (Model, Cmd<Msg>) {
+    // The app it was (PRP-049), else the only one known at its address.
+    let (began, task) = match origin {
+        Some(o) => begin_app(m, id, path, o),
+        None => begin(m, id, path, false, None, []),
+    };
     (restoring(began, id), task)
 }
 
@@ -190,6 +268,8 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
                 pending.kept,
                 pending.version,
                 pending.link,
+                pending.origin,
+                pending.ask,
             );
             return (if pending.resume { restoring(again, id) } else { again }, task);
         }
@@ -216,15 +296,15 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
                         reached: !src.offline,
                         size: src.size,
                         newer: None,
+                        moved: src.moved,
                     },
                 ),
                 ..from_loaded(m.engine, l, p.path, pending.link),
             };
-            let fresh = if pending.kept.len == 0 {
-                adopted(m, id, loaded, pending.link)
-            } else {
-                loaded
-            };
+            let fresh = named(
+                m,
+                if pending.kept.len == 0 { adopted(m, id, loaded, pending.link) } else { loaded },
+            );
             let offline = source.map(fun(src: Source) = src.offline).unwrap_or(false);
             // A link's version no longer listed opened the current one
             // (PRP-036); offline, the kept one opened (PRP-043).
@@ -268,6 +348,15 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
         // A refused reload keeps what ran (`landed`).
         Err(r) => (refused(r, p.path), None),
     };
+    // A site that moved on, reached by its address: your version waits
+    // while Rapidkoi asks which (PRP-049).
+    let page = match (pending.ask, source.and_then(fun(src: Source) = src.moved), page.trust) {
+        (true, Some(new), Some(t)) => AppPage {
+            screen: Screen.Unapproved(Change { host: t.host, old: t.key, new: new }, [page]),
+            ..page,
+        },
+        _ => page,
+    };
     // Every window of the app moves, or none (PRP-048).
     let (after, said) = landed(m, id, pending.kept, page, notice);
     // Continue keeps "where you left off" until the app runs.
@@ -276,162 +365,6 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
     ).is_some();
     let left = if ran { None } else { m.left_off };
     (Model { left_off: left, notice: said, ..after }, check_after(m, id, page, source))
-}
-
-/**
- * Takes a check of a kept app against its site (PRP-043, PRP-044):
- * records the trust it found, notes whether the site was reached, offers a
- * newer version kept to every window of the app running another one, and
- * stops the window when its running version was withdrawn. A result for a
- * closed tab, or one now running another build, is dropped.
- *
- * @param build the SHA-256 of the build that was running when the check began
- *
- * Example:
- *     refreshed(m, id, build, r)
- */
-fun refreshed(m: Model, id: i64, build: u8[], r: Refreshed): Model {
-    let p = match app(m, id) {
-        Some(p) if p.trust.map(fun(t) = equal(t.build, build)).unwrap_or(false) => p,
-        _ => {
-            return m;
-        }
-    };
-    let now = time.now_ms();
-    match r {
-        Checked(rec, known, fresher, withdrawn) => {
-            // Checked against trust that's since changed: the next open records it.
-            if known_for(m.ring, rec.now.host) == known {
-                record(m.ring, rec);
-            }
-            let after = match withdrawn {
-                Some(why) => stopped(m, id, p, why),
-                None => m,
-            };
-            offered(noted(after, id, true, now), p.path, fresher)
-        }
-        Gone(withdrawn) => {
-            let after = match withdrawn {
-                Some(why) => stopped(m, id, p, why),
-                None => m,
-            };
-            noted(after, id, true, now)
-        }
-        Unreachable => noted(m, id, false, now),
-        Refused => m,
-    }
-}
-
-/**
- * Checks the app in front against its site, when it's a kept one: the
- * check every `CHECK_EVERY_MS` while an app stays open (PRP-044).
- *
- * Example:
- *     check_current(m)
- */
-fun check_current(m: Model): Cmd<Msg> = match m.current {
-    Some(id) => match app(m, id) {
-        Some(p) => check_page(m, id, p),
-        None => Cmd.none(),
-    },
-    None => Cmd.none(),
-};
-
-/** Whether the site was reached, and when: tab `id`'s kept copy, noted. */
-fun noted(m: Model, id: i64, reached: bool, now: i64): Model = with_tab(
-    m,
-    id,
-    fun(a: AppPage) = AppPage {
-        cached: a.cached.map(
-            fun(c: Cached) = Cached {
-                checked: if reached { now } else { c.checked },
-                reached: reached,
-                ..c,
-            },
-        ),
-        ..a,
-    },
-);
-
-/** A newer version kept for the app at `path`: offered in each of its windows running another one. */
-fun offered(m: Model, path: string, fresher: Option<string>): Model {
-    let v = match fresher {
-        Some(v) => v,
-        None => {
-            return m;
-        }
-    };
-    let mut at = m;
-    for t of m.tabs {
-        let running = t.page.manifest.map(fun(mf) = mf.version);
-        if t.page.path == path && running != Some(v) {
-            at = with_tab(
-                at,
-                t.id,
-                fun(a: AppPage) = AppPage {
-                    cached: a.cached.map(fun(c: Cached) = Cached { newer: Some(v), ..c }),
-                    ..a,
-                },
-            );
-        }
-    }
-    at
-}
-
-/** The check that follows an open from the kept copy, when it opened from one and isn't offline. */
-fun check_after(m: Model, id: i64, page: AppPage, source: Option<Source>): Cmd<Msg> = match source {
-    Some(src) if src.kept && !src.offline => check_page(m, id, page),
-    _ => Cmd.none(),
-};
-
-/** A kept app's page checked against its site, in a task. */
-fun check_page(m: Model, id: i64, page: AppPage): Cmd<Msg> = match (
-    m.store,
-    page.cached,
-    page.trust,
-    page.manifest,
-    parse(page.path),
-) {
-    (Some(s), Some(_), Some(t), Some(mf), Ok(a)) => {
-        let known = known_for(m.ring, t.host);
-        let net = m.network;
-        let pinned = pinned_hosts(m);
-        let build = t.build;
-        let version = mf.version;
-        Cmd.task(
-            fun(): Refreshed = refresh(a, known, net, FETCH_TIMEOUT_MS, s, pinned, build, version),
-            fun(r: Refreshed) = Msg.Refreshed(id, build, r),
-        )
-    }
-    _ => Cmd.none(),
-};
-
-/**
- * The window, its running version withdrawn: stopped, saying why. Its
- * kept copy's facts stay, so a newer version kept is offered (PRP-044).
- */
-fun stopped(m: Model, id: i64, p: AppPage, why: string): Model {
-    let version = p.manifest.map(fun(mf) = mf.version).unwrap_or("");
-    close_page(p);
-    let page = AppPage {
-        instance: p.instance,
-        label: p.label,
-        seen: p.seen,
-        cached: p.cached,
-        ..refused(Refusal.Failed(p.name, "{p.name} {version} was withdrawn: {why}"), p.path),
-    };
-    with_tab(m, id, fun(_: AppPage) = page)
-}
-
-/** The hosts of pinned apps at addresses: their kept copies are never evicted. */
-fun pinned_hosts(m: Model): string[] {
-    let mut hosts: string[] = [];
-    for pin of m.pinned {
-        if let Ok(a) = parse(pin.path) {
-            hosts.push(shown(a));
-        }
-    }
-    hosts
 }
 
 /**

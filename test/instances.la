@@ -149,7 +149,7 @@ fun opening_an_open_app_shows_its_last_used_instance() {
     let second = m.current.unwrap();
     // Away to mail, then notes is asked for again (a pin, the address box).
     let away = step(m, Msg.Select(1));
-    let back = step(away, Msg.OpenPinned("notes.wasm"));
+    let back = step(away, Msg.OpenPinned("notes.wasm", None));
     assert_eq((back.current, back.tabs.len), (Some(second), 3));
 }
 

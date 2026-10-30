@@ -6,11 +6,11 @@
  * one waits (`upgrading`); and a new window of an app already open runs
  * the version open (`adopted`). Calls guests only to start them.
  *
- * Depends on: std.crypto, window.window, window.tabs, guest.running
+ * Depends on: window.window, window.apps, window.tabs, guest.running
  * Used by: window.navigate, net.loads
  */
-import std.crypto { equal };
 import window.window { Model, with_tab, same_app };
+import window.apps { same };
 import window.tabs { AppPage, Tab, ran, close_page, state_of, state_version_of };
 import guest.running { start };
 
@@ -116,7 +116,7 @@ fun follow(m: Model, id: i64): (Model, bool) {
             Unapproved(_, _) => true,
             _ => false,
         };
-        if t.id == id || waits || !same_app(t.page.path, now.path) || !same_publisher(t.page, now) {
+        if t.id == id || waits || !same(t.page, now) {
             continue;
         }
         let (moved, lost) = moved_onto(now, t.page);
@@ -170,10 +170,7 @@ fun adopted(m: Model, id: i64, fresh: AppPage, fields: (string, string)[]): AppP
             Running(_, _, _) => t.page.program.is_some(),
             _ => false,
         };
-        if t.id != id && runs && same_app(t.page.path, fresh.path) && same_publisher(
-            t.page,
-            fresh,
-        ) {
+        if t.id != id && runs && same(t.page, fresh) {
             close_page(fresh);
             let base = AppPage {
                 instance: fresh.instance,
@@ -191,13 +188,3 @@ fun adopted(m: Model, id: i64, fresh: AppPage, fields: (string, string)[]): AppP
     }
     fresh
 }
-
-/**
- * Whether two windows of one address are one app: the same publisher's
- * key when both are signed. A separate app (a second key for the host)
- * isn't; a stopped window, which has no trust left, is.
- */
-fun same_publisher(a: AppPage, b: AppPage): bool = match (a.trust, b.trust) {
-    (Some(x), Some(y)) => equal(x.key, y.key),
-    _ => true,
-};

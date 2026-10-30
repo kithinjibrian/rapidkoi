@@ -1,0 +1,232 @@
+/**
+ * Two apps at one address (PRP-049, DECISION-064): naming a separate app
+ * before it opens, and "Which app?" when an address has several. A
+ * separate app is another publisher's key at the same host, trusted as
+ * its own app under the person's name; it opens in its own tab, and the
+ * person's version stays. Never touches the disk; loads are tasks.
+ *
+ * Depends on: kivuli, std.crypto, window.window, window.tabs, window.apps, window.actions, trust.verify, trust.publishers, net.loads, net.address
+ * Used by: window.navigate, shell, ui.asking
+ */
+import kivuli { Cmd };
+import std.crypto { equal };
+import window.window { Model, app, add_tab, close, show_tab, with_tab, page_of };
+import window.tabs { AppPage, Tab, Page, open_path, close_page, failed_page };
+import window.actions { Msg };
+import trust.verify { Change, Identity, known_for, separate };
+import trust.publishers { apps_at };
+import net.loads { begin_app };
+import net.address { is_address, parse, shown };
+
+/** The longest name a separate app is given, as an instance's (PRP-033). */
+const MAX_NAME: i64 = 64;
+
+/**
+ * "Open as a separate app" on the question about a changed key: asks for
+ * the new app's name first.
+ *
+ * Example:
+ *     start_naming(m)
+ */
+fun start_naming(m: Model): Model = match (m.current, page_of(m)) {
+    (Some(id), App(a)) => match a.screen {
+        Unapproved(c, _) => Model { naming: Some((id, c, "")), ..m },
+        _ => m,
+    },
+    _ => m,
+};
+
+/**
+ * "Open as a separate app" on the shield of an app whose site moved on
+ * (PRP-049): the new publisher's app, in a tab of its own, named first;
+ * or its tab, when it's already an app here.
+ *
+ * Example:
+ *     separate_moved(m)
+ */
+fun separate_moved(m: Model): (Model, Cmd<Msg>) {
+    let (a, t, new) = match page_of(m) {
+        App(a) => match (a.trust, a.cached.and_then(fun(c) = c.moved)) {
+            (Some(t), Some(new)) => (a, t, new),
+            _ => {
+                return (m, Cmd.none());
+            }
+        },
+        Home => {
+            return (m, Cmd.none());
+        }
+    };
+    let placed = add_tab(m, failed_page(a.path, ""));
+    let id = placed.current.unwrap_or(-1);
+    let known = apps_at(known_for(m.ring, t.host), t.host);
+    if let Some(i) = known.iter().find(fun(i: Identity) = equal(i.key, new)) {
+        return opened(placed, id, a.path, i.origin);
+    }
+    let c = Change { host: t.host, old: t.key, new: new };
+    (Model { naming: Some((id, c, "")), ..placed }, Cmd.none())
+}
+
+/**
+ * The name typed for the separate app.
+ *
+ * Example:
+ *     name_typed(m, "Bob's Notes")
+ */
+fun name_typed(m: Model, typed: string): Model = match m.naming {
+    Some((id, c, _)) => Model { naming: Some((id, c, typed)), ..m },
+    None => m,
+};
+
+/**
+ * Says why the name typed can't be used, or nothing when it can: empty,
+ * longer than 64 characters, or another app's at this address.
+ *
+ * Example:
+ *     naming_problem(m)
+ */
+fun naming_problem(m: Model): Option<string> {
+    let (c, typed) = match m.naming {
+        Some((_, c, typed)) => (c, typed),
+        None => {
+            return None;
+        }
+    };
+    let name = typed.trim();
+    if name == "" {
+        return Some("Give it a name");
+    }
+    if name.char_count() > MAX_NAME {
+        return Some("At most 64 characters");
+    }
+    if apps_at(known_for(m.ring, c.host), c.host).any(fun(i: Identity) = i.name == Some(name)) {
+        return Some("Another app here is called that");
+    }
+    None
+}
+
+/**
+ * Opens the separate app under the name typed, if it can be used: its key
+ * trusted as its own app, loaded from its site in its own tab. The
+ * person's version, when one was open, stays in its tab.
+ *
+ * Example:
+ *     confirm_naming(m)
+ */
+fun confirm_naming(m: Model): (Model, Cmd<Msg>) {
+    let (id, c, typed) = match m.naming {
+        Some(n) if naming_problem(m).is_none() => n,
+        _ => {
+            return (m, Cmd.none());
+        }
+    };
+    separate(m.ring, c, typed.trim());
+    let base = Model { naming: None, ..m };
+    let a = match app(base, id) {
+        Some(a) => a,
+        None => {
+            return (base, Cmd.none());
+        }
+    };
+    match a.screen {
+        // Your version was open: it stays, and the new app gets a tab.
+        Unapproved(_, kept) if kept.len > 0 => {
+            let back = with_tab(base, id, fun(_: AppPage) = kept[0]);
+            let placed = add_tab(back, failed_page(a.path, ""));
+            opened(placed, placed.current.unwrap_or(-1), a.path, c.new)
+        }
+        _ => {
+            close_page(a);
+            opened(base, id, a.path, c.new)
+        }
+    }
+}
+
+/**
+ * Cancel on the name: back to the question, or the tab it was opened in
+ * closes when it came from the shield.
+ *
+ * Example:
+ *     cancel_naming(m)
+ */
+fun cancel_naming(m: Model): Model {
+    let id = match m.naming {
+        Some((id, _, _)) => id,
+        None => {
+            return m;
+        }
+    };
+    let base = Model { naming: None, ..m };
+    match app(base, id) {
+        Some(a) => match a.screen {
+            Unapproved(_, _) => base,
+            _ => close(base, id),
+        },
+        None => base,
+    }
+}
+
+/**
+ * "Which app?" for an address with several apps (PRP-049): its tab and
+ * the question, in place of opening one. `None` when the address has one
+ * app or none, so it opens as before.
+ *
+ * Example:
+ *     asks_which(m, "rapidkoi://notes.dafifi.net")
+ */
+fun asks_which(m: Model, path: string): Option<Model> {
+    if !is_address(path) {
+        return None;
+    }
+    let host = shown(parse(path).ok()?);
+    if apps_at(known_for(m.ring, host), host).len < 2 {
+        return None;
+    }
+    let placed = add_tab(m, failed_page(path, ""));
+    Some(Model { choosing: Some((placed.current.unwrap_or(-1), path)), ..placed })
+}
+
+/**
+ * The apps "Which app?" lists for its address: one per first key, with
+ * the name each is shown by (its own or the person's, else the host).
+ *
+ * Example:
+ *     choices(m)
+ */
+fun choices(m: Model): (string, Identity)[] = match m.choosing {
+    Some((_, path)) => match parse(path) {
+        Ok(a) => apps_at(known_for(m.ring, shown(a)), shown(a)).map(
+            fun(i: Identity) = (i.name.unwrap_or(i.host), i),
+        ),
+        Err(_) => [],
+    },
+    None => [],
+};
+
+/**
+ * Opens the app picked from "Which app?": its tab when it's open, else
+ * in the asking tab.
+ *
+ * Example:
+ *     choose(m, origin)
+ */
+fun choose(m: Model, origin: u8[]): (Model, Cmd<Msg>) = match m.choosing {
+    Some((id, path)) => opened(Model { choosing: None, ..m }, id, path, origin),
+    None => (m, Cmd.none()),
+};
+
+/** App `origin` at `path` in tab `id`: its own tab instead, when one is open. */
+fun opened(m: Model, id: i64, path: string, origin: u8[]): (Model, Cmd<Msg>) {
+    let open = m.tabs.iter().find(
+        fun(t: Tab) = t.id != id && t.page.path == path && t.page.trust.map(
+            fun(tr) = equal(tr.origin, origin),
+        ).unwrap_or(false),
+    );
+    if let Some(t) = open {
+        return (show_tab(close(m, id), t.id), Cmd.none());
+    }
+    if is_address(path) && parse(path).is_ok() {
+        return begin_app(m, id, path, origin);
+    }
+    // A signed file: its key is trusted now, so it opens as that app.
+    (with_tab(m, id, fun(_: AppPage) = open_path(m.engine, m.ring, path)), Cmd.none())
+}

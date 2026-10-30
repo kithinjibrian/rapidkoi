@@ -124,7 +124,7 @@ fun a_new_key_without_a_trail_asks_first() {
     publish_site(dir).unwrap();
     let asked = reloaded(m);
     assert_eq(shows(asked, "localhost:18743 is now signed by a different key"), true);
-    assert_eq(click(view(asked), "Keep using my version"), Ok(Msg.KeepMine));
+    assert_eq(click(view(asked), "Open my version"), Ok(Msg.KeepMine));
     let kept = step(asked, Msg.KeepMine);
     assert_eq(marks(kept, "localhost:18743 · verified (development)"), true);
     // Opened again after its tab closed (nothing open to keep): keeping
@@ -136,8 +136,16 @@ fun a_new_key_without_a_trail_asks_first() {
     // Asked again; this time, a separate app.
     let again = reloaded(kept);
     assert_eq(click(view(again), "Open as a separate app"), Ok(Msg.SeparateApp));
-    let other = step(again, Msg.SeparateApp);
+    // PRP-049: named first; your version stays, and the new one gets its own tab.
+    let naming = step(again, Msg.SeparateApp);
+    assert(naming.naming.is_some());
+    let other = step(step(naming, Msg.NameSeparate("Other")), Msg.ConfirmSeparate);
+    assert_eq(other.tabs.len, 2);
     assert_eq(marks(other, "localhost:18743 · verified (development) · new publisher"), true);
+    match page_of(other) {
+        App(p) => assert_eq(p.name, "Other"),
+        Home => panic("the new app should be in front"),
+    }
     clean(dir);
     clean("{dir}.key");
 }

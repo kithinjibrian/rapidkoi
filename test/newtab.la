@@ -7,7 +7,7 @@ import rapidkoi.trust.verify { keyring };
 import rapidkoi.window.newtab { BUNDLE, open };
 import rapidkoi.window.tabs { AppPage, Pin, failed_page };
 import rapidkoi.data.store { store_at, save };
-import rapidkoi.data.remembered { pins_file };
+import rapidkoi.data.pinfiles { pins_file };
 import std.fs;
 import rapidkoi.shell { start, update };
 import rapidkoi.window.window { Model, with_pages };
@@ -164,7 +164,9 @@ fun the_first_screen_already_shows_what_s_remembered() {
     save(
         s,
         "pins",
-        pins_file([Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }]),
+        pins_file([
+            Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None, origin: None },
+        ]),
     ).unwrap();
     let (m, _) = start(["./main"], Some(s));
     assert_eq(m.newtab.map(fun(p: AppPage) = p.asks.len), Some(0));

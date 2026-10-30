@@ -62,27 +62,39 @@ This is steps 1–7, 9 (without a default), 10, 11 and 12 of the journey (https:
   - The moved-on copy is still checked exactly as a site on every open (`check_site_at` over the kept files); only its update path stops.
 
 ## TESTS
-- [ ] An app's identity: signed by host and origin, a rotation keeps it, a file by its path
-- [ ] A changed key keeps the copy, marks it moved on, and the app opens from it online and offline, with its state; no upgrade is offered
-- [ ] Other refusals still remove the copy
-- [ ] The moved-on app's shield card offers Open as a separate app
-- [ ] A copy in the old per-host folder moves to its identity's folder on open; one that matches no identity is dropped
-- [ ] Typing the address of a moved-on app: the question; Open my version opens it from its copy
-- [ ] Open as a separate app: the naming screen; each rule's sentence; Open off until valid; Cancel goes back
-- [ ] The named separate app loads from its site (not the other's copy), is kept under its own identity, and starts with empty data
-- [ ] Both apps open side by side in their own tabs; + and PRP-048's upgrade stay within one app
-- [ ] Typing an address with two apps: the list; picking one opens it
-- [ ] Pins, Continue and the session reopen the exact app; older files without the key open the only app or ask
-- [ ] Forget and Clear touch only one app
-- [ ] The publisher comes back with its key, or a rotation from it: its app updates again; the other app is moved on
-- [ ] A new key with no trail: a third app
-- [ ] Files and development addresses behave as before
-- [ ] The address box shows no "· new publisher"
+- [x] An app's identity: signed by host and origin, a rotation keeps it, a file by its path
+- [x] A changed key keeps the copy, marks it moved on, and the app opens from it online and offline, with its state; no upgrade is offered
+- [x] Other refusals still remove the copy
+- [x] The moved-on app's shield card offers Open as a separate app
+- [x] A copy in the old per-host folder moves to its identity's folder on open (one that matches no identity stays: see AMENDMENTS)
+- [x] Typing the address of a moved-on app: the question; Open my version opens it from its copy
+- [x] Open as a separate app: the naming screen; each rule's sentence; Open off until valid; Cancel goes back
+- [x] The named separate app loads from its site (not the other's copy), is kept under its own identity, and starts with empty data
+- [x] Both apps open side by side in their own tabs; + and PRP-048's upgrade stay within one app
+- [x] Typing an address with two apps: the list; picking one opens it
+- [x] Pins, Continue and the session reopen the exact app; older files without the key open the only app or ask
+- [x] Forget and Clear touch only one app
+- [x] The publisher comes back with its key, or a rotation from it: its app updates again; the other app is moved on
+- [x] A new key with no trail: a third app
+- [x] Files and development addresses behave as before
+- [x] The address box shows no "· new publisher"
 
 ## ACCEPTANCE
-- [ ] Every test above passes
-- [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build -O 2 src/main.la -o main` pass
+- [x] Every test above passes
+- [x] `lughac test test/`, `lughac fmt --check src test` and `lughac build -O 2 src/main.la -o main` pass
 - [ ] For the owner, by eye: publish counter at a local site, open it and count; re-key the site and publish; reopen: your count, the caution shield and its card; Open as a separate app, name it: a second tab at count 0; close both, type the address: "Which app?"; Forget one: the other stays
 
 ## APPROVAL
 - The owner (2026-10-30): the words as written; the split of `remembered.la` into `remembered.la` and `pinned.la`; one PRP.
+
+## AMENDMENTS
+
+- **Module names:** `pinned.la` is `src/data/pinfiles.la` (`pinned` is a local name in `saving.la`, E0311); `identity.la` is `src/window/apps.la` (`src/people/identity.la` exists). Which keys belong to which app (`known_of`, `apps_at`) is `src/trust/publishers.la`, because `net.keeping` can't import a window module.
+- **`loads.la` split (approved):** the checks moved, unchanged, to `src/net/checks.la`. `on_pin` moved from `shell.la` to `navigate.la` (`shell.la` passed 500 lines).
+- **Each app is checked only against its own keys** (`known_of`): otherwise a check of Alice's app would accept Bob's site as hers. `loader.current` compares the app's own keys too.
+- **Every identity has a name:** the manifest's at first use, the person's for a separate app, kept through rotations; "Which app?" lists them without reading the disk. A tab shows the person's name for a separate app.
+- **"Don't open it" stays** when there's no kept version to open; "Keep using my version" became "Open my version".
+- **The naming screen is a dialog**, like renaming an instance; "Which app?" is in the tab.
+- **Pins and the session gain an optional app key** with no format bump (older files read as before; their pins and tabs name no app). `Msg.OpenPinned` and `Msg.OnPin` carry the key. A pin with no key at an address with several apps asks which.
+- **An old per-host copy** is adopted by the app whose key signed it, or, when nothing is trusted there yet, by its own signer as a first use; one signed by another key stays for eviction rather than being deleted.
+- **A loading window is saved** in the session as the app its load is for.

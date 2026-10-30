@@ -1,26 +1,28 @@
 /**
  * The kept copy of each signed app (PRP-043): its site's `key` and `index`
  * as last fetched, the one build that index names, and `meta` (when it was
- * last checked and opened). Nothing here
+ * last checked and opened, and the key its site moved on to). Nothing here
  * trusts what's on disk: `files` serves the copy to `verify.check_site_at`,
  * which checks it exactly as it checks a site. Each app's folder is
- * `kept/<sha256 of its host>`, so no host becomes a path. Touches the
- * disk: run it in a task.
+ * `kept/<sha256 of its host and first key>` (PRP-049), so no host becomes
+ * a path and two apps at one address keep their own. Touches the disk:
+ * run it in a task.
  *
- * Depends on: std.fs, std.crypto, cbor, data.store, trust.keys, trust.verify, guest.limits
+ * Depends on: std.fs, std.crypto, cbor, data.store, trust.keys, trust.verify, trust.index, guest.limits
  * Used by: net.keeping, shell
  */
 import std.fs;
-import std.crypto { sha256 };
+import std.crypto { sha256, equal };
 import cbor { Value, Entry, Limits, decode, encode };
 import data.store { Store, store_at, save, reason as store_reason };
 import trust.keys { hex };
 import trust.verify { SITE };
+import trust.index as key_files;
 import guest.limits { MAX_BUNDLE };
 
 /** One app's kept copy: its folder. */
 struct Kept {
-    /** `kept/<sha256 of the host>` in the data folder. */
+    /** `kept/<sha256 of the host and first key>` in the data folder. */
     dir: string,
 }
 
@@ -30,6 +32,12 @@ struct Meta {
     checked: i64,
     /** When it was last opened: eviction goes oldest first. */
     opened: i64,
+    /**
+     * The key its site is now signed with, with no signed trail from this
+     * app's (PRP-049): the copy is kept as the person's version, and no
+     * longer updates. `None` while the site is still this app's.
+     */
+    moved: Option<u8[]>,
 }
 
 /** Why a kept copy couldn't be written or removed. */
@@ -42,15 +50,53 @@ enum KeptError {
 const MAX_META: i64 = 4096;
 
 /**
- * Returns the kept copy for a host (`notes.dafifi.net`, `localhost:8000`).
- * Touches nothing.
+ * Returns the kept copy of one app: a host (`notes.dafifi.net`,
+ * `localhost:8000`) and the first key trusted for it. Touches nothing.
  *
  * Example:
- *     kept_for(store, "notes.dafifi.net")
+ *     kept_for(store, "notes.dafifi.net", t.origin)
  */
-fun kept_for(s: Store, host: string): Kept = Kept {
+fun kept_for(s: Store, host: string, origin: u8[]): Kept = Kept {
+    dir: "{s.dir}/kept/{hex(sha256("app\n{host}\n{hex(origin)}".to_bytes()))}",
+};
+
+/**
+ * Returns a host's copy as kept before PRP-049, one per host. Touches nothing.
+ *
+ * Example:
+ *     old_for(store, "notes.dafifi.net")
+ */
+fun old_for(s: Store, host: string): Kept = Kept {
     dir: "{s.dir}/kept/{hex(sha256("host\n{host}".to_bytes()))}",
 };
+
+/**
+ * Moves a host's copy kept before PRP-049 to the app whose keys signed
+ * it, when that app has no copy of its own yet. A copy signed by another
+ * key stays for its own app, or for eviction. A failure leaves it where it
+ * was: the app then opens from its site.
+ *
+ * @param signers every key of the app (`apps.known_of`)
+ *
+ * Example:
+ *     adopt(store, host, t.origin, known_of(all, host, t.origin).map(fun(i) = i.key))
+ */
+fun adopt(s: Store, host: string, origin: u8[], signers: u8[][]) {
+    let old = old_for(s, host);
+    let now = kept_for(s, host, origin);
+    if !has(old) || has(now) {
+        return;
+    }
+    let signer = match read_bytes("{old.dir}/key") {
+        Ok(b) => key_files.read_key_file(b).map(fun(kf) = kf.key).ok(),
+        Err(_) => None,
+    };
+    if let Some(key) = signer {
+        if signers.any(fun(k: u8[]) = equal(k, key)) {
+            fs.rename(old.dir, now.dir).unwrap_or(());
+        }
+    }
+}
 
 /**
  * Says whether there's a copy to check: its index is there.
@@ -130,7 +176,12 @@ fun read_meta(k: Kept): Option<Meta> {
         return None;
     }
     let number = fun(name: string) = v.get(name).and_then(fun(x: Value) = x.as_i64()).unwrap_or(0);
-    Some(Meta { checked: number("checked"), opened: number("opened") })
+    // A meta written before PRP-049 has no `moved`: still the app's site.
+    let moved = match v.get("moved") {
+        Some(Bytes(b)) if b.len == 32 => Some(b),
+        _ => None,
+    };
+    Some(Meta { checked: number("checked"), opened: number("opened"), moved: moved })
 }
 
 /**
@@ -145,6 +196,7 @@ fun write_meta(k: Kept, m: Meta): Result<(), KeptError> {
         entry("kind", Value.Text("rapidkoi kept")),
         entry("checked", Value.int(m.checked)),
         entry("opened", Value.int(m.opened)),
+        entry("moved", m.moved.map(fun(k: u8[]) = Value.Bytes(k)).unwrap_or(Value.Null)),
     ];
     save(store_at(k.dir), "meta", encode(Value.Map(entries))).map_err(
         fun(e) = KeptError.Io("{k.dir}/meta", store_reason(e)),
@@ -194,28 +246,28 @@ fun remove(k: Kept): Result<(), KeptError> {
 
 /**
  * Removes kept copies while all of them together are over `limit`: the
- * least recently opened first, never one for a host in `pinned`, which
+ * least recently opened first, never one in `held` (pinned apps'), which
  * stay even if they alone are over it.
  *
- * @param pinned the hosts of pinned apps
+ * @param held the copies never evicted: every app at a pinned address
  * @returns how many were removed; or the first that couldn't be
  *
  * Example:
- *     evict(store, ["notes.dafifi.net"], KEPT_BYTES)?
+ *     evict(store, [kept_for(store, "notes.dafifi.net", origin)], KEPT_BYTES)?
  */
-fun evict(s: Store, pinned: string[], limit: i64): Result<i64, KeptError> {
+fun evict(s: Store, held: Kept[], limit: i64): Result<i64, KeptError> {
     let root = "{s.dir}/kept";
     if !fs.is_dir(root) {
         return Ok(0);
     }
-    let held = pinned.map(fun(h: string) = kept_for(s, h).dir);
+    let kept_dirs = held.map(fun(k: Kept) = k.dir);
     let mut all: (i64, Kept, i64)[] = [];
     let mut total = 0;
     for name of fs.list_dir(root).map_err(fun(e: string) = KeptError.Io(root, e))? {
         let k = Kept { dir: "{root}/{name}" };
         let size = size_of(k);
         total += size;
-        if !held.any(fun(d: string) = d == k.dir) {
+        if !kept_dirs.any(fun(d: string) = d == k.dir) {
             all.push((read_meta(k).map(fun(m: Meta) = m.opened).unwrap_or(0), k, size));
         }
     }

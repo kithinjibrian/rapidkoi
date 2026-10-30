@@ -1,0 +1,70 @@
+/**
+ * Two apps at one address (PRP-049), pure: the dialog naming a separate
+ * app before it opens, and "Which app?" in the tab of an address that has
+ * several. Every word is the owner's (DECISION-064).
+ *
+ * Depends on: kivuli, window.actions, window.window, window.choosing, trust.verify, trust.keys, guest.nodes, ui.tokens, ui.themes
+ * Used by: ui.settings, ui.content
+ */
+import kivuli { View, Align, column, row, text, button };
+import kivuli.ui { button as ui_button, dialog_header, dialog_footer, input as ui_input };
+import window.actions { Msg };
+import window.window { Model };
+import window.choosing { naming_problem, choices };
+import trust.verify { Identity };
+import trust.keys { fingerprint };
+import guest.nodes { ButtonLook };
+import ui.tokens { SPACE_SM, gap };
+import ui.themes { title, dim, button as button_look };
+
+/**
+ * The naming dialog's content: the name, why it can't be used if so,
+ * Cancel and Open.
+ *
+ * Example:
+ *     ui_dialog(Msg.CancelSeparate, [asking.naming_view(m)])
+ */
+fun naming_view(m: Model): View<Msg> {
+    let t = m.theme;
+    let typed = m.naming.map(fun(n) = n.2).unwrap_or("");
+    let problem = naming_problem(m);
+    let mut parts: View<Msg>[] = [
+        dialog_header("Name the new app", ""),
+        ui_input(typed, fun(s: string) = Msg.NameSeparate(s)).placeholder("Name").name(
+            "Name",
+        ).on_submit(Msg.ConfirmSeparate),
+    ];
+    if let Some(why) = problem {
+        parts.push(text(why).style(dim(t)).align(Align.Start));
+    }
+    parts.push(
+        dialog_footer([
+            ui_button("Cancel", Msg.CancelSeparate).style(button_look(t, ButtonLook.Normal)),
+            ui_button("Open", Msg.ConfirmSeparate).style(
+                button_look(t, ButtonLook.Primary),
+            ).disabled(problem.is_some()),
+        ]),
+    );
+    column(parts)
+}
+
+/**
+ * "Which app?": one row per app at the address, its name and its key's
+ * fingerprint; picking one opens it.
+ *
+ * Example:
+ *     which_view(m)
+ */
+fun which_view(m: Model): View<Msg> {
+    let t = m.theme;
+    let mut parts: View<Msg>[] = [text("Which app?").style(title(t)).align(Align.Start)];
+    for (name, i) of choices(m) {
+        parts.push(
+            row([
+                button(name, Msg.Choose(i.origin)).style(button_look(t, ButtonLook.Normal)),
+                text(fingerprint(i.key)).style(dim(t)).align(Align.Center),
+            ]).style([gap(SPACE_SM)]),
+        );
+    }
+    column(parts).style([gap(SPACE_SM)])
+}

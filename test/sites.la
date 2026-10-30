@@ -9,7 +9,7 @@ import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage };
 import rapidkoi.data.store { Store, store_at };
-import rapidkoi.data.kept { kept_for, keep };
+import rapidkoi.data.kept { old_for, keep };
 import rapidkoi.commands.publish { make_key, publish_site };
 import rapidkoi.commands.serve { handle };
 import kivuli.testing { texts };
@@ -96,17 +96,24 @@ fun served(dir: string, port: i64) {
     sleep(100);
 }
 
-/** Keeps a published site's files for its host, as if it had been opened before. */
+/** Keeps a published site's files for its host, as a Rapidkoi before PRP-049 kept them. */
 fun kept_by_hand(s: Store, dir: string, port: i64) {
     let root = "{dir}/site/.well-known/rapidkoi";
     let builds = fs.list_dir("{root}/builds").unwrap();
     keep(
-        kept_for(s, "localhost:{port}"),
+        old_for(s, "localhost:{port}"),
         read_bytes("{root}/key").unwrap(),
         read_bytes("{root}/index").unwrap(),
         read_bytes("{root}/builds/{builds[builds.len - 1]}").unwrap(),
     ).unwrap();
 }
+
+/** How many apps have a kept copy in `s`. */
+fun kept_count(s: Store): i64 = if fs.is_dir("{s.dir}/kept") {
+    fs.list_dir("{s.dir}/kept").unwrap().len
+} else {
+    0
+};
 
 /** Removes a test's data folder, site and key. */
 fun done(s: Store, dir: string) {

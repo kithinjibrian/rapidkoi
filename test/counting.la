@@ -57,7 +57,7 @@ fun home_and_continue_keep_the_count() {
 fun a_pinned_app_opens_from_home() {
     let mut m = step(started("pinned"), Msg.TogglePin);
     m = step(m, Msg.NewTab);
-    m = step(m, Msg.OpenPinned(m.pinned[0].path));
+    m = step(m, Msg.OpenPinned(m.pinned[0].path, None));
     assert(has(m, "Count: 0"));
 }
 

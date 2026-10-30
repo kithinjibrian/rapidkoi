@@ -30,7 +30,7 @@ struct Suggestion {
     label: string,
     /** Its screen's title, when it has one. */
     detail: Option<string>,
-    /** `Select(id)` for an open tab, `OpenPinned(path)` for a pin, `Continue` for a closed app. */
+    /** `Select(id)` for an open tab, `OpenPinned(path, origin)` for a pin, `Continue` for a closed app. */
     msg: Msg,
 }
 
@@ -64,7 +64,11 @@ fun suggest(query: string, open: Tab[], pinned: Pin[], card: Option<Card>): Sugg
     }
     for p of pinned {
         if matches(q, p.name, None) {
-            found.push(Suggestion { label: p.name, detail: None, msg: Msg.OpenPinned(p.path) });
+            found.push(Suggestion {
+                label: p.name,
+                detail: None,
+                msg: Msg.OpenPinned(p.path, p.origin),
+            });
         }
     }
     // An open tab is already among the tabs above; only a closed app is added.

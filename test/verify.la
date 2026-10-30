@@ -195,7 +195,7 @@ fun a_swapped_key_without_a_trail_is_an_unapproved_change() {
                 "localhost:8000 is now signed by a different key",
             );
             // "Open as a separate app": the new key opens, marked separate.
-            separate(ring, c);
+            separate(ring, c, "Other");
             let v = verify_site(ring, HOST, getter(s)).unwrap();
             assert_eq(v.trust.separate, true);
         }
@@ -306,6 +306,8 @@ fun a_keyring_goes_out_and_back_in() {
             separate: false,
             since: ids[0].since,
             origin: k.public_key,
+            // Its own name, met first here (PRP-049).
+            name: Some("Notes"),
         },
     ]);
     // A keyring made from them trusts the same key: a swapped one asks.
@@ -336,7 +338,7 @@ fun the_change_count_moves_only_when_trust_does() {
     put(s, "{SITE}/index", [0]);
     assert_eq(why(ring, s) != "ok", true);
     assert_eq(changes(ring), 2);
-    separate(ring, Change { host: HOST, old: k.public_key, new: key(HOST).public_key });
+    separate(ring, Change { host: HOST, old: k.public_key, new: key(HOST).public_key }, "Other");
     assert_eq(changes(ring), 3);
 }
 
@@ -421,7 +423,7 @@ fun an_app_s_origin_is_its_first_key_kept_through_rotations() {
     assert_eq((after.trust.key, after.trust.origin), (new.public_key, old.public_key));
     // A separate publisher is its own app: its own origin.
     let other = key(HOST);
-    separate(ring, Change { host: HOST, old: new.public_key, new: other.public_key });
+    separate(ring, Change { host: HOST, old: new.public_key, new: other.public_key }, "Other");
     let them = verify_site(ring, HOST, getter(fresh(other, "1.0.0"))).unwrap();
     assert_eq(them.trust.origin, other.public_key);
 }

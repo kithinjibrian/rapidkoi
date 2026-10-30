@@ -9,16 +9,29 @@
  * Used by: shell
  */
 import std.fs;
-import window.tabs { AppPage, Tab, open_path, close_page, state_of, state_version_of, failed_page };
+import window.tabs {
+    AppPage,
+    Tab,
+    Pin,
+    open_path,
+    close_page,
+    state_of,
+    state_version_of,
+    failed_page,
+};
 import window.restarts { resume, load_again };
 import window.upgrades { upgrading, landed, shape_changed };
+import window.choosing { asks_which };
 import window.instances { next_instance, another };
 import data.remembered { Open };
-import window.leftoff { LeftOff, leave, compiled };
-import trust.verify { separate };
-import net.loads { begin, begin_link, begin_restoring, resumed };
+import window.leftoff { LeftOff, leave, compiled, signer_of };
+import trust.verify { Identity, known_for };
+import std.crypto { equal };
+import net.loads { begin, begin_app, begin_link, begin_restoring, resumed };
+import window.apps { tab_of };
+import window.pins { pins_app };
 import kivuli { Cmd };
-import window.actions { Msg };
+import window.actions { Msg, PanelPage, Confirm, PinAction };
 import window.window {
     Model,
     page_of,
@@ -86,6 +99,10 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
         });
         let tidy = Model { draft: "", editing: false, notice: None, ..placed };
         return begin_link(tidy, placed.current.unwrap_or(-1), path, version, fields);
+    }
+    // Several apps at this address: which one (PRP-049).
+    if let Some(asking) = asks_which(Model { draft: "", editing: false, notice: None, ..m }, path) {
+        return (asking, Cmd.none());
     }
     // One tab per app (PRP-026): an app already open is shown, not started twice.
     if let Some(id) = open_tab_of(m, path) {
@@ -196,7 +213,14 @@ fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
     // open now keeps only its current windows; one that isn't comes back
     // with all of its own.
     for t of o.tabs {
-        let current = m.tabs.filter(fun(x: Tab) = same_app(x.page.path, t.path));
+        // The same app (PRP-049): its address, and its first key when saved with one.
+        let current = m.tabs.filter(fun(x: Tab) = same_app(x.page.path, t.path) && match (
+            t.origin,
+            x.page.trust,
+        ) {
+            (Some(o), Some(tr)) => equal(o, tr.origin),
+            _ => true,
+        });
         if current.len > 0 {
             ids.push(current[0].id);
             continue;
@@ -217,7 +241,7 @@ fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
             // Its tab first, under its name; begin keeps the instance (loads).
             let placed = add_tab(at, named(failed_page(t.path, "")));
             let id = placed.current.unwrap_or(-1);
-            let (loading, task) = begin_restoring(placed, id, t.path);
+            let (loading, task) = begin_restoring(placed, id, t.path, t.origin);
             at = loading;
             tasks.push(task);
         } else {
@@ -245,9 +269,28 @@ fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
  * Example:
  *     open_pin(m, "counter.wasm")
  */
-fun open_pin(m: Model, path: string): (Model, Cmd<Msg>) = match open_tab_of(m, path) {
+fun open_pin(m: Model, path: string, origin: Option<u8[]>): (Model, Cmd<Msg>) = match tab_of(
+    m,
+    path,
+    origin,
+) {
+    // A pin from before PRP-049 names no app: at an address with several, which.
+    Some(_) if origin.is_none() && asks_which(m, path).is_some() => (
+        asks_which(Model { draft: "", editing: false, notice: None, ..go_home(m) }, path).unwrap_or(
+            m,
+        ),
+        Cmd.none(),
+    ),
     Some(id) => (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none()),
-    None => open_file(go_home(m), path),
+    // A pin names its app (PRP-049): that one, never another at its address.
+    None => match origin {
+        Some(o) if is_address(path) && parse(path).is_ok() => {
+            let home = Model { draft: "", editing: false, notice: None, ..go_home(m) };
+            let id = slot(home);
+            begin_app(add_tab(home, failed_page(path, "")), id, path, o)
+        }
+        _ => open_file(go_home(m), path),
+    },
 };
 
 /**
@@ -270,7 +313,11 @@ fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
         let id = slot(m);
         let tab = add_tab(m, failed_page(l.path, ""));
         if is_address(l.path) && parse(l.path).is_ok() {
-            return begin(tab, id, l.path, false, None, []);
+            // The app it was (PRP-049): its key names it among those at its address.
+            return match left_origin(m, l) {
+                Some(o) => begin_app(tab, id, l.path, o),
+                None => begin(tab, id, l.path, false, None, []),
+            };
         }
         let opened = open_path(m.engine, m.ring, l.path);
         let (page, notice) = resumed(tab, opened, opened.link);
@@ -283,10 +330,22 @@ fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
     None => (m, Cmd.none()),
 };
 
+/** The first key of a left-off's app, from the key it was signed with: `None` when unsigned or unknown. */
+fun left_origin(m: Model, l: LeftOff): Option<u8[]> {
+    let (host, key) = signer_of(l)?;
+    let i = known_for(m.ring, host).iter().find(fun(i: Identity) = equal(i.key, key))?;
+    Some(i.origin)
+}
+
 /** The tab showing a left-off's app as the same instance, if one is open. */
 fun instance_open(m: Model, l: LeftOff): Option<i64> {
     for t of m.tabs {
-        if same_app(t.page.path, l.path) && t.page.instance == l.instance {
+        // The same app (PRP-049): at an address with several, the one with its key.
+        let theirs = match (signer_of(l), t.page.trust) {
+            (Some((_, k)), Some(tr)) => equal(k, tr.key) || equal(k, tr.origin),
+            _ => true,
+        };
+        if same_app(t.page.path, l.path) && theirs && t.page.instance == l.instance {
             return Some(t.id);
         }
     }
@@ -342,8 +401,8 @@ fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
 };
 
 /**
- * "Keep using my version" on a changed key: back to the page that was
- * open, or the tab closes when there wasn't one.
+ * "Open my version" on a changed key: back to the person's version, or
+ * the tab closes when there's none.
  *
  * Example:
  *     keep_mine(m)
@@ -355,28 +414,6 @@ fun keep_mine(m: Model): Model = match (m.current, page_of(m)) {
         _ => m,
     },
     _ => m,
-};
-
-/**
- * "Open as a separate app" on a changed key: trusts the new key as a
- * second publisher for this session and opens it, marked so.
- *
- * Example:
- *     separate_app(m)
- */
-fun separate_app(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
-    (Some(id), App(a)) => match a.screen {
-        Unapproved(c, _) => {
-            separate(m.ring, c);
-            close_page(a);
-            if is_address(a.path) && parse(a.path).is_ok() {
-                return begin(m, id, a.path, false, None, []);
-            }
-            (with_tab(m, id, fun(_: AppPage) = open_path(m.engine, m.ring, a.path)), Cmd.none())
-        }
-        _ => (m, Cmd.none()),
-    },
-    _ => (m, Cmd.none()),
 };
 
 /**
@@ -395,3 +432,21 @@ fun open_settings(m: Model): Model {
         Err(r) => Model { notice: Some(why(r)), ..m },
     }
 }
+
+/** A home tile's menu item, for the app at `path`. Forget opens it, then the panel at its question. */
+fun on_pin(
+    m: Model,
+    path: string,
+    origin: Option<u8[]>,
+    action: PinAction,
+): (Model, Cmd<Msg>) = match action {
+    Open => open_pin(m, path, origin),
+    Unpin => (
+        Model { pinned: m.pinned.filter(fun(p: Pin) = !pins_app(p, path, origin)), ..m },
+        Cmd.none(),
+    ),
+    Forget => {
+        let (opened, cmd) = open_pin(m, path, origin);
+        (Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget), ..opened }, cmd)
+    }
+};
