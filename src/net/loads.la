@@ -9,7 +9,7 @@
  * is checked against its site after (PRP-043, `net.keeping`); `refreshed`
  * takes that check.
  *
- * Depends on: kivuli, std.time, std.crypto, window.tabs, window.leftoff, window.window, net.fetching, net.keeping, bundles.loader, trust.verify, data.states, data.remembered, data.store, net.address, window.actions, guest.limits
+ * Depends on: kivuli, std.time, std.crypto, window.tabs, window.leftoff, window.window, window.upgrades, net.fetching, net.keeping, bundles.loader, trust.verify, data.states, data.remembered, data.store, net.address, window.actions, guest.limits
  * Used by: window.navigate, shell
  */
 import kivuli { Cmd };
@@ -28,6 +28,7 @@ import window.tabs {
     Screen,
 };
 import window.restarts { with_saved };
+import window.upgrades { landed, adopted };
 import window.leftoff { LeftOff };
 import window.window { Model, with_tab, app };
 import net.fetching { Fetched, Source };
@@ -203,8 +204,9 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
     };
     let (page, notice) = match from_fetched(m.engine, m.ring, f) {
         Ok(l) => {
-            // The instance it was loading for, with that instance's state.
-            let fresh = AppPage {
+            // The instance it was loading for, with that instance's state;
+            // a new window of an app already open runs the version open (PRP-048).
+            let loaded = AppPage {
                 instance: p.instance,
                 label: p.label,
                 seen: p.seen,
@@ -217,6 +219,11 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
                     },
                 ),
                 ..from_loaded(m.engine, l, p.path, pending.link),
+            };
+            let fresh = if pending.kept.len == 0 {
+                adopted(m, id, loaded, pending.link)
+            } else {
+                loaded
             };
             let offline = source.map(fun(src: Source) = src.offline).unwrap_or(false);
             // A link's version no longer listed opened the current one
@@ -231,9 +238,6 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
                 // A routine update is silent: it changes nothing for the person (PRP-043).
                 _ => None,
             };
-            for k of pending.kept {
-                close_page(k);
-            }
             match pending.saved {
                 // ⟳ on a running page: continue with what it had.
                 Some((state, version)) => {
@@ -261,22 +265,17 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
             },
             None,
         ),
-        Err(r) => {
-            for k of pending.kept {
-                close_page(k);
-            }
-            (refused(r, p.path), None)
-        }
+        // A refused reload keeps what ran (`landed`).
+        Err(r) => (refused(r, p.path), None),
     };
+    // Every window of the app moves, or none (PRP-048).
+    let (after, said) = landed(m, id, pending.kept, page, notice);
     // Continue keeps "where you left off" until the app runs.
     let ran = m.left_off.map(fun(l: LeftOff) = l.path == p.path).unwrap_or(false) && state_of(
         page,
     ).is_some();
     let left = if ran { None } else { m.left_off };
-    (
-        Model { left_off: left, notice: notice, ..with_tab(m, id, fun(_: AppPage) = page) },
-        check_after(m, id, page, source),
-    )
+    (Model { left_off: left, notice: said, ..after }, check_after(m, id, page, source))
 }
 
 /**

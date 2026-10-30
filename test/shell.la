@@ -248,13 +248,16 @@ fun switching_tabs_drops_a_pending_confirm() {
 }
 
 @test
-fun reload_says_why_when_the_file_is_gone() {
-    // A fixture module isn't a file, so ⟳ can't load it again: it shows why.
+fun reload_keeps_the_window_running_when_the_file_is_gone() {
+    // A fixture module isn't a file, so ⟳ can't load it again: the window
+    // keeps running, and the notice says why (PRP-048).
     // The real reload-with-state path is tested end to end in counter.la.
-    let reloaded = step(step(two(), add(0)), Msg.Reload);
+    let added = step(two(), add(0));
+    let reloaded = step(added, Msg.Reload);
+    assert_eq(texts(view(reloaded)), texts(view(added)));
     assert_eq(
-        texts(view(reloaded)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
-        true,
+        reloaded.notice.map(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
+        Some(true),
     );
 }
 

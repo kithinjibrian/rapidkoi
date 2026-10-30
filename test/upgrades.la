@@ -1,0 +1,230 @@
+// An app's windows all run one version (PRP-048): upgrading or reloading
+// one window moves every window of the app, all or nothing. Through the
+// window with no display, on sites served on local sockets (`sites`).
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.tabs { AppPage, Cached };
+import rapidkoi.commands.publish { make_key, publish_site, withdraw_version };
+import kivuli.testing { click };
+import wasmtime { wat_to_wasm };
+import std.fs;
+import support { settle, write_counting, echo };
+import sites { clean, folder, started, step, shows, site, republish, reshaped, served, done };
+
+const UPGRADE: string = "A new version of this app is available: upgrade";
+
+/** The window with its `i`th tab in front. */
+fun on(m: Model, i: i64): Model = step(m, Msg.Select(m.tabs[i].id));
+
+/** The version tab `i` runs. */
+fun version_at(m: Model, i: i64): string = m.tabs[i].page.manifest.map(
+    fun(x) = x.version,
+).unwrap_or("none");
+
+/** Whether tab `i` offers a newer version. */
+fun offered_at(m: Model, i: i64): bool = m.tabs[i].page.cached.and_then(
+    fun(c: Cached) = c.newer,
+).is_some();
+
+/** Presses Add `n` times in the window in front. */
+fun added(m: Model, n: i64): Model {
+    let mut at = m;
+    for _ of range(0, n) {
+        at = step(at, click(view(at), "Add").unwrap());
+    }
+    at
+}
+
+/**
+ * Counting at localhost:PORT open in two windows from its kept 1.0.0, the
+ * first counted to 1 and the second (in front) to 2, then `next`
+ * published and found by a check, so both offer it.
+ */
+fun two_windows(port: i64, next: string, state_version: i64): (Model, string) {
+    let dir = site(port, "1.0.0");
+    served(dir, port);
+    let s = folder("upgrades-{port}");
+    started(s, ["./main", "rapidkoi://localhost:{port}"]);
+    let first = added(started(s, ["./main", "rapidkoi://localhost:{port}"]), 1);
+    let second = added(step(first, Msg.NewInstance), 2);
+    reshaped(dir, port, next, state_version);
+    (step(second, Msg.CheckForUpdates(0)), dir)
+}
+
+fun finish(m: Model, dir: string) {
+    done(m.store.unwrap(), dir);
+}
+
+@test
+fun upgrading_one_window_moves_every_window_each_with_its_state() {
+    let (m, dir) = two_windows(18840, "2.0.0", 1);
+    assert((offered_at(m, 0), offered_at(m, 1)) == (true, true));
+    let upgraded = step(m, Msg.Reload);
+    assert_eq((version_at(upgraded, 0), version_at(upgraded, 1)), ("2.0.0", "2.0.0"));
+    assert(shows(upgraded, "Count: 2"));
+    assert(shows(on(upgraded, 0), "Count: 1"));
+    // The arrow goes from both.
+    assert((offered_at(upgraded, 0), offered_at(upgraded, 1)) == (false, false));
+    assert(click(view(on(upgraded, 0)), UPGRADE).is_err());
+    assert_eq(upgraded.notice, None);
+    finish(upgraded, dir);
+}
+
+@test
+fun windows_whose_state_changed_shape_start_over_with_one_notice() {
+    let (m, dir) = two_windows(18841, "2.0.0", 2);
+    let upgraded = step(m, Msg.Reload);
+    assert_eq((version_at(upgraded, 0), version_at(upgraded, 1)), ("2.0.0", "2.0.0"));
+    assert(shows(upgraded, "Count: 0"));
+    assert(shows(on(upgraded, 0), "Count: 0"));
+    assert_eq(upgraded.notice, Some("Counting's saved state changed shape, so it started over"));
+    finish(upgraded, dir);
+}
+
+@test
+fun a_failed_upgrade_leaves_every_window_on_its_version() {
+    let (m, dir) = two_windows(18842, "2.0.0", 1);
+    // The site now serves a broken build: the upgrade is refused.
+    let builds = "{dir}/site/.well-known/rapidkoi/builds";
+    for name of fs.list_dir(builds).unwrap() {
+        write_file("{builds}/{name}", "not a bundle").unwrap();
+    }
+    let after = step(m, Msg.Reload);
+    assert_eq((version_at(after, 0), version_at(after, 1)), ("1.0.0", "1.0.0"));
+    assert(shows(after, "Count: 2"));
+    assert(shows(on(after, 0), "Count: 1"));
+    assert(after.notice.is_some());
+    assert((offered_at(after, 0), offered_at(after, 1)) == (true, true));
+    finish(after, dir);
+}
+
+@test
+fun a_changed_key_is_asked_once_and_keeping_mine_leaves_every_window() {
+    let (m, dir) = two_windows(18848, "2.0.0", 1);
+    // The site starts over with another key, no rotation.
+    clean("{dir}/site");
+    clean("{dir}.key");
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+    let asked = step(m, Msg.Reload);
+    assert(shows(asked, "localhost:18848 is now signed by a different key"));
+    // The other window keeps running meanwhile, and a second reload waits.
+    assert_eq(version_at(asked, 0), "1.0.0");
+    assert_eq(step(on(asked, 0), Msg.Reload).loads, asked.loads);
+    let kept = step(asked, Msg.KeepMine);
+    assert_eq((version_at(kept, 0), version_at(kept, 1)), ("1.0.0", "1.0.0"));
+    assert(shows(kept, "Count: 2"));
+    assert(shows(on(kept, 0), "Count: 1"));
+    finish(kept, dir);
+}
+
+@test
+fun a_second_reload_while_the_upgrade_loads_starts_nothing() {
+    let (m, dir) = two_windows(18843, "2.0.0", 1);
+    let (loading, cmd) = update(m, Msg.Reload);
+    let (again, none) = update(loading, Msg.Reload);
+    assert_eq(again.loads, loading.loads);
+    let upgraded = settle(settle(again, none, update), cmd, update);
+    assert_eq((version_at(upgraded, 0), version_at(upgraded, 1)), ("2.0.0", "2.0.0"));
+    finish(upgraded, dir);
+}
+
+@test
+fun windows_closed_or_opened_during_the_upgrade() {
+    let (m, dir) = two_windows(18844, "2.0.0", 1);
+    let (loading, cmd) = update(m, Msg.Reload);
+    // The first window closes; a third opens from it first, on 1.0.0.
+    let third = step(on(loading, 0), Msg.NewInstance);
+    assert_eq(version_at(third, 2), "1.0.0");
+    let closed = step(third, Msg.CloseTab(third.tabs[0].id));
+    let upgraded = settle(closed, cmd, update);
+    assert_eq(upgraded.tabs.len, 2);
+    assert_eq((version_at(upgraded, 0), version_at(upgraded, 1)), ("2.0.0", "2.0.0"));
+    finish(upgraded, dir);
+}
+
+@test
+fun a_window_stopped_by_a_withdrawal_moves_too() {
+    let dir = site(18845, "1.0.0");
+    served(dir, 18845);
+    let s = folder("upgrades-18845");
+    started(s, ["./main", "rapidkoi://localhost:18845"]);
+    let two = step(started(s, ["./main", "rapidkoi://localhost:18845"]), Msg.NewInstance);
+    republish(dir, 18845, "2.0.0");
+    withdraw_version(dir, "1.0.0", "it lost data").unwrap();
+    // The check stops the window in front, the second.
+    let checked = step(two, Msg.CheckForUpdates(0));
+    assert(shows(checked, "Counting 1.0.0 was withdrawn: it lost data"));
+    let upgraded = step(on(checked, 0), Msg.Reload);
+    assert_eq((version_at(upgraded, 0), version_at(upgraded, 1)), ("2.0.0", "2.0.0"));
+    assert(shows(on(upgraded, 1), "Count: 0"));
+    done(s, dir);
+}
+
+@test
+fun a_links_window_runs_the_version_already_open() {
+    let dir = site(18846, "1.0.0");
+    served(dir, 18846);
+    let s = folder("upgrades-18846");
+    started(s, ["./main", "rapidkoi://localhost:18846"]);
+    let m = started(s, ["./main", "rapidkoi://localhost:18846"]);
+    republish(dir, 18846, "2.0.0");
+    let checked = step(m, Msg.CheckForUpdates(0));
+    // Its fields open a new window: the kept copy is 2.0.0 now.
+    let linked = step(step(checked, Msg.Draft("rapidkoi://localhost:18846?count=3")), Msg.Go);
+    assert_eq(linked.tabs.len, 2);
+    assert_eq((version_at(linked, 0), version_at(linked, 1)), ("1.0.0", "1.0.0"));
+    assert(shows(linked, "Count: 3"));
+    assert(offered_at(linked, 1));
+    // One naming another version says so.
+    let named = step(step(linked, Msg.Draft("rapidkoi://localhost:18846/@2.0.0?count=4")), Msg.Go);
+    assert_eq(version_at(named, 2), "1.0.0");
+    assert_eq(named.notice, Some("This link was made with Counting 2.0.0; opened 1.0.0"));
+    done(s, dir);
+}
+
+@test
+fun a_link_to_an_app_not_open_loads_as_before() {
+    let dir = site(18847, "1.0.0");
+    served(dir, 18847);
+    let s = folder("upgrades-18847");
+    let m = started(s, ["./main", "rapidkoi://localhost:18847?count=3"]);
+    assert_eq(version_at(m, m.tabs.len - 1), "1.0.0");
+    assert(shows(m, "Count: 3"));
+    done(s, dir);
+}
+
+/** A local app file open in two windows, counted to 1 and 2, then rewritten as `echo`. */
+fun two_file_windows(name: string): (Model, string) {
+    let path = "test/tmp/upgrades-{name}.wasm";
+    write_counting(path);
+    let s = folder("upgrades-{name}");
+    let first = added(started(s, ["./main", path]), 1);
+    let second = added(step(first, Msg.NewInstance), 2);
+    (second, path)
+}
+
+@test
+fun reloading_a_local_app_file_moves_every_window() {
+    let (m, path) = two_file_windows("file");
+    write_bytes(path, wat_to_wasm(echo()).unwrap()).unwrap();
+    let reloaded = step(m, Msg.Reload);
+    assert(shows(reloaded, "echo"));
+    assert(shows(on(reloaded, 0), "echo"));
+    clean(path);
+    clean(m.store.unwrap().dir);
+}
+
+@test
+fun a_failed_reload_of_a_local_file_leaves_every_window_running() {
+    let (m, path) = two_file_windows("broken");
+    write_file(path, "not a module").unwrap();
+    let after = step(m, Msg.Reload);
+    assert(shows(after, "Count: 2"));
+    assert(shows(on(after, 0), "Count: 1"));
+    assert(after.notice.is_some());
+    clean(path);
+    clean(m.store.unwrap().dir);
+}

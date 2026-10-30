@@ -352,6 +352,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Amended (the owner, PRP-044):** still no notice, but the address box offers it: once a check keeps a newer version and reached the site, an upgrade button (the refresh arrow, a red dot, "A new version of this app is available: upgrade") shows left of the shield in every window of the app on the old version; clicking it upgrades that window, its state carried over. A kept app in front is checked every 15 minutes too.
 
+**Amended (the owner, PRP-048, 2026-10-30):** an app's windows share its database, so they all run one version. Upgrading or reloading any window (the arrow, Reload, the tab menu's Reload; signed, local development and built-in apps alike) loads the new version once and moves every window of the app onto it, each keeping its state; if it can't be loaded, no window changes. A second upgrade waits for the first. A link's new window of an app already open runs the version open. An older version opening a database a newer one changed is a separate question, not decided here.
+
 ---
 
 ## OPEN — Requires human input before implementation

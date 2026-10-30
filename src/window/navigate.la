@@ -5,12 +5,13 @@
  * (`loads.la`); the state itself lives in `window.la`. Reads local files
  * (CLAUDE.md rule 3).
  *
- * Depends on: std.fs, kivuli, window.tabs, window.leftoff, window.window, net.address, trust.verify, net.loads, window.actions
+ * Depends on: std.fs, kivuli, window.tabs, window.leftoff, window.window, net.address, trust.verify, net.loads, window.upgrades, window.actions
  * Used by: shell
  */
 import std.fs;
 import window.tabs { AppPage, Tab, open_path, close_page, state_of, state_version_of, failed_page };
 import window.restarts { resume, load_again };
+import window.upgrades { upgrading, landed, shape_changed };
 import window.instances { next_instance, another };
 import data.remembered { Open };
 import window.leftoff { LeftOff, leave, compiled };
@@ -301,12 +302,14 @@ fun instance_open(m: Model, l: LeftOff): Option<i64> {
  *     reload(m)
  */
 fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
+    // One upgrade or reload of an app at a time (PRP-048).
+    (Some(_), App(a)) if upgrading(m, a.path) => (m, Cmd.none()),
     (Some(id), App(a)) if a.path == settings_app.SETTINGS_KEY => match settings_app.open(m.engine) {
         // Built in: started again as it is, its settings read afresh.
         Ok(page) => {
-            close_page(a);
             let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
-            (with_tab(m, id, fun(_: AppPage) = same), Cmd.none())
+            let (moved, notice) = landed(m, id, [a], same, None);
+            (Model { notice: notice, ..moved }, Cmd.none())
         }
         Err(_) => (m, Cmd.none()),
     },
@@ -326,19 +329,14 @@ fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
         // person keeps using it.
         let page = match loaded.screen {
             Unapproved(c, _) => AppPage { screen: tabs.Screen.Unapproved(c, [a]), ..loaded },
-            _ => {
-                close_page(a);
-                loaded
-            }
+            _ => loaded,
         };
-        let notice: Option<string> = if over {
-            Some("{page.name}'s saved state changed shape, so it started over")
-        } else {
-            None
-        };
-        // Reloaded, it's still the same instance.
+        let notice = if over { Some(shape_changed(page.name)) } else { None };
+        // Reloaded, it's still the same instance; every window of the app
+        // moves with it, or none (PRP-048).
         let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
-        (Model { notice: notice, ..with_tab(m, id, fun(_: AppPage) = same) }, Cmd.none())
+        let (moved, said) = landed(m, id, [a], same, notice);
+        (Model { notice: said, ..moved }, Cmd.none())
     }
     _ => (m, Cmd.none()),
 };
