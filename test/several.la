@@ -1,0 +1,130 @@
+// Several apps at one address, told apart (PRP-050): the chip and its
+// list, the default, renaming, the colour while naming, and the dock's
+// one entry per app. Through the window with no display.
+import rapidkoi.ui.layout { view };
+import rapidkoi.ui.several { chip };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.window { Model, page_of };
+import rapidkoi.window.instances { instances_of };
+import rapidkoi.window.apps { tab_of as app_tab };
+import rapidkoi.trust.verify { known_for };
+import rapidkoi.trust.publishers { default_at };
+import rapidkoi.trust.keys { fingerprint };
+import sites { started, step, shows };
+import twoapps { tab_of, moved_on, finish, both, origin_of, page_name };
+
+const NOTES: string = "rapidkoi://localhost";
+
+fun address(port: i64): string = "{NOTES}:{port}";
+
+/** The chip on the app in front, if there is one. */
+fun has_chip(m: Model): bool = match page_of(m) {
+    App(p) => chip(m, p).is_some(),
+    Home => false,
+};
+
+@test
+fun the_chip_shows_only_where_an_address_has_several_apps() {
+    let (m, dir) = moved_on(18870, "chip-one");
+    assert(!has_chip(m));
+    let named = step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes"));
+    let two = step(named, Msg.ConfirmSeparate);
+    assert(has_chip(two));
+    finish(two, dir);
+}
+
+@test
+fun the_chips_list_goes_to_each_app() {
+    let (two, dir) = both(18871, "chip-list");
+    let open = step(two, Msg.Chip(true));
+    assert(open.chip);
+    // Each app's key, by its fingerprint.
+    for t of open.tabs {
+        let key = t.page.trust.unwrap().key;
+        assert(shows(open, fingerprint(key)));
+    }
+    let alice = origin_of(tab_of(open, "Counting")).unwrap();
+    let went = step(open, Msg.Choose(alice));
+    assert_eq((page_name(went), went.chip, went.tabs.len), ("Counting", false, 2));
+    assert(!step(open, Msg.Chip(false)).chip);
+    finish(went, dir);
+}
+
+@test
+fun the_default_opens_directly_and_survives_a_restart() {
+    let (two, dir) = both(18872, "default");
+    let bob = origin_of(tab_of(two, "Bob's Notes")).unwrap();
+    let alice = origin_of(tab_of(two, "Counting")).unwrap();
+    let ticked = step(two, Msg.SetDefault(bob, true));
+    assert_eq(default_at(known_for(ticked.ring, "localhost:18872"), "localhost:18872"), Some(bob));
+    // Ticking Alice's unticks Bob's.
+    let other = step(ticked, Msg.SetDefault(alice, true));
+    assert_eq(default_at(known_for(other.ring, "localhost:18872"), "localhost:18872"), Some(alice));
+    let back = step(other, Msg.SetDefault(bob, true));
+    let s = back.store.unwrap();
+    // After a restart, typing the address opens Bob's: no question.
+    let opened = started(s, ["./main", address(18872)]);
+    assert(!shows(opened, "Which app?"));
+    assert_eq(page_name(opened), "Bob's Notes");
+    // Unticked: the question again.
+    let none = step(opened, Msg.SetDefault(bob, false));
+    assert(shows(started(none.store.unwrap(), ["./main", address(18872)]), "Which app?"));
+    finish(none, dir);
+}
+
+@test
+fun renaming_an_app_shows_everywhere_and_survives_a_restart() {
+    let (two, dir) = both(18873, "rename");
+    let alice = origin_of(tab_of(two, "Counting")).unwrap();
+    let pinned = step(two, Msg.TogglePin);
+    let asked = step(pinned, Msg.Rename(alice));
+    assert(shows(asked, "Rename app"));
+    // The same rules: another app's name isn't taken; its own is fine.
+    assert(shows(step(asked, Msg.NameSeparate("Bob's Notes")), "Another app here is called that"));
+    let named = step(step(asked, Msg.NameSeparate("Mine")), Msg.ConfirmSeparate);
+    assert(named.naming.is_none());
+    assert_eq(tab_of(named, "Mine").trust.map(fun(t) = t.origin), Some(alice));
+    let s = named.store.unwrap();
+    let again = started(s, ["./main", address(18873)]);
+    assert(shows(again, "Which app?"));
+    let picked = step(again, Msg.Choose(alice));
+    assert_eq(page_name(picked), "Mine");
+    finish(picked, dir);
+}
+
+@test
+fun naming_shows_the_new_apps_key_from_the_start() {
+    let (m, dir) = moved_on(18874, "dot");
+    let naming = step(m, Msg.SeparateMoved);
+    let new = match naming.naming {
+        Some(Separate(_, c, _)) => c.new,
+        _ => panic("expected the naming dialog"),
+    };
+    assert(shows(naming, fingerprint(new)));
+    finish(naming, dir);
+}
+
+@test
+fun the_dock_has_an_entry_per_app_with_its_own_windows() {
+    let (two, dir) = both(18875, "dock");
+    let alice = tab_of(two, "Counting");
+    let bob = tab_of(two, "Bob's Notes");
+    let alice_id = app_tab(two, address(18875), origin_of(alice)).unwrap();
+    let bob_id = app_tab(two, address(18875), origin_of(bob)).unwrap();
+    assert(alice_id != bob_id);
+    // A second window of Bob's counts only for Bob's.
+    let more = step(two, Msg.NewInstance);
+    assert_eq((instances_of(more, alice_id).len, instances_of(more, bob_id).len), (1, 2));
+    finish(more, dir);
+}
+
+@test
+fun which_app_can_set_the_default() {
+    let (two, dir) = both(18876, "which-default");
+    let bob = origin_of(tab_of(two, "Bob's Notes")).unwrap();
+    let asked = started(two.store.unwrap(), ["./main", address(18876)]);
+    assert(shows(asked, "Which app?"));
+    let ticked = step(asked, Msg.SetDefault(bob, true));
+    assert_eq(default_at(known_for(ticked.ring, "localhost:18876"), "localhost:18876"), Some(bob));
+    finish(ticked, dir);
+}

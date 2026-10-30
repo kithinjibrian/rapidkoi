@@ -9,6 +9,11 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, window.window, ui.frame, ui.tokens, ui.themes
  * Used by: ui.layout
  */
+import window.apps { tab_of as app_tab };
+import window.pins { pins_app, origin_of };
+import trust.verify { known_for };
+import trust.publishers { apps_at };
+import ui.several { dot };
 import kivuli {
     View,
     Align,
@@ -48,7 +53,8 @@ fun view(m: Model): View<Msg> {
     let t = m.theme;
     let mut pinned: View<Msg>[] = [];
     for p of m.pinned {
-        match tab_of(m, p.path) {
+        // A pin is one app: at an address with several, by its key (PRP-050).
+        match tab_by_id_opt(m, app_tab(m, p.path, p.origin)) {
             // Pinned and open: one button, its tab.
             Some(tab) => pinned.push(open_app(m, tab, true)),
             None => pinned.push(closed_pin(t, p)),
@@ -59,10 +65,9 @@ fun view(m: Model): View<Msg> {
     for id of order(m) {
         match tab_by_id(m, id) {
             // A dock: one entry per app, its last-used instance's (PRP-033).
-            Some(tab) => if !m.pinned.any(fun(p: Pin) = p.path == tab.page.path) && open_tab_of(
-                m,
-                tab.page.path,
-            ) == Some(tab.id) {
+            Some(tab) => if !m.pinned.any(
+                fun(p: Pin) = pins_app(p, tab.page.path, origin_of(tab.page)),
+            ) && app_tab(m, tab.page.path, origin_of(tab.page)) == Some(tab.id) {
                 rest.push(open_app(m, tab, false));
             },
             None => rest.push(empty_tab(m, id)),
@@ -119,9 +124,9 @@ fun empty_tab(m: Model, id: i64): View<Msg> {
     with_close(t, id, button, "New tab", current)
 }
 
-/** The open tab showing `path`, if one does: its last-used instance (PRP-033). */
-fun tab_of(m: Model, path: string): Option<Tab> = match open_tab_of(m, path) {
-    Some(id) => tab_by_id(m, id),
+/** The tab with this id, when there's an id. */
+fun tab_by_id_opt(m: Model, id: Option<i64>): Option<Tab> = match id {
+    Some(i) => tab_by_id(m, i),
     None => None,
 };
 
@@ -160,6 +165,12 @@ fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
         Msg.CloseApp(tab.id)
     };
     let mut layers = [close_button(t, closing, tab.page.name, current)];
+    // Its colour, when its address has several apps (PRP-050).
+    if let Some(tr) = tab.page.trust {
+        if apps_at(known_for(m.ring, tr.host), tr.host).len > 1 {
+            layers.push(dot(t, tr.origin).place(Align.Start, Align.End));
+        }
+    }
     if all.len > 1 {
         layers.push(text(count_text(all.len)).style(count_badge(t)).place(Align.End, Align.End));
     }

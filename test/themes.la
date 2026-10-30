@@ -16,8 +16,9 @@ import rapidkoi.ui.themes {
     heading,
     button,
     instance_colour,
+    publisher_colour,
 };
-import rapidkoi.ui.schemes { DARK };
+import rapidkoi.ui.schemes { DARK, LIGHT };
 import rapidkoi.ui.frame_looks {
     frame,
     header,
@@ -111,4 +112,17 @@ fun each_instance_keeps_its_colour() {
     assert_eq(instance_colour(DARK, "2"), c[1]);
     assert_eq(instance_colour(DARK, "{c.len + 1}"), c[0]);
     assert_eq(instance_colour(DARK, "x"), c[0]);
+}
+
+@test
+fun each_app_at_an_address_has_a_colour_from_its_key() {
+    // PRP-050: the same key, the same colour, in each scheme's palette.
+    for t of [DARK, LIGHT] {
+        let a = publisher_colour(t, [1; 32]);
+        assert_eq(publisher_colour(t, [1; 32]), a);
+        assert(t.publishers.any(fun(c: string) = c == a));
+        assert(publisher_colour(t, [2; 32]) != a);
+        // Never the danger colour or the brand's.
+        assert(!t.publishers.any(fun(c: string) = c == t.danger || c == t.accent));
+    }
 }

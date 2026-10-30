@@ -308,6 +308,7 @@ fun a_keyring_goes_out_and_back_in() {
             origin: k.public_key,
             // Its own name, met first here (PRP-049).
             name: Some("Notes"),
+            default: false,
         },
     ]);
     // A keyring made from them trusts the same key: a swapped one asks.

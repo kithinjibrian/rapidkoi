@@ -2,13 +2,15 @@
  * The publishers at one address (PRP-049, DECISION-064): which trusted
  * keys belong to which app. An app is its host and first key, so its keys
  * are that first key and those its signed rotations led to; another
- * publisher's key at the same host is another app. Never touches the disk.
+ * publisher's key at the same host is another app. Which one an address
+ * opens, and what the person calls each, change the keyring (PRP-050), so
+ * `saving` saves them. Never touches the disk.
  *
  * Depends on: std.crypto, trust.verify
  * Used by: net.keeping, net.checks, window.navigate
  */
 import std.crypto { equal };
-import trust.verify { Identity };
+import trust.verify { Identity, Keyring };
 
 /**
  * The keys one app at `host` is checked against: every key known for it,
@@ -47,4 +49,54 @@ fun apps_at(all: Identity[], host: string): Identity[] {
         }
     }
     apps
+}
+
+/**
+ * The app `host` opens when it has several, by first key: the one ticked
+ * Default (PRP-050), if any.
+ *
+ * Example:
+ *     default_at(ring.known.get(), "notes.dafifi.net")
+ */
+fun default_at(all: Identity[], host: string): Option<u8[]> = apps_at(all, host).iter().find(
+    fun(i: Identity) = i.default,
+).map(fun(i: Identity) = i.origin);
+
+/**
+ * Ticks or unticks app `origin` as `host`'s default: at most one per
+ * address, so ticking one unticks any other.
+ *
+ * Example:
+ *     set_default(ring, "notes.dafifi.net", origin, true)
+ */
+fun set_default(ring: Keyring, host: string, origin: u8[], on: bool) {
+    ring.known.update(
+        fun(all: Identity[]) = all.map(
+            fun(i: Identity) = if i.host != host {
+                i
+            } else {
+                Identity { default: on && equal(i.origin, origin), ..i }
+            },
+        ),
+    );
+    ring.count.update(fun(n: i64) = n + 1);
+}
+
+/**
+ * Names app `origin` at `host` as the person typed it, on every key it has had.
+ *
+ * Example:
+ *     renamed(ring, "notes.dafifi.net", origin, "Alice's Notes")
+ */
+fun renamed(ring: Keyring, host: string, origin: u8[], name: string) {
+    ring.known.update(
+        fun(all: Identity[]) = all.map(
+            fun(i: Identity) = if i.host == host && equal(i.origin, origin) {
+                Identity { name: Some(name), ..i }
+            } else {
+                i
+            },
+        ),
+    );
+    ring.count.update(fun(n: i64) = n + 1);
 }

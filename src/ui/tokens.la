@@ -58,6 +58,8 @@ const TAB_CLOSE: i64 = 16;
 const TAB_CLOSE_ICON: i64 = 10;
 /** The red dot on the upgrade button, in pixels (PRP-044). */
 const UPDATE_DOT: i64 = 7;
+/** An app's colour dot at an address with several apps, in pixels (PRP-050). */
+const APP_DOT: i64 = 10;
 /** An instance's pill in the header's strip: its height, thinner than a button's (PRP-033). */
 const INSTANCE_CHIP: i64 = 26;
 /** The longest an instance's name shows in its pill before "…" (PRP-033). */

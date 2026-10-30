@@ -42,6 +42,7 @@ import ui.tokens {
     no_padding,
     square,
     INSTANCE_CHIP,
+    APP_DOT,
 };
 import ui.themes { paint, flat };
 import ui.schemes { Theme };
@@ -177,6 +178,19 @@ fun instance_dot(colour: string): Styling[] = [
     Background { color: paint(colour), ..Background.theme() },
     Border { radius: Radius.All(CIRCLE), ..Border.theme() },
     square(INSTANCE_CHIP),
+];
+
+/**
+ * Returns an app's colour dot at an address with several apps (PRP-050):
+ * a small circle in its colour (`themes.publisher_colour`).
+ *
+ * Example:
+ *     app_dot(publisher_colour(t, origin))
+ */
+fun app_dot(colour: string): Styling[] = [
+    Background { color: paint(colour), ..Background.theme() },
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    square(APP_DOT),
 ];
 
 /**

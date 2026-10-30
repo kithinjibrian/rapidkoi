@@ -31,6 +31,7 @@ import ui.frame { marker_note, file_of, address_of };
 import ui.icons { Icon, icon };
 import ui.shield { facts, look_colour, card };
 import ui.settings;
+import ui.several;
 import ui.grants { shows_icon };
 import ui.tokens {
     SPACE_XS,
@@ -98,6 +99,12 @@ fun field(m: Model): View<Msg> {
         None => with_focus,
     };
     let mut start: View<Msg>[] = [];
+    // Several apps at this address: the chip, first (PRP-050).
+    if let App(p) = page {
+        if let Some(c) = several.chip(m, p) {
+            start.push(c);
+        }
+    }
     if let App(p) = page {
         // A newer version kept, and the site reached (PRP-044): the upgrade,
         // left of the shield, with a red dot for urgency.

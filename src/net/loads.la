@@ -95,10 +95,13 @@ fun begin_app(m: Model, id: i64, path: string, origin: u8[]): (Model, Cmd<Msg>) 
     false,
 );
 
-/** A separate app goes by the name the person gave it (PRP-049); any other by its own. */
+/**
+ * An app at an address with several goes by the name kept with it: the
+ * person's (PRP-049, PRP-050). Any other app goes by its own.
+ */
 fun named(m: Model, p: AppPage): AppPage {
     let t = match p.trust {
-        Some(t) if t.separate => t,
+        Some(t) if t.separate || apps_at(known_for(m.ring, t.host), t.host).len > 1 => t,
         _ => {
             return p;
         }

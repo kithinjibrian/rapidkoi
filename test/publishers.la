@@ -1,6 +1,6 @@
 // The publishers at one address (PRP-049): which keys are which app's.
-import rapidkoi.trust.publishers { known_of, apps_at };
-import rapidkoi.trust.verify { Identity };
+import rapidkoi.trust.publishers { known_of, apps_at, set_default, renamed, default_at };
+import rapidkoi.trust.verify { Identity, keyring };
 
 fun id(host: string, key: u8, origin: u8, separate: bool): Identity = Identity {
     host: host,
@@ -10,6 +10,7 @@ fun id(host: string, key: u8, origin: u8, separate: bool): Identity = Identity {
     since: 0,
     origin: [origin; 32],
     name: None,
+    default: false,
 };
 
 @test
@@ -36,4 +37,40 @@ fun the_apps_at_a_host_are_one_per_first_key() {
     ];
     assert_eq(apps_at(all, "notes.dafifi.net"), [all[2], all[1]]);
     assert_eq(apps_at(all, "nobody.dafifi.net"), []);
+}
+
+@test
+fun one_default_per_address_and_unticking_leaves_none() {
+    let ring = keyring();
+    ring.known.set([
+        id("notes.dafifi.net", 1, 1, false),
+        id("notes.dafifi.net", 3, 1, false),
+        id("notes.dafifi.net", 2, 2, true),
+        id("other.dafifi.net", 4, 4, false),
+    ]);
+    let before = ring.count.get();
+    set_default(ring, "notes.dafifi.net", [2; 32], true);
+    assert_eq(default_at(ring.known.get(), "notes.dafifi.net"), Some([2; 32]));
+    assert(ring.count.get() > before);
+    // Ticking Alice's unticks Bob's; a rotation's keys are one app.
+    set_default(ring, "notes.dafifi.net", [1; 32], true);
+    assert_eq(default_at(ring.known.get(), "notes.dafifi.net"), Some([1; 32]));
+    set_default(ring, "notes.dafifi.net", [1; 32], false);
+    assert_eq(default_at(ring.known.get(), "notes.dafifi.net"), None);
+    assert_eq(default_at(ring.known.get(), "other.dafifi.net"), None);
+}
+
+@test
+fun renaming_names_every_key_of_one_app() {
+    let ring = keyring();
+    ring.known.set([
+        id("notes.dafifi.net", 1, 1, false),
+        id("notes.dafifi.net", 3, 1, false),
+        id("notes.dafifi.net", 2, 2, true),
+    ]);
+    renamed(ring, "notes.dafifi.net", [1; 32], "Alice's Notes");
+    assert_eq(apps_at(ring.known.get(), "notes.dafifi.net").map(fun(i) = i.name), [
+        Some("Alice's Notes"),
+        None,
+    ]);
 }

@@ -104,6 +104,12 @@ enum Msg {
     CancelSeparate,
     /** "Which app?": open the one with this first key (PRP-049). */
     Choose(u8[]),
+    /** Open or close the chip's list of the apps at this address (PRP-050). */
+    Chip(bool),
+    /** Tick or untick this app, by first key, as its address's default. */
+    SetDefault(u8[], bool),
+    /** Rename this app, by first key, at the current address. */
+    Rename(u8[]),
     /** A background load's result, for this tab and load number (PRP-008). */
     Fetched(i64, i64, Fetched),
     /** The check after an app opened from its kept copy, for this tab and the build it was running (PRP-043). */

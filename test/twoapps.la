@@ -1,0 +1,76 @@
+/**
+ * Helpers for tests of two apps at one address (PRP-049, PRP-050): Alice's
+ * Counting at a local site, the site handed to a new key, and Bob's app
+ * opened beside hers. Holds no tests itself.
+ */
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.window { Model };
+import rapidkoi.window.tabs { AppPage, Cached };
+import rapidkoi.commands.publish { make_key, publish_site };
+import kivuli.testing { click };
+import std.fs;
+import sites { clean, folder, started, step, site, served, done };
+
+/** The tab running app `name`. */
+fun tab_of(m: Model, name: string): AppPage = m.tabs.iter().find(
+    fun(t) = t.page.name == name,
+).expect("a tab with that app").page;
+
+fun moved(p: AppPage): bool = p.cached.and_then(fun(c: Cached) = c.moved).is_some();
+
+/** The window with tab `name` in front. */
+fun on(m: Model, name: string): Model {
+    let id = m.tabs.iter().find(fun(t) = t.page.name == name).expect("a tab with that app").id;
+    step(m, Msg.Select(id))
+}
+
+/** Presses Add `n` times. */
+fun added(m: Model, n: i64): Model {
+    let mut at = m;
+    for _ of range(0, n) {
+        at = step(at, click(view(at), "Add").unwrap());
+    }
+    at
+}
+
+/** The site in `dir` signed from now on by a new key, Alice's kept beside it as `{dir}.alice`. */
+fun handed_over(dir: string) {
+    fs.rename("{dir}.key", "{dir}.alice").unwrap();
+    clean("{dir}/site");
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+}
+
+/**
+ * Counting at localhost:PORT opened from its kept copy and counted to 1;
+ * then the site handed to a new key, and the check finds it.
+ */
+fun moved_on(port: i64, name: string): (Model, string) {
+    let dir = site(port, "1.0.0");
+    served(dir, port);
+    let s = folder(name);
+    started(s, ["./main", "rapidkoi://localhost:{port}"]);
+    let m = added(started(s, ["./main", "rapidkoi://localhost:{port}"]), 1);
+    handed_over(dir);
+    (step(m, Msg.CheckForUpdates(0)), dir)
+}
+
+fun finish(m: Model, dir: string) {
+    done(m.store.unwrap(), dir);
+    clean("{dir}.alice");
+}
+
+/** Both apps open: Alice's Counting and "Bob's Notes", Bob's in front. */
+fun both(port: i64, name: string): (Model, string) {
+    let (m, dir) = moved_on(port, name);
+    let named = step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes"));
+    (step(named, Msg.ConfirmSeparate), dir)
+}
+
+fun origin_of(p: AppPage): Option<u8[]> = p.trust.map(fun(t) = t.origin);
+
+/** The name of the app in front. */
+fun page_name(m: Model): string = m.tabs.iter().find(fun(t) = Some(t.id) == m.current).expect(
+    "a tab in front",
+).page.name;

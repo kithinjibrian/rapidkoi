@@ -11,6 +11,7 @@
  */
 import window.window { Model, close, same_app, show_tab, with_tab, is_blank };
 import window.tabs { AppPage, Tab, Program, ran };
+import window.apps { same };
 import guest.running { start };
 
 /** The longest name an instance can be given. */
@@ -36,14 +37,15 @@ fun display_name(p: AppPage): string = match p.label {
  *     instances_of(m, m.current.unwrap_or(-1))
  */
 fun instances_of(m: Model, id: i64): Tab[] {
-    let mut path: Option<string> = None;
+    let mut page: Option<AppPage> = None;
     for t of m.tabs {
         if t.id == id {
-            path = Some(t.page.path);
+            page = Some(t.page);
         }
     }
-    match path {
-        Some(p) => m.tabs.filter(fun(t: Tab) = same_app(t.page.path, p)),
+    // One app's windows: at an address with several, by its first key (PRP-050).
+    match page {
+        Some(p) => m.tabs.filter(fun(t: Tab) = same(t.page, p)),
         None => [],
     }
 }
