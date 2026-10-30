@@ -338,6 +338,43 @@ fun publisher_colour(t: Theme, origin: u8[]): string {
 }
 
 /**
+ * Returns an app's dot colour among the apps at its address (PRP-050):
+ * its own (`publisher_colour`), unless an app met before it there took
+ * that one; then the next free one. Apps at one address never share a
+ * colour while there are colours to go round. An app not among `met`
+ * (one being named) is placed after them all.
+ *
+ * @param met the apps at the address, by first key, in the order they were met
+ *
+ * Example:
+ *     colour_among(t, apps.map(fun(i) = i.origin), origin)
+ */
+fun colour_among(t: Theme, met: u8[][], origin: u8[]): string {
+    let mut used: i64[] = [];
+    for o of met {
+        let i = free_colour(t, o, used);
+        if o == origin {
+            return t.publishers[i];
+        }
+        used.push(i);
+    }
+    t.publishers[free_colour(t, origin, used)]
+}
+
+/** The first colour from `origin`'s own, round the palette, that isn't in `taken`. */
+fun free_colour(t: Theme, origin: u8[], taken: i64[]): i64 {
+    let n = t.publishers.len;
+    let own = if origin.len > 0 { origin[0] as i64 % n } else { 0 };
+    for k of range(0, n) {
+        let i = (own + k) % n;
+        if !taken.any(fun(x: i64) = x == i) {
+            return i;
+        }
+    }
+    own
+}
+
+/**
  * A point size at the person's text size (PRP-038): Rapidkoi's titles and
  * headings in its pages follow it. The frame passes a theme at scale 1.
  *

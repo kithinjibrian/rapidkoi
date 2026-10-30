@@ -9,11 +9,11 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, window.window, ui.frame, ui.tokens, ui.themes
  * Used by: ui.layout
  */
-import window.apps { tab_of as app_tab };
+import window.apps { tab_of as app_tab, same };
 import window.pins { pins_app, origin_of };
 import trust.verify { known_for };
 import trust.publishers { apps_at };
-import ui.several { dot };
+import ui.several { dot, met };
 import kivuli {
     View,
     Align,
@@ -62,14 +62,9 @@ fun view(m: Model): View<Msg> {
     }
     // The rest, app and empty tabs, in the order they were made (PRP-024).
     let mut rest: View<Msg>[] = [];
-    for id of order(m) {
+    for id of dock_order(m) {
         match tab_by_id(m, id) {
-            // A dock: one entry per app, its last-used instance's (PRP-033).
-            Some(tab) => if !m.pinned.any(
-                fun(p: Pin) = pins_app(p, tab.page.path, origin_of(tab.page)),
-            ) && app_tab(m, tab.page.path, origin_of(tab.page)) == Some(tab.id) {
-                rest.push(open_app(m, tab, false));
-            },
+            Some(tab) => rest.push(open_app(m, tab, false)),
             None => rest.push(empty_tab(m, id)),
         }
     }
@@ -97,6 +92,45 @@ fun view(m: Model): View<Msg> {
  *     sidebar.order(m)
  */
 fun order(m: Model): i64[] = tab_order(m);
+
+/**
+ * The dock's entries below the pins, in order: one per app that isn't
+ * pinned, at its first window's place, showing its last-used window
+ * (PRP-033); and each empty tab. A new window never moves its app's entry
+ * (the owner, 2026-10-30).
+ *
+ * Example:
+ *     dock_order(m)
+ */
+fun dock_order(m: Model): i64[] {
+    let all = order(m);
+    let mut out: i64[] = [];
+    for i of range(0, all.len) {
+        match tab_by_id(m, all[i]) {
+            Some(tab) => {
+                let pinned = m.pinned.any(
+                    fun(p: Pin) = pins_app(p, tab.page.path, origin_of(tab.page)),
+                );
+                // Its app's first window: no earlier one of the same app.
+                let mut first = true;
+                for j of range(0, i) {
+                    if let Some(earlier) = tab_by_id(m, all[j]) {
+                        if same(earlier.page, tab.page) {
+                            first = false;
+                        }
+                    }
+                }
+                if !pinned && first {
+                    if let Some(shown) = app_tab(m, tab.page.path, origin_of(tab.page)) {
+                        out.push(shown);
+                    }
+                }
+            }
+            None => out.push(all[i]),
+        }
+    }
+    out
+}
 
 /** The app tab with this id, if it's one. */
 fun tab_by_id(m: Model, id: i64): Option<Tab> {
@@ -146,10 +180,22 @@ fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
             look.push(x);
         }
     }
-    let button = ui_button_with(
-        [face(t, tab.page.name, tab.page.path, tab.page.icon)],
-        Msg.Select(tab.id),
-    ).style(look).tooltip(label(tab.page)).menu([
+    // Its colour, on its icon's corner, when its address has several apps (PRP-050).
+    let shown = face(t, tab.page.name, tab.page.path, tab.page.icon);
+    let marked = match tab.page.trust {
+        Some(tr) => {
+            let here = apps_at(known_for(m.ring, tr.host), tr.host);
+            if here.len > 1 {
+                overlay(shown, [dot(t, met(here), tr.origin).place(Align.Start, Align.End)])
+            } else {
+                shown
+            }
+        }
+        None => shown,
+    };
+    let button = ui_button_with([marked], Msg.Select(tab.id)).style(look).tooltip(
+        label(tab.page),
+    ).menu([
         if all.len > 1 {
             item("Close all", Msg.CloseApp(tab.id))
         } else {
@@ -165,12 +211,6 @@ fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
         Msg.CloseApp(tab.id)
     };
     let mut layers = [close_button(t, closing, tab.page.name, current)];
-    // Its colour, when its address has several apps (PRP-050).
-    if let Some(tr) = tab.page.trust {
-        if apps_at(known_for(m.ring, tr.host), tr.host).len > 1 {
-            layers.push(dot(t, tr.origin).place(Align.Start, Align.End));
-        }
-    }
     if all.len > 1 {
         layers.push(text(count_text(all.len)).style(count_badge(t)).place(Align.End, Align.End));
     }

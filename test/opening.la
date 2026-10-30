@@ -140,7 +140,8 @@ fun a_new_key_without_a_trail_asks_first() {
     let naming = step(again, Msg.SeparateApp);
     assert(naming.naming.is_some());
     let other = step(step(naming, Msg.NameSeparate("Other")), Msg.ConfirmSeparate);
-    assert_eq(other.tabs.len, 2);
+    // In place (the owner, 2026-10-30): the new app takes the window.
+    assert_eq(other.tabs.len, 1);
     assert_eq(marks(other, "localhost:18743 · verified (development) · new publisher"), true);
     match page_of(other) {
         App(p) => assert_eq(p.name, "Other"),

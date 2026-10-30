@@ -653,6 +653,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - **Several apps at one address:** a chip at the start of the address box (the app's colour and name) opens a dropdown of every app there (colour, name, key fingerprint, a default). With no default, typing the address asks which; with one, it opens it. The dock marks each app with its colour; the colour comes from its key and shows already while naming it. "· new publisher" leaves the address box.
 - **Whoever signs the site decides which app is live:** a publisher returning with its key, or a signed rotation from it, makes its app update again and freezes the other; a new key with no trail is one more app. Rapidkoi never moves data between apps on its own.
 
+**Amended (the owner, 2026-10-30, after checking it on screen):** "Open as a separate app" opens the new app in place, in the tab it was asked from, not in a new one: the person's version becomes "where you left off" (Continue brings it back with its window's state), and the chip's list moves between them. Caution is amber (`caution` in the theme), not the brand orange; the apps' palette has cyan in place of yellow.
+
 **Rules out:** deleting a kept copy because the site's key changed; one kept copy per host; matching apps by address alone; a separate app named by Rapidkoi; moving an app's data to another app (not now: its own feature, if ever).
 
 ---

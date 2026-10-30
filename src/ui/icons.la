@@ -28,6 +28,8 @@ enum Icon {
     Settings,
     /** `shield-tick.svg`. */
     Shield,
+    /** `shield-cross.svg`: an app nothing trusted vouches for (the owner, 2026-10-30). */
+    ShieldCross,
     /** `star.svg`. */
     Star,
     /** `3-dots-more.svg`: the instance strip's overflow (PRP-033). */
@@ -50,6 +52,7 @@ const ALL: Icon[] = [
     Icon.Reload,
     Icon.Settings,
     Icon.Shield,
+    Icon.ShieldCross,
     Icon.Star,
     Icon.More,
     Icon.Upgrade,
@@ -73,6 +76,7 @@ fun file(i: Icon): string = match i {
     Reload => "rotate-right.svg",
     Settings => "settings.svg",
     Shield => "shield-tick.svg",
+    ShieldCross => "shield-cross.svg",
     Star => "star.svg",
     More => "3-dots-more.svg",
     Upgrade => "refresh-arrow.svg",
@@ -96,6 +100,7 @@ fun svg(i: Icon): string = match i {
     Reload => include_str("../../assets/icons/rotate-right.svg"),
     Settings => include_str("../../assets/icons/settings.svg"),
     Shield => include_str("../../assets/icons/shield-tick.svg"),
+    ShieldCross => include_str("../../assets/icons/shield-cross.svg"),
     Star => include_str("../../assets/icons/star.svg"),
     More => include_str("../../assets/icons/3-dots-more.svg"),
     Upgrade => include_str("../../assets/icons/refresh-arrow.svg"),

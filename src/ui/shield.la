@@ -9,25 +9,31 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.tabs, net.address, trust.keys, ui.frame, ui.tokens, ui.themes, ui.cards
  * Used by: ui.addressbox
  */
-import kivuli { View, Align, column, text, button };
-import kivuli.ui { separator };
+import kivuli { View, Align, column };
+import kivuli.ui { separator, button as ui_button };
 import window.actions { Msg, ShieldPage };
 import window.tabs { AppPage, Cached };
 import net.address { parse, shown };
 import trust.keys { fingerprint };
 import ui.frame { file_of };
-import ui.tokens { SPACE_SM, gap };
+import ui.tokens { SPACE_XS, SPACE_SM, gap, padding_xy };
 import ui.schemes { Theme };
-import ui.themes { dim, button as button_look };
+import ui.themes { button as button_look };
 import guest.nodes { ButtonLook };
-import ui.cards { sized, identity, choice, detail, line };
+import ui.cards { sized, identity, choice, detail, line, sentence };
 
 /** The shield's three looks: everything checks out, something to know, or nothing vouches. */
 enum ShieldLook {
     /** Signed, and the signature checks out: a verified site, or a signed file whose key Rapidkoi trusts. */
     Verified,
-    /** A development address, a key not confirmed yet, or a new publisher. */
+    /** A development address: you're its publisher, so a tick, but a caution one. */
     Caution,
+    /**
+     * Nothing trusted vouches for it: unsigned, a key not met yet, a new
+     * publisher, or a site that moved on to another key (the owner,
+     * 2026-10-30). shield-cross in a pill with the reason, no colour.
+     */
+    Warned,
     /** Nothing signed it. */
     Unsigned,
 }
@@ -70,6 +76,8 @@ struct ShieldFacts {
     since: Option<string>,
     /** Its version, "· verified build" when its site's signed index lists the build; `None` without a manifest. */
     version: Option<string>,
+    /** Why it's warned, in its pill ("Not signed", "Not verified", "New publisher", "Key changed"); `None` otherwise. */
+    warning: Option<string>,
 }
 
 /**
@@ -98,12 +106,26 @@ fun facts(p: AppPage): ShieldFacts {
             }
         },
     };
-    // Its site moved on to another publisher: your version, caution (PRP-049).
+    // Its site moved on to another publisher: your version (PRP-049).
     let moved = p.cached.and_then(fun(c: Cached) = c.moved).is_some();
+    // Why nothing trusted vouches for it, in the pill (the owner,
+    // 2026-10-30). Development (this computer, a local file) says nothing:
+    // you're its publisher.
+    let development = match connection {
+        Secure => false,
+        _ => true,
+    };
+    let warning = match signature {
+        _ if moved => Some("Key changed"),
+        NewPublisher => Some("New publisher"),
+        NotConfirmed => Some("Not verified"),
+        NotSigned if !development => Some("Not signed"),
+        _ => None,
+    };
     let look = match signature {
-        _ if moved => ShieldLook.Caution,
+        _ if warning.is_some() => ShieldLook.Warned,
         NotSigned => ShieldLook.Unsigned,
-        NotConfirmed | NewPublisher => ShieldLook.Caution,
+        NotConfirmed | NewPublisher => ShieldLook.Warned,
         // Signed: a development address is still caution; a file is fine,
         // its signature is what vouches for it.
         Signed => match connection {
@@ -131,6 +153,7 @@ fun facts(p: AppPage): ShieldFacts {
         fun(m) = if from_index { "{m.version} · verified build" } else { m.version },
     );
     ShieldFacts {
+        warning: warning,
         look: look,
         connection: connection,
         signature: signature,
@@ -218,7 +241,9 @@ fun date(ms: i64): string {
  */
 fun look_colour(t: Theme, look: ShieldLook): string = match look {
     Verified => t.on_frame,
-    Caution => t.accent,
+    Caution => t.caution,
+    // No colour: the pill's words warn.
+    Warned => t.text,
     Unsigned => t.faint,
 };
 
@@ -239,18 +264,26 @@ fun card(t: Theme, p: AppPage, page: ShieldPage, now: i64): View<Msg> {
     let f = facts(p);
     let back = Msg.Shield(Some(ShieldPage.Main));
     let shown = match page {
-        Main => column([
-            identity(t, p, None),
-            moved_on(t, p),
-            separator(),
-            choice(
-                t,
-                connection_label(f.connection),
-                None,
-                Msg.Shield(Some(ShieldPage.Connection)),
-            ),
-            choice(t, signature_label(f.signature), None, Msg.Shield(Some(ShieldPage.Signed))),
-        ]).style([gap(SPACE_SM)]),
+        Main => {
+            let mut parts = [identity(t, p, None), separator()];
+            // Its site moved on (PRP-049): said first, then its one action,
+            // a row like the others.
+            for x of moved_on(t, p) {
+                parts.push(x);
+            }
+            parts.push(
+                choice(
+                    t,
+                    connection_label(f.connection),
+                    None,
+                    Msg.Shield(Some(ShieldPage.Connection)),
+                ),
+            );
+            parts.push(
+                choice(t, signature_label(f.signature), None, Msg.Shield(Some(ShieldPage.Signed))),
+            );
+            column(parts).style([gap(SPACE_SM)])
+        }
         Connection => detail(t, connection_label(f.connection), back, [
             line(t, "Address", f.place),
         ]),
@@ -310,17 +343,24 @@ fun civil(days: i64): (i64, i64, i64) {
 
 /**
  * When the app's site moved on to another publisher (PRP-049): saying so,
- * and offering the new one as a separate app. Nothing otherwise.
+ * at the rows' inset, then a primary button offering the new one as a
+ * separate app, and a separator. Nothing otherwise.
  */
-fun moved_on(t: Theme, p: AppPage): View<Msg> = match (
+fun moved_on(t: Theme, p: AppPage): View<Msg>[] = match (
     p.trust,
     p.cached.and_then(fun(c: Cached) = c.moved),
 ) {
-    (Some(tr), Some(_)) => column([
-        text("{tr.host} is now signed by another key").style(dim(t)).align(Align.Start),
-        button("Open as a separate app", Msg.SeparateMoved).style(
-            button_look(t, ButtonLook.Normal),
-        ),
-    ]).style([gap(SPACE_SM)]),
-    _ => column([]),
+    (Some(tr), Some(_)) => [
+        column([sentence(t, "{tr.host} is now signed by another key")]).style([
+            padding_xy(SPACE_SM, SPACE_XS),
+        ]),
+        // An action, not a page: the brand's primary button, at the rows' inset (the owner).
+        column([
+            ui_button("Open as a separate app", Msg.SeparateMoved).style(
+                button_look(t, ButtonLook.Primary),
+            ).align(Align.Start),
+        ]).style([padding_xy(SPACE_SM, SPACE_XS)]),
+        separator(),
+    ],
+    _ => [],
 };

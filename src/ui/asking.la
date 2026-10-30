@@ -13,12 +13,12 @@ import kivuli.ui { button as ui_button, dialog_header, dialog_footer, input as u
 import window.actions { Msg };
 import window.window { Model, Naming };
 import trust.publishers { apps_at };
-import ui.several { rows, dot };
+import ui.several { list, dot, met };
 import window.choosing { naming_problem, choices };
 import trust.verify { Identity, known_for };
 import trust.keys { fingerprint };
 import guest.nodes { ButtonLook };
-import ui.tokens { SPACE_SM, gap };
+import ui.tokens { SPACE_SM, SPACE_MD, SPACE_LG, gap, margin };
 import ui.themes { title, dim, button as button_look };
 
 /**
@@ -43,11 +43,17 @@ fun naming_view(m: Model): View<Msg> {
         ),
         None => ("", "", [], []),
     };
+    // Among the apps at the address: a new one takes the next free colour.
+    let all = match m.naming {
+        Some(Separate(_, c, _)) => met(apps_at(known_for(m.ring, c.host), c.host)),
+        Some(Renaming(host, _, _)) => met(apps_at(known_for(m.ring, host), host)),
+        None => [],
+    };
     let problem = naming_problem(m);
     let mut parts: View<Msg>[] = [
         dialog_header(title, ""),
         row([
-            dot(t, origin),
+            dot(t, all, origin),
             ui_input(typed, fun(s: string) = Msg.NameSeparate(s)).placeholder("Name").name(
                 "Name",
             ).on_submit(Msg.ConfirmSeparate).expand(),
@@ -77,9 +83,10 @@ fun naming_view(m: Model): View<Msg> {
  */
 fun which_view(m: Model): View<Msg> {
     let t = m.theme;
-    let mut parts: View<Msg>[] = [text("Which app?").style(title(t)).align(Align.Start)];
-    for r of rows(t, choices(m).map(fun(c: (string, Identity)) = c.1), None, false) {
-        parts.push(r);
-    }
-    column(parts).style([gap(SPACE_SM)])
+    let apps = choices(m).map(fun(c: (string, Identity)) = c.1);
+    // A card's worth, centred in the tab, the page's margin above it.
+    column([
+        text("Which app?").style(title(t)).align(Align.Start),
+        list(t, apps, None, false),
+    ]).style([gap(SPACE_MD), margin(SPACE_LG)]).align(Align.Center)
 }

@@ -22,7 +22,7 @@ import window.tabs {
 import window.restarts { resume, load_again };
 import window.upgrades { upgrading, landed, shape_changed };
 import window.choosing { asks_which };
-import window.instances { next_instance, another };
+import window.instances { next_instance, next_instance_of, another };
 import data.remembered { Open };
 import window.leftoff { LeftOff, leave, compiled, signer_of };
 import trust.verify { Identity, known_for };
@@ -184,7 +184,7 @@ fun new_instance(m: Model): (Model, Cmd<Msg>) {
             return (m, Cmd.none());
         }
     };
-    match another(p, next_instance(m, p.path)) {
+    match another(p, next_instance_of(m, p)) {
         // Fresh, as every new window is (session 189).
         Some(fresh) => (add_tab(m, fresh), Cmd.none()),
         None => (m, Cmd.none()),

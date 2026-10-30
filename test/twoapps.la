@@ -61,11 +61,13 @@ fun finish(m: Model, dir: string) {
     clean("{dir}.alice");
 }
 
-/** Both apps open: Alice's Counting and "Bob's Notes", Bob's in front. */
+/** Both apps open: Alice's Counting (back with Continue) and "Bob's Notes", Bob's in front. */
 fun both(port: i64, name: string): (Model, string) {
     let (m, dir) = moved_on(port, name);
     let named = step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes"));
-    (step(named, Msg.ConfirmSeparate), dir)
+    // Bob's opens in place; Continue brings yours back beside it.
+    let back = step(step(named, Msg.ConfirmSeparate), Msg.Continue);
+    (on(back, "Bob's Notes"), dir)
 }
 
 fun origin_of(p: AppPage): Option<u8[]> = p.trust.map(fun(t) = t.origin);

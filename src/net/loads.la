@@ -30,6 +30,7 @@ import window.tabs {
 import window.restarts { with_saved };
 import window.upgrades { landed, adopted };
 import window.leftoff { LeftOff };
+import window.pins { left_is };
 import window.window { Model, with_tab, app };
 import net.fetching { Fetched, Source };
 import net.keeping { Keeping, open_app };
@@ -362,8 +363,9 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
     };
     // Every window of the app moves, or none (PRP-048).
     let (after, said) = landed(m, id, pending.kept, page, notice);
-    // Continue keeps "where you left off" until the app runs.
-    let ran = m.left_off.map(fun(l: LeftOff) = l.path == p.path).unwrap_or(false) && state_of(
+    // Continue keeps "where you left off" until that app runs: another
+    // app at the same address doesn't count (PRP-049).
+    let ran = m.left_off.map(fun(l: LeftOff) = left_is(l, page)).unwrap_or(false) && state_of(
         page,
     ).is_some();
     let left = if ran { None } else { m.left_off };
