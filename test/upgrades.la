@@ -28,6 +28,11 @@ fun offered_at(m: Model, i: i64): bool = m.tabs[i].page.cached.and_then(
     fun(c: Cached) = c.newer,
 ).is_some();
 
+/** Whether tab `i`'s site moved on to another publisher (PRP-049). */
+fun moved_at(m: Model, i: i64): bool = m.tabs[i].page.cached.and_then(
+    fun(c: Cached) = c.moved,
+).is_some();
+
 /** Presses Add `n` times in the window in front. */
 fun added(m: Model, n: i64): Model {
     let mut at = m;
@@ -101,23 +106,21 @@ fun a_failed_upgrade_leaves_every_window_on_its_version() {
 }
 
 @test
-fun a_changed_key_is_asked_once_and_keeping_mine_leaves_every_window() {
+fun a_changed_key_on_reload_keeps_your_version_in_every_window() {
     let (m, dir) = two_windows(18848, "2.0.0", 1);
     // The site starts over with another key, no rotation.
     clean("{dir}/site");
     clean("{dir}.key");
     make_key(dir).unwrap();
     publish_site(dir).unwrap();
-    let asked = step(m, Msg.Reload);
-    assert(shows(asked, "localhost:18848 is now signed by a different key"));
-    // The other window keeps running meanwhile, and a second reload waits.
-    assert_eq(version_at(asked, 0), "1.0.0");
-    assert_eq(step(on(asked, 0), Msg.Reload).loads, asked.loads);
-    let kept = step(asked, Msg.KeepMine);
-    assert_eq((version_at(kept, 0), version_at(kept, 1)), ("1.0.0", "1.0.0"));
-    assert(shows(kept, "Count: 2"));
-    assert(shows(on(kept, 0), "Count: 1"));
-    finish(kept, dir);
+    // PRP-049: no question on ⟳: your version, its last kept build, opens
+    // in every window, each with its state, marked as moved on.
+    let reloaded = step(m, Msg.Reload);
+    assert_eq((version_at(reloaded, 0), version_at(reloaded, 1)), ("2.0.0", "2.0.0"));
+    assert(shows(reloaded, "Count: 2"));
+    assert(shows(on(reloaded, 0), "Count: 1"));
+    assert((moved_at(reloaded, 0), moved_at(reloaded, 1)) == (true, true));
+    finish(reloaded, dir);
 }
 
 @test

@@ -26,7 +26,10 @@ import data.kept {
     size_of,
     remove,
     evict,
+    adopt,
+    old_for,
 };
+import trust.publishers { known_of };
 import data.store { Store };
 import trust.verify { Verified, Record, Identity, check_site_at };
 import trust.index { Version, read_index, read_key_file };
@@ -37,10 +40,15 @@ import guest.limits { KEPT_BYTES };
 struct Keeping {
     /** The data folder. */
     store: Store,
-    /** The hosts of pinned apps: never evicted. */
-    pinned: string[],
+    /** The copies of pinned apps: never evicted. */
+    held: Kept[],
     /** Whether to open from the kept copy before asking the site: not for ⟳, which goes to the site first. */
     cache_first: bool,
+    /**
+     * Which app at the address this load opens, by its first key
+     * (PRP-049); `None` when none is known there yet.
+     */
+    origin: Option<u8[]>,
 }
 
 /** What the check after an open from the kept copy found. */
@@ -55,21 +63,29 @@ enum Refreshed {
     Gone(Option<string>),
     /** The site couldn't be reached: offline, most likely. */
     Unreachable,
-    /** The site failed a check (a changed key, an older index, a bad file): the copy is gone, and the next open asks the site. */
+    /** The site failed a check (an older index, a bad file): the copy is gone, and the next open asks the site. */
     Refused,
+    /**
+     * The site is signed by this key now, with no signed trail from the
+     * app's (PRP-049): the copy stays as the person's version.
+     */
+    Moved(u8[]),
 }
 
 /**
  * Opens a signed app for a load: from its kept copy first (unless
  * `cache_first` is off), else from its site, keeping what it fetched when
  * it's the site's current version; when the site can't be reached, from
- * the kept copy after all, whatever version was asked for. Without
- * `keeping`, exactly `fetch_app`.
+ * the kept copy after all, whatever version was asked for. Each app opens
+ * from its own copy and is checked only against its own keys (PRP-049): a
+ * site now signed by another key with no trail opens the app's copy as the
+ * person's version, marked moved on. Without `keeping`, exactly `fetch_app`.
  *
+ * @param known the identities trusted for the address's host (`verify.known_for`)
  * @returns what `fetch_app` returns; a signed result's `Source` says where it came from
  *
  * Example:
- *     open_app(a, known, net, FETCH_TIMEOUT_MS, Some(Keeping { store: s, pinned: [], cache_first: true }))
+ *     open_app(a, known, net, FETCH_TIMEOUT_MS, Some(Keeping { store: s, held: [], cache_first: true, origin: None }))
  */
 fun open_app(
     a: Address,
@@ -85,9 +101,33 @@ fun open_app(
         }
     };
     let host = shown(a);
-    let k = kept_for(kp.store, host);
-    if kp.cache_first && has(k) {
-        match from_kept(k, known, host, a.version, false) {
+    let first = match kp.origin {
+        Some(o) => Some(o),
+        None => signer_of_old(kp.store, host),
+    };
+    let origin = match first {
+        Some(o) => o,
+        // No app known here yet: whatever the site serves, kept as its own app.
+        None => {
+            let f = fetch_app(a, known, net, timeout_ms);
+            if let Signed(v, _, _, src) = f {
+                if current_of(src, host) == Some(v.opened.bundle.manifest.version) {
+                    kept_fetched(kp, kept_for(kp.store, host, v.trust.origin), src);
+                }
+            }
+            return f;
+        }
+    };
+    let mine = known_of(known, host, origin);
+    // Its first key is always one of its own, trusted yet or not.
+    let mut signers = mine.map(fun(i: Identity) = i.key);
+    signers.push(origin);
+    adopt(kp.store, host, origin, signers);
+    let k = kept_for(kp.store, host, origin);
+    // A copy whose site moved on is the only version there is: it opens even on ⟳.
+    let moved = meta_of(k).moved;
+    if (kp.cache_first || moved.is_some()) && has(k) {
+        match from_kept(k, mine, host, a.version, false) {
             // A copy built for another contract can't run: the site may have a rebuilt one.
             Some(Signed(v, _, _, _)) if !runs_here(v.opened.bundle.manifest) => {
                 remove(k).unwrap_or(());
@@ -98,7 +138,7 @@ fun open_app(
             None => {}
         }
     }
-    let f = fetch_app(a, known, net, timeout_ms);
+    let f = fetch_app(a, mine, net, timeout_ms);
     match f {
         Signed(v, _, _, src) => {
             // A link's older version runs, but only the current one is kept.
@@ -108,7 +148,12 @@ fun open_app(
             f
         }
         // The site couldn't be reached: the kept copy, whatever was asked.
-        Refused(Failed(_, _)) if has(k) => from_kept(k, known, host, None, true).unwrap_or(f),
+        Refused(Failed(_, _)) if has(k) => from_kept(k, mine, host, None, true).unwrap_or(f),
+        // Another publisher's site now: the person's version, kept (DECISION-064).
+        Refused(Unapproved(_, c)) if has(k) => {
+            write_meta(k, Meta { moved: Some(c.new), ..meta_of(k) }).unwrap_or(());
+            from_kept(k, mine, host, None, false).unwrap_or(f)
+        }
         _ => f,
     }
 }
@@ -119,8 +164,10 @@ fun open_app(
  * nothing for the person), notes when the site was reached, and finds
  * whether the running version was withdrawn.
  *
+ * @param known the identities trusted for this app (`apps.known_of`)
  * @param running the running build's SHA-256
  * @param version the running build's version
+ * @param origin the app's first key: whose copy it is
  * @returns what it found; the copy is updated or removed to match
  *
  * Example:
@@ -132,12 +179,13 @@ fun refresh(
     net: Network,
     timeout_ms: i64,
     s: Store,
-    pinned: string[],
+    held: Kept[],
     running: u8[],
     version: string,
+    origin: u8[],
 ): Refreshed {
     let host = shown(a);
-    let k = kept_for(s, host);
+    let k = kept_for(s, host, origin);
     let (checked, src) = check_signed(Address { version: None, ..a }, known, net, timeout_ms, None);
     let withdrawn = withdrawn_in(src, host, version);
     match checked {
@@ -146,10 +194,11 @@ fun refresh(
             let meta = meta_of(k);
             if newer {
                 keep(k, src.key, src.index, src.build).unwrap_or(());
-                evict(s, pinned, KEPT_BYTES).unwrap_or(0);
+                evict(s, held, KEPT_BYTES).unwrap_or(0);
             }
-            // A failed write only means the next open checks again.
-            write_meta(k, Meta { checked: src.checked, ..meta }).unwrap_or(());
+            // A failed write only means the next open checks again. The
+            // site is the app's again, if it had moved on (DECISION-064).
+            write_meta(k, Meta { checked: src.checked, moved: None, ..meta }).unwrap_or(());
             let fresher = if newer { Some(v.opened.bundle.manifest.version) } else { None };
             Refreshed.Checked(r, known, fresher, withdrawn)
         }
@@ -158,6 +207,11 @@ fun refresh(
         Err(Withdrawn(_, _)) | Err(NoCurrent(_)) => {
             remove(k).unwrap_or(());
             Refreshed.Gone(withdrawn)
+        }
+        // Another publisher's key, no trail: the copy stays, as the person's version.
+        Err(Unapproved(c)) => {
+            write_meta(k, Meta { moved: Some(c.new), ..meta_of(k) }).unwrap_or(());
+            Refreshed.Moved(c.new)
         }
         Err(_) => {
             remove(k).unwrap_or(());
@@ -187,6 +241,7 @@ fun from_kept(
             kept: true,
             offline: offline,
             checked: meta.checked,
+            moved: meta.moved,
         }),
     )
 }
@@ -195,13 +250,28 @@ fun from_kept(
 fun kept_fetched(kp: Keeping, k: Kept, src: Source) {
     // Keeping is a bonus: a failure leaves the app opening from its site, as before.
     if keep(k, src.key, src.index, src.build).is_ok() {
-        write_meta(k, Meta { checked: src.checked, opened: time.now_ms() }).unwrap_or(());
-        evict(kp.store, kp.pinned, KEPT_BYTES).unwrap_or(0);
+        write_meta(k, Meta { checked: src.checked, opened: time.now_ms(), moved: None }).unwrap_or(
+            (),
+        );
+        evict(kp.store, kp.held, KEPT_BYTES).unwrap_or(0);
     }
 }
 
+/**
+ * The key that signed a host's copy kept before PRP-049, when nothing is
+ * trusted there yet: that copy is its own app, first met now.
+ */
+fun signer_of_old(s: Store, host: string): Option<u8[]> {
+    let old = old_for(s, host);
+    if !has(old) {
+        return None;
+    }
+    let kf = read_key_file(read_bytes("{old.dir}/key").ok()?).ok()?;
+    Some(kf.key)
+}
+
 /** A kept copy's meta, or a blank one. */
-fun meta_of(k: Kept): Meta = read_meta(k).unwrap_or(Meta { checked: 0, opened: 0 });
+fun meta_of(k: Kept): Meta = read_meta(k).unwrap_or(Meta { checked: 0, opened: 0, moved: None });
 
 /** The current version a fetched index names, read with its own key file. */
 fun current_of(src: Source, host: string): Option<string> {

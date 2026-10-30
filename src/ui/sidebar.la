@@ -202,12 +202,12 @@ fun close_button(t: Theme, closing: Msg, name: string, current: bool): View<Msg>
 /** A pinned app that isn't open: its icon, opening it, and its menu. */
 fun closed_pin(t: Theme, p: Pin): View<Msg> = ui_button_with(
     [face(t, p.name, p.path, p.icon)],
-    Msg.OpenPinned(p.path),
+    Msg.OpenPinned(p.path, p.origin),
 ).style(app_button(t)).tooltip("Open {p.name}").menu([
-    item("Open", Msg.OnPin(p.path, PinAction.Open)),
-    item("Unpin", Msg.OnPin(p.path, PinAction.Unpin)),
+    item("Open", Msg.OnPin(p.path, p.origin, PinAction.Open)),
+    item("Unpin", Msg.OnPin(p.path, p.origin, PinAction.Unpin)),
     menu_separator(),
-    item("Forget this app…", Msg.OnPin(p.path, PinAction.Forget)),
+    item("Forget this app…", Msg.OnPin(p.path, p.origin, PinAction.Forget)),
 ]).align(Align.Center);
 
 /** An app's icon, or its initial without one. */

@@ -1,0 +1,50 @@
+/**
+ * The publishers at one address (PRP-049, DECISION-064): which trusted
+ * keys belong to which app. An app is its host and first key, so its keys
+ * are that first key and those its signed rotations led to; another
+ * publisher's key at the same host is another app. Never touches the disk.
+ *
+ * Depends on: std.crypto, trust.verify
+ * Used by: net.keeping, net.checks, window.navigate
+ */
+import std.crypto { equal };
+import trust.verify { Identity };
+
+/**
+ * The keys one app at `host` is checked against: every key known for it,
+ * its first and those its signed rotations led to. Another publisher's
+ * key at the same host is never among them.
+ *
+ * Example:
+ *     known_of(known_for(ring, host), host, t.origin)
+ */
+fun known_of(all: Identity[], host: string, origin: u8[]): Identity[] = all.filter(
+    fun(i: Identity) = i.host == host && equal(i.origin, origin),
+);
+
+/**
+ * The apps known at `host`, one per first key, each as its latest
+ * identity (the last recorded), in the order each app was first met.
+ *
+ * Example:
+ *     apps_at(ring.known.get(), "notes.dafifi.net")
+ */
+fun apps_at(all: Identity[], host: string): Identity[] {
+    let mut apps: Identity[] = [];
+    for i of all {
+        if i.host != host {
+            continue;
+        }
+        let mut found = false;
+        for n of range(0, apps.len) {
+            if equal(apps[n].origin, i.origin) {
+                apps[n] = i;
+                found = true;
+            }
+        }
+        if !found {
+            apps.push(i);
+        }
+    }
+    apps
+}

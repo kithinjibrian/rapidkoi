@@ -57,6 +57,8 @@ struct Source {
     offline: bool,
     /** When the site was last reached and checked, in milliseconds since 1970: now, when fetched. */
     checked: i64,
+    /** The key the app's site moved on to, with no signed trail from the app's (PRP-049): it opened as the person's version. */
+    moved: Option<u8[]>,
 }
 
 /**
@@ -159,6 +161,7 @@ fun check_signed(
             kept: false,
             offline: false,
             checked: time.now_ms(),
+            moved: None,
         },
     )
 }

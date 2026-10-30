@@ -8,7 +8,7 @@
  * Used by: window.navigate, shell
  */
 import wasmtime { Engine };
-import trust.verify { Keyring, keyring };
+import trust.verify { Keyring, Change, keyring };
 import data.store { Store };
 import net.dialing { Network };
 import people.people { People, nobody };
@@ -53,6 +53,10 @@ struct Model {
     approval: Option<Approval>,
     /** The instance being renamed and the name typed so far (PRP-033). */
     renaming: Option<(i64, string)>,
+    /** "Name the new app" (PRP-049): the tab it's for, the key change it answers, and the name typed. */
+    naming: Option<(i64, Change, string)>,
+    /** "Which app?" (PRP-049): the tab asking, and the address that has several apps. */
+    choosing: Option<(i64, string)>,
     /** The last session, until it's restored or something else is opened (PRP-035). */
     previous: Option<Open>,
     /** Pinned apps, remembered across restarts by `saving`. */
@@ -116,6 +120,8 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         confirm: None,
         approval: None,
         renaming: None,
+        naming: None,
+        choosing: None,
         previous: None,
         pinned: [],
         last: None,

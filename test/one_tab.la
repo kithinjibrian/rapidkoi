@@ -55,8 +55,11 @@ fun an_address_still_loading_counts_as_open() {
 
 @test
 fun a_pin_switches_to_the_open_app() {
-    let m = Model { pinned: [Pin { name: "a", path: "a.wasm", icon: None }], ..two() };
-    let pinned = step(m, Msg.OpenPinned("a.wasm"));
+    let m = Model {
+        pinned: [Pin { name: "a", path: "a.wasm", icon: None, origin: None }],
+        ..two(),
+    };
+    let pinned = step(m, Msg.OpenPinned("a.wasm", None));
     // No second copy, and no empty tab left behind.
     assert_eq((pinned.tabs.len, pinned.blanks.len, pinned.current), (2, 0, Some(0)));
 }

@@ -18,7 +18,7 @@ fun counter(): AppPage {
     open_module("counter", "apps/counter.wasm", engine, Module.from_text(engine, wat).unwrap())
 }
 
-fun pin(name: string): Pin = Pin { name: name, path: "{name}.wasm", icon: None };
+fun pin(name: string): Pin = Pin { name: name, path: "{name}.wasm", icon: None, origin: None };
 
 fun closed(name: string): Card = Card {
     name: name,
@@ -51,7 +51,7 @@ fun an_open_tab_matches_by_name_or_title_ignoring_case() {
 @test
 fun a_pin_matches() {
     let found = suggest("not", [], [pin("notes"), pin("mail")], None);
-    assert_eq(messages(found), [Msg.OpenPinned("notes.wasm")]);
+    assert_eq(messages(found), [Msg.OpenPinned("notes.wasm", None)]);
     assert_eq(found[0].label, "notes");
     assert_eq(found[0].detail, None);
 }
@@ -68,5 +68,5 @@ fun a_closed_left_off_matches_but_an_open_one_is_listed_once() {
 fun tabs_come_first_then_pins_then_left_off() {
     let open = [Tab { id: 2, page: counter() }];
     let found = suggest("c", open, [pin("clock")], Some(closed("calendar")));
-    assert_eq(messages(found), [Msg.Select(2), Msg.OpenPinned("clock.wasm"), Msg.Continue]);
+    assert_eq(messages(found), [Msg.Select(2), Msg.OpenPinned("clock.wasm", None), Msg.Continue]);
 }

@@ -5,9 +5,10 @@
  * loads. A signed file says how far its key is trusted. Never runs it;
  * `tabs` starts the guest.
  *
- * Depends on: wasmtime, std.http, guest.guest, bundles.bundle, bundles.signing, trust.verify, net.fetching, net.address, guest.limits
+ * Depends on: wasmtime, std.http, guest.guest, bundles.bundle, bundles.signing, trust.verify, trust.publishers, net.fetching, net.address, guest.limits
  * Used by: window.tabs
  */
+import trust.publishers { known_of };
 import wasmtime { Engine, Module };
 import guest.guest { compile, reason, OLDER };
 import bundles.bundle { Manifest, asset };
@@ -166,14 +167,18 @@ fun from_fetched(engine: Engine, ring: Keyring, f: Fetched): Result<Loaded, Refu
 
 /**
  * Says whether a fetched result can be used as it is: a signed site's was
- * checked against a snapshot of its host's trust, which must still be the
+ * checked against a snapshot of its app's trust, which must still be the
  * keyring's. Otherwise (another tab recorded trust meanwhile) it loads again.
  *
  * Example:
  *     if current(ring, fetched) { from_fetched(…) } else { … }
  */
 fun current(ring: Keyring, f: Fetched): bool = match f {
-    Signed(v, _, known, _) => known_for(ring, v.trust.host) == known,
+    // Each app is checked against its own keys (PRP-049): only theirs count.
+    Signed(v, _, known, _) => {
+        let t = v.trust;
+        known_of(known_for(ring, t.host), t.host, t.origin) == known_of(known, t.host, t.origin)
+    }
     _ => true,
 };
 

@@ -78,8 +78,15 @@ fun with_session(name: string): Store {
     fs.make_dirs(s.dir).unwrap();
     let o = Open {
         tabs: [
-            OpenTab { link: [], path: path, instance: "", label: None, seen: 1 },
-            OpenTab { link: [], path: path, instance: "2", label: Some("Work"), seen: 2 },
+            OpenTab { link: [], path: path, instance: "", label: None, seen: 1, origin: None },
+            OpenTab {
+                link: [],
+                path: path,
+                instance: "2",
+                label: Some("Work"),
+                seen: 2,
+                origin: None,
+            },
         ],
         current: Some(1),
     };
@@ -131,8 +138,16 @@ fun a_tab_that_cant_come_back_says_why_and_the_rest_open() {
                 instance: "",
                 label: None,
                 seen: 1,
+                origin: None,
             },
-            OpenTab { link: [], path: module_of(s), instance: "", label: None, seen: 2 },
+            OpenTab {
+                link: [],
+                path: module_of(s),
+                instance: "",
+                label: None,
+                seen: 2,
+                origin: None,
+            },
         ],
         current: Some(0),
     };
@@ -240,8 +255,8 @@ fun a_replaced_session_takes_its_extra_windows_with_it() {
     let site = "rapidkoi://localhost:18798";
     let o = Open {
         tabs: [
-            OpenTab { link: [], path: site, instance: "", label: None, seen: 1 },
-            OpenTab { link: [], path: site, instance: "2", label: None, seen: 2 },
+            OpenTab { link: [], path: site, instance: "", label: None, seen: 1, origin: None },
+            OpenTab { link: [], path: site, instance: "2", label: None, seen: 2, origin: None },
         ],
         current: Some(0),
     };
@@ -266,11 +281,32 @@ fun the_current_session_wins_per_app() {
     let n = "{s.dir}/../n.wasm";
     let o = Open {
         tabs: [
-            OpenTab { link: [], path: module_of(s), instance: "", label: None, seen: 1 },
-            OpenTab { link: [], path: module_of(s), instance: "2", label: None, seen: 2 },
-            OpenTab { link: [], path: module_of(s), instance: "3", label: None, seen: 3 },
-            OpenTab { link: [], path: n, instance: "", label: None, seen: 4 },
-            OpenTab { link: [], path: n, instance: "2", label: Some("Two"), seen: 5 },
+            OpenTab {
+                link: [],
+                path: module_of(s),
+                instance: "",
+                label: None,
+                seen: 1,
+                origin: None,
+            },
+            OpenTab {
+                link: [],
+                path: module_of(s),
+                instance: "2",
+                label: None,
+                seen: 2,
+                origin: None,
+            },
+            OpenTab {
+                link: [],
+                path: module_of(s),
+                instance: "3",
+                label: None,
+                seen: 3,
+                origin: None,
+            },
+            OpenTab { link: [], path: n, instance: "", label: None, seen: 4, origin: None },
+            OpenTab { link: [], path: n, instance: "2", label: Some("Two"), seen: 5, origin: None },
         ],
         current: Some(0),
     };

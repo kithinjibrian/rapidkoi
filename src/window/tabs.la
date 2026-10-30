@@ -58,6 +58,10 @@ struct Pending {
     version: Option<string>,
     /** A link's fields, set in the app's first state. */
     link: (string, string)[],
+    /** Which app at the address it opens, by its first key; `None` when none is known there (PRP-049). */
+    origin: Option<u8[]>,
+    /** Whether a site that moved on asks first, as for an address typed or a link (PRP-049). */
+    ask: bool,
 }
 
 /** A compiled app, kept so Restart and Continue can start it again. */
@@ -122,6 +126,8 @@ struct Cached {
     size: i64,
     /** A newer version kept and not yet running here, offered by the address box (PRP-044). */
     newer: Option<string>,
+    /** The key its site moved on to (PRP-049): this is the person's version, and doesn't update. */
+    moved: Option<u8[]>,
 }
 
 /** What the window shows: home, or the current tab's app. */
@@ -148,6 +154,8 @@ struct Pin {
     path: string,
     /** Its icon, if it has one. */
     icon: Option<u8[]>,
+    /** Which app at its address, by first key; `None` unsigned or pinned before PRP-049. */
+    origin: Option<u8[]>,
 }
 
 /**
@@ -215,7 +223,7 @@ fun failed_page(path: string, why: string): AppPage = failed(
  * @param pending when it started, and what to do on arrival
  *
  * Example:
- *     loading("rapidkoi://localhost:8000", 3, Pending { started: now, again: false, saved: None, kept: [], resume: false, version: None, link: [] })
+ *     loading("rapidkoi://localhost:8000", 3, Pending { started: now, again: false, saved: None, kept: [], resume: false, version: None, link: [], origin: None, ask: false })
  */
 fun loading(path: string, number: i64, pending: Pending): AppPage = AppPage {
     name: address.parse(path).map(fun(a) = address.shown(a)).unwrap_or(path),

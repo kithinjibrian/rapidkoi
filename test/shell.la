@@ -180,10 +180,10 @@ fun pinning_and_opening_a_pin() {
     let m = step(two(), Msg.TogglePin);
     assert_eq(m.pinned.len, 1);
     // Open already: its tab is shown, not a second copy (PRP-026).
-    let shown = step(step(m, Msg.Select(1)), Msg.OpenPinned("a.wasm"));
+    let shown = step(step(m, Msg.Select(1)), Msg.OpenPinned("a.wasm", None));
     assert_eq((shown.tabs.len, shown.current), (2, Some(0)));
     // Closed: it opens again; its file doesn't exist here, so its tab shows why.
-    let opened = step(step(m, Msg.CloseTab(0)), Msg.OpenPinned("a.wasm"));
+    let opened = step(step(m, Msg.CloseTab(0)), Msg.OpenPinned("a.wasm", None));
     assert_eq(opened.tabs.len, 2);
     assert_eq(
         texts(view(opened)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")),

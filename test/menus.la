@@ -59,13 +59,13 @@ fun picking_an_item_selects_that_tab_then_acts() {
 @test
 fun a_pin_s_actions() {
     let pinned = step(step(two(), Msg.TogglePin), Msg.Home);
-    let unpinned = step(pinned, Msg.OnPin("notes.wasm", PinAction.Unpin));
+    let unpinned = step(pinned, Msg.OnPin("notes.wasm", None, PinAction.Unpin));
     // Still on the empty tab Home showed (PRP-024).
     assert_eq((unpinned.pinned.len, unpinned.blanks.len), (0, 1));
     // Forget shows it (its open tab, PRP-026), with the question.
-    let asked = step(pinned, Msg.OnPin("notes.wasm", PinAction.Forget));
+    let asked = step(pinned, Msg.OnPin("notes.wasm", None, PinAction.Forget));
     assert_eq((asked.panel, asked.confirm), (Some(PanelPage.Main), Some(Confirm.Forget)));
     assert_eq(asked.current, Some(0));
     // Unpinning a path that isn't pinned changes nothing.
-    assert_eq(step(pinned, Msg.OnPin("other.wasm", PinAction.Unpin)).pinned.len, 1);
+    assert_eq(step(pinned, Msg.OnPin("other.wasm", None, PinAction.Unpin)).pinned.len, 1);
 }

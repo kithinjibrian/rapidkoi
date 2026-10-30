@@ -76,7 +76,7 @@ fun left_off_of(m: Model): Value {
  *     pin_msg(m, 0)
  */
 fun pin_msg(m: Model, index: i64): Option<Msg> = if index >= 0 && index < m.pinned.len {
-    Some(Msg.OpenPinned(m.pinned[index].path))
+    Some(Msg.OpenPinned(m.pinned[index].path, m.pinned[index].origin))
 } else {
     None
 };

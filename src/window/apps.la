@@ -1,0 +1,49 @@
+/**
+ * An app's identity (PRP-049, DECISION-064): a signed app is its host and
+ * its first trusted key (`Trust.origin`, carried through signed
+ * rotations), so a new key with no signed trail is another app at the
+ * same address. Anything unsigned, or a page whose trust isn't known yet
+ * (loading, stopped), is its file or address. Which keys belong to which
+ * app at a host is `trust.publishers`'. Never touches the disk.
+ *
+ * Depends on: std.crypto, window.tabs, window.window
+ * Used by: window.upgrades, window.navigate, net.loads
+ */
+import std.crypto { equal };
+import window.tabs { AppPage };
+import window.window { Model, same_app };
+
+/**
+ * Whether two pages are windows of one app: the same host and first key
+ * when both are signed; otherwise the same file or address.
+ *
+ * Example:
+ *     same(a, b)
+ */
+fun same(a: AppPage, b: AppPage): bool = match (a.trust, b.trust) {
+    (Some(x), Some(y)) => x.host == y.host && equal(x.origin, y.origin),
+    _ => same_app(a.path, b.path),
+};
+
+/**
+ * The open tab of the app at `path` with first key `origin`, the one used
+ * last when it has several windows; `origin` `None` is any app there.
+ *
+ * Example:
+ *     tab_of(m, "rapidkoi://notes.dafifi.net", Some(origin))
+ */
+fun tab_of(m: Model, path: string, origin: Option<u8[]>): Option<i64> {
+    let mut found: Option<(i64, i64)> = None;
+    for t of m.tabs {
+        let theirs = match (origin, t.page.trust) {
+            (Some(o), Some(tr)) => equal(o, tr.origin),
+            _ => true,
+        };
+        if same_app(t.page.path, path) && theirs && found.map(
+            fun(f: (i64, i64)) = t.page.seen > f.1,
+        ).unwrap_or(true) {
+            found = Some((t.id, t.page.seen));
+        }
+    }
+    found.map(fun(f: (i64, i64)) = f.0)
+}

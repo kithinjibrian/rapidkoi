@@ -1,0 +1,39 @@
+// The publishers at one address (PRP-049): which keys are which app's.
+import rapidkoi.trust.publishers { known_of, apps_at };
+import rapidkoi.trust.verify { Identity };
+
+fun id(host: string, key: u8, origin: u8, separate: bool): Identity = Identity {
+    host: host,
+    key: [key; 32],
+    sequence: 1,
+    separate: separate,
+    since: 0,
+    origin: [origin; 32],
+    name: None,
+};
+
+@test
+fun each_app_is_checked_only_against_its_own_keys() {
+    let all = [
+        id("notes.dafifi.net", 1, 1, false),
+        id("notes.dafifi.net", 3, 1, false),
+        id("notes.dafifi.net", 2, 2, true),
+        id("other.dafifi.net", 1, 1, false),
+    ];
+    assert_eq(known_of(all, "notes.dafifi.net", [1; 32]), [all[0], all[1]]);
+    assert_eq(known_of(all, "notes.dafifi.net", [2; 32]), [all[2]]);
+    assert_eq(known_of(all, "notes.dafifi.net", [9; 32]), []);
+}
+
+@test
+fun the_apps_at_a_host_are_one_per_first_key() {
+    let all = [
+        id("notes.dafifi.net", 1, 1, false),
+        id("notes.dafifi.net", 2, 2, true),
+        // Alice's rotation, recorded after: her app's latest key.
+        id("notes.dafifi.net", 3, 1, false),
+        id("other.dafifi.net", 4, 4, false),
+    ];
+    assert_eq(apps_at(all, "notes.dafifi.net"), [all[2], all[1]]);
+    assert_eq(apps_at(all, "nobody.dafifi.net"), []);
+}

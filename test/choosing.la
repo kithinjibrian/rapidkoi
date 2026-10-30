@@ -1,0 +1,234 @@
+// Two apps at one address (PRP-049, DECISION-064), end to end through the
+// window with no display: Alice's site changes hands, her app stays as the
+// person's version, the new publisher's opens as a separate app named
+// first, and whoever signs the site decides which app is live.
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg, ShieldPage };
+import rapidkoi.window.window { Model };
+import rapidkoi.window.tabs { AppPage, Cached };
+import rapidkoi.commands.publish { make_key, publish_site };
+import kivuli.testing { click };
+import std.fs;
+import sites { clean, folder, started, step, shows, site, republish, served, kept_count, done };
+
+/** The tab running app `name`. */
+fun tab_of(m: Model, name: string): AppPage = m.tabs.iter().find(
+    fun(t) = t.page.name == name,
+).expect("a tab with that app").page;
+
+fun moved(p: AppPage): bool = p.cached.and_then(fun(c: Cached) = c.moved).is_some();
+
+/** The window with tab `name` in front. */
+fun on(m: Model, name: string): Model {
+    let id = m.tabs.iter().find(fun(t) = t.page.name == name).expect("a tab with that app").id;
+    step(m, Msg.Select(id))
+}
+
+/** Presses Add `n` times. */
+fun added(m: Model, n: i64): Model {
+    let mut at = m;
+    for _ of range(0, n) {
+        at = step(at, click(view(at), "Add").unwrap());
+    }
+    at
+}
+
+/** The site in `dir` signed from now on by a new key, Alice's kept beside it as `{dir}.alice`. */
+fun handed_over(dir: string) {
+    fs.rename("{dir}.key", "{dir}.alice").unwrap();
+    clean("{dir}/site");
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+}
+
+/**
+ * Counting at localhost:PORT opened from its kept copy and counted to 1;
+ * then the site handed to a new key, and the check finds it.
+ */
+fun moved_on(port: i64, name: string): (Model, string) {
+    let dir = site(port, "1.0.0");
+    served(dir, port);
+    let s = folder(name);
+    started(s, ["./main", "rapidkoi://localhost:{port}"]);
+    let m = added(started(s, ["./main", "rapidkoi://localhost:{port}"]), 1);
+    handed_over(dir);
+    (step(m, Msg.CheckForUpdates(0)), dir)
+}
+
+fun finish(m: Model, dir: string) {
+    done(m.store.unwrap(), dir);
+    clean("{dir}.alice");
+}
+
+@test
+fun a_changed_key_keeps_your_version_and_the_shield_says_so() {
+    let (m, dir) = moved_on(18860, "moved");
+    let alice = tab_of(m, "Counting");
+    assert(moved(alice));
+    assert(shows(m, "Count: 1"));
+    assert_eq(kept_count(m.store.unwrap()), 1);
+    let card = step(m, Msg.Shield(Some(ShieldPage.Main)));
+    assert(shows(card, "localhost:18860 is now signed by another key"));
+    assert_eq(click(view(card), "Open as a separate app"), Ok(Msg.SeparateMoved));
+    // Opened again, online: still your version, from its copy.
+    let again = started(m.store.unwrap(), ["./main", "rapidkoi://localhost:18860"]);
+    assert(shows(again, "localhost:18860 is now signed by a different key"));
+    assert_eq(click(view(again), "Open my version"), Ok(Msg.KeepMine));
+    let mine = step(again, Msg.KeepMine);
+    assert((shows(mine, "Count: 0"), moved(tab_of(mine, "Counting"))) == (true, true));
+    finish(m, dir);
+}
+
+@test
+fun the_new_app_is_named_first_by_the_rules() {
+    let (m, dir) = moved_on(18861, "naming");
+    let naming = step(m, Msg.SeparateMoved);
+    assert(naming.naming.is_some());
+    assert(shows(naming, "Give it a name"));
+    let mut long = "";
+    for _ of range(0, 65) {
+        long = "{long}n";
+    }
+    assert(shows(step(naming, Msg.NameSeparate(long)), "At most 64 characters"));
+    // Alice's app is called Counting.
+    assert(shows(step(naming, Msg.NameSeparate("Counting")), "Another app here is called that"));
+    // Open does nothing until the name can be used.
+    assert_eq(step(naming, Msg.ConfirmSeparate).naming.is_some(), true);
+    // Cancel closes the tab it opened.
+    let cancelled = step(naming, Msg.CancelSeparate);
+    assert_eq((cancelled.naming.is_none(), cancelled.tabs.len), (true, 1));
+    finish(m, dir);
+}
+
+@test
+fun the_named_app_opens_beside_your_version_with_its_own_copy_and_data() {
+    let (m, dir) = moved_on(18862, "beside");
+    let named = step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes"));
+    let two = step(named, Msg.ConfirmSeparate);
+    assert_eq(two.tabs.len, 2);
+    let bob = tab_of(two, "Bob's Notes");
+    assert_eq(bob.trust.map(fun(t) = t.separate), Some(true));
+    assert(!moved(bob));
+    // Its own empty data, its own copy; your version as it was.
+    assert(shows(two, "Count: 0"));
+    assert(shows(on(two, "Counting"), "Count: 1"));
+    assert_eq(kept_count(two.store.unwrap()), 2);
+    finish(two, dir);
+}
+
+@test
+fun an_address_with_two_apps_asks_which() {
+    let (m, dir) = moved_on(18863, "which");
+    let two = step(
+        step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes")),
+        Msg.ConfirmSeparate,
+    );
+    let s = two.store.unwrap();
+    let asked = started(s, ["./main", "rapidkoi://localhost:18863"]);
+    assert(shows(asked, "Which app?"));
+    let picked = step(asked, click(view(asked), "Bob's Notes").unwrap());
+    assert_eq(picked.tabs.iter().find(fun(t) = t.page.name == "Bob's Notes").is_some(), true);
+    let other = started(s, ["./main", "rapidkoi://localhost:18863"]);
+    let alice = step(other, click(view(other), "Counting").unwrap());
+    assert(moved(tab_of(alice, "Counting")));
+    finish(two, dir);
+}
+
+@test
+fun when_alice_comes_back_her_app_is_live_again_and_the_other_moves_on() {
+    let (m, dir) = moved_on(18864, "back");
+    let two = step(
+        step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes")),
+        Msg.ConfirmSeparate,
+    );
+    // Alice signs the site again with her key.
+    fs.rename("{dir}.key", "{dir}.bob").unwrap();
+    fs.rename("{dir}.alice", "{dir}.key").unwrap();
+    clean("{dir}/site");
+    republish(dir, 18864, "1.0.1");
+    let alice = step(on(two, "Counting"), Msg.CheckForUpdates(0));
+    assert(!moved(tab_of(alice, "Counting")));
+    let bob = step(on(alice, "Bob's Notes"), Msg.CheckForUpdates(0));
+    assert(moved(tab_of(bob, "Bob's Notes")));
+    clean("{dir}.bob");
+    finish(bob, dir);
+}
+
+@test
+fun a_third_key_with_no_trail_is_a_third_app() {
+    let (m, dir) = moved_on(18865, "third");
+    let two = step(
+        step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes")),
+        Msg.ConfirmSeparate,
+    );
+    fs.rename("{dir}.key", "{dir}.bob").unwrap();
+    clean("{dir}/site");
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+    let checked = step(two, Msg.CheckForUpdates(0));
+    assert(moved(tab_of(checked, "Bob's Notes")));
+    let three = step(
+        step(step(checked, Msg.SeparateMoved), Msg.NameSeparate("Carol's Notes")),
+        Msg.ConfirmSeparate,
+    );
+    assert_eq(three.tabs.len, 3);
+    assert_eq(kept_count(three.store.unwrap()), 3);
+    clean("{dir}.bob");
+    finish(three, dir);
+}
+
+/** Both apps open: Alice's Counting and "Bob's Notes", Bob's in front. */
+fun both(port: i64, name: string): (Model, string) {
+    let (m, dir) = moved_on(port, name);
+    let named = step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes"));
+    (step(named, Msg.ConfirmSeparate), dir)
+}
+
+fun origin_of(p: AppPage): Option<u8[]> = p.trust.map(fun(t) = t.origin);
+
+@test
+fun pins_continue_and_the_session_reopen_the_exact_app() {
+    let (two, dir) = both(18866, "exact");
+    let path = "rapidkoi://localhost:18866";
+    let pinned = step(on(step(two, Msg.TogglePin), "Counting"), Msg.TogglePin);
+    assert_eq(pinned.pinned.len, 2);
+    let bob = origin_of(tab_of(pinned, "Bob's Notes"));
+    // Each pin opens its own app's tab.
+    let shown = step(pinned, Msg.OpenPinned(path, bob));
+    assert_eq(page_name(shown), "Bob's Notes");
+    // Closed, Continue brings back the app closed last, never the other.
+    let closed = step(shown, Msg.CloseTab(shown.current.unwrap()));
+    let back = step(closed, Msg.Continue);
+    assert_eq(page_name(back), "Bob's Notes");
+    // A restart restores each window as its own app.
+    let s = back.store.unwrap();
+    let restored = step(started(s, ["./main"]), Msg.RestoreSession);
+    assert(tab_of(restored, "Counting").trust.is_some());
+    assert_eq(origin_of(tab_of(restored, "Bob's Notes")), bob);
+    finish(back, dir);
+}
+
+@test
+fun forget_takes_one_app_and_leaves_the_other() {
+    let (two, dir) = both(18867, "forget");
+    let pinned = step(on(step(two, Msg.TogglePin), "Counting"), Msg.TogglePin);
+    let gone = step(on(pinned, "Bob's Notes"), Msg.Forget);
+    assert_eq(gone.pinned.len, 1);
+    assert_eq(gone.pinned[0].origin, origin_of(tab_of(gone, "Counting")));
+    assert_eq(kept_count(gone.store.unwrap()), 1);
+    assert(shows(on(gone, "Counting"), "Count: 1"));
+    finish(gone, dir);
+}
+
+@test
+fun a_pin_from_before_asks_which_app() {
+    let (two, dir) = both(18868, "old-pin");
+    let asked = step(two, Msg.OpenPinned("rapidkoi://localhost:18868", None));
+    assert(shows(asked, "Which app?"));
+    finish(two, dir);
+}
+
+/** The name of the app in front. */
+fun page_name(m: Model): string = m.tabs.iter().find(fun(t) = Some(t.id) == m.current).expect(
+    "a tab in front",
+).page.name;

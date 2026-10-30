@@ -28,7 +28,7 @@ fun step(m: Model, msg: Msg): Model {
     next
 }
 
-fun pin(name: string): Pin = Pin { name: name, path: "{name}.wasm", icon: None };
+fun pin(name: string): Pin = Pin { name: name, path: "{name}.wasm", icon: None, origin: None };
 
 @test
 fun open_apps_select_their_tab() {
@@ -41,7 +41,7 @@ fun open_apps_select_their_tab() {
 fun a_pin_opens_unless_its_app_is_open_already() {
     let m = Model { pinned: [pin("mail"), pin("todo")], ..two() };
     let v = sidebar.view(m);
-    assert_eq(click(v, "Open mail"), Ok(Msg.OpenPinned("mail.wasm")));
+    assert_eq(click(v, "Open mail"), Ok(Msg.OpenPinned("mail.wasm", None)));
     // Todo is pinned and open: one button, its tab.
     assert(click(v, "Open todo").is_err());
     assert_eq(click(v, "todo"), Ok(Msg.Select(1)));
@@ -95,11 +95,11 @@ fun each_app_has_its_menu() {
     // A pinned app that's open.
     assert_eq(pick(v, "todo", "Unpin"), Ok(Msg.OnTab(1, TabAction.TogglePin)));
     // A pinned app that isn't open.
-    assert_eq(pick(v, "Open mail", "Open"), Ok(Msg.OnPin("mail.wasm", PinAction.Open)));
-    assert_eq(pick(v, "Open mail", "Unpin"), Ok(Msg.OnPin("mail.wasm", PinAction.Unpin)));
+    assert_eq(pick(v, "Open mail", "Open"), Ok(Msg.OnPin("mail.wasm", None, PinAction.Open)));
+    assert_eq(pick(v, "Open mail", "Unpin"), Ok(Msg.OnPin("mail.wasm", None, PinAction.Unpin)));
     assert_eq(
         pick(v, "Open mail", "Forget this app…"),
-        Ok(Msg.OnPin("mail.wasm", PinAction.Forget)),
+        Ok(Msg.OnPin("mail.wasm", None, PinAction.Forget)),
     );
 }
 

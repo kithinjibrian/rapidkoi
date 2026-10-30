@@ -266,7 +266,7 @@ fun holding(kind: string, extra: (string, Value)[], declared: string[]): AppPage
 
 /** A window with your pins showing `p`, its effects answered: the model and the commands. */
 fun asked(p: AppPage): (Model, Cmd<Msg>) = answer_all(Model {
-    pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }],
+    pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None, origin: None }],
     ..with_pages(Engine.new(), [p]),
 });
 
@@ -319,7 +319,7 @@ fun asking_without_declaring_stops_the_app() {
 @test
 fun open_pin_and_continue_open_through_the_window() {
     let (_, c) = asked(holding("open_pin", [("index", Value.int(0))], ["open_apps"]));
-    assert_eq(later(c), [Msg.OpenPinned("rapidkoi://quote.dafifi.net")]);
+    assert_eq(later(c), [Msg.OpenPinned("rapidkoi://quote.dafifi.net", None)]);
     let (_, past) = asked(holding("open_pin", [("index", Value.int(1))], ["open_apps"]));
     assert_eq(later(past), []);
     // Nothing left off: Continue opens nothing.
@@ -329,7 +329,7 @@ fun open_pin_and_continue_open_through_the_window() {
 
 /** `asked`, with the person's setting for `p`'s permission. */
 fun set(p: AppPage, permission: Permission, s: Setting): (Model, Cmd<Msg>) = answer_all(Model {
-    pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }],
+    pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None, origin: None }],
     people: with_setting(nobody(), key_of(p), permission, s),
     ..with_pages(Engine.new(), [p]),
 });
@@ -394,7 +394,9 @@ fun an_approval_waits_while_a_card_is_open() {
     // Session 171: not over the settings you're changing; asked once it closes.
     let p = holding("pins", [], ["read_pins"]);
     let m = Model {
-        pinned: [Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None }],
+        pinned: [
+            Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None, origin: None },
+        ],
         people: with_setting(nobody(), key_of(p), Permission.ReadPins, Setting.Ask),
         panel: Some(PanelPage.Permissions),
         ..with_pages(Engine.new(), [p]),
@@ -409,7 +411,9 @@ fun an_approval_waits_while_a_card_is_open() {
 fun the_new_tab_reads_and_restores_the_last_session() {
     // PRP-035: behind restore_session, like the other built-in reads.
     let o = Open {
-        tabs: [OpenTab { link: [], path: "a.wasm", instance: "", label: None, seen: 0 }],
+        tabs: [
+            OpenTab { link: [], path: "a.wasm", instance: "", label: None, seen: 0, origin: None },
+        ],
         current: None,
     };
     let (m, _) = answer_all(Model {

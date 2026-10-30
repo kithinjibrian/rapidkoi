@@ -68,7 +68,8 @@ fun marker(p: AppPage, shown: string): string = match p.trust {
     // A signed app: its host, after the icon (`marker_icon`); the words are in `marker_note`.
     Some(t) => match t.standing {
         NotConfirmed => "{t.host} · not confirmed",
-        _ => if t.separate { "{t.host} · new publisher" } else { t.host },
+        // Which app at this address is told apart by its name (DECISION-064).
+        _ => t.host,
     },
     None => match parse(p.path) {
         Ok(a) => "🛠 {address.shown(a)} · development",
@@ -152,7 +153,7 @@ fun unapproved(c: Change, open: bool, t: Theme): View<Msg> = column([
         Align.Start,
     ),
     row([
-        button(if open { "Keep using my version" } else { "Don't open it" }, Msg.KeepMine).style(
+        button(if open { "Open my version" } else { "Don't open it" }, Msg.KeepMine).style(
             button_look(t, ButtonLook.Primary),
         ),
         button("Open as a separate app", Msg.SeparateApp).style(button_look(t, ButtonLook.Normal)),
