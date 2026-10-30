@@ -17,8 +17,10 @@ import rapidkoi.ui.themes {
     button,
     instance_colour,
     publisher_colour,
+    colour_among,
 };
 import rapidkoi.ui.schemes { DARK, LIGHT };
+import rapidkoi.ui.shield { look_colour, ShieldLook };
 import rapidkoi.ui.frame_looks {
     frame,
     header,
@@ -122,7 +124,32 @@ fun each_app_at_an_address_has_a_colour_from_its_key() {
         assert_eq(publisher_colour(t, [1; 32]), a);
         assert(t.publishers.any(fun(c: string) = c == a));
         assert(publisher_colour(t, [2; 32]) != a);
-        // Never the danger colour or the brand's.
-        assert(!t.publishers.any(fun(c: string) = c == t.danger || c == t.accent));
+        // Never the danger colour, the brand's or caution's.
+        assert(
+            !t.publishers.any(fun(c: string) = c == t.danger || c == t.accent || c == t.caution),
+        );
     }
+}
+
+@test
+fun caution_is_its_own_colour_not_the_brands() {
+    for t of [DARK, LIGHT] {
+        assert(t.caution != t.accent && t.caution != t.danger);
+        assert_eq(look_colour(t, ShieldLook.Caution), t.caution);
+    }
+}
+
+@test
+fun apps_at_one_address_never_share_a_colour() {
+    // PRP-050: keys whose own colours collide (first bytes 1 and 6, five
+    // colours) take the next free one, in the order the apps were met.
+    let alice: u8[] = [1; 32];
+    let bob: u8[] = [6; 32];
+    let both = [alice, bob];
+    assert_eq(colour_among(DARK, both, alice), publisher_colour(DARK, alice));
+    assert(colour_among(DARK, both, bob) != colour_among(DARK, both, alice));
+    // An app not met yet (being named) takes the next free one too.
+    assert(colour_among(DARK, [alice], bob) != colour_among(DARK, [alice], alice));
+    // With no clash, an app keeps its own.
+    assert_eq(colour_among(DARK, [alice, [2; 32]], [2; 32]), publisher_colour(DARK, [2; 32]));
 }

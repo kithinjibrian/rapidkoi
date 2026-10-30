@@ -11,6 +11,7 @@
 import kivuli { Cmd };
 import std.crypto { equal };
 import window.window { Model, Naming, app, add_tab, close, show_tab, with_tab, page_of };
+import window.leftoff { leave };
 import window.tabs { AppPage, Tab, Page, Pin, open_path, close_page, failed_page };
 import window.actions { Msg };
 import trust.verify { Change, Identity, known_for, separate };
@@ -38,8 +39,8 @@ fun start_naming(m: Model): Model = match (m.current, page_of(m)) {
 
 /**
  * "Open as a separate app" on the shield of an app whose site moved on
- * (PRP-049): the new publisher's app, in a tab of its own, named first;
- * or its tab, when it's already an app here.
+ * (PRP-049): the new publisher's app, named first, then in place; or its
+ * tab, when it's already an app here.
  *
  * Example:
  *     separate_moved(m)
@@ -56,14 +57,22 @@ fun separate_moved(m: Model): (Model, Cmd<Msg>) {
             return (m, Cmd.none());
         }
     };
-    let placed = add_tab(m, failed_page(a.path, ""));
-    let id = placed.current.unwrap_or(-1);
     let known = apps_at(known_for(m.ring, t.host), t.host);
     if let Some(i) = known.iter().find(fun(i: Identity) = equal(i.key, new)) {
-        return opened(placed, id, a.path, i.origin);
+        let placed = add_tab(Model { shield: None, ..m }, failed_page(a.path, ""));
+        return opened(placed, placed.current.unwrap_or(-1), a.path, i.origin);
     }
+    // Named first, from your version's tab: the new app's tab opens only
+    // with it (the owner, 2026-10-30).
     let c = Change { host: t.host, old: t.key, new: new };
-    (Model { naming: Some(Naming.Separate(id, c, "")), ..placed }, Cmd.none())
+    // The shield's card closes: the dialog takes over (the owner, 2026-10-30).
+    match m.current {
+        Some(id) => (
+            Model { naming: Some(Naming.Separate(id, c, "")), shield: None, ..m },
+            Cmd.none(),
+        ),
+        None => (m, Cmd.none()),
+    }
 }
 
 /**
@@ -167,8 +176,9 @@ fun naming_problem(m: Model): Option<string> {
 
 /**
  * Opens the separate app under the name typed, if it can be used: its key
- * trusted as its own app, loaded from its site in its own tab. The
- * person's version, when one was open, stays in its tab.
+ * trusted as its own app, loaded from its site in place, in the tab it
+ * was asked from. The person's version, when one was open, becomes where
+ * they left off.
  *
  * Example:
  *     confirm_naming(m)
@@ -191,46 +201,29 @@ fun confirm_naming(m: Model): (Model, Cmd<Msg>) {
             return (base, Cmd.none());
         }
     };
-    match a.screen {
-        // Your version was open: it stays, and the new app gets a tab.
-        Unapproved(_, kept) if kept.len > 0 => {
-            let back = with_tab(base, id, fun(_: AppPage) = kept[0]);
-            let placed = add_tab(back, failed_page(a.path, ""));
-            opened(placed, placed.current.unwrap_or(-1), a.path, c.new)
-        }
-        _ => {
-            close_page(a);
-            opened(base, id, a.path, c.new)
-        }
-    }
+    // In place (the owner, 2026-10-30): the new app takes this tab. Your
+    // version, if it was open, closes as any app does: where you left
+    // off, its window's state with it, for Continue.
+    let yours = match a.screen {
+        Unapproved(_, kept) if kept.len > 0 => Some(kept[0]),
+        Unapproved(_, _) => None,
+        _ => Some(a),
+    };
+    let left = match yours {
+        Some(y) => Some(leave(y)),
+        None => base.left_off,
+    };
+    close_page(a);
+    opened(Model { left_off: left, ..base }, id, a.path, c.new)
 }
 
 /**
- * Cancel on the name: back to the question, or the tab it was opened in
- * closes when it came from the shield.
+ * Cancel on the name: the window as it was (the question, if it asked).
  *
  * Example:
  *     cancel_naming(m)
  */
-fun cancel_naming(m: Model): Model {
-    let id = match m.naming {
-        Some(Separate(id, _, _)) => id,
-        Some(Renaming(_, _, _)) => {
-            return Model { naming: None, ..m };
-        }
-        None => {
-            return m;
-        }
-    };
-    let base = Model { naming: None, ..m };
-    match app(base, id) {
-        Some(a) => match a.screen {
-            Unapproved(_, _) => base,
-            _ => close(base, id),
-        },
-        None => base,
-    }
-}
+fun cancel_naming(m: Model): Model = Model { naming: None, ..m };
 
 /**
  * "Which app?" for an address with several apps (PRP-049): its tab and

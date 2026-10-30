@@ -25,6 +25,7 @@ import kivuli {
     Group,
     Spacing,
     Edges,
+    Shadow,
 };
 import kivuli.ui { Button };
 import ui.tokens {
@@ -178,6 +179,44 @@ fun instance_dot(colour: string): Styling[] = [
     Background { color: paint(colour), ..Background.theme() },
     Border { radius: Radius.All(CIRCLE), ..Border.theme() },
     square(INSTANCE_CHIP),
+];
+
+/**
+ * Returns the chip's look in the address box (PRP-050): a pill in the
+ * controls' colour, exactly the box's inner height like its round buttons,
+ * its content centred, no focus ring (the box's edge shows the focus).
+ *
+ * Example:
+ *     face.style(app_chip(t, ADDRESS_HEIGHT - 2 * EDGE_WIDTH))
+ */
+fun app_chip(t: Theme, height: i64): Styling[] = [
+    Button.ghost(),
+    // A filled pill (the owner, 2026-10-30), its hover a step lighter.
+    Background { color: paint(t.control), ..Background.theme() },
+    When(State.Hover, [Background { color: paint(t.control_hover), ..Background.theme() }]),
+    Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    // Room above and below as the round buttons have, so its content sits
+    // on the box's centre line, not at its top.
+    padding_xy(SPACE_SM, SPACE_XS),
+    Sizing { min_height: Width.Px(height), max_height: Width.Px(height), ..Sizing.theme() },
+    When(State.Focus, [
+        Shadow.off(),
+        Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() },
+    ]),
+];
+
+/**
+ * Returns the look of one app's row in the list of the apps at an address
+ * (PRP-050): a ghost button padded as the cards' rows are, its corners the
+ * buttons' (two lines don't make a pill).
+ *
+ * Example:
+ *     go.style(app_row())
+ */
+fun app_row(): Styling[] = [
+    Button.ghost(),
+    padding_xy(SPACE_SM, SPACE_SM),
+    Border { radius: Radius.All(BUTTON_RADIUS), ..Border.theme() },
 ];
 
 /**

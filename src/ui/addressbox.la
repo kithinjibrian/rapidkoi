@@ -22,6 +22,8 @@ import kivuli {
     image,
     overlay,
     row,
+    text,
+    Sizing,
 };
 import kivuli.ui { input_group, group_input, group_button_with, popover as ui_popover };
 import window.actions { Msg, ShieldPage, PanelPage };
@@ -32,6 +34,8 @@ import ui.icons { Icon, icon };
 import ui.shield { facts, look_colour, card };
 import ui.settings;
 import ui.several;
+import ui.frame_looks { app_chip };
+import ui.themes { body };
 import ui.grants { shows_icon };
 import ui.tokens {
     SPACE_XS,
@@ -48,6 +52,8 @@ import ui.tokens {
     flush_y,
     EDGE_WIDTH,
     UPDATE_DOT,
+    gap,
+    ADDRESS_MAX_WIDTH,
 };
 
 /** The upgrade button's tooltip (PRP-044): the owner's words. */
@@ -132,14 +138,29 @@ fun field(m: Model): View<Msg> {
         // The shield, always, in its look (PRP-021); its card hangs from it
         // while `m.shield` says it's open. A click outside or Escape closes it.
         let f = facts(p);
-        let shield_button = group_button_with(
-            [
-                image(icon(Icon.Shield, look_colour(t, f.look))).style([
-                    square(ADDRESS_ICON),
-                ]).align(Align.Center),
-            ],
-            Msg.Shield(Some(ShieldPage.Main)),
-        ).style(round()).align(Align.Center).tooltip("Site information");
+        // Nothing trusted vouches for it: shield-cross and why, in a pill,
+        // in the text's own colour (the owner, 2026-10-30). Else the round shield.
+        let shield_button = match f.warning {
+            Some(why) => group_button_with(
+                [
+                    row([
+                        image(icon(Icon.ShieldCross, t.text)).style([square(ADDRESS_ICON)]).align(
+                            Align.Center,
+                        ),
+                        text(why).style(body(t)).align(Align.Center),
+                    ]).style([gap(SPACE_XS)]).align(Align.Center),
+                ],
+                Msg.Shield(Some(ShieldPage.Main)),
+            ).style(app_chip(t, ADDRESS_HEIGHT - 2 * EDGE_WIDTH)),
+            None => group_button_with(
+                [
+                    image(icon(Icon.Shield, look_colour(t, f.look))).style([
+                        square(ADDRESS_ICON),
+                    ]).align(Align.Center),
+                ],
+                Msg.Shield(Some(ShieldPage.Main)),
+            ).style(round()),
+        }.align(Align.Center).tooltip("Site information");
         start.push(
             ui_popover(
                 shield_button,
@@ -215,7 +236,9 @@ fun field(m: Model): View<Msg> {
         // Exactly this high on every tab: its content differs (the field
         // alone on an empty tab; the shield, ⚙ and ☆ around the address on
         // an app), and each asked for its own height (sessions 122, 152).
-        fixed_height(ADDRESS_WIDTH, ADDRESS_HEIGHT),
+        // Longer when there's room (the owner, 2026-10-30): centred, it
+        // grows up to its maximum, and never below its least.
+        Sizing { max_width: Width.Px(ADDRESS_MAX_WIDTH), ..fixed_height(ADDRESS_WIDTH, ADDRESS_HEIGHT) },
         // Room above and below inside the header bar (the owner, session 107).
         margin_y(SPACE_SM),
         // No glow while typed in: kivuli.ui's 3 px halo goes, its thin ring

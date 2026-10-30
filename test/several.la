@@ -6,12 +6,13 @@ import rapidkoi.ui.several { chip };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.window { Model, page_of };
 import rapidkoi.window.instances { instances_of };
+import rapidkoi.ui.sidebar { dock_order };
 import rapidkoi.window.apps { tab_of as app_tab };
 import rapidkoi.trust.verify { known_for };
 import rapidkoi.trust.publishers { default_at };
 import rapidkoi.trust.keys { fingerprint };
 import sites { started, step, shows };
-import twoapps { tab_of, moved_on, finish, both, origin_of, page_name };
+import twoapps { tab_of, on, moved_on, finish, both, origin_of, page_name };
 
 const NOTES: string = "rapidkoi://localhost";
 
@@ -127,4 +128,30 @@ fun which_app_can_set_the_default() {
     let ticked = step(asked, Msg.SetDefault(bob, true));
     assert_eq(default_at(known_for(ticked.ring, "localhost:18876"), "localhost:18876"), Some(bob));
     finish(ticked, dir);
+}
+
+@test
+fun each_app_numbers_its_own_windows() {
+    let (two, dir) = both(18877, "numbers");
+    // Bob's second window, then yours: each is its app's "2".
+    let more = step(on(step(two, Msg.NewInstance), "Counting"), Msg.NewInstance);
+    let names = more.tabs.map(fun(t) = "{t.page.name}{t.page.instance}");
+    assert_eq(names.len, 4);
+    assert(names.any(fun(n: string) = n == "Bob's Notes2"));
+    assert(names.any(fun(n: string) = n == "Counting2"));
+    finish(more, dir);
+}
+
+@test
+fun a_new_window_keeps_its_apps_place_in_the_dock() {
+    let (two, dir) = both(18878, "dock-order");
+    let before = dock_order(two);
+    let more = step(two, Msg.NewInstance);
+    let after = dock_order(more);
+    // The same apps in the same places; Bob's entry is now its newest window.
+    assert_eq(after.len, before.len);
+    let alice = app_tab(more, address(18878), origin_of(tab_of(more, "Counting"))).unwrap();
+    let alice_at = fun(xs: i64[]) = xs.iter().position(fun(x: i64) = x == alice);
+    assert_eq(alice_at(after), alice_at(before));
+    finish(more, dir);
 }

@@ -32,8 +32,12 @@ fun a_changed_key_keeps_your_version_and_the_shield_says_so() {
 @test
 fun the_new_app_is_named_first_by_the_rules() {
     let (m, dir) = moved_on(18861, "naming");
-    let naming = step(m, Msg.SeparateMoved);
+    // From the shield's card: the card closes, the dialog takes over.
+    let naming = step(step(m, Msg.Shield(Some(ShieldPage.Main))), Msg.SeparateMoved);
     assert(naming.naming.is_some());
+    assert(naming.shield.is_none());
+    // No tab for the new app until it's named and opened.
+    assert_eq(naming.tabs.len, m.tabs.len);
     assert(shows(naming, "Give it a name"));
     let mut long = "";
     for _ of range(0, 65) {
@@ -44,26 +48,30 @@ fun the_new_app_is_named_first_by_the_rules() {
     assert(shows(step(naming, Msg.NameSeparate("Counting")), "Another app here is called that"));
     // Open does nothing until the name can be used.
     assert_eq(step(naming, Msg.ConfirmSeparate).naming.is_some(), true);
-    // Cancel closes the tab it opened.
+    // Cancel leaves the window as it was.
     let cancelled = step(naming, Msg.CancelSeparate);
-    assert_eq((cancelled.naming.is_none(), cancelled.tabs.len), (true, 1));
+    assert_eq((cancelled.naming.is_none(), cancelled.tabs.len), (true, m.tabs.len));
     finish(m, dir);
 }
 
 @test
-fun the_named_app_opens_beside_your_version_with_its_own_copy_and_data() {
-    let (m, dir) = moved_on(18862, "beside");
+fun the_named_app_opens_in_place_and_your_version_is_where_you_left_off() {
+    let (m, dir) = moved_on(18862, "in-place");
     let named = step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes"));
-    let two = step(named, Msg.ConfirmSeparate);
-    assert_eq(two.tabs.len, 2);
-    let bob = tab_of(two, "Bob's Notes");
+    let bobs = step(named, Msg.ConfirmSeparate);
+    // In place (the owner, 2026-10-30): one window, the new app in it.
+    assert_eq(bobs.tabs.len, 1);
+    assert_eq(page_name(bobs), "Bob's Notes");
+    let bob = tab_of(bobs, "Bob's Notes");
     assert_eq(bob.trust.map(fun(t) = t.separate), Some(true));
     assert(!moved(bob));
-    // Its own empty data, its own copy; your version as it was.
-    assert(shows(two, "Count: 0"));
-    assert(shows(on(two, "Counting"), "Count: 1"));
-    assert_eq(kept_count(two.store.unwrap()), 2);
-    finish(two, dir);
+    // Its own empty data, its own copy; your version kept, and Continue
+    // brings its window back as it was.
+    assert(shows(bobs, "Count: 0"));
+    assert_eq(kept_count(bobs.store.unwrap()), 2);
+    let back = step(bobs, Msg.Continue);
+    assert(shows(on(back, "Counting"), "Count: 1"));
+    finish(back, dir);
 }
 
 @test
@@ -86,11 +94,7 @@ fun an_address_with_two_apps_asks_which() {
 
 @test
 fun when_alice_comes_back_her_app_is_live_again_and_the_other_moves_on() {
-    let (m, dir) = moved_on(18864, "back");
-    let two = step(
-        step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes")),
-        Msg.ConfirmSeparate,
-    );
+    let (two, dir) = both(18864, "back");
     // Alice signs the site again with her key.
     fs.rename("{dir}.key", "{dir}.bob").unwrap();
     fs.rename("{dir}.alice", "{dir}.key").unwrap();
@@ -121,7 +125,8 @@ fun a_third_key_with_no_trail_is_a_third_app() {
         step(step(checked, Msg.SeparateMoved), Msg.NameSeparate("Carol's Notes")),
         Msg.ConfirmSeparate,
     );
-    assert_eq(three.tabs.len, 3);
+    // Each opens in place; three apps kept.
+    assert_eq((three.tabs.len, page_name(three)), (1, "Carol's Notes"));
     assert_eq(kept_count(three.store.unwrap()), 3);
     clean("{dir}.bob");
     finish(three, dir);

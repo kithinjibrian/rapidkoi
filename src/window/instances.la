@@ -72,6 +72,26 @@ fun next_instance(m: Model, path: string): string {
 }
 
 /**
+ * Returns the key for another window of `p`'s app: as `next_instance`,
+ * counting only that app's windows, so two apps at one address each number
+ * their own (PRP-050).
+ *
+ * Example:
+ *     next_instance_of(m, page)
+ */
+fun next_instance_of(m: Model, p: AppPage): string {
+    let used = m.tabs.filter(fun(t: Tab) = same(t.page, p)).map(fun(t: Tab) = t.page.instance);
+    if !used.any(fun(k: string) = k == "") {
+        return "";
+    }
+    let mut n = 2;
+    while used.any(fun(k: string) = k == "{n}") {
+        n += 1;
+    }
+    "{n}"
+}
+
+/**
  * Marks the tab now current as used last, when the current tab changed:
  * opening its app again shows this instance (PRP-033).
  *

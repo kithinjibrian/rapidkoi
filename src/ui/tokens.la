@@ -40,14 +40,18 @@ const FRAME_THICKNESS: i64 = 50;
 const EDGE_WIDTH: i64 = 1;
 /** The address box's height, in pixels: thinner than `kivuli.ui`'s 36, so the bar shows room above and below it (the owner, session 107). */
 const ADDRESS_HEIGHT: i64 = 30;
-/** The address box's width, and its suggestions card's, in pixels. */
+/** The address box's width, and its suggestions card's, in pixels: its least. */
 const ADDRESS_WIDTH: i64 = 560;
+/** The most the address box grows to when the window has room: the chip and the shield's pill leave the address room (the owner, 2026-10-30). */
+const ADDRESS_MAX_WIDTH: i64 = 800;
 /** An icon on the header bar's buttons, in pixels: as inside the address box, so every icon matches (the owner: 20, session 125). */
 const HEADER_ICON: i64 = 20;
 /** An icon inside the address box (the shield, ☆), in pixels: as on the header's buttons (the owner: 20, session 125). */
 const ADDRESS_ICON: i64 = 20;
 /** The shield's card's width, in pixels: the same on each of its pages (the owner, session 134). */
 const CARD_WIDTH: i64 = 360;
+/** The list of the apps at one address (PRP-050): wider than a card, for each row's fingerprint, Default and Rename. */
+const APPS_WIDTH: i64 = 460;
 /** The app's icon at the top of the shield's card, in pixels: every icon's 20 (the owner, session 136). */
 const CARD_ICON: i64 = 20;
 /** The current app's ring in the sidebar, in pixels. */

@@ -1,26 +1,31 @@
 /**
  * Several apps at one address (PRP-050, DECISION-064), pure: the chip at
- * the start of the address box (the app's colour and name), its list of
- * every app at the address, and the rows that list and "Which app?" share:
- * each app's colour, name, key fingerprint, Default and, in the chip's
- * list, Rename. Nothing shows at an address with one app.
+ * the start of the address box (the app's colour and name), and the list
+ * of every app at the address that it opens and "Which app?" shows: each
+ * app's colour, name and key fingerprint, Default and, in the chip's list,
+ * Rename. Nothing shows at an address with one app.
  *
  * Depends on: kivuli, window.actions, window.window, window.tabs, trust.verify, trust.publishers, trust.keys, guest.nodes, ui.tokens, ui.themes, ui.frame_looks
  * Used by: ui.addressbox, ui.asking
  */
 import std.crypto { equal };
-import kivuli { View, Align, column, row, text, button };
-import kivuli.ui { checkbox, group_button_with, popover as ui_popover };
+import kivuli { View, Align, button_with, column, row, text };
+import kivuli.ui {
+    Button,
+    button as ui_button,
+    checkbox,
+    group_button_with,
+    popover as ui_popover,
+};
 import window.actions { Msg };
 import window.window { Model };
 import window.tabs { AppPage };
 import trust.verify { Identity, known_for };
 import trust.publishers { apps_at };
 import trust.keys { fingerprint };
-import guest.nodes { ButtonLook };
-import ui.tokens { SPACE_SM, gap };
-import ui.themes { dim, publisher_colour, button as button_look };
-import ui.frame_looks { app_dot };
+import ui.tokens { SPACE_XS, SPACE_SM, ADDRESS_HEIGHT, EDGE_WIDTH, APPS_WIDTH, gap, exactly };
+import ui.themes { body, dim, heading, colour_among };
+import ui.frame_looks { app_dot, app_chip, app_row };
 import ui.schemes { Theme };
 
 /**
@@ -37,50 +42,75 @@ fun chip(m: Model, p: AppPage): Option<View<Msg>> {
         return None;
     }
     let face = group_button_with(
-        [row([dot(m.theme, t.origin), text(p.name)]).style([gap(SPACE_SM)]).align(Align.Center)],
+        [
+            row([dot(m.theme, met(apps), t.origin), text(p.name).style(body(m.theme))]).style([
+                gap(SPACE_SM),
+            ]).align(Align.Center),
+        ],
         Msg.Chip(true),
-    ).align(Align.Center).tooltip(p.name);
-    let list = column(rows(m.theme, apps, Some(t.origin), true)).style([gap(SPACE_SM)]);
-    Some(ui_popover(face, m.chip, list, Msg.Chip(false)))
+    ).style(app_chip(m.theme, ADDRESS_HEIGHT - 2 * EDGE_WIDTH)).align(Align.Center).tooltip(p.name);
+    Some(ui_popover(face, m.chip, list(m.theme, apps, Some(t.origin), true), Msg.Chip(false)))
 }
 
 /**
- * One row per app: its colour, its name (going to it), its key's short
- * fingerprint and Default; Rename too in the chip's list. The current
- * app's name stands out.
+ * The list of the apps at an address, one row each, at its one width.
  *
  * @param current the app in front's first key, if one is
  * @param renaming whether rows offer Rename (the chip's list)
  *
  * Example:
- *     rows(m.theme, apps, Some(origin), true)
+ *     list(m.theme, apps, Some(origin), true)
  */
-fun rows(
-    t: Theme,
-    apps: Identity[],
-    current: Option<u8[]>,
-    renaming: bool,
-): View<Msg>[] = apps.map(fun(i: Identity) {
-    let here = current.map(fun(o: u8[]) = equal(o, i.origin)).unwrap_or(false);
-    let look = if here { ButtonLook.Primary } else { ButtonLook.Normal };
-    let mut parts: View<Msg>[] = [
-        dot(t, i.origin),
-        button(i.name.unwrap_or(i.host), Msg.Choose(i.origin)).style(button_look(t, look)),
-        text(fingerprint(i.key)).style(dim(t)).align(Align.Center),
-        checkbox("Default", i.default, fun(on: bool) = Msg.SetDefault(i.origin, on)),
-    ];
-    if renaming {
-        parts.push(button("Rename", Msg.Rename(i.origin)).style(button_look(t, ButtonLook.Normal)));
-    }
-    row(parts).style([gap(SPACE_SM)]).align(Align.Start)
-});
+fun list(t: Theme, apps: Identity[], current: Option<u8[]>, renaming: bool): View<Msg> = column(
+    apps.map(fun(i: Identity) = app_line(t, met(apps), i, current, renaming)),
+).style([gap(SPACE_XS), exactly(APPS_WIDTH)]);
 
 /**
- * An app's colour dot, from its first key.
+ * One app's row: its colour, name and key's fingerprint as one target
+ * (going to it), then Default and, in the chip's list, Rename, aligned at
+ * the right. The app in front's name is bold.
+ */
+fun app_line(t: Theme, all: u8[][], i: Identity, current: Option<u8[]>, renaming: bool): View<Msg> {
+    let here = current.map(fun(o: u8[]) = equal(o, i.origin)).unwrap_or(false);
+    let name: View<Msg> = text(i.name.unwrap_or(i.host)).style(
+        if here { heading(t) } else { body(t) },
+    ).ellipsize();
+    let who = column([name, text(fingerprint(i.key)).style(dim(t))]).expand();
+    let go = button_with(
+        row([dot(t, all, i.origin), who]).style([gap(SPACE_SM)]).expand(),
+        Msg.Choose(i.origin),
+    ).style(app_row()).expand();
+    let mut parts: View<Msg>[] = [
+        go,
+        checkbox("Default", i.default, fun(on: bool) = Msg.SetDefault(i.origin, on)).align(
+            Align.Center,
+        ),
+    ];
+    if renaming {
+        parts.push(
+            ui_button("Rename", Msg.Rename(i.origin)).style([Button.ghost()]).align(Align.Center),
+        );
+    }
+    row(parts).style([gap(SPACE_SM)])
+}
+
+/**
+ * An app's colour dot: its key's colour, unless another app at its
+ * address took that one (`themes.colour_among`).
+ *
+ * @param all the first keys of the apps at the address, in the order met
  *
  * Example:
- *     dot(m.theme, origin)
+ *     dot(m.theme, met(apps), origin)
  */
-fun dot(t: Theme, origin: u8[]): View<Msg> = column([]).style(
-    app_dot(publisher_colour(t, origin)),
+fun dot(t: Theme, all: u8[][], origin: u8[]): View<Msg> = column([]).style(
+    app_dot(colour_among(t, all, origin)),
 ).align(Align.Center);
+
+/**
+ * The first keys of the apps at an address, in the order met.
+ *
+ * Example:
+ *     met(apps_at(known, host))
+ */
+fun met(apps: Identity[]): u8[][] = apps.map(fun(i: Identity) = i.origin);

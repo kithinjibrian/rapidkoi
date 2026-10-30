@@ -124,7 +124,8 @@ fun trust_survives_a_restart() {
     // A separate app is remembered, under its name: the next open asks which.
     let named = step(step(again, Msg.SeparateApp), Msg.NameSeparate("Other"));
     let other = step(named, Msg.ConfirmSeparate);
-    assert_eq(other.tabs.len, 2);
+    // In place (the owner, 2026-10-30): the new app takes the window.
+    assert_eq(other.tabs.len, 1);
     let third = started(s, ["./main", "rapidkoi://localhost:18751"]);
     assert_eq((shows(third, "Which app?"), click(view(third), "Other").is_ok()), (true, true));
     clean(dir);
