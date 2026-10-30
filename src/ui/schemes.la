@@ -67,6 +67,8 @@ struct Theme {
     frame_hover: string,
     /** Instances' dots, in turn (PRP-033): the first instance's, the second's… */
     instances: string[],
+    /** Apps' dots at an address with several (PRP-050): each app's by its key. No danger red, no brand orange. */
+    publishers: string[],
     /** Buttons that delete or discard. */
     danger: string,
     /** A danger button under the pointer or pressed. */
@@ -111,6 +113,8 @@ const DARK: Theme = Theme {
     // Instances' dots (the owner, session 177): the brand orange first,
     // then hues that tell apart on the dark frame.
     instances: ["#ff7700", "#4c9aff", "#36b37e", "#b37feb", "#ff2e63", "#ffc400"],
+    // The owner's palette (PRP-050): teal, violet, blue, green, yellow.
+    publishers: ["#2bb3a3", "#9a7cf8", "#5fa8f5", "#4cc38a", "#e8c547"],
     danger: "#c01c28",
     danger_hover: "#d42c38",
     on_danger: "#ffffff",
@@ -142,6 +146,8 @@ const LIGHT: Theme = Theme {
     faint: "#6e6e6e",
     frame_hover: "#00000014",
     instances: ["#c25400", "#2c6fd1", "#1f8a5b", "#8a4fd1", "#d11f4f", "#a87b00"],
+    // The same hues, deeper, for the light page.
+    publishers: ["#1a8577", "#6f4fd1", "#2c6fd1", "#1f8a5b", "#a87b00"],
     danger: "#b3141f",
     danger_hover: "#9c111b",
     on_danger: "#ffffff",
@@ -171,6 +177,8 @@ const DARK_CONTRAST: Theme = Theme {
     faint: "#bdbdbd",
     frame_hover: "#ffffff33",
     instances: ["#ff8c2e", "#6fb0ff", "#4fd19a", "#c49bff", "#ff5c85", "#ffd24d"],
+    // The owner's hues, from this theme's instance colours (PRP-050).
+    publishers: ["#4fd1c4", "#c49bff", "#6fb0ff", "#4fd19a", "#ffd24d"],
     danger: "#ff6b6b",
     danger_hover: "#ff8a8a",
     on_danger: "#000000",
@@ -200,6 +208,8 @@ const LIGHT_CONTRAST: Theme = Theme {
     faint: "#474747",
     frame_hover: "#00000026",
     instances: ["#8a3c00", "#0b4fa8", "#0f6b44", "#5c2fa0", "#a0123f", "#6b5000"],
+    // The owner's hues, from this theme's instance colours (PRP-050).
+    publishers: ["#0f6b63", "#5c2fa0", "#0b4fa8", "#0f6b44", "#6b5000"],
     danger: "#8b0000",
     danger_hover: "#6b0000",
     on_danger: "#ffffff",

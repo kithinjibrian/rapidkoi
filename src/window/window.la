@@ -23,6 +23,14 @@ import ui.frame { icon_of };
 
 import ui.schemes { Prefs, DEFAULT_PREFS, theme_for, Theme, DARK };
 
+/** What the naming dialog names (PRP-049, PRP-050), and the name typed so far. */
+enum Naming {
+    /** A separate app before it opens: the tab it's for and the key change it answers. */
+    Separate(i64, Change, string),
+    /** An app at an address with several: its host and first key. */
+    Renaming(string, u8[], string),
+}
+
 /** The window's state. */
 struct Model {
     engine: Engine,
@@ -53,8 +61,10 @@ struct Model {
     approval: Option<Approval>,
     /** The instance being renamed and the name typed so far (PRP-033). */
     renaming: Option<(i64, string)>,
-    /** "Name the new app" (PRP-049): the tab it's for, the key change it answers, and the name typed. */
-    naming: Option<(i64, Change, string)>,
+    /** The naming dialog: a new separate app's (PRP-049) or a rename (PRP-050). */
+    naming: Option<Naming>,
+    /** Whether the chip's list of the apps at this address is open (PRP-050). */
+    chip: bool,
     /** "Which app?" (PRP-049): the tab asking, and the address that has several apps. */
     choosing: Option<(i64, string)>,
     /** The last session, until it's restored or something else is opened (PRP-035). */
@@ -121,6 +131,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         approval: None,
         renaming: None,
         naming: None,
+        chip: false,
         choosing: None,
         previous: None,
         pinned: [],

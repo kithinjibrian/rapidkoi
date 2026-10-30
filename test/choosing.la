@@ -4,61 +4,11 @@
 // first, and whoever signs the site decides which app is live.
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg, ShieldPage };
-import rapidkoi.window.window { Model };
-import rapidkoi.window.tabs { AppPage, Cached };
 import rapidkoi.commands.publish { make_key, publish_site };
 import kivuli.testing { click };
 import std.fs;
-import sites { clean, folder, started, step, shows, site, republish, served, kept_count, done };
-
-/** The tab running app `name`. */
-fun tab_of(m: Model, name: string): AppPage = m.tabs.iter().find(
-    fun(t) = t.page.name == name,
-).expect("a tab with that app").page;
-
-fun moved(p: AppPage): bool = p.cached.and_then(fun(c: Cached) = c.moved).is_some();
-
-/** The window with tab `name` in front. */
-fun on(m: Model, name: string): Model {
-    let id = m.tabs.iter().find(fun(t) = t.page.name == name).expect("a tab with that app").id;
-    step(m, Msg.Select(id))
-}
-
-/** Presses Add `n` times. */
-fun added(m: Model, n: i64): Model {
-    let mut at = m;
-    for _ of range(0, n) {
-        at = step(at, click(view(at), "Add").unwrap());
-    }
-    at
-}
-
-/** The site in `dir` signed from now on by a new key, Alice's kept beside it as `{dir}.alice`. */
-fun handed_over(dir: string) {
-    fs.rename("{dir}.key", "{dir}.alice").unwrap();
-    clean("{dir}/site");
-    make_key(dir).unwrap();
-    publish_site(dir).unwrap();
-}
-
-/**
- * Counting at localhost:PORT opened from its kept copy and counted to 1;
- * then the site handed to a new key, and the check finds it.
- */
-fun moved_on(port: i64, name: string): (Model, string) {
-    let dir = site(port, "1.0.0");
-    served(dir, port);
-    let s = folder(name);
-    started(s, ["./main", "rapidkoi://localhost:{port}"]);
-    let m = added(started(s, ["./main", "rapidkoi://localhost:{port}"]), 1);
-    handed_over(dir);
-    (step(m, Msg.CheckForUpdates(0)), dir)
-}
-
-fun finish(m: Model, dir: string) {
-    done(m.store.unwrap(), dir);
-    clean("{dir}.alice");
-}
+import sites { clean, started, step, shows, republish, kept_count };
+import twoapps { tab_of, moved, on, moved_on, finish, both, origin_of, page_name };
 
 @test
 fun a_changed_key_keeps_your_version_and_the_shield_says_so() {
@@ -177,15 +127,6 @@ fun a_third_key_with_no_trail_is_a_third_app() {
     finish(three, dir);
 }
 
-/** Both apps open: Alice's Counting and "Bob's Notes", Bob's in front. */
-fun both(port: i64, name: string): (Model, string) {
-    let (m, dir) = moved_on(port, name);
-    let named = step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes"));
-    (step(named, Msg.ConfirmSeparate), dir)
-}
-
-fun origin_of(p: AppPage): Option<u8[]> = p.trust.map(fun(t) = t.origin);
-
 @test
 fun pins_continue_and_the_session_reopen_the_exact_app() {
     let (two, dir) = both(18866, "exact");
@@ -227,8 +168,3 @@ fun a_pin_from_before_asks_which_app() {
     assert(shows(asked, "Which app?"));
     finish(two, dir);
 }
-
-/** The name of the app in front. */
-fun page_name(m: Model): string = m.tabs.iter().find(fun(t) = Some(t.id) == m.current).expect(
-    "a tab in front",
-).page.name;

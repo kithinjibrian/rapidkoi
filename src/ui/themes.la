@@ -326,6 +326,18 @@ fun instance_colour(t: Theme, key: string): string {
 }
 
 /**
+ * Returns an app's dot colour at an address with several apps (PRP-050),
+ * chosen by its first key so it never changes.
+ *
+ * Example:
+ *     publisher_colour(t, trust.origin)
+ */
+fun publisher_colour(t: Theme, origin: u8[]): string {
+    let n = if origin.len > 0 { origin[0] as i64 } else { 0 };
+    t.publishers[n % t.publishers.len]
+}
+
+/**
  * A point size at the person's text size (PRP-038): Rapidkoi's titles and
  * headings in its pages follow it. The frame passes a theme at scale 1.
  *

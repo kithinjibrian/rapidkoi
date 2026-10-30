@@ -110,6 +110,8 @@ struct Identity {
     origin: u8[],
     /** The name the person gave a separate app before opening it (PRP-049); `None` uses its manifest's. */
     name: Option<string>,
+    /** Whether its address opens this app when it has several (PRP-050). */
+    default: bool,
 }
 
 /** The keys trusted this session, shared by every copy (it's a box). */
@@ -337,6 +339,7 @@ fun check_site_at(
                 Some(n) => Some(n),
                 None => named(opened.bundle.manifest.name),
             },
+            default: from.map(fun(k: Identity) = k.default).unwrap_or(false),
         },
     };
     Ok(
@@ -377,6 +380,7 @@ fun separate(ring: Keyring, c: Change, name: string) {
             since: time.now_ms(),
             origin: c.new,
             name: Some(name),
+            default: false,
         });
         next
     });

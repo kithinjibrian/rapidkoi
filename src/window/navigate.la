@@ -100,9 +100,9 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
         let tidy = Model { draft: "", editing: false, notice: None, ..placed };
         return begin_link(tidy, placed.current.unwrap_or(-1), path, version, fields);
     }
-    // Several apps at this address: which one (PRP-049).
+    // Several apps at this address: the default, or which one (PRP-049, PRP-050).
     if let Some(asking) = asks_which(Model { draft: "", editing: false, notice: None, ..m }, path) {
-        return (asking, Cmd.none());
+        return asking;
     }
     // One tab per app (PRP-026): an app already open is shown, not started twice.
     if let Some(id) = open_tab_of(m, path) {
@@ -275,12 +275,10 @@ fun open_pin(m: Model, path: string, origin: Option<u8[]>): (Model, Cmd<Msg>) = 
     origin,
 ) {
     // A pin from before PRP-049 names no app: at an address with several, which.
-    Some(_) if origin.is_none() && asks_which(m, path).is_some() => (
-        asks_which(Model { draft: "", editing: false, notice: None, ..go_home(m) }, path).unwrap_or(
-            m,
-        ),
-        Cmd.none(),
-    ),
+    Some(_) if origin.is_none() && asks_which(m, path).is_some() => asks_which(
+        Model { draft: "", editing: false, notice: None, ..go_home(m) },
+        path,
+    ).unwrap_or((m, Cmd.none())),
     Some(id) => (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none()),
     // A pin names its app (PRP-049): that one, never another at its address.
     None => match origin {

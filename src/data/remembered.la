@@ -23,9 +23,10 @@ const FORMAT: i64 = 1;
 
 /**
  * The trust file's format: 2 added when each key was first trusted
- * (PRP-009), 3 each app's origin key (PRP-011), 4 a separate app's name (PRP-049).
+ * (PRP-009), 3 each app's origin key (PRP-011), 4 a separate app's name
+ * (PRP-049), 5 the app an address opens (PRP-050).
  */
-const TRUST_FORMAT: i64 = 4;
+const TRUST_FORMAT: i64 = 5;
 
 /** The longest name a separate app is given (as an instance's, PRP-033). */
 const MAX_NAME: i64 = 64;
@@ -145,15 +146,16 @@ fun trust_file(ids: Identity[]): u8[] = file(
                 entry("since", Value.int(i.since)),
                 entry("origin", Value.Bytes(i.origin)),
                 entry("name", i.name.map(fun(n: string) = Value.Text(n)).unwrap_or(Value.Null)),
+                entry("default", Value.Bool(i.default)),
             ]),
         ),
     ),
 );
 
 /**
- * Reads the trust file (formats 1 to 4): every host a host name, every key
- * 32 bytes; format 1's entries have no first-use date (0), and those
- * before 4 no name.
+ * Reads the trust file (formats 1 to 5): every host a host name, every key
+ * 32 bytes; format 1's entries have no first-use date (0), those before
+ * 4 no name, and those before 5 no default.
  *
  * Example:
  *     read_trust(bytes)?
@@ -209,6 +211,14 @@ fun read_trust(bytes: u8[]): Result<Identity[], Unreadable> {
                 return Err(Unreadable.Broken("an entry's name is empty or too long"));
             }
         };
+        // Formats 1 to 4 didn't record it: no default.
+        let default = match v.get("default") {
+            Some(Bool(b)) => b,
+            None => false,
+            _ => {
+                return Err(Unreadable.Broken("an entry's default isn't true or false"));
+            }
+        };
         ids.push(Identity {
             host: host,
             key: key,
@@ -217,6 +227,7 @@ fun read_trust(bytes: u8[]): Result<Identity[], Unreadable> {
             since: since,
             origin: origin,
             name: name,
+            default: default,
         });
     }
     Ok(ids)

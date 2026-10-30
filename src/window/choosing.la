@@ -10,11 +10,11 @@
  */
 import kivuli { Cmd };
 import std.crypto { equal };
-import window.window { Model, app, add_tab, close, show_tab, with_tab, page_of };
-import window.tabs { AppPage, Tab, Page, open_path, close_page, failed_page };
+import window.window { Model, Naming, app, add_tab, close, show_tab, with_tab, page_of };
+import window.tabs { AppPage, Tab, Page, Pin, open_path, close_page, failed_page };
 import window.actions { Msg };
 import trust.verify { Change, Identity, known_for, separate };
-import trust.publishers { apps_at };
+import trust.publishers { apps_at, default_at, set_default, renamed };
 import net.loads { begin_app };
 import net.address { is_address, parse, shown };
 
@@ -30,7 +30,7 @@ const MAX_NAME: i64 = 64;
  */
 fun start_naming(m: Model): Model = match (m.current, page_of(m)) {
     (Some(id), App(a)) => match a.screen {
-        Unapproved(c, _) => Model { naming: Some((id, c, "")), ..m },
+        Unapproved(c, _) => Model { naming: Some(Naming.Separate(id, c, "")), ..m },
         _ => m,
     },
     _ => m,
@@ -63,18 +63,72 @@ fun separate_moved(m: Model): (Model, Cmd<Msg>) {
         return opened(placed, id, a.path, i.origin);
     }
     let c = Change { host: t.host, old: t.key, new: new };
-    (Model { naming: Some((id, c, "")), ..placed }, Cmd.none())
+    (Model { naming: Some(Naming.Separate(id, c, "")), ..placed }, Cmd.none())
 }
 
 /**
- * The name typed for the separate app.
+ * The name typed in the naming dialog.
  *
  * Example:
  *     name_typed(m, "Bob's Notes")
  */
 fun name_typed(m: Model, typed: string): Model = match m.naming {
-    Some((id, c, _)) => Model { naming: Some((id, c, typed)), ..m },
+    Some(Separate(id, c, _)) => Model { naming: Some(Naming.Separate(id, c, typed)), ..m },
+    Some(Renaming(host, origin, _)) => Model {
+        naming: Some(Naming.Renaming(host, origin, typed)),
+        ..m,
+    },
     None => m,
+};
+
+/**
+ * Rename on a row of the chip's list (PRP-050): the naming dialog, holding
+ * the app's name.
+ *
+ * Example:
+ *     start_rename(m, origin)
+ */
+fun start_rename(m: Model, origin: u8[]): Model {
+    let host = match here(m) {
+        Some(h) => h,
+        None => {
+            return m;
+        }
+    };
+    let name = apps_at(known_for(m.ring, host), host).iter().find(
+        fun(i: Identity) = equal(i.origin, origin),
+    ).and_then(fun(i: Identity) = i.name).unwrap_or("");
+    Model { naming: Some(Naming.Renaming(host, origin, name)), chip: false, ..m }
+}
+
+/**
+ * Default on a row of the chip's list or "Which app?" (PRP-050): ticks or
+ * unticks that app as the address's default.
+ *
+ * Example:
+ *     set_default_here(m, origin, true)
+ */
+fun set_default_here(m: Model, origin: u8[], on: bool): Model {
+    let host = match (here(m), m.choosing) {
+        (Some(h), _) => h,
+        (None, Some((_, path))) => match parse(path) {
+            Ok(a) => shown(a),
+            Err(_) => {
+                return m;
+            }
+        },
+        _ => {
+            return m;
+        }
+    };
+    set_default(m.ring, host, origin, on);
+    m
+}
+
+/** The host of the signed app in front, if one is. */
+fun here(m: Model): Option<string> = match page_of(m) {
+    App(a) => a.trust.map(fun(t) = t.host),
+    Home => None,
 };
 
 /**
@@ -85,8 +139,10 @@ fun name_typed(m: Model, typed: string): Model = match m.naming {
  *     naming_problem(m)
  */
 fun naming_problem(m: Model): Option<string> {
-    let (c, typed) = match m.naming {
-        Some((_, c, typed)) => (c, typed),
+    // A rename may keep the app's own name.
+    let (host, itself, typed) = match m.naming {
+        Some(Separate(_, c, typed)) => (c.host, None, typed),
+        Some(Renaming(host, origin, typed)) => (host, Some(origin), typed),
         None => {
             return None;
         }
@@ -98,7 +154,12 @@ fun naming_problem(m: Model): Option<string> {
     if name.char_count() > MAX_NAME {
         return Some("At most 64 characters");
     }
-    if apps_at(known_for(m.ring, c.host), c.host).any(fun(i: Identity) = i.name == Some(name)) {
+    let taken = apps_at(known_for(m.ring, host), host).any(
+        fun(i: Identity) = i.name == Some(name) && !itself.map(
+            fun(o: u8[]) = equal(o, i.origin),
+        ).unwrap_or(false),
+    );
+    if taken {
         return Some("Another app here is called that");
     }
     None
@@ -114,7 +175,10 @@ fun naming_problem(m: Model): Option<string> {
  */
 fun confirm_naming(m: Model): (Model, Cmd<Msg>) {
     let (id, c, typed) = match m.naming {
-        Some(n) if naming_problem(m).is_none() => n,
+        Some(Separate(id, c, typed)) if naming_problem(m).is_none() => (id, c, typed),
+        Some(Renaming(host, origin, typed)) if naming_problem(m).is_none() => {
+            return (renamed_here(m, host, origin, typed.trim()), Cmd.none());
+        }
         _ => {
             return (m, Cmd.none());
         }
@@ -150,7 +214,10 @@ fun confirm_naming(m: Model): (Model, Cmd<Msg>) {
  */
 fun cancel_naming(m: Model): Model {
     let id = match m.naming {
-        Some((id, _, _)) => id,
+        Some(Separate(id, _, _)) => id,
+        Some(Renaming(_, _, _)) => {
+            return Model { naming: None, ..m };
+        }
         None => {
             return m;
         }
@@ -167,22 +234,28 @@ fun cancel_naming(m: Model): Model {
 
 /**
  * "Which app?" for an address with several apps (PRP-049): its tab and
- * the question, in place of opening one. `None` when the address has one
- * app or none, so it opens as before.
+ * the question, in place of opening one; or its default, opened (PRP-050).
+ * `None` when the address has one app or none, so it opens as before.
  *
  * Example:
  *     asks_which(m, "rapidkoi://notes.dafifi.net")
  */
-fun asks_which(m: Model, path: string): Option<Model> {
+fun asks_which(m: Model, path: string): Option<(Model, Cmd<Msg>)> {
     if !is_address(path) {
         return None;
     }
     let host = shown(parse(path).ok()?);
-    if apps_at(known_for(m.ring, host), host).len < 2 {
+    let all = known_for(m.ring, host);
+    if apps_at(all, host).len < 2 {
         return None;
     }
     let placed = add_tab(m, failed_page(path, ""));
-    Some(Model { choosing: Some((placed.current.unwrap_or(-1), path)), ..placed })
+    let id = placed.current.unwrap_or(-1);
+    // The default, when one is ticked (PRP-050): no question.
+    if let Some(origin) = default_at(all, host) {
+        return Some(opened(placed, id, path, origin));
+    }
+    Some((Model { choosing: Some((id, path)), ..placed }, Cmd.none()))
 }
 
 /**
@@ -203,15 +276,22 @@ fun choices(m: Model): (string, Identity)[] = match m.choosing {
 };
 
 /**
- * Opens the app picked from "Which app?": its tab when it's open, else
- * in the asking tab.
+ * Opens the app picked from "Which app?" or the chip's list: its tab when
+ * it's open, else in the asking tab or a new one.
  *
  * Example:
  *     choose(m, origin)
  */
 fun choose(m: Model, origin: u8[]): (Model, Cmd<Msg>) = match m.choosing {
     Some((id, path)) => opened(Model { choosing: None, ..m }, id, path, origin),
-    None => (m, Cmd.none()),
+    // From the chip's list (PRP-050): that app's tab, or a new one for it.
+    None => match page_of(m) {
+        App(a) => {
+            let placed = add_tab(Model { chip: false, ..m }, failed_page(a.path, ""));
+            opened(placed, placed.current.unwrap_or(-1), a.path, origin)
+        }
+        Home => (m, Cmd.none()),
+    },
 };
 
 /** App `origin` at `path` in tab `id`: its own tab instead, when one is open. */
@@ -229,4 +309,33 @@ fun opened(m: Model, id: i64, path: string, origin: u8[]): (Model, Cmd<Msg>) {
     }
     // A signed file: its key is trusted now, so it opens as that app.
     (with_tab(m, id, fun(_: AppPage) = open_path(m.engine, m.ring, path)), Cmd.none())
+}
+
+/**
+ * App `origin` at `host` renamed (PRP-050): its identity, and its open
+ * windows and pins, so the new name shows everywhere at once.
+ */
+fun renamed_here(m: Model, host: string, origin: u8[], name: string): Model {
+    renamed(m.ring, host, origin, name);
+    let theirs = fun(p: AppPage) = p.trust.map(
+        fun(t) = t.host == host && equal(t.origin, origin),
+    ).unwrap_or(false);
+    Model {
+        naming: None,
+        tabs: m.tabs.map(
+            fun(t: Tab) = if theirs(t.page) {
+                Tab { page: AppPage { name: name, ..t.page }, ..t }
+            } else {
+                t
+            },
+        ),
+        pinned: m.pinned.map(
+            fun(p: Pin) = if p.origin.map(fun(o: u8[]) = equal(o, origin)).unwrap_or(false) {
+                Pin { name: name, ..p }
+            } else {
+                p
+            },
+        ),
+        ..m,
+    }
 }
