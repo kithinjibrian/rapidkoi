@@ -352,7 +352,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Amended (the owner, PRP-044):** still no notice, but the address box offers it: once a check keeps a newer version and reached the site, an upgrade button (the refresh arrow, a red dot, "A new version of this app is available: upgrade") shows left of the shield in every window of the app on the old version; clicking it upgrades that window, its state carried over. A kept app in front is checked every 15 minutes too.
 
-**Amended (the owner, PRP-048, 2026-10-30):** an app's windows share its database, so they all run one version. Upgrading or reloading any window (the arrow, Reload, the tab menu's Reload; signed, local development and built-in apps alike) loads the new version once and moves every window of the app onto it, each keeping its state; if it can't be loaded, no window changes. A second upgrade waits for the first. A link's new window of an app already open runs the version open. An older version opening a database a newer one changed is a separate question, not decided here.
+**Amended (the owner, PRP-048, 2026-10-30):** an app's windows share its database, so they all run one version. Upgrading or reloading any window (the arrow, Reload, the tab menu's Reload; signed, local development and built-in apps alike) loads the new version once and moves every window of the app onto it, each keeping its state; if it can't be loaded, no window changes. A second upgrade waits for the first. A link's new window of an app already open runs the version open. An older version opening a database a newer one changed is the app's to handle (DECISION-066).
 
 **Amended (the owner, PRP-049, DECISION-064, 2026-10-30):** a copy is kept per app (host and first key), not per host. A site now signed by another key with no signed trail no longer removes the copy: it stays as the person's version, opens online or offline, and stops updating until its own key (or a rotation from it) signs the site again.
 
@@ -649,6 +649,21 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-066 — An older version opening data a newer one changed: the app's to handle
+
+**Status:** resolved (the owner, 2026-10-30)
+**Raised:** 2026-10-30, after PRP-048: the second half of "what happens when an app changes its schema"
+
+**Question:** PRP-048 stops two versions of an app using its database at once. An older version can still open a database a newer one changed: a withdrawal (the site's current falls back), a link naming an older version (PRP-036), or an older build published again. Should Rapidkoi keep copies, refuse older versions, or leave it to the app?
+
+**Decision (the owner):** app developers take care of it. The database is the app's: Rapidkoi doesn't read it, migrate it, keep copies of it or compare versions against it. Rapidkoi guarantees one version per database at a time (PRP-048) and that `PRAGMA user_version` is the app's to read and write (lugha-sqlite's `Guard.untrusted()` allows it). The contract's Storage section says how: record the shape in `user_version`, migrate in one `sql_batch`, and check it on open before writing.
+
+**Rules out:** Rapidkoi copying databases before upgrades; Rapidkoi refusing an older version by its version number; Rapidkoi running migrations.
+
+**Later, in rapidkoi-rust (its own repository and rules):** a migrations helper that reads `user_version` first and refuses data newer than the app knows, and Notes no longer setting `user_version = 1` unconditionally.
+
+---
 
 ### DECISION-064 — Two apps at one address: an app is its host and its first trusted key everywhere
 
