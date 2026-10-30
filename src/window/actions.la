@@ -104,6 +104,8 @@ enum Msg {
     CancelSeparate,
     /** "Which app?": open the one with this first key (PRP-049). */
     Choose(u8[]),
+    /** × on the notice bar: close the notice showing (PRP-051). */
+    DismissNotice,
     /** Open or close the chip's list of the apps at this address (PRP-050). */
     Chip(bool),
     /** Tick or untick this app, by first key, as its address's default. */

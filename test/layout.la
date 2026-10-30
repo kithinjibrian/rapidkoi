@@ -2,7 +2,7 @@
 // box, the sidebar with the apps, and the content area showing the current
 // app. No display.
 import rapidkoi.shell { start, update, view };
-import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.window { Notice, Model, with_pages };
 import rapidkoi.ui.layout;
 import rapidkoi.ui.content { newtab_view };
 import rapidkoi.window.actions { Msg, TabAction };
@@ -25,7 +25,7 @@ fun app(engine: Engine, name: string): AppPage = open_module(
 fun busy(): Model {
     let engine = Engine.new();
     let m = with_pages(engine, [app(engine, "a"), app(engine, "b")]);
-    Model { notice: Some("Something happened"), ..m }
+    Model { notice: Some(Notice { short: "Something happened", full: "Something happened" }), ..m }
 }
 
 @test
@@ -50,9 +50,10 @@ fun a_fresh_window_shows_only_the_new_tab() {
 }
 
 @test
-fun the_sidebar_and_no_notice_above_the_page() {
+fun the_sidebar_and_the_notice_bar_above_the_page() {
     let v = layout.view(busy());
-    assert(!texts(v).any(fun(s: string) = s == "Something happened"));
+    // The notice bar shows it now (PRP-051).
+    assert(texts(v).any(fun(s: string) = s == "Something happened"));
     // The sidebar (PRP-023): its apps and +. The current app, a, also has
     // its pill in the header's strip, with a menu of its own (PRP-033), so
     // the dock's menu is picked on b.

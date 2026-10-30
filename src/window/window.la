@@ -23,6 +23,17 @@ import ui.frame { icon_of };
 
 import ui.schemes { Prefs, DEFAULT_PREFS, theme_for, Theme, DARK };
 
+/**
+ * Something you should hear about that doesn't stop the window (PRP-051):
+ * the notice bar's short sentence, and the full message on hover.
+ */
+struct Notice {
+    /** One short sentence, in the bar. */
+    short: string,
+    /** The whole message, with why: the bar's tooltip. */
+    full: string,
+}
+
 /** What the naming dialog names (PRP-049, PRP-050), and the name typed so far. */
 enum Naming {
     /** A separate app before it opens: the tab it's for and the key change it answers. */
@@ -75,8 +86,10 @@ struct Model {
     last: Option<i64>,
     /** The last app closed, with its state, in this session. */
     left_off: Option<LeftOff>,
-    /** A short message under the bar (an address that can't be opened yet). */
-    notice: Option<string>,
+    /** Rapidkoi's own notice (PRP-051): about its files, your identity, its data folder; it follows you. */
+    notice: Option<Notice>,
+    /** Each tab's notice, about its app (PRP-051): shown while that tab is in front. */
+    tab_notices: (i64, Notice)[],
     /** Rapidkoi's own colours and text size: `theme_for(prefs)`. */
     theme: Theme,
     /** What the person chose in Settings (PRP-038). */
@@ -138,6 +151,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         last: None,
         left_off: None,
         notice: None,
+        tab_notices: [],
         theme: DARK,
         prefs: DEFAULT_PREFS,
         menu: false,
@@ -254,7 +268,6 @@ fun go_home(m: Model): Model = match m.current {
         editing: false,
         panel: None,
         confirm: None,
-        notice: None,
         ..m,
     },
     _ => new_blank(m),
@@ -281,7 +294,6 @@ fun new_blank(m: Model): Model {
             editing: false,
             panel: None,
             confirm: None,
-            notice: None,
             ..m,
         };
     }
@@ -300,7 +312,6 @@ fun new_blank(m: Model): Model {
         editing: false,
         panel: None,
         confirm: None,
-        notice: None,
         ..m,
     }
 }
@@ -379,7 +390,7 @@ fun slot(m: Model): i64 = match m.current {
  *     show_tab(m, 2)
  */
 fun show_tab(m: Model, id: i64): Model = if app(m, id).is_some() || is_blank(m, id) {
-    Model { current: Some(id), editing: false, notice: None, confirm: None, ..m }
+    Model { current: Some(id), editing: false, confirm: None, ..m }
 } else {
     m
 };
@@ -430,6 +441,8 @@ fun close(m: Model, id: i64): Model {
     };
     let closed = Model {
         tabs: m.tabs.filter(fun(t: Tab) = t.id != id),
+        // Its notice goes with it (PRP-051).
+        tab_notices: m.tab_notices.filter(fun(x: (i64, Notice)) = x.0 != id),
         blanks: m.blanks.filter(fun(b: i64) = b != id),
         current: current,
         left_off: left,

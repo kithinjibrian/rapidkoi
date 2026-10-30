@@ -12,10 +12,11 @@
  * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, bundles.permissions, ui.render, net.requests, window.actions
  * Used by: shell
  */
-import people.identity { Master, master, public_key, sign_in, reason as identity_reason };
+import people.identity { Master, master, public_key, sign_in };
 import people.people { Grant, person, setting_of, with_setting };
 import window.tabs { AppPage, Tab, Screen, handle, changed };
 import window.window { Model, with_tab, is_blank, with_prefs };
+import window.notices { identity_trouble };
 import data.preferences { prefs_value, apply };
 import guest.contract { reply };
 import guest.nodes { Effect };
@@ -444,7 +445,7 @@ fun respond(m: Model, p: AppPage, ask: Effect): (Model, Value) {
     };
     match made {
         Ok(bytes) => (held, Value.Bytes(bytes)),
-        Err(e) => (Model { notice: Some(identity_reason(e)), ..held }, Value.Null),
+        Err(e) => (Model { notice: Some(identity_trouble(e)), ..held }, Value.Null),
     }
 }
 
@@ -461,7 +462,7 @@ fun secret(m: Model): (Model, Option<Master>) {
     };
     match master(s) {
         Ok(mm) => (Model { master: Some(mm), ..m }, Some(mm)),
-        Err(e) => (Model { notice: Some(identity_reason(e)), ..m }, None),
+        Err(e) => (Model { notice: Some(identity_trouble(e)), ..m }, None),
     }
 }
 

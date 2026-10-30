@@ -1,0 +1,143 @@
+// The notice bar (PRP-051): a tab's notice stays with its tab, Rapidkoi's
+// follows you and shows first; × closes the one showing; a tab's goes when
+// the tab closes or loads something new. The bar shows the short sentence,
+// the full message on hover. Through the window with no display.
+import rapidkoi.shell { start, update };
+import rapidkoi.data.store { store_at };
+import std.fs;
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.window { Model, Notice, with_pages };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.window.notices { for_tab, for_rapidkoi, shown, joined, tab_loaded };
+import kivuli.testing { click, texts };
+import wasmtime { Engine, Module };
+import support { echo, settle };
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+/** a.wasm (tab 0) and b.wasm (tab 1); a current. */
+fun two(): Model {
+    let engine = Engine.new();
+    with_pages(engine, [app(engine, "a"), app(engine, "b")])
+}
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun n(short: string): Notice = Notice { short: short, full: "{short}: why" };
+
+fun showing(m: Model): Option<string> = shown(m).map(fun(x: Notice) = x.short);
+
+@test
+fun a_tabs_notice_stays_with_its_tab() {
+    let m = for_tab(two(), 0, n("a started over"));
+    assert_eq(showing(m), Some("a started over"));
+    let other = step(m, Msg.Select(1));
+    assert_eq(showing(other), None);
+    assert_eq(showing(step(other, Msg.Select(0))), Some("a started over"));
+}
+
+@test
+fun rapidkoi_notices_follow_you_and_show_first() {
+    let m = for_rapidkoi(
+        for_tab(two(), 0, n("a started over")),
+        n("Rapidkoi couldn't save your pins"),
+    );
+    assert_eq(showing(m), Some("Rapidkoi couldn't save your pins"));
+    assert_eq(showing(step(m, Msg.Select(1))), Some("Rapidkoi couldn't save your pins"));
+    // Closing it shows the tab's waiting behind it.
+    let closed = step(m, Msg.DismissNotice);
+    assert_eq(showing(closed), Some("a started over"));
+    assert_eq(showing(step(closed, Msg.DismissNotice)), None);
+}
+
+@test
+fun a_newer_notice_replaces_one_of_its_kind_and_together_they_join() {
+    let m = for_tab(for_tab(two(), 0, n("first")), 0, n("second"));
+    assert_eq(showing(m), Some("second"));
+    let both = joined([
+        n("Rapidkoi couldn't save your pins"),
+        n("Rapidkoi couldn't save your trust"),
+    ]);
+    assert_eq(
+        both.map(fun(x: Notice) = x.short),
+        Some("Rapidkoi couldn't save your pins · Rapidkoi couldn't save your trust"),
+    );
+    assert_eq(joined([]), None);
+}
+
+@test
+fun a_tabs_notice_goes_with_the_tab_or_a_new_load_and_rapidkois_stays() {
+    let m = for_rapidkoi(
+        for_tab(two(), 0, n("a started over")),
+        n("Rapidkoi couldn't save your pins"),
+    );
+    // A new load in the tab: its notice goes; Rapidkoi's stays.
+    let loaded = tab_loaded(m, 0);
+    assert_eq(showing(step(loaded, Msg.DismissNotice)), None);
+    assert_eq(showing(loaded), Some("Rapidkoi couldn't save your pins"));
+    // The tab closes: its notice goes with it.
+    let closed = step(for_tab(two(), 0, n("a started over")), Msg.CloseTab(0));
+    assert_eq(closed.tab_notices.len, 0);
+}
+
+@test
+fun escape_in_the_address_box_leaves_the_notice() {
+    let m = for_tab(two(), 0, n("a started over"));
+    assert_eq(showing(step(m, Msg.Dismiss)), Some("a started over"));
+}
+
+@test
+fun the_bar_shows_the_short_sentence_and_the_full_message_on_hover() {
+    let m = for_tab(two(), 0, Notice {
+        short: "a started over",
+        full: "a's saved state changed shape",
+    });
+    assert(texts(view(m)).any(fun(x: string) = x == "a started over"));
+    // The full message is what hovering shows; × closes it.
+    assert_eq(shown(m).map(fun(x: Notice) = x.full), Some("a's saved state changed shape"));
+    assert_eq(click(view(m), "Close"), Ok(Msg.DismissNotice));
+    // No notice, no bar.
+    assert_eq(click(view(two()), "Close").is_err(), true);
+}
+
+@test
+fun typing_what_isnt_there_says_so_on_that_tab() {
+    let m = step(step(two(), Msg.Draft("no/such/app.wasm")), Msg.Go);
+    assert_eq(m.notice, None);
+    assert_eq(
+        shown(m).map(fun(x: Notice) = (x.short, x.full)),
+        Some(
+            (
+                "No app or file called “no/such/app.wasm”",
+                "No app or file called “no/such/app.wasm”",
+            ),
+        ),
+    );
+    let bad = step(step(two(), Msg.Draft("rapidkoi://10.0.0.7")), Msg.Go);
+    assert_eq(
+        shown(bad).map(fun(x: Notice) = (x.short, x.full)),
+        Some(("This address can't be opened", "Open apps by their host name, not an IP address")),
+    );
+}
+
+@test
+fun a_failed_save_is_rapidkois_and_follows_you() {
+    // The folder's place is taken by a file, so nothing can be saved.
+    write_bytes("test/tmp/notices-blocked", [0]).unwrap();
+    let (m, cmd) = start(["./main"], Some(store_at("test/tmp/notices-blocked")));
+    let pinned = step(settle(step(m, Msg.Draft("lugha.toml")), cmd, update), Msg.Go);
+    let tried = step(pinned, Msg.TogglePin);
+    let n = tried.notice.unwrap();
+    assert(n.short.contains("Rapidkoi couldn't save your pins"));
+    assert(n.full.contains("Rapidkoi couldn't save your pins: "));
+    fs.remove_file("test/tmp/notices-blocked").unwrap();
+}

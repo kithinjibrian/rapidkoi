@@ -10,7 +10,7 @@ import rapidkoi.commands.publish { make_key, publish_site, withdraw_version };
 import kivuli.testing { click };
 import wasmtime { wat_to_wasm };
 import std.fs;
-import support { settle, write_counting, echo };
+import support { settle, write_counting, echo, said };
 import sites { clean, folder, started, step, shows, site, republish, reshaped, served, done };
 
 const UPGRADE: string = "A new version of this app is available: upgrade";
@@ -73,7 +73,7 @@ fun upgrading_one_window_moves_every_window_each_with_its_state() {
     // The arrow goes from both.
     assert((offered_at(upgraded, 0), offered_at(upgraded, 1)) == (false, false));
     assert(click(view(on(upgraded, 0)), UPGRADE).is_err());
-    assert_eq(upgraded.notice, None);
+    assert_eq(said(upgraded), None);
     finish(upgraded, dir);
 }
 
@@ -84,7 +84,7 @@ fun windows_whose_state_changed_shape_start_over_with_one_notice() {
     assert_eq((version_at(upgraded, 0), version_at(upgraded, 1)), ("2.0.0", "2.0.0"));
     assert(shows(upgraded, "Count: 0"));
     assert(shows(on(upgraded, 0), "Count: 0"));
-    assert_eq(upgraded.notice, Some("Counting's saved state changed shape, so it started over"));
+    assert_eq(said(upgraded), Some("Counting's saved state changed shape, so it started over"));
     finish(upgraded, dir);
 }
 
@@ -100,7 +100,7 @@ fun a_failed_upgrade_leaves_every_window_on_its_version() {
     assert_eq((version_at(after, 0), version_at(after, 1)), ("1.0.0", "1.0.0"));
     assert(shows(after, "Count: 2"));
     assert(shows(on(after, 0), "Count: 1"));
-    assert(after.notice.is_some());
+    assert(said(after).is_some());
     assert((offered_at(after, 0), offered_at(after, 1)) == (true, true));
     finish(after, dir);
 }
@@ -184,7 +184,7 @@ fun a_links_window_runs_the_version_already_open() {
     // One naming another version says so.
     let named = step(step(linked, Msg.Draft("rapidkoi://localhost:18846/@2.0.0?count=4")), Msg.Go);
     assert_eq(version_at(named, 2), "1.0.0");
-    assert_eq(named.notice, Some("This link was made with Counting 2.0.0; opened 1.0.0"));
+    assert_eq(said(named), Some("This link was made with Counting 2.0.0; opened 1.0.0"));
     done(s, dir);
 }
 
@@ -227,7 +227,7 @@ fun a_failed_reload_of_a_local_file_leaves_every_window_running() {
     let after = step(m, Msg.Reload);
     assert(shows(after, "Count: 2"));
     assert(shows(on(after, 0), "Count: 1"));
-    assert(after.notice.is_some());
+    assert(said(after).is_some());
     clean(path);
     clean(m.store.unwrap().dir);
 }

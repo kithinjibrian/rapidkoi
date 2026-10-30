@@ -15,7 +15,7 @@ import rapidkoi.window.window { Model };
 import rapidkoi.window.actions { Msg as AppMsg };
 import rapidkoi.net.fetching { Fetched };
 import rapidkoi.bundles.bundle { Bundle, Manifest, write };
-import support { t, kv, linking };
+import support { t, kv, linking, said };
 
 fun result(state: Value, link: Option<Value>): u8[] {
     let mut pairs = [("state", state), ("effects", Value.Array([]))];
@@ -233,7 +233,7 @@ fun a_link_opens_a_new_window_and_a_bare_address_switches() {
     assert_eq((x.version, x.link), (Some("1.0.0"), [("count", "3")]));
     // A broken link says why, and opens nothing.
     let bad = going(first, "{SITE_ADDRESS}/@1.0?count=3");
-    assert_eq((bad.tabs.len, bad.notice), (1, Some("A link's version must be like 1.4.0")));
+    assert_eq((bad.tabs.len, said(bad)), (1, Some("A link's version must be like 1.4.0")));
 }
 
 @test
@@ -245,7 +245,7 @@ fun a_version_no_longer_there_opens_the_current_one_with_a_notice() {
         m,
         AppMsg.Fetched(m.tabs[0].id, p.load, Fetched.Unsigned("localhost:18779", plain("0.5.0"))),
     );
-    assert_eq(arrived.notice, Some("This link was made with Plain 0.3.0; opened 0.5.0"));
+    assert_eq(said(arrived), Some("This link was made with Plain 0.3.0; opened 0.5.0"));
     let n = going(home, "{SITE_ADDRESS}/@0.5.0?count=3");
     let same = step_with(
         n,
@@ -255,7 +255,7 @@ fun a_version_no_longer_there_opens_the_current_one_with_a_notice() {
             Fetched.Unsigned("localhost:18779", plain("0.5.0")),
         ),
     );
-    assert_eq(same.notice, None);
+    assert_eq(said(same), None);
 }
 
 fun step_with(m: Model, msg: AppMsg): Model {

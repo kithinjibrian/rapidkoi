@@ -8,6 +8,7 @@
  * Depends on: window.actions, window.tabs, window.window, people.people, net.requests
  * Used by: shell
  */
+import window.notices { for_tab, more_servers };
 import window.actions { Msg };
 import window.tabs { AppPage, Page };
 import window.window { Model, page_of };
@@ -125,12 +126,12 @@ fun looked(before: Model, after: Model): Model {
 fun news(m: Model): Model {
     let mut at = m;
     for t of m.tabs {
-        at = noted(at, t.page);
+        at = noted(at, t.id, t.page);
     }
     at
 }
 
-fun noted(m: Model, p: AppPage): Model {
+fun noted(m: Model, id: i64, p: AppPage): Model {
     let (t, declared) = match (p.trust, p.manifest) {
         (Some(t), Some(man)) => (t, man.servers),
         _ => {
@@ -151,15 +152,12 @@ fun noted(m: Model, p: AppPage): Model {
         seen.push(s);
         fresh.push(s);
     }
-    let said = "{p.name} can now also reach {added.join(", ")}";
-    Model {
-        people: with_person(m.people, Person { seen: seen, fresh: fresh, ..x }),
-        notice: Some(match m.notice {
-            Some(n) => "{n} · {said}",
-            None => said,
-        }),
-        ..m,
-    }
+    // About this app: on its tab (PRP-051).
+    for_tab(
+        Model { people: with_person(m.people, Person { seen: seen, fresh: fresh, ..x }), ..m },
+        id,
+        more_servers(p.name, added.join(", ")),
+    )
 }
 
 /** The own server first, then the others. */

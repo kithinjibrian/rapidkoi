@@ -20,7 +20,17 @@ import window.tabs {
     failed_page,
 };
 import window.restarts { resume, load_again };
-import window.upgrades { upgrading, landed, shape_changed };
+import window.upgrades { upgrading, landed };
+import window.notices {
+    here,
+    told,
+    tab_loaded,
+    for_rapidkoi,
+    bad_address,
+    no_such,
+    started_over,
+    settings_failed,
+};
 import window.choosing { asks_which };
 import window.instances { next_instance, next_instance_of, another };
 import data.remembered { Open };
@@ -64,14 +74,14 @@ fun go(m: Model): (Model, Cmd<Msg>) {
         // Local development addresses open; any other gets the reason why not yet.
         return match parse(wanted) {
             Ok(_) => open_file(m, wanted),
-            Err(e) => (Model { notice: Some(address.reason(e)), ..m }, Cmd.none()),
+            Err(e) => (here(m, bad_address(address.reason(e))), Cmd.none()),
         };
     }
     // An app already open is shown even if its file has gone since (PRP-026).
     if fs.is_file(wanted) || open_tab_of(m, wanted).is_some() {
         return open_file(m, wanted);
     }
-    (Model { notice: Some("No app or file called “{wanted}”"), ..m }, Cmd.none())
+    (here(m, no_such(wanted)), Cmd.none())
 }
 
 /**
@@ -97,16 +107,16 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
             instance: next_instance(m, path),
             ..failed_page(path, ""),
         });
-        let tidy = Model { draft: "", editing: false, notice: None, ..placed };
+        let tidy = Model { draft: "", editing: false, ..placed };
         return begin_link(tidy, placed.current.unwrap_or(-1), path, version, fields);
     }
     // Several apps at this address: the default, or which one (PRP-049, PRP-050).
-    if let Some(asking) = asks_which(Model { draft: "", editing: false, notice: None, ..m }, path) {
+    if let Some(asking) = asks_which(Model { draft: "", editing: false, ..m }, path) {
         return asking;
     }
     // One tab per app (PRP-026): an app already open is shown, not started twice.
     if let Some(id) = open_tab_of(m, path) {
-        return (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none());
+        return (show_tab(Model { draft: "", editing: false, ..m }, id), Cmd.none());
     }
     let placed = match m.current {
         // The app in this tab gives way to the new one, which starts as its
@@ -122,14 +132,14 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
         _ => (add_tab(m, failed_page(path, "")), slot(m)),
     };
     let (base, id) = placed;
-    let tidy = Model { draft: "", editing: false, notice: None, ..base };
+    let tidy = Model { draft: "", editing: false, ..base };
     if is_address(path) && parse(path).is_ok() {
         return begin_link(tidy, id, path, version, []);
     }
     // A new window starts fresh: state lives with its window, and only
-    // Restore brings a saved one back (session 189).
+    // Restore brings a saved one back (session 189). Its old notice goes.
     let page = open_path(m.engine, m.ring, path);
-    (with_tab(tidy, id, fun(_: AppPage) = page), Cmd.none())
+    (with_tab(tab_loaded(tidy, id), id, fun(_: AppPage) = page), Cmd.none())
 }
 
 /**
@@ -246,12 +256,9 @@ fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
             tasks.push(task);
         } else {
             let (page, said) = resumed(at, named(open_path(at.engine, at.ring, t.path)), t.link);
-            let notice = match (at.notice, said) {
-                (Some(a), Some(b)) => Some("{a} · {b}"),
-                (Some(a), None) => Some(a),
-                (None, b) => b,
-            };
-            at = Model { notice: notice, ..add_tab(at, page) };
+            let placed = add_tab(at, page);
+            // About that window's app: on its tab (PRP-051).
+            at = told(placed, placed.current.unwrap_or(-1), said);
         }
         ids.push(at.current.unwrap_or(-1));
     }
@@ -276,14 +283,14 @@ fun open_pin(m: Model, path: string, origin: Option<u8[]>): (Model, Cmd<Msg>) = 
 ) {
     // A pin from before PRP-049 names no app: at an address with several, which.
     Some(_) if origin.is_none() && asks_which(m, path).is_some() => asks_which(
-        Model { draft: "", editing: false, notice: None, ..go_home(m) },
+        Model { draft: "", editing: false, ..go_home(m) },
         path,
     ).unwrap_or((m, Cmd.none())),
-    Some(id) => (show_tab(Model { draft: "", editing: false, notice: None, ..m }, id), Cmd.none()),
+    Some(id) => (show_tab(Model { draft: "", editing: false, ..m }, id), Cmd.none()),
     // A pin names its app (PRP-049): that one, never another at its address.
     None => match origin {
         Some(o) if is_address(path) && parse(path).is_ok() => {
-            let home = Model { draft: "", editing: false, notice: None, ..go_home(m) };
+            let home = Model { draft: "", editing: false, ..go_home(m) };
             let id = slot(home);
             begin_app(add_tab(home, failed_page(path, "")), id, path, o)
         }
@@ -321,7 +328,7 @@ fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
         let (page, notice) = resumed(tab, opened, opened.link);
         let left = if state_of(page).is_some() { None } else { Some(l) };
         (
-            Model { left_off: left, notice: notice, ..with_tab(tab, id, fun(_: AppPage) = page) },
+            told(Model { left_off: left, ..with_tab(tab, id, fun(_: AppPage) = page) }, id, notice),
             Cmd.none(),
         )
     }
@@ -366,7 +373,7 @@ fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
         Ok(page) => {
             let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
             let (moved, notice) = landed(m, id, [a], same, None);
-            (Model { notice: notice, ..moved }, Cmd.none())
+            (told(moved, id, notice), Cmd.none())
         }
         Err(_) => (m, Cmd.none()),
     },
@@ -388,12 +395,12 @@ fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
             Unapproved(c, _) => AppPage { screen: tabs.Screen.Unapproved(c, [a]), ..loaded },
             _ => loaded,
         };
-        let notice = if over { Some(shape_changed(page.name)) } else { None };
+        let notice = if over { Some(started_over(page.name)) } else { None };
         // Reloaded, it's still the same instance; every window of the app
         // moves with it, or none (PRP-048).
         let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
         let (moved, said) = landed(m, id, [a], same, notice);
-        (Model { notice: said, ..moved }, Cmd.none())
+        (told(moved, id, said), Cmd.none())
     }
     _ => (m, Cmd.none()),
 };
@@ -427,7 +434,7 @@ fun open_settings(m: Model): Model {
     }
     match settings_app.open(m.engine) {
         Ok(page) => add_tab(m, page),
-        Err(r) => Model { notice: Some(why(r)), ..m },
+        Err(r) => for_rapidkoi(m, settings_failed(why(r))),
     }
 }
 
