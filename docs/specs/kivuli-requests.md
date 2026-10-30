@@ -4,17 +4,20 @@ Everything Rapidkoi needs from kivuli and doesn't have yet, in one place, most u
 
 Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fit-and-scroll-to.md` (0.53, 0.54).
 
-1. [A file dialog](#1-a-file-dialog) (DECISION-020)
-2. [More than one window of one app](#2-more-than-one-window-of-one-app) (DECISION-042)
-3. [Knowing what fits: the window's width, or a row that overflows](#3-knowing-what-fits-the-windows-width-or-a-row-that-overflows) (DECISION-043)
-4. [Bug: a drop-down inside a popover breaks the popover's dismissal](#4-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
-5. [Bug: a picture's `.size(n)` doesn't cap it](#5-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
-6. [Pictures: WebP, larger pictures, and a decode that fails](#6-pictures-webp-larger-pictures-and-a-decode-that-fails) (DECISION-058)
-7. [Bug: a popover's `destroy` handler unparents a popover GTK already took apart (a crash)](#7-bug-a-popovers-destroy-handler-unparents-a-popover-gtk-already-took-apart-a-crash) (DECISION-063)
+7. [A file dialog](#6-a-file-dialog) (DECISION-020)
+8. [More than one window of one app](#7-more-than-one-window-of-one-app) (DECISION-042)
+9. [Knowing what fits: the window's width, or a row that overflows](#8-knowing-what-fits-the-windows-width-or-a-row-that-overflows) (DECISION-043)
+10. [Bug: a drop-down inside a popover breaks the popover's dismissal](#9-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
+11. [Bug: a picture's `.size(n)` doesn't cap it](#10-bug-a-pictures-sizen-doesnt-cap-it) (DECISION-034)
+13. [Pictures: WebP, larger pictures, and a decode that fails](#13-pictures-webp-larger-pictures-and-a-decode-that-fails) (DECISION-058)
+15. [Bug: a popover's `destroy` handler unparents a popover GTK already took apart (a crash)](#7-bug-a-popovers-destroy-handler-unparents-a-popover-gtk-already-took-apart-a-crash) (DECISION-063)
+14. [Bug: an overlay layer with a maximum size takes the clicks of everything under it (0.62)](#14-bug-an-overlay-layer-with-a-maximum-size-takes-the-clicks-of-everything-under-it-062) (DECISION-062)
+16. [An input group's add-ons, inset as the caller asks](#16-an-input-groups-add-ons-inset-as-the-caller-asks) (DECISION-065)
+
 
 ---
 
-## 1. A file dialog
+## 7. A file dialog
 
 DECISION-020 (and DECISION-018's placeholders).
 
@@ -33,7 +36,7 @@ GTK 4.10+ (`gtk/gtkfiledialog.h`; GTK 4.22 here): `gtk_file_dialog_new`, `gtk_fi
 
 ---
 
-## 2. More than one window of one app
+## 8. More than one window of one app
 
 DECISION-042 (session 177).
 
@@ -47,7 +50,7 @@ Option 1 fits Rapidkoi better: instances, pins and trust stay one model.
 
 ---
 
-## 3. Knowing what fits: the window's width, or a row that overflows
+## 9. Knowing what fits: the window's width, or a row that overflows
 
 DECISION-043 (session 177).
 
@@ -61,7 +64,7 @@ Either is enough.
 
 ---
 
-## 4. Bug: a drop-down inside a popover breaks the popover's dismissal
+## 10. Bug: a drop-down inside a popover breaks the popover's dismissal
 
 DECISION-040 (session 172).
 
@@ -127,7 +130,7 @@ fun main(): i32 = application(App {
 
 ---
 
-## 5. Bug: a picture's `.size(n)` doesn't cap it
+## 11. Bug: a picture's `.size(n)` doesn't cap it
 
 DECISION-034.
 
@@ -139,7 +142,9 @@ DECISION-034.
 
 ---
 
-## 6. Pictures: WebP, larger pictures, and a decode that fails
+---
+
+## 13. Pictures: WebP, larger pictures, and a decode that fails
 
 DECISION-058 (PRP-047).
 
@@ -154,7 +159,19 @@ DECISION-058 (PRP-047).
 
 ---
 
-## 7. Bug: a popover's `destroy` handler unparents a popover GTK already took apart (a crash)
+## 14. Bug: an overlay layer with a maximum size takes the clicks of everything under it (0.62)
+
+DECISION-062 (2026-10-25).
+
+**What happens.** Since 0.62 (PRP-066), a node with a maximum size and an alignment other than fill gets a clamp that fills its parent and places the node itself. In an `overlay`, a layer's clamp then covers the whole base: it's invisible, but GTK picks it for every click in that area, so nothing under it can be pressed. Rapidkoi's update button is an overlay of the button and a 7 px red dot (`square(7)`, `.place(Align.End, Align.Start)`): the button can't be clicked. The striped overflow band in development (`fixed_height`, `.place(Align.Fill, Align.End)`) would cover a whole app the same way.
+
+**What would fix it.** The clamp takes input only where its child is: `contains` (or `pick`) answering for the child's allocation alone, or `gtk_widget_set_can_target(clamp, FALSE)` with the child targetable, when the clamp is larger than its child. Or, in an overlay layer, keep the pre-0.62 placement (the clamp at the node's alignment).
+
+**How Rapidkoi will use it.** Nothing changes in Rapidkoi: the update button and the overflow band work again.
+
+---
+
+## 15. Bug: a popover's `destroy` handler unparents a popover GTK already took apart (a crash)
 
 DECISION-063 (2026-10-25).
 
@@ -174,3 +191,23 @@ DECISION-063 (2026-10-25).
 **What would fix it.** Hold a reference on the popover for as long as the handler can run (`g_object_ref` when parenting, `g_object_unref` after unparenting), and unparent only if it's still the box's child (`gtk_widget_get_parent(pop) == box`); or unparent the popover before the box is dropped, in the patch, instead of in `destroy`.
 
 **How Rapidkoi will use it.** Nothing changes in Rapidkoi: ⚙'s card, ☰'s menu and the tabs' context menus stop risking a crash.
+
+---
+
+## 16. An input group's add-ons, inset as the caller asks
+
+DECISION-065 (2026-10-30).
+
+**What Rapidkoi needs.** Rapidkoi's address box is a `ui.input_group`, and its start holds pills now: a chip with the app's colour and name, and the shield's "Not signed"/"Key changed" pill, each filled and exactly the box's inner height. `input_group` puts its add-ons 12 px from the frame's edge (`ui/input_groups.la`, `add_ons`: `Spacing.padding_left(12)` on the start side, `padding_right(12)` on the end side), while above and below them there's only the frame's 1 px edge. So a filled pill sits 12 px in from the box's left end but flush with its top and bottom: the room around it isn't even. The owner wants it even. `.style` on the group reaches only its outer row, not the add-ons' row, so Rapidkoi can't change the 12 px.
+
+**What to add (kivuli's to decide).** A way for the caller to set the add-ons' inset from the frame's edge, for example a variant given through `.style`:
+
+```
+// Suggested API (kivuli's to decide)
+input_group(start, field, end).style([InputGroup.inset(2)])
+```
+
+or an `input_group_inset(start, field, end, px)`. The default stays 12, so nothing else changes.
+
+**How Rapidkoi will use it.** The address box's add-ons inset by the frame's edge (or by `SPACE_XS` with the same padding above and below), so its pills have equal room on every side. No change to apps or the contract.
+

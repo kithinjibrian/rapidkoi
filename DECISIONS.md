@@ -374,6 +374,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-065 — The address box's pills sit 12 px in from its left end, flush at top and bottom (kivuli)
+
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 16)
+**Raised:** 2026-10-30, the owner, checking the chip (PRP-050) on screen
+
+**Question:** the owner wants the room around the address box's pills (the chip, the shield's pill) equal on every side. `ui.input_group` insets its add-ons a fixed 12 px from the frame's edge, with only the 1 px edge above and below, and Rapidkoi can't change it: `.style` on the group reaches its outer row only.
+
+**Meanwhile:** the pills keep the 12 px at their start. Nothing is worked around (no address box built without `input_group`). When kivuli lets the caller set the inset, the box insets its add-ons as much as their room above and below.
+
+---
+
 ### DECISION-058 — Pictures kivuli can't show yet: WebP, over 4,096 px, a decode that fails (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 6)
