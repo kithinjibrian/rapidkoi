@@ -1,109 +1,29 @@
 // Opening signed apps from their kept copies (PRP-043), through the window
 // with no display: sites published into test/tmp/ and served on local
 // sockets, one port per test; a port nothing serves stands in for offline.
-import rapidkoi.shell { start, update };
 import rapidkoi.window.window { Model };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage, Cached };
-import rapidkoi.data.store { Store, store_at };
 import rapidkoi.data.kept { kept_for, keep, has };
-import rapidkoi.commands.publish { make_key, publish_site, withdraw_version };
-import rapidkoi.commands.serve { handle };
-import kivuli.testing { click, texts };
-import std.http { Request };
-import std.env;
+import rapidkoi.commands.publish { withdraw_version };
+import kivuli.testing { click };
 import std.fs;
-import std.task { sleep };
-import support { settle, write_counting };
-
-fun clean(path: string) {
-    if fs.is_dir(path) {
-        for name of fs.list_dir(path).unwrap() {
-            clean("{path}/{name}");
-        }
-        fs.remove_dir(path).unwrap();
-    } else if fs.exists(path) {
-        fs.remove_file(path).unwrap();
-    }
-}
-
-fun folder(name: string): Store {
-    let dir = "test/tmp/keeping-{name}";
-    clean(dir);
-    store_at(dir)
-}
-
-/** A window on `s`, with every background task run to its end. */
-fun started(s: Store, argv: string[]): Model {
-    let (m, cmd) = start(argv, Some(s));
-    settle(m, cmd, update)
-}
-
-fun step(m: Model, msg: Msg): Model {
-    let (next, cmd) = update(m, msg);
-    settle(next, cmd, update)
-}
-
-fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
-
-fun page(m: Model): AppPage = m.tabs[m.tabs.len - 1].page;
-
-fun version(m: Model): string = page(m).manifest.map(fun(x) = x.version).unwrap_or("none");
-
-/** A site for localhost:PORT with the counting fixture at `v`, published (not served). */
-fun site(port: i64, v: string): string {
-    let dir = "{env.current_dir().unwrap()}/test/tmp/keeping-site-{port}";
-    clean(dir);
-    clean("{dir}.key");
-    fs.make_dirs(dir).unwrap();
-    write_counting("{dir}/m.wasm");
-    make_key_for(dir, port, v);
-    dir
-}
-
-fun make_key_for(dir: string, port: i64, v: string) {
-    toml(dir, port, v);
-    make_key(dir).unwrap();
-    publish_site(dir).unwrap();
-}
-
-fun toml(dir: string, port: i64, v: string) {
-    write_file(
-        "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Counting\"\nversion = \"{v}\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
-    ).unwrap();
-}
-
-/** Publishes version `v` of the site in `dir`. */
-fun republish(dir: string, port: i64, v: string) {
-    toml(dir, port, v);
-    publish_site(dir).unwrap();
-}
-
-/** Serves the site in `dir` on PORT. */
-fun served(dir: string, port: i64) {
-    spawn http.serve("127.0.0.1:{port}", fun(r: Request) = handle("{dir}/site", port, r));
-    sleep(100);
-}
-
-/** Keeps a published site's files for its host, as if it had been opened before. */
-fun kept_by_hand(s: Store, dir: string, port: i64) {
-    let root = "{dir}/site/.well-known/rapidkoi";
-    let builds = fs.list_dir("{root}/builds").unwrap();
-    keep(
-        kept_for(s, "localhost:{port}"),
-        read_bytes("{root}/key").unwrap(),
-        read_bytes("{root}/index").unwrap(),
-        read_bytes("{root}/builds/{builds[builds.len - 1]}").unwrap(),
-    ).unwrap();
-}
-
-fun done(s: Store, dir: string) {
-    clean(s.dir);
-    clean(dir);
-    clean("{dir}.key");
-}
+import support { write_counting };
+import sites {
+    clean,
+    folder,
+    started,
+    step,
+    shows,
+    page,
+    version,
+    site,
+    republish,
+    served,
+    kept_by_hand,
+    done,
+};
 
 fun reached(m: Model): Option<bool> = page(m).cached.map(fun(c: Cached) = c.reached);
 

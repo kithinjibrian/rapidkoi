@@ -1,0 +1,116 @@
+/**
+ * Helpers for tests of signed apps through the window with no display
+ * (PRP-043, PRP-048): sites published into test/tmp/ and served on local
+ * sockets, one port per test; a port nothing serves stands in for offline.
+ */
+import rapidkoi.shell { start, update };
+import rapidkoi.window.window { Model };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.tabs { AppPage };
+import rapidkoi.data.store { Store, store_at };
+import rapidkoi.data.kept { kept_for, keep };
+import rapidkoi.commands.publish { make_key, publish_site };
+import rapidkoi.commands.serve { handle };
+import kivuli.testing { texts };
+import std.http { Request };
+import std.env;
+import std.fs;
+import std.task { sleep };
+import support { settle, write_counting };
+
+/** Removes a file or a folder and everything in it. */
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+/** An empty data folder for a test. */
+fun folder(name: string): Store {
+    let dir = "test/tmp/keeping-{name}";
+    clean(dir);
+    store_at(dir)
+}
+
+/** A window on `s`, with every background task run to its end. */
+fun started(s: Store, argv: string[]): Model {
+    let (m, cmd) = start(argv, Some(s));
+    settle(m, cmd, update)
+}
+
+/** `msg`, with every background task it starts run to its end. */
+fun step(m: Model, msg: Msg): Model {
+    let (next, cmd) = update(m, msg);
+    settle(next, cmd, update)
+}
+
+/** Whether the window shows the text `s`. */
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+/** The last tab's page. */
+fun page(m: Model): AppPage = m.tabs[m.tabs.len - 1].page;
+
+/** The version the last tab runs. */
+fun version(m: Model): string = page(m).manifest.map(fun(x) = x.version).unwrap_or("none");
+
+/** A site for localhost:PORT with the counting fixture at `v`, published (not served). */
+fun site(port: i64, v: string): string {
+    let dir = "{env.current_dir().unwrap()}/test/tmp/keeping-site-{port}";
+    clean(dir);
+    clean("{dir}.key");
+    fs.make_dirs(dir).unwrap();
+    write_counting("{dir}/m.wasm");
+    toml(dir, port, v, 1);
+    make_key(dir).unwrap();
+    publish_site(dir).unwrap();
+    dir
+}
+
+fun toml(dir: string, port: i64, v: string, state_version: i64) {
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Counting\"\nversion = \"{v}\"\nstate_version = {state_version}\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+    ).unwrap();
+}
+
+/** Publishes version `v` of the site in `dir`. */
+fun republish(dir: string, port: i64, v: string) {
+    reshaped(dir, port, v, 1);
+}
+
+/** Publishes version `v` of the site in `dir`, its state's shape at `state_version`. */
+fun reshaped(dir: string, port: i64, v: string, state_version: i64) {
+    toml(dir, port, v, state_version);
+    publish_site(dir).unwrap();
+}
+
+/** Serves the site in `dir` on PORT. */
+fun served(dir: string, port: i64) {
+    spawn http.serve("127.0.0.1:{port}", fun(r: Request) = handle("{dir}/site", port, r));
+    sleep(100);
+}
+
+/** Keeps a published site's files for its host, as if it had been opened before. */
+fun kept_by_hand(s: Store, dir: string, port: i64) {
+    let root = "{dir}/site/.well-known/rapidkoi";
+    let builds = fs.list_dir("{root}/builds").unwrap();
+    keep(
+        kept_for(s, "localhost:{port}"),
+        read_bytes("{root}/key").unwrap(),
+        read_bytes("{root}/index").unwrap(),
+        read_bytes("{root}/builds/{builds[builds.len - 1]}").unwrap(),
+    ).unwrap();
+}
+
+/** Removes a test's data folder, site and key. */
+fun done(s: Store, dir: string) {
+    clean(s.dir);
+    clean(dir);
+    clean("{dir}.key");
+}

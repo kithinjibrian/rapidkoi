@@ -1,0 +1,203 @@
+/**
+ * An app's windows all run one version (PRP-048): they share the app's
+ * database, and two versions can disagree about its shape. Upgrading or
+ * reloading one window moves every window of the app once the new version
+ * is ready (`landed`, `follow`), or none when it can't be loaded; a second
+ * one waits (`upgrading`); and a new window of an app already open runs
+ * the version open (`adopted`). Calls guests only to start them.
+ *
+ * Depends on: std.crypto, window.window, window.tabs, guest.running
+ * Used by: window.navigate, net.loads
+ */
+import std.crypto { equal };
+import window.window { Model, with_tab, same_app };
+import window.tabs { AppPage, Tab, ran, close_page, state_of, state_version_of };
+import guest.running { start };
+
+/**
+ * Whether app `path` is being upgraded or reloaded: one of its windows
+ * loads, or asks about a changed key, with its running page kept.
+ *
+ * Example:
+ *     upgrading(m, "rapidkoi://notes.dafifi.net")
+ */
+fun upgrading(m: Model, path: string): bool = m.tabs.any(fun(t: Tab) = same_app(
+    t.page.path,
+    path,
+) && match t.page.screen {
+    Loading(p) => p.kept.len > 0,
+    Unapproved(_, kept) => kept.len > 0,
+    _ => false,
+});
+
+/**
+ * Puts an upgrade's or reload's new page in tab `id`, all or nothing:
+ * running, the pages it replaces close and every other window of the app
+ * moves onto it (`follow`); stopped or refused, the tab gets its running
+ * page back and the notice says why. A changed key asks first, the
+ * running page kept. With nothing kept, the page simply goes in.
+ *
+ * @param kept the pages the new one replaces (`Pending.kept`)
+ * @param notice what the new page's own start said
+ * @returns the window, and its notice
+ *
+ * Example:
+ *     landed(m, id, [running], page, None)
+ */
+fun landed(
+    m: Model,
+    id: i64,
+    kept: AppPage[],
+    page: AppPage,
+    notice: Option<string>,
+): (Model, Option<string>) {
+    if kept.len == 0 {
+        return (with_tab(m, id, fun(_: AppPage) = page), notice);
+    }
+    let failed = match page.screen {
+        Stopped(why, _) => Some(why),
+        Refused(why) => Some(why),
+        _ => None,
+    };
+    // Only a running window is worth keeping: a stopped one shows the new failure.
+    let was_running = match kept[0].screen {
+        Running(_, _, _) => true,
+        _ => false,
+    };
+    if let (Some(why), true) = (failed, was_running) {
+        for i of range(1, kept.len) {
+            close_page(kept[i]);
+        }
+        return (with_tab(m, id, fun(_: AppPage) = kept[0]), Some(why));
+    }
+    if let Unapproved(_, _) = page.screen {
+        return (with_tab(m, id, fun(_: AppPage) = page), notice);
+    }
+    for k of kept {
+        close_page(k);
+    }
+    let (moved, over) = follow(with_tab(m, id, fun(_: AppPage) = page), id);
+    (moved, if over && notice.is_none() { Some(shape_changed(page.name)) } else { notice })
+}
+
+/** The notice when a window's saved state couldn't carry over. */
+fun shape_changed(name: string): string = "{name}'s saved state changed shape, so it started over";
+
+/**
+ * Moves every other window of tab `id`'s app onto the program tab `id`
+ * now runs, each keeping its state, instance, name and fields; one whose
+ * state's shape changed starts fresh. Windows still loading take the
+ * running program when they arrive (`adopted`); one asking about a
+ * changed key, or another publisher's (a separate app), stays.
+ *
+ * @returns the window, and whether any window's state started over
+ *
+ * Example:
+ *     follow(m, id)
+ */
+fun follow(m: Model, id: i64): (Model, bool) {
+    let mut p: Option<AppPage> = None;
+    for t of m.tabs {
+        if t.id == id {
+            p = Some(t.page);
+        }
+    }
+    let now = match p {
+        Some(x) if x.program.is_some() => x,
+        _ => {
+            return (m, false);
+        }
+    };
+    let mut at = m;
+    let mut over = false;
+    for t of m.tabs {
+        let waits = match t.page.screen {
+            Loading(_) => true,
+            Unapproved(_, _) => true,
+            _ => false,
+        };
+        if t.id == id || waits || !same_app(t.page.path, now.path) || !same_publisher(t.page, now) {
+            continue;
+        }
+        let (moved, lost) = moved_onto(now, t.page);
+        over = over || lost;
+        at = with_tab(at, t.id, fun(_: AppPage) = moved);
+    }
+    (at, over)
+}
+
+/**
+ * Window `old` started on `now`'s program: its state carried when its
+ * shape matches, else fresh.
+ *
+ * @returns the page, and whether a state had to be dropped
+ */
+fun moved_onto(now: AppPage, old: AppPage): (AppPage, bool) {
+    let prog = now.program.expect("follow moves only onto a page with a program");
+    let state = state_of(old);
+    let carried = state.is_some() && state_version_of(old) == state_version_of(now);
+    close_page(old);
+    let base = AppPage {
+        instance: old.instance,
+        label: old.label,
+        seen: old.seen,
+        title: None,
+        load: 0,
+        in_flight: 0,
+        // A fresh start names no fields until the app says.
+        link: if carried { old.link } else { [] },
+        fields: [],
+        ..now,
+    };
+    if carried {
+        return (ran(base, start(prog, state, [])), false);
+    }
+    (ran(base, start(prog, None, [])), state.is_some())
+}
+
+/**
+ * A page just loaded for tab `id` with nothing to replace (a link's new
+ * window, a restored one): when another window of its app runs, the
+ * version that runs, started fresh with `fields`, in place of the one
+ * loaded. A newer one loaded is then offered by the check that follows.
+ *
+ * Example:
+ *     adopted(m, id, fresh, [("count", "3")])
+ */
+fun adopted(m: Model, id: i64, fresh: AppPage, fields: (string, string)[]): AppPage {
+    for t of m.tabs {
+        let runs = match t.page.screen {
+            Running(_, _, _) => t.page.program.is_some(),
+            _ => false,
+        };
+        if t.id != id && runs && same_app(t.page.path, fresh.path) && same_publisher(
+            t.page,
+            fresh,
+        ) {
+            close_page(fresh);
+            let base = AppPage {
+                instance: fresh.instance,
+                label: fresh.label,
+                seen: fresh.seen,
+                title: None,
+                load: 0,
+                in_flight: 0,
+                link: [],
+                fields: [],
+                ..t.page,
+            };
+            return ran(base, start(t.page.program.expect("checked just above"), None, fields));
+        }
+    }
+    fresh
+}
+
+/**
+ * Whether two windows of one address are one app: the same publisher's
+ * key when both are signed. A separate app (a second key for the host)
+ * isn't; a stopped window, which has no trust left, is.
+ */
+fun same_publisher(a: AppPage, b: AppPage): bool = match (a.trust, b.trust) {
+    (Some(x), Some(y)) => equal(x.key, y.key),
+    _ => true,
+};
