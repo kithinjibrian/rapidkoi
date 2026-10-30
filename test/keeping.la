@@ -9,7 +9,7 @@ import rapidkoi.data.kept { old_for, keep };
 import rapidkoi.commands.publish { withdraw_version };
 import kivuli.testing { click };
 import std.fs;
-import support { write_counting };
+import support { write_counting, said };
 import sites {
     clean,
     folder,
@@ -63,10 +63,10 @@ fun a_newer_version_is_used_from_the_next_open_silently() {
     republish(dir, 18813, "2.0.0");
     // This open runs the kept 1.0.0; its check keeps 2.0.0 for next time.
     let second = started(s, ["./main", "rapidkoi://localhost:18813"]);
-    assert_eq((version(second), second.notice), ("1.0.0", None));
+    assert_eq((version(second), said(second)), ("1.0.0", None));
     // A routine update changes nothing for the person: no notice.
     let third = started(s, ["./main", "rapidkoi://localhost:18813"]);
-    assert_eq((version(third), third.notice), ("2.0.0", None));
+    assert_eq((version(third), said(third)), ("2.0.0", None));
     done(s, dir);
 }
 
@@ -144,7 +144,7 @@ fun offline_a_link_to_another_version_opens_the_kept_one_with_a_notice() {
     ).unwrap();
     let m = started(s, ["./main", "rapidkoi://localhost:18818/@0.9.0"]);
     assert_eq(version(m), "1.0.0");
-    assert_eq(m.notice, Some("0.9.0 isn't available offline; opened 1.0.0"));
+    assert_eq(said(m), Some("0.9.0 isn't available offline; opened 1.0.0"));
     done(s, dir);
 }
 

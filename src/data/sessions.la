@@ -15,7 +15,15 @@ import data.remembered { Open, OpenTab, Recalled, MAX_OPEN_FILE, recall, open_fi
 import data.saving { restore_open };
 import data.states { drop_host_instance };
 import net.address { parse, shown };
-import window.window { Model };
+import window.window { Model, Notice };
+import window.notices {
+    joined,
+    with_more,
+    couldnt_save,
+    session_not_cleared_full,
+    set_aside,
+    session_not_cleared,
+};
 
 /** Where the previous session waits for Restore. */
 const PREVIOUS: string = "previous";
@@ -34,11 +42,16 @@ const PREVIOUS: string = "previous";
  */
 fun begin_session(m: Model, s: Store): Model {
     let (read, ended) = restore_open(m, s);
-    let mut notes: string[] = [];
+    let mut notes: Notice[] = [];
     let older = match recall(s, PREVIOUS, MAX_OPEN_FILE, read_open) {
         Read(o) => Some(o),
         Broken(aside, _) => {
-            notes.push("Rapidkoi couldn't read your last session, so it set it aside in {aside}");
+            notes.push(
+                set_aside(
+                    "your last session",
+                    "Rapidkoi couldn't read your last session, so it set it aside in {aside}",
+                ),
+            );
             None
         }
         _ => None,
@@ -53,18 +66,14 @@ fun begin_session(m: Model, s: Store): Model {
                 }
             }
             if let Err(e) = save(s, PREVIOUS, open_file(o)) {
-                notes.push("Rapidkoi couldn't keep your last session: {store_reason(e)}");
+                notes.push(couldnt_save("your last session", store_reason(e)));
             }
             Some(o)
         }
         // An empty session never replaces one (the owner, session 186).
         _ => older,
     };
-    let notice = match (read.notice, notes.len > 0) {
-        (Some(a), true) => Some("{a} · {notes.join(" · ")}"),
-        (None, true) => Some(notes.join(" · ")),
-        (n, false) => n,
-    };
+    let notice = with_more(read.notice, joined(notes));
     Model { previous: previous, notice: notice, ..read }
 }
 
@@ -78,10 +87,7 @@ fun begin_session(m: Model, s: Store): Model {
 fun restored(m: Model): Model = match m.store {
     Some(s) => match remove(s, PREVIOUS) {
         Ok(()) => m,
-        Err(e) => Model {
-            notice: Some("Rapidkoi couldn't clear your last session: {store_reason(e)}"),
-            ..m,
-        },
+        Err(e) => Model { notice: Some(session_not_cleared(store_reason(e))), ..m },
     },
     None => m,
 };
@@ -92,15 +98,17 @@ fun restored(m: Model): Model = match m.store {
  * signed apps keep state, opened by address, so they're found by host.
  * Returns what couldn't be removed.
  */
-fun discard(s: Store, old: Open, kept: Open): string[] {
-    let mut failed: string[] = [];
+fun discard(s: Store, old: Open, kept: Open): Notice[] {
+    let mut failed: Notice[] = [];
     for t of old.tabs {
         let still = kept.tabs.any(fun(k: OpenTab) = k.path == t.path && k.instance == t.instance);
         if t.instance != "" && !still {
             if let Ok(a) = parse(t.path) {
                 if let Err(e) = drop_host_instance(s, shown(a), t.instance) {
                     failed.push(
-                        "Rapidkoi couldn't remove an old window's state: {store_reason(e)}",
+                        session_not_cleared_full(
+                            "Rapidkoi couldn't remove an old window's state: {store_reason(e)}",
+                        ),
                     );
                 }
             }

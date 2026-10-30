@@ -1,0 +1,233 @@
+/**
+ * Notices (PRP-051): what Rapidkoi tells you that doesn't stop the window,
+ * shown by the notice bar. A tab's notice is about its app and stays with
+ * its tab; Rapidkoi's is about itself and follows you, shown first. A newer
+ * one replaces an older of its kind; ones that arrive together join. × closes
+ * the one showing; a tab's also goes when the tab loads something new.
+ * Every notice's words are here: the bar's short sentence, the full message
+ * for its hover (the owner's, PRP-051 Q5). Never touches the disk.
+ *
+ * Depends on: window.window, people.identity
+ * Used by: shell, net.loads, window.navigate, window.upgrades, data.saving, data.sessions, people.access, guest.effects, ui.notices
+ */
+import window.window { Model, Notice };
+import people.identity { IdentityError, reason as identity_reason };
+
+/**
+ * Puts a notice on tab `id`, in place of the one it had.
+ *
+ * Example:
+ *     for_tab(m, id, started_over("Notes"))
+ */
+fun for_tab(m: Model, id: i64, n: Notice): Model {
+    let mut rest = m.tab_notices.filter(fun(x: (i64, Notice)) = x.0 != id);
+    rest.push((id, n));
+    Model { tab_notices: rest, ..m }
+}
+
+/**
+ * Puts `n` on tab `id` when there is one; else leaves the window as it was.
+ *
+ * Example:
+ *     told(m, id, said)
+ */
+fun told(m: Model, id: i64, n: Option<Notice>): Model = match n {
+    Some(x) => for_tab(m, id, x),
+    None => m,
+};
+
+/**
+ * Puts Rapidkoi's own notice, in place of the one it had.
+ *
+ * Example:
+ *     for_rapidkoi(m, couldnt_save("your pins", why))
+ */
+fun for_rapidkoi(m: Model, n: Notice): Model = Model { notice: Some(n), ..m };
+
+/**
+ * Puts a notice on the tab in front, or Rapidkoi's when there's none.
+ *
+ * Example:
+ *     here(m, no_such("nope"))
+ */
+fun here(m: Model, n: Notice): Model = match m.current {
+    Some(id) => for_tab(m, id, n),
+    None => for_rapidkoi(m, n),
+};
+
+/**
+ * Notices that arrived together, as one: their sentences joined with " · ".
+ * `None` for none.
+ *
+ * Example:
+ *     joined([a, b])
+ */
+fun joined(all: Notice[]): Option<Notice> {
+    if all.len == 0 {
+        return None;
+    }
+    Some(Notice {
+        short: all.map(fun(n: Notice) = n.short).join(" · "),
+        full: all.map(fun(n: Notice) = n.full).join(" · "),
+    })
+}
+
+/**
+ * Joins `more` onto what's already there: two notices of one kind that
+ * arrive in the same change, so neither is lost.
+ *
+ * Example:
+ *     with_more(m.notice, said)
+ */
+fun with_more(had: Option<Notice>, more: Option<Notice>): Option<Notice> = match (had, more) {
+    (Some(a), Some(b)) => joined([a, b]),
+    (Some(a), None) => Some(a),
+    (None, b) => b,
+};
+
+/**
+ * The notice the bar shows: Rapidkoi's first, else the tab in front's.
+ *
+ * Example:
+ *     shown(m)
+ */
+fun shown(m: Model): Option<Notice> {
+    if m.notice.is_some() {
+        return m.notice;
+    }
+    let id = m.current?;
+    m.tab_notices.iter().find(fun(x: (i64, Notice)) = x.0 == id).map(fun(x: (i64, Notice)) = x.1)
+}
+
+/**
+ * × on the bar: closes the notice showing, and the one behind it shows.
+ *
+ * Example:
+ *     dismiss(m)
+ */
+fun dismiss(m: Model): Model {
+    if m.notice.is_some() {
+        return Model { notice: None, ..m };
+    }
+    match m.current {
+        Some(id) => Model {
+            tab_notices: m.tab_notices.filter(fun(x: (i64, Notice)) = x.0 != id),
+            ..m,
+        },
+        None => m,
+    }
+}
+
+/**
+ * Tab `id` loads something new: its notice was about what it showed
+ * before, so it goes. Rapidkoi's stays.
+ *
+ * Example:
+ *     tab_loaded(m, id)
+ */
+fun tab_loaded(m: Model, id: i64): Model = Model {
+    tab_notices: m.tab_notices.filter(fun(x: (i64, Notice)) = x.0 != id),
+    ..m,
+};
+
+// The words (the owner, PRP-051 Q5): the bar's sentence, then the full message.
+
+/** Typed something that isn't an app or a file. */
+fun no_such(wanted: string): Notice {
+    let s = "No app or file called “{wanted}”";
+    Notice { short: s, full: s }
+}
+
+/** An address that can't be opened, and why. */
+fun bad_address(why: string): Notice = Notice { short: "This address can't be opened", full: why };
+
+/** A link's version is no longer listed: the current one opened. */
+fun link_moved_on(name: string, asked: string, opened: string): Notice = Notice {
+    short: "This link opened {name} {opened}",
+    full: "This link was made with {name} {asked}; opened {opened}",
+};
+
+/** A link's version isn't kept, offline: the kept one opened. */
+fun opened_offline(name: string, asked: string, opened: string): Notice = Notice {
+    short: "Opened {name} {opened} offline",
+    full: "{asked} isn't available offline; opened {opened}",
+};
+
+/** An upgrade or reload failed (PRP-048): every window stayed as it was. */
+fun couldnt_reload(name: string, why: string): Notice = Notice {
+    short: "{name} couldn't be reloaded",
+    full: why,
+};
+
+/** A window's state didn't fit the new version. */
+fun started_over(name: string): Notice = Notice {
+    short: "{name} started over",
+    full: "{name}'s saved state changed shape, so it started over",
+};
+
+/** An app's saved state was damaged: set aside, the window fresh. */
+fun state_set_aside(name: string, aside: string): Notice = Notice {
+    short: "{name} started fresh",
+    full: "Rapidkoi couldn't read {name}'s saved state, so it set it aside in {aside}",
+};
+
+/** An app may now reach more servers. */
+fun more_servers(name: string, added: string): Notice = Notice {
+    short: "{name} can reach more servers",
+    full: "{name} can now also reach {added}",
+};
+
+/** Clear or Forget couldn't remove an app's data. */
+fun data_not_removed(name: string, why: string): Notice = Notice {
+    short: "{name}'s data couldn't be removed",
+    full: why,
+};
+
+/** Saving one of Rapidkoi's files failed. */
+fun couldnt_save(noun: string, why: string): Notice = Notice {
+    short: "Rapidkoi couldn't save {noun}",
+    full: "Rapidkoi couldn't save {noun}: {why}",
+};
+
+/** Reading one failed; it was set aside. */
+fun set_aside(noun: string, full: string): Notice = Notice {
+    short: "Rapidkoi couldn't read {noun}",
+    full: full,
+};
+
+/** Reading one failed, or a newer Rapidkoi wrote it: nothing will be saved to it. */
+fun not_kept(noun: string, full: string): Notice = Notice {
+    short: "Rapidkoi won't keep {noun} this session",
+    full: full,
+};
+
+/** Clearing the last session failed. */
+fun session_not_cleared(why: string): Notice = Notice {
+    short: "Rapidkoi couldn't clear your last session",
+    full: "Rapidkoi couldn't clear your last session: {why}",
+};
+
+/** Clearing part of the last session failed, its full message already written. */
+fun session_not_cleared_full(full: string): Notice = Notice {
+    short: "Rapidkoi couldn't clear your last session",
+    full: full,
+};
+
+/** No home folder, or the data folder can't be opened. */
+fun nothing_saved(why: string): Notice = Notice {
+    short: "Rapidkoi can't save anything this session",
+    full: why,
+};
+
+/** Your identity couldn't be kept, worked out or read. */
+fun identity_trouble(e: IdentityError): Notice = Notice {
+    short: match e {
+        Store(_) => "Rapidkoi couldn't keep your identity",
+        Crypto(_) => "Rapidkoi couldn't work out your key",
+        Broken(_) => "Rapidkoi couldn't read your identity",
+    },
+    full: identity_reason(e),
+};
+
+/** Settings couldn't open. */
+fun settings_failed(why: string): Notice = Notice { short: "Settings couldn't open", full: why };

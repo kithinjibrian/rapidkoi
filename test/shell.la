@@ -14,7 +14,7 @@ import rapidkoi.guest.events { Happened, event_for };
 import kivuli { Cmd };
 import kivuli.testing { texts, type_into };
 import wasmtime { Engine, Module };
-import support { t, fixed, echo, event_in, crashing, titled_tree, result_of, kv };
+import support { t, fixed, echo, event_in, crashing, titled_tree, result_of, kv, said };
 
 fun app(engine: Engine, name: string, wat: string): AppPage = open_module(
     name,
@@ -153,9 +153,9 @@ fun closing_tabs_picks_a_neighbour_then_home() {
 fun the_address_box() {
     let (m, _) = start(["./main"], None);
     let typed = step(m, type_into(view(m), "address", "rapidkoi://10.0.0.7").unwrap());
-    assert_eq(step(typed, Msg.Go).notice, Some("Open apps by their host name, not an IP address"));
+    assert_eq(said(step(typed, Msg.Go)), Some("Open apps by their host name, not an IP address"));
     assert_eq(
-        step(step(m, Msg.Draft("no/such/app.wasm")), Msg.Go).notice,
+        said(step(step(m, Msg.Draft("no/such/app.wasm")), Msg.Go)),
         Some("No app or file called “no/such/app.wasm”"),
     );
     // From home a file opens in a new tab.
@@ -250,13 +250,17 @@ fun switching_tabs_drops_a_pending_confirm() {
 @test
 fun reload_keeps_the_window_running_when_the_file_is_gone() {
     // A fixture module isn't a file, so ⟳ can't load it again: the window
-    // keeps running, and the notice says why (PRP-048).
+    // keeps running, and the notice bar says so above it (PRP-048, PRP-051).
     // The real reload-with-state path is tested end to end in counter.la.
     let added = step(two(), add(0));
     let reloaded = step(added, Msg.Reload);
-    assert_eq(texts(view(reloaded)), texts(view(added)));
+    let mut expected = ["a couldn't be reloaded"];
+    for x of texts(view(added)) {
+        expected.push(x);
+    }
+    assert_eq(texts(view(reloaded)), expected);
     assert_eq(
-        reloaded.notice.map(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
+        said(reloaded).map(fun(s: string) = s.starts_with("Couldn't read a.wasm")),
         Some(true),
     );
 }

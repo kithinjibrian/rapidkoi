@@ -31,7 +31,15 @@ import window.restarts { with_saved };
 import window.upgrades { landed, adopted };
 import window.leftoff { LeftOff };
 import window.pins { left_is };
-import window.window { Model, with_tab, app };
+import window.window { Model, Notice, with_tab, app };
+import window.notices {
+    for_tab,
+    tab_loaded,
+    opened_offline,
+    link_moved_on,
+    started_over,
+    state_set_aside,
+};
 import net.fetching { Fetched, Source };
 import net.keeping { Keeping, open_app };
 import net.checks { check_after, held_of };
@@ -162,6 +170,8 @@ fun begin_at(
     origin: Option<u8[]>,
     ask: bool,
 ): (Model, Cmd<Msg>) {
+    // Something new loads in this tab: its old notice goes (PRP-051).
+    let m = tab_loaded(m, id);
     let parsed = match parse(path) {
         Ok(a) => a,
         // Callers parse first; an address that doesn't is shown as a stopped page.
@@ -314,10 +324,10 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
             // (PRP-036); offline, the kept one opened (PRP-043).
             let instead = match (pending.version, fresh.manifest) {
                 (Some(v), Some(mf)) if mf.version != v && offline => Some(
-                    "{v} isn't available offline; opened {mf.version}",
+                    opened_offline(fresh.name, v, mf.version),
                 ),
                 (Some(v), Some(mf)) if mf.version != v => Some(
-                    "This link was made with {fresh.name} {v}; opened {mf.version}",
+                    link_moved_on(fresh.name, v, mf.version),
                 ),
                 // A routine update is silent: it changes nothing for the person (PRP-043).
                 _ => None,
@@ -326,14 +336,7 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
                 // ⟳ on a running page: continue with what it had.
                 Some((state, version)) => {
                     let (s, over) = with_saved(fresh, state, version);
-                    (
-                        s,
-                        if over {
-                            Some("{s.name}'s saved state changed shape, so it started over")
-                        } else {
-                            None
-                        },
-                    )
+                    (s, if over { Some(started_over(s.name)) } else { None })
                 }
                 // A window restored from the last session picks up its
                 // saved state; anything opened anew starts fresh: state
@@ -369,7 +372,12 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
         page,
     ).is_some();
     let left = if ran { None } else { m.left_off };
-    (Model { left_off: left, notice: said, ..after }, check_after(m, id, page, source))
+    // What this load says is about this tab's app (PRP-051).
+    let told = match said {
+        Some(n) => for_tab(after, id, n),
+        None => after,
+    };
+    (Model { left_off: left, ..told }, check_after(m, id, page, source))
 }
 
 /**
@@ -383,7 +391,7 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
  * Example:
  *     resumed(m, page, page.link)
  */
-fun resumed(m: Model, page: AppPage, link: string[]): (AppPage, Option<string>) = match (
+fun resumed(m: Model, page: AppPage, link: string[]): (AppPage, Option<Notice>) = match (
     m.store,
     page.trust,
 ) {
@@ -395,19 +403,9 @@ fun resumed(m: Model, page: AppPage, link: string[]): (AppPage, Option<string>) 
     ) {
         Read(sv) => {
             let (p, over) = with_saved(AppPage { link: link, ..page }, sv.state, sv.state_version);
-            (
-                p,
-                if over {
-                    Some("{p.name}'s saved state changed shape, so it started over")
-                } else {
-                    None
-                },
-            )
+            (p, if over { Some(started_over(p.name)) } else { None })
         }
-        Broken(aside, _) => (
-            page,
-            Some("Rapidkoi couldn't read {page.name}'s saved state, so it set it aside in {aside}"),
-        ),
+        Broken(aside, _) => (page, Some(state_set_aside(page.name, aside))),
         _ => (page, None),
     },
     _ => (page, None),

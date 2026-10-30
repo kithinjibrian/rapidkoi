@@ -14,7 +14,7 @@ import rapidkoi.people.people { person };
 import rapidkoi.data.store { Store, store_at };
 import std.fs;
 import wasmtime { Engine, Module };
-import support { echo };
+import support { echo, said };
 
 const HOST: string = "notes.acme.com";
 
@@ -119,7 +119,7 @@ fun an_update_that_adds_a_server_tells_you_once_and_marks_it_new() {
     let s = folder("news");
     let first = signed(s, ["api.acme.com"]);
     // The first open sees everything silently: nothing changed.
-    assert_eq(first.notice, None);
+    assert_eq(said(first), None);
     assert_eq(person(first.people, HOST, [3; 32]).seen, ["api.acme.com"]);
     let updated = Model {
         tabs: first.tabs.map(
@@ -134,9 +134,9 @@ fun an_update_that_adds_a_server_tells_you_once_and_marks_it_new() {
         ..first,
     };
     let told = step(updated, Msg.PanelGo(PanelPage.Main));
-    assert_eq(told.notice, Some("Notes can now also reach files.acme.com"));
+    assert_eq(said(told), Some("Notes can now also reach files.acme.com"));
     // Once: the next message doesn't say it again.
-    assert_eq(step(Model { notice: None, ..told }, Msg.PanelGo(PanelPage.Main)).notice, None);
+    assert_eq(said(step(Model { tab_notices: [], ..told }, Msg.PanelGo(PanelPage.Main))), None);
     let at = step(told, Msg.PanelGo(PanelPage.Access));
     assert_eq(facts(at).fresh, ["files.acme.com"]);
     // Looked at: leaving the page clears the mark.

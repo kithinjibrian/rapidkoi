@@ -1,0 +1,44 @@
+/**
+ * The notice bar (PRP-051), pure: one line between the header and the page
+ * while there's a notice to show (`window.notices.shown`): its short
+ * sentence, the full message on hover, and × to close it. One quiet look
+ * for every notice: the controls' grey, the text's own colour.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.window, window.notices, ui.themes, ui.frame_looks, ui.tokens
+ * Used by: ui.layout
+ */
+import kivuli { View, Align, Background, Styling, row, text, icon };
+import kivuli.ui { Button, button_with as ui_button_with };
+import window.actions { Msg };
+import window.window { Model, Notice };
+import window.notices { shown };
+import ui.themes { body, paint };
+import ui.frame_looks { tab_close };
+import ui.tokens { SPACE_SM, SPACE_MD, TAB_CLOSE_ICON, gap, padding_xy };
+
+/**
+ * The bar, when there's a notice to show; `None` otherwise, so it takes no room.
+ *
+ * Example:
+ *     notices.bar(m)
+ */
+fun bar(m: Model): Option<View<Msg>> {
+    let n: Notice = shown(m)?;
+    let t = m.theme;
+    let close = ui_button_with(
+        [icon("window-close-symbolic").size(TAB_CLOSE_ICON)],
+        Msg.DismissNotice,
+    ).style(tab_close(t)).tooltip("Close").align(Align.Center);
+    let look: Styling[] = [
+        Background { color: paint(t.control), ..Background.theme() },
+        padding_xy(SPACE_MD, SPACE_SM),
+        gap(SPACE_SM),
+    ];
+    Some(
+        row([
+            // One sentence; the whole message on hover (the owner, PRP-051).
+            text(n.short).style(body(t)).ellipsize().tooltip(n.full).align(Align.Center).expand(),
+            close,
+        ]).style(look),
+    )
+}

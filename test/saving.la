@@ -20,7 +20,7 @@ import std.http { Request };
 import std.env;
 import std.fs;
 import std.task { sleep };
-import support { settle, write_counting };
+import support { settle, write_counting, said };
 
 fun clean(path: string) {
     if fs.is_dir(path) {
@@ -144,13 +144,16 @@ fun reopening_a_known_site_writes_nothing() {
     fs.set_mode(s.dir, 0b101_000_000).unwrap();
     let reopened = step(Model { draft: "rapidkoi://localhost:18752", ..m }, Msg.Go);
     fs.set_mode(s.dir, 0b111_000_000).unwrap();
-    assert_eq((reopened.tabs.len, reopened.notice), (1, None));
+    // Trust isn't written again. Opening does change what's open, so its
+    // save fails here, and says so (PRP-051: nothing wipes a notice now).
+    assert_eq(reopened.tabs.len, 1);
     assert_eq(read_bytes("{s.dir}/trust").unwrap(), before);
+    assert(!said(reopened).unwrap_or("").contains("trust"));
     // And a change does save: the same read-only folder shows the failure.
     fs.set_mode(s.dir, 0b101_000_000).unwrap();
     let pinned = step(reopened, Msg.TogglePin);
     fs.set_mode(s.dir, 0b111_000_000).unwrap();
-    assert_eq(pinned.notice.unwrap_or("").starts_with("Rapidkoi couldn't save your pins: "), true);
+    assert(said(pinned).unwrap_or("").contains("Rapidkoi couldn't save your pins: "));
     clean(dir);
     clean("{dir}.key");
     clean(s.dir);
@@ -165,7 +168,7 @@ fun broken_files_are_set_aside_with_a_notice() {
         save(s, name, [1, 2, 3]).unwrap();
     }
     let m = started(s, ["./main"]);
-    let n = m.notice.unwrap_or("");
+    let n = said(m).unwrap_or("");
     assert_eq(
         n.contains(
             "couldn't read your trusted keys, so it set them aside in {s.dir}/trust.broken; sites will be trusted on first use again",
@@ -195,7 +198,7 @@ fun a_newer_file_is_left_alone() {
     save(s, "pins", newer).unwrap();
     let m = started(s, ["./main", "lugha.toml"]);
     assert_eq(
-        m.notice,
+        said(m),
         Some("Your pins were saved by a newer Rapidkoi; changes this session won't be kept"),
     );
     step(m, Msg.TogglePin);
@@ -209,7 +212,7 @@ fun a_failed_save_says_so() {
     write_bytes("test/tmp/saving-blocked", [0]).unwrap();
     let m = started(store_at("test/tmp/saving-blocked"), ["./main", "lugha.toml"]);
     let pinned = step(m, Msg.TogglePin);
-    assert_eq(pinned.notice.unwrap_or("").starts_with("Rapidkoi couldn't save your pins: "), true);
+    assert(said(pinned).unwrap_or("").contains("Rapidkoi couldn't save your pins: "));
     fs.remove_file("test/tmp/saving-blocked").unwrap();
 }
 
@@ -217,7 +220,7 @@ fun a_failed_save_says_so() {
 fun no_store_writes_nothing() {
     let (m, _) = start(["./main", "lugha.toml"], None);
     let pinned = step(m, Msg.TogglePin);
-    assert_eq((pinned.pinned.len, pinned.notice), (1, None));
+    assert_eq((pinned.pinned.len, said(pinned)), (1, None));
 }
 
 @test
@@ -328,7 +331,7 @@ fun a_changed_state_version_starts_over() {
     assert_eq(shows(kept_run, "Count: 1"), true);
     let after = step(started(s, ["./main"]), Msg.RestoreSession);
     assert_eq(shows(after, "Count: 0"), true);
-    assert_eq(after.notice, Some("Counter's saved state changed shape, so it started over"));
+    assert_eq(said(after), Some("Counter's saved state changed shape, so it started over"));
     done(dir, s);
 }
 

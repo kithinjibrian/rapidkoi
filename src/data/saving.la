@@ -14,7 +14,7 @@ import std.env;
 import std.time;
 import data.states { Saved, move_state, keep_in, drop_app, drop_state_in };
 import people.people { People, Person, nobody, people_file, read_people, MAX_PEOPLE_FILE };
-import people.identity { existing, reason as identity_reason };
+import people.identity { existing };
 import data.store {
     Store,
     StoreError,
@@ -39,7 +39,8 @@ import data.remembered {
 };
 import data.pinfiles { MAX_PINS_FILE, MAX_LEFT_FILE, read_pins, read_left, pins_file, left_file };
 import trust.verify { keyring, keyring_of, identities, changes, moves };
-import window.window { Model, used_last };
+import window.window { Model, Notice, used_last };
+import window.notices { joined, with_more, couldnt_save, set_aside, not_kept, identity_trouble };
 import window.tabs { Tab, state_of, state_version_of };
 import window.leftoff { LeftOff, signer_of };
 
@@ -144,7 +145,7 @@ fun session_store(): Result<Store, StoreError> = data_dir(
  *     restore(with_pages(engine, []), session_store()?)
  */
 fun restore(m: Model, s: Store): Model {
-    let notes: Ref<string[]> = Ref.new([]);
+    let notes: Ref<Notice[]> = Ref.new([]);
     let held: Ref<Store> = Ref.new(s);
     let ids = settle(
         recall(s, TRUST.file, MAX_TRUST_FILE, read_trust),
@@ -172,7 +173,7 @@ fun restore(m: Model, s: Store): Model {
     let secret = match existing(s) {
         Ok(found) => found,
         Err(e) => {
-            say_to(notes, identity_reason(e));
+            say_to(notes, identity_trouble(e));
             None
         }
     };
@@ -195,7 +196,7 @@ fun restore(m: Model, s: Store): Model {
         // name you though no app has asked yet this run.
         master: secret,
         store: Some(held.get()),
-        notice: if said.len == 0 { m.notice } else { Some(said.join(" · ")) },
+        notice: with_more(m.notice, joined(said)),
         ..m,
     }
 }
@@ -234,7 +235,7 @@ fun persist(before: Model, after: Model, at: Mark): Model {
             return after;
         }
     };
-    let mut failed: string[] = [];
+    let mut failed: Notice[] = [];
     if after.pinned != before.pinned {
         if let Some(e) = problem(save(s, PINS.file, pins_file(after.pinned)), PINS) {
             failed.push(e);
@@ -322,7 +323,7 @@ fun persist(before: Model, after: Model, at: Mark): Model {
             failed.push(e);
         }
     }
-    if failed.len == 0 { after } else { Model { notice: Some(failed.join(" · ")), ..after } }
+    Model { notice: with_more(after.notice, joined(failed)), ..after }
 }
 
 /**
@@ -356,8 +357,8 @@ fun forgotten(before: Model, after: Model): Model {
  * One file's outcome: its value when read; otherwise a notice, and (when
  * newer or unreadable) the file is never written this session.
  */
-fun settle<T>(r: Recalled<T>, p: Part, notes: Ref<string[]>, held: Ref<Store>): Option<T> {
-    let say = fun(s: string) = notes.update(fun(all: string[]) {
+fun settle<T>(r: Recalled<T>, p: Part, notes: Ref<Notice[]>, held: Ref<Store>): Option<T> {
+    let say = fun(s: Notice) = notes.update(fun(all: Notice[]) {
         let mut next = all;
         next.push(s);
         next
@@ -368,15 +369,28 @@ fun settle<T>(r: Recalled<T>, p: Part, notes: Ref<string[]>, held: Ref<Store>): 
         }
         Fresh => {}
         Broken(aside, _) => say(
-            "Rapidkoi couldn't read {p.noun}, so it set {p.it} aside in {aside}{p.after}",
+            set_aside(
+                p.noun,
+                "Rapidkoi couldn't read {p.noun}, so it set {p.it} aside in {aside}{p.after}",
+            ),
         ),
         Newer(_) => {
-            say("{p.title} {p.verb} saved by a newer Rapidkoi; changes this session won't be kept");
+            say(
+                not_kept(
+                    p.noun,
+                    "{p.title} {p.verb} saved by a newer Rapidkoi; changes this session won't be kept",
+                ),
+            );
             held.update(fun(s: Store) = skipping(s, p.file));
         }
         // Not even readable (permissions?): don't overwrite what couldn't be read.
         Failed(why) => {
-            say("Rapidkoi couldn't read {p.noun} ({why}); changes this session won't be kept");
+            say(
+                not_kept(
+                    p.noun,
+                    "Rapidkoi couldn't read {p.noun} ({why}); changes this session won't be kept",
+                ),
+            );
             held.update(fun(s: Store) = skipping(s, p.file));
         }
     }
@@ -384,8 +398,8 @@ fun settle<T>(r: Recalled<T>, p: Part, notes: Ref<string[]>, held: Ref<Store>): 
 }
 
 /** A failed save's notice, or nothing. */
-fun problem(r: Result<(), StoreError>, p: Part): Option<string> = match r {
-    Err(e) => Some("Rapidkoi couldn't save {p.noun}: {store_reason(e)}"),
+fun problem(r: Result<(), StoreError>, p: Part): Option<Notice> = match r {
+    Err(e) => Some(couldnt_save(p.noun, store_reason(e))),
     Ok(()) => None,
 };
 
@@ -396,7 +410,7 @@ fun which(
     fun(x: LeftOff) = (x.name, x.path, x.title, signer_of(x), x.instance, x.label),
 );
 
-fun say_to(notes: Ref<string[]>, s: string) = notes.update(fun(all: string[]) {
+fun say_to(notes: Ref<Notice[]>, s: Notice) = notes.update(fun(all: Notice[]) {
     let mut next = all;
     next.push(s);
     next
@@ -451,14 +465,10 @@ fun open_of(m: Model): Open {
  *     let (m, open) = restore_open(restore(m, s), s);
  */
 fun restore_open(m: Model, s: Store): (Model, Option<Open>) {
-    let notes: Ref<string[]> = Ref.new([]);
+    let notes: Ref<Notice[]> = Ref.new([]);
     let held: Ref<Store> = Ref.new(m.store.unwrap_or(s));
     let open = settle(recall(s, OPEN.file, MAX_OPEN_FILE, read_open), OPEN, notes, held);
     let said = notes.get();
-    let notice = match (m.notice, said.len > 0) {
-        (Some(a), true) => Some("{a} · {said.join(" · ")}"),
-        (None, true) => Some(said.join(" · ")),
-        (n, false) => n,
-    };
+    let notice = with_more(m.notice, joined(said));
     (Model { store: Some(held.get()), notice: notice, ..m }, open)
 }

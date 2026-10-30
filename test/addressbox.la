@@ -9,7 +9,7 @@ import rapidkoi.window.actions { Msg };
 import rapidkoi.window.tabs { AppPage, open_module };
 import kivuli.testing { click, press, type_into, submit };
 import wasmtime { Engine, Module };
-import support { echo };
+import support { echo, said };
 
 fun app(engine: Engine, name: string): AppPage = open_module(
     name,
@@ -53,14 +53,14 @@ fun typing_shows_nothing_under_the_box() {
 @test
 fun a_failed_open_keeps_why_in_the_model() {
     let m = step(step(home(), Msg.Draft("nope")), Msg.Go);
-    assert_eq(m.notice, Some("No app or file called “nope”"));
+    assert_eq(said(m), Some("No app or file called “nope”"));
     assert_eq(m.draft, "nope");
 }
 
 @test
 fun dismissing_empties_the_box() {
     let after = step(step(home(), Msg.Draft("alp")), Msg.Dismiss);
-    assert_eq((after.draft, after.editing, after.notice), ("", false, None));
+    assert_eq((after.draft, after.editing, said(after)), ("", false, None));
 }
 
 @test

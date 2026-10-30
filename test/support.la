@@ -9,6 +9,8 @@
 import cbor { Value, Entry, Limits, encode, decode };
 import kivuli { Cmd };
 import wasmtime { wat_to_wasm };
+import rapidkoi.window.window { Model, Notice };
+import rapidkoi.window.notices { shown };
 
 /**
  * Runs a command's tasks now, in order, sending each result through
@@ -375,3 +377,6 @@ fun after(hay: u8[], needle: u8[]): i64 {
     }
     panic("the fixture's tree holds its own text")
 }
+
+/** What the notice bar says on hover now (PRP-051): the full message of the notice showing. */
+fun said(m: Model): Option<string> = shown(m).map(fun(n: Notice) = n.full);

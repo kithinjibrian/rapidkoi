@@ -9,7 +9,8 @@
  * Depends on: window.window, window.apps, window.tabs, guest.running
  * Used by: window.navigate, net.loads
  */
-import window.window { Model, with_tab, same_app };
+import window.window { Model, Notice, with_tab, same_app };
+import window.notices { couldnt_reload, started_over, tab_loaded };
 import window.apps { same };
 import window.tabs { AppPage, Tab, ran, close_page, state_of, state_version_of };
 import guest.running { start };
@@ -49,8 +50,8 @@ fun landed(
     id: i64,
     kept: AppPage[],
     page: AppPage,
-    notice: Option<string>,
-): (Model, Option<string>) {
+    notice: Option<Notice>,
+): (Model, Option<Notice>) {
     if kept.len == 0 {
         return (with_tab(m, id, fun(_: AppPage) = page), notice);
     }
@@ -68,7 +69,10 @@ fun landed(
         for i of range(1, kept.len) {
             close_page(kept[i]);
         }
-        return (with_tab(m, id, fun(_: AppPage) = kept[0]), Some(why));
+        return (
+            with_tab(m, id, fun(_: AppPage) = kept[0]),
+            Some(couldnt_reload(kept[0].name, why)),
+        );
     }
     if let Unapproved(_, _) = page.screen {
         return (with_tab(m, id, fun(_: AppPage) = page), notice);
@@ -76,12 +80,10 @@ fun landed(
     for k of kept {
         close_page(k);
     }
-    let (moved, over) = follow(with_tab(m, id, fun(_: AppPage) = page), id);
-    (moved, if over && notice.is_none() { Some(shape_changed(page.name)) } else { notice })
+    // A new version runs: the tab's old notice goes (PRP-051).
+    let (moved, over) = follow(tab_loaded(with_tab(m, id, fun(_: AppPage) = page), id), id);
+    (moved, if over && notice.is_none() { Some(started_over(page.name)) } else { notice })
 }
-
-/** The notice when a window's saved state couldn't carry over. */
-fun shape_changed(name: string): string = "{name}'s saved state changed shape, so it started over";
 
 /**
  * Moves every other window of tab `id`'s app onto the program tab `id`
@@ -121,7 +123,7 @@ fun follow(m: Model, id: i64): (Model, bool) {
         }
         let (moved, lost) = moved_onto(now, t.page);
         over = over || lost;
-        at = with_tab(at, t.id, fun(_: AppPage) = moved);
+        at = tab_loaded(with_tab(at, t.id, fun(_: AppPage) = moved), t.id);
     }
     (at, over)
 }

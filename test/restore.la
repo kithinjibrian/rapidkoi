@@ -7,6 +7,7 @@
 // in for each app (it stops for want of memory, which is fine here: the
 // tab, its name and its place are what's checked). Writes only under
 // test/tmp/.
+import support { said };
 import rapidkoi.shell { start, update };
 import rapidkoi.window.window { Model };
 import rapidkoi.ui.layout { view };
@@ -164,7 +165,7 @@ fun a_broken_open_file_is_set_aside_with_a_notice() {
     fs.make_dirs(s.dir).unwrap();
     save(s, "open", [1, 2, 3]).unwrap();
     let (m, _) = start(["./main"], Some(s));
-    assert_eq(m.notice.unwrap_or("").contains("open apps"), true);
+    assert_eq(said(m).unwrap_or("").contains("open apps"), true);
     assert_eq(m.blanks.len, 1);
     clean("test/tmp/restore-broken");
 }
