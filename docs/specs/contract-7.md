@@ -153,6 +153,11 @@ Every app gets its own SQLite database on this device: a signed app one for its 
 - Bounds: SQL 100 KB, 999 parameters, a value 4 MB, 100 steps; every call 1 second, 100 MB a database, 256 MB of SQLite's memory for all apps. Every connection is guarded by lugha-sqlite's `Guard.untrusted()`.
 - When a write in one window changes tables, the app's other windows get `on_change` with `tables`. A window copies the rows it asked for into its state and asks again then.
 
+**Changing the database's shape is the app's to manage** (a note, not a rule of the contract; DECISION-066). The database belongs to the app: Rapidkoi never reads it, migrates it or keeps copies of it. What Rapidkoi guarantees is that only one version of an app uses its database at a time: every window of an app moves to a new version together (PRP-048). An *older* version can still open data a newer one changed: the publisher withdraws the newer version, a link names an older one, or an older build is published again. So:
+
+- record the shape your version writes in `PRAGMA user_version`, and migrate in one `sql_batch`, so a failed step leaves the database as it was;
+- on open, read `user_version` before writing it: a number higher than your version knows means newer data. Then it's your app's choice what to do: say so and ask the person to update, open read-only, or migrate down if you wrote that path. Never set `user_version` lower without migrating down.
+
 ## The person's choices
 
 `preferences` gives `{ "theme": "dark" | "light", "more_contrast": bool, "text_size": 80–200 }` and nothing else; when one changes, every running app gets `on_change`. Text size sets the body size (`body`, `small`, `rem`, and Rapidkoi's named sizes follow it). Per app, ⚙'s **Use my colours** turns raw and mixed colours into Rapidkoi's, and **Use my text size** makes raw sizes follow too.
