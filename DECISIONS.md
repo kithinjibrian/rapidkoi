@@ -637,6 +637,24 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-064 — Two apps at one address: an app is its host and its first trusted key everywhere
+
+**Status:** resolved (the owner, 2026-10-30; built by PRP-049, then PRP-050)
+**Raised:** 2026-10-30, while fixing "Open as a separate app" running the old publisher's kept copy (found during PRP-048)
+
+**Question:** DECISION-009 and the signing meeting (2026-10-18) say an unapproved key change "keeps the person's version and data, and offers the new one as a separate app"; an app's identity is its host and key. Rapidkoi follows that for data and saved state only. Kept copies, tabs ("one tab per app"), pins, Continue, the saved session and Forget go by address, and the background check deletes the kept copy on a changed key. So "Keep using my version" lasts only while its window is open, the old app's data becomes unreachable, and "Open as a separate app" can run the old publisher's kept copy.
+
+**Decision (the owner, with the journey at https://claude.ai/artifact/Nx55CYNApso8E7GjWYGyvN):**
+- **An app is its host and its first trusted key** (`Identity.origin`, kept through signed rotations), wherever Rapidkoi remembers an app: kept copies, tabs, pins, Continue, the session, Forget and Clear. Files and development addresses stay keyed by their path.
+- **A changed key never deletes your version.** It keeps opening from its kept copy, with its data, and no longer updates; the shield offers the new one as a separate app.
+- **A separate app is named by the person before it opens** (empty field; the instance-name rules; unique among the apps at that address). It loads from its site and gets its own kept copy, data and tab.
+- **Several apps at one address:** a chip at the start of the address box (the app's colour and name) opens a dropdown of every app there (colour, name, key fingerprint, a default). With no default, typing the address asks which; with one, it opens it. The dock marks each app with its colour; the colour comes from its key and shows already while naming it. "· new publisher" leaves the address box.
+- **Whoever signs the site decides which app is live:** a publisher returning with its key, or a signed rotation from it, makes its app update again and freezes the other; a new key with no trail is one more app. Rapidkoi never moves data between apps on its own.
+
+**Rules out:** deleting a kept copy because the site's key changed; one kept copy per host; matching apps by address alone; a separate app named by Rapidkoi; moving an app's data to another app (not now: its own feature, if ever).
+
+---
+
 ### DECISION-063 — Opening ⚙'s card can crash Rapidkoi (kivuli's popover cleanup)
 
 **Status:** resolved (kivuli 0.62.2, 2026-10-25)
