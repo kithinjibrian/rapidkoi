@@ -142,6 +142,7 @@ Each has a `kind` and a `msg` (any CBOR value, carried back in the reply):
 | `set_preference` + `name`, `value` | Settings only (`change_settings`) | not answered |
 | `sql`, `sql_batch` | its database (below) | `on_answer` or `on_fail` |
 | `blob_get`, `blob_list` | its blobs (below) | `on_answer` or `on_fail` |
+| `file_open`, `file_save`, `file_save_as` | one of the person's files, chosen in Rapidkoi's dialog (below, PRP-056) | `on_answer` (`null` when cancelled) or `on_fail` |
 | `pins`, `left_off`, `open_pin` + `index`, `continue`, `session`, `restore_session` | the new tab's built-in permissions | `on_answer` |
 
 A bad ask stops the app with its sentence.
@@ -171,6 +172,17 @@ Large bytes (photos, files, your own formats) kept beside the database, each und
 - **`blob_list`** `{ "msg", "prefix"? }`: answered `{ "blobs": [{ "key", "size", "owner"? }], "cut" }`, in key order, at most 10,000 (`cut`: those left out).
 - Your app keeps nothing between calls, so bytes you hold sit in the window's state (16 MB, saved with it): handle each piece as it arrives and keep the result, not the bytes.
 - ⚙'s Data row counts blobs with the database; Clear and Forget remove them.
+- **`blob_own`** `{ "blob_own": key, "owner": { "table", "key" } }`, a step of `sql_batch` (PRP-056): gives a blob already there (one a file was opened into) an owner row, under the same rules. No such key: "This app has no blob with that key".
+
+### The person's files
+
+One of the person's files reaches your app only when they choose it in Rapidkoi's own dialog (DECISION-089, `docs/specs/files.md`): choosing is the permission. You never name a file and never see a path; you learn a file's **name** and **size**.
+
+- **`file_open`** `{ "msg", "key", "accept"?, "edit"? }`: opens "Open a file for {app}" (with `edit: true`, "Open a file for {app} to modify"). The chosen file becomes a blob under `key`, with no owner (give it one with `blob_own`). Answered `{ "key", "name", "size" }`, plus `"handle"` with `edit`; `null` when cancelled. `accept`: up to 16 extensions without the dot (`["png", "jpg"]`), only filtering what the dialog shows.
+- **`file_save`** `{ "msg", "handle", "key" }`: writes blob `key` over the file `handle` names, safely (a crash leaves the old file or the new). Refused, with nothing written, when the file changed since it was opened or last saved: "This file changed since it was opened". Answered `{ "size" }`.
+- **`file_save_as`** `{ "msg", "key", "name"?, "accept"? }`: opens "Save a file from {app}", `name` suggested; writes blob `key` to the chosen file. Answered `{ "name", "size", "handle" }`, or `null` when cancelled.
+- **Handles** are text, valid only in the window that got them until it closes or reloads ("This file is no longer open here" after). Keep them in your state; never put one in a link.
+- One dialog at a time per window ("A file dialog is already open"); a file at most 16 MB ("This file is over 16 MB"); "Rapidkoi couldn't read this file" / "Rapidkoi couldn't save this file"; the new tab and built-in apps keep none ("This app keeps no files here").
 
 **Changing the database's shape is the app's to manage** (a note, not a rule of the contract; DECISION-066). The database belongs to the app: Rapidkoi never reads it, migrates it or keeps copies of it. What Rapidkoi guarantees is that only one version of an app uses its database at a time: every window of an app moves to a new version together (PRP-048). An *older* version can still open data a newer one changed: the publisher withdraws the newer version, a link names an older one, or an older build is published again. So:
 

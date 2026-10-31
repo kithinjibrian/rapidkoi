@@ -275,6 +275,7 @@ fun write(db: Database, folder: string, steps: BatchStep[]): Result<(Value, bool
                 blobmap.set_step(key, hash, bytes.len, at)
             }
             BlobDelete(key) => blobmap.delete_step(key),
+            BlobOwn(key, o) => blobmap.own_step(key, o.table, cells([o.key])?[0]),
         });
     }
     let ran = db.batch_steps(batch).map_err(sentence)?;
@@ -333,6 +334,13 @@ fun checked(db: Database, kept: bool, steps: BatchStep[]): Result<(), BlobError>
                     bytes -= n;
                 }
                 sizes[key] = -1;
+            }
+            // Only a blob there (stored, or set earlier in this batch) can be given an owner.
+            BlobOwn(key, o) => {
+                if size_now(db, kept, sizes, key)?.is_none() {
+                    return Err(BlobError.NoSuchKey);
+                }
+                blobmap.owner_column(db, o.table)?;
             }
             Statement(_) => {}
         }

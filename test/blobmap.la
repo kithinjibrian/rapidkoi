@@ -345,3 +345,27 @@ fun the_size_counts_blobs_and_clear_removes_them() {
     assert_eq(fs.exists(folder_for(path)), false);
     assert_eq(size_of(path), 0);
 }
+
+@test
+fun an_opened_file_s_blob_is_given_an_owner_later() {
+    // PRP-056: a file opened into an ownerless blob, attached when its note is saved.
+    let path = db("own");
+    notes(path);
+    wrote(path, [set("photo", [1, 2], None)]);
+    wrote(path, [
+        sql("INSERT INTO notes VALUES ('n1', '', 'photo')", []),
+        BatchStep.BlobOwn("photo", Owner { table: "notes", key: t("n1") }),
+    ]);
+    wrote(path, [sql("DELETE FROM notes WHERE id = 'n1'", [])]);
+    assert_eq(bytes_of(path, "photo"), None);
+    assert_eq(
+        why(
+            call(
+                path,
+                Call.Write([BatchStep.BlobOwn("nope", Owner { table: "notes", key: t("n1") })]),
+            ),
+        ),
+        "This app has no blob with that key",
+    );
+    clear(path).unwrap();
+}

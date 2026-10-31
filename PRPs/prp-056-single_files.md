@@ -1,6 +1,6 @@
 ## FEATURE: Single files: an app opens one of the person's files (a copy, or to modify), saves it back, and saves as (contract 9)
 
-**Status:** draft, for approval; lughac's `fs.size` has shipped (milestone 153), which the owner chose to wait for.
+**Status:** approved (the owner, 2026-11-01: "approved"), the `effects.la` split included; lughac's `fs.size` has shipped (milestone 153).
 
 ## OBJECTIVE
 An app asks for a file; Rapidkoi's own chooser opens, titled with the app's name; the person picks one, or cancels. The app gets the file's bytes as a blob, its name and size, and, when it asked to modify it, a handle to save back to that one file. Saving back is safe and never overwrites a change made elsewhere. Save as writes a new file the person chooses. The app never sees a path. With it, Notes can attach a photo (M5) and an editor can open, change and save a file (M6).
@@ -57,3 +57,11 @@ An app asks for a file; Rapidkoi's own chooser opens, titled with the app's name
 - [ ] Every test above passes; no file over 500 lines.
 - [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build -O 2 src/main.la -o main` pass.
 - [ ] For the owner, by eye, with the SDK's `examples/editor` or Notes (M5, M6): the chooser shows the app's name and the right words; cancelling does nothing; a file opens, is modified and saved back; editing it elsewhere first makes the save say so; save as writes a new file.
+
+## BUILD NOTES
+
+- Built as designed: `guest/fileasks.la`, `data/files.la`, `window/handles.la` (named so, not `window/files.la`: two modules both called `files` can't be imported into one file), `guest/storing.la`.
+- The `effects.la` split: the storage and file asks are one or-pattern arm calling `storing.ask`, so `effects.la` went from 497 to 481 lines. `window.la` is at 500 (one blank import line removed).
+- `fs.size` is checked before every read; a file grown past 16 MB between the check and the read is refused too. A saved file takes its folder's default permissions (it's a new file renamed over the old).
+- Opening into a blob makes every window of the app read its `blob:` pictures again (`queries.refreshed`), as a blob write does.
+- Tests: `test/fileasks.la`, `test/files.la`, `test/storing.la` (the dialog played with kivuli's `chooser` and `answer_chooser`), and `blob_own` in `test/blobmap.la`; files and databases under `/tmp`.

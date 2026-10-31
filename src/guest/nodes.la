@@ -295,6 +295,12 @@ enum Effect {
     BlobGet(Value, BlobRead),
     /** The app's blob keys starting with a prefix; answered with them or why not. */
     BlobList(Value, string),
+    /** One of the person's files, chosen in Rapidkoi's dialog, into a blob (PRP-056); answered with its name and size (and a handle), or null. */
+    FileOpen(Value, FileOpen),
+    /** A blob's bytes saved back over the file a handle names; answered with its size or why not. */
+    FileSave(Value, string, string),
+    /** A blob's bytes saved to a file the person chooses; answered with its name, size and handle, or null. */
+    FileSaveAs(Value, FileSaveAs),
 }
 
 /** One statement an app asks its database to run (PRP-041), its shape checked. */
@@ -315,6 +321,22 @@ enum BatchStep {
     BlobSet(string, u8[], Option<Owner>),
     /** Removes a key; none is nothing to do. */
     BlobDelete(string),
+    /** Gives an existing blob (one a file was opened into) an owner row (PRP-056). */
+    BlobOwn(string, Owner),
+}
+
+/** A `file_open` (PRP-056): the blob key the file goes into, the extensions offered, whether it opens to be modified. */
+struct FileOpen {
+    key: string,
+    accept: string[],
+    edit: bool,
+}
+
+/** A `file_save_as`: the blob key whose bytes are saved, the suggested name, the extensions offered. */
+struct FileSaveAs {
+    key: string,
+    name: string,
+    accept: string[],
 }
 
 /** The row a blob belongs to: its table's name and its primary key's value. */

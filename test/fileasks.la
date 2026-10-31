@@ -1,0 +1,103 @@
+// File asks (PRP-056), pure: `file_open`, `file_save` and `file_save_as`
+// read from a `handle` result and held to their shapes. No dialog, no disk.
+import rapidkoi.guest.contract { read_update };
+import rapidkoi.guest.nodes { Effect };
+import cbor { Value, encode };
+import support { t, kv };
+
+fun asking(effect: Value): Result<Effect[], string> {
+    let result = encode(kv([("state", kv([])), ("effects", Value.Array([effect]))]));
+    match read_update(result) {
+        Ok(u) => Ok(u.effects),
+        Err(Invalid(_, why)) => Err(why),
+        Err(_) => Err("another error"),
+    }
+}
+
+fun ask(kind: string, fields: (string, Value)[]): Value = kv(
+    [("kind", t(kind)), ("msg", t("m"))] + fields,
+);
+
+@test
+fun the_asks_read_whole() {
+    match asking(
+        ask("file_open", [
+            ("key", t("doc")),
+            ("accept", Value.Array([t("txt")])),
+            ("edit", Value.Bool(true)),
+        ]),
+    ).unwrap()[0] {
+        FileOpen(_, o) => assert_eq((o.key, o.accept, o.edit), ("doc", ["txt"], true)),
+        _ => panic("expected a file_open"),
+    }
+    match asking(ask("file_open", [("key", t("doc"))])).unwrap()[0] {
+        FileOpen(_, o) => assert_eq((o.accept.len, o.edit), (0, false)),
+        _ => panic("expected a file_open"),
+    }
+    match asking(ask("file_save", [("handle", t("h1")), ("key", t("doc"))])).unwrap()[0] {
+        FileSave(_, h, key) => assert_eq((h, key), ("h1", "doc")),
+        _ => panic("expected a file_save"),
+    }
+    match asking(ask("file_save_as", [("key", t("doc")), ("name", t("notes.txt"))])).unwrap()[0] {
+        FileSaveAs(_, s) => assert_eq((s.key, s.name), ("doc", "notes.txt")),
+        _ => panic("expected a file_save_as"),
+    }
+}
+
+@test
+fun bad_asks_say_why() {
+    assert_eq(asking(ask("file_open", [])), Err("a file_open needs its key"));
+    assert_eq(
+        asking(ask("file_open", [("key", t(""))])),
+        Err("a file_open's key is 1 to 256 bytes"),
+    );
+    assert_eq(
+        asking(ask("file_open", [("key", t("k")), ("accept", Value.Array([t(".png")]))])),
+        Err("a file_open's accept is extensions like \"png\", without the dot"),
+    );
+    assert_eq(
+        asking(ask("file_open", [("key", t("k")), ("accept", Value.Array([t("*")]))])),
+        Err("a file_open's accept is extensions like \"png\", without the dot"),
+    );
+    let mut many: Value[] = [];
+    for _ in 0..17 {
+        many.push(t("txt"));
+    }
+    assert_eq(
+        asking(ask("file_open", [("key", t("k")), ("accept", Value.Array(many))])),
+        Err("a file_open offers at most 16 extensions"),
+    );
+    assert_eq(
+        asking(ask("file_open", [("key", t("k")), ("edit", t("yes"))])),
+        Err("a file_open's edit is true or false"),
+    );
+    assert_eq(
+        asking(ask("file_save", [("key", t("k"))])),
+        Err("a file_save needs the handle file_open or file_save_as gave"),
+    );
+    assert_eq(
+        asking(ask("file_save_as", [("key", t("k")), ("name", t("../x"))])),
+        Err("a file_save_as's name is a file name of at most 255 bytes"),
+    );
+}
+
+@test
+fun a_blob_own_step_needs_its_owner() {
+    let batch = fun(step: Value) = kv([
+        ("kind", t("sql_batch")),
+        ("msg", t("m")),
+        ("steps", Value.Array([step])),
+    ]);
+    match asking(
+        batch(
+            kv([("blob_own", t("doc")), ("owner", kv([("table", t("notes")), ("key", t("n1"))]))]),
+        ),
+    ).unwrap()[0] {
+        SqlBatch(_, steps) => match steps[0] {
+            BlobOwn(key, o) => assert_eq((key, o.table), ("doc", "notes")),
+            _ => panic("expected a blob_own"),
+        },
+        _ => panic("expected a batch"),
+    }
+    assert_eq(asking(batch(kv([("blob_own", t("doc"))]))), Err("a blob_own needs its owner"));
+}
