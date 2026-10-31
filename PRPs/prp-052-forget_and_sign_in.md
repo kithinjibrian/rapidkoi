@@ -32,10 +32,10 @@ In an app's ⚙, the Account section shows **Sign in** as a switch and **Name** 
 - **Forget's dialog:** the agreed words, Cancel and Forget.
 - **Sign in:** on, `identity` and `sign` are answered as today; off, `null`. No event to the app, no restart; the switch governs later asks only. Toggled quickly, the last wins.
 - **Forget,** in this order:
-  1. records the app's generation + 1 in `forgotten` under its tag, and removes its `Person` (signed apps only: unsigned and local development apps record nothing);
+  1. records its key's generation (above) + 1 in `forgotten` under its tag, and removes its `Person` (signed apps only: unsigned and local development apps record nothing);
   2. closes its tab, unpins it, drops its "where you left off", its windows' saved state, its database and its kept copy, as today; a failure is the existing notice and Forget still finishes;
   3. keeps its trusted key.
-- **Reopening a forgotten app:** a new `Person` starts at the recorded generation, and the entry goes. Forgetting again counts up from there.
+- **Reopening a forgotten app:** its key's generation is its `Person.generation` plus what `forgotten` holds under its tag (amended in implementation, the owner: "yes": a new `Person` is first saved in `people/access.la`, which has no master secret, so the number can't move into it; the entry stays as the base). Forgetting again records that total + 1.
 - **The people file, format 5:** `signs_in` per app; `forgotten` entries `{ tag: 32 bytes, generation: ≥ 0 }`, at most `MAX_PEOPLE`, the oldest dropped when full. Format 4 is read and converted: `signs_in = auto && !signed_out`.
 - **Removed:** `StartOver`, `ClearData`, `StartOverIdentity`, `SignIn`, `SignOut`, `ToggleAutoSignIn`, `Confirm.StartOver`, `Confirm.ClearData`, `Confirm.StartOverIdentity`, `PanelPage.State`; the startup rule that starts non-auto apps signed out.
 
@@ -57,14 +57,14 @@ In an app's ⚙, the Account section shows **Sign in** as a switch and **Name** 
   - Encoding and decoding its part of the people file; decoding checks each tag is 32 bytes and each generation ≥ 0, else the file is unreadable (as any bad field).
   - `enum ForgottenError { Crypto(string) }`, shown through the existing identity notice.
 - **`Person`:** `signs_in: bool` (default true) replaces `auto` and `signed_out`. **`People`:** `forgotten: Forgotten[]`.
-- **`person(…)` for an app with no record** takes its generation from `recall` (needs the tag, so the master secret; read when it's needed, as identity already does); the entry is dropped once the new `Person` is saved.
+- **`generation_for(people, secret, host, origin)`** (in `forgotten.la`'s caller, `people.la`): `person(…).generation` + `recall(forgotten, tag).unwrap_or(0)`. Used wherever a key is made: `guest/effects.la` (`respond`), `people/account.la` (the Public key label) and `ui/settings.la` (the Key page), each of which already has the master secret. New `Person`s stay at generation 0: nothing raises it any more; only format 4 records carry one.
 - **Messages:** `SetSignIn(bool)` (`window/actions.la`), handled in `people/account.la`. `Confirm { Forget }`; `PanelPage { Main, Key, Name, Access, Permissions }`.
 - **Security (the owner's review before merging):** sign-in controls change (authentication); a keyed tag from the master secret; the people file read as hostile input. No network, process, SQL, path from app input or new dependency.
 
 ## TESTS
 - [ ] `forgotten.la`: one app, one tag, every time; two apps, two tags; another secret, another tag; `remember` then `recall`; `remember` twice keeps one entry; full drops the oldest; encode then decode round-trips; a 31-byte tag and a generation of -1 each make the file unreadable
 - [ ] `people.la`: format 4 with auto on and signed in → `signs_in` on; signed out → off; auto off → off; format 5 round-trips; a new `Person` signs in
-- [ ] `account.la`: `SetSignIn(false)` then `(true)`; Forget of a signed app at generation 2 records 3; reopening starts at 3 and drops the entry; forgetting again records 4; Forget of an unsigned app records nothing
+- [ ] `account.la`: `SetSignIn(false)` then `(true)`; Forget of a signed app at generation 2 records 3; reopened, its key's generation is 3 and the entry stays; forgetting again records 4; Forget of an unsigned app records nothing
 - [ ] `effects.la`: off, `identity` and `sign` answer `null`; on, the key; on again, the same key; after Forget and reopening, the key differs from those of generations 0, 1 and 2
 - [ ] `settings.la` (`kivuli.testing`): the card shows "Sign in" with a switch and "Name"; no "Identity", "Clear…" or "Start over"; pressing the switch sends `SetSignIn`; off, Public key reads "Not shared"; the Name page has the two name fields only; the Name row reads the app's name, else everyone's, else "Not set"; the Forget dialog reads "Forget Notes?" and the agreed sentence
 - [ ] `shell.la`: Forget removes the database and kept copy and records the generation; a failed removal is the notice and the generation is still recorded
