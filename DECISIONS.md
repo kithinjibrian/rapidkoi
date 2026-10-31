@@ -473,6 +473,19 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ---
 
+### DECISION-085 — Questions about an app stay on its screen (a future PRP-053)
+
+**Status:** open
+**Raised:** 2026-10-31, the owner, checking PRP-052: "does the modal need to have a bg. or of it does can it be contained in the app screen only"
+
+**Question:** Rapidkoi's dialogs cover the whole window (kivuli's root `.dialog`, which dims and freezes everything behind). Should questions about one app (Forget, an app asking for a permission) cover only that app's screen instead, leaving the frame, the address box and other tabs usable, and staying with its tab when you switch away and back (as notices do, PRP-051)?
+
+**Recommended (Claude):** yes, as PRP-053: an app's questions built with kivuli's `overlay` and `.inert(true)` over the app's area, dimmed there only; Rapidkoi's own (About, renaming a window, naming a separate app) stay window-wide. The care needed: Forget closes the tab it asks about, so a question is tied to its own tab, never to whichever tab is in front.
+
+**Meanwhile:** the dialog stays window-wide, and ⚙'s card steps aside while it asks (PRP-052: a popover is drawn above the window).
+
+---
+
 ## DEFERRED — Acknowledged, not yet needed
 
 ### DECISION-065 — The address box's pills sit 12 px in from its left end, flush at top and bottom (kivuli)
