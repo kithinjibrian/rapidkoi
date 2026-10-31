@@ -1,6 +1,6 @@
-# Blobs: an app's large bytes beside its database (draft)
+# Blobs: an app's large bytes beside its database
 
-DECISION-087, open. A draft for the owner's one review: every answer is filled in. **Agreed** marks what the owner has said; everything else is Claude's recommendation and stands unless the owner objects. Nothing here is built, and building it waits on an approved PRP.
+DECISION-087, resolved: the owner approved this spec whole, its defaults and its security review (2026-10-31). **Agreed** marks what the owner said while it was drafted; the rest was approved with it. Nothing here is built, and building it waits on an approved PRP.
 
 The gap (the owner: "gap noticed in the platform"): an app can keep bytes in a `BLOB` column, 4 MB a value, but it can't show a picture it stored (pictures come only from the bundle or a URL, DECISION-056 Q1); large values crowd SQLite's shared memory and the 1 s call limit; and once sync logs changes with the session extension (DECISION-070), every edit of a large value is copied whole into the log's 100 MB. No app is waiting on it.
 
