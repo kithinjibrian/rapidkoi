@@ -212,20 +212,11 @@ fun window_titles() {
 @test
 fun each_panel_page_opens_and_comes_back() {
     let m = step(two(), Msg.TogglePanel);
-    for p of [PanelPage.Key, PanelPage.Account, PanelPage.Access, PanelPage.State] {
+    for p of [PanelPage.Key, PanelPage.Name, PanelPage.Access] {
         let opened = step(m, Msg.PanelGo(p));
         assert_eq(opened.panel, Some(p));
         assert_eq(step(opened, Msg.PanelBack).panel, Some(PanelPage.Main));
     }
-}
-
-@test
-fun start_over_asks_first() {
-    let m = step(step(step(two(), add(0)), Msg.TogglePanel), Msg.PanelGo(PanelPage.State));
-    let asking = step(m, Msg.Ask(Confirm.StartOver));
-    assert_eq(asking.confirm, Some(Confirm.StartOver));
-    assert_eq(ev(page(step(asking, Msg.Cancel), 0)), Some(added()));
-    assert_eq(ev(page(step(asking, Msg.StartOver), 0)), Some([]));
 }
 
 @test

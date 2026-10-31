@@ -1,5 +1,5 @@
-// The people file (PRP-011): each app's sign-in settings and your name,
-// read as hostile input. Pure.
+// You to each app (PRP-011): sign-in settings, names, permissions, looks
+// and forgotten apps, through the people file and back. Pure.
 import rapidkoi.people.people {
     People,
     Person,
@@ -8,14 +8,15 @@ import rapidkoi.people.people {
     with_person,
     forget_person,
     name_in,
-    people_file,
-    read_people,
     setting_of,
     with_setting,
     known,
     looks_of,
     with_looks,
 };
+import rapidkoi.people.people_codec { people_file, read_people };
+import rapidkoi.people.account { generation_for, forget_app };
+import rapidkoi.people.identity { Master };
 import rapidkoi.data.remembered { Unreadable };
 import rapidkoi.bundles.permissions { Permission, Setting };
 import cbor { Value, Entry, encode };
@@ -33,7 +34,7 @@ fun entry(k: string, v: Value): Entry = Entry { key: Value.Text(k), value: v };
 @test
 fun an_app_never_seen_has_the_defaults() {
     let p = person(nobody(), HOST, [1; 32]);
-    assert_eq((p.generation, p.auto, p.signed_out, p.first, p.last), (0, true, false, "", ""));
+    assert_eq((p.generation, p.signs_in, p.first, p.last), (0, true, "", ""));
     assert_eq((p.off.len, p.seen.len), (0, 0));
     assert_eq(known(nobody(), HOST, [1; 32]), false);
 }
@@ -52,74 +53,23 @@ fun switches_and_seen_servers_round_trip() {
     assert_eq(person(back, HOST, [1; 32]).off, ["api.acme.com", HOST]);
 }
 
-/** A people file of `format` with one app whose extra fields are `extra`. */
-fun one_app(format: i64, extra: Entry[]): u8[] {
-    let mut fields = [
-        entry("host", Value.Text(HOST)),
-        entry("origin", Value.Bytes([1; 32])),
-        entry("generation", Value.int(0)),
-        entry("auto", Value.Bool(true)),
-        entry("signed_out", Value.Bool(false)),
-        entry("first", Value.Text("")),
-        entry("last", Value.Text("")),
-    ];
-    for e of extra {
-        fields.push(e);
-    }
-    encode(
-        Value.Map([
-            entry("format", Value.int(format)),
-            entry("kind", Value.Text("rapidkoi people")),
-            entry("first", Value.Text("")),
-            entry("last", Value.Text("")),
-            entry("apps", Value.Array([Value.Map(fields)])),
-        ]),
-    )
-}
-
-@test
-fun format_1_reads_with_nothing_switched_off() {
-    let back = read_people(one_app(1, [])).unwrap();
-    assert_eq((back.apps[0].off.len, back.apps[0].seen.len), (0, 0));
-}
-
-@test
-fun bad_server_lists_are_broken() {
-    let names = fun(xs: string[]) = Value.Array(xs.map(fun(x: string) = Value.Text(x)));
-    let seen = entry("seen", names([]));
-    let fresh = entry("fresh", names([]));
-    assert_eq(
-        broken(read_people(one_app(2, [entry("off", names(["api.acme.com"])), seen, fresh]))),
-        "ok",
-    );
-    assert_eq(
-        broken(read_people(one_app(2, [entry("off", names(["10.0.0.1"])), seen, fresh]))),
-        "an app's servers aren't server names",
-    );
-    assert_eq(
-        broken(read_people(one_app(2, [entry("off", Value.Text("x")), seen, fresh]))),
-        "an app's servers aren't server names",
-    );
-    let mut lots: string[] = [];
-    for i in 0..34 {
-        lots.push("s{i}.acme.com");
-    }
-    assert_eq(
-        broken(read_people(one_app(2, [entry("off", names(lots)), seen, fresh]))),
-        "an app's servers aren't server names",
-    );
-}
-
 @test
 fun settings_round_trip_and_forgetting_removes_one_app() {
-    let mut ps = People { first: "Brian", last: "Kithinji", apps: [], grants: [], looks: [] };
+    let mut ps = People {
+        first: "Brian",
+        last: "Kithinji",
+        apps: [],
+        grants: [],
+        looks: [],
+        forgotten: [],
+    };
     ps = with_person(ps, Person {
         generation: 2,
-        auto: false,
+        signs_in: false,
         first: "B",
         ..person(ps, HOST, [1; 32]),
     });
-    ps = with_person(ps, Person { signed_out: true, ..person(ps, "chat.example", [2; 32]) });
+    ps = with_person(ps, Person { signs_in: false, ..person(ps, "chat.example", [2; 32]) });
     let back = read_people(people_file(ps)).unwrap();
     assert_eq(back == ps, true);
     assert_eq(person(back, HOST, [1; 32]).generation, 2);
@@ -129,39 +79,19 @@ fun settings_round_trip_and_forgetting_removes_one_app() {
 
 @test
 fun an_app_s_own_name_wins_else_the_one_for_every_app() {
-    let mut ps = People { first: "Brian", last: "Kithinji", apps: [], grants: [], looks: [] };
+    let mut ps = People {
+        first: "Brian",
+        last: "Kithinji",
+        apps: [],
+        grants: [],
+        looks: [],
+        forgotten: [],
+    };
     assert_eq(name_in(ps, HOST, [1; 32]), ("Brian", "Kithinji"));
     ps = with_person(ps, Person { first: "Bee", ..person(ps, HOST, [1; 32]) });
     // Only the first name is overridden here: the last stays the one for every app.
     assert_eq(name_in(ps, HOST, [1; 32]), ("Bee", "Kithinji"));
     assert_eq(name_in(ps, "chat.example", [2; 32]), ("Brian", "Kithinji"));
-}
-
-@test
-fun bad_files_are_broken_naming_the_field() {
-    assert_eq(broken(read_people([1, 2])).starts_with("not CBOR"), true);
-    let long = encode(
-        Value.Map([
-            entry("format", Value.int(1)),
-            entry("kind", Value.Text("rapidkoi people")),
-            entry("first", Value.Text(many(65))),
-            entry("last", Value.Text("")),
-            entry("apps", Value.Array([])),
-        ]),
-    );
-    assert_eq(broken(read_people(long)), "a name is longer than 64 characters");
-    let newer = encode(
-        Value.Map([entry("format", Value.int(5)), entry("kind", Value.Text("rapidkoi people"))]),
-    );
-    assert_eq(broken(read_people(newer)), "newer 5");
-}
-
-fun many(n: i64): string {
-    let mut s = "";
-    for _ in 0..n {
-        s = s + "x";
-    }
-    s
 }
 
 @test
@@ -181,55 +111,6 @@ fun permission_settings_round_trip_by_app() {
 }
 
 @test
-fun format_2_reads_with_every_permission_at_its_default() {
-    let old = encode(
-        Value.Map([
-            entry("format", Value.int(2)),
-            entry("kind", Value.Text("rapidkoi people")),
-            entry("first", Value.Text("")),
-            entry("last", Value.Text("")),
-            entry("apps", Value.Array([])),
-        ]),
-    );
-    assert_eq(read_people(old).unwrap().grants.len, 0);
-}
-
-@test
-fun bad_permission_settings_are_broken() {
-    let with_grants = fun(g: Value) = encode(
-        Value.Map([
-            entry("format", Value.int(3)),
-            entry("kind", Value.Text("rapidkoi people")),
-            entry("first", Value.Text("")),
-            entry("last", Value.Text("")),
-            entry("apps", Value.Array([])),
-            entry("grants", g),
-        ]),
-    );
-    let grant = fun(app: string, permission: string, setting: string) = Value.Map([
-        entry("app", Value.Text(app)),
-        entry("permission", Value.Text(permission)),
-        entry("setting", Value.Text(setting)),
-    ]);
-    assert_eq(
-        read_people(
-            with_grants(Value.Array([grant("builtin:newtab", "read_pins", "blocked")])),
-        ).is_ok(),
-        true,
-    );
-    assert_eq(
-        broken(
-            read_people(with_grants(Value.Array([grant("builtin:newtab", "read_pins", "maybe")]))),
-        ),
-        "a permission setting isn't allowed, ask or blocked",
-    );
-    assert_eq(
-        broken(read_people(with_grants(Value.Text("x")))),
-        "its permission settings aren't a list",
-    );
-}
-
-@test
 fun an_app_s_own_looks_switches_round_trip() {
     // PRP-038: Use my colours, Use my text size, per app; off by default.
     let mut ps = nobody();
@@ -245,17 +126,42 @@ fun an_app_s_own_looks_switches_round_trip() {
     assert_eq(with_looks(back, "notes.acme.com", false, false).looks.len, 1);
 }
 
+fun me(): Master = Master { secret: [7; 32] };
+
 @test
-fun format_3_reads_with_both_switches_off() {
-    let old = encode(
-        Value.Map([
-            entry("format", Value.int(3)),
-            entry("kind", Value.Text("rapidkoi people")),
-            entry("first", Value.Text("")),
-            entry("last", Value.Text("")),
-            entry("apps", Value.Array([])),
-            entry("grants", Value.Array([])),
-        ]),
-    );
-    assert_eq(read_people(old).unwrap().looks.len, 0);
+fun forgetting_an_app_keeps_its_next_generation() {
+    let ps = with_person(nobody(), Person { generation: 2, ..person(nobody(), HOST, [1; 32]) });
+    assert_eq(generation_for(ps, me(), HOST, [1; 32]).unwrap(), 2);
+    let gone = forget_app(ps, Some(me()), HOST, [1; 32]).unwrap();
+    assert_eq(known(gone, HOST, [1; 32]), false);
+    // Reopened, it's a new Person at 0, and its key is the next one: 3.
+    assert_eq(generation_for(gone, me(), HOST, [1; 32]).unwrap(), 3);
+    let again = forget_app(gone, Some(me()), HOST, [1; 32]).unwrap();
+    assert_eq(generation_for(again, me(), HOST, [1; 32]).unwrap(), 4);
+    assert_eq(again.forgotten.len, 1);
+    // Another app is untouched.
+    assert_eq(generation_for(again, me(), "chat.example", [2; 32]).unwrap(), 0);
+}
+
+@test
+fun forgetting_with_no_master_secret_records_nothing() {
+    // No secret: no key was ever made, so there's nothing to move past.
+    let ps = with_person(nobody(), person(nobody(), HOST, [1; 32]));
+    let gone = forget_app(ps, None, HOST, [1; 32]).unwrap();
+    assert_eq((gone.apps.len, gone.forgotten.len), (0, 0));
+}
+
+@test
+fun format_5_round_trips_signing_in_and_forgotten_apps() {
+    let ps = with_person(nobody(), Person { signs_in: false, ..person(nobody(), HOST, [1; 32]) });
+    let gone = forget_app(
+        with_person(ps, person(ps, "chat.example", [2; 32])),
+        Some(me()),
+        "chat.example",
+        [2; 32],
+    ).unwrap();
+    let back = read_people(people_file(gone)).unwrap();
+    assert_eq(back == gone, true);
+    assert_eq(person(back, HOST, [1; 32]).signs_in, false);
+    assert_eq(generation_for(back, me(), "chat.example", [2; 32]).unwrap(), 1);
 }

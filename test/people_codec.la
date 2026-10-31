@@ -1,0 +1,204 @@
+// The people file (PRP-011, format 5 since PRP-052): every older format
+// read, every bad field naming itself. Pure.
+import rapidkoi.people.people_codec { read_people };
+import rapidkoi.people.people { People };
+import rapidkoi.data.remembered { Unreadable };
+import cbor { Value, Entry, encode };
+
+const HOST: string = "notes.acme.com";
+
+fun broken(r: Result<People, Unreadable>): string = match r {
+    Err(Broken(w)) => w,
+    Err(Newer(n)) => "newer {n}",
+    Ok(_) => "ok",
+};
+
+fun entry(k: string, v: Value): Entry = Entry { key: Value.Text(k), value: v };
+
+/** A people file of `format` with one app whose extra fields are `extra`. */
+fun one_app(format: i64, extra: Entry[]): u8[] {
+    let mut fields = [
+        entry("host", Value.Text(HOST)),
+        entry("origin", Value.Bytes([1; 32])),
+        entry("generation", Value.int(0)),
+        entry("auto", Value.Bool(true)),
+        entry("signed_out", Value.Bool(false)),
+        entry("first", Value.Text("")),
+        entry("last", Value.Text("")),
+    ];
+    for e of extra {
+        fields.push(e);
+    }
+    encode(
+        Value.Map([
+            entry("format", Value.int(format)),
+            entry("kind", Value.Text("rapidkoi people")),
+            entry("first", Value.Text("")),
+            entry("last", Value.Text("")),
+            entry("apps", Value.Array([Value.Map(fields)])),
+        ]),
+    )
+}
+
+@test
+fun format_1_reads_with_nothing_switched_off() {
+    let back = read_people(one_app(1, [])).unwrap();
+    assert_eq((back.apps[0].off.len, back.apps[0].seen.len), (0, 0));
+}
+
+@test
+fun bad_server_lists_are_broken() {
+    let names = fun(xs: string[]) = Value.Array(xs.map(fun(x: string) = Value.Text(x)));
+    let seen = entry("seen", names([]));
+    let fresh = entry("fresh", names([]));
+    assert_eq(
+        broken(read_people(one_app(2, [entry("off", names(["api.acme.com"])), seen, fresh]))),
+        "ok",
+    );
+    assert_eq(
+        broken(read_people(one_app(2, [entry("off", names(["10.0.0.1"])), seen, fresh]))),
+        "an app's servers aren't server names",
+    );
+    assert_eq(
+        broken(read_people(one_app(2, [entry("off", Value.Text("x")), seen, fresh]))),
+        "an app's servers aren't server names",
+    );
+    let mut lots: string[] = [];
+    for i in 0..34 {
+        lots.push("s{i}.acme.com");
+    }
+    assert_eq(
+        broken(read_people(one_app(2, [entry("off", names(lots)), seen, fresh]))),
+        "an app's servers aren't server names",
+    );
+}
+
+@test
+fun bad_files_are_broken_naming_the_field() {
+    assert_eq(broken(read_people([1, 2])).starts_with("not CBOR"), true);
+    let long = encode(
+        Value.Map([
+            entry("format", Value.int(1)),
+            entry("kind", Value.Text("rapidkoi people")),
+            entry("first", Value.Text(many(65))),
+            entry("last", Value.Text("")),
+            entry("apps", Value.Array([])),
+        ]),
+    );
+    assert_eq(broken(read_people(long)), "a name is longer than 64 characters");
+    let newer = encode(
+        Value.Map([entry("format", Value.int(6)), entry("kind", Value.Text("rapidkoi people"))]),
+    );
+    assert_eq(broken(read_people(newer)), "newer 6");
+}
+
+fun many(n: i64): string {
+    let mut s = "";
+    for _ in 0..n {
+        s = s + "x";
+    }
+    s
+}
+
+@test
+fun format_2_reads_with_every_permission_at_its_default() {
+    let old = encode(
+        Value.Map([
+            entry("format", Value.int(2)),
+            entry("kind", Value.Text("rapidkoi people")),
+            entry("first", Value.Text("")),
+            entry("last", Value.Text("")),
+            entry("apps", Value.Array([])),
+        ]),
+    );
+    assert_eq(read_people(old).unwrap().grants.len, 0);
+}
+
+@test
+fun bad_permission_settings_are_broken() {
+    let with_grants = fun(g: Value) = encode(
+        Value.Map([
+            entry("format", Value.int(3)),
+            entry("kind", Value.Text("rapidkoi people")),
+            entry("first", Value.Text("")),
+            entry("last", Value.Text("")),
+            entry("apps", Value.Array([])),
+            entry("grants", g),
+        ]),
+    );
+    let grant = fun(app: string, permission: string, setting: string) = Value.Map([
+        entry("app", Value.Text(app)),
+        entry("permission", Value.Text(permission)),
+        entry("setting", Value.Text(setting)),
+    ]);
+    assert_eq(
+        read_people(
+            with_grants(Value.Array([grant("builtin:newtab", "read_pins", "blocked")])),
+        ).is_ok(),
+        true,
+    );
+    assert_eq(
+        broken(
+            read_people(with_grants(Value.Array([grant("builtin:newtab", "read_pins", "maybe")]))),
+        ),
+        "a permission setting isn't allowed, ask or blocked",
+    );
+    assert_eq(
+        broken(read_people(with_grants(Value.Text("x")))),
+        "its permission settings aren't a list",
+    );
+}
+
+@test
+fun format_3_reads_with_both_switches_off() {
+    let old = encode(
+        Value.Map([
+            entry("format", Value.int(3)),
+            entry("kind", Value.Text("rapidkoi people")),
+            entry("first", Value.Text("")),
+            entry("last", Value.Text("")),
+            entry("apps", Value.Array([])),
+            entry("grants", Value.Array([])),
+        ]),
+    );
+    assert_eq(read_people(old).unwrap().looks.len, 0);
+}
+
+/** A format 4 people file with one app signed in or out, automatically or not. */
+fun format_4(auto: bool, signed_out: bool): u8[] = encode(
+    Value.Map([
+        entry("format", Value.int(4)),
+        entry("kind", Value.Text("rapidkoi people")),
+        entry("first", Value.Text("")),
+        entry("last", Value.Text("")),
+        entry(
+            "apps",
+            Value.Array([
+                Value.Map([
+                    entry("host", Value.Text(HOST)),
+                    entry("origin", Value.Bytes([1; 32])),
+                    entry("generation", Value.int(2)),
+                    entry("auto", Value.Bool(auto)),
+                    entry("signed_out", Value.Bool(signed_out)),
+                    entry("first", Value.Text("")),
+                    entry("last", Value.Text("")),
+                    entry("off", Value.Array([])),
+                    entry("seen", Value.Array([])),
+                    entry("fresh", Value.Array([])),
+                ]),
+            ]),
+        ),
+        entry("grants", Value.Array([])),
+        entry("looks", Value.Array([])),
+    ]),
+);
+
+@test
+fun format_4_signs_in_only_where_it_signed_in_automatically() {
+    // PRP-052: auto off started each run signed out, so it reads as off.
+    let signs = fun(auto: bool, out: bool) = read_people(
+        format_4(auto, out),
+    ).unwrap().apps[0].signs_in;
+    assert_eq((signs(true, false), signs(true, true), signs(false, false)), (true, false, false));
+    assert_eq(read_people(format_4(true, false)).unwrap().apps[0].generation, 2);
+}

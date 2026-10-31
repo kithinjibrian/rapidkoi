@@ -1,0 +1,155 @@
+/**
+ * The apps you forgot (PRP-052, DECISION-084): for each, the generation its
+ * next key starts from, so a forgotten app sees someone new and never an
+ * earlier you. Kept in the people file under a tag keyed by the master
+ * secret, so the file alone doesn't say which apps you forgot. Pure; not
+ * the people file itself (`people`), nor how keys are made (`identity`).
+ *
+ * Depends on: std.crypto, cbor, people.identity, data.remembered
+ * Used by: people.people
+ */
+import std.crypto { hkdf_sha256, equal };
+import cbor { Value, Entry };
+import people.identity { Master, IdentityError };
+import data.remembered { Unreadable };
+
+/** The most forgotten apps kept: the people file's cap on apps. */
+const MAX_FORGOTTEN: i64 = 10_000;
+
+/** What every tag starts with: changing it would lose every forgotten app's place. */
+const LABEL: string = "rapidkoi forgotten 1";
+
+/** One forgotten app: its tag, and the generation its next key starts from. */
+struct Forgotten {
+    /** 32 bytes from `tag_of`. */
+    tag: u8[],
+    /** Added to the app's own generation when its key is made. */
+    generation: i64,
+}
+
+/**
+ * Returns an app's tag: 32 bytes worked out from the master secret and the
+ * app's identity, the same each time.
+ *
+ * @param m the master secret
+ * @param host the app's verified host
+ * @param origin the key first trusted for it
+ * @returns the tag; or `Crypto` when std.crypto fails
+ *
+ * Example:
+ *     tag_of(master, "notes.acme.com", origin)?
+ */
+fun tag_of(m: Master, host: string, origin: u8[]): Result<u8[], IdentityError> {
+    // CBOR, as identity's seeds are: no host can run into its key.
+    let info = cbor.encode(Value.Array([Value.Text(LABEL), Value.Text(host), Value.Bytes(origin)]));
+    hkdf_sha256(m.secret, [], info, 32).map_err(fun(e) = IdentityError.Crypto(e.message()))
+}
+
+/**
+ * Returns the list with `tag` at `generation`: in place of an entry with
+ * the same tag, else added; past `MAX_FORGOTTEN`, the oldest goes.
+ *
+ * Example:
+ *     remember(list, tag, 3)
+ */
+fun remember(list: Forgotten[], tag: u8[], generation: i64): Forgotten[] {
+    let others = list.filter(fun(f: Forgotten) = !equal(f.tag, tag));
+    let mut out: Forgotten[] = [];
+    // The oldest are first: keep the newest MAX_FORGOTTEN - 1, then this one.
+    let skip = others.len - (MAX_FORGOTTEN - 1);
+    let mut i = 0;
+    for f of others {
+        if i >= skip {
+            out.push(f);
+        }
+        i += 1;
+    }
+    out.push(Forgotten { tag: tag, generation: generation });
+    out
+}
+
+/**
+ * Returns the generation kept for `tag`, if that app was forgotten.
+ *
+ * Example:
+ *     recall(list, tag)
+ */
+fun recall(list: Forgotten[], tag: u8[]): Option<i64> {
+    for f of list {
+        if equal(f.tag, tag) {
+            return Some(f.generation);
+        }
+    }
+    None
+}
+
+/**
+ * Returns the generation an app's key is made with: its own, plus what was
+ * kept when it was forgotten.
+ *
+ * @param own the app's `Person.generation`
+ * @returns the sum; or `Crypto` when its tag can't be worked out
+ *
+ * Example:
+ *     key_generation(people.forgotten, master, host, origin, x.generation)?
+ */
+fun key_generation(
+    list: Forgotten[],
+    m: Master,
+    host: string,
+    origin: u8[],
+    own: i64,
+): Result<i64, IdentityError> = Ok(own + recall(list, tag_of(m, host, origin)?).unwrap_or(0));
+
+/**
+ * Encodes the list for the people file.
+ *
+ * Example:
+ *     entry("forgotten", forgotten_value(p.forgotten))
+ */
+fun forgotten_value(list: Forgotten[]): Value = Value.Array(
+    list.map(
+        fun(f: Forgotten) = Value.Map([
+            entry("tag", Value.Bytes(f.tag)),
+            entry("generation", Value.int(f.generation)),
+        ]),
+    ),
+);
+
+/**
+ * Reads the list from the people file (format 5; none before): each tag
+ * 32 bytes, each generation a whole number, at most `MAX_FORGOTTEN`.
+ *
+ * @returns the list; or `Broken` with why
+ *
+ * Example:
+ *     read_forgotten(v, format)?
+ */
+fun read_forgotten(v: Value, format: i64): Result<Forgotten[], Unreadable> {
+    if format < 5 {
+        return Ok([]);
+    }
+    let items = match v.get("forgotten") {
+        Some(Array(xs)) if xs.len <= MAX_FORGOTTEN => xs,
+        _ => {
+            return Err(Unreadable.Broken("its forgotten apps aren't a list"));
+        }
+    };
+    let mut out: Forgotten[] = [];
+    for x of items {
+        let tag = match x.get("tag") {
+            Some(Bytes(b)) if b.len == 32 => b,
+            _ => {
+                return Err(Unreadable.Broken("a forgotten app's tag isn't 32 bytes"));
+            }
+        };
+        let generation = x.get("generation").and_then(fun(n: Value) = n.as_i64()).unwrap_or(-1);
+        if generation < 0 {
+            return Err(Unreadable.Broken("a forgotten app's generation isn't a whole number"));
+        }
+        out.push(Forgotten { tag: tag, generation: generation });
+    }
+    Ok(out)
+}
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };

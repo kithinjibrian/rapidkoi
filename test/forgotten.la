@@ -1,0 +1,127 @@
+// The forgotten apps (PRP-052): each one's generation kept past Forget under
+// a tag keyed by the master secret, so a forgotten app never sees an
+// earlier you. Pure.
+import rapidkoi.people.forgotten {
+    Forgotten,
+    MAX_FORGOTTEN,
+    tag_of,
+    remember,
+    recall,
+    key_generation,
+    forgotten_value,
+    read_forgotten,
+};
+import rapidkoi.people.identity { Master };
+import rapidkoi.data.remembered { Unreadable };
+import cbor { Value, Entry };
+
+const HOST: string = "notes.acme.com";
+
+fun me(): Master = Master { secret: [7; 32] };
+
+fun entry(k: string, v: Value): Entry = Entry { key: Value.Text(k), value: v };
+
+fun broken(r: Result<Forgotten[], Unreadable>): string = match r {
+    Err(Broken(w)) => w,
+    Err(Newer(n)) => "newer {n}",
+    Ok(_) => "ok",
+};
+
+@test
+fun one_app_has_one_tag_every_time() {
+    let a = tag_of(me(), HOST, [1; 32]).unwrap();
+    assert_eq(a.len, 32);
+    assert_eq(tag_of(me(), HOST, [1; 32]).unwrap(), a);
+}
+
+@test
+fun two_apps_have_two_tags() {
+    let a = tag_of(me(), HOST, [1; 32]).unwrap();
+    assert_eq(a == tag_of(me(), "chat.example", [1; 32]).unwrap(), false);
+    // Same host, another publisher's key: another app (core decision 28).
+    assert_eq(a == tag_of(me(), HOST, [2; 32]).unwrap(), false);
+}
+
+@test
+fun another_master_secret_gives_another_tag() {
+    let a = tag_of(me(), HOST, [1; 32]).unwrap();
+    assert_eq(a == tag_of(Master { secret: [8; 32] }, HOST, [1; 32]).unwrap(), false);
+}
+
+@test
+fun a_remembered_generation_is_recalled() {
+    let t = tag_of(me(), HOST, [1; 32]).unwrap();
+    assert_eq(recall([], t), None);
+    let list = remember([], t, 3);
+    assert_eq(recall(list, t), Some(3));
+    assert_eq(recall(list, tag_of(me(), "chat.example", [1; 32]).unwrap()), None);
+}
+
+@test
+fun remembering_one_app_twice_keeps_one_entry() {
+    let t = tag_of(me(), HOST, [1; 32]).unwrap();
+    let list = remember(remember([], t, 3), t, 4);
+    assert_eq((list.len, recall(list, t)), (1, Some(4)));
+}
+
+@test
+fun a_full_list_drops_its_oldest() {
+    let mut list: Forgotten[] = [];
+    for i in 0..MAX_FORGOTTEN {
+        list.push(Forgotten { tag: [(i / 256) as u8, (i % 256) as u8] + [0; 30], generation: i });
+    }
+    let t = tag_of(me(), HOST, [1; 32]).unwrap();
+    let after = remember(list, t, 1);
+    assert_eq(after.len, MAX_FORGOTTEN);
+    assert_eq(after[0].generation, 1);
+    assert_eq(recall(after, t), Some(1));
+}
+
+@test
+fun a_key_s_generation_adds_the_forgotten_base() {
+    let list = remember([], tag_of(me(), HOST, [1; 32]).unwrap(), 3);
+    assert_eq(key_generation(list, me(), HOST, [1; 32], 0).unwrap(), 3);
+    assert_eq(key_generation(list, me(), HOST, [1; 32], 2).unwrap(), 5);
+    assert_eq(key_generation(list, me(), "chat.example", [1; 32], 2).unwrap(), 2);
+}
+
+@test
+fun the_list_round_trips() {
+    let list = remember(
+        remember([], tag_of(me(), HOST, [1; 32]).unwrap(), 3),
+        tag_of(me(), "chat.example", [2; 32]).unwrap(),
+        1,
+    );
+    let back = read_forgotten(Value.Map([entry("forgotten", forgotten_value(list))]), 5).unwrap();
+    assert_eq(back == list, true);
+}
+
+@test
+fun before_format_5_nothing_was_forgotten() {
+    assert_eq(read_forgotten(Value.Map([]), 4).unwrap().len, 0);
+}
+
+@test
+fun a_bad_entry_makes_the_file_unreadable() {
+    let one = fun(tag: u8[], generation: i64) = Value.Map([
+        entry(
+            "forgotten",
+            Value.Array([
+                Value.Map([
+                    entry("tag", Value.Bytes(tag)),
+                    entry("generation", Value.int(generation)),
+                ]),
+            ]),
+        ),
+    ]);
+    assert_eq(broken(read_forgotten(one([1; 32], 0), 5)), "ok");
+    assert_eq(broken(read_forgotten(one([1; 31], 0), 5)), "a forgotten app's tag isn't 32 bytes");
+    assert_eq(
+        broken(read_forgotten(one([1; 32], -1), 5)),
+        "a forgotten app's generation isn't a whole number",
+    );
+    assert_eq(
+        broken(read_forgotten(Value.Map([entry("forgotten", Value.Text("x"))]), 5)),
+        "its forgotten apps aren't a list",
+    );
+}

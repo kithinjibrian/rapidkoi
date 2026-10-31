@@ -1,20 +1,20 @@
 /**
- * An app's account (PRP-011), the model side: who you are to the app
- * ("User 4f9a"), signing out and in, signing in automatically, starting
- * over as someone new, and the name it may show with `{FIRST_NAME}` and
- * `{LAST_NAME}`. Its page was the old info panel's; the redesign draws it
- * natively again later (DECISION-030). Keys are worked out from the cached
- * master secret, never read here.
+ * An app's account (PRP-011, PRP-052), the model side: who you are to the
+ * app ("User 4f9a"), Sign in, the name it may show with `{FIRST_NAME}` and
+ * `{LAST_NAME}`, and Forget's part: the generation a forgotten app's next
+ * key starts from, so it never sees an earlier you. Keys are worked out
+ * from the cached master secret, never read here.
  *
- * Depends on: window.actions, window.tabs, window.window, people.people, people.identity, ui.render
- * Used by: shell
+ * Depends on: window.actions, window.tabs, window.window, window.notices, people.people, people.identity, people.forgotten
+ * Used by: shell, guest.effects, ui.settings
  */
 import window.actions { Msg };
-import window.tabs { AppPage, Page, handle };
-import window.window { Model, with_tab, page_of };
-import people.people { Person, MAX_NAME, person, with_person, forget_person };
-import people.identity { public_key, user_label };
-import ui.render;
+import window.tabs { AppPage, Page };
+import window.window { Model, page_of };
+import window.notices { identity_trouble };
+import people.people { People, Person, MAX_NAME, person, with_person, forget_person };
+import people.identity { Master, IdentityError, public_key, user_label };
+import people.forgotten { tag_of, remember, key_generation };
 
 /** What the Account page shows for one app. */
 struct Account {
@@ -39,7 +39,9 @@ fun account_of(m: Model, p: AppPage): Account {
             let x = person(m.people, t.host, t.origin);
             // The label needs the master secret, which is read only when an app asks.
             let label = match m.master {
-                Some(mm) => public_key(mm, t.host, t.origin, x.generation).ok().map(user_label),
+                Some(mm) => generation_for(m.people, mm, t.host, t.origin).and_then(
+                    fun(g: i64) = public_key(mm, t.host, t.origin, g),
+                ).ok().map(user_label),
                 None => None,
             };
             Account { app: p.name, person: Some(x), label: label }
@@ -52,7 +54,7 @@ fun account_of(m: Model, p: AppPage): Account {
  * A message for an unsigned app, or with no app open, changes nothing.
  *
  * Example:
- *     on_account(m, Msg.SignOut)
+ *     on_account(m, Msg.SetSignIn(false))
  */
 fun on_account(m: Model, msg: Msg): Model {
     // Your name for every app needs no app.
@@ -74,8 +76,8 @@ fun on_account(m: Model, msg: Msg): Model {
             ..m,
         };
     }
-    let (id, a) = match (m.current, page_of(m)) {
-        (Some(id), App(a)) => (id, a),
+    let a = match page_of(m) {
+        App(a) => a,
         _ => {
             return m;
         }
@@ -90,33 +92,85 @@ fun on_account(m: Model, msg: Msg): Model {
     let next = match msg {
         SetName(_, First, s) => Person { first: clip(s), ..x },
         SetName(_, Last, s) => Person { last: clip(s), ..x },
-        ToggleAutoSignIn => Person { auto: !x.auto, ..x },
-        SignOut => Person { signed_out: true, ..x },
-        SignIn => Person { signed_out: false, ..x },
-        StartOverIdentity => Person { generation: x.generation + 1, signed_out: false, ..x },
+        // The switch governs later asks only: the app isn't told or restarted.
+        SetSignIn(on) => Person { signs_in: on, ..x },
         _ => x,
     };
-    let saved = Model { people: with_person(m.people, next), confirm: None, ..m };
-    match msg {
-        // A new person: the app starts again, so its init asks for the new key.
-        StartOverIdentity => with_tab(saved, id, fun(p: AppPage) = handle(p, render.Msg.Restart)),
-        _ => saved,
+    Model { people: with_person(m.people, next), confirm: None, ..m }
+}
+
+/**
+ * Returns the generation an app's key is made with: its own, plus what was
+ * kept when it was forgotten.
+ *
+ * @returns the generation; or `Crypto` when its tag can't be worked out
+ *
+ * Example:
+ *     generation_for(m.people, master, host, origin)?
+ */
+fun generation_for(
+    p: People,
+    m: Master,
+    host: string,
+    origin: u8[],
+): Result<i64, IdentityError> = key_generation(
+    p.forgotten,
+    m,
+    host,
+    origin,
+    person(p, host, origin).generation,
+);
+
+/**
+ * Removes an app's settings and keeps where its next key starts: one past
+ * the key it had, so reopened it sees someone new.
+ *
+ * @param m the master secret; `None` when none was made, so no key was
+ *     ever given and nothing needs keeping
+ * @returns the settings without it; or `Crypto` when its tag can't be
+ *     worked out
+ *
+ * Example:
+ *     forget_app(m.people, m.master, host, origin)?
+ */
+fun forget_app(
+    p: People,
+    m: Option<Master>,
+    host: string,
+    origin: u8[],
+): Result<People, IdentityError> {
+    let gone = forget_person(p, host, origin);
+    match m {
+        None => Ok(gone),
+        Some(mm) => {
+            let next = generation_for(p, mm, host, origin)? + 1;
+            Ok(People { forgotten: remember(p.forgotten, tag_of(mm, host, origin)?, next), ..gone })
+        }
     }
 }
 
 /**
- * Forget this app: its Account settings and name go too (the name for
- * every app stays).
+ * Forget this app: its settings and name go (the name for every app
+ * stays), and its next key starts past the one it had (`forget_app`).
  *
  * @param before the model with the app still current
  * @param after the model `window.forget` gave
+ * @returns `after` without the app's settings; if its tag can't be worked
+ *     out, they go all the same, and the notice says so
  *
  * Example:
  *     forget_account(m, window.forget(m))
  */
 fun forget_account(before: Model, after: Model): Model = match page_of(before) {
     App(a) => match a.trust {
-        Some(t) => Model { people: forget_person(after.people, t.host, t.origin), ..after },
+        Some(t) => match forget_app(after.people, after.master, t.host, t.origin) {
+            Ok(p) => Model { people: p, ..after },
+            Err(e) => Model {
+                people: forget_person(after.people, t.host, t.origin),
+                notice: Some(identity_trouble(e)),
+                ..after,
+            },
+        },
         None => after,
     },
     _ => after,

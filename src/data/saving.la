@@ -13,7 +13,8 @@ import ui.schemes { DEFAULT_PREFS, theme_for };
 import std.env;
 import std.time;
 import data.states { Saved, move_state, keep_in, drop_app, drop_state_in };
-import people.people { People, Person, nobody, people_file, read_people, MAX_PEOPLE_FILE };
+import people.people { People, Person, nobody };
+import people.people_codec { people_file, read_people, MAX_PEOPLE_FILE };
 import people.identity { existing };
 import data.store {
     Store,
@@ -163,13 +164,6 @@ fun restore(m: Model, s: Store): Model {
         notes,
         held,
     ).unwrap_or(nobody());
-    // An app you don't sign in to automatically starts each run signed out.
-    let folks = People {
-        apps: known.apps.map(
-            fun(x: Person) = if x.auto { x } else { Person { signed_out: true, ..x } },
-        ),
-        ..known,
-    };
     let secret = match existing(s) {
         Ok(found) => found,
         Err(e) => {
@@ -191,7 +185,7 @@ fun restore(m: Model, s: Store): Model {
         ring: if ids.len == 0 { keyring() } else { keyring_of(ids) },
         pinned: pins,
         left_off: left,
-        people: folks,
+        people: known,
         // Read now if it exists (never made here), so the Account page can
         // name you though no app has asked yet this run.
         master: secret,
