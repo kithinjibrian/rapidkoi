@@ -774,7 +774,7 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 **Decision:** yes, as `docs/specs/blobs.md` sets out, approved whole. In short:
 - **Files by hash beside the database:** `databases/<sha256 hex>.blobs/<hash>`, the SHA-256 Rapidkoi computes; nothing the app sends becomes a path. Any bytes; Rapidkoi only sniffs a type to show a picture; a blob is never run, handed to the system or shared with another app.
 - **Keys committed with the rows:** `rapidkoi_blobs (key, hash, size, owner_table, owner_key)`, a reserved table in the app's own database. `blob_set` and `blob_delete` are steps of `sql_batch`; the file is written first, then one transaction; a crash leaves at most an orphan file, swept on open.
-- **Owners:** a blob may belong to a row by table and single-column primary key; deleting the row deletes its blobs in the same transaction, through `TEMP` triggers on Rapidkoi's own connection, built only from names read back from the app's schema.
+- **Owners:** a blob may belong to a row by table and single-column primary key; deleting the row deletes its blobs in the same transaction, built only from names read back from the app's schema (amended below: a check, not triggers).
 - **Asks:** `blob_get {key, from?, len?, hash?}` (at most 4 MB an answer, each piece checked against the blob's hash), `blob_list {prefix?}`; `image("blob:<key>")` under every picture rule; `fetch` with `body_blob`. Bytes come from the app (A) and go out as a request body (D); a fetch into a blob (B), the file picker (C), write sessions past 16 MB and sync are designed, not built.
 - **Defaults:** 16 MB a blob, 1 GB an app apart from its database, 10,000 blobs; signed and local development apps, not built-ins; ⚙'s Data row one total; Clear and Forget remove them.
 - **A new contract version:** whichever of blobs and sync (DECISION-071) is built first is contract 8.
@@ -782,9 +782,11 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 **Why:** files keep large bytes out of SQLite's memory and sync's log, and SQLite itself reads them faster as files past about 100 KB ([sqlite.org/intern-v-extern-blob](https://sqlite.org/intern-v-extern-blob.html)). Committing keys with the rows is the one place both can be atomic, and the one place sync already watches. Owners clean up without Rapidkoi reading the app's data (DECISION-046). Reads checked by hash never join two versions.
 
-**Security review (the owner, approving the spec):** the blob asks and their limits, `blob:` pictures, `body_blob`, the owner triggers and the reserved table.
+**Security review (the owner, approving the spec):** the blob asks and their limits, `blob:` pictures, `body_blob`, the owner check and the reserved table.
 
-**Needs first, under their own rules:** lugha-sqlite's reserved names in `Guard` and the program's own steps in a batch (`docs/specs/lugha-sqlite-reserved-names.md`). Later, for write sessions only: lughac file handles.
+**Needs first, under their own rules:** lugha-sqlite's reserved names in `Guard` and the program's own steps in a batch (`docs/specs/lugha-sqlite-reserved-names.md`): built, `v0.2.0`. Later, for write sessions only: lughac file handles.
+
+**Amended (the owner, 2026-10-31: "go with B", building PRP-054):** owners are kept by a check, not triggers. lugha-sqlite `v0.2.0` refuses the app's `DROP TABLE` on a table carrying a reserved trigger, which would block the usual migration (new table, copy, drop, rename). Instead, as the last step of every `sql_batch`, in its transaction, Rapidkoi deletes the mappings whose owner key no longer exists in its table, and those of a table that's gone. It asks only whether a key exists, inside SQLite, never returned: DECISION-046's "Rapidkoi doesn't read it" is amended this far. Gives up: changing a row's primary key drops its blobs; a table dropped in one batch and made again later has lost them.
 
 **Rules out:** blobs as values in the app's own tables as the way to keep large bytes; a type the app declares; Rapidkoi reading the app's rows to find what's still used; joining pieces of a blob that changed mid-read.
 

@@ -74,14 +74,16 @@ A blob may belong to a row: `owner: {table, key}`, the table's name and the row'
 
 - The primary key, never the rowid: `VACUUM` can renumber rowids, and synced rows are known by their own ids (DECISION-071).
 - The table must exist and have a single-column primary key; anything else fails the batch (`on_fail`).
-- How: for each table that owns blobs, Rapidkoi makes a `TEMP` trigger on its own connection:
+- **How (amended, the owner: "go with B"):** as the last step of every `sql_batch`, in the same transaction, Rapidkoi removes the blobs whose owner row is gone, for each table `rapidkoi_blobs` names:
   ```sql
-  CREATE TEMP TRIGGER rapidkoi_owner_notes AFTER DELETE ON main.notes BEGIN
-    DELETE FROM rapidkoi_blobs WHERE owner_table = 'notes' AND owner_key = old.id;
-  END;
+  DELETE FROM rapidkoi_blobs
+  WHERE owner_table = 'notes'
+    AND NOT EXISTS (SELECT 1 FROM main.notes WHERE id = rapidkoi_blobs.owner_key);
   ```
-  and one `AFTER UPDATE OF id` that moves `owner_key` when the key itself changes. A `TEMP` trigger lives in the connection, never in the app's file or its `sqlite_master`. Rapidkoi makes them on open for every table named in `owner_table`, and checks they're there after each batch (an app dropping and remaking a table drops them with it).
-- The trigger's SQL names the app's table and column, so it's built from text the app chose: **only names read back from the app's own schema (`PRAGMA table_info`) and matching `[A-Za-z_][A-Za-z0-9_]*` are used**, quoted as identifiers. Anything else fails the batch. This is for the owner's security review.
+  and every blob of an owner table that no longer exists. One primary-key lookup per owned blob (at most 10,000). The check only asks whether a key exists: no value of the app's leaves SQLite or reaches Rapidkoi (amends DECISION-046's "Rapidkoi doesn't read it", this far and no further).
+- **Why not triggers** (the first design): lugha-sqlite `v0.2.0` refuses the app's `DROP TABLE` on a table carrying a reserved trigger (SQLite authorizes the implicit trigger drop as an explicit one), so apps couldn't migrate an owner table the usual way (make a new table, copy, drop the old, rename). With the check, a migration in one batch keeps its blobs: the same ids are there when the batch ends.
+- **What it gives up:** changing a row's own primary key drops its blobs (synced ids are random and don't change, DECISION-071); a table dropped in one batch and made again in a later one has lost its blobs. The contract says both.
+- The check's SQL names the app's table and column, so it's built from text the app chose: **only names read back from the app's own schema (`PRAGMA table_info`) and matching `[A-Za-z_][A-Za-z0-9_]*` are used**, quoted as identifiers. Anything else fails the batch. This is for the owner's security review.
 - Owners cover deleting the row. Changing a row's reference (`photo-17` to `photo-18`) without deleting it needs `blob_set` or `blob_delete` on the key. A blob two rows share is two keys, one file.
 - `owner` is optional: a blob with none lasts until `blob_delete`, Clear or Forget (a profile picture, a setting).
 
@@ -194,7 +196,7 @@ Every one is a host function untrusted code can call, or SQL built from what it 
 - the blob asks (1.5) and their limits;
 - `blob:` pictures (1.6): bytes the app wrote, decoded by Rapidkoi;
 - `body_blob` (1.7): up to 16 MB sent to the app's servers;
-- the owner triggers (1.4): SQL naming the app's table and column, from an allowlist read back from its schema;
+- the owner check (1.4): SQL naming the app's table and column, from an allowlist read back from its schema, asking only whether a key exists;
 - the reserved table: the app can't read or change it, but can see it exists.
 
 ## Order of work
