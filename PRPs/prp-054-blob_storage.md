@@ -76,4 +76,4 @@ Where the build differs from the design above, and why:
 - **Rapidkoi's table is made inside the write that keeps the first blob** (`blobmap.made()`), and the owner check only writes when something is orphaned: every commit is a sync to disk.
 - **An owner table must exist before the batch** that names it: owners are checked before anything is placed. The contract says so.
 - **Tests:** `test/blobmap.la` keeps its databases under `/tmp`: on this disk, with the whole suite's processes syncing at once, each sync waited ~600 ms (strace) and the owner tests passed the 10 s limit. The 1 GB and 10,000-blob limits are checked by the same arithmetic as the 16 MB one but not exercised at full size.
-- **Waiting on rapidkoi-rust `v0.3.0-pre.2`** (`docs/specs/rapidkoi-rust-contract-9.md`): the built-ins (new tab, Settings) are contract 8 until repacked, so 9 tests that open them fail (`layout`, `newtab`, `restore`, `settings_app`). Everything else passes: 684 of 693.
+- **rapidkoi-rust `v0.3.0-pre.2`** (`docs/specs/rapidkoi-rust-contract-9.md`): the built-ins moved to it and were repacked; the full suite passes, 693 of 693.
