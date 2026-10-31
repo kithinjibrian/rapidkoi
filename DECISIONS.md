@@ -657,6 +657,25 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## RESOLVED
 
+### DECISION-077 — Trimming the log
+
+**Status:** resolved (the owner, 2026-10-31: "yes"); the numbers are first guesses, revisited when sync is built
+**Raised:** 2026-10-31, from DECISION-070 ("the log only grows")
+
+**Question:** The log catches devices up, keeps deletes until every device has seen them, and holds what history shows (build step 6). When can a change be removed, on a device and on the Pond?
+
+**Decision:**
+- **Every change is kept until every device on the list, and the Pond, has it** (known from the summaries devices exchange).
+- **The Pond drops changes everyone has.** Devices keep a sealed copy of the current data on the Pond; a new device, or one recovering with its words (DECISION-075), starts from it and takes the changes after it.
+- **A device not seen for 90 days isn't waited for.** When it comes back it starts from a fresh copy and sends the changes it made while away; they merge by time, and any for a row that's gone stays in its log, unapplied.
+- **On a device, a change everyone has is history alone.** How long losing and replaced changes stay is history's question (step 6); until then they're kept within the log's own cap, 100 MB per app (the size of its storage, DECISION-046), oldest history trimmed first.
+
+**Why:** catching up and deletes need a change only until everyone has it; past that, only history wants it. Waiting forever for a device that's gone would mean never trimming; a fresh copy brings it back without losing what it made.
+
+**Rules out:** trimming a change some device still lacks; a log without a cap.
+
+---
+
 ### DECISION-076 — Devices finding and trusting each other on a network
 
 **Status:** resolved as a direction (the owner, 2026-10-31: "yes record it"); cryptography and networking, so the design gets the owner's explicit review when built
@@ -799,7 +818,7 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 **Rules out:** the latest time deciding between a delete and an edit; removing a deleted row's changes from the log.
 
-**Later:** the log only grows. Trimming it (for instance once every device has seen a change) is its own decision, and bounds how far back history can go.
+**Later:** the log only grows: trimming it is DECISION-077.
 
 ---
 
