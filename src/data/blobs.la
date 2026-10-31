@@ -1,6 +1,6 @@
 /**
  * An app's blob files (PRP-054): each one named by the SHA-256 of its
- * bytes, in a folder beside the app's database, so nothing an app says
+ * bytes, in the app's own folder under `blobs/`, so nothing an app says
  * becomes a path. Places bytes safely, reads a piece, sweeps the files no
  * key names, and removes them all. Which key holds which file is
  * `data.blobmap`'s; this module never opens a database. Every function
@@ -56,15 +56,50 @@ fun blob_sentence(e: BlobError): string = match e {
 };
 
 /**
- * Returns the folder an app's blobs live in: beside its database,
- * `databases/<sha256>.blobs` for `databases/<sha256>.db`.
+ * Returns the folder an app's blobs live in: their own folder in the data
+ * folder, named as the app's database is, `blobs/<sha256>` for
+ * `databases/<sha256>.db` (the owner: databases hold databases only).
  *
  * Example:
- *     folder_for("/data/databases/ab12.db")
+ *     folder_for("/data/databases/ab12.db") == "/data/blobs/ab12"
  */
 fun folder_for(db_path: string): string {
+    let (data, name) = split(db_path);
+    "{data}/blobs/{name}"
+}
+
+/**
+ * Moves an app's blobs from where PRP-054 first kept them
+ * (`databases/<sha256>.blobs`) to their own folder, once, when it's there
+ * and the new one isn't. Touches the disk: run it in a task.
+ *
+ * Example:
+ *     moved_in(db_path)
+ */
+fun moved_in(db_path: string) {
     let base = if db_path.ends_with(".db") { db_path.slice(0, db_path.len - 3) } else { db_path };
-    "{base}.blobs"
+    let old = "{base}.blobs";
+    let new = folder_for(db_path);
+    if fs.is_dir(old) && !fs.exists(new) {
+        let (data, _) = split(db_path);
+        // A failed move leaves them where they were, to try again next time.
+        if fs.make_dirs("{data}/blobs").is_ok() {
+            let _ = fs.rename(old, new);
+        }
+    }
+}
+
+/** The data folder and the database's name without `.db`, from `<data>/databases/<name>.db`. */
+fun split(db_path: string): (string, string) {
+    let parts = db_path.split("/");
+    let file = parts[parts.len - 1];
+    let name = if file.ends_with(".db") { file.slice(0, file.len - 3) } else { file };
+    // Two levels up: past the file and past `databases`.
+    let mut up: string[] = [];
+    for i in 0..parts.len - 2 {
+        up.push(parts[i]);
+    }
+    (up.join("/"), name)
 }
 
 /**

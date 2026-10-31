@@ -4,6 +4,7 @@ import rapidkoi.data.blobs {
     BlobError,
     blob_sentence,
     folder_for,
+    moved_in,
     place,
     piece,
     sweep,
@@ -21,7 +22,22 @@ fun fresh(name: string): string {
 
 @test
 fun a_blob_folder_sits_beside_its_database() {
-    assert_eq(folder_for("/data/databases/ab12.db"), "/data/databases/ab12.blobs");
+    assert_eq(folder_for("/data/databases/ab12.db"), "/data/blobs/ab12");
+}
+
+@test
+fun blobs_kept_beside_the_database_move_to_their_own_folder() {
+    let data = "test/tmp/blobs-moved";
+    let _ = remove_all("{data}/blobs/ab12");
+    let _ = remove_all("{data}/databases/ab12.blobs");
+    place("{data}/databases/ab12.blobs", [1, 2]).unwrap();
+    moved_in("{data}/databases/ab12.db");
+    assert_eq(fs.exists("{data}/databases/ab12.blobs"), false);
+    assert_eq(fs.list_dir("{data}/blobs/ab12").unwrap(), [hex(sha256([1, 2]))]);
+    // Nothing there to move is nothing to do.
+    moved_in("{data}/databases/none.db");
+    assert_eq(fs.exists("{data}/blobs/none"), false);
+    remove_all("{data}/blobs/ab12").unwrap();
 }
 
 @test

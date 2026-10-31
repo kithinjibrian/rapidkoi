@@ -17,7 +17,7 @@ The spec is in three parts, by what a choice costs to change later:
 ### 1.1 Where the bytes live (agreed)
 
 - Each blob is a file named by the SHA-256 of its bytes, in lowercase hex, which Rapidkoi computes. Nothing the app sends becomes part of a path.
-- The files sit beside the app's database: `databases/<sha256 hex>.blobs/<hash>`, next to `databases/<sha256 hex>.db`. One folder per app, flat.
+- The files sit in their own folder, named as the app's database is: `blobs/<sha256 hex>/<hash>` for `databases/<sha256 hex>.db`, so `databases/` holds databases only (the owner, 2026-11-01). One folder per app, flat. Blobs first kept at `databases/<sha256 hex>.blobs` move there the next time their app's database is used.
 - The same bytes under two keys are one file.
 - Small values can still go in `BLOB` columns (SQLite reads them faster below about 100 KB, [sqlite.org/intern-v-extern-blob](https://sqlite.org/intern-v-extern-blob.html)); a blob is for bytes the app treats as a whole.
 
