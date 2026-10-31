@@ -391,6 +391,35 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 **Rules out:** capabilities that hand apps exact device facts; reading pixels back; per-device request headers.
 
+**Amended (the owner, 2026-10-31: "think of the places where apps require a person info to customize something", then "yes record it"):** personal values are shown or adapted by Rapidkoi, asked only when a server needs them, and handed over only by the person. Five patterns, for every capability that touches who the person is or where:
+1. **Show:** Rapidkoi fills the value into the screen; the app never learns it (apps can't read the screen). The default for anything only displayed. The name's placeholders already work so.
+2. **Adapt:** Rapidkoi adjusts the screen to the person (look, layout, motion, the week's first day, sorting) from rules the app gives; the app never learns why.
+3. **Ask:** when a server truly needs the value, a permission in plain words, with a coarse option where one exists.
+4. **Hand over:** the person gives it by their own act (filling a form, picking a contact).
+5. **Never:** fonts, device model, exact screen, whether a screen reader or other assistive technology is used.
+
+| Personal value | Pattern |
+|---|---|
+| Name | Show (placeholders, built) |
+| Time zone, date style | Show (a time node); a calendar's day logic: Ask |
+| Language | Show (the app ships its translations, Rapidkoi picks): its own design, a contract change |
+| Number style, units | Show (`number` with a `unit`, formatted by Rapidkoi) |
+| First day of the week | Adapt (Rapidkoi's date picker and calendar) |
+| Theme, contrast, text size, reduced motion | Adapt (the first three already resolved by Rapidkoi) |
+| Screen reader | Adapt; never told |
+| Screen width | Adapt (rules like "when narrow, stack", applied by Rapidkoi) |
+| Location shown | Show and adapt (Rapidkoi draws "you are here", labels distances, sorts by distance) |
+| Location sent | Ask (with a coarse, city option) |
+| Contacts | Show by reference; details only through the picker (DECISION-078) |
+| Email, phone, address, card | Hand over |
+| Region | Ask, or the person picks it in the app |
+
+**Time, the first** (contract 8 or later, when apps get time): "now" in UTC at coarse precision; a time node (`{ "time": …, "show": "time" | "date" | "date_time" | "relative" | "weekday" }`) drawn in the person's zone and date style, "relative" kept current by Rapidkoi; a date and time picker that answers an instant in UTC; a "Know your time zone" permission for apps that need local day logic; schedules in local terms ("every day at 09:00") run by Rapidkoi. Data, never code: Rapidkoi runs no expressions an app sends.
+
+**Accepted leaks:** which item a person taps (their own act), what they ask a server for, and the hours they're active, which hint at a time zone over weeks.
+
+**Amended (the owner, 2026-10-31: "yes record it"):** **anything Rapidkoi works out from the person's values may only become text on the screen:** never structure (which boxes, buttons or typing boxes exist), addresses (a picture's or a request's), messages, or anything else the app or a server can observe, errors and timing included. A general interpreter, where an app's expressions make decisions on the person's values, is ruled out: any decision can be steered into a message the app receives (a button only in one branch), an address a server receives, or a shape the app can later notice. A small formatting language whose only output is text, which always finishes and touches nothing else (like ICU MessageFormat's plurals: `{count, plural, one {# note} other {# notes}}`), keeps the rule and is allowed, most likely with the language and translations design. Parts come first.
+
 **Still leaks, noted:** the IP address on every request (two apps using one tracking server can match people by it: requests through the Pond is DECISION-080); ids an app puts in links that open another app (can't be stopped; the inspector shows them). To check: what `std.http` adds to a request by default.
 
 ---
