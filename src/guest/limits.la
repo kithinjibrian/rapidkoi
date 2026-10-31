@@ -6,8 +6,8 @@
  * Used by: guest.guest, guest.contract
  */
 
-/** The one contract this Rapidkoi speaks (`rapidkoi_version()`): 8 (PRP-053; DECISION-056); older apps are rebuilt, never run. */
-const CONTRACT_VERSION: i32 = 8;
+/** The one contract this Rapidkoi speaks (`rapidkoi_version()`): 9 (PRP-054; DECISION-056); older apps are rebuilt, never run. */
+const CONTRACT_VERSION: i32 = 9;
 
 /** The deepest a state may nest, as CBOR levels (PRP-036). */
 const MAX_STATE_DEPTH: i64 = 64;
@@ -24,8 +24,8 @@ const MAX_STATE: i64 = 16 * 1024 * 1024;
 /** The largest screen description a guest may hand back, in bytes. */
 const MAX_VIEW: i64 = 4 * 1024 * 1024;
 
-/** The largest update result: the state plus room for its map and `effects`. */
-const MAX_UPDATE: i64 = MAX_STATE + MAX_EFFECTS * (MAX_BODY_UP + 2 * MAX_URL) + 4096;
+/** The largest update result: the state plus room for its map and `effects`, one blob among them (PRP-054). */
+const MAX_UPDATE: i64 = MAX_STATE + MAX_BLOB + MAX_EFFECTS * (MAX_BODY_UP + 2 * MAX_URL) + 4096;
 
 /** The most nodes in one screen description. */
 const MAX_NODES: i64 = 10_000;
@@ -177,6 +177,21 @@ const MAX_STEPS: i64 = 100;
 
 /** An app's database's largest size, in bytes. */
 const DATABASE_BYTES: i64 = 100 * 1024 * 1024;
+
+/** The largest blob, in bytes (PRP-054). */
+const MAX_BLOB: i64 = 16 * 1024 * 1024;
+
+/** All of an app's blobs together, in bytes, apart from its database. */
+const BLOBS_BYTES: i64 = 1024 * 1024 * 1024;
+
+/** The most blobs an app keeps. */
+const MAX_BLOBS: i64 = 10_000;
+
+/** The most bytes one `blob_get` answers with. */
+const MAX_BLOB_PIECE: i64 = 4 * 1024 * 1024;
+
+/** The longest blob key, in bytes. */
+const MAX_BLOB_KEY: i64 = 256;
 
 /** How long one call to an app's database may take, in milliseconds. */
 const QUERY_MS: i64 = 1000;

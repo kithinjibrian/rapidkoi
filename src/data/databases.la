@@ -3,10 +3,13 @@
  * folder, one call run against it, its size, and Clear. A file is named by
  * a hash of the app (its host and origin key, or its local address or
  * file), so nothing an app says becomes a path. Every connection is guarded
- * as SQL from an app must be (`lugha-sqlite`'s `Guard.untrusted()`).
- * `call`, `size_of` and `clear` touch the disk: run them in a task.
+ * as SQL from an app must be (`lugha-sqlite`'s `Guard.untrusted()`), with
+ * `rapidkoi_` names reserved for Rapidkoi's own (PRP-054). A write's blobs
+ * are placed first, then committed with its rows; then owners are checked
+ * and unnamed files swept. `call`, `size_of` and `clear` touch the disk:
+ * run them in a task.
  *
- * Depends on: sqlite, cbor, std.fs, std.crypto, data.store, guest.nodes, guest.limits, trust.keys, window.tabs, net.address
+ * Depends on: sqlite, cbor, std.fs, std.crypto, data.store, data.blobs, data.blobmap, guest.nodes, guest.limits, trust.keys, window.tabs, net.address
  * Used by: data.queries, shell
  */
 import sqlite { Database, Guard, Kind, SqliteError };
@@ -14,16 +17,30 @@ import cbor { Value, Entry };
 import std.fs;
 import std.crypto { sha256 };
 import data.store { Store };
-import guest.nodes { Query };
-import guest.limits { DATABASE_BYTES, QUERY_MS, MAX_SQL, MAX_SQL_VALUE, MAX_ANSWER };
+import data.blobs { BlobError, blob_sentence, folder_for, place, piece, sweep, remove_all };
+import data.blobmap;
+import guest.nodes { Query, BatchStep, BlobRead };
+import guest.limits {
+    DATABASE_BYTES,
+    QUERY_MS,
+    MAX_SQL,
+    MAX_SQL_VALUE,
+    MAX_ANSWER,
+    MAX_BLOB,
+    BLOBS_BYTES,
+    MAX_BLOBS,
+};
 import trust.keys { hex };
 import window.tabs { AppPage };
 import net.address { parse };
 
-/** One call an app asked for: a read of one statement, or a write of several as one transaction. */
+/** One call an app asked for: a read of one statement, a write of several steps as one transaction, or a blob read or listed (PRP-054). */
 enum Call {
     Read(Query),
-    Write(Query[]),
+    Write(BatchStep[]),
+    BlobGet(BlobRead),
+    /** The keys starting with this prefix. */
+    BlobList(string),
 }
 
 /** What a call came to: the app's answer and the tables it changed, or why not. */
@@ -91,6 +108,7 @@ fun call(path: string, c: Call): Queried {
         max_bytes: DATABASE_BYTES,
         max_sql: MAX_SQL,
         max_value: MAX_SQL_VALUE,
+        reserved: "rapidkoi_",
         ..Guard.untrusted(),
     };
     if let Err(e) = db.guard(guard) {
@@ -107,13 +125,25 @@ fun call(path: string, c: Call): Queried {
             });
         }
     });
+    let folder = folder_for(path);
     let outcome = match c {
         Read(q) => read(db, q),
-        Write(steps) => write(db, steps),
+        Write(steps) => write(db, folder, steps),
+        BlobGet(r) => got(db, folder, r).map_err(blob_sentence),
+        BlobList(prefix) => listed(db, prefix).map_err(blob_sentence),
     };
+    // Rapidkoi's own tables are no app's news.
+    let changed = tables.get().filter(fun(t: string) = !blobmap.reserved(t));
+    // A plain `sql` can delete an owner row too: its blobs' keys go now,
+    // their files at the next write's sweep (only writes sweep, one at a time).
+    if let Read(_) = c {
+        if changed.len > 0 && blobmap.ours(db) == Ok(true) {
+            let _ = blobmap.check_owners(db);
+        }
+    }
     db.close();
     match outcome {
-        Ok(v) => Queried.Answer(v, tables.get()),
+        Ok(v) => Queried.Answer(v, changed),
         Err(why) => Queried.Failed(why),
     }
 }
@@ -133,16 +163,18 @@ fun size_of(path: string): i64 {
         Ok(db) => {
             let count = number(db.query("PRAGMA page_count", [], 1));
             let size = number(db.query("PRAGMA page_size", [], 1));
+            // Its blobs count too: one total for the person (PRP-054). No table is 0.
+            let kept = number(db.query("SELECT coalesce(sum(size), 0) FROM rapidkoi_blobs", [], 1));
             db.close();
-            count * size
+            count * size + kept
         }
         Err(_) => 0,
     }
 }
 
 /**
- * Removes an app's database and the files SQLite keeps beside it. Nothing
- * there is nothing to do.
+ * Removes an app's database, the files SQLite keeps beside it, and its
+ * blobs (PRP-054). Nothing there is nothing to do.
  *
  * Example:
  *     clear(path)?
@@ -155,7 +187,7 @@ fun clear(path: string): Result<(), string> {
             )?;
         }
     }
-    Ok(())
+    remove_all(folder_for(path))
 }
 
 /** The data folder's `databases/`, made if missing. */
@@ -195,19 +227,161 @@ fun read(db: Database, q: Query): Result<Value, string> {
     )
 }
 
-/** Statements as one transaction: what changed, or the first failure (nothing kept). */
-fun write(db: Database, steps: Query[]): Result<Value, string> {
-    let mut batch: (string, sqlite.Value[])[] = [];
-    for s of steps {
-        batch.push((s.sql, cells(s.params)?));
+/**
+ * Steps as one transaction: the blobs checked and placed first, then the
+ * app's statements and Rapidkoi's own rows committed together; then, past
+ * the commit, owners checked and unnamed files swept. What changed, or
+ * the first failure (no row kept; a placed file is swept later).
+ */
+fun write(db: Database, folder: string, steps: BatchStep[]): Result<Value, string> {
+    let has_blobs = steps.any(fun(s: BatchStep) = match s {
+        Statement(_) => false,
+        _ => true,
+    });
+    // An app's own table renamed into Rapidkoi's name is never adopted.
+    let kept = match blobmap.ours(db) {
+        Ok(b) => b,
+        Err(e) => {
+            if has_blobs {
+                return Err(blob_sentence(e));
+            }
+            false
+        }
+    };
+    let mut batch: sqlite.Step[] = [];
+    if has_blobs {
+        checked(db, kept, steps).map_err(blob_sentence)?;
+        if !kept {
+            batch = blobmap.made();
+        }
     }
-    let ran = db.batch(batch).map_err(sentence)?;
+    for s of steps {
+        batch.push(match s {
+            Statement(q) => sqlite.Step.Untrusted(q.sql, cells(q.params)?),
+            BlobSet(key, bytes, owner) => {
+                let hash = place(folder, bytes).map_err(blob_sentence)?;
+                let at = match owner {
+                    Some(o) => Some((o.table, cells([o.key])?[0])),
+                    None => None,
+                };
+                blobmap.set_step(key, hash, bytes.len, at)
+            }
+            BlobDelete(key) => blobmap.delete_step(key),
+        });
+    }
+    let ran = db.batch_steps(batch).map_err(sentence)?;
+    if kept || has_blobs {
+        // Cleanup only: a failure here leaves a leak the next write removes, never a missing blob.
+        let _ = blobmap.check_owners(db);
+        if let Ok(names) = blobmap.named(db) {
+            sweep(folder, names);
+        }
+    }
     Ok(
         Value.Map([
             entry("changes", Value.int(ran.changes)),
             entry("last_rowid", Value.int(ran.last_rowid)),
         ]),
     )
+}
+
+/** A batch's blobs against the limits, as they'd stand after it, and each owner table; `kept`: the table exists. */
+fun checked(db: Database, kept: bool, steps: BatchStep[]): Result<(), BlobError> {
+    let (start_count, start_bytes) = if kept { blobmap.totals(db)? } else { (0, 0) };
+    let mut count = start_count;
+    let mut bytes = start_bytes;
+    // Each key's size as the batch leaves it, so a key set twice counts once.
+    let mut sizes: Map<string, i64> = #{};
+    for s of steps {
+        match s {
+            BlobSet(key, b, owner) => {
+                if b.len > MAX_BLOB {
+                    return Err(BlobError.TooBig);
+                }
+                if let Some(o) = owner {
+                    blobmap.owner_column(db, o.table)?;
+                }
+                let before = size_now(db, kept, sizes, key)?;
+                match before {
+                    Some(n) => {
+                        bytes -= n;
+                    }
+                    None => {
+                        count += 1;
+                    }
+                }
+                bytes += b.len;
+                sizes[key] = b.len;
+            }
+            BlobDelete(key) => {
+                if let Some(n) = size_now(db, kept, sizes, key)? {
+                    count -= 1;
+                    bytes -= n;
+                }
+                sizes[key] = -1;
+            }
+            Statement(_) => {}
+        }
+    }
+    if count > MAX_BLOBS {
+        return Err(BlobError.TooMany);
+    }
+    if bytes > BLOBS_BYTES {
+        return Err(BlobError.Full);
+    }
+    Ok(())
+}
+
+/** A key's size before this step: from earlier in the batch (-1: deleted there), else as stored. */
+fun size_now(
+    db: Database,
+    kept: bool,
+    sizes: Map<string, i64>,
+    key: string,
+): Result<Option<i64>, BlobError> {
+    match sizes.get(key) {
+        Some(n) => Ok(if n < 0 { None } else { Some(n) }),
+        None if !kept => Ok(None),
+        None => Ok(blobmap.stored(db, key)?.map(fun(found: (u8[], i64)) = found.1)),
+    }
+}
+
+/** A `blob_get`: the piece, the whole blob's size and its hash, checked against the hash a later piece expects. */
+fun got(db: Database, folder: string, r: BlobRead): Result<Value, BlobError> {
+    if !blobmap.ours(db)? {
+        return Err(BlobError.NoSuchKey);
+    }
+    let (hash, size) = match blobmap.stored(db, r.key)? {
+        Some(found) => found,
+        None => {
+            return Err(BlobError.NoSuchKey);
+        }
+    };
+    if let Some(h) = r.hash {
+        if h != hash {
+            return Err(BlobError.Changed);
+        }
+    }
+    if r.from > size {
+        return Err(BlobError.PastEnd);
+    }
+    let bytes = piece(folder, hash, r.from, r.len)?;
+    Ok(
+        Value.Map([
+            entry("bytes", Value.Bytes(bytes)),
+            entry("from", Value.int(r.from)),
+            entry("size", Value.int(size)),
+            entry("hash", Value.Bytes(hash)),
+        ]),
+    )
+}
+
+/** A `blob_list`: none kept yet is an empty list. */
+fun listed(db: Database, prefix: string): Result<Value, BlobError> {
+    if !blobmap.ours(db)? {
+        return Ok(Value.Map([entry("blobs", Value.Array([])), entry("cut", Value.int(0))]));
+    }
+    blobmap.listed(db, prefix, MAX_BLOBS)
 }
 
 /** The app's values as SQLite's: true and false are 1 and 0, as SQLite keeps them. */

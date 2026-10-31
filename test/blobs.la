@@ -1,0 +1,83 @@
+// An app's blob files (PRP-054): named by their hash beside the database,
+// placed safely, read in pieces, swept and removed. Real files under test/tmp/.
+import rapidkoi.data.blobs {
+    BlobError,
+    blob_sentence,
+    folder_for,
+    place,
+    piece,
+    sweep,
+    remove_all,
+};
+import rapidkoi.trust.keys { hex };
+import std.fs;
+import std.crypto { sha256 };
+
+fun fresh(name: string): string {
+    let dir = "test/tmp/blobs-{name}";
+    let _ = remove_all(dir);
+    dir
+}
+
+@test
+fun a_blob_folder_sits_beside_its_database() {
+    assert_eq(folder_for("/data/databases/ab12.db"), "/data/databases/ab12.blobs");
+}
+
+@test
+fun bytes_land_under_their_hash_once() {
+    let dir = fresh("place");
+    let bytes: u8[] = [1, 2, 3, 4];
+    let hash = place(dir, bytes).unwrap();
+    assert_eq(hash, sha256(bytes));
+    assert_eq(read_bytes("{dir}/{hex(hash)}").unwrap(), bytes);
+    // The same bytes again are the same file; no temporary file is left.
+    assert_eq(place(dir, bytes).unwrap(), hash);
+    assert_eq(fs.list_dir(dir).unwrap(), [hex(hash)]);
+    remove_all(dir).unwrap();
+}
+
+@test
+fun a_piece_is_cut_at_the_end() {
+    let dir = fresh("piece");
+    let hash = place(dir, [10, 11, 12, 13, 14]).unwrap();
+    assert_eq(piece(dir, hash, 0, 2), Ok([10, 11]));
+    assert_eq(piece(dir, hash, 3, 100), Ok([13, 14]));
+    assert_eq(piece(dir, hash, 5, 4), Ok([]));
+    // A file that went (its key moved on) reads as changed.
+    assert_eq(piece(dir, [0; 32], 0, 4), Err(BlobError.Changed));
+    remove_all(dir).unwrap();
+}
+
+@test
+fun a_sweep_keeps_only_named_files() {
+    let dir = fresh("sweep");
+    let kept = hex(place(dir, [1]).unwrap());
+    let dropped = hex(place(dir, [2]).unwrap());
+    write_bytes("{dir}/.tmp-{dropped}", [2]).unwrap();
+    sweep(dir, #{kept});
+    assert_eq(fs.list_dir(dir).unwrap(), [kept]);
+    // No folder is nothing to sweep.
+    sweep("test/tmp/blobs-none", #{});
+    remove_all(dir).unwrap();
+    assert_eq(fs.exists(dir), false);
+    assert_eq(remove_all(dir), Ok(()));
+}
+
+@test
+fun each_error_is_one_sentence_and_never_the_systems() {
+    assert_eq(blob_sentence(BlobError.TooBig), "This blob is over 16 MB");
+    assert_eq(blob_sentence(BlobError.Full), "This app's files are full (1 GB)");
+    assert_eq(blob_sentence(BlobError.TooMany), "This app has 10,000 blobs already");
+    assert_eq(blob_sentence(BlobError.NoSuchKey), "This app has no blob with that key");
+    assert_eq(blob_sentence(BlobError.Changed), "This blob changed while it was being read");
+    assert_eq(blob_sentence(BlobError.PastEnd), "This read starts past the blob's end");
+    assert_eq(
+        blob_sentence(BlobError.NotOurs),
+        "This app's database has a table Rapidkoi uses for its own",
+    );
+    assert_eq(
+        blob_sentence(BlobError.Disk("No space left on device")),
+        "This app's files couldn't be written",
+    );
+}

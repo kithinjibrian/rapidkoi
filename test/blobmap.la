@@ -1,0 +1,347 @@
+// Blobs in an app's database (PRP-054), end to end through `databases.call`:
+// keys committed with the rows, owners, reads checked by hash, lists, the
+// reserved table, limits, the size and Clear. Real SQLite and files, under
+// /tmp rather than test/tmp: every write syncs to disk several times, and on
+// a disk shared with the whole suite's processes each sync waited ~600 ms
+// (measured with strace), past the 10 s a test may take. /tmp is usually
+// memory, where a sync costs nothing; elsewhere these tests are only slower.
+import rapidkoi.data.databases { Call, Queried, path_for, call, size_of, clear };
+import rapidkoi.data.blobs { folder_for };
+import rapidkoi.data.store { store_at };
+import rapidkoi.guest.nodes { Query, BatchStep, Owner, BlobRead };
+import rapidkoi.guest.limits { MAX_ROWS, MAX_BLOB, MAX_BLOB_PIECE };
+import rapidkoi.window.tabs { failed_page };
+import cbor { Value };
+import support { t };
+import std.fs;
+import std.crypto { sha256 };
+
+fun db(name: string): string {
+    let path = path_for(
+        store_at("/tmp/rapidkoi-test-blobmap-{name}"),
+        failed_page("rapidkoi://localhost:8000", ""),
+    ).unwrap();
+    let _ = clear(path);
+    path
+}
+
+fun sql(s: string, params: Value[]): BatchStep = BatchStep.Statement(Query {
+    sql: s,
+    params: params,
+    max_rows: MAX_ROWS,
+});
+
+fun set(key: string, bytes: u8[], owner: Option<(string, Value)>): BatchStep = BatchStep.BlobSet(
+    key,
+    bytes,
+    owner.map(fun(o: (string, Value)) = Owner { table: o.0, key: o.1 }),
+);
+
+/** A write's answer, or a panic with why it failed. */
+fun wrote(path: string, steps: BatchStep[]): Value = match call(path, Call.Write(steps)) {
+    Answer(v, _) => v,
+    Failed(why) => panic(why),
+};
+
+/** Why a call failed, or `""` when it didn't. */
+fun why(q: Queried): string = match q {
+    Failed(w) => w,
+    _ => "",
+};
+
+fun read(key: string): Call = Call.BlobGet(BlobRead {
+    key: key,
+    from: 0,
+    len: MAX_BLOB_PIECE,
+    hash: None,
+});
+
+/** A blob's bytes, or `None` when the read failed. */
+fun bytes_of(path: string, key: string): Option<u8[]> = match call(path, read(key)) {
+    Answer(v, _) => match v.get("bytes") {
+        Some(Bytes(b)) => Some(b),
+        _ => None,
+    },
+    _ => None,
+};
+
+fun files(path: string): i64 = match fs.list_dir(folder_for(path)) {
+    Ok(names) => names.len,
+    Err(_) => 0,
+};
+
+fun notes(path: string) {
+    wrote(path, [sql("CREATE TABLE notes (id TEXT PRIMARY KEY, body TEXT, photo TEXT)", [])]);
+}
+
+@test
+fun a_blob_and_its_row_commit_together() {
+    let path = db("together");
+    notes(path);
+    let v = wrote(path, [
+        set("photo-1", [1, 2, 3], Some(("notes", t("n1")))),
+        sql("INSERT INTO notes VALUES (?, ?, ?)", [t("n1"), t("hi"), t("photo-1")]),
+    ]);
+    // `changes` counts the app's steps only, never Rapidkoi's own.
+    assert_eq(v.get("changes") == Some(Value.int(1)), true);
+    match call(path, read("photo-1")) {
+        Answer(got, _) => {
+            assert_eq(got.get("bytes") == Some(Value.Bytes([1, 2, 3])), true);
+            assert_eq(got.get("size") == Some(Value.int(3)), true);
+            assert_eq(got.get("hash") == Some(Value.Bytes(sha256([1, 2, 3]))), true);
+        }
+        Failed(w) => panic(w),
+    }
+    assert_eq(files(path), 1);
+    clear(path).unwrap();
+}
+
+@test
+fun a_failed_batch_keeps_neither_and_its_file_is_swept_later() {
+    let path = db("failed");
+    notes(path);
+    let failed = call(
+        path,
+        Call.Write([set("photo-1", [5, 5], None), sql("INSERT INTO nowhere VALUES (1)", [])]),
+    );
+    assert_eq(why(failed).contains("no such table"), true);
+    assert_eq(bytes_of(path, "photo-1"), None);
+    // The next write sweeps the file no key names.
+    wrote(path, [set("other", [6], None)]);
+    assert_eq(files(path), 1);
+    clear(path).unwrap();
+}
+
+@test
+fun a_deleted_key_takes_its_file_unless_another_key_shares_it() {
+    let path = db("delete");
+    wrote(path, [set("a", [1], None), set("b", [1], None), set("c", [2], None)]);
+    assert_eq(files(path), 2);
+    wrote(path, [BatchStep.BlobDelete("a"), BatchStep.BlobDelete("c")]);
+    assert_eq((bytes_of(path, "a"), bytes_of(path, "b")), (None, Some([1])));
+    assert_eq(files(path), 1);
+    // Deleting a key that isn't there is nothing to do.
+    wrote(path, [BatchStep.BlobDelete("missing")]);
+    clear(path).unwrap();
+}
+
+@test
+fun a_blob_goes_with_its_owner_row() {
+    let path = db("owners");
+    notes(path);
+    wrote(path, [
+        sql("INSERT INTO notes VALUES ('n1', '', 'p1'), ('n2', '', 'p2')", []),
+        set("p1", [1], Some(("notes", t("n1")))),
+        set("p2", [2], Some(("notes", t("n2")))),
+    ]);
+    wrote(path, [sql("DELETE FROM notes WHERE id = 'n1'", [])]);
+    assert_eq((bytes_of(path, "p1"), bytes_of(path, "p2")), (None, Some([2])));
+    // A plain `sql` deleting a row takes its blob's key too.
+    call(
+        path,
+        Call.Read(Query { sql: "DELETE FROM notes WHERE id = 'n2'", params: [], max_rows: 1 }),
+    );
+    assert_eq(bytes_of(path, "p2"), None);
+    clear(path).unwrap();
+}
+
+@test
+fun a_migration_in_one_batch_keeps_its_blobs() {
+    let path = db("migration");
+    notes(path);
+    wrote(path, [
+        sql("INSERT INTO notes VALUES ('n1', '', 'p1')", []),
+        set("p1", [1], Some(("notes", t("n1")))),
+    ]);
+    // SQLite's usual way to change a table: make a new one, copy, drop, rename.
+    wrote(path, [
+        sql(
+            "CREATE TABLE notes_new (id TEXT PRIMARY KEY, body TEXT, photo TEXT, pinned INTEGER)",
+            [],
+        ),
+        sql("INSERT INTO notes_new SELECT id, body, photo, 0 FROM notes", []),
+        sql("DROP TABLE notes", []),
+        sql("ALTER TABLE notes_new RENAME TO notes", []),
+    ]);
+    assert_eq(bytes_of(path, "p1"), Some([1]));
+    // Dropping the table for good takes its blobs.
+    wrote(path, [sql("DROP TABLE notes", [])]);
+    assert_eq(bytes_of(path, "p1"), None);
+    clear(path).unwrap();
+}
+
+@test
+fun a_changed_key_drops_its_blobs() {
+    let path = db("keys");
+    notes(path);
+    wrote(path, [
+        sql("INSERT INTO notes VALUES ('n1', '', 'p1')", []),
+        set("p1", [1], Some(("notes", t("n1")))),
+    ]);
+    wrote(path, [sql("UPDATE notes SET id = 'n9'", [])]);
+    assert_eq(bytes_of(path, "p1"), None);
+    clear(path).unwrap();
+}
+
+@test
+fun a_table_whose_key_changed_shape_keeps_its_blobs() {
+    // Losing data is worse than keeping it.
+    let path = db("shape");
+    notes(path);
+    wrote(path, [
+        sql("INSERT INTO notes VALUES ('n2', '', 'p2')", []),
+        set("p2", [2], Some(("notes", t("n2")))),
+    ]);
+    wrote(path, [
+        sql("CREATE TABLE n2 (id TEXT, v TEXT, PRIMARY KEY (id, v))", []),
+        sql("DROP TABLE notes", []),
+        sql("ALTER TABLE n2 RENAME TO notes", []),
+    ]);
+    assert_eq(bytes_of(path, "p2"), Some([2]));
+    clear(path).unwrap();
+}
+
+@test
+fun an_owner_must_be_a_table_with_a_one_column_key() {
+    let path = db("bad-owner");
+    wrote(path, [sql("CREATE TABLE pairs (a TEXT, b TEXT, PRIMARY KEY (a, b))", [])]);
+    let must = "A blob's owner table must exist, with a primary key of one column";
+    assert_eq(why(call(path, Call.Write([set("k", [1], Some(("pairs", t("x"))))]))), must);
+    assert_eq(why(call(path, Call.Write([set("k", [1], Some(("missing", t("x"))))]))), must);
+    let plain = "A blob's owner table is a plain name of letters, digits and _";
+    assert_eq(why(call(path, Call.Write([set("k", [1], Some(("no\"tes", t("x"))))]))), plain);
+    assert_eq(
+        why(call(path, Call.Write([set("k", [1], Some(("rapidkoi_blobs", t("x"))))]))),
+        plain,
+    );
+    clear(path).unwrap();
+}
+
+@test
+fun the_apps_sql_cant_touch_rapidkois_table() {
+    let path = db("reserved");
+    wrote(path, [set("k", [1], None)]);
+    let denied = "This app's SQL asked for something apps can't do";
+    let sneak = fun(s: string) = why(
+        call(path, Call.Read(Query { sql: s, params: [], max_rows: 10 })),
+    );
+    assert_eq(sneak("SELECT * FROM rapidkoi_blobs"), denied);
+    assert_eq(sneak("DELETE FROM RAPIDKOI_BLOBS"), denied);
+    assert_eq(sneak("DROP TABLE rapidkoi_blobs"), denied);
+    assert_eq(why(call(path, Call.Write([sql("CREATE VIEW rapidkoi_v AS SELECT 1", [])]))), denied);
+    // Its changes are never another window's news.
+    match call(path, Call.Write([set("k2", [2], None)])) {
+        Answer(_, tables) => assert_eq(tables, []),
+        Failed(w) => panic(w),
+    }
+    clear(path).unwrap();
+}
+
+@test
+fun a_table_renamed_into_rapidkois_name_is_never_adopted() {
+    let path = db("impostor");
+    wrote(path, [sql("CREATE TABLE mine (x)", []), sql("INSERT INTO mine VALUES (1)", [])]);
+    wrote(path, [sql("ALTER TABLE mine RENAME TO rapidkoi_blobs", [])]);
+    let not_ours = "This app's database has a table Rapidkoi uses for its own";
+    assert_eq(why(call(path, Call.Write([set("k", [1], None)]))), not_ours);
+    // Its own writes still work.
+    wrote(path, [sql("CREATE TABLE other (y)", [])]);
+    clear(path).unwrap();
+}
+
+@test
+fun reads_in_pieces_are_checked_by_hash() {
+    let path = db("pieces");
+    wrote(path, [set("k", [1, 2, 3, 4, 5], None)]);
+    let first = match call(path, Call.BlobGet(BlobRead { key: "k", from: 0, len: 2, hash: None })) {
+        Answer(v, _) => v,
+        Failed(w) => panic(w),
+    };
+    let hash = match first.get("hash") {
+        Some(Bytes(h)) => h,
+        _ => panic("no hash"),
+    };
+    let next = Call.BlobGet(BlobRead { key: "k", from: 2, len: 2, hash: Some(hash) });
+    match call(path, next) {
+        Answer(v, _) => assert_eq(v.get("bytes") == Some(Value.Bytes([3, 4])), true),
+        Failed(w) => panic(w),
+    }
+    wrote(path, [set("k", [9, 9, 9, 9, 9], None)]);
+    assert_eq(why(call(path, next)), "This blob changed while it was being read");
+    assert_eq(
+        why(call(path, Call.BlobGet(BlobRead { key: "k", from: 6, len: 1, hash: None }))),
+        "This read starts past the blob's end",
+    );
+    assert_eq(why(call(path, read("nope"))), "This app has no blob with that key");
+    clear(path).unwrap();
+}
+
+@test
+fun a_list_gives_keys_by_prefix() {
+    let path = db("list");
+    match call(path, Call.BlobList("")) {
+        Answer(v, _) => assert_eq(v.get("blobs") == Some(Value.Array([])), true),
+        Failed(w) => panic(w),
+    }
+    notes(path);
+    wrote(path, [
+        sql("INSERT INTO notes VALUES ('n1', '', '')", []),
+        set("photo-b", [1, 2], Some(("notes", t("n1")))),
+        set("photo-a", [1], None),
+        set("avatar", [1], None),
+    ]);
+    match call(path, Call.BlobList("photo-")) {
+        Answer(v, _) => {
+            let found = match v.get("blobs") {
+                Some(Array(xs)) => xs,
+                _ => [],
+            };
+            assert_eq(found.len, 2);
+            assert_eq(found[0].get("key") == Some(t("photo-a")), true);
+            assert_eq(found[1].get("size") == Some(Value.int(2)), true);
+            assert_eq(
+                found[1].get("owner").and_then(fun(o: Value) = o.get("table")) == Some(t("notes")),
+                true,
+            );
+            assert_eq(v.get("cut") == Some(Value.int(0)), true);
+        }
+        Failed(w) => panic(w),
+    }
+    clear(path).unwrap();
+}
+
+@test
+fun a_blob_over_the_limit_fails_its_batch() {
+    let path = db("limits");
+    notes(path);
+    let big: u8[] = [0; MAX_BLOB + 1];
+    let failed = call(
+        path,
+        Call.Write([sql("INSERT INTO notes VALUES ('n1', '', '')", []), set("big", big, None)]),
+    );
+    assert_eq(why(failed), "This blob is over 16 MB");
+    match call(
+        path,
+        Call.Read(Query { sql: "SELECT count(*) FROM notes", params: [], max_rows: 1 }),
+    ) {
+        Answer(v, _) => assert_eq(
+            v.get("rows") == Some(Value.Array([Value.Array([Value.int(0)])])),
+            true,
+        ),
+        Failed(w) => panic(w),
+    }
+    clear(path).unwrap();
+}
+
+@test
+fun the_size_counts_blobs_and_clear_removes_them() {
+    let path = db("size");
+    wrote(path, [sql("CREATE TABLE t (x)", [])]);
+    let before = size_of(path);
+    let blob: u8[] = [7; 100_000];
+    wrote(path, [set("k", blob, None)]);
+    assert_eq(size_of(path) >= before + 100_000, true);
+    clear(path).unwrap();
+    assert_eq(fs.exists(folder_for(path)), false);
+    assert_eq(size_of(path), 0);
+}

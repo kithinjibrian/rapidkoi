@@ -1,5 +1,5 @@
 /**
- * Events (contract 8, `docs/specs/contract-8.md`), pure: what Rapidkoi
+ * Events (contract 9, `docs/specs/contract-9.md`), pure: what Rapidkoi
  * sends a guest's `handle`, named `on_…` on the wire.
  *
  * Depends on: cbor

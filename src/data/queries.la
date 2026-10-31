@@ -1,14 +1,18 @@
 /**
- * An app's calls to its database (PRP-041): each `sql` or
- * `sql_batch` ask sent in a `Cmd.task`, never in `update`; its result
- * answered to the app when it arrives; and the app's other windows told
- * which tables a write changed. Mirrors `net.requests`.
+ * An app's calls to its database (PRP-041): each `sql`, `sql_batch`,
+ * `blob_get` or `blob_list` ask sent in a `Cmd.task`, never in `update`;
+ * its result answered to the app when it arrives; and the app's other
+ * windows told which tables a write changed. An app's writes run one at a
+ * time, across its windows (PRP-054): a write's blob files and the sweep
+ * after it must not race another write. Reads run beside them. Mirrors
+ * `net.requests`.
  *
- * Depends on: kivuli, cbor, data.databases, window.window, window.tabs, window.actions, guest.contract, guest.limits, net.network, ui.render
+ * Depends on: kivuli, cbor, guest.nodes, data.databases, window.window, window.tabs, window.actions, guest.contract, guest.limits, net.network, ui.render
  * Used by: guest.effects, shell
  */
 import kivuli { Cmd };
 import cbor { Value };
+import guest.nodes { BatchStep };
 import data.databases { Call, Queried, path_for, call };
 import window.window { Model, app, with_tab };
 import window.tabs { AppPage, Tab, handle, data_changed };
@@ -19,8 +23,28 @@ import net.network { Reply };
 import ui.render;
 
 /**
+ * Asks for one call to the database of the app in tab `id`, or refuses
+ * one asked by the new tab (`None`), which keeps no data.
+ *
+ * @returns as `ask`
+ *
+ * Example:
+ *     ask_in(m, Some(id), msg, Call.Read(query))
+ */
+fun ask_in(
+    m: Model,
+    tab: Option<i64>,
+    msg: Value,
+    c: Call,
+): (Model, Option<Value>, Cmd<Msg>) = match tab {
+    Some(id) => ask(m, id, msg, c),
+    None => (m, Some(reply(Reply.Failed("The new tab keeps no data"))), Cmd.none()),
+};
+
+/**
  * Asks for one call to tab `id`'s app's database: refused at once (with
  * the sentence the app gets), or counted in flight and returned as a task.
+ * A write while another of the app's writes runs waits its turn (`wrote`).
  *
  * @returns the model; the answer to give now, if refused; the task
  *
@@ -46,18 +70,83 @@ fun ask(m: Model, id: i64, msg: Value, c: Call): (Model, Option<Value>, Cmd<Msg>
         return refuse("This app asked for too much at once");
     }
     let load = p.load;
-    // Plain data for the task: the file and the call.
-    let task = Cmd.task(
-        fun(): Queried = call(path, c),
-        fun(got: Queried) = Msg.Queried(id, load, msg, got),
-    );
     let counted = with_tab(
         m,
         id,
         fun(page: AppPage) = AppPage { in_flight: page.in_flight + 1, ..page },
     );
-    (counted, None, task)
+    match c {
+        Write(steps) => {
+            let mut writing = counted.writing;
+            if let Some(queue) = writing.get(path) {
+                let mut longer = queue;
+                longer.push((id, load, msg, steps));
+                writing[path] = longer;
+                return (Model { writing: writing, ..counted }, None, Cmd.none());
+            }
+            writing[path] = [];
+            (Model { writing: writing, ..counted }, None, writing_task(path, id, load, msg, steps))
+        }
+        // Plain data for the task: the file and the call.
+        _ => (
+            counted,
+            None,
+            Cmd.task(
+                fun(): Queried = call(path, c),
+                fun(got: Queried) = Msg.Queried(id, load, msg, got),
+            ),
+        ),
+    }
 }
+
+/**
+ * Takes a write's result (as `arrive`), then starts the next write
+ * waiting on the same database, skipping any whose tab closed or loaded
+ * again since.
+ *
+ * @returns the model, and the next write's task (none when nothing waits)
+ *
+ * Example:
+ *     wrote(m, path, id, load, msg, got)
+ */
+fun wrote(m: Model, path: string, id: i64, load: i64, msg: Value, got: Queried): (Model, Cmd<Msg>) {
+    let after = arrive(m, id, load, msg, got);
+    let mut writing = after.writing;
+    let mut queue = writing.get(path).unwrap_or([]);
+    while queue.len > 0 {
+        let (next_id, next_load, next_msg, steps) = queue[0];
+        let mut rest: (i64, i64, Value, BatchStep[])[] = [];
+        for i in 1..queue.len {
+            rest.push(queue[i]);
+        }
+        queue = rest;
+        let live = match app(after, next_id) {
+            Some(p) => p.load == next_load,
+            None => false,
+        };
+        if live {
+            writing[path] = queue;
+            return (
+                Model { writing: writing, ..after },
+                writing_task(path, next_id, next_load, next_msg, steps),
+            );
+        }
+    }
+    writing.remove(path);
+    (Model { writing: writing, ..after }, Cmd.none())
+}
+
+/** A write's task, answered with `Wrote` so the next write there can start. */
+fun writing_task(
+    path: string,
+    id: i64,
+    load: i64,
+    msg: Value,
+    steps: BatchStep[],
+): Cmd<Msg> = Cmd.task(
+    fun(): Queried = call(path, Call.Write(steps)),
+    fun(got: Queried) = Msg.Wrote(path, id, load, msg, got),
+);
 
 /**
  * Takes a call's result: dropped when its tab closed or loaded again

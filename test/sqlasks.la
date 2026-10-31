@@ -76,7 +76,10 @@ fun a_batch_reads_its_steps() {
     ]);
     match asking(batch).unwrap()[0] {
         SqlBatch(msg, steps) => assert_eq(
-            (msg == t("saved"), steps.len, steps[1].sql),
+            (msg == t("saved"), steps.len, match steps[1] {
+                Statement(s) => s.sql,
+                _ => "",
+            }),
             (true, 2, "DELETE FROM t WHERE x = ?"),
         ),
         _ => panic("expected a batch"),

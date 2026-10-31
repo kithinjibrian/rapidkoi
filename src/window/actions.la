@@ -130,6 +130,8 @@ enum Msg {
     Pictured(i64, i64, string, Reply),
     /** A call to the app's database, for this tab and load, answering the app's `msg` (PRP-041). */
     Queried(i64, i64, Value, Queried),
+    /** A write to the app's database at this file finished, for this tab and load (PRP-054): the next write there may start. */
+    Wrote(string, i64, i64, Value, Queried),
     /** How big this tab's app's data is, in bytes, for its ⚙ card. */
     DataSized(i64, i64),
     /** The Access page's switch for one of this app's servers (PRP-012). */

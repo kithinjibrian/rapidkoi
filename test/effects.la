@@ -268,7 +268,7 @@ fun holding(kind: string, extra: (string, Value)[], declared: string[]): AppPage
     }
     AppPage {
         manifest: Some(Manifest {
-            contract: 8,
+            contract: 9,
             name: "notes",
             version: "1.0.0",
             description: None,

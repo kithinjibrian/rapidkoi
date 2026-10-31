@@ -7,7 +7,7 @@ From Rapidkoi, PRP-054 (DECISION-087, `docs/specs/blobs.md`). For a session in `
 Contract 9 is contract 8 with blob storage, and Rapidkoi runs **only** contract 9 (`rapidkoi_version` 9; 8 and older are refused with "This app needs to be rebuilt for this Rapidkoi"). The full text: `docs/specs/contract-9.md` in Rapidkoi. Showing a blob as a picture and sending one as a request body come in PRP-055, a later `pre` tag on the same contract.
 
 1. **Blob steps in `sql_batch`.** A step is `{ "sql", "params" }` as before, or:
-   - `{ "blob_set": key, "bytes": <bytes>, "owner"?: { "table": text, "key": value } }`: store or replace a key's bytes; with an owner, deleting that row (by its single-column primary key) deletes the blob in the same write;
+   - `{ "blob_set": key, "bytes": <bytes>, "owner"?: { "table": text, "key": value } }`: store or replace a key's bytes; with an owner (a table that exists before the batch, with a single-column primary key), deleting that row deletes the blob in the same write, and changing its primary key drops it;
    - `{ "blob_delete": key }`: remove a key (no such key: nothing happens).
 
    A key is text, 1–256 bytes of UTF-8, no control characters. Bytes at most 16 MB. The batch answers as before, `{ changes, last_rowid }`, and `changes` is now the **sum over the app's own steps** (it was the last step's alone).

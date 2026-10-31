@@ -289,8 +289,12 @@ enum Effect {
     SetPreference(Value, string, Value),
     /** One statement against the app's database (PRP-041); answered with rows or why not. */
     Sql(Value, Query),
-    /** Statements run as one transaction; answered with what changed or why not. */
-    SqlBatch(Value, Query[]),
+    /** Statements and blob steps run as one transaction; answered with what changed or why not. */
+    SqlBatch(Value, BatchStep[]),
+    /** A blob's bytes, whole or a piece (PRP-054); answered with them or why not. */
+    BlobGet(Value, BlobRead),
+    /** The app's blob keys starting with a prefix; answered with them or why not. */
+    BlobList(Value, string),
 }
 
 /** One statement an app asks its database to run (PRP-041), its shape checked. */
@@ -301,6 +305,30 @@ struct Query {
     params: Value[],
     /** The most rows to answer with (a read). */
     max_rows: i64,
+}
+
+/** One step of an `sql_batch` (PRP-054): one of the app's statements, or a blob stored or removed. */
+enum BatchStep {
+    /** One of the app's statements. */
+    Statement(Query),
+    /** Stores bytes under a key (1 to `MAX_BLOB_KEY` bytes), owned by a row or not. */
+    BlobSet(string, u8[], Option<Owner>),
+    /** Removes a key; none is nothing to do. */
+    BlobDelete(string),
+}
+
+/** The row a blob belongs to: its table's name and its primary key's value. */
+struct Owner {
+    table: string,
+    key: Value,
+}
+
+/** A `blob_get` (PRP-054): which key, where to start and how much, in bytes, and the hash a later piece expects. */
+struct BlobRead {
+    key: string,
+    from: i64,
+    len: i64,
+    hash: Option<u8[]>,
 }
 
 /** What `handle` returned: the new state and what it asks for. */

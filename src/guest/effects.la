@@ -88,6 +88,12 @@ fun put(m: Model, slot: Slot, f: fun(AppPage): AppPage): Model = match slot {
     NewTab => Model { newtab: m.newtab.map(f), ..m },
 };
 
+/** The tab a page is in; the new tab is in none. */
+fun tab_of(slot: Slot): Option<i64> = match slot {
+    InTab(id) => Some(id),
+    NewTab => None,
+};
+
 /** Whether a page's manifest declares `p`: the loader let it through only if it may hold it. */
 fun holds(page: AppPage, p: Permission): bool = page.manifest.map(
     fun(m: Manifest) = m.permissions.any(fun(n: string) = n == name_of(p)),
@@ -209,23 +215,27 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
             // The new tab has no server of its own to reach.
             NewTab => (m, Some(reply(Reply.Failed("The new tab can't make requests"))), msg),
         },
-        // Its own database (PRP-041): a task, answered when it arrives.
-        Sql(msg, q) => match slot {
-            InTab(id) => {
-                let (held, now, send) = queries.ask(m, id, msg, Call.Read(q));
-                sends.push(send);
-                (held, now, msg)
-            }
-            NewTab => (m, Some(reply(Reply.Failed("The new tab keeps no data"))), msg),
-        },
-        SqlBatch(msg, steps) => match slot {
-            InTab(id) => {
-                let (held, now, send) = queries.ask(m, id, msg, Call.Write(steps));
-                sends.push(send);
-                (held, now, msg)
-            }
-            NewTab => (m, Some(reply(Reply.Failed("The new tab keeps no data"))), msg),
-        },
+        // Its own database (PRP-041) and blobs (PRP-054): a task, answered when it arrives.
+        Sql(msg, q) => {
+            let (held, now, send) = queries.ask_in(m, tab_of(slot), msg, Call.Read(q));
+            sends.push(send);
+            (held, now, msg)
+        }
+        SqlBatch(msg, steps) => {
+            let (held, now, send) = queries.ask_in(m, tab_of(slot), msg, Call.Write(steps));
+            sends.push(send);
+            (held, now, msg)
+        }
+        BlobGet(msg, r) => {
+            let (held, now, send) = queries.ask_in(m, tab_of(slot), msg, Call.BlobGet(r));
+            sends.push(send);
+            (held, now, msg)
+        }
+        BlobList(msg, prefix) => {
+            let (held, now, send) = queries.ask_in(m, tab_of(slot), msg, Call.BlobList(prefix));
+            sends.push(send);
+            (held, now, msg)
+        }
         Pins(msg) => (m, Some(if grant { pins_of(m) } else { Value.Array([]) }), msg),
         LeftOff(msg) => (m, Some(if grant { left_off_of(m) } else { Value.Null }), msg),
         // Opening is the window's own message, after this update: one tab

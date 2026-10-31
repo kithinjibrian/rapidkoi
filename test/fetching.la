@@ -76,7 +76,7 @@ fun a_signed_site_comes_back_checked_with_what_to_record() {
 fun an_unsigned_server_gives_its_bundle() {
     let file = "test/tmp/fetching-unsigned.rkb";
     let m = Manifest {
-        contract: 8,
+        contract: 9,
         name: "Plain",
         version: "1.0.0",
         description: None,
