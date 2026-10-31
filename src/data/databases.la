@@ -17,7 +17,16 @@ import cbor { Value, Entry };
 import std.fs;
 import std.crypto { sha256 };
 import data.store { Store };
-import data.blobs { BlobError, blob_sentence, folder_for, place, piece, sweep, remove_all };
+import data.blobs {
+    BlobError,
+    blob_sentence,
+    folder_for,
+    moved_in,
+    place,
+    piece,
+    sweep,
+    remove_all,
+};
 import data.blobmap;
 import guest.nodes { Query, BatchStep, BlobRead };
 import guest.limits {
@@ -125,6 +134,7 @@ fun call(path: string, c: Call): Queried {
             });
         }
     });
+    moved_in(path);
     let folder = folder_for(path);
     let outcome = match c {
         Read(q) => read(db, q).map(fun(v: Value) = (v, false)),
@@ -194,6 +204,8 @@ fun clear(path: string): Result<(), string> {
             )?;
         }
     }
+    // Wherever its blobs are yet: moved first, so the old place is cleared too.
+    moved_in(path);
     remove_all(folder_for(path))
 }
 

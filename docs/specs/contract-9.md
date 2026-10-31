@@ -1,6 +1,6 @@
 # Contract 9
 
-The one contract Rapidkoi speaks (DECISION-056, PRP-045, PRP-053, PRP-054): an app is a WebAssembly module exporting `rapidkoi_version` (9), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". Contract 7 gathered contracts 3–6 (PRP-030, 036–039, 041) with link fields with declared `kinds` and a `label` on typing boxes, then scrolling (PRP-046) and pictures (PRP-047). Contract 8 (PRP-053) adds texts made of parts (your name and times, filled in by Rapidkoi, never known to the app) and the `now` ask, and drops the `{FIRST_NAME}` and `{LAST_NAME}` tokens. Contract 9 (PRP-054, DECISION-087) adds blobs: an app's large bytes, kept beside its database. Any change after that is a DECISIONS.md entry and a version bump.
+The one contract Rapidkoi speaks (DECISION-056, PRP-045, PRP-053, PRP-054): an app is a WebAssembly module exporting `rapidkoi_version` (9), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". Contract 7 gathered contracts 3–6 (PRP-030, 036–039, 041) with link fields with declared `kinds` and a `label` on typing boxes, then scrolling (PRP-046) and pictures (PRP-047). Contract 8 (PRP-053) adds texts made of parts (your name and times, filled in by Rapidkoi, never known to the app) and the `now` ask, and drops the `{FIRST_NAME}` and `{LAST_NAME}` tokens. Contract 9 (PRP-054, DECISION-087) adds blobs: an app's large bytes, kept on this device apart from its database. Any change after that is a DECISIONS.md entry and a version bump.
 
 ## The state
 
@@ -161,7 +161,7 @@ Every app gets its own SQLite database on this device: a signed app one for its 
 
 ### Blobs
 
-Large bytes (photos, files, your own formats) kept beside the database, each under a key you name (DECISION-087, `docs/specs/blobs.md`). Rapidkoi stores them by their hash, never looks inside them, never runs them, and never gives them to another app.
+Large bytes (photos, files, your own formats) kept on this device apart from your database, each under a key you name (DECISION-087, `docs/specs/blobs.md`). Rapidkoi stores them by their hash, never looks inside them, never runs them, and never gives them to another app.
 
 - **Storing and removing** are steps of `sql_batch`, committed with your rows:
   - `{ "blob_set": key, "bytes": <bytes>, "owner"?: { "table", "key" } }` stores or replaces a key's bytes;
