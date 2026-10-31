@@ -477,6 +477,19 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ---
 
+### DECISION-089 — Files and folders: how apps reach the person's files
+
+**Status:** open
+**Raised:** 2026-10-31, the owner, after blob storage: "what if an app wants to access a folder", "what if a user wants to open a file edit and save back", "i see a world where a user can set default apps", "explain to me how a code editor could work inside rapidkoi", then "i want us to write a spec how rapidkoi intends to hande file/folder"
+
+**Question:** How do apps reach the person's files and folders: what's granted, by whom, for how long, what the app learns, and how it grows to folders, "Open with…", default apps and an editor?
+
+**The draft spec:** `docs/specs/files.md`, every answer filled in, for the owner's one review: fundamentals (the person grants in Rapidkoi's chooser; scope, rights and lifetime; names, never paths; copy or reference; safe, conflict-checked writes; two worlds of files), a first version (single files opened as a copy or to edit, saved back, saved as; handles while the window is open), what's designed but not built (several files, folder import, live folders, change notices, remembered grants, "Open with…" and defaults, tasks, Rapidkoi's own files) and a code editor as the long-range target.
+
+**Needs first:** kivuli's open and save dialogs (a request, once this is resolved).
+
+---
+
 ## DEFERRED — Acknowledged, not yet needed
 
 ### DECISION-065 — The address box's pills sit 12 px in from its left end, flush at top and bottom (kivuli)
