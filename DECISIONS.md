@@ -638,6 +638,24 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-073 — Synced tables have no rules a merge can break
+
+**Status:** resolved (the owner, 2026-10-31: "yes", to option 3)
+**Raised:** 2026-10-31, after DECISION-011
+
+**Question:** Merged changes can break a table's rules: two devices apart each make a tag "work" in a table whose names are UNIQUE, and each then refuses the other's row, so they never match; an item added to a list another device deleted (DECISION-070) breaks a FOREIGN KEY; two fields moved apart break a CHECK (start before end). Rapidkoi picking a loser, the app resolving it, or no such rules in synced tables?
+
+**Decision:**
+- **A table that syncs may have no UNIQUE (besides its id), no FOREIGN KEY and no CHECK.** Rapidkoi checks its definition when the app creates it and gives the developer a sentence, as for ids (DECISION-071). Part of contract 8's rules.
+- **`local_` tables (DECISION-072) keep every rule.**
+- **The app handles what a merge can leave in what it shows:** two tags of one name (the person can combine them), an item whose list is gone.
+
+**Why:** it can be checked before anything goes wrong, and devices always end up the same (DECISION-068, goal 3); nothing silently disappears, since a duplicate is visible and fixable. Picking a loser hides a row the person made and is hard to get right for every kind of rule; asking the app breaks goal 5 and leaves devices apart until it answers. cr-sqlite, from memory and unchecked, likewise allows no unique index besides the primary key on the tables it syncs.
+
+**Rules out:** Rapidkoi resolving a broken rule; a conflict message to apps.
+
+---
+
 ### DECISION-072 — Which tables sync: all but `local_` ones
 
 **Status:** resolved (the owner, 2026-10-31: "yes", to option 2)
@@ -729,12 +747,12 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - For each field, the change with the latest time wins. Equal times are settled by the device, the same way on every device, so all devices pick the same winner.
 - It's silent: the person isn't asked or told. Changes to different fields of a row never fight (one device's new title and another's tick both stay).
 - The losing changes stay in the log, so nothing is gone (DECISION-068, goal 3). Seeing them comes with history (build step 6).
-- The time is a hybrid logical clock (DECISION-069). Deletes: DECISION-070. Row ids: DECISION-071.
+- The time is a hybrid logical clock (DECISION-069). Deletes: DECISION-070. Row ids: DECISION-071. Table rules: DECISION-073.
 - Order of arrival doesn't matter: devices that have the same changes show the same data.
 
 **Rules out:** last write per row (it drops another device's edit to a different field); asking the person to pick between versions; deleting a losing change.
 
-**Not decided here:** edits that break a rule of the app's tables (a unique column). Sharing between people isn't in scope (DECISION-068 is one person's devices).
+**Not decided here:** sharing between people isn't in scope (DECISION-068 is one person's devices).
 
 ---
 
