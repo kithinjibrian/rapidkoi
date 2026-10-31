@@ -559,7 +559,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Question:** When two devices or two people edit the same data, what wins: last write per row, a change log with merge rules per table, or CRDTs on SQLite (e.g. cr-sqlite)?
 
-**Notes:** Safe to defer: Rapidkoi owns each app's database (DECISION-004), so any of the three stays possible. See `docs/source/meetings/2026-10-17-architecture.md`.
+**Notes:** Safe to defer: Rapidkoi owns each app's database (DECISION-004), so any of the three stays possible. See `docs/source/meetings/2026-10-17-architecture.md`. Whatever is chosen must meet sync's goals (DECISION-068): with or without the internet, and nothing silently lost.
 
 ---
 
@@ -649,6 +649,29 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-068 — What sync is for
+
+**Status:** resolved (the owner, 2026-10-31)
+**Raised:** 2026-10-31, the owner: "let's discuss sync from scratch"; then, lost in the mechanics, "simply answer what do we want"
+
+**Question:** Before choosing how sync works (DECISION-011 and the rest), what must it do?
+
+**Decision (the owner: "yes that's right, record it"):**
+1. Every app's data is on all of a person's devices.
+2. It works with or without the internet: devices that can reach each other (the same Wi-Fi) sync directly; apart, they sync across the internet.
+3. Nothing is lost: devices that changed things while apart end up the same, and no change silently disappears.
+4. Only the person's own devices can read it: anything in between sees sealed data only.
+5. Apps don't have to do anything: they keep writing to their database, and Rapidkoi syncs it.
+6. No single server is required: syncing across the internet goes through a relay, a default one or the person's own, and without any relay, local sync still works.
+
+**Rules out:** sync that needs the internet or one particular server; a relay or network that can read what it carries; sync an app has to code for.
+
+**Not decided here:** how. Conflicts (DECISION-011), row ids, sharing with other people, choosing which apps sync, pairing and recovery, how devices find and trust each other on a network, and who runs the default relay are their own questions. Sync stays build step 4; this records what it's for.
+
+**Found while discussing (2026-10-31):** the system's SQLite has the session, changeset and rebaser functions, but `lugha-sqlite` doesn't bind them; `std.net` has TCP but "no UDP yet" (finding devices on a network usually needs it); `std.tls` has no client certificates or pinning. Each is fixed in its own repository when sync is built.
+
+---
 
 ### DECISION-067 — A popover over a big app's screen is slow (kivuli)
 
