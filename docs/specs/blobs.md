@@ -91,11 +91,14 @@ A blob may belong to a row: `owner: {table, key}`, the table's name and the row'
 |---|---|---|
 | `sql_batch` step `{ blob_set, bytes, owner? }` | store or replace a key's bytes | the batch's `on_answer` / `on_fail` |
 | `sql_batch` step `{ blob_delete }` | remove a key (no such key: nothing happens) | the batch's |
-| `blob_get` `{ msg, key, from?, len? }` | read a key's bytes, whole or a range | `on_answer {bytes, from, size}` or `on_fail` |
+| `blob_get` `{ msg, key, from?, len?, hash? }` | read a key's bytes, whole or a range | `on_answer {bytes, from, size, hash}` or `on_fail` |
 | `blob_list` `{ msg, prefix? }` | the app's keys | `on_answer {blobs: [{key, size, owner?}], cut}` or `on_fail` |
 
 - **Where bytes come from (agreed: A and D now):** what the app sends (A), and nothing else yet; a fetch saving straight into a blob (B) and the file picker (C) are part 3.
 - **Reading (agreed: ranged):** `from` defaults to 0, `len` to the rest; an answer is at most 4 MB, like an SQL answer, so a larger blob is read in pieces. `size` is the whole blob's.
+- **Reading in pieces is checked (agreed):** every answer carries the blob's `hash`. A later piece passes it back (`{key, from, hash}`); if the key now holds other bytes, the answer is `on_fail` "This blob changed while it was being read", and the app starts over. Replaced bytes are never kept around for a reader.
+- **Read after the write's answer:** an app's asks run at once, side by side, so a `blob_get` sent with the `sql_batch` that writes the blob can run first. The contract says so.
+- **Read, use, drop:** an app keeps nothing between calls (DECISION-045), so bytes it holds go in its window state (16 MB, saved with the window). The contract's notes: handle each piece as it arrives and keep the result, not the bytes. Formats read line by line (JSONL, CSV, logs) suit this; a format needing the whole file should stay well under the state cap, or be split into several blobs.
 - **Writing is whole:** one `blob_set` carries all the bytes, so a blob is all there or not at all. A guest's result must grow to carry one (`MAX_UPDATE` in `src/guest/limits.la`).
 - Each runs in a `Cmd.task`, like `sql`. Other windows of the app get `on_change` with the owner tables a batch changed, as today.
 - `blob_list` gives at most 10,000 keys, in key order; `cut` counts those left out.
@@ -199,4 +202,6 @@ Every one is a host function untrusted code can call, or SQL built from what it 
 1. The owner reviews this draft; DECISION-087 is resolved from it.
 2. lugha-sqlite gets requests 1 and 2 (`docs/specs/`), built and tagged there.
 3. Discovery, then a PRP: part 1 and part 2, with Notes attaching a photo as the app that proves it (in `../notes`, under its own rules).
-4. rapidkoi-rust gets the contract's asks and a helper writing a row and its blob in one batch, tagged first; then the shell; then the built-ins are repacked.
+4. rapidkoi-rust gets the contract's asks and two helpers, tagged first; then the shell; then the built-ins are repacked:
+   - writing a row and its blob in one batch;
+   - **`blob_lines(key)` (agreed):** reads a blob piece by piece, carries an unfinished last line into the next piece, checks the hash, and delivers `Event::Lines { lines, done }`, so an app reads JSONL, CSV or a log of any size without holding it whole. On a changed blob it fails, and the app starts over.
