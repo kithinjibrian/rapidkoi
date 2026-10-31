@@ -1,0 +1,59 @@
+// The person's files on disk (PRP-056): a file's size checked before it's
+// read, its name the only part of its path an app gets, and a save that
+// leaves no temporary file behind. Files under /tmp (see test/blobmap.la).
+import rapidkoi.data.files { Filed, open_into, save_new, name_of };
+import rapidkoi.data.databases { path_for, clear };
+import rapidkoi.data.store { store_at };
+import rapidkoi.window.tabs { failed_page };
+import rapidkoi.guest.limits { MAX_BLOB };
+import std.fs;
+
+fun db(name: string): string {
+    let path = path_for(
+        store_at("/tmp/rapidkoi-test-files-{name}"),
+        failed_page("rapidkoi://localhost:8000", ""),
+    ).unwrap();
+    let _ = clear(path);
+    path
+}
+
+fun folder(name: string): string {
+    let at = "/tmp/rapidkoi-test-files-{name}-mine";
+    fs.make_dirs(at).unwrap();
+    at
+}
+
+fun why(f: Filed): string = match f {
+    Failed(w) => w,
+    _ => "",
+};
+
+@test
+fun only_a_path_s_last_part_is_a_name() {
+    assert_eq(name_of("/home/a/receipt.pdf"), "receipt.pdf");
+    assert_eq(name_of("receipt.pdf"), "receipt.pdf");
+}
+
+@test
+fun a_file_over_16_mb_is_refused() {
+    let at = folder("big");
+    let big: u8[] = [0; MAX_BLOB + 1];
+    write_bytes("{at}/big.bin", big).unwrap();
+    assert_eq(why(open_into(db("big"), "{at}/big.bin", "k", false)), "This file is over 16 MB");
+    assert_eq(
+        why(open_into(db("big"), "{at}/missing.bin", "k", false)),
+        "Rapidkoi couldn't read this file",
+    );
+    // A folder isn't a file.
+    assert_eq(why(open_into(db("big"), at, "k", false)), "Rapidkoi couldn't read this file");
+}
+
+@test
+fun saving_a_missing_blob_says_so_and_writes_nothing() {
+    let at = folder("missing");
+    assert_eq(
+        why(save_new(db("missing"), "{at}/out.txt", "nothing")),
+        "This app has no blob with that key",
+    );
+    assert_eq(fs.exists("{at}/out.txt"), false);
+}

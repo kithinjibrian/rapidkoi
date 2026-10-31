@@ -39,6 +39,14 @@ fun blob_step_of(e: Value): Result<Option<BatchStep>, ContractError> {
     if let Some(k) = e.get("blob_delete") {
         return Ok(Some(BatchStep.BlobDelete(key_of(k, "a blob_delete")?)));
     }
+    // An opened file's blob given its row (PRP-056): the owner is required here.
+    if let Some(k) = e.get("blob_own") {
+        let key = key_of(k, "a blob_own")?;
+        return match e.get("owner") {
+            Some(o) if o != Value.Null => Ok(Some(BatchStep.BlobOwn(key, owner_of(o)?))),
+            _ => Err(bad("a blob_own needs its owner")),
+        };
+    }
     Ok(None)
 }
 

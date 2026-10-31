@@ -1,0 +1,128 @@
+/**
+ * File asks (PRP-056, DECISION-089), pure: a `file_open`, `file_save` or
+ * `file_save_as` read and held to its shape before anything opens. The
+ * app never names a file: the person chooses one in Rapidkoi's dialog, and
+ * a handle only names what was chosen. Whether a handle is still good, and
+ * the file's size, are `window.handles`' and `data.files`' questions.
+ *
+ * Depends on: cbor, guest.nodes, guest.blobasks
+ * Used by: guest.contract
+ */
+import cbor { Value };
+import guest.nodes { FileOpen, FileSaveAs, ContractError };
+import guest.blobasks { key_of };
+
+/** The most extensions an ask may offer. */
+const MAX_ACCEPT: i64 = 16;
+
+/** The longest extension, or a suggested name, or a handle, in bytes. */
+const MAX_NAME: i64 = 255;
+
+/**
+ * Reads a `file_open`: the blob key, the extensions offered, and whether
+ * it opens to be modified.
+ *
+ * @returns the ask; `Err(Invalid)` for a bad key, `accept` or `edit`
+ *
+ * Example:
+ *     file_open_of(effect)?
+ */
+fun file_open_of(e: Value): Result<FileOpen, ContractError> {
+    let key = key_in(e, "a file_open")?;
+    let accept = accept_of(e, "a file_open")?;
+    let edit = match e.get("edit") {
+        None | Some(Null) => false,
+        Some(Bool(b)) => b,
+        Some(_) => {
+            return Err(bad("a file_open's edit is true or false"));
+        }
+    };
+    Ok(FileOpen { key: key, accept: accept, edit: edit })
+}
+
+/**
+ * Reads a `file_save`: the handle and the blob key whose bytes are saved.
+ *
+ * @returns the handle and the key; `Err(Invalid)` for a missing handle or a bad key
+ *
+ * Example:
+ *     file_save_of(effect)?
+ */
+fun file_save_of(e: Value): Result<(string, string), ContractError> {
+    let handle = match e.get("handle") {
+        Some(Text(h)) if h.len >= 1 && h.len <= MAX_NAME => h,
+        _ => {
+            return Err(bad("a file_save needs the handle file_open or file_save_as gave"));
+        }
+    };
+    Ok((handle, key_in(e, "a file_save")?))
+}
+
+/**
+ * Reads a `file_save_as`: the blob key, a suggested name (`""` for none),
+ * and the extensions offered.
+ *
+ * @returns the ask; `Err(Invalid)` for a bad key, name or `accept`
+ *
+ * Example:
+ *     file_save_as_of(effect)?
+ */
+fun file_save_as_of(e: Value): Result<FileSaveAs, ContractError> {
+    let key = key_in(e, "a file_save_as")?;
+    let name = match e.get("name") {
+        None | Some(Null) => "",
+        // A suggestion only: the person may change it, and the dialog keeps it in its folder.
+        Some(Text(n)) if n.len <= MAX_NAME && !n.contains("/") && !control(n) => n,
+        Some(_) => {
+            return Err(bad("a file_save_as's name is a file name of at most {MAX_NAME} bytes"));
+        }
+    };
+    Ok(FileSaveAs { key: key, name: name, accept: accept_of(e, "a file_save_as")? })
+}
+
+fun key_in(e: Value, what: string): Result<string, ContractError> = match e.get("key") {
+    Some(k) => key_of(k, what),
+    None => Err(bad("{what} needs its key")),
+};
+
+/** Up to `MAX_ACCEPT` extensions without the dot: letters, digits, `_` and `-`. */
+fun accept_of(e: Value, what: string): Result<string[], ContractError> {
+    let given = match e.get("accept") {
+        None | Some(Null) => {
+            return Ok([]);
+        }
+        Some(Array(xs)) => xs,
+        Some(_) => {
+            return Err(bad("{what}'s accept is a list of extensions"));
+        }
+    };
+    if given.len > MAX_ACCEPT {
+        return Err(bad("{what} offers at most {MAX_ACCEPT} extensions"));
+    }
+    let mut out: string[] = [];
+    for x of given {
+        match x {
+            // Each becomes a pattern in the dialog (`*.png`): nothing that could widen it.
+            Text(ext) if plain(ext) => out.push(ext),
+            _ => {
+                return Err(bad("{what}'s accept is extensions like \"png\", without the dot"));
+            }
+        }
+    }
+    Ok(out)
+}
+
+fun plain(ext: string): bool {
+    if ext.len == 0 || ext.len > 16 {
+        return false;
+    }
+    ext.to_bytes().all(
+        fun(
+            b: u8,
+        ) = b >= 97 && b <= 122 || b >= 65 && b <= 90 || b >= 48 && b <= 57 || b == 95 || b == 45,
+    )
+}
+
+fun control(s: string): bool = s.to_bytes().any(fun(b: u8) = b < 32 || b == 127);
+
+fun bad(problem: string): ContractError = ContractError.Invalid("update", problem);

@@ -102,6 +102,29 @@ fun ask(m: Model, id: i64, msg: Value, c: Call): (Model, Option<Value>, Cmd<Msg>
 }
 
 /**
+ * Makes every window of the app whose database is at `db` read its `blob:`
+ * pictures again (PRP-055): its blobs changed.
+ *
+ * Example:
+ *     refreshed(m, db)
+ */
+fun refreshed(m: Model, db: string): Model {
+    let mut at = m;
+    for t of m.tabs {
+        if m.store.and_then(fun(s) = path_for(s, t.page)) == Some(db) {
+            at = with_tab(at, t.id, unpictured);
+        }
+    }
+    at
+}
+
+/** A page without its kept `blob:` pictures, so the next check reads them again. */
+fun unpictured(page: AppPage): AppPage = AppPage {
+    pictures: page.pictures.filter(fun(e: (string, Kept)) = blob_of(e.0).is_none()),
+    ..page,
+};
+
+/**
  * Takes a write's result (as `arrive`), then starts the next write
  * waiting on the same database, skipping any whose tab closed or loaded
  * again since.
@@ -198,14 +221,7 @@ fun arrive(m: Model, id: i64, load: i64, msg: Value, got: Queried): Model {
             continue;
         }
         if blobs {
-            told = with_tab(
-                told,
-                t.id,
-                fun(page: AppPage) = AppPage {
-                    pictures: page.pictures.filter(fun(e: (string, Kept)) = blob_of(e.0).is_none()),
-                    ..page,
-                },
-            );
+            told = with_tab(told, t.id, unpictured);
         }
         if t.id != id && theirs.len > 0 {
             told = with_tab(told, t.id, fun(page: AppPage) = data_changed(page, theirs));

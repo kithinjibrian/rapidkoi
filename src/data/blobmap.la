@@ -152,6 +152,12 @@ fun set_step(
     )
 }
 
+/** Builds the step that gives an existing key an owner row (PRP-056: a file opened into a blob, then attached). */
+fun own_step(key: string, table: string, at: sqlite.Value): sqlite.Step = sqlite.Step.Own(
+    "UPDATE rapidkoi_blobs SET owner_table = ?, owner_key = ? WHERE key = ?",
+    [sqlite.Value.Text(table), at, sqlite.Value.Text(key)],
+);
+
 /** Builds the step that removes a key. */
 fun delete_step(key: string): sqlite.Step = sqlite.Step.Own(
     "DELETE FROM rapidkoi_blobs WHERE key = ?",

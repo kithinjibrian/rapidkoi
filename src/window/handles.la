@@ -1,0 +1,92 @@
+/**
+ * The window's files (PRP-056): the file dialog waiting for the person,
+ * if one is open (one at a time per window), and the handles apps were
+ * given. A handle names one file the person chose, for the tab and load
+ * that got it: a closed tab or another load makes it stale. Paths live
+ * only here, never in an app's state, never on disk. Data only; asking and
+ * answering are `guest.storing`'s.
+ *
+ * Depends on: cbor
+ * Used by: window.window, guest.storing
+ */
+import cbor { Value };
+
+/** What the dialog waiting is for. */
+enum Wanted {
+    /** A file to read into this blob key; `true` when it opens to be modified. */
+    Open(string, bool),
+    /** A new file to save this blob key to. */
+    SaveAs(string),
+}
+
+/** A dialog the person hasn't answered yet: the tab and load that asked, the app's `msg`, and what for. */
+struct Waiting {
+    tab: i64,
+    load: i64,
+    msg: Value,
+    wanted: Wanted,
+}
+
+/** One file a handle names: the tab and load it was given to, the path, and its hash when last read or saved. */
+struct Held {
+    tab: i64,
+    load: i64,
+    path: string,
+    hash: u8[],
+}
+
+/** The window's file dialog and handles. */
+struct Files {
+    waiting: Option<Waiting>,
+    handles: Map<string, Held>,
+    /** The last handle number given out. */
+    next: i64,
+}
+
+/**
+ * Returns a window's files before any was opened.
+ *
+ * Example:
+ *     no_files()
+ */
+fun no_files(): Files = Files { waiting: None, handles: #{}, next: 0 };
+
+/**
+ * Gives out a new handle for a file, returning it with the files that hold it.
+ *
+ * Example:
+ *     let (files, handle) = held_as(f, Held { tab: 1, load: 1, path: p, hash: h })
+ */
+fun held_as(f: Files, h: Held): (Files, string) {
+    let handle = "h{f.next + 1}";
+    let mut handles = f.handles;
+    handles[handle] = h;
+    (Files { handles: handles, next: f.next + 1, ..f }, handle)
+}
+
+/**
+ * Returns the file a handle names, if it was given to this tab and load.
+ *
+ * Example:
+ *     held_by(f, "h1", 1, 1)
+ */
+fun held_by(f: Files, handle: string, tab: i64, load: i64): Option<Held> = match f.handles.get(
+    handle,
+) {
+    Some(h) if h.tab == tab && h.load == load => Some(h),
+    _ => None,
+};
+
+/**
+ * Records a file's new hash after it was saved through its handle.
+ *
+ * Example:
+ *     rehashed(f, "h1", hash)
+ */
+fun rehashed(f: Files, handle: string, hash: u8[]): Files {
+    let mut handles = f.handles;
+    if let Some(h) = handles.get(handle) {
+        handles[handle] = Held { hash: hash, ..h };
+    }
+    Files { handles: handles, ..f }
+}

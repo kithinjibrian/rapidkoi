@@ -9,7 +9,7 @@
  * declare is stopped. Each answer goes back through the app's `update`,
  * which may ask again, up to `MAX_ANSWERS` in a row.
  *
- * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, bundles.permissions, ui.render, net.requests, window.actions
+ * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, bundles.permissions, ui.render, net.requests, guest.storing, window.actions
  * Used by: shell
  */
 import people.identity { Master, master, public_key, sign_in };
@@ -26,8 +26,7 @@ import std.time;
 import kivuli { Cmd };
 import window.actions { Msg, Approval, Answer };
 import net.requests;
-import data.queries;
-import data.databases { Call };
+import guest.storing;
 import ui.render;
 import guest.home { pins_of, left_off_of, pin_msg, continue_msg, session_of };
 import bundles.permissions { Permission, Setting, name_of, words_of };
@@ -215,24 +214,9 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
             // The new tab has no server of its own to reach.
             NewTab => (m, Some(reply(Reply.Failed("The new tab can't make requests"))), msg),
         },
-        // Its own database (PRP-041) and blobs (PRP-054): a task, answered when it arrives.
-        Sql(msg, q) => {
-            let (held, now, send) = queries.ask_in(m, tab_of(slot), msg, Call.Read(q));
-            sends.push(send);
-            (held, now, msg)
-        }
-        SqlBatch(msg, steps) => {
-            let (held, now, send) = queries.ask_in(m, tab_of(slot), msg, Call.Write(steps));
-            sends.push(send);
-            (held, now, msg)
-        }
-        BlobGet(msg, r) => {
-            let (held, now, send) = queries.ask_in(m, tab_of(slot), msg, Call.BlobGet(r));
-            sends.push(send);
-            (held, now, msg)
-        }
-        BlobList(msg, prefix) => {
-            let (held, now, send) = queries.ask_in(m, tab_of(slot), msg, Call.BlobList(prefix));
+        // Its own data and the person's files (PRP-041, PRP-054, PRP-056): `storing`'s.
+        Sql(msg, _) | SqlBatch(msg, _) | BlobGet(msg, _) | BlobList(msg, _) | FileOpen(msg, _) | FileSave(msg, _, _) | FileSaveAs(msg, _) => {
+            let (held, now, send) = storing.ask(m, tab_of(slot), ask);
             sends.push(send);
             (held, now, msg)
         }

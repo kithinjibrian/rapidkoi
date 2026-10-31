@@ -1,0 +1,261 @@
+/**
+ * An app's own data and the person's files (PRP-041, PRP-054, PRP-056):
+ * its `sql`, `sql_batch`, `blob_get` and `blob_list` asks, sent to
+ * `data.queries`; and `file_open`, `file_save` and `file_save_as`, which
+ * open Rapidkoi's file dialog (kivuli's, titled with the app's name),
+ * read or write the file in a task (`data.files`) and answer the app. One
+ * dialog at a time per window; a handle reaches only the file the person
+ * chose, for the tab and load it was given to. The app learns a name and a
+ * size, never a path. Nothing touches the disk in `update`.
+ *
+ * Depends on: kivuli, cbor, guest.nodes, guest.contract, data.queries, data.databases, data.files, window.window, window.tabs, window.handles, window.actions, net.network, ui.render
+ * Used by: guest.effects, shell
+ */
+import kivuli { Cmd, FileFilter };
+import cbor { Value, Entry };
+import guest.nodes { Effect, FileOpen, FileSaveAs };
+import guest.contract { reply };
+import data.queries;
+import data.databases { Call, path_for };
+import data.files { Filed, open_into, save_back, save_new };
+import window.window { Model, app, with_tab };
+import window.tabs { AppPage, handle };
+import window.handles { Files, Waiting, Wanted, Held, held_as, held_by, rehashed };
+import window.actions { Msg };
+import net.network { Reply };
+import ui.render;
+
+/**
+ * Answers one storage or file ask from tab `tab` (`None`: the new tab):
+ * the model, the answer to give now (a refusal, or none while a task or
+ * the dialog works), and the command. Panics on any other ask: `effects`
+ * sends only these here.
+ *
+ * Example:
+ *     ask(m, Some(id), Effect.FileOpen(msg, open))
+ */
+fun ask(m: Model, tab: Option<i64>, e: Effect): (Model, Option<Value>, Cmd<Msg>) = match e {
+    Sql(msg, q) => queries.ask_in(m, tab, msg, Call.Read(q)),
+    SqlBatch(msg, steps) => queries.ask_in(m, tab, msg, Call.Write(steps)),
+    BlobGet(msg, r) => queries.ask_in(m, tab, msg, Call.BlobGet(r)),
+    BlobList(msg, prefix) => queries.ask_in(m, tab, msg, Call.BlobList(prefix)),
+    FileOpen(_, o) => choosing(m, tab, Wanted.Open(o.key, o.edit), o.accept, "", e),
+    FileSaveAs(_, s) => choosing(m, tab, Wanted.SaveAs(s.key), s.accept, s.name, e),
+    FileSave(msg, h, key) => saving(m, tab, msg, h, key),
+    _ => panic("storing.ask takes storage and file asks only"),
+};
+
+/** A refusal answered at once, as `on_fail` with `why`. */
+fun refused(m: Model, why: string): (Model, Option<Value>, Cmd<Msg>) = (
+    m,
+    Some(reply(Reply.Failed(why))),
+    Cmd.none(),
+);
+
+/** The app's page and its database, or why it keeps no files. */
+fun where_kept(m: Model, tab: Option<i64>): Result<(i64, AppPage, string), string> {
+    let id = tab.ok_or("This app keeps no files here")?;
+    let p = app(m, id).ok_or("This app keeps no files here")?;
+    let db = m.store.and_then(fun(s) = path_for(s, p)).ok_or("This app keeps no files here")?;
+    Ok((id, p, db))
+}
+
+/** Opens Rapidkoi's dialog for a `file_open` or `file_save_as`, or says why not. */
+fun choosing(
+    m: Model,
+    tab: Option<i64>,
+    wanted: Wanted,
+    accept: string[],
+    suggested: string,
+    e: Effect,
+): (Model, Option<Value>, Cmd<Msg>) {
+    let (id, p, _) = match where_kept(m, tab) {
+        Ok(at) => at,
+        Err(why) => {
+            return refused(m, why);
+        }
+    };
+    if m.files.waiting.is_some() {
+        return refused(m, "A file dialog is already open");
+    }
+    let msg = match e {
+        FileOpen(msg, _) | FileSaveAs(msg, _) => msg,
+        _ => Value.Null,
+    };
+    // The extensions themselves name the filter: no words of Rapidkoi's beyond the title.
+    let filters = if accept.len == 0 {
+        []
+    } else {
+        [FileFilter { name: accept.join(", "), patterns: accept.map(fun(x: string) = "*.{x}") }]
+    };
+    let waiting = Waiting { tab: id, load: p.load, msg: msg, wanted: wanted };
+    let held = Model { files: Files { waiting: Some(waiting), ..m.files }, ..m };
+    let chosen = fun(c: Option<string>) = Msg.FileChosen(c);
+    // The titles are the owner's words (DECISION-089).
+    let cmd = match wanted {
+        Open(_, true) => Cmd.open_file("Open a file for {p.name} to modify", filters, chosen),
+        Open(_, false) => Cmd.open_file("Open a file for {p.name}", filters, chosen),
+        SaveAs(_) => Cmd.save_file("Save a file from {p.name}", suggested, filters, chosen),
+    };
+    (held, None, cmd)
+}
+
+/** Starts saving a blob back through a handle, or says why not. */
+fun saving(
+    m: Model,
+    tab: Option<i64>,
+    msg: Value,
+    h: string,
+    key: string,
+): (Model, Option<Value>, Cmd<Msg>) {
+    let (id, p, db) = match where_kept(m, tab) {
+        Ok(at) => at,
+        Err(why) => {
+            return refused(m, why);
+        }
+    };
+    let file = match held_by(m.files, h, id, p.load) {
+        Some(f) => f,
+        None => {
+            return refused(m, "This file is no longer open here");
+        }
+    };
+    let load = p.load;
+    let task = Cmd.task(
+        fun(): Filed = save_back(db, file.path, h, key, file.hash),
+        fun(got: Filed) = Msg.FileDone(id, load, msg, got),
+    );
+    (m, None, task)
+}
+
+/**
+ * Takes the person's answer to the dialog: nothing waiting, or the tab
+ * gone or loaded again since, is dropped; cancelled answers the app
+ * `null`; a chosen path starts reading or saving it in a task.
+ *
+ * @returns the model, and the task (none when cancelled or dropped)
+ *
+ * Example:
+ *     chosen(m, Some("/home/a/notes.txt"))
+ */
+fun chosen(m: Model, c: Option<string>): (Model, Cmd<Msg>) {
+    let w = match m.files.waiting {
+        Some(w) => w,
+        None => {
+            return (m, Cmd.none());
+        }
+    };
+    let cleared = Model { files: Files { waiting: None, ..m.files }, ..m };
+    let p = match app(cleared, w.tab) {
+        Some(p) if p.load == w.load => p,
+        _ => {
+            return (cleared, Cmd.none());
+        }
+    };
+    let db = match cleared.store.and_then(fun(s) = path_for(s, p)) {
+        Some(at) => at,
+        None => {
+            return (
+                answered(
+                    cleared,
+                    w.tab,
+                    w.msg,
+                    reply(Reply.Failed("This app keeps no files here")),
+                ),
+                Cmd.none(),
+            );
+        }
+    };
+    let path = match c {
+        Some(at) => at,
+        // Cancelling isn't an error: the app hears `null`.
+        None => {
+            return (answered(cleared, w.tab, w.msg, Value.Null), Cmd.none());
+        }
+    };
+    let (tab, load, msg) = (w.tab, w.load, w.msg);
+    let task = match w.wanted {
+        Open(key, edit) => Cmd.task(
+            fun(): Filed = open_into(db, path, key, edit),
+            fun(got: Filed) = Msg.FileDone(tab, load, msg, got),
+        ),
+        SaveAs(key) => Cmd.task(
+            fun(): Filed = save_new(db, path, key),
+            fun(got: Filed) = Msg.FileDone(tab, load, msg, got),
+        ),
+    };
+    (cleared, task)
+}
+
+/**
+ * Takes a file task's result: dropped for a closed tab or another load;
+ * otherwise a handle given out or brought up to date, and the app answered
+ * (`{key, name, size, handle?}`, `{size}`, `{name, size, handle}`, or
+ * `on_fail` with the sentence).
+ *
+ * Example:
+ *     done(m, id, load, msg, got)
+ */
+fun done(m: Model, tab: i64, load: i64, msg: Value, got: Filed): Model {
+    let p = match app(m, tab) {
+        Some(p) if p.load == load => p,
+        _ => {
+            return m;
+        }
+    };
+    match got {
+        Opened(key, name, size, path, hash, edit) => {
+            // The blob's bytes are new: every window of the app shows them afresh.
+            let fresh = match m.store.and_then(fun(s) = path_for(s, p)) {
+                Some(db) => queries.refreshed(m, db),
+                None => m,
+            };
+            let mut fields = [
+                entry("key", Value.Text(key)),
+                entry("name", Value.Text(name)),
+                entry("size", Value.int(size)),
+            ];
+            let mut at = fresh;
+            if edit {
+                let (kept, h) = held_as(at.files, Held {
+                    tab: tab,
+                    load: load,
+                    path: path,
+                    hash: hash,
+                });
+                at = Model { files: kept, ..at };
+                fields.push(entry("handle", Value.Text(h)));
+            }
+            answered(at, tab, msg, Value.Map(fields))
+        }
+        Saved(h, size, hash) => answered(
+            Model { files: rehashed(m.files, h, hash), ..m },
+            tab,
+            msg,
+            Value.Map([entry("size", Value.int(size))]),
+        ),
+        SavedAs(name, size, path, hash) => {
+            let (kept, h) = held_as(m.files, Held { tab: tab, load: load, path: path, hash: hash });
+            answered(
+                Model { files: kept, ..m },
+                tab,
+                msg,
+                Value.Map([
+                    entry("name", Value.Text(name)),
+                    entry("size", Value.int(size)),
+                    entry("handle", Value.Text(h)),
+                ]),
+            )
+        }
+        Failed(why) => answered(m, tab, msg, reply(Reply.Failed(why))),
+    }
+}
+
+/** The app in tab `tab` answered `value` for `msg`, through its `handle`. */
+fun answered(m: Model, tab: i64, msg: Value, value: Value): Model = with_tab(
+    m,
+    tab,
+    fun(page: AppPage) = handle(page, render.Msg.Answer(msg, value)),
+);
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };

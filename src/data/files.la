@@ -1,0 +1,169 @@
+/**
+ * The person's files (PRP-056, DECISION-089): one the person chose read
+ * into an app's blob, a blob saved back over the file a handle names, or
+ * saved to a new file the person chose. Each touches the disk: run it in a
+ * task, never in `update`. A file's size is checked before it's read
+ * (`fs.size`), a save never overwrites a change made since the file was
+ * read (its SHA-256), and every write is a temporary file renamed into
+ * place. Paths never leave Rapidkoi: the app gets a name, a size and a
+ * sentence. Which file a handle names is `window.handles`'.
+ *
+ * Depends on: std.fs, std.crypto, data.databases, guest.nodes, guest.limits
+ * Used by: guest.storing, window.actions
+ */
+import std.fs;
+import std.crypto { sha256 };
+import data.databases { Call, Queried, call };
+import guest.nodes { BatchStep, BlobRead };
+import guest.limits { MAX_BLOB };
+
+/** What a file task came to. */
+enum Filed {
+    /** Read into a blob: its key, its name, its size in bytes, the path, its hash, and whether it opened to be modified. */
+    Opened(string, string, i64, string, u8[], bool),
+    /** Saved back through a handle: the handle, the size in bytes, the new hash. */
+    Saved(string, i64, u8[]),
+    /** Saved to a new file: its name, its size in bytes, the path, its hash. */
+    SavedAs(string, i64, string, u8[]),
+    /** The sentence the app gets. */
+    Failed(string),
+}
+
+const TOO_BIG: string = "This file is over 16 MB";
+
+const CHANGED: string = "This file changed since it was opened";
+
+const CANT_READ: string = "Rapidkoi couldn't read this file";
+
+const CANT_SAVE: string = "Rapidkoi couldn't save this file";
+
+/**
+ * Reads the file the person chose into blob `key` of the app whose
+ * database is at `db`, as `blob_set` would store it.
+ *
+ * @param edit whether it opened to be modified (then the answer gets a handle)
+ * @returns `Opened`, or `Failed` with the app's sentence (too big, unreadable, the blob's own limits)
+ *
+ * Example:
+ *     open_into(db, "/home/a/receipt.pdf", "receipt", false)
+ */
+fun open_into(db: string, path: string, key: string, edit: bool): Filed {
+    let bytes = match whole(path) {
+        Ok(b) => b,
+        Err(why) => {
+            return Filed.Failed(why);
+        }
+    };
+    match call(db, Call.Write([BatchStep.BlobSet(key, bytes, None)])) {
+        Answer(_, _) => Filed.Opened(key, name_of(path), bytes.len, path, sha256(bytes), edit),
+        Failed(why) => Filed.Failed(why),
+    }
+}
+
+/**
+ * Saves blob `key` over the file at `path`, unless the file changed since
+ * it was read or last saved (its hash is no longer `expected`).
+ *
+ * @returns `Saved` with the new hash, or `Failed` with the app's sentence; nothing is written on a failure
+ *
+ * Example:
+ *     save_back(db, path, "h1", "doc", hash)
+ */
+fun save_back(db: string, path: string, handle: string, key: string, expected: u8[]): Filed {
+    let bytes = match blob_of(db, key) {
+        Ok(b) => b,
+        Err(why) => {
+            return Filed.Failed(why);
+        }
+    };
+    // Gone, grown past what Rapidkoi read, or different: someone else changed it.
+    match whole(path) {
+        Ok(now) if sha256(now) == expected => {}
+        _ => {
+            return Filed.Failed(CHANGED);
+        }
+    }
+    match write_safely(path, bytes) {
+        Ok(()) => Filed.Saved(handle, bytes.len, sha256(bytes)),
+        Err(_) => Filed.Failed(CANT_SAVE),
+    }
+}
+
+/**
+ * Saves blob `key` to the new file the person chose at `path` (the save
+ * dialog already asked before replacing one).
+ *
+ * @returns `SavedAs`, or `Failed` with the app's sentence
+ *
+ * Example:
+ *     save_new(db, "/home/a/notes.txt", "doc")
+ */
+fun save_new(db: string, path: string, key: string): Filed {
+    let bytes = match blob_of(db, key) {
+        Ok(b) => b,
+        Err(why) => {
+            return Filed.Failed(why);
+        }
+    };
+    match write_safely(path, bytes) {
+        Ok(()) => Filed.SavedAs(name_of(path), bytes.len, path, sha256(bytes)),
+        Err(_) => Filed.Failed(CANT_SAVE),
+    }
+}
+
+/**
+ * Returns a path's last part: what the app may know of where a file is.
+ *
+ * Example:
+ *     name_of("/home/a/receipt.pdf") == "receipt.pdf"
+ */
+fun name_of(path: string): string {
+    let parts = path.split("/");
+    parts[parts.len - 1]
+}
+
+/** A file's bytes, its size checked first so a huge one is never read. */
+fun whole(path: string): Result<u8[], string> {
+    let size = fs.size(path).map_err(fun(_: string) = CANT_READ)?;
+    if size > MAX_BLOB {
+        return Err(TOO_BIG);
+    }
+    let bytes = read_bytes(path).map_err(fun(_: string) = CANT_READ)?;
+    // It may have grown between the two calls.
+    if bytes.len > MAX_BLOB {
+        return Err(TOO_BIG);
+    }
+    Ok(bytes)
+}
+
+/** A blob's whole bytes, or the app's sentence. */
+fun blob_of(db: string, key: string): Result<u8[], string> {
+    match call(db, Call.BlobGet(BlobRead { key: key, from: 0, len: MAX_BLOB, hash: None })) {
+        Answer(v, _) => match v.get("bytes") {
+            Some(Bytes(b)) => Ok(b),
+            _ => Err(CANT_READ),
+        },
+        Failed(why) => Err(why),
+    }
+}
+
+/**
+ * Writes `bytes` to `path` so a crash leaves the old file or the new one:
+ * a temporary file beside it, synced, renamed over it, the folder synced.
+ * The new file takes the folder's default permissions.
+ */
+fun write_safely(path: string, bytes: u8[]): Result<(), string> {
+    let name = name_of(path);
+    let folder = if path.len > name.len { path.slice(0, path.len - name.len - 1) } else { "." };
+    let dir = if folder == "" { "/" } else { folder };
+    let tmp = "{dir}/.{name}.rapidkoi-saving";
+    let done = write_bytes(tmp, bytes).map(fun(_: i64) = ()).and_then(
+        fun(_) = fs.sync(tmp),
+    ).and_then(fun(_) = fs.rename(tmp, path));
+    if let Err(e) = done {
+        // Never leave a half-written temporary file in the person's folder.
+        let _ = fs.remove_file(tmp);
+        return Err(e);
+    }
+    fs.sync(dir)
+}

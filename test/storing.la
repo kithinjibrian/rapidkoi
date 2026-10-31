@@ -1,0 +1,231 @@
+// The person's files through the window (PRP-056): an app's ask opens
+// Rapidkoi's dialog, titled with its name; the person's answer is played
+// with kivuli.testing; the file lands in a blob, a handle saves it back, a
+// change made elsewhere is refused, save as gives a new handle. Files and
+// databases under /tmp (see test/blobmap.la for why /tmp).
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages, with_tab };
+import rapidkoi.guest.effects { answer_all };
+import rapidkoi.guest.storing { ask };
+import rapidkoi.guest.nodes { Effect, FileOpen, FileSaveAs, BatchStep, BlobRead };
+import rapidkoi.window.tabs { AppPage, open_module, state_of, handle };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.ui.render;
+import rapidkoi.data.store { store_at };
+import rapidkoi.data.databases { Call, path_for, call, clear };
+import kivuli { Cmd, Choosing };
+import kivuli.testing { chooser, answer_chooser };
+import cbor { Value, Limits, encode, decode };
+import wasmtime { Engine, Module };
+import support { t, kv, echo_init, settle, event_in };
+import std.fs;
+
+/** An init result asking for `wanted`. */
+fun asking(wanted: Value[]): u8[] = encode(
+    kv([("state", kv([])), ("effects", Value.Array(wanted))]),
+);
+
+fun app(engine: Engine, init: u8[]): AppPage = open_module(
+    "notes",
+    "notes.wasm",
+    engine,
+    Module.from_text(engine, echo_init(init)).unwrap(),
+);
+
+/** A window of `pages`, its data folder under /tmp, and a folder for the person's files. */
+fun windowed(name: string, pages: AppPage[]): (Model, string) {
+    let base = "/tmp/rapidkoi-test-storing-{name}";
+    let m = Model { store: Some(store_at(base)), ..with_pages(Engine.new(), pages) };
+    let _ = clear(path_for(store_at(base), m.tabs[0].page).unwrap());
+    let folder = "{base}-files";
+    fs.make_dirs(folder).unwrap();
+    (m, folder)
+}
+
+fun file_open(fields: (string, Value)[]): Value = kv(
+    [("kind", t("file_open")), ("msg", t("opened")), ("key", t("doc"))] + fields,
+);
+
+/** The value of the answer the echo app got last. */
+fun answer(m: Model): Value {
+    let event = event_in(state_of(m.tabs[0].page).unwrap_or([]));
+    decode(event, Limits.default()).unwrap().get("value").unwrap_or(Value.Null)
+}
+
+fun error(m: Model): string = match answer(m).get("error") {
+    Some(Text(s)) => s,
+    _ => "no error",
+};
+
+/** The app's ask answered now (a refusal), or its command run to the end. */
+fun asked(m: Model, e: Effect): (Model, Cmd<Msg>) {
+    let (held, now, cmd) = ask(m, Some(m.tabs[0].id), e);
+    match now {
+        Some(v) => (
+            with_tab(
+                held,
+                m.tabs[0].id,
+                fun(p: AppPage) = handle(p, render.Msg.Answer(t("asked"), v)),
+            ),
+            Cmd.none(),
+        ),
+        None => (held, cmd),
+    }
+}
+
+/** Opens `/tmp/…-files/a.txt` ("hello") to modify, answering the dialog; the model and the handle. */
+fun opened(name: string): (Model, string, string) {
+    let engine = Engine.new();
+    let (m, folder) = windowed(name, [
+        app(
+            engine,
+            asking([file_open([("edit", Value.Bool(true)), ("accept", Value.Array([t("txt")]))])]),
+        ),
+    ]);
+    let path = "{folder}/a.txt";
+    write_bytes(path, "hello".to_bytes()).unwrap();
+    let (waiting, cmd) = answer_all(m);
+    let (picked, task) = update(waiting, answer_chooser(cmd, Some(path)).unwrap());
+    let done = settle(picked, task, update);
+    let handle = match answer(done).get("handle") {
+        Some(Text(h)) => h,
+        _ => panic("no handle: {answer(done)}"),
+    };
+    (done, path, handle)
+}
+
+@test
+fun a_file_open_asks_in_rapidkoi_s_dialog_with_the_app_s_name() {
+    let engine = Engine.new();
+    let (m, _) = windowed("title", [
+        app(
+            engine,
+            asking([
+                file_open([
+                    ("edit", Value.Bool(true)),
+                    ("accept", Value.Array([t("txt"), t("md")])),
+                ]),
+            ]),
+        ),
+    ]);
+    let (_, cmd) = answer_all(m);
+    let c = chooser(cmd).unwrap();
+    assert_eq(c.mode == Choosing.Open, true);
+    assert_eq(c.title, "Open a file for notes to modify");
+    assert_eq(c.filters.len, 1);
+    assert_eq(c.filters[0].patterns, ["*.txt", "*.md"]);
+    let (n, _) = windowed("plain", [app(engine, asking([file_open([])]))]);
+    let (_, plain) = answer_all(n);
+    assert_eq(chooser(plain).unwrap().title, "Open a file for notes");
+    assert_eq(chooser(plain).unwrap().filters.len, 0);
+}
+
+@test
+fun a_chosen_file_lands_in_a_blob_with_its_name_size_and_handle() {
+    let (m, _, handle) = opened("open");
+    let v = answer(m);
+    assert_eq(v.get("key") == Some(t("doc")), true);
+    assert_eq(v.get("name") == Some(t("a.txt")), true);
+    assert_eq(v.get("size") == Some(Value.int(5)), true);
+    assert_eq(handle, "h1");
+    // The blob holds the bytes; the app never saw the path.
+    let db = path_for(m.store.unwrap(), m.tabs[0].page).unwrap();
+    match call(db, Call.BlobGet(BlobRead { key: "doc", from: 0, len: 100, hash: None })) {
+        Answer(got, _) => assert_eq(
+            got.get("bytes") == Some(Value.Bytes("hello".to_bytes())),
+            true,
+        ),
+        Failed(why) => panic(why),
+    }
+    assert_eq(v.get("path").is_none(), true);
+}
+
+@test
+fun cancelling_answers_null() {
+    let engine = Engine.new();
+    let (m, _) = windowed("cancel", [app(engine, asking([file_open([])]))]);
+    let (waiting, cmd) = answer_all(m);
+    let (done, _) = update(waiting, answer_chooser(cmd, None).unwrap());
+    assert_eq(answer(done) == Value.Null, true);
+    assert_eq(done.files.waiting.is_none(), true);
+}
+
+@test
+fun one_dialog_at_a_time() {
+    let engine = Engine.new();
+    let (m, _) = windowed("twice", [app(engine, asking([file_open([])]))]);
+    let (waiting, _) = answer_all(m);
+    let again = Effect.FileOpen(t("again"), FileOpen { key: "x", accept: [], edit: false });
+    let (refused, _) = asked(waiting, again);
+    assert_eq(error(refused), "A file dialog is already open");
+}
+
+@test
+fun a_handle_saves_back_and_never_over_another_s_change() {
+    let (m, path, handle) = opened("save");
+    let db = path_for(m.store.unwrap(), m.tabs[0].page).unwrap();
+    call(db, Call.Write([BatchStep.BlobSet("doc", "hello, world".to_bytes(), None)]));
+    let (saving, task) = asked(m, Effect.FileSave(t("saved"), handle, "doc"));
+    let saved = settle(saving, task, update);
+    assert_eq(answer(saved).get("size") == Some(Value.int(12)), true);
+    assert_eq(read_bytes(path).unwrap(), "hello, world".to_bytes());
+    // No temporary file is left beside it.
+    assert_eq(fs.list_dir("/tmp/rapidkoi-test-storing-save-files").unwrap(), ["a.txt"]);
+    // Changed elsewhere since: refused, and the file left as it is.
+    write_bytes(path, "theirs".to_bytes()).unwrap();
+    let (again, more) = asked(saved, Effect.FileSave(t("saved"), handle, "doc"));
+    let refused = settle(again, more, update);
+    assert_eq(error(refused), "This file changed since it was opened");
+    assert_eq(read_bytes(path).unwrap(), "theirs".to_bytes());
+}
+
+@test
+fun a_handle_from_another_load_is_no_longer_open() {
+    let (m, _, handle) = opened("stale");
+    let reloaded = with_tab(m, m.tabs[0].id, fun(p: AppPage) = AppPage { load: p.load + 1, ..p });
+    let (refused, _) = asked(reloaded, Effect.FileSave(t("saved"), handle, "doc"));
+    assert_eq(error(refused), "This file is no longer open here");
+    let (unknown, _) = asked(m, Effect.FileSave(t("saved"), "h99", "doc"));
+    assert_eq(error(unknown), "This file is no longer open here");
+}
+
+@test
+fun save_as_writes_a_new_file_and_gives_a_handle() {
+    let (m, path, _) = opened("as");
+    let wanted = Effect.FileSaveAs(t("exported"), FileSaveAs {
+        key: "doc",
+        name: "copy.txt",
+        accept: [],
+    });
+    let (waiting, cmd) = asked(m, wanted);
+    let c = chooser(cmd).unwrap();
+    assert_eq(
+        (c.mode == Choosing.Save, c.title, c.suggested),
+        (true, "Save a file from notes", Some("copy.txt")),
+    );
+    let target = path + ".copy";
+    let (picked, task) = update(waiting, answer_chooser(cmd, Some(target)).unwrap());
+    let done = settle(picked, task, update);
+    assert_eq(read_bytes(target).unwrap(), "hello".to_bytes());
+    let v = answer(done);
+    assert_eq(
+        (v.get("name") == Some(t("a.txt.copy")), v.get("handle") == Some(t("h2"))),
+        (true, true),
+    );
+}
+
+@test
+fun the_new_tab_keeps_no_files() {
+    let engine = Engine.new();
+    let (m, _) = windowed("newtab", [app(engine, asking([]))]);
+    let (held, now, _) = ask(
+        m,
+        None,
+        Effect.FileOpen(t("x"), FileOpen { key: "k", accept: [], edit: false }),
+    );
+    assert_eq(
+        now.and_then(fun(v: Value) = v.get("error")) == Some(t("This app keeps no files here")),
+        true,
+    );
+    assert_eq(held.files.waiting.is_none(), true);
+}
