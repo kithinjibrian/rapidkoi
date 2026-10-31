@@ -1,0 +1,92 @@
+// Questions about one app over its area only (PRP-057, DECISION-085):
+// Forget and an app's approval dim that app's area, stay with its tab, and
+// are answered by Cancel, Escape or a click on the dim; the frame stays
+// usable. Rapidkoi's own questions stay window-wide. Through the view and
+// kivuli.testing; no display.
+import rapidkoi.shell { update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.ui.questions { asked_here, cancel };
+import rapidkoi.ui.settings;
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.actions { Msg, Confirm, Approval, Answer };
+import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.bundles.permissions { Permission };
+import kivuli.testing { click, press, texts, tooltip };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+/** Two echo apps, tabs 0 and 1, tab 0 in front. */
+fun two(): Model {
+    let engine = Engine.new();
+    with_pages(engine, [app(engine, "a"), app(engine, "b")])
+}
+
+fun step(m: Model, msg: Msg): Model {
+    let (next, _) = update(m, msg);
+    next
+}
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+@test
+fun forget_is_asked_over_its_app_with_the_frame_still_usable() {
+    let m = two();
+    let asking = step(m, Msg.Ask(Confirm.Forget(0)));
+    assert_eq(asked_here(asking), true);
+    assert_eq(shows(asking, "Forget a?"), true);
+    // Not the window's dialog: the frame's controls still answer.
+    assert_eq(settings.dialog(asking).is_none(), true);
+    assert_eq(click(view(asking), "Add a tab"), Ok(Msg.NewTab));
+    assert_eq(click(view(asking), "Cancel"), Ok(Msg.Cancel));
+    assert_eq(press(view(asking), "Escape"), Ok(Msg.Cancel));
+}
+
+@test
+fun the_question_waits_on_its_own_tab() {
+    let asking = step(two(), Msg.Ask(Confirm.Forget(0)));
+    let away = step(asking, Msg.Select(1));
+    assert_eq((asked_here(away), shows(away, "Forget a?")), (false, false));
+    // No Escape answers it from another tab.
+    assert_eq(press(view(away), "Escape").is_err(), true);
+    let back = step(away, Msg.Select(0));
+    assert_eq(shows(back, "Forget a?"), true);
+}
+
+@test
+fun cancelling_or_closing_its_tab_clears_it() {
+    let asking = step(two(), Msg.Ask(Confirm.Forget(0)));
+    assert_eq(step(asking, Msg.Cancel).confirm, None);
+    assert_eq(step(asking, cancel(asking)).confirm, None);
+    assert_eq(step(asking, Msg.CloseTab(0)).confirm, None);
+    // Closing another tab leaves it.
+    assert_eq(step(asking, Msg.CloseTab(1)).confirm, Some(Confirm.Forget(0)));
+}
+
+@test
+fun an_approval_is_asked_over_its_app() {
+    let m = Model {
+        approval: Some(Approval { tab: Some(0), permission: Permission.ReadPins, app: "a" }),
+        ..two(),
+    };
+    assert_eq(asked_here(m), true);
+    assert_eq(shows(m, "a wants to read your pins"), true);
+    assert_eq(press(view(m), "Escape"), Ok(Msg.Approve(Answer.Deny)));
+    assert_eq(cancel(m), Msg.Approve(Answer.Deny));
+    assert_eq(settings.dialog(m).is_none(), true);
+    // On another tab it isn't shown there.
+    assert_eq(asked_here(Model { current: Some(1), ..m }), false);
+}
+
+@test
+fun rapidkoi_s_own_questions_stay_window_wide() {
+    let about = step(two(), Msg.About(true));
+    assert_eq(settings.dialog(about).is_some(), true);
+    assert_eq(asked_here(about), false);
+}

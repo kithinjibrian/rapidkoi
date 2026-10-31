@@ -96,7 +96,7 @@ fun on_account(m: Model, msg: Msg): Model {
         SetSignIn(on) => Person { signs_in: on, ..x },
         _ => x,
     };
-    Model { people: with_person(m.people, next), confirm: None, ..m }
+    Model { people: with_person(m.people, next), ..m }
 }
 
 /**

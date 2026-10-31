@@ -83,7 +83,7 @@ fun the_settings_card_steps_aside_while_a_dialog_asks() {
     let engine = Engine.new();
     let open = step(with_pages(engine, [app(engine, "Notes")]), Msg.TogglePanel);
     assert_eq(addressbox.card_open(open), true);
-    let asking = step(open, Msg.Ask(Confirm.Forget));
+    let asking = step(open, Msg.Ask(Confirm.Forget(open.current.unwrap())));
     assert_eq(addressbox.card_open(asking), false);
     // Cancel: the card comes back where it was.
     assert_eq(addressbox.card_open(step(asking, Msg.Cancel)), true);

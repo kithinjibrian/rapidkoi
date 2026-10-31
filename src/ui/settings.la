@@ -78,18 +78,12 @@ fun dialog(m: Model): Option<Dialog<Msg>> {
     if m.naming.is_some() {
         return Some(ui_dialog(Msg.CancelSeparate, [asking.naming_view(m)]));
     }
-    // An app waiting for your approval first (PRP-031): closing it is Don't allow.
-    if m.approval.is_some() {
-        return Some(ui_dialog(Msg.Approve(Answer.Deny), [dialog_view(m)]));
-    }
     // About Rapidkoi (PRP-038): closing it is all it does.
     if m.about {
         return Some(ui_dialog(Msg.About(false), [dialog_view(m)]));
     }
-    match m.confirm {
-        Some(_) => Some(ui_dialog(Msg.Cancel, [dialog_view(m)])),
-        None => None,
-    }
+    // Forget and an app's approval are asked over the app's area (PRP-057, `ui.questions`).
+    None
 }
 
 /** What Rapidkoi is, in its version: About's dialog. */
@@ -123,7 +117,7 @@ fun dialog_view(m: Model): View<Msg> {
     };
     let (title, says, label, msg) = match m.confirm {
         // The owner's words (PRP-052).
-        Some(Forget) => (
+        Some(Forget(_)) => (
             "Forget {name}?",
             "Its windows, pin, data and settings here will be removed. Next time you open it, it won't know you.",
             "Forget",
@@ -137,7 +131,9 @@ fun dialog_view(m: Model): View<Msg> {
     column([
         dialog_header(title, says),
         dialog_footer([
-            ui_button("Cancel", Msg.Cancel).style(button_look(t, ButtonLook.Normal)),
+            ui_button("Cancel", Msg.Cancel).style(button_look(t, ButtonLook.Normal)).shortcut(
+                "Escape",
+            ),
             ui_button(label, msg).style(button_look(t, ButtonLook.Danger)),
         ]),
     ])
@@ -222,7 +218,7 @@ fun front(m: Model, p: AppPage, you: Account, reach: Access): View<Msg> {
     }
     if shows("forget") {
         parts.push(
-            ui_button("Forget this app…", Msg.Ask(Confirm.Forget)).style(
+            ui_button("Forget this app…", Msg.Ask(Confirm.Forget(m.current.unwrap_or(-1)))).style(
                 button_look(t, ButtonLook.Danger),
             ),
         );

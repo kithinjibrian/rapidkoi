@@ -129,7 +129,8 @@ fun the_approval_dialog_asks_with_three_answers() {
         approval: Some(Approval { tab: None, permission: Permission.ReadPins, app: "New tab" }),
         ..with_pages(Engine.new(), []),
     };
-    assert(settings.dialog(waiting).is_some());
+    // Over the new tab's area now, not the window's dialog (PRP-057).
+    assert(settings.dialog(waiting).is_none());
     let v = settings.dialog_view(waiting);
     assert(shows(v, "New tab wants to read your pins"));
     assert_eq(click(v, "Don't allow"), Ok(Msg.Approve(Answer.Deny)));

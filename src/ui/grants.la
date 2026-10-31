@@ -126,9 +126,10 @@ fun question(m: Model): Option<View<Msg>> = m.approval.map(
     fun(a) = column([
         dialog_header("{a.app} wants to {wish_of(a.permission)}", ""),
         dialog_footer([
+            // Escape is Don't allow, as the window-wide dialog's was (PRP-057).
             ui_button("Don't allow", Msg.Approve(Answer.Deny)).style(
                 button_look(m.theme, ButtonLook.Normal),
-            ),
+            ).shortcut("Escape"),
             ui_button("Allow once", Msg.Approve(Answer.Once)).style(
                 button_look(m.theme, ButtonLook.Normal),
             ),

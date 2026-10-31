@@ -464,19 +464,6 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ---
 
-### DECISION-085 — Questions about an app stay on its screen (a future PRP-053)
-
-**Status:** open
-**Raised:** 2026-10-31, the owner, checking PRP-052: "does the modal need to have a bg. or of it does can it be contained in the app screen only"
-
-**Question:** Rapidkoi's dialogs cover the whole window (kivuli's root `.dialog`, which dims and freezes everything behind). Should questions about one app (Forget, an app asking for a permission) cover only that app's screen instead, leaving the frame, the address box and other tabs usable, and staying with its tab when you switch away and back (as notices do, PRP-051)?
-
-**Recommended (Claude):** yes, as PRP-053: an app's questions built with kivuli's `overlay` and `.inert(true)` over the app's area, dimmed there only; Rapidkoi's own (About, renaming a window, naming a separate app) stay window-wide. The care needed: Forget closes the tab it asks about, so a question is tied to its own tab, never to whichever tab is in front.
-
-**Meanwhile:** the dialog stays window-wide, and ⚙'s card steps aside while it asks (PRP-052: a popover is drawn above the window).
-
----
-
 ## DEFERRED — Acknowledged, not yet needed
 
 ### DECISION-065 — The address box's pills sit 12 px in from its left end, flush at top and bottom (kivuli)
@@ -756,6 +743,21 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 ---
 
 ## RESOLVED
+
+### DECISION-085 — Questions about an app stay on its screen
+
+**Status:** resolved (the owner, 2026-11-01: "okay let's do 085", to the recommendation); built as PRP-057
+**Raised:** 2026-10-31, the owner, checking PRP-052: "does the modal need to have a bg. or of it does can it be contained in the app screen only"
+
+**Question:** Rapidkoi's dialogs cover the whole window (kivuli's root `.dialog`, which dims and freezes everything behind). Should questions about one app (Forget, an app asking for a permission) cover only that app's screen instead, leaving the frame, the address box and other tabs usable, and staying with its tab when you switch away and back (as notices do, PRP-051)?
+
+**Decision:** yes. An app's questions (Forget; an app's permission approval, the new tab's included) are drawn over that app's area only: the area dimmed with the theme's `scrim` and made inert, the question's card in its middle (kivuli's `overlay` and `.inert(true)`). Each question belongs to its tab: shown while that tab is in front, waiting when you switch away, and acting on its own tab, never whichever is in front. Rapidkoi's own questions (About, renaming a window, naming a separate app) stay window-wide.
+
+**Why:** a question about one app shouldn't freeze the others or Rapidkoi's frame; tied to its tab, it can't act on the wrong app.
+
+**Changes PRP-031's rule:** leaving the tab an approval was asked on no longer answers it Don't allow; it waits there, as the decision says every question does (PRP-057).
+
+---
 
 ### DECISION-089 — Files and folders: how apps reach the person's files
 

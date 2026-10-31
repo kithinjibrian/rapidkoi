@@ -1,0 +1,77 @@
+/**
+ * Questions about one app, over its area only (PRP-057, DECISION-085):
+ * Forget and an app's permission approval dim and freeze that app's area,
+ * their card in its middle, while the frame, the address box and the other
+ * tabs keep working. Each belongs to its tab: shown while that tab is in
+ * front, waiting while it isn't. Rapidkoi's own questions (About, renaming,
+ * naming a separate app) stay window-wide (`settings.dialog`). Pure.
+ *
+ * Depends on: kivuli, window.window, window.actions, ui.themes, ui.tokens
+ * Used by: ui.layout, ui.addressbox
+ */
+import kivuli { View, Align, column, overlay, button_with, spacer };
+import window.window { Model };
+import window.actions { Msg, Confirm, Answer };
+import ui.themes { scrim, question_card };
+import ui.tokens { SPACE_LG, APPS_WIDTH, padding, at_most };
+
+/**
+ * Says whether a question about the app in front is waiting: Forget asked
+ * about this tab, or an approval this tab's app (or the new tab, on the
+ * empty tab) is waiting for.
+ *
+ * Example:
+ *     asked_here(m)
+ */
+fun asked_here(m: Model): bool {
+    if let Some(Forget(tab)) = m.confirm {
+        if m.current == Some(tab) {
+            return true;
+        }
+    }
+    match m.approval {
+        // The new tab's ask shows over the new tab, on an empty tab.
+        Some(a) => a.tab == m.current || a.tab.is_none() && m.current.map(
+            fun(id: i64) = m.blanks.any(fun(b: i64) = b == id),
+        ).unwrap_or(true),
+        None => false,
+    }
+}
+
+/**
+ * Returns the app's area with its question over it, while one is asked
+ * here: the area inert, the theme's scrim over it (a click answers as
+ * Cancel does), and `card` in the middle. Without one, the area as it is.
+ *
+ * @param area the app's content area
+ * @param card the question's words and buttons
+ *
+ * Example:
+ *     over(m, content_area(m), settings.dialog_view(m))
+ */
+fun over(m: Model, area: View<Msg>, card: View<Msg>): View<Msg> {
+    if !asked_here(m) {
+        return area;
+    }
+    let t = m.theme;
+    let shown = column([card]).style(question_card(t)).style([
+        padding(SPACE_LG),
+        at_most(APPS_WIDTH),
+    ]);
+    overlay(area.inert(true), [
+        button_with(spacer(), cancel(m)).style(scrim(t)),
+        shown.place(Align.Center, Align.Center),
+    ])
+}
+
+/**
+ * What answering "no" sends: Don't allow for an approval, Cancel for Forget.
+ *
+ * Example:
+ *     cancel(m)
+ */
+fun cancel(m: Model): Msg = if m.approval.is_some() {
+    Msg.Approve(Answer.Deny)
+} else {
+    Msg.Cancel
+};
