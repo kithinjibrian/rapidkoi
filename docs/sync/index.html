@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sync in Rapidkoi</title>
+<link rel="stylesheet" href="sync.css">
+</head>
+<body>
+<div class="page">
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#goals">What sync is for</a></li>
+    <li><a href="#parts">The parts</a></li>
+    <li><a href="#conversation">The conversation</a></li>
+    <li><a href="#merging">Merging</a></li>
+    <li><a href="#clock">The clock</a></li>
+    <li><a href="#deletes">Deletes</a></li>
+    <li><a href="#apps">Rules for apps</a></li>
+    <li><a href="#versions">App versions</a></li>
+    <li><a href="#network">Meeting on a network</a></li>
+    <li><a href="#devices">Adding a device</a></li>
+    <li><a href="#pond">The Pond</a></li>
+    <li><a href="#trimming">Trimming the log</a></li>
+    <li><a href="#phones">Phones</a></li>
+    <li><a href="#building">Building it</a></li>
+    <li><a href="#index">Decisions</a></li>
+  </ol>
+</nav>
+
+<main>
+<header>
+  <h1>Sync in Rapidkoi</h1>
+  <p class="lede">How every app's data stays the same across a person's devices, with or without the internet, without the app doing anything and without anyone else being able to read it.</p>
+  <span class="status"><b>Designed</b> 2026-10-31 · not built yet (build step 4) · every rule here is a decision in <code>DECISIONS.md</code></span>
+</header>
+
+<section id="goals">
+  <h2><span class="n">1</span>What sync is for</h2>
+  <p>Everything below exists to meet these six goals. When a choice was hard, it was settled by asking which goal it served. <span class="ref">DECISION-068</span></p>
+  <ul class="goals">
+    <li><span class="gn">1</span><b>Everywhere</b>Every app's data is on all of a person's devices.</li>
+    <li><span class="gn">2</span><b>With or without the internet</b>Devices that can reach each other sync directly; apart, they sync across the internet.</li>
+    <li><span class="gn">3</span><b>Nothing lost</b>Devices that changed things apart end up the same, and no change silently disappears.</li>
+    <li><span class="gn">4</span><b>Private</b>Only the person's own devices can read it. Anything in between sees sealed data.</li>
+    <li><span class="gn">5</span><b>Free for apps</b>Apps keep writing to their database. Rapidkoi does the syncing.</li>
+    <li><span class="gn">6</span><b>No server required</b>The Pond helps across the internet; without it, local sync still works.</li>
+  </ul>
+</section>
+
+<section id="parts">
+  <h2><span class="n">2</span>The parts</h2>
+  <p>Each device keeps the full database of every app and works offline. Devices on the same network swap directly; apart, they swap through the Pond.</p>
+  <div class="scroll">
+  <svg viewBox="0 0 760 430" role="img" aria-label="Three devices with an app, its database, the sync log and Sync; two linked by Wi-Fi, all linked to the Pond">
+    <defs><g id="d">
+      <rect x="0" y="0" width="220" height="250" rx="14" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5"/>
+      <rect x="14" y="38" width="192" height="44" rx="8" fill="var(--panel)" stroke="var(--muted)" stroke-dasharray="4 3"/>
+      <text x="26" y="58" font-size="13" font-weight="600">App</text><text class="muted" x="26" y="74" font-size="11">untrusted WebAssembly</text>
+      <rect x="14" y="94" width="192" height="142" rx="10" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="26" y="112" font-size="11" font-weight="700" style="fill:var(--accent)">RAPIDKOI</text>
+      <rect x="26" y="120" width="80" height="50" rx="6" fill="var(--panel)" stroke="var(--line)"/><text x="34" y="140" font-size="12" font-weight="600">app.db</text><text class="muted" x="34" y="157" font-size="10">its tables</text>
+      <rect x="114" y="120" width="80" height="50" rx="6" fill="var(--panel)" stroke="var(--line)"/><text x="122" y="140" font-size="12" font-weight="600">sync log</text><text class="muted" x="122" y="157" font-size="10">every change</text>
+      <rect x="26" y="180" width="168" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="36" y="199" font-size="12" font-weight="600">Sync</text><text class="muted" x="36" y="215" font-size="10">seal, sign, swap, merge</text>
+    </g></defs>
+    <use href="#d" x="20" y="20"/><use href="#d" x="270" y="20"/><use href="#d" x="520" y="20"/>
+    <text x="34" y="44" font-weight="700">A <tspan class="muted" font-weight="400" font-size="12">laptop</tspan></text>
+    <text x="284" y="44" font-weight="700">B <tspan class="muted" font-weight="400" font-size="12">desktop</tspan></text>
+    <text x="534" y="44" font-weight="700">C <tspan class="muted" font-weight="400" font-size="12">work laptop</tspan></text>
+    <line x1="240" y1="222" x2="270" y2="222" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="5 4"/><text x="236" y="212" font-size="10" class="muted">Wi-Fi</text>
+    <path d="M130 270 C130 320 300 320 330 345" fill="none" stroke="var(--pond)" stroke-width="1.5"/>
+    <path d="M380 270 L380 345" fill="none" stroke="var(--pond)" stroke-width="1.5"/>
+    <path d="M630 270 C630 320 460 320 430 345" fill="none" stroke="var(--pond)" stroke-width="1.5"/>
+    <rect x="210" y="345" width="340" height="70" rx="12" fill="var(--pond-soft)" stroke="var(--pond)" stroke-width="1.5"/>
+    <text x="228" y="372" font-weight="700" style="fill:var(--pond)">Pond</text><text class="muted" x="272" y="372" font-size="12">Rapidkoi's by default, or your own</text>
+    <text class="muted" x="228" y="396" font-size="12">stores and forwards sealed changes; can't read them</text>
+  </svg>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Part</th><th>Holds or sees</th><th>Never sees</th></tr></thead>
+    <tbody>
+      <tr><td>The app</td><td>Its own rows, plain</td><td>The log, clocks, keys, other devices, the Pond</td></tr>
+      <tr><td><code>app.db</code></td><td>The app's tables: the current value of every field</td><td>—</td></tr>
+      <tr><td>The sync log</td><td>Every change ever made: row, field, value, time, device, number</td><td>Hidden from the app</td></tr>
+      <tr><td>Sync</td><td>Seals with the sync key, signs with the device key, swaps, merges</td><td>—</td></tr>
+      <tr><td>The Pond</td><td>Sealed changes; which device, how big, when</td><td>Contents, which app, table names, any key</td></tr>
+    </tbody>
+  </table></div>
+  <p>A change is born when the app runs a write batch: Rapidkoi runs it in one transaction, and SQLite's session extension records what changed. Each changed field becomes a log entry, numbered per device (A1, A2, …). Open windows of the app get <code>on_change</code> when changes from elsewhere are merged.</p>
+</section>
+
+<section id="conversation">
+  <h2><span class="n">3</span>The conversation</h2>
+  <p>Whenever two meet, whether two devices on the same Wi-Fi or a device and the Pond, they do the same three things:</p>
+  <ol><li><b>Say what you have.</b> Not the changes themselves: the highest number from each device, like "A3 B0 C1".</li><li><b>Send what's missing.</b> Only the changes the other's summary lacks.</li><li><b>Merge</b> what arrives.</li></ol>
+  <div class="stepper" id="st-conversation">
+    <div class="st-bar"><button class="st-prev">Back</button><button class="st-next primary">Next</button><button class="st-play">Play</button><span class="st-count"></span></div>
+    <p class="st-say" aria-live="polite"></p>
+    <div class="ex-wrap"><div class="ex-stage">
+      <div class="ex-zone" style="left:2%;top:4%;width:36%;height:92%"><span>Home Wi-Fi</span></div>
+      <div class="ex-zone" style="left:62%;top:52%;width:36%;height:44%"><span>Work</span></div>
+      <svg aria-hidden="true"></svg>
+      <div class="ex-node" data-id="A" style="left:5%;top:14%"><span class="ex-bubble"></span><span class="ex-name">A<small>laptop</small></span><span class="ex-chips"></span></div>
+      <div class="ex-node" data-id="B" style="left:5%;top:62%"><span class="ex-bubble"></span><span class="ex-name">B<small>desktop</small></span><span class="ex-chips"></span></div>
+      <div class="ex-node" data-id="P" style="left:40%;top:16%"><span class="ex-bubble"></span><span class="ex-name">Pond<small>internet</small></span><span class="ex-chips"></span></div>
+      <div class="ex-node" data-id="C" style="left:65%;top:62%"><span class="ex-bubble"></span><span class="ex-name">C<small>work laptop</small></span><span class="ex-chips"></span></div>
+      <div class="ex-packets"></div>
+    </div></div>
+  </div>
+  <div class="rule">The rule, every time two meet: say what you have, send what's missing, merge. Over Wi-Fi or through the Pond, the same code runs. Changes hop, so devices that never meet still catch up.</div>
+</section>
+
+<section id="merging">
+  <h2><span class="n">4</span>Merging</h2>
+  <p>A change says which field of which row became what, and when. When two changes touch the same field, <b>the latest time wins</b>, silently. Equal times are settled by the device, the same way everywhere. Different fields never fight. <span class="ref">DECISION-011</span></p>
+  <div class="stepper" id="st-merge">
+    <div class="st-bar"><button class="st-prev">Back</button><button class="st-next primary">Next</button><button class="st-play">Play</button><span class="st-count"></span></div>
+    <p class="st-say" aria-live="polite"></p>
+    <div class="tablewrap mg"><table><thead><tr><th>Device</th><th>title</th><th>done</th><th>Its log</th></tr></thead><tbody></tbody></table></div>
+  </div>
+  <ul>
+    <li><b>Order doesn't matter.</b> The rule looks only at times, so changes can arrive in any order and devices still agree.</li>
+    <li><b>Nothing leaves the log.</b> Losing changes (struck through above) stay, so history (build step 6) can show and restore them.</li>
+    <li><b>Ruled out:</b> the last write winning the whole row (it would drop B's tick), asking the person to pick, deleting a losing change.</li>
+  </ul>
+</section>
+
+<section id="clock">
+  <h2><span class="n">5</span>The clock</h2>
+  <p>"Latest time" is only as good as the clock. A device whose clock is slow would make its new edits look old. The fix: each device remembers <b>the latest time it has seen</b>, and stamps a new change with the later of its own clock and that time, plus a tick. This is a hybrid logical clock. <span class="ref">DECISION-069</span></p>
+  <div class="stepper" id="st-clock">
+    <div class="st-bar"><button class="st-prev">Back</button><button class="st-next primary">Next</button><button class="st-play">Play</button><span class="st-count"></span></div>
+    <p class="st-say" aria-live="polite"></p>
+    <div class="ck"></div>
+    <p class="verdict" aria-live="polite"></p>
+  </div>
+  <ul>
+    <li><b>Edits made apart</b>, neither seeing the other, keep their devices' times. Either winning is acceptable, and both stay in the log.</li>
+    <li><b>A clock too fast</b> would win every conflict and drag every device's clock forward. So a change stamped <b>more than 5 minutes ahead</b> of a device's clock waits in the log, unapplied, until the clock catches up.</li>
+    <li><b>The device with the wrong clock says so</b>, in one short notice, when other devices' changes look far off to it.</li>
+  </ul>
+</section>
+
+<section id="deletes">
+  <h2><span class="n">6</span>Deletes</h2>
+  <p>A deletes task 7 at 10:05. B, apart and not knowing, ticks it done at 10:10. By time alone, B's tick would bring the task back, and deleted things would keep reappearing as devices come online. <span class="ref">DECISION-070</span></p>
+<pre>A2: task 7 deleted,      10:05
+B1: task 7 done = yes,   10:10    ← made without knowing about A2
+→ task 7 stays deleted everywhere; B1 stays in the log
+
+C receives A2 (task 7 is gone on C)
+C1: task 7 created again, 10:20   ← made after seeing the delete
+→ task 7 is back everywhere</pre>
+  <ul>
+    <li><b>A delete wins over edits made by a device that hadn't seen it</b>, whatever their times.</li>
+    <li><b>A re-creation after seeing the delete brings the row back</b>: that's deliberate.</li>
+    <li><b>The delete stays in the log</b>, so a device that was away learns the row is gone instead of sending it back.</li>
+  </ul>
+</section>
+
+<section id="apps">
+  <h2><span class="n">7</span>Rules for apps</h2>
+  <p>Apps write ordinary SQL. Three rules on their tables, all part of contract 8, keep merges safe. Rapidkoi checks a table's definition when the app creates it, and tells the developer in a sentence when a table won't sync.</p>
+  <h3>Random ids, chosen by the app <span class="ref">DECISION-071</span></h3>
+  <p>SQLite numbers rows as the highest so far plus one. Two devices apart would both make note 5, and merging field by field would blend two notes into one:</p>
+<pre>A: note 5  title "Shopping" (10:00)  body "milk, eggs" (10:00)
+B: note 5  title "Ideas"    (10:01)  body "a sync animation" (09:59)
+merged → note 5 = title "Ideas", body "milk, eggs"     ← two notes became one</pre>
+  <p>So rows in synced tables get random, time-ordered ids the app chooses (<code>rapidkoi-rust</code> gains a helper). A row has the same id on every device, so links work everywhere. Renumbering behind the app's back is ruled out: it would break links.</p>
+  <h3>Every table syncs, except <code>local_</code> ones <span class="ref">DECISION-072</span></h3>
+  <p>A table whose name starts with <code>local_</code> stays on its device: a cache, a draft kept here, "last opened on this device". It may number rows the SQLite way.</p>
+  <h3>No rules a merge can break <span class="ref">DECISION-073</span></h3>
+  <p>A synced table may have no <code>UNIQUE</code> (besides its id), no <code>FOREIGN KEY</code>, no <code>CHECK</code>. Two devices each making a tag "work" would otherwise refuse each other's row and never match. The app handles what a merge can leave in what it shows: two tags of one name the person can combine, an item whose list is gone. <code>local_</code> tables keep every rule.</p>
+</section>
+
+<section id="versions">
+  <h2><span class="n">8</span>App versions</h2>
+  <p>A upgrades Notes, whose new version adds a column. B, offline, still runs the old one. <span class="ref">DECISION-074</span></p>
+  <ul>
+    <li><b>Two devices sync an app only when both run the same version of it.</b></li>
+    <li><b>The older device catches up</b>: from the app's site, as kept apps update; with no internet, from a device on the same network that has it, checked exactly as from the site.</li>
+    <li><b>The Pond never carries apps</b>: it mustn't learn which apps a person uses, and a device that reaches the Pond can reach the app's site.</li>
+    <li><b>Open windows aren't swapped</b>: the new version starts at the next open or when the person upgrades, and that app syncs from then.</li>
+    <li><b>An app that can't upgrade</b> (withdrawn, or its publisher's key changed) doesn't sync between those devices, and the person is told once.</li>
+    <li><b>A change for a column or table a device doesn't have is kept, not applied.</b> That covers edits made on an old version arriving after an upgrade.</li>
+  </ul>
+  <div class="note"><b>For developers:</b> add columns, never rename. To rename, add the new column and copy into it. Drop an old column in a later version whenever you like: late edits to it are kept in the log and ignored. Never reuse an old name for something new.</div>
+</section>
+
+<section id="network">
+  <h2><span class="n">9</span>Meeting on a network</h2>
+  <p>How two of a person's devices on the same Wi-Fi find each other and talk, with no internet. <span class="ref">DECISION-076</span></p>
+  <div class="stepper wf" id="st-wifi">
+    <div class="st-bar"><button class="st-prev">Back</button><button class="st-next primary">Next</button><button class="st-play">Play</button><span class="st-count"></span></div>
+    <p class="st-say" aria-live="polite"></p>
+    <div class="scroll"><svg viewBox="0 0 720 270" role="img" aria-label="Two devices on one Wi-Fi: listening, announcing, connecting, proving and exchanging">
+      <rect class="dev" x="60" y="70" width="180" height="130" rx="12"/><rect class="scr" x="76" y="86" width="148" height="80" rx="6"/><text x="80" y="190" font-weight="700">A</text>
+      <rect class="dev" x="480" y="70" width="180" height="130" rx="12"/><rect class="scr" x="496" y="86" width="148" height="80" rx="6"/><text x="500" y="190" font-weight="700">B</text>
+      <g data-on="1-5"><text class="muted mono" x="90" y="130">listening</text><text class="muted mono" x="510" y="130">listening</text></g>
+      <g data-on="2-2"><circle class="ring" cx="240" cy="135" r="110"/><circle class="ring r2" cx="240" cy="135" r="110"/><text class="mono" x="70" y="50">"I'm here" · tag 7f3a…</text></g>
+      <g data-on="3-5"><line class="link" x1="240" y1="135" x2="480" y2="135"/></g>
+      <g data-on="4-5"><text class="ok" x="90" y="232">✓ on the list</text><text class="ok" x="510" y="232">✓ on the list</text><text class="mono" x="296" y="122">encrypted</text></g>
+      <g data-on="5-5"><circle class="dot d1" cx="240" cy="150" r="7"/><circle class="dot d2" cx="240" cy="160" r="7"/><text class="mono" x="268" y="200">A3 B0 ↔ A0 B2</text></g>
+    </svg></div>
+  </div>
+  <ul>
+    <li><b>Proving who you are</b> is mutual TLS: each side's device key checked against the signed device list, encrypted by OpenSSL, as Syncthing does.</li>
+    <li><b>Announcements</b> go out on every network, carrying a tag that looks random to strangers and changes. One switch, "Sync over local networks", turns it off.</li>
+    <li><b>Remembered addresses:</b> each device tries where it last reached each of the others first. Quicker, and works where announcements are blocked.</li>
+  </ul>
+</section>
+
+<section id="devices">
+  <h2><span class="n">10</span>Adding a device</h2>
+  <p>Each app's key for the person is derived from the device's master secret, so a new device needs <b>the same master secret</b> to be the same person in every app. <span class="ref">DECISION-075</span></p>
+  <div class="tablewrap"><table><thead><tr><th>A device holds</th><th>Shared?</th><th>For</th></tr></thead><tbody>
+    <tr><td>Master secret</td><td>Same on all</td><td>The same person in every app</td></tr>
+    <tr><td>Sync key</td><td>Same on all</td><td>Sealing changes; renewed when a device is removed</td></tr>
+    <tr><td>Device key</td><td>Its own</td><td>Proving which device it is, signing its changes</td></tr>
+    <tr><td>Device list</td><td>Same on all, signed</td><td>Which devices are the person's</td></tr>
+  </tbody></table></div>
+  <h3>Pairing, every day</h3>
+  <ol><li>On the new device, <b>Add this device</b>. It meets a device already set up, on the Wi-Fi or through the Pond.</li><li>They set up an encrypted connection, and both show the same short code worked out from it.</li><li>The person checks the codes match and approves on the old device. A device in the middle would make the codes differ.</li><li>The old device sends the master secret, the sync key and the list. No camera or internet needed.</li></ol>
+  <div class="pair" aria-hidden="true"><div class="screen"><span class="who">Device A</span><span class="code match">482 913</span><button class="primary" tabindex="-1">They match</button></div><div class="screen"><span class="who">New device</span><span class="code match">482 913</span><span class="ex-empty">Waiting for approval</span></div></div>
+  <h3>Recovery words, when no other device is left</h3>
+  <p>Shown once when sync is first turned on: <b>12 words that are the master secret</b>. Typed on a new device, they give it the master secret; it then fetches the sync key and the list, kept on the Pond sealed with the master secret. Anyone with the words is the person, in every app.</p>
+  <h3>Removing a device</h3>
+  <p>From any remaining device. The others make a new sync key and drop it from the list, so it reads nothing sent after. <b>Weak spot:</b> it still has the master secret and can still sign in to apps as the person; that's an identity question (DECISION-022), not sync's.</p>
+  <p>The person's own Rapidkoi settings sync too (per app: Start over, signed out, the name), or one person would look different in an app on another device.</p>
+</section>
+
+<section id="pond">
+  <h2><span class="n">11</span>The Pond</h2>
+  <p>Rapidkoi's server. Rapidkoi runs the default one; anyone can run the same software with <code>./main pond</code> and point their devices at it. Switching is changing an address. <span class="ref">core decision 29</span></p>
+  <ol><li><b>Optional.</b> Everything works without a pond, in a reduced form.</li><li><b>It can't read anything.</b> The default pond can't read your data any more than your own can.</li><li><b>One open protocol, the same software.</b> A device can move its sealed data from one pond to another with no loss.</li><li><b>No accounts.</b> Devices prove themselves with their keys.</li><li><b>It learns as little as possible:</b> who syncs, how much and when. Your own pond removes even that from Rapidkoi's view.</li></ol>
+  <p>Sync is its first use. Later candidates, each decided on its own: recovery, waking phones, live sessions, web links.</p>
+</section>
+
+<section id="trimming">
+  <h2><span class="n">12</span>Trimming the log</h2>
+  <p>The log catches devices up, keeps deletes until everyone has seen them, and holds history. <span class="ref">DECISION-077</span></p>
+  <ul>
+    <li><b>Every change is kept until every device on the list, and the Pond, has it.</b> The summaries say when.</li>
+    <li><b>The Pond then drops it.</b> Devices keep a sealed copy of the current data there, so a new or recovering device starts from it.</li>
+    <li><b>A device not seen for 90 days isn't waited for.</b> When it returns it starts from a fresh copy and sends what it made while away.</li>
+    <li><b>History stays within a cap</b>, 100 MB per app's log, oldest first, until history (build step 6) decides how long.</li>
+  </ul>
+</section>
+
+<section id="phones">
+  <h2><span class="n">13</span>Phones</h2>
+  <p>The design treats a phone as any other device. Rapidkoi doesn't run on phones yet (Android first, iOS uncertain). Phones pause apps in the background, so a phone syncs while Rapidkoi is open, when the system lets it run briefly, or when woken through a push service, which needs a server and stays optional. Nothing in sync assumes a device can stay online or listen all the time.</p>
+</section>
+
+<section id="building">
+  <h2><span class="n">14</span>Building it</h2>
+  <p>Sync stays build step 4, parked by the owner. When it's built, it needs:</p>
+  <ul>
+    <li><b>Upstream, each fixed in its own repository:</b> session and changeset bindings in <code>lugha-sqlite</code>; UDP and multicast in <code>std.net</code>; client certificates and pinning in <code>std.tls</code>.</li>
+    <li><b>Contract 8:</b> random ids, <code>local_</code> tables, no merge-breakable rules in synced tables.</li>
+    <li><b>Elsewhere:</b> the id helper in <code>rapidkoi-rust</code>; Notes moving to random ids.</li>
+    <li><b>The owner's review:</b> all cryptography (pairing, keys, recovery words, TLS) and passing app bundles between devices.</li>
+    <li><b>A PRP</b>, and the owner un-parking step 4.</li>
+  </ul>
+</section>
+
+<section id="index">
+  <h2><span class="n">15</span>Decisions</h2>
+  <div class="tablewrap"><table><thead><tr><th>Entry</th><th>Decided</th></tr></thead><tbody>
+    <tr><td>DECISION-068</td><td>What sync is for: the six goals</td></tr>
+    <tr><td>DECISION-011</td><td>Latest time wins per field, silently; nothing leaves the log</td></tr>
+    <tr><td>DECISION-069</td><td>Hybrid logical clock; changes over 5 minutes ahead wait</td></tr>
+    <tr><td>DECISION-070</td><td>A delete wins over edits that didn't know about it</td></tr>
+    <tr><td>DECISION-071</td><td>Random ids, chosen by the app</td></tr>
+    <tr><td>DECISION-072</td><td>Every table syncs except <code>local_</code> ones</td></tr>
+    <tr><td>DECISION-073</td><td>No UNIQUE, FOREIGN KEY or CHECK in synced tables</td></tr>
+    <tr><td>DECISION-074</td><td>Sync on one version; the older device catches up</td></tr>
+    <tr><td>DECISION-075</td><td>Pairing, recovery words, removing a device (direction)</td></tr>
+    <tr><td>DECISION-076</td><td>Mutual TLS, announcements, remembered addresses (direction)</td></tr>
+    <tr><td>Core decision 29</td><td>The Pond</td></tr>
+    <tr><td>DECISION-077</td><td>Trimming the log</td></tr>
+  </tbody></table></div>
+</section>
+
+<footer>
+  <p>Background read while designing: <a href="https://doc.replicache.dev/byob/local-mutations">Replicache</a> and <a href="https://zero.rocicorp.dev/docs/connection">Zero</a> (server-decided sync), <a href="https://github.com/vlcn-io/cr-sqlite">cr-sqlite</a> (CRDTs in SQLite), <a href="https://evolu.dev/">Evolu</a> (encrypted local-first sync), <a href="https://support.apple.com/guide/security/sec3cac31735/web">Apple's CloudKit security guide</a>, <a href="https://www.inkandswitch.com/project/keyhive/">Ink &amp; Switch's Keyhive</a>, and SQLite's <a href="https://www3.sqlite.org/session.html">session extension</a>.</p>
+</footer>
+</main>
+</div>
+<script src="sync.js"></script>
+</body>
+</html>
