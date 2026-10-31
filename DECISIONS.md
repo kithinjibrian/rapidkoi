@@ -551,18 +551,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
-### DECISION-011 — How synced app data resolves conflicts
-
-**Status:** deferred
-**Raised:** 2026-10-17 — Session 3
-**Revisit when:** Build path step 4 (storage and sync).
-
-**Question:** When two devices or two people edit the same data, what wins: last write per row, a change log with merge rules per table, or CRDTs on SQLite (e.g. cr-sqlite)?
-
-**Notes:** Safe to defer: Rapidkoi owns each app's database (DECISION-004), so any of the three stays possible. See `docs/source/meetings/2026-10-17-architecture.md`. Whatever is chosen must meet sync's goals (DECISION-068): with or without the internet, and nothing silently lost.
-
----
-
 ### DECISION-015 — A file-size query in std.fs (lughac)
 
 **Status:** deferred
@@ -650,6 +638,26 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-011 — How synced app data resolves conflicts
+
+**Status:** resolved (the owner, 2026-10-31)
+**Raised:** 2026-10-17 — Session 3
+
+**Question:** When two devices or two people edit the same data, what wins: last write per row, a change log with merge rules per table, or CRDTs on SQLite (e.g. cr-sqlite)?
+
+**Decision (the owner: "a", after a worked example of three devices editing one task while apart):**
+- Every change is kept as an entry in a log: which row and field, the new value, the time, and the device that made it.
+- For each field, the change with the latest time wins. Equal times are settled by the device, the same way on every device, so all devices pick the same winner.
+- It's silent: the person isn't asked or told. Changes to different fields of a row never fight (one device's new title and another's tick both stay).
+- The losing changes stay in the log, so nothing is gone (DECISION-068, goal 3). Seeing them comes with history (build step 6).
+- Order of arrival doesn't matter: devices that have the same changes show the same data.
+
+**Rules out:** last write per row (it drops another device's edit to a different field); asking the person to pick between versions; deleting a losing change.
+
+**Not decided here:** what the time is (a device's clock can be wrong: a hybrid logical clock is the usual answer), deletions, row ids, and edits that break a rule of the app's tables (a unique column). Sharing between people isn't in scope (DECISION-068 is one person's devices).
+
+---
+
 ### DECISION-068 — What sync is for
 
 **Status:** resolved (the owner, 2026-10-31)
@@ -667,7 +675,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** sync that needs the internet or one particular server; a relay or network that can read what it carries; sync an app has to code for.
 
-**Not decided here:** how. Conflicts (DECISION-011), row ids, sharing with other people, choosing which apps sync, pairing and recovery, how devices find and trust each other on a network, and who runs the default relay are their own questions. Sync stays build step 4; this records what it's for.
+**Not decided here:** how. Conflicts (DECISION-011, since resolved), row ids, sharing with other people, choosing which apps sync, pairing and recovery, how devices find and trust each other on a network, and who runs the default relay are their own questions. Sync stays build step 4; this records what it's for.
 
 **Found while discussing (2026-10-31):** the system's SQLite has the session, changeset and rebaser functions, but `lugha-sqlite` doesn't bind them; `std.net` has TCP but "no UDP yet" (finding devices on a network usually needs it); `std.tls` has no client certificates or pinning. Each is fixed in its own repository when sync is built.
 
