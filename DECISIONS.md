@@ -638,6 +638,24 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-072 — Which tables sync: all but `local_` ones
+
+**Status:** resolved (the owner, 2026-10-31: "yes", to option 2)
+**Raised:** 2026-10-31, after DECISION-071
+
+**Question:** Does every table of an app sync, or does the app mark which do? Some data belongs to one device: a cache, a draft kept here, "last opened on this device".
+
+**Decision:**
+- **Every table syncs, except one whose name starts with `local_`,** which stays on its device.
+- The mark is in the app's own SQL: no new message in the contract for it (it's part of contract 8's rules, with DECISION-071).
+- A `local_` table may number its rows the SQLite way; DECISION-071's check applies only to tables that sync.
+
+**Why:** sync by default keeps DECISION-068's goal 5 (apps don't have to do anything); opting out is one visible word. Syncing everything would carry caches to every device and set "last opened" fighting between them; syncing only marked tables would leave a forgetful developer's data on one device, silently.
+
+**Rules out:** an opt-in list of synced tables; a separate message declaring tables.
+
+---
+
 ### DECISION-071 — Ids of synced rows: random, chosen by the app
 
 **Status:** resolved (the owner, 2026-10-31: "yes", to option 1)
@@ -655,7 +673,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** Rapidkoi renumbering rows; ids that mean different rows on different devices.
 
-**Next:** whether every table syncs or an app marks which do.
+**Next:** which tables sync: DECISION-072.
 
 ---
 
