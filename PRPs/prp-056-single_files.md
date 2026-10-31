@@ -1,6 +1,6 @@
 ## FEATURE: Single files: an app opens one of the person's files (a copy, or to modify), saves it back, and saves as (contract 9)
 
-**Status:** draft; waits on lughac's `fs.size` (the owner chose (b): "wait for file size query"; `docs/specs/lugha-fs-size.md`).
+**Status:** draft, for approval; lughac's `fs.size` has shipped (milestone 153), which the owner chose to wait for.
 
 ## OBJECTIVE
 An app asks for a file; Rapidkoi's own chooser opens, titled with the app's name; the person picks one, or cancels. The app gets the file's bytes as a blob, its name and size, and, when it asked to modify it, a handle to save back to that one file. Saving back is safe and never overwrites a change made elsewhere. Save as writes a new file the person chooses. The app never sees a path. With it, Notes can attach a photo (M5) and an editor can open, change and save a file (M6).

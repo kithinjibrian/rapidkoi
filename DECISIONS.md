@@ -668,6 +668,8 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 **Now blocking PRP-056 (the owner, 2026-10-31: "wait for file size query"):** opening a person's file (DECISION-089) would read a mistaken huge pick whole before refusing it, so single files wait for the query. Requested: `docs/specs/lugha-fs-size.md` (`fs.size(path)`). When it ships, PRP-056 checks before reading, and the module cap moves to it too.
 
+**Shipped (2026-11-01):** lughac milestone 153, `fs.size(path): Result<i64, string>` from `stat(2)`, nothing opened; a folder is `Err("Is a directory")`. The full suite passes on it. PRP-056 is unblocked; the 32 MB module cap moving to it is a small change of its own.
+
 ---
 
 ### DECISION-017 — Listing a module's exports (lugha-wasmtime)
@@ -772,7 +774,7 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 **Security review (the owner, approving the spec):** the three asks and `blob_own`, writing back to the person's file, the chooser's words; each later part on its own.
 
-**Needs first:** lughac's `fs.size` (DECISION-015, `docs/specs/lugha-fs-size.md`; the owner chose to wait for it), and kivuli's open and save dialogs (`docs/specs/kivuli-file-dialogs.md`, M1): shipped in kivuli v0.66.0 (`Cmd.open_file`, `Cmd.save_file`, `Cmd.choose_folder`, with lugha-gtk v0.1.60), with `kivuli.testing`'s `chooser` and `answer_chooser`. A second chooser while one is open is answered `None`; several files, an initial folder and an accept label aren't in it.
+**Needs first:** lughac's `fs.size` (DECISION-015, `docs/specs/lugha-fs-size.md`; the owner chose to wait for it; shipped in milestone 153), and kivuli's open and save dialogs (`docs/specs/kivuli-file-dialogs.md`, M1): shipped in kivuli v0.66.0 (`Cmd.open_file`, `Cmd.save_file`, `Cmd.choose_folder`, with lugha-gtk v0.1.60), with `kivuli.testing`'s `chooser` and `answer_chooser`. A second chooser while one is open is answered `None`; several files, an initial folder and an accept label aren't in it.
 
 **A core decision:** no (it follows the vision's permission model; the first version is PRP-056)
 
