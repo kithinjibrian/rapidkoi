@@ -638,6 +638,29 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-075 — Adding and removing a device
+
+**Status:** resolved as a direction (the owner, 2026-10-31: "yes record it"); every part is cryptography or identity, so its design gets the owner's explicit review when built
+**Raised:** 2026-10-31, after DECISION-074
+
+**Question:** How does a new device get what it needs to sync, and how is a lost one shut out? Each app's key for the person is derived from the device's master secret (core decision 17), so a new device needs the same master secret to be the same person in every app.
+
+**Decision:**
+- **What a device holds:** the master secret (the same on all the person's devices), a sync key (the same on all; seals changes), its own device key (proves which device it is, signs its changes), and the device list (which devices are the person's, signed).
+- **Pairing, every day:** on the new device, Add this device; it meets a device already set up, on the Wi-Fi or through the relay; they set up an encrypted connection and both show the same short code worked out from it; the person checks they match and approves on the old device, which sends the master secret, the sync key and the list. No internet or camera needed; a device in the middle would make the codes differ.
+- **Recovery words, when no other device is left:** shown once when sync is first turned on, 12 words that are the master secret. Typed on a new device, they give it the master secret; it then fetches the sync key and the list, kept on the relay sealed with the master secret.
+- **Removing a device:** from any remaining device; the others make a new sync key and drop it from the list, so it reads nothing sent after, and the relay and the other devices refuse it.
+- **The sync key is separate from the master secret,** so removing a device can lock it out of new data.
+- **The person's Rapidkoi settings sync too** (per app: Start over's generation, signed out, the name): otherwise one person looks different in an app on another device.
+
+**Weak spot, for DECISION-022:** a removed device still has the master secret and can still sign in to apps as the person; changing it is a new identity in every app (Start over). Sync can't solve it.
+
+**Rules out:** each device its own master secret; the master secret sealing the changes; pairing that needs a camera.
+
+**Not decided here:** the cryptography (the key exchange, how the code is worked out, how the words encode the secret), what `std.crypto` offers for it, and every screen's words.
+
+---
+
 ### DECISION-074 — Devices on different versions of an app
 
 **Status:** resolved (the owner, 2026-10-31: "i think option 1 and option 3", then "yes record it")
