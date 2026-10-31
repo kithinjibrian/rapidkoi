@@ -511,7 +511,9 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 - **With sync, later:** the log carries keys and hashes; the bytes move lazily by hash, deduplicated.
 - **A contract change** (a version bump) and two capabilities for the owner's review: the blob asks and the `blob:` picture source.
 
-**To decide:** the limits (a quota apart from the database's 100 MB, a cap per blob, a cap on how many); and when: now, or when an app (Notes) needs pictures. Nothing in the build path holds it back: it's storage, which is done, designed to fit sync.
+**Also agreed (the owner, while drafting the spec):** bytes come only from the app (A) and can be sent as a request body (D) in the first version; a fetch saving into a blob (B) and the file picker (C) come later. Writes are whole; reads can be ranged.
+
+**The draft spec:** `docs/specs/blobs.md`, every answer filled in, for the owner's one review: what's settled now (the contract and sync's shape), defaults (limits, ⚙, which apps), and what's designed but not built (the picker, a fetch into a blob, blobs over 16 MB, sync). Resolved from it once reviewed.
 
 ---
 
