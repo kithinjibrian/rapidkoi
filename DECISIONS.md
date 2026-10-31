@@ -330,6 +330,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Amended (PRP-041, DECISION-052, session 209):** contract 6 carries it: the `sql` and `sql_batch` asks, answered `on_answer`/`on_fail`, and `on_change`'s `tables`. Each call runs in a task. ⚙'s Data row shows the size and clears it; Forget removes it. The tasks app keeps its tasks there, so a task's link opens it in any window.
 
+**Amended (DECISION-087, 2026-10-31):** an app's large bytes are blobs: files by hash beside its database, their keys in a reserved `rapidkoi_blobs` table committed with the app's rows, owned by a row when the app says so, shown with `image("blob:…")` and sent with `fetch`'s `body_blob` (`docs/specs/blobs.md`). Not built yet.
+
 ---
 
 ### 27. The Rust SDK lives on its own; this repository is the shell and its built-ins (PRP-042)
@@ -770,6 +772,36 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 **Accepted leak (core decision 30):** `now` lets an app's server see the device's clock error, by comparing it with its own clock. Rounding to a second doesn't hide whole seconds; apps need seconds to order edits.
 
 **Later, each its own PRP:** the date and time picker answering UTC, the "Know your time zone" permission, schedules, and the person's clock and date-order settings.
+
+---
+
+### DECISION-087 — Blob storage: an app's large bytes in files beside its database
+
+**Status:** resolved (the owner, 2026-10-31: "okay let's build", then "yes" to approving the whole spec, its defaults and its security review); not built yet
+**Raised:** 2026-10-31, the owner: "should rapidkoi offer blob storage" ("gap noticed in the platform")
+
+**Question:** An app can keep bytes in a `BLOB` column (4 MB a value, 100 MB a database, DECISION-052), but it can't show a picture it stored (pictures come only from the bundle or a URL, DECISION-056 Q1); large values crowd SQLite's shared memory and the 1 s call limit; and once sync logs changes with the session extension (DECISION-070), every edit of a large value is copied whole into the log's 100 MB. Should Rapidkoi give each app a blob store, and how?
+
+**Decision:** yes, as `docs/specs/blobs.md` sets out, approved whole. In short:
+- **Files by hash beside the database:** `databases/<sha256 hex>.blobs/<hash>`, the SHA-256 Rapidkoi computes; nothing the app sends becomes a path. Any bytes; Rapidkoi only sniffs a type to show a picture; a blob is never run, handed to the system or shared with another app.
+- **Keys committed with the rows:** `rapidkoi_blobs (key, hash, size, owner_table, owner_key)`, a reserved table in the app's own database. `blob_set` and `blob_delete` are steps of `sql_batch`; the file is written first, then one transaction; a crash leaves at most an orphan file, swept on open.
+- **Owners:** a blob may belong to a row by table and single-column primary key; deleting the row deletes its blobs as part of the same write, built only from names read back from the app's schema (amended below: a check, not triggers).
+- **Asks:** `blob_get {key, from?, len?, hash?}` (at most 4 MB an answer, each piece checked against the blob's hash), `blob_list {prefix?}`; `image("blob:<key>")` under every picture rule; `fetch` with `body_blob`. Bytes come from the app (A) and go out as a request body (D); a fetch into a blob (B), the file picker (C), write sessions past 16 MB and sync are designed, not built.
+- **Defaults:** 16 MB a blob, 1 GB an app apart from its database, 10,000 blobs; signed and local development apps, not built-ins; ⚙'s Data row one total; Clear and Forget remove them.
+- **A new contract version:** whichever of blobs and sync (DECISION-071) is built first is the next one. Time and name parts took contract 8 first (DECISION-088), so blobs are contract 9.
+- **The SDK:** a helper writing a row and its blob in one batch, and `blob_lines(key)`.
+
+**Why:** files keep large bytes out of SQLite's memory and sync's log, and SQLite itself reads them faster as files past about 100 KB ([sqlite.org/intern-v-extern-blob](https://sqlite.org/intern-v-extern-blob.html)). Committing keys with the rows is the one place both can be atomic, and the one place sync already watches. Owners clean up without Rapidkoi reading the app's data (DECISION-046). Reads checked by hash never join two versions.
+
+**Security review (the owner, approving the spec):** the blob asks and their limits, `blob:` pictures, `body_blob`, the owner check and the reserved table.
+
+**Needs first, under their own rules:** lugha-sqlite's reserved names in `Guard` and the program's own steps in a batch (`docs/specs/lugha-sqlite-reserved-names.md`): built, `v0.2.0`. Later, for write sessions only: lughac file handles.
+
+**Amended (the owner, 2026-10-31: "go with B", building PRP-054):** owners are kept by a check, not triggers. lugha-sqlite `v0.2.0` refuses the app's `DROP TABLE` on a table carrying a reserved trigger, which would block the usual migration (new table, copy, drop, rename). Instead, right after every `sql_batch` commits (not inside it: a batch dropping an owner table would make the check fail and roll the batch back), Rapidkoi deletes the mappings whose owner key no longer exists in its table, and those of a table that's gone. A crash in between leaves only a leak, which the next write's check removes; a table whose primary key is no longer one column keeps its blobs. It asks only whether a key exists, inside SQLite, never returned: DECISION-046's "Rapidkoi doesn't read it" is amended this far. Gives up: changing a row's primary key drops its blobs; a table dropped in one batch and made again later has lost them.
+
+**Rules out:** blobs as values in the app's own tables as the way to keep large bytes; a type the app declares; Rapidkoi reading the app's rows to find what's still used; joining pieces of a blob that changed mid-read.
+
+**A core decision:** yes (decision 26, amended)
 
 ---
 
