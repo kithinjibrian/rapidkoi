@@ -638,6 +638,28 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-076 — Devices finding and trusting each other on a network
+
+**Status:** resolved as a direction (the owner, 2026-10-31: "yes record it"); cryptography and networking, so the design gets the owner's explicit review when built
+**Raised:** 2026-10-31, after DECISION-075
+
+**Question:** On a local network, how do a person's devices find each other, prove who they are, and talk privately; what fills in while `std.net` has "no UDP yet"; and on which networks does a device announce itself?
+
+**Decision:**
+- **Mutual TLS:** each side proves it holds a device key on the signed device list (DECISION-075), checked against that list, and the connection is encrypted by OpenSSL through `std.tls`, as Syncthing does. `std.tls` has "no client certificates, pinning": both are a request to lughac, never worked around here.
+- **Announcing needs UDP** (mDNS, multicast): a request to lughac, written in `docs/specs/` when sync is built.
+- **Remembered addresses:** each device remembers where it last reached each of the person's devices and tries there first. A feature of its own (quicker; works where announcements are blocked), not a stand-in: it can't find a device for the first time on a new network.
+- **A device announces itself on every network,** carrying only a tag derived from the person key that looks random to strangers and changes over time. One switch, "Sync over local networks", on by default.
+- **Every connection:** prove device keys against the list, check the encryption, exchange summaries then the missing changes, with size caps. Anything fails: the connection closes and nothing is sent.
+
+**Why:** the cryptography stays in OpenSSL, widely used and audited; Noise would need a new package doing cryptography, written or bound here. Per-network choices need Rapidkoi to recognise networks and a screen, for little gain while announcements reveal only that a Rapidkoi device is present.
+
+**Rules out:** Noise, for now; a device's identity in the clear in its announcements; per-network settings, until someone asks.
+
+**Not decided here:** the announcement's format and how often it's sent, the tag's derivation, ports, and the switch's words.
+
+---
+
 ### DECISION-075 — Adding and removing a device
 
 **Status:** resolved as a direction (the owner, 2026-10-31: "yes record it"); every part is cryptography or identity, so its design gets the owner's explicit review when built
