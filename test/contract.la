@@ -95,12 +95,11 @@ fun v2_effects_are_checked() {
 fun a_fetch_effect_decodes() {
     let get = ask("fetch", [("method", t("GET")), ("url", t("https://api.acme.com/q"))]);
     assert_eq(read_update(v2([get])).unwrap().effects, [
-        Effect.Fetch(t("got"), Request {
-            method: "GET",
-            url: "https://api.acme.com/q",
-            headers: [],
-            body: [],
-        }),
+        Effect.Fetch(
+            t("got"),
+            Request { method: "GET", url: "https://api.acme.com/q", headers: [], body: [] },
+            None,
+        ),
     ]);
     let post = ask("fetch", [
         ("method", t("POST")),
@@ -109,13 +108,40 @@ fun a_fetch_effect_decodes() {
         ("body", Value.Bytes([123, 125])),
     ]);
     assert_eq(read_update(v2([post])).unwrap().effects, [
-        Effect.Fetch(t("got"), Request {
-            method: "POST",
-            url: "https://api.acme.com/notes",
-            headers: [("content-type", "application/json")],
-            body: [123, 125],
-        }),
+        Effect.Fetch(
+            t("got"),
+            Request {
+                method: "POST",
+                url: "https://api.acme.com/notes",
+                headers: [("content-type", "application/json")],
+                body: [123, 125],
+            },
+            None,
+        ),
     ]);
+    // A stored blob as the body (PRP-055), never beside a body of its own.
+    let upload = ask("fetch", [
+        ("method", t("PUT")),
+        ("url", t("https://api.acme.com/photos/1")),
+        ("body_blob", t("photo-1")),
+    ]);
+    match read_update(v2([upload])).unwrap().effects[0] {
+        Fetch(_, r, blob) => assert_eq((r.body, blob), ([], Some("photo-1"))),
+        _ => panic("expected a fetch"),
+    }
+    let both = ask("fetch", [
+        ("method", t("PUT")),
+        ("url", t("https://api.acme.com/photos/1")),
+        ("body", Value.Bytes([1])),
+        ("body_blob", t("photo-1")),
+    ]);
+    assert_eq(v2_why(v2([both])), "a fetch takes body or body_blob, not both");
+    let bad = ask("fetch", [
+        ("method", t("PUT")),
+        ("url", t("https://a.example/")),
+        ("body_blob", t("")),
+    ]);
+    assert_eq(v2_why(v2([bad])), "a fetch's body_blob's key is 1 to 256 bytes");
 }
 
 @test

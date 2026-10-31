@@ -31,7 +31,7 @@ import guest.nodes {
 };
 import guest.links { read_link, read_kinds };
 import guest.sqlasks { sql_of, batch_of };
-import guest.blobasks { blob_get_of, blob_list_of };
+import guest.blobasks { blob_get_of, blob_list_of, key_of as blob_key_of };
 
 /**
  * Decodes a `handle` result and takes out its state, checking its shape: a
@@ -145,7 +145,8 @@ fun read_update(bytes: u8[]): Result<Update, ContractError> {
                 }
             }
         } else if kind == "fetch" {
-            effects.push(Effect.Fetch(msg, fetch_of(e)?));
+            let (r, blob) = fetch_of(e)?;
+            effects.push(Effect.Fetch(msg, r, blob));
         } else if kind == "sign" {
             match e.get("challenge") {
                 Some(Bytes(c)) if c.len >= 1 && c.len <= MAX_CHALLENGE => effects.push(
@@ -169,10 +170,11 @@ fun read_update(bytes: u8[]): Result<Update, ContractError> {
 
 /**
  * Reads a fetch effect's shape: a method and a URL as text, headers as a
- * text→text map, a body as bytes; bounded so a hostile one can't grow.
- * Whether it may be sent is `network.check_request`'s question.
+ * text→text map, a body as bytes or a stored blob's key (`body_blob`,
+ * PRP-055); bounded so a hostile one can't grow. Whether it may be sent is
+ * `network.check_request`'s question.
  */
-fun fetch_of(e: Value): Result<Request, ContractError> {
+fun fetch_of(e: Value): Result<(Request, Option<string>), ContractError> {
     let shape = fun(p: string) = nodes.invalid("update", p);
     let (method, url) = match (e.get("method"), e.get("url")) {
         (Some(Text(m)), Some(Text(u))) => (m, u),
@@ -208,7 +210,16 @@ fun fetch_of(e: Value): Result<Request, ContractError> {
         }
         None => [],
     };
-    Ok(Request { method: method, url: url, headers: headers, body: body })
+    let blob = match e.get("body_blob") {
+        None | Some(Null) => None,
+        Some(k) => {
+            if e.get("body").is_some() {
+                return Err(shape("a fetch takes body or body_blob, not both"));
+            }
+            Some(blob_key_of(k, "a fetch's body_blob")?)
+        }
+    };
+    Ok((Request { method: method, url: url, headers: headers, body: body }, blob))
 }
 
 /**

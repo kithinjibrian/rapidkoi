@@ -4,9 +4,11 @@
  * `MAX_IN_FLIGHT` per page), sending it (`send`, in the task: no cookie
  * jar, no redirects followed, bounded in time and size), and the result
  * arriving (`arrive`: dropped for a closed tab or an older load, else
- * answered through the app's `handle`). Nothing is sent from `update`.
+ * answered through the app's `handle`). Nothing is sent from `update`. A
+ * body may be one of the app's blobs (`body_blob`, PRP-055), read in the
+ * task once the request has passed its checks.
  *
- * Depends on: kivuli, std.http, cbor, net.network, net.dialing, net.address, window.tabs, window.window, people.people, guest.contract, ui.render, window.actions, guest.limits
+ * Depends on: kivuli, std.http, cbor, data.databases, net.network, net.dialing, net.address, window.tabs, window.window, people.people, guest.contract, ui.render, window.actions, guest.limits
  * Used by: guest.effects, shell
  */
 import kivuli { Cmd };
@@ -21,7 +23,9 @@ import people.people { person };
 import guest.contract { reply };
 import ui.render;
 import window.actions { Msg };
-import guest.limits { MAX_IN_FLIGHT, MAX_BODY_DOWN, REQUEST_TIMEOUT_MS };
+import guest.limits { MAX_IN_FLIGHT, MAX_BODY_DOWN, REQUEST_TIMEOUT_MS, MAX_BLOB };
+import guest.nodes { BlobRead };
+import data.databases { Call, path_for, call };
 
 /**
  * Returns what a page may reach: a signed app its host and declared
@@ -64,14 +68,21 @@ fun allowed(m: Model, p: AppPage): Allowed {
 
 /**
  * Asks for one request for tab `id`: refused at once (with the sentence
- * the app gets), or counted in flight and returned as a task.
+ * the app gets), or counted in flight and returned as a task. With a blob's
+ * key, that blob is the body, read in the task after the checks.
  *
  * @returns the model; the answer to give now, if refused; the task
  *
  * Example:
- *     ask(m, id, msg, request)
+ *     ask(m, id, msg, request, None)
  */
-fun ask(m: Model, id: i64, msg: Value, r: Request): (Model, Option<Value>, Cmd<Msg>) {
+fun ask(
+    m: Model,
+    id: i64,
+    msg: Value,
+    r: Request,
+    blob: Option<string>,
+): (Model, Option<Value>, Cmd<Msg>) {
     let p = match app(m, id) {
         Some(p) => p,
         None => {
@@ -90,10 +101,30 @@ fun ask(m: Model, id: i64, msg: Value, r: Request): (Model, Option<Value>, Cmd<M
         return refuse(NetworkError.TooMany);
     }
     let load = p.load;
-    // Plain data for the task: the checked request and the window's network.
+    // Plain data for the task: the checked request, the window's network, the blob's database.
     let net = m.network;
+    let source = match blob {
+        Some(key) => match m.store.and_then(fun(s) = path_for(s, p)) {
+            Some(path) => Some((path, key)),
+            None => {
+                return (m, Some(reply(Reply.Failed("This app keeps no files here"))), nothing);
+            }
+        },
+        None => None,
+    };
     let task = Cmd.task(
-        fun(): Reply = send(checked, net, REQUEST_TIMEOUT_MS, MAX_BODY_DOWN),
+        fun(): Reply = match source {
+            Some((path, key)) => match blob_body(path, key) {
+                Ok(body) => send(
+                    Request { body: body, ..checked },
+                    net,
+                    REQUEST_TIMEOUT_MS,
+                    MAX_BODY_DOWN,
+                ),
+                Err(why) => Reply.Failed(why),
+            },
+            None => send(checked, net, REQUEST_TIMEOUT_MS, MAX_BODY_DOWN),
+        },
         fun(got: Reply) = Msg.Responded(id, load, msg, got),
     );
     let counted = with_tab(
@@ -102,6 +133,26 @@ fun ask(m: Model, id: i64, msg: Value, r: Request): (Model, Option<Value>, Cmd<M
         fun(page: AppPage) = AppPage { in_flight: page.in_flight + 1, ..page },
     );
     (counted, None, task)
+}
+
+/**
+ * Reads a blob whole, to send as a request's body: at most `MAX_BLOB`.
+ * Touches the disk: run it in a task.
+ *
+ * @returns the bytes, or the app's sentence (no such key, a file that couldn't be read)
+ *
+ * Example:
+ *     blob_body(path, "photo-17")
+ */
+fun blob_body(path: string, key: string): Result<u8[], string> {
+    let whole = BlobRead { key: key, from: 0, len: MAX_BLOB, hash: None };
+    match call(path, Call.BlobGet(whole)) {
+        Answer(v, _) => match v.get("bytes") {
+            Some(Bytes(b)) => Ok(b),
+            _ => Err("This app's files couldn't be read"),
+        },
+        Failed(why) => Err(why),
+    }
 }
 
 /**

@@ -165,10 +165,12 @@ fun delete_step(key: string): sqlite.Step = sqlite.Step.Own(
  * losing data is worse than keeping it. Run after a write commits, never
  * inside it (a batch may drop a table the check would name).
  *
+ * @returns whether it removed any; `Err(Disk)` when SQLite failed
+ *
  * Example:
  *     check_owners(db)?
  */
-fun check_owners(db: Database): Result<(), BlobError> {
+fun check_owners(db: Database): Result<bool, BlobError> {
     let tables = db.query_own(
         "SELECT DISTINCT owner_table FROM rapidkoi_blobs WHERE owner_table IS NOT NULL",
         [],
@@ -203,7 +205,7 @@ fun check_owners(db: Database): Result<(), BlobError> {
     if steps.len > 0 {
         db.batch_steps(steps).map_err(disk)?;
     }
-    Ok(())
+    Ok(steps.len > 0)
 }
 
 /**

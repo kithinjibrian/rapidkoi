@@ -45,7 +45,7 @@ enum Call {
 
 /** What a call came to: the app's answer and the tables it changed, or why not. */
 enum Queried {
-    /** `{columns, rows, cut}` for a read, `{changes, last_rowid}` for a write; the tables changed. */
+    /** `{columns, rows, cut}` for a read, `{changes, last_rowid}` for a write; the tables changed, `rapidkoi_blobs` among them when blobs did (PRP-055). */
     Answer(Value, string[]),
     /** The sentence the app gets. */
     Failed(string),
@@ -127,13 +127,20 @@ fun call(path: string, c: Call): Queried {
     });
     let folder = folder_for(path);
     let outcome = match c {
-        Read(q) => read(db, q),
+        Read(q) => read(db, q).map(fun(v: Value) = (v, false)),
         Write(steps) => write(db, folder, steps),
-        BlobGet(r) => got(db, folder, r).map_err(blob_sentence),
-        BlobList(prefix) => listed(db, prefix).map_err(blob_sentence),
+        BlobGet(r) => got(db, folder, r).map_err(blob_sentence).map(fun(v: Value) = (v, false)),
+        BlobList(prefix) => listed(db, prefix).map_err(blob_sentence).map(
+            fun(v: Value) = (v, false),
+        ),
     };
-    // Rapidkoi's own tables are no app's news.
-    let changed = tables.get().filter(fun(t: string) = !blobmap.reserved(t));
+    // SQLite's hook never reports `WITHOUT ROWID` tables, so Rapidkoi names
+    // its own when blobs changed (PRP-055): `queries` refreshes pictures by it
+    // and tells apps only theirs.
+    let mut changed = tables.get().filter(fun(t: string) = !blobmap.reserved(t));
+    if let Ok((_, true)) = outcome {
+        changed.push("rapidkoi_blobs");
+    }
     // A plain `sql` can delete an owner row too: its blobs' keys go now,
     // their files at the next write's sweep (only writes sweep, one at a time).
     if let Read(_) = c {
@@ -143,7 +150,7 @@ fun call(path: string, c: Call): Queried {
     }
     db.close();
     match outcome {
-        Ok(v) => Queried.Answer(v, changed),
+        Ok((v, _)) => Queried.Answer(v, changed),
         Err(why) => Queried.Failed(why),
     }
 }
@@ -230,10 +237,11 @@ fun read(db: Database, q: Query): Result<Value, string> {
 /**
  * Steps as one transaction: the blobs checked and placed first, then the
  * app's statements and Rapidkoi's own rows committed together; then, past
- * the commit, owners checked and unnamed files swept. What changed, or
- * the first failure (no row kept; a placed file is swept later).
+ * the commit, owners checked and unnamed files swept. What changed and
+ * whether any blob did, or the first failure (no row kept; a placed file
+ * is swept later).
  */
-fun write(db: Database, folder: string, steps: BatchStep[]): Result<Value, string> {
+fun write(db: Database, folder: string, steps: BatchStep[]): Result<(Value, bool), string> {
     let has_blobs = steps.any(fun(s: BatchStep) = match s {
         Statement(_) => false,
         _ => true,
@@ -270,18 +278,24 @@ fun write(db: Database, folder: string, steps: BatchStep[]): Result<Value, strin
         });
     }
     let ran = db.batch_steps(batch).map_err(sentence)?;
+    let mut blobs_changed = has_blobs;
     if kept || has_blobs {
         // Cleanup only: a failure here leaves a leak the next write removes, never a missing blob.
-        let _ = blobmap.check_owners(db);
+        if blobmap.check_owners(db) == Ok(true) {
+            blobs_changed = true;
+        }
         if let Ok(names) = blobmap.named(db) {
             sweep(folder, names);
         }
     }
     Ok(
-        Value.Map([
-            entry("changes", Value.int(ran.changes)),
-            entry("last_rowid", Value.int(ran.last_rowid)),
-        ]),
+        (
+            Value.Map([
+                entry("changes", Value.int(ran.changes)),
+                entry("last_rowid", Value.int(ran.last_rowid)),
+            ]),
+            blobs_changed,
+        ),
     )
 }
 

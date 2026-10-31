@@ -35,6 +35,14 @@ Contract 9 is contract 8 with blob storage, and Rapidkoi runs **only** contract 
 6. **Tests:** each step and ask encodes as above; the answers decode; `blob_lines` across pieces that split a line, at the end without a trailing newline, and on a changed hash.
 7. **Tag** `v0.3.0-pre.2` (a breaking change: every app rebuilds), asking the owner before pushing it.
 
+## Next: `v0.3.0-pre.3` (PRP-055)
+
+Two additions to contract 9, nothing removed; apps on `pre.2` keep working.
+
+1. **`image("blob:<key>")`**: a picture from the app's own blobs (`blob:` and a key, 1–256 bytes), shown by Rapidkoi under every picture rule; `on_load` and `on_fail` as for any picture. No `color` on one. A helper such as `image_blob(key)` would keep apps from building the string by hand.
+2. **`fetch` with `body_blob`**: the key of a stored blob, sent as the request's body (up to 16 MB) instead of `body`; never both (the app stops). Something like `Ask::fetch(…).body_blob("photo-1")`. A missing key answers `on_fail` "This app has no blob with that key", and nothing is sent.
+3. **Docs and tests** for both; tag `v0.3.0-pre.3`, asking the owner before pushing it.
+
 ## Then, in Rapidkoi
 
 `guest/rust` moves to the tag; `./scripts/newtab.sh && ./scripts/settings.sh` repack the built-ins; `./main` is rebuilt; PRP-054 merges. Notes (`../notes`) and the counter are rebuilt on the tag and republished.

@@ -70,7 +70,7 @@ An app that doesn't know an event changes nothing. There's no event when Rapidko
 | `box` | `style`, `role`, `checked`, `selected`, `disabled`, `label`, `on_press`, and `title` on the root | yes |
 | `text` | `text` or `parts` (one of them, not both), `style`, `role`, `label` | no |
 | `input` | `value` (required), `placeholder`, `label` (1–200 bytes), `lines` (1–20; more than 1 is a box of several lines), `on_change` (none: disabled), `on_submit` (Enter, on one line; sent with the text as `value`), `style` | no |
-| `image` | `src` (required: `asset:NAME` or an `http(s)://` address, at most 2 KB), `fit` (`contain`, the default, or `cover`), `color` (an `asset:` SVG only), `label` (1–200 bytes), `on_load`, `on_fail`, `style` | no |
+| `image` | `src` (required: `asset:NAME`, `blob:KEY` or an `http(s)://` address, at most 2 KB), `fit` (`contain`, the default, or `cover`), `color` (an `asset:` SVG only), `label` (1–200 bytes), `on_load`, `on_fail`, `style` | no |
 
 - A **box with `on_press`** is pressable: focusable, and pressed by a click, Enter or Space; it sends `on_message` with its message. `disabled: true` greys it, and it sends nothing.
 - A typing box's **`label`** says what it's for: Rapidkoi names the box by it, and screen readers hear it. Without one, its placeholder names it.
@@ -119,6 +119,7 @@ PRP-047. A picture comes from the app's bundle or from a server it may reach, ne
 
 - **From the bundle:** `asset:NAME`, packed from `[assets]` in `rapidkoi.toml`. A bundle holds PNG and JPEG (at most 4 MB, 4,096 px a side) and SVG (at most 1 MB, UTF-8). Shown at once. With `color`, an SVG's `currentColor` is drawn in that colour (Rapidkoi's names follow the theme).
 - **From a server:** an address `fetch` could reach (the app's own host or a server it declares; HTTPS; `http://localhost` from this machine). Downloaded in the background with a plain GET (no headers, no cookies), at most 6 at a time a window, in the order the screen shows them, each within 30 seconds and 10 MB; PNG or JPEG, at most 4,096 px a side and 16 MP, checked from its header before it's kept. WebP waits on kivuli (DECISION-058). Kept while the window lasts; past 256 MB decoded, those off screen go, least recently shown first.
+- **From your blobs** (PRP-055): `blob:KEY`, a blob your app stored. Read from this device, never passing through your app, under the same rules as a server's picture (PNG or JPEG, at most 10 MB, 4,096 px a side and 16 MP). No such key: "This app has no blob with that key". When a write of yours stores, replaces or removes blobs, every window of your app reads its `blob:` pictures again.
 - **While it loads** its box is empty, at its style's size. **When it can't be shown** (refused, not found, too large, not PNG or JPEG), Rapidkoi's broken-picture mark takes its place, and the app runs on.
 - **`on_load`** arrives as `on_message` with its `msg` once the picture is shown; **`on_fail`** as `on_message` with its `msg` and Rapidkoi's sentence as `value`. Neither is sent without a message, and each once while the picture stays on screen.
 - **A broken view stops the app:** a bad `src`, an asset the bundle doesn't have, `color` on anything but a bundle SVG, a server the app may never reach, or more than 256 pictures in one screen. A server the person switched off only fails that picture.
@@ -135,7 +136,7 @@ Each has a `kind` and a `msg` (any CBOR value, carried back in the reply):
 |---|---|---|
 | `identity` | the person's key for this app (signed apps) | `on_answer`: bytes, or null |
 | `sign` + `challenge` (1–1024 bytes) | a sign-in signature | `on_answer`: bytes, or null |
-| `fetch` + `method`, `url`, `headers`, `body` | a request to the app's own or declared servers (HTTPS; `http://localhost` from this machine) | `on_response` or `on_fail` |
+| `fetch` + `method`, `url`, `headers`, `body` or `body_blob` | a request to the app's own or declared servers (HTTPS; `http://localhost` from this machine); `body_blob` (a blob's key, PRP-055) sends that blob as the body, up to 16 MB, read once the request is allowed; never both | `on_response` or `on_fail` |
 | `preferences` | `{ "theme", "more_contrast", "text_size" }` | `on_answer` |
 | `now` | the time now in UTC, in milliseconds since 1970, rounded down to a second (PRP-053); nothing about where you are | `on_answer` |
 | `set_preference` + `name`, `value` | Settings only (`change_settings`) | not answered |
