@@ -102,6 +102,9 @@ fun end(m: Model): View<Msg>[] = [
  *     menu_card(m.theme)
  */
 fun menu_card(t: Theme): View<Msg> = column([
+    // The owner's words (PRP-058); Ctrl+O from anywhere, the card built while closed too.
+    item(t, "Open App…", Msg.OpenApp).shortcut("Ctrl+O"),
+    separator(),
     item(t, "Settings", Msg.OpenSettings),
     separator(),
     item(t, "About Rapidkoi", Msg.About(true)),

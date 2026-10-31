@@ -26,7 +26,7 @@
 - **Where Ctrl+O lives:** on the "Open App…" item itself (kivuli builds a closed popover's content too, and its shortcuts work from anywhere in the window). If on screen it doesn't fire while the card is closed, that's a kivuli question, recorded and asked, never worked around.
 - **One chooser at a time:** kivuli answers a second chooser `None`, so Ctrl+O while an app's file dialog is open does nothing.
 
-**The owner's question:** the chooser's title and its filter's name, both new words. Suggested: **"Open an app"** and **"Rapidkoi apps"**.
+**The owner's answer:** the chooser's title **"Open an app"** and its filter's name **"Rapidkoi apps"** ("approved, use your suggestions").
 
 ## TESTS
 - [ ] `test/menus.la`: the card's items in order ("Open App…" first); clicking it sends `Msg.OpenApp`; `press(view, "Ctrl+O")` sends it too.
@@ -37,3 +37,9 @@
 - [ ] Every test above passes; no file over 500 lines.
 - [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build -O 2 src/main.la -o main` pass.
 - [ ] For the owner, by eye: ☰ shows "Open App…" first; it and Ctrl+O open the chooser with the right title and filter; a `.rkb` opens; Cancel does nothing.
+
+## BUILD NOTES
+
+- **Status:** approved (the owner, 2026-11-01); built.
+- `Msg.OpenApp` closes ☰'s card and returns `Cmd.open_file`; `Msg.AppChosen(Some(path))` goes to `navigate.open_file`, as a typed path does; `None` does nothing. Ctrl+O is the item's `.shortcut`, found by `kivuli.testing.press` on the whole window's view (the card is built while closed).
+- `shell.la` is at 499 lines.

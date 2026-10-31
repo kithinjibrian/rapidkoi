@@ -3,11 +3,15 @@
 // the redesign's tabs and new tab (DECISION-030). Fixture guests; no
 // display, no network.
 import rapidkoi.shell { update };
-import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.window { Model, with_pages, page_of };
 import rapidkoi.window.actions { Msg, ShieldPage, PanelPage, Confirm, TabAction, PinAction };
 import rapidkoi.window.tabs { AppPage, open_module };
 import wasmtime { Engine, Module };
 import support { echo };
+import rapidkoi.ui.header { menu_card };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.navigate { open_file };
+import kivuli.testing { texts, click, press, chooser, answer_chooser };
 
 fun app(engine: Engine, name: string): AppPage = open_module(
     name,
@@ -68,4 +72,35 @@ fun a_pin_s_actions() {
     assert_eq(asked.current, Some(0));
     // Unpinning a path that isn't pinned changes nothing.
     assert_eq(step(pinned, Msg.OnPin("other.wasm", None, PinAction.Unpin)).pinned.len, 1);
+}
+
+@test
+fun open_app_opens_the_chooser_from_the_menu_and_ctrl_o() {
+    // PRP-058: first in ☰'s card, and Ctrl+O from anywhere.
+    let m = two();
+    let card = menu_card(m.theme);
+    assert_eq(texts(card)[0], "Open App…");
+    assert_eq(click(card, "Open App…"), Ok(Msg.OpenApp));
+    assert_eq(press(view(m), "Ctrl+O"), Ok(Msg.OpenApp));
+    let (shut, cmd) = update(Model { menu: true, ..m }, Msg.OpenApp);
+    assert_eq(shut.menu, false);
+    let c = chooser(cmd).unwrap();
+    assert_eq(c.title, "Open an app");
+    assert_eq((c.filters[0].name, c.filters[0].patterns), ("Rapidkoi apps", ["*.rkb", "*.wasm"]));
+}
+
+@test
+fun a_chosen_app_opens_as_a_typed_path_does() {
+    let m = two();
+    let (_, cmd) = update(m, Msg.OpenApp);
+    let chosen = step(m, answer_chooser(cmd, Some("test/tmp/menus-chosen.wasm")).unwrap());
+    let (typed, _) = open_file(m, "test/tmp/menus-chosen.wasm");
+    let path = fun(x: Model) = match page_of(x) {
+        App(a) => a.path,
+        Home => "",
+    };
+    assert_eq((path(chosen), chosen.tabs.len), (path(typed), typed.tabs.len));
+    // Cancelled: nothing changes.
+    let kept = step(m, answer_chooser(cmd, None).unwrap());
+    assert_eq((kept.current, kept.tabs.len), (m.current, m.tabs.len));
 }
