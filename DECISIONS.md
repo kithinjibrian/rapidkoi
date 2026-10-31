@@ -638,6 +638,30 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-074 — Devices on different versions of an app
+
+**Status:** resolved (the owner, 2026-10-31: "i think option 1 and option 3", then "yes record it")
+**Raised:** 2026-10-31, after DECISION-073: one device upgraded an app whose new version adds a column; another, offline, still runs the old one
+
+**Question:** A change for a column the other device's version doesn't have: stop syncing across versions, apply what fits and hold the rest, or bring the other device up to the new version?
+
+**Decision:**
+- **Two devices sync an app only when both run the same version of it.**
+- **The older device gets the newer version:** from the app's site, as kept apps update (core decision 28); with no internet, directly from a device on the same network that has it, asked for only when two devices meet and one is behind. It's checked exactly as from the site: the same app (host and first key), its signed index, withdrawals.
+- **The relay never carries apps,** only sealed changes: it mustn't learn which apps a person uses, apps are large and changes small, and a device that reaches the relay can reach the app's site.
+- **Open windows aren't swapped:** the newer version is kept as from the site, used at the next open or when the person upgrades (PRP-044, PRP-048); that app syncs on this device from then. Other apps keep syncing.
+- **An app that can't upgrade** (the newer version withdrawn, or its publisher's key changed with no signed trail, DECISION-064) doesn't sync between those devices, and the person is told once.
+- **A change for a column or table this device doesn't have is kept in the log, not applied,** and breaks nothing. Changes are untrusted input; this also covers edits made on an old version that arrive after the upgrade.
+- **Guidance for developers** (the contract's Storage section, beside `user_version`): add columns, never rename: to rename, add the new column and copy into it; drop an old column in a later version whenever you like (late edits to it are kept in the log and ignored); never reuse an old name for something new.
+
+**Why:** syncing across versions would leave changes for columns one side lacks; bringing the older device up, from the site or a neighbour, lets them meet on one version without anyone waiting long. Migrations can't translate edits that arrive after they've run, and a translator hook would add contract surface and per-rename code for every developer: add-and-copy with the keep-not-apply rule costs nothing new, and unused columns are cheap in SQLite and can be dropped later.
+
+**Rules out:** syncing an app between different versions; the relay storing apps; a hook for apps to translate old changes (it can come later as its own contract change, if a real app needs it).
+
+**Needs the owner's review when built:** a bundle passed between devices (`trust/`).
+
+---
+
 ### DECISION-073 — Synced tables have no rules a merge can break
 
 **Status:** resolved (the owner, 2026-10-31: "yes", to option 3)
@@ -747,7 +771,7 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - For each field, the change with the latest time wins. Equal times are settled by the device, the same way on every device, so all devices pick the same winner.
 - It's silent: the person isn't asked or told. Changes to different fields of a row never fight (one device's new title and another's tick both stay).
 - The losing changes stay in the log, so nothing is gone (DECISION-068, goal 3). Seeing them comes with history (build step 6).
-- The time is a hybrid logical clock (DECISION-069). Deletes: DECISION-070. Row ids: DECISION-071. Table rules: DECISION-073.
+- The time is a hybrid logical clock (DECISION-069). Deletes: DECISION-070. Row ids: DECISION-071. Table rules: DECISION-073. Versions: DECISION-074.
 - Order of arrival doesn't matter: devices that have the same changes show the same data.
 
 **Rules out:** last write per row (it drops another device's edit to a different field); asking the person to pick between versions; deleting a losing change.
