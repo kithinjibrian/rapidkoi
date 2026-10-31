@@ -486,6 +486,29 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ---
 
+### DECISION-087 — Blob storage: an app's large bytes in files beside its database
+
+**Status:** open
+**Raised:** 2026-10-31, the owner: "should rapidkoi offer blob storage"
+
+**Question:** An app can keep bytes in a `BLOB` column today (4 MB a value, 100 MB a database, DECISION-052), but it can't show a picture it stored (pictures come only from the bundle or a URL, DECISION-056 Q1), large values crowd SQLite's shared memory and the 1 s call limit, and once sync records changes with the session extension (DECISION-070) every edit of a large value is copied whole into the log's 100 MB. Should Rapidkoi give each app a blob store, and how?
+
+**Agreed so far (the owner):** Rapidkoi only sniffs a blob's type, when it's shown as a picture; no media type is recorded or taken from the app.
+
+**Recommended (Claude):**
+- **Files, not the database:** each app's blobs are files in its data folder, named by the SHA-256 Rapidkoi computes, never by anything the guest chooses. SQLite's own measurements favour files past about 100 KB ([sqlite.org/intern-v-extern-blob](https://sqlite.org/intern-v-extern-blob.html)); small values stay in `BLOB` columns.
+- **Named keys:** `blob_set {msg, key, bytes}`, `blob_get {msg, key}`, `blob_delete {msg, key}`, `blob_list {msg, prefix?}`, answered `on_answer`/`on_fail`, each in a `Cmd.task`. Setting or deleting a key frees its old bytes, so Rapidkoi never reads the app's database to clean up (DECISION-046).
+- **An index Rapidkoi owns:** a small SQLite database per app (key, hash, size, time), never visible to the app. Writes go temporary file, fsync, rename, then the index: a crash leaves an orphan file, swept on open, never a key without its bytes.
+- **Pictures:** `image("blob:<key>")`, under every picture rule (header checked by lugha-imagesize, DECISION-056/058's formats and limits, `on_fail`), the bytes never passing through the guest.
+- **Anything can be stored;** Rapidkoi only shows pictures. A blob is never run, never handed to the system (opening, saving, a path) and never shared with another app; the person's own files are DECISION-078's shared data, and secrets wait on their own decision.
+- **Clear and Forget** remove the blobs and the index with the database.
+- **With sync, later:** the log carries keys and hashes; the bytes move lazily by hash, deduplicated.
+- **A contract change** (a version bump) and two capabilities for the owner's review: the blob asks and the `blob:` picture source.
+
+**To decide:** the limits (a quota apart from the database's 100 MB, a cap per blob, a cap on how many); and when: now, or when an app (Notes) needs pictures. Nothing in the build path holds it back: it's storage, which is done, designed to fit sync.
+
+---
+
 ## DEFERRED — Acknowledged, not yet needed
 
 ### DECISION-065 — The address box's pills sit 12 px in from its left end, flush at top and bottom (kivuli)
