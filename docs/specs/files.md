@@ -1,6 +1,6 @@
-# Files and folders: how apps reach the person's files (draft)
+# Files and folders: how apps reach the person's files
 
-DECISION-089, open. A draft for the owner's one review: every answer is filled in. **Agreed** marks what the owner has said; everything else is Claude's recommendation and stands unless the owner objects. Nothing here is built.
+DECISION-089, resolved: the owner approved this spec, answering its three questions (2026-10-31). Nothing here is built.
 
 The gap: an app can keep its own bytes (blobs, DECISION-087), but nothing the person owns can reach it. A photo can't be attached to a note, a document can't be opened and saved back, and a project can't be edited. The vision promises the shape: "When an app asks to open a file, Rapidkoi shows the file picker, and the app receives only the file the person chose" (`docs/source/stakeholder/vision-2026-10-17.md`).
 
@@ -33,7 +33,7 @@ Single files: opened as a copy or to edit, saved back, saved as. Handles last wh
 ### 2.1 Rapidkoi's chooser
 
 - Rapidkoi's open and save dialogs, through kivuli (GTK 4's `GtkFileDialog`; the portal where the desktop has one). Never drawn by the app.
-- Titled with the app's name and what it will get, in the owner's words (open question 1): for example "Open a file for Notes", "Open a file for Notes to edit", "Save a file from Notes".
+- Titled with the app's name and what it will get (the owner): "Open a file for {app}", "Open a file for {app} to modify" (to edit, 2.3), "Save a file from {app}".
 - One dialog at a time per window; an app asking while one is open gets `on_fail` "A file dialog is already open".
 - Cancelled: the answer is `null`, never an error.
 
@@ -64,7 +64,7 @@ Single files: opened as a copy or to edit, saved back, saved as. Handles last wh
 ### 2.6 Handles
 
 - Opaque, made by Rapidkoi, meaningless outside the window that got them.
-- They last **while the app's window is open** (agreed lifetime for the first version, open question 2): closing the window, reloading the app or Forget ends them. A handle no longer valid answers `on_fail` "This file is no longer open here".
+- They last **while the app's window is open** (agreed, the owner): closing the window, reloading the app or Forget ends them. A handle no longer valid answers `on_fail` "This file is no longer open here".
 - Rapidkoi holds the path beside the handle in the window's model, never in the app's state, never saved to disk.
 
 ### 2.7 What the app learns
@@ -81,7 +81,7 @@ The file's **name** (its last part: `receipt.pdf`) and **size**. Never its path 
 ### 2.9 Which apps, and the contract
 
 - Any app with a blob store (signed and local development apps). The new tab and built-ins: "This app keeps no files here".
-- The asks (`file_open`, `file_save`, `file_save_as`) and the `blob_own` step go into the contract. Whether that's an addition to contract 9 (as PRP-055's were) or contract 10 is open question 3.
+- The asks (`file_open`, `file_save`, `file_save_as`) and the `blob_own` step are **an addition to contract 9** (agreed, the owner), as PRP-055's were: apps on 9 never send them, so nothing they do changes.
 
 ---
 
@@ -171,11 +171,11 @@ Requests to other repositories, under their own rules; never worked around here.
 - the chooser's words (2.1): the consent itself;
 - later, each of Part 3 on its own.
 
-## Open questions for the owner
+## The owner's answers
 
-1. **The chooser's words.** Rapidkoi's own screens take only the copy the owner asks for. Suggested: "Open a file for {app}", "Open a file for {app} to edit", "Save a file from {app}".
-2. **Lifetime of a handle in the first version.** Recommended: while the app's window is open (2.6); remembered grants later (3.5).
-3. **Contract 10, or an addition to contract 9?** Recommended: an addition to 9, as PRP-055's were (apps on 9 never send the new asks, so nothing they do changes), unless the owner wants every new ask to bump the version.
+1. **The chooser's words:** "Open a file for {app} to modify" for opening to edit; "Open a file for {app}" and "Save a file from {app}" as suggested.
+2. **Lifetime of a handle:** while the app's window is open (2.6); remembered grants later (3.5).
+3. **The contract:** an addition to contract 9.
 
 ## Order of work
 

@@ -477,19 +477,6 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ---
 
-### DECISION-089 — Files and folders: how apps reach the person's files
-
-**Status:** open
-**Raised:** 2026-10-31, the owner, after blob storage: "what if an app wants to access a folder", "what if a user wants to open a file edit and save back", "i see a world where a user can set default apps", "explain to me how a code editor could work inside rapidkoi", then "i want us to write a spec how rapidkoi intends to hande file/folder"
-
-**Question:** How do apps reach the person's files and folders: what's granted, by whom, for how long, what the app learns, and how it grows to folders, "Open with…", default apps and an editor?
-
-**The draft spec:** `docs/specs/files.md`, every answer filled in, for the owner's one review: fundamentals (the person grants in Rapidkoi's chooser; scope, rights and lifetime; names, never paths; copy or reference; safe, conflict-checked writes; two worlds of files), a first version (single files opened as a copy or to edit, saved back, saved as; handles while the window is open), what's designed but not built (several files, folder import, live folders, change notices, remembered grants, "Open with…" and defaults, tasks, Rapidkoi's own files) and a code editor as the long-range target.
-
-**Needs first:** kivuli's open and save dialogs (a request, once this is resolved).
-
----
-
 ## DEFERRED — Acknowledged, not yet needed
 
 ### DECISION-065 — The address box's pills sit 12 px in from its left end, flush at top and bottom (kivuli)
@@ -765,6 +752,29 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 ---
 
 ## RESOLVED
+
+### DECISION-089 — Files and folders: how apps reach the person's files
+
+**Status:** resolved (the owner, 2026-10-31: "Open a file for {app} to modify, 2 & 3 your recommendation"); not built yet
+**Raised:** 2026-10-31, the owner, after blob storage: "what if an app wants to access a folder", "what if a user wants to open a file edit and save back", "i see a world where a user can set default apps", "explain to me how a code editor could work inside rapidkoi", then "i want us to write a spec how rapidkoi intends to hande file/folder"
+
+**Question:** How do apps reach the person's files and folders: what's granted, by whom, for how long, what the app learns, and how it grows to folders, "Open with…", default apps and an editor?
+
+**Decision:** as `docs/specs/files.md` sets out. In short:
+- **Fundamentals:** the person grants in Rapidkoi's chooser, and choosing is the permission; every grant has a scope, rights and a lifetime, each step up its own decision; the app learns names, never paths; copy (into blobs) or reference (a handle), the app says which; writes are atomic and never overwrite another's change; lasting grants are listed and revocable in ⚙; the system's files first, Rapidkoi's own synced files later.
+- **The first version:** `file_open` (a copy into a blob, or with `edit` a handle too), `file_save` (back to the handle's file: temporary file, sync, rename; refused when the file changed since it was read), `file_save_as`, and a `blob_own` batch step. Handles last while the app's window is open. The app learns the name and size. 16 MB a file. The chooser reads "Open a file for {app}", "Open a file for {app} to modify", "Save a file from {app}" (the owner). An addition to contract 9.
+- **Designed, not built, each its own decision:** several files, folder import, live folders (read, then write), change notices, remembered grants, "Open with…" and default apps, tasks between apps, Rapidkoi's own files, files past 16 MB.
+- **The long-range target:** a code editor; it also needs a code-editing component and the owner's decision on whether Rapidkoi ever runs tools for apps.
+
+**Why:** the powerbox pattern is how every sandboxed platform grants files (Android's document picker, macOS's sandbox, the browser's File System Access API, the desktop portal). Single files with handles carry "open, edit, save back" now and grow into folders and an editor without a rewrite.
+
+**Security review (the owner, approving the spec):** the three asks and `blob_own`, writing back to the person's file, the chooser's words; each later part on its own.
+
+**Needs first:** kivuli's open and save dialogs (`docs/specs/kivuli-file-dialogs.md`, M1).
+
+**A core decision:** no (it follows the vision's permission model; the first version is PRP-056)
+
+---
 
 ### DECISION-088 — Contract 8: time and name parts, and `now`
 
