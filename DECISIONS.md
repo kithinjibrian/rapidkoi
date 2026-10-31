@@ -694,7 +694,7 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ### DECISION-020 — What kivuli needs for Rapidkoi's frame
 
-**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018; the file dialog requested: `docs/specs/kivuli-requests.md` § 1)
+**Status:** deferred (part done; Rapidkoi uses placeholders for the rest, DECISION-018; the file dialog shipped in kivuli 0.66, `Cmd.open_file`, so an Open… item for local apps can be its own PRP)
 **Raised:** 2026-10-17 — Session 10
 **Revisit when:** Each kivuli release. Swap the matching placeholder out.
 
@@ -711,8 +711,8 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
   - kivuli 0.5.0: images from bytes. A bundle's icon shows on its tab and home tile (session 21)
 - **Not needed:** forcing dark (kivuli's DECISION-017). kivuli apps follow the desktop's dark preference already.
   - kivuli 0.7–0.10: a wrapping grid, an overlay, context menus and `button_with`. Home's grid, the panel over the app, tab and tile menus, and clickable panel rows (PRP-010, session 48)
+  - kivuli 0.66.0: the system's open and save dialogs and a folder chooser (`Cmd.open_file`, `Cmd.save_file`, `Cmd.choose_folder`; PRP-071 there, for DECISION-089). Not yet used for opening local apps (☰ Open…, Ctrl+O): its own small PRP.
 - **Still to come:**
-  1. a file dialog
   4. a wrapping grid, for home's tiles
 
 ---
@@ -770,7 +770,7 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 **Security review (the owner, approving the spec):** the three asks and `blob_own`, writing back to the person's file, the chooser's words; each later part on its own.
 
-**Needs first:** kivuli's open and save dialogs (`docs/specs/kivuli-file-dialogs.md`, M1).
+**Needs first:** kivuli's open and save dialogs (`docs/specs/kivuli-file-dialogs.md`, M1): shipped in kivuli v0.66.0 (`Cmd.open_file`, `Cmd.save_file`, `Cmd.choose_folder`, with lugha-gtk v0.1.60), with `kivuli.testing`'s `chooser` and `answer_chooser`. A second chooser while one is open is answered `None`; several files, an initial folder and an accept label aren't in it.
 
 **A core decision:** no (it follows the vision's permission model; the first version is PRP-056)
 

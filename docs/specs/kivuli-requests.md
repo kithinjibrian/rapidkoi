@@ -2,9 +2,8 @@
 
 Everything Rapidkoi needs from kivuli and doesn't have yet, in one place, most useful first. For kivuli sessions in `../kivuli`, under kivuli's own CLAUDE.md and PRP process: each section is a request (or a bug), its suggested API is kivuli's to decide, and Rapidkoi works around none of them. Each names its Rapidkoi decision in `DECISIONS.md`. When one is done, Rapidkoi moves its decision to resolved and removes its section here.
 
-Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fit-and-scroll-to.md` (0.53, 0.54).
+Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fit-and-scroll-to.md` (0.53, 0.54), `kivuli-file-dialogs.md` (0.66, which also answered this file's former § 7, "A file dialog").
 
-7. [A file dialog](#6-a-file-dialog) (DECISION-020)
 8. [More than one window of one app](#7-more-than-one-window-of-one-app) (DECISION-042)
 9. [Knowing what fits: the window's width, or a row that overflows](#8-knowing-what-fits-the-windows-width-or-a-row-that-overflows) (DECISION-043)
 10. [Bug: a drop-down inside a popover breaks the popover's dismissal](#9-bug-a-drop-down-inside-a-popover-breaks-the-popovers-dismissal) (DECISION-040)
@@ -14,25 +13,6 @@ Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fi
 14. [Bug: an overlay layer with a maximum size takes the clicks of everything under it (0.62)](#14-bug-an-overlay-layer-with-a-maximum-size-takes-the-clicks-of-everything-under-it-062) (DECISION-062)
 16. [An input group's add-ons, inset as the caller asks](#16-an-input-groups-add-ons-inset-as-the-caller-asks) (DECISION-065)
 
-
----
-
-## 7. A file dialog
-
-DECISION-020 (and DECISION-018's placeholders).
-
-**What Rapidkoi needs.** Opening a local app (`.rkb` or `.wasm`) means typing its path into the address box. A person should be able to pick the file.
-
-**What to add.** A command that opens the system's file chooser and sends the picked file's path, or nothing when cancelled:
-
-```
-// Suggested API (kivuli's to decide)
-Cmd.choose_file("Open an app", [("Rapidkoi apps", ["*.rkb", "*.wasm"])], fun(path: Option<string>) = Msg.Picked(path))
-```
-
-GTK 4.10+ (`gtk/gtkfiledialog.h`; GTK 4.22 here): `gtk_file_dialog_new`, `gtk_file_dialog_set_title`, `gtk_file_dialog_set_filters` (a `GListStore` of `GtkFileFilter` with `gtk_file_filter_add_pattern`), then `gtk_file_dialog_open(dialog, window, NULL, callback, data)` and, in the callback, `gtk_file_dialog_open_finish` → a `GFile` (`g_file_get_path`), or an error when cancelled. It goes through the desktop portal when sandboxed.
-
-**How Rapidkoi will use it.** An Open… item in the ☰ menu (and Ctrl+O); the picked path opens as typing it does (`navigate.open_file`). Typed paths keep working. No contract change.
 
 ---
 
