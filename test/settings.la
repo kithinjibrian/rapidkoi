@@ -6,7 +6,7 @@ import rapidkoi.window.window as windows { Model, with_pages };
 import rapidkoi.ui.settings;
 import rapidkoi.ui.addressbox;
 import rapidkoi.window.actions { Msg, PanelPage, ShieldPage, Confirm, NameScope, NamePart };
-import rapidkoi.window.tabs { AppPage, Cached, open_module };
+import rapidkoi.window.tabs { AppPage, open_module };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.bundles.bundle { Manifest };
 import kivuli { View };
@@ -75,10 +75,14 @@ fun the_main_page_has_the_app_and_its_sections() {
         assert(shows(v, s));
     }
     assert_eq(click(v, "Public key"), Ok(Msg.PanelGo(PanelPage.Key)));
-    assert_eq(click(v, "Identity"), Ok(Msg.PanelGo(PanelPage.Account)));
+    assert_eq(flip(v, "sign_in"), Ok(Msg.SetSignIn(false)));
+    assert_eq(click(v, "Name"), Ok(Msg.PanelGo(PanelPage.Name)));
     assert_eq(click(v, "Servers"), Ok(Msg.PanelGo(PanelPage.Access)));
-    assert_eq(click(v, "Data"), Ok(Msg.PanelGo(PanelPage.State)));
     assert_eq(click(v, "Forget this app…"), Ok(Msg.Ask(Confirm.Forget)));
+    // PRP-052: no Identity page, Start over or Clear; Data is a line.
+    for gone of ["Identity", "Data", "Clear…", "Start over as someone new…"] {
+        assert(click(v, gone).is_err());
+    }
 }
 
 @test
@@ -86,21 +90,21 @@ fun an_unsigned_app_has_no_account_section() {
     let v = card(window(plain()), PanelPage.Main);
     assert(!shows(v, "Account"));
     assert(click(v, "Public key").is_err());
-    assert(click(v, "Identity").is_err());
+    assert(click(v, "Name").is_err());
+    assert(flip(v, "sign_in").is_err());
     assert_eq(click(v, "Servers"), Ok(Msg.PanelGo(PanelPage.Access)));
 }
 
 @test
 fun every_page_goes_back() {
-    for page of [PanelPage.Key, PanelPage.Account, PanelPage.Access, PanelPage.State] {
+    for page of [PanelPage.Key, PanelPage.Name, PanelPage.Access] {
         assert_eq(click(card(window(signed()), page), "Back"), Ok(Msg.PanelBack));
     }
 }
 
 @test
-fun identity_names_signs_in_and_out_and_starts_over() {
-    let m = window(signed());
-    let v = card(m, PanelPage.Account);
+fun the_name_page_has_only_the_name() {
+    let v = card(window(signed()), PanelPage.Name);
     assert_eq(
         type_into(v, "First name", "Brian"),
         Ok(Msg.SetName(NameScope.ThisApp, NamePart.First, "Brian")),
@@ -109,11 +113,35 @@ fun identity_names_signs_in_and_out_and_starts_over() {
         type_into(v, "Last name", "K"),
         Ok(Msg.SetName(NameScope.ThisApp, NamePart.Last, "K")),
     );
-    assert_eq(click(v, "Sign out"), Ok(Msg.SignOut));
-    assert_eq(flip(v, "Sign in automatically"), Ok(Msg.ToggleAutoSignIn));
-    assert_eq(click(v, "Start over as someone new…"), Ok(Msg.Ask(Confirm.StartOverIdentity)));
-    let out = step(m, Msg.SignOut);
-    assert_eq(click(card(out, PanelPage.Account), "Sign in"), Ok(Msg.SignIn));
+    for gone of ["Sign out", "Sign in", "Start over as someone new…"] {
+        assert(click(v, gone).is_err());
+    }
+}
+
+@test
+fun the_name_row_reads_this_app_s_name_else_everyone_s() {
+    let m = step(window(signed()), Msg.TogglePanel);
+    assert(shows(card(m, PanelPage.Main), "Not set"));
+    let everyone = step(m, Msg.SetName(NameScope.Everywhere, NamePart.First, "Brian"));
+    assert(shows(card(everyone, PanelPage.Main), "Brian"));
+    let own = step(everyone, Msg.SetName(NameScope.ThisApp, NamePart.Last, "K"));
+    assert(shows(card(own, PanelPage.Main), "Brian K"));
+    // A long name is cut to fit the row.
+    let long = step(
+        m,
+        Msg.SetName(NameScope.ThisApp, NamePart.First, "Abcdefghijklmnopqrstuvwxyz"),
+    );
+    assert(shows(card(long, PanelPage.Main), "Abcdefghijklmnopqrstuvwx…"));
+}
+
+@test
+fun sign_in_off_shares_no_key() {
+    let m = step(window(signed()), Msg.TogglePanel);
+    let off = step(m, Msg.SetSignIn(false));
+    assert(shows(card(off, PanelPage.Main), "Not shared"));
+    assert(shows(card(off, PanelPage.Key), "Not shared"));
+    assert_eq(flip(card(off, PanelPage.Main), "sign_in"), Ok(Msg.SetSignIn(true)));
+    assert(!shows(card(step(off, Msg.SetSignIn(true)), PanelPage.Main), "Not shared"));
 }
 
 @test
@@ -127,50 +155,30 @@ fun servers_are_switches_on_a_signed_app() {
 }
 
 @test
-fun data_offers_to_clear_after_asking() {
-    // PRP-041: its state and its database, together.
-    let v = card(window(signed()), PanelPage.State);
-    assert(shows(v, "Nothing saved"));
-    assert_eq(click(v, "Clear…"), Ok(Msg.Ask(Confirm.ClearData)));
+fun data_is_a_line_with_its_size() {
+    // PRP-041: its state and its database, together; PRP-052: no page, no Clear.
+    assert(shows(card(window(signed()), PanelPage.Main), "Nothing saved"));
     // The size once read in a task.
     let sized = step(step(window(signed()), Msg.TogglePanel), Msg.DataSized(0, 12 * 1024));
-    assert(shows(card(sized, PanelPage.State), "12 KB"));
+    assert(shows(card(sized, PanelPage.Main), "12 KB"));
 }
 
 @test
-fun data_shows_the_kept_app_beside_its_data() {
-    // PRP-043: a signed app's kept copy takes room too.
-    let kept = AppPage {
-        cached: Some(Cached {
-            checked: 0,
-            reached: true,
-            size: 70 * 1024,
-            newer: None,
-            moved: None,
-        }),
-        ..signed(),
-    };
-    let v = card(window(kept), PanelPage.State);
-    assert((shows(v, "App"), shows(v, "70 KB")) == (true, true));
-    assert(!shows(card(window(signed()), PanelPage.State), "App"));
-}
-
-@test
-fun each_dialog_asks_and_can_be_cancelled() {
+fun forget_asks_in_the_owner_s_words_and_can_be_cancelled() {
     let m = window(signed());
     assert(settings.dialog(m).is_none());
-    let cases = [
-        (Confirm.Forget, "Forget", Msg.Forget),
-        (Confirm.StartOver, "Start over", Msg.StartOver),
-        (Confirm.ClearData, "Clear", Msg.ClearData),
-        (Confirm.StartOverIdentity, "Start over", Msg.StartOverIdentity),
-    ];
-    for (c, label, msg) of cases {
-        let asking = step(step(m, Msg.TogglePanel), Msg.Ask(c));
-        let d = settings.dialog_view(asking);
-        assert_eq(click(d, "Cancel"), Ok(Msg.Cancel));
-        assert_eq(click(d, label), Ok(msg));
-    }
+    let asking = step(step(m, Msg.TogglePanel), Msg.Ask(Confirm.Forget));
+    let d = settings.dialog_view(asking);
+    // The owner's words (PRP-052).
+    assert(shows(d, "Forget Notes?"));
+    assert(
+        shows(
+            d,
+            "Its windows, pin, data and settings here will be removed. Next time you open it, it won't know you.",
+        ),
+    );
+    assert_eq(click(d, "Cancel"), Ok(Msg.Cancel));
+    assert_eq(click(d, "Forget"), Ok(Msg.Forget));
 }
 
 @test

@@ -86,9 +86,7 @@ enum Msg {
     Ask(Confirm),
     /** Don't do the action that was asked about. */
     Cancel,
-    /** Clear the current app's state and start it fresh (confirmed). */
-    StartOver,
-    /** Forget the current app: its tab, pin and saved state (confirmed). */
+    /** Forget the current app (confirmed): its windows, pin, data and settings here; reopened, it sees someone new (PRP-052). */
     Forget,
     /** On a changed key: open the person's version (or close the tab when there's none). */
     KeepMine,
@@ -134,8 +132,6 @@ enum Msg {
     Queried(i64, i64, Value, Queried),
     /** How big this tab's app's data is, in bytes, for its ⚙ card. */
     DataSized(i64, i64),
-    /** Clear the current app's data and start it fresh (confirmed). */
-    ClearData,
     /** The Access page's switch for one of this app's servers (PRP-012). */
     ToggleServer(string),
     /** The loading tick: the time, while some tab is loading. */
@@ -146,14 +142,8 @@ enum Msg {
     OnPin(string, Option<u8[]>, PinAction),
     /** A name typed on the Account page: for every app or this one, first or last (PRP-011). */
     SetName(NameScope, NamePart, string),
-    /** The Account page's "Sign in automatically". */
-    ToggleAutoSignIn,
-    /** Stop answering this app with your key. */
-    SignOut,
-    /** Answer it again. */
-    SignIn,
-    /** Become someone new to this app (confirmed): a new key, and the app starts again. */
-    StartOverIdentity,
+    /** The card's Sign in switch (PRP-052): whether this app gets your key and signatures. */
+    SetSignIn(bool),
 }
 
 /** Which name a field sets. */
@@ -212,12 +202,10 @@ enum PanelPage {
     Main,
     /** Public key: who you are to the app. */
     Key,
-    /** Identity: your name in it, signing in and out, starting over as someone new. */
-    Account,
+    /** Name: your name in it (PRP-052). */
+    Name,
     /** Servers: what it can reach, a switch each. */
     Access,
-    /** State: what it saved, and clearing it. */
-    State,
     /** Permissions: what it declared, a setting each (PRP-031). */
     Permissions,
 }
@@ -244,12 +232,6 @@ enum Answer {
 
 /** A destructive action waiting for "yes". */
 enum Confirm {
-    /** Clear the app's state. */
-    StartOver,
-    /** Forget the app entirely. */
+    /** Forget the app entirely (PRP-052). */
     Forget,
-    /** Become someone new to the app. */
-    StartOverIdentity,
-    /** Clear the app's data (PRP-041). */
-    ClearData,
 }

@@ -14,6 +14,7 @@
  */
 import people.identity { Master, master, public_key, sign_in };
 import people.people { Grant, person, setting_of, with_setting };
+import people.account { generation_for };
 import window.tabs { AppPage, Tab, Screen, handle, changed };
 import window.window { Model, with_tab, is_blank, with_prefs };
 import window.notices { identity_trouble };
@@ -425,8 +426,8 @@ fun respond(m: Model, p: AppPage, ask: Effect): (Model, Value) {
             return (m, Value.Null);
         }
     };
-    let x = person(m.people, t.host, t.origin);
-    if x.signed_out {
+    // Sign in off: a guest, every run (PRP-052).
+    if !person(m.people, t.host, t.origin).signs_in {
         return (m, Value.Null);
     }
     let (held, secret) = secret(m);
@@ -436,9 +437,16 @@ fun respond(m: Model, p: AppPage, ask: Effect): (Model, Value) {
             return (held, Value.Null);
         }
     };
+    // Past every key it had before it was forgotten (PRP-052).
+    let g = match generation_for(m.people, mm, t.host, t.origin) {
+        Ok(g) => g,
+        Err(e) => {
+            return (Model { notice: Some(identity_trouble(e)), ..held }, Value.Null);
+        }
+    };
     let made = match ask {
-        Identity(_) => public_key(mm, t.host, t.origin, x.generation),
-        Sign(_, challenge) => sign_in(mm, t.host, t.origin, x.generation, challenge),
+        Identity(_) => public_key(mm, t.host, t.origin, g),
+        Sign(_, challenge) => sign_in(mm, t.host, t.origin, g, challenge),
         _ => {
             return (held, Value.Null);
         }

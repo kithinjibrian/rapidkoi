@@ -322,18 +322,9 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     PanelBack => (Model { panel: Some(PanelPage.Main), confirm: None, ..m }, Cmd.none()),
     Ask(c) => (Model { confirm: Some(c), ..m }, Cmd.none()),
     Cancel => (Model { confirm: None, renaming: None, ..m }, Cmd.none()),
-    StartOver => match m.current {
-        Some(id) => (
-            Model {
-                confirm: None,
-                ..window.with_tab(m, id, fun(a: AppPage) = handle(a, render.Msg.Restart)),
-            },
-            Cmd.none(),
-        ),
-        None => (m, Cmd.none()),
-    },
     Forget => {
         // Its database and its kept copy go with it (PRP-041, PRP-043); a failure is the notice.
+        // Its next key is kept past it in forget_account (PRP-052), which never depends on these.
         let said = match (m.current, window.page_of(m)) {
             (Some(id), App(a)) => {
                 let copy = copy_removed(m, id);
@@ -378,34 +369,11 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         window.with_tab(m, id, fun(a: AppPage) = AppPage { data_size: Some(n), ..a }),
         Cmd.none(),
     ),
-    // Everything the app keeps: its database, then its window starts fresh (PRP-041).
-    ClearData => match (m.current, window.page_of(m)) {
-        (Some(id), App(a)) => {
-            let cleared = Model {
-                confirm: None,
-                ..window.with_tab(
-                    m,
-                    id,
-                    fun(x: AppPage) = AppPage {
-                        data_size: Some(0),
-                        ..handle(x, render.Msg.Restart),
-                    },
-                ),
-            };
-            // About this app: on its tab (PRP-051).
-            let said = data_cleared(m, id).map(fun(why: string) = data_not_removed(a.name, why));
-            (told(cleared, id, said), Cmd.none())
-        }
-        _ => (m, Cmd.none()),
-    },
     ToggleServer(server) => (on_access(m, server), Cmd.none()),
     Tick(now) => (Model { now: now, ..m }, Cmd.none()),
     OnTab(id, action) => on_tab(m, id, action),
     OnPin(path, origin, action) => navigate.on_pin(m, path, origin, action),
-    SetName(_, _, _) | ToggleAutoSignIn | SignOut | SignIn | StartOverIdentity => (
-        on_account(m, msg),
-        Cmd.none(),
-    ),
+    SetName(_, _, _) | SetSignIn(_) => (on_account(m, msg), Cmd.none()),
 };
 
 /**

@@ -102,7 +102,7 @@ fun view(m: Model): View<Msg> {
     // `.dialog` wraps the page in an overlay, so it comes first: the root
     // modifiers (`.palette`, `.window`, `.header`) must sit on what it
     // returns, or kivuli stops ("belongs on the root"; session 141).
-    // Start over, start over as someone new, and Forget ask first (PRP-022).
+    // Forget asks first (PRP-022, PRP-052).
     // Tooltips are styled there too: GTK hangs them beside the root.
     column([body]).style(frame_look(t)).dialog(settings.dialog(m)).style(tooltips(t)).window(
         title_of(m),

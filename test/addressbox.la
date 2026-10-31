@@ -5,7 +5,7 @@ import rapidkoi.shell { update };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.addressbox;
 import rapidkoi.ui.layout;
-import rapidkoi.window.actions { Msg };
+import rapidkoi.window.actions { Msg, Confirm };
 import rapidkoi.window.tabs { AppPage, open_module };
 import kivuli.testing { click, press, type_into, submit };
 import wasmtime { Engine, Module };
@@ -74,4 +74,17 @@ fun an_app_page_has_the_same_field_with_its_address() {
     let typed = step(m, Msg.Draft("quote"));
     assert_eq((typed.editing, typed.draft), (true, "quote"));
     assert_eq(step(typed, Msg.Dismiss).editing, false);
+}
+
+@test
+fun the_settings_card_steps_aside_while_a_dialog_asks() {
+    // ⚙'s card is a popover, drawn above the window, so a dialog in the
+    // window would sit under it (the owner's screenshot, PRP-052).
+    let engine = Engine.new();
+    let open = step(with_pages(engine, [app(engine, "Notes")]), Msg.TogglePanel);
+    assert_eq(addressbox.card_open(open), true);
+    let asking = step(open, Msg.Ask(Confirm.Forget));
+    assert_eq(addressbox.card_open(asking), false);
+    // Cancel: the card comes back where it was.
+    assert_eq(addressbox.card_open(step(asking, Msg.Cancel)), true);
 }

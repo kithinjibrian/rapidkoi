@@ -18,6 +18,7 @@ import rapidkoi.data.remembered { Open, OpenTab };
 import kivuli { Cmd };
 import rapidkoi.trust.verify { Trust, Standing };
 import rapidkoi.people.identity { master, public_key, sign_in_message };
+import rapidkoi.people.account { forget_app };
 import rapidkoi.people.people {
     People,
     Person,
@@ -146,7 +147,7 @@ fun an_unsigned_app_gets_nothing() {
 }
 
 @test
-fun signed_out_gets_nothing_and_starting_over_gives_a_new_key() {
+fun sign_in_off_gets_nothing_and_a_forgotten_app_gets_a_newer_key() {
     let s = folder("choices");
     let engine = Engine.new();
     let base = restore(
@@ -155,7 +156,7 @@ fun signed_out_gets_nothing_and_starting_over_gives_a_new_key() {
     );
     let out = Model {
         people: with_person(base.people, Person {
-            signed_out: true,
+            signs_in: false,
             ..person(base.people, HOST, [3; 32]),
         }),
         ..base,
@@ -165,15 +166,21 @@ fun signed_out_gets_nothing_and_starting_over_gives_a_new_key() {
         with_pages(engine, [page([kv([("kind", t("identity")), ("msg", t("me"))])], true)]),
         s,
     );
-    let over = Model {
-        people: with_person(again.people, Person {
-            generation: 1,
-            ..person(again.people, HOST, [3; 32]),
-        }),
-        ..again,
-    };
-    let first = public_key(master(s).unwrap(), HOST, [3; 32], 0).unwrap();
-    assert_eq(got(answer_all(over).0) != answer(t("me"), Value.Bytes(first)), true);
+    // Carried from format 4 at generation 2, then forgotten: reopened, generation 3.
+    let mm = master(s).unwrap();
+    let carried = with_person(again.people, Person {
+        generation: 2,
+        ..person(again.people, HOST, [3; 32]),
+    });
+    let over = Model { people: forget_app(carried, Some(mm), HOST, [3; 32]).unwrap(), ..again };
+    let given = got(answer_all(over).0);
+    assert_eq(given, answer(t("me"), Value.Bytes(public_key(mm, HOST, [3; 32], 3).unwrap())));
+    for g of [0, 1, 2] {
+        assert_eq(
+            given != answer(t("me"), Value.Bytes(public_key(mm, HOST, [3; 32], g).unwrap())),
+            true,
+        );
+    }
     clean(s.dir);
 }
 
@@ -193,10 +200,7 @@ fun greeting(): AppPage {
 fun an_app_shows_your_name_without_knowing_it() {
     let engine = Engine.new();
     let m = with_pages(engine, [greeting()]);
-    let named = Model {
-        people: People { first: "Brian", last: "Kithinji", apps: [], grants: [], looks: [] },
-        ..m,
-    };
+    let named = Model { people: People { first: "Brian", last: "Kithinji", ..m.people }, ..m };
     assert_eq(texts(view(named)).any(fun(x: string) = x == "Hello, Brian Kithinji!"), true);
     // No name set: nothing in its place.
     assert_eq(texts(view(m)).any(fun(x: string) = x == "Hello,  !"), true);

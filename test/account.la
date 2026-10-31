@@ -1,5 +1,5 @@
-// An app's account (PRP-011): who you are to it, signing in and out,
-// starting over as someone new, and your name. The facts the Account page
+// An app's account (PRP-011, PRP-052): who you are to it, Sign in, your
+// name, and Forget: reopened, it sees someone new. The facts the Account page
 // will show, checked on the model: its page comes back natively later
 // (DECISION-030). Writes only under test/tmp/.
 import rapidkoi.shell { update };
@@ -15,6 +15,7 @@ import rapidkoi.guest.events { Happened, event_for };
 import rapidkoi.data.store { Store, store_at };
 import cbor { Value, Entry, encode };
 import std.fs;
+import rapidkoi.data.databases { path_for };
 import wasmtime { Engine, Module };
 import support { echo_init, t, kv, echo, event_in };
 
@@ -70,7 +71,7 @@ fun notes(s: Store): Model {
         ),
     };
     let (m, _) = update(restore(with_pages(engine, [p]), s), Msg.TogglePanel);
-    step(m, Msg.PanelGo(PanelPage.Account))
+    step(m, Msg.PanelGo(PanelPage.Name))
 }
 
 fun step(m: Model, msg: Msg): Model {
@@ -95,32 +96,58 @@ fun answer(msg: Value, value: Value): u8[] = event_for(Happened.Answer(msg, valu
 fun it_says_who_you_are_to_this_app() {
     let s = folder("who");
     // A message lets the app's init ask; then the page shows the key's label.
-    let m = step(notes(s), Msg.PanelGo(PanelPage.Account));
+    let m = step(notes(s), Msg.PanelGo(PanelPage.Name));
     assert_eq(facts(m).label, Some(user_label(key(s, 0))));
     clean(s.dir);
 }
 
 @test
-fun signing_out_and_in_and_the_automatic_switch() {
+fun the_sign_in_switch() {
     let s = folder("out");
     let m = notes(s);
-    let out = step(m, Msg.SignOut);
-    assert_eq(person(out.people, HOST, [3; 32]).signed_out, true);
-    assert_eq(person(step(out, Msg.SignIn).people, HOST, [3; 32]).signed_out, false);
-    assert_eq(person(step(m, Msg.ToggleAutoSignIn).people, HOST, [3; 32]).auto, false);
+    let off = step(m, Msg.SetSignIn(false));
+    assert_eq(person(off.people, HOST, [3; 32]).signs_in, false);
+    assert_eq(person(step(off, Msg.SetSignIn(true)).people, HOST, [3; 32]).signs_in, true);
     clean(s.dir);
 }
 
 @test
-fun starting_over_asks_then_gives_a_new_key() {
-    let s = folder("over");
+fun a_forgotten_app_sees_someone_new_every_time() {
+    let s = folder("forget");
+    // Its init asked, and got the first key.
     let m = notes(s);
-    let asked = step(m, Msg.Ask(Confirm.StartOverIdentity));
-    let over = step(asked, Msg.StartOverIdentity);
-    assert_eq(person(over.people, HOST, [3; 32]).generation, 1);
-    // The app starts again and asks again: it now gets the new key.
     assert_eq(
-        state_of(over.tabs[0].page).map(event_in),
+        state_of(m.tabs[0].page).map(event_in),
+        Some(answer(t("me"), Value.Bytes(key(s, 0)))),
+    );
+    let gone = step(step(m, Msg.Ask(Confirm.Forget)), Msg.Forget);
+    assert_eq(gone.people.apps.len, 0);
+    // Opened again on the same folder: the next key, never the first.
+    let again = notes(s);
+    assert_eq(
+        state_of(again.tabs[0].page).map(event_in),
+        Some(answer(t("me"), Value.Bytes(key(s, 1)))),
+    );
+    step(step(again, Msg.Ask(Confirm.Forget)), Msg.Forget);
+    assert_eq(
+        state_of(notes(s).tabs[0].page).map(event_in),
+        Some(answer(t("me"), Value.Bytes(key(s, 2)))),
+    );
+    clean(s.dir);
+}
+
+@test
+fun a_failed_removal_still_forgets_who_you_were() {
+    let s = folder("stuck");
+    let m = notes(s);
+    // A folder where its database would be: removing it fails.
+    let path = path_for(s, m.tabs[0].page).unwrap();
+    fs.make_dirs(path).unwrap();
+    let gone = step(step(m, Msg.Ask(Confirm.Forget)), Msg.Forget);
+    assert_eq(gone.notice.map(fun(n) = n.short), Some("Notes's data couldn't be removed"));
+    // Its next key was kept all the same.
+    assert_eq(
+        state_of(notes(s).tabs[0].page).map(event_in),
         Some(answer(t("me"), Value.Bytes(key(s, 1)))),
     );
     clean(s.dir);
@@ -147,7 +174,7 @@ fun your_name_in_this_app() {
 fun an_unsigned_app_can_t_have_an_account() {
     let engine = Engine.new();
     let p = open_module("Plain", "plain.wasm", engine, Module.from_text(engine, echo()).unwrap());
-    let m = step(step(with_pages(engine, [p]), Msg.TogglePanel), Msg.PanelGo(PanelPage.Account));
+    let m = step(step(with_pages(engine, [p]), Msg.TogglePanel), Msg.PanelGo(PanelPage.Name));
     assert_eq(facts(m).person.is_none(), true);
 }
 
@@ -170,7 +197,7 @@ fun after_a_restart_the_page_still_knows_who_you_are() {
     };
     let again = step(
         step(restore(with_pages(engine, [p]), s), Msg.TogglePanel),
-        Msg.PanelGo(PanelPage.Account),
+        Msg.PanelGo(PanelPage.Name),
     );
     assert_eq(facts(again).label, Some(user_label(key(s, 0))));
     clean(s.dir);
@@ -191,7 +218,7 @@ fun no_master_secret_is_made_until_an_app_asks() {
     };
     let m = step(
         step(restore(with_pages(engine, [p]), s), Msg.TogglePanel),
-        Msg.PanelGo(PanelPage.Account),
+        Msg.PanelGo(PanelPage.Name),
     );
     assert_eq((facts(m).label, fs.exists("{s.dir}/identity")), (None, false));
     clean(s.dir);

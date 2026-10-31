@@ -186,7 +186,7 @@ fun field(m: Model): View<Msg> {
         start.push(
             ui_popover(
                 gear,
-                m.panel.is_some(),
+                card_open(m),
                 settings.card(m, p, m.panel.unwrap_or(PanelPage.Main)),
                 Msg.ClosePanel,
             ),
@@ -264,3 +264,13 @@ fun round(): Styling[] = [
         Border { all: Side { width: Width.Px(0), ..Side.theme() }, ..Border.theme() },
     ]),
 ];
+
+/**
+ * Says whether ⚙'s card shows: while `m.panel` says it's open and no dialog
+ * asks. A popover is drawn above the window, so a dialog in the window would
+ * sit under it; Cancel brings the card back (PRP-052).
+ *
+ * Example:
+ *     ui_popover(gear, card_open(m), card, Msg.ClosePanel)
+ */
+fun card_open(m: Model): bool = m.panel.is_some() && m.confirm.is_none();

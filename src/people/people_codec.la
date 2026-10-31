@@ -1,0 +1,282 @@
+/**
+ * The people file (PRP-011, format 5 since PRP-052): encoding everything
+ * in `people` and reading it back as hostile input, every host a host
+ * name, every origin 32 bytes, every name at most `MAX_NAME` characters.
+ * Saved by `saving` as it changes. Not what the settings mean (`people`).
+ *
+ * Depends on: cbor, data.remembered, bundles.rules, bundles.permissions, net.network, guest.limits, people.people, people.forgotten
+ * Used by: data.saving
+ */
+import cbor { Value, Entry, Limits, decode, encode };
+import data.remembered { Unreadable };
+import bundles.rules { check_host };
+import bundles.permissions { setting_name, parse_setting };
+import net.network { check_server };
+import guest.limits { MAX_SERVERS };
+import people.people { People, Person, Grant, OwnLooks, MAX_NAME, MAX_PEOPLE };
+import people.forgotten { forgotten_value, read_forgotten };
+
+/** The file's format: 3 permissions (PRP-031), 4 look switches (PRP-038), 5 Sign in, forgotten apps (PRP-052). */
+const FORMAT: i64 = 5;
+
+/** The file's cap in bytes. */
+const MAX_PEOPLE_FILE: i64 = 4 * 1024 * 1024;
+
+/**
+ * Encodes the people file.
+ *
+ * Example:
+ *     save(s, "people", people_file(people))?
+ */
+fun people_file(p: People): u8[] = encode(
+    Value.Map([
+        entry("format", Value.int(FORMAT)),
+        entry("kind", Value.Text("rapidkoi people")),
+        entry("first", Value.Text(p.first)),
+        entry("last", Value.Text(p.last)),
+        entry(
+            "apps",
+            Value.Array(
+                p.apps.map(
+                    fun(x: Person) = Value.Map([
+                        entry("host", Value.Text(x.host)),
+                        entry("origin", Value.Bytes(x.origin)),
+                        entry("generation", Value.int(x.generation)),
+                        entry("signs_in", Value.Bool(x.signs_in)),
+                        entry("first", Value.Text(x.first)),
+                        entry("last", Value.Text(x.last)),
+                        entry("off", names(x.off)),
+                        entry("seen", names(x.seen)),
+                        entry("fresh", names(x.fresh)),
+                    ]),
+                ),
+            ),
+        ),
+        entry(
+            "grants",
+            Value.Array(
+                p.grants.map(
+                    fun(g: Grant) = Value.Map([
+                        entry("app", Value.Text(g.app)),
+                        entry("permission", Value.Text(g.permission)),
+                        entry("setting", Value.Text(setting_name(g.setting))),
+                    ]),
+                ),
+            ),
+        ),
+        entry(
+            "looks",
+            Value.Array(
+                p.looks.map(
+                    fun(l: OwnLooks) = Value.Map([
+                        entry("app", Value.Text(l.app)),
+                        entry("colours", Value.Bool(l.colours)),
+                        entry("text_size", Value.Bool(l.text_size)),
+                    ]),
+                ),
+            ),
+        ),
+        entry("forgotten", forgotten_value(p.forgotten)),
+    ]),
+);
+
+/**
+ * Reads the people file: every host a host name, every origin 32 bytes,
+ * every name at most `MAX_NAME` characters.
+ *
+ * Example:
+ *     read_people(bytes)?
+ */
+fun read_people(bytes: u8[]): Result<People, Unreadable> {
+    let bad = fun(why: string) = Unreadable.Broken(why);
+    let v = decode(bytes, Limits {
+        max_depth: 5,
+        max_items: 16 * MAX_PEOPLE + 64,
+        max_bytes: MAX_PEOPLE_FILE,
+        max_string: 4096,
+    }).map_err(fun(e) = bad("not CBOR ({e})"))?;
+    if v.as_map().is_none() || text(v, "kind") != Some("rapidkoi people") {
+        return Err(bad("it isn't Rapidkoi's people file"));
+    }
+    let format = whole(v, "format");
+    if format > FORMAT {
+        return Err(Unreadable.Newer(format));
+    }
+    if format < 1 {
+        return Err(bad("it isn't Rapidkoi's people file"));
+    }
+    let first = name(v, "first")?;
+    let last = name(v, "last")?;
+    let items = match v.get("apps") {
+        Some(Array(xs)) => xs,
+        _ => {
+            return Err(bad("its apps aren't a list"));
+        }
+    };
+    if items.len > MAX_PEOPLE {
+        return Err(bad("it has more than 10,000 apps"));
+    }
+    let mut apps: Person[] = [];
+    for x of items {
+        let host = text(x, "host").unwrap_or("");
+        if check_host(host).is_err() {
+            return Err(bad("an app's host isn't a host name"));
+        }
+        let origin = match x.get("origin") {
+            Some(Bytes(b)) if b.len == 32 => b,
+            _ => {
+                return Err(bad("an app's origin key isn't 32 bytes"));
+            }
+        };
+        let generation = whole(x, "generation");
+        if generation < 0 {
+            return Err(bad("an app's generation isn't a whole number"));
+        }
+        apps.push(Person {
+            host: host,
+            origin: origin,
+            generation: generation,
+            signs_in: signs_in(x, format)?,
+            first: name(x, "first")?,
+            last: name(x, "last")?,
+            off: servers(x, "off", format)?,
+            seen: servers(x, "seen", format)?,
+            fresh: servers(x, "fresh", format)?,
+        });
+    }
+    Ok(People {
+        first: first,
+        last: last,
+        apps: apps,
+        grants: grants_of(v, format)?,
+        looks: looks_in(v, format)?,
+        forgotten: read_forgotten(v, format)?,
+    })
+}
+
+/** Sign in (format 5); before, automatically and not signed out (else each run started signed out). */
+fun signs_in(x: Value, format: i64): Result<bool, Unreadable> = match (
+    format >= 5,
+    flag(x, "signs_in"),
+    flag(x, "auto"),
+    flag(x, "signed_out"),
+) {
+    (true, Some(on), _, _) => Ok(on),
+    (false, _, Some(auto), Some(out)) => Ok(auto && !out),
+    _ => Err(Unreadable.Broken("an app's Sign in isn't true or false")),
+};
+
+/** Each app's look switches (format 4; none before). */
+fun looks_in(v: Value, format: i64): Result<OwnLooks[], Unreadable> {
+    if format < 4 {
+        return Ok([]);
+    }
+    let items = match v.get("looks") {
+        Some(Array(xs)) if xs.len <= MAX_PEOPLE => xs,
+        _ => {
+            return Err(Unreadable.Broken("its look switches aren't a list"));
+        }
+    };
+    let mut out: OwnLooks[] = [];
+    for l of items {
+        let app = match text(l, "app") {
+            Some(a) if a.len >= 1 && a.len <= 256 => a,
+            _ => {
+                return Err(Unreadable.Broken("a look switch doesn't name its app"));
+            }
+        };
+        out.push(OwnLooks {
+            app: app,
+            colours: flag(l, "colours").unwrap_or(false),
+            text_size: flag(l, "text_size").unwrap_or(false),
+        });
+    }
+    Ok(out)
+}
+
+/** The permission settings (format 3; none before): each app key, permission name and setting. */
+fun grants_of(v: Value, format: i64): Result<Grant[], Unreadable> {
+    if format < 3 {
+        return Ok([]);
+    }
+    let items = match v.get("grants") {
+        Some(Array(xs)) if xs.len <= MAX_PEOPLE => xs,
+        _ => {
+            return Err(Unreadable.Broken("its permission settings aren't a list"));
+        }
+    };
+    let mut out: Grant[] = [];
+    for g of items {
+        let (app, permission) = match (text(g, "app"), text(g, "permission")) {
+            (Some(a), Some(p)) if a.len >= 1 && a.len <= 256 && p.len >= 1 && p.len <= 32 => (a, p),
+            _ => {
+                return Err(
+                    Unreadable.Broken("a permission setting doesn't name its app and permission"),
+                );
+            }
+        };
+        let setting = text(g, "setting").and_then(fun(n: string) = parse_setting(n)).ok_or(
+            Unreadable.Broken("a permission setting isn't allowed, ask or blocked"),
+        )?;
+        out.push(Grant { app: app, permission: permission, setting: setting });
+    }
+    Ok(out)
+}
+
+/**
+ * A list of server names (format 2; none in format 1): at most one more
+ * than a manifest may declare, since the own host can be switched off too.
+ */
+fun servers(v: Value, field: string, format: i64): Result<string[], Unreadable> {
+    if format < 2 {
+        return Ok([]);
+    }
+    let bad = Unreadable.Broken("an app's servers aren't server names");
+    let items = match v.get(field) {
+        Some(Array(xs)) if xs.len <= MAX_SERVERS + 1 => xs,
+        _ => {
+            return Err(bad);
+        }
+    };
+    let mut out: string[] = [];
+    for item of items {
+        match item {
+            Text(s) if check_server(s).is_ok() => out.push(s),
+            _ => {
+                return Err(bad);
+            }
+        }
+    }
+    Ok(out)
+}
+
+fun names(xs: string[]): Value = Value.Array(xs.map(fun(x: string) = Value.Text(x)));
+
+/** A name part: text of at most `MAX_NAME` characters. */
+fun name(v: Value, field: string): Result<string, Unreadable> {
+    let s = text(v, field).ok_or(Unreadable.Broken("a name isn't text"))?;
+    let mut count = 0;
+    for _ of s.chars() {
+        count += 1;
+    }
+    if count > MAX_NAME {
+        return Err(Unreadable.Broken("a name is longer than 64 characters"));
+    }
+    Ok(s)
+}
+
+fun flag(v: Value, field: string): Option<bool> = match v.get(field) {
+    Some(Bool(b)) => Some(b),
+    _ => None,
+};
+
+fun whole(v: Value, field: string): i64 = v.get(field).map(
+    fun(n: Value) = n.as_i64().unwrap_or(-1),
+).unwrap_or(-1);
+
+fun text(v: Value, field: string): Option<string> = match v.get(field) {
+    Some(Text(s)) => Some(s),
+    _ => None,
+};
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };
