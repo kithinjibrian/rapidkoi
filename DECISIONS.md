@@ -208,6 +208,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** Rapidkoi accounts or servers in the middle; names, emails or phones sent to apps by Rapidkoi; keys for unsigned apps.
 
+**Amended (the owner, 2026-10-31, core decision 29):** "servers in the middle" means sign-in through a Rapidkoi account or server. The Pond holds only sealed data, reached with device keys and no account, and never stands between a person and an app's sign-in.
+
 ---
 
 ### 18. Apps reaching the network (PRP-012)
@@ -355,6 +357,23 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 **Amended (the owner, PRP-048, 2026-10-30):** an app's windows share its database, so they all run one version. Upgrading or reloading any window (the arrow, Reload, the tab menu's Reload; signed, local development and built-in apps alike) loads the new version once and moves every window of the app onto it, each keeping its state; if it can't be loaded, no window changes. A second upgrade waits for the first. A link's new window of an app already open runs the version open. An older version opening a database a newer one changed is the app's to handle (DECISION-066).
 
 **Amended (the owner, PRP-049, DECISION-064, 2026-10-30):** a copy is kept per app (host and first key), not per host. A site now signed by another key with no signed trail no longer removes the copy: it stays as the person's version, opens online or offline, and stops updating until its own key (or a rotation from it) signs the site again.
+
+---
+
+### 29. The Pond: Rapidkoi's server, default and self-hostable
+
+**Decision:** Rapidkoi has one server, the **Pond**. Rapidkoi runs the default one (Rapidkoi Pond); anyone can run the same software as their own pond, launched with `./main pond` (beside `pack`, `publish` and `serve` in `commands/`). Switching ponds is changing an address. The rules:
+1. **Optional:** everything works without a pond, in a reduced form (sync over the local network keeps working, DECISION-068).
+2. **It can't read anything:** it holds only sealed data; the default pond can't read a person's data any more than their own can.
+3. **One open protocol, the same software:** a device can move its sealed data from one pond to another with no loss.
+4. **No accounts:** devices prove themselves with their keys, never an email or a password.
+5. **It learns as little as possible:** who syncs, how much and when, and no more. One's own pond removes even that from Rapidkoi's view.
+
+Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 076) is the Pond. Candidates, each decided in its own entry: recovery (the sealed sync key and device list, DECISION-075), waking phones, live sessions (step 5), and web links (the vision's `open.rapidkoi.app`).
+
+**Why:** The owner (2026-10-31): "the browser will need to have a centralized server for many needs so rapidkoi the org can run the default one while users can host the same and guarantee total ownership of their data"; the name plays on koi ("yes pond"). The rules make self-hosting real ownership: the data's safety is the same on either pond; who sees the metadata and who keeps it running is what differs.
+
+**Rules out:** a pond that's required; a pond that reads data; accounts; a protocol only Rapidkoi's pond speaks. It reverses the general stance against central infrastructure taken when signing was designed (a public log, `docs/source/meetings/2026-10-18-signing-and-panel.md`), as a default under these rules.
 
 ---
 
