@@ -438,6 +438,39 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ---
 
+### DECISION-081 — Who Rapidkoi is for first, among developers
+
+**Status:** open
+**Raised:** 2026-10-31, the owner: "what would incentivize devs to build for rapidkoi" (`docs/source/meetings/2026-10-31-developers-and-users.md`)
+
+**Question:** Which developers to aim at first, and what to lead with?
+
+**Recommended (Claude):** independent developers and small teams building local-first tools, led by "a whole app with no backend: offline, synced, multiplayer, private, free to run". Then the gaps in their way, in order: sync and live sessions built; a TypeScript SDK; what a link shows someone without Rapidkoi. Among capabilities, time, files and clipboard next.
+
+---
+
+### DECISION-082 — Who Rapidkoi is for first, among users, and Rapidkoi's own everyday apps
+
+**Status:** open
+**Raised:** 2026-10-31, the owner: "what about users" (`docs/source/meetings/2026-10-31-developers-and-users.md`)
+
+**Question:** What is the first reason to install Rapidkoi, and for whom? Should Rapidkoi ship its own everyday apps (notes, tasks, calendar, contacts)?
+
+**Recommended (Claude):** yes: Rapidkoi's own everyday apps, private, offline, synced and sharing data with each other (DECISION-078), each in its own repository like Notes (core decision 27) and on the same contract as everyone's, so they prove the platform too; privacy-minded people who want their data back as the first audience; and an early decision on what a link shows someone without Rapidkoi.
+
+---
+
+### DECISION-083 — Name tokens become parts, in the contract that brings time
+
+**Status:** open
+**Raised:** 2026-10-31, from core decision 30's show pattern (`docs/source/meetings/2026-10-31-privacy.md`)
+
+**Question:** `{FIRST_NAME}` and `{LAST_NAME}` inside strings (`src/guest/placeholders.la`) predate parts: a text made of plain strings and values Rapidkoi fills in (`["Hello, ", { "name": "first" }, "!"]`). Replace them, and when?
+
+**Recommended (Claude):** replace them outright (nothing outside the shell uses them: `rapidkoi-rust`, `../notes` and `guest/rust` checked), in the contract version that brings time, so name and time parts arrive together and apps are rebuilt once. A plain string's braces are then shown as typed. Steps: the contract's spec; the decoder; `placeholders.la` filling parts; `test/placeholders.la`; comments in `src/people/` and `src/window/actions.la`; `first_name()` and `last_name()` in `rapidkoi-rust` first; the built-ins repacked.
+
+---
+
 ## DEFERRED — Acknowledged, not yet needed
 
 ### DECISION-065 — The address box's pills sit 12 px in from its left end, flush at top and bottom (kivuli)
