@@ -208,6 +208,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** Rapidkoi accounts or servers in the middle; names, emails or phones sent to apps by Rapidkoi; keys for unsigned apps.
 
+**Amended (the owner, 2026-10-31, core decision 29):** "servers in the middle" means sign-in through a Rapidkoi account or server. The Pond holds only sealed data, reached with device keys and no account, and never stands between a person and an app's sign-in.
+
 ---
 
 ### 18. Apps reaching the network (PRP-012)
@@ -355,6 +357,23 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 **Amended (the owner, PRP-048, 2026-10-30):** an app's windows share its database, so they all run one version. Upgrading or reloading any window (the arrow, Reload, the tab menu's Reload; signed, local development and built-in apps alike) loads the new version once and moves every window of the app onto it, each keeping its state; if it can't be loaded, no window changes. A second upgrade waits for the first. A link's new window of an app already open runs the version open. An older version opening a database a newer one changed is the app's to handle (DECISION-066).
 
 **Amended (the owner, PRP-049, DECISION-064, 2026-10-30):** a copy is kept per app (host and first key), not per host. A site now signed by another key with no signed trail no longer removes the copy: it stays as the person's version, opens online or offline, and stops updating until its own key (or a rotation from it) signs the site again.
+
+---
+
+### 29. The Pond: Rapidkoi's server, default and self-hostable
+
+**Decision:** Rapidkoi has one server, the **Pond**. Rapidkoi runs the default one (Rapidkoi Pond); anyone can run the same software as their own pond, launched with `./main pond` (beside `pack`, `publish` and `serve` in `commands/`). Switching ponds is changing an address. The rules:
+1. **Optional:** everything works without a pond, in a reduced form (sync over the local network keeps working, DECISION-068).
+2. **It can't read anything:** it holds only sealed data; the default pond can't read a person's data any more than their own can.
+3. **One open protocol, the same software:** a device can move its sealed data from one pond to another with no loss.
+4. **No accounts:** devices prove themselves with their keys, never an email or a password.
+5. **It learns as little as possible:** who syncs, how much and when, and no more. One's own pond removes even that from Rapidkoi's view.
+
+Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 076) is the Pond. Candidates, each decided in its own entry: recovery (the sealed sync key and device list, DECISION-075), waking phones, live sessions (step 5), and web links (the vision's `open.rapidkoi.app`).
+
+**Why:** The owner (2026-10-31): "the browser will need to have a centralized server for many needs so rapidkoi the org can run the default one while users can host the same and guarantee total ownership of their data"; the name plays on koi ("yes pond"). The rules make self-hosting real ownership: the data's safety is the same on either pond; who sees the metadata and who keeps it running is what differs.
+
+**Rules out:** a pond that's required; a pond that reads data; accounts; a protocol only Rapidkoi's pond speaks. It reverses the general stance against central infrastructure taken when signing was designed (a public log, `docs/source/meetings/2026-10-18-signing-and-panel.md`), as a default under these rules.
 
 ---
 
@@ -551,18 +570,6 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ---
 
-### DECISION-011 — How synced app data resolves conflicts
-
-**Status:** deferred
-**Raised:** 2026-10-17 — Session 3
-**Revisit when:** Build path step 4 (storage and sync).
-
-**Question:** When two devices or two people edit the same data, what wins: last write per row, a change log with merge rules per table, or CRDTs on SQLite (e.g. cr-sqlite)?
-
-**Notes:** Safe to defer: Rapidkoi owns each app's database (DECISION-004), so any of the three stays possible. See `docs/source/meetings/2026-10-17-architecture.md`.
-
----
-
 ### DECISION-015 — A file-size query in std.fs (lughac)
 
 **Status:** deferred
@@ -649,6 +656,235 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 ---
 
 ## RESOLVED
+
+### DECISION-077 — Trimming the log
+
+**Status:** resolved (the owner, 2026-10-31: "yes"); the numbers are first guesses, revisited when sync is built
+**Raised:** 2026-10-31, from DECISION-070 ("the log only grows")
+
+**Question:** The log catches devices up, keeps deletes until every device has seen them, and holds what history shows (build step 6). When can a change be removed, on a device and on the Pond?
+
+**Decision:**
+- **Every change is kept until every device on the list, and the Pond, has it** (known from the summaries devices exchange).
+- **The Pond drops changes everyone has.** Devices keep a sealed copy of the current data on the Pond; a new device, or one recovering with its words (DECISION-075), starts from it and takes the changes after it.
+- **A device not seen for 90 days isn't waited for.** When it comes back it starts from a fresh copy and sends the changes it made while away; they merge by time, and any for a row that's gone stays in its log, unapplied.
+- **On a device, a change everyone has is history alone.** How long losing and replaced changes stay is history's question (step 6); until then they're kept within the log's own cap, 100 MB per app (the size of its storage, DECISION-046), oldest history trimmed first.
+
+**Why:** catching up and deletes need a change only until everyone has it; past that, only history wants it. Waiting forever for a device that's gone would mean never trimming; a fresh copy brings it back without losing what it made.
+
+**Rules out:** trimming a change some device still lacks; a log without a cap.
+
+---
+
+### DECISION-076 — Devices finding and trusting each other on a network
+
+**Status:** resolved as a direction (the owner, 2026-10-31: "yes record it"); cryptography and networking, so the design gets the owner's explicit review when built
+**Raised:** 2026-10-31, after DECISION-075
+
+**Question:** On a local network, how do a person's devices find each other, prove who they are, and talk privately; what fills in while `std.net` has "no UDP yet"; and on which networks does a device announce itself?
+
+**Decision:**
+- **Mutual TLS:** each side proves it holds a device key on the signed device list (DECISION-075), checked against that list, and the connection is encrypted by OpenSSL through `std.tls`, as Syncthing does. `std.tls` has "no client certificates, pinning": both are a request to lughac, never worked around here.
+- **Announcing needs UDP** (mDNS, multicast): a request to lughac, written in `docs/specs/` when sync is built.
+- **Remembered addresses:** each device remembers where it last reached each of the person's devices and tries there first. A feature of its own (quicker; works where announcements are blocked), not a stand-in: it can't find a device for the first time on a new network.
+- **A device announces itself on every network,** carrying only a tag derived from the person key that looks random to strangers and changes over time. One switch, "Sync over local networks", on by default.
+- **Every connection:** prove device keys against the list, check the encryption, exchange summaries then the missing changes, with size caps. Anything fails: the connection closes and nothing is sent.
+
+**Why:** the cryptography stays in OpenSSL, widely used and audited; Noise would need a new package doing cryptography, written or bound here. Per-network choices need Rapidkoi to recognise networks and a screen, for little gain while announcements reveal only that a Rapidkoi device is present.
+
+**Rules out:** Noise, for now; a device's identity in the clear in its announcements; per-network settings, until someone asks.
+
+**Not decided here:** the announcement's format and how often it's sent, the tag's derivation, ports, and the switch's words.
+
+---
+
+### DECISION-075 — Adding and removing a device
+
+**Status:** resolved as a direction (the owner, 2026-10-31: "yes record it"); every part is cryptography or identity, so its design gets the owner's explicit review when built
+**Raised:** 2026-10-31, after DECISION-074
+
+**Question:** How does a new device get what it needs to sync, and how is a lost one shut out? Each app's key for the person is derived from the device's master secret (core decision 17), so a new device needs the same master secret to be the same person in every app.
+
+**Decision:**
+- **What a device holds:** the master secret (the same on all the person's devices), a sync key (the same on all; seals changes), its own device key (proves which device it is, signs its changes), and the device list (which devices are the person's, signed).
+- **Pairing, every day:** on the new device, Add this device; it meets a device already set up, on the Wi-Fi or through the relay; they set up an encrypted connection and both show the same short code worked out from it; the person checks they match and approves on the old device, which sends the master secret, the sync key and the list. No internet or camera needed; a device in the middle would make the codes differ.
+- **Recovery words, when no other device is left:** shown once when sync is first turned on, 12 words that are the master secret. Typed on a new device, they give it the master secret; it then fetches the sync key and the list, kept on the relay sealed with the master secret.
+- **Removing a device:** from any remaining device; the others make a new sync key and drop it from the list, so it reads nothing sent after, and the relay and the other devices refuse it.
+- **The sync key is separate from the master secret,** so removing a device can lock it out of new data.
+- **The person's Rapidkoi settings sync too** (per app: Start over's generation, signed out, the name): otherwise one person looks different in an app on another device.
+
+**Weak spot, for DECISION-022:** a removed device still has the master secret and can still sign in to apps as the person; changing it is a new identity in every app (Start over). Sync can't solve it.
+
+**Rules out:** each device its own master secret; the master secret sealing the changes; pairing that needs a camera.
+
+**Not decided here:** the cryptography (the key exchange, how the code is worked out, how the words encode the secret), what `std.crypto` offers for it, and every screen's words.
+
+---
+
+### DECISION-074 — Devices on different versions of an app
+
+**Status:** resolved (the owner, 2026-10-31: "i think option 1 and option 3", then "yes record it")
+**Raised:** 2026-10-31, after DECISION-073: one device upgraded an app whose new version adds a column; another, offline, still runs the old one
+
+**Question:** A change for a column the other device's version doesn't have: stop syncing across versions, apply what fits and hold the rest, or bring the other device up to the new version?
+
+**Decision:**
+- **Two devices sync an app only when both run the same version of it.**
+- **The older device gets the newer version:** from the app's site, as kept apps update (core decision 28); with no internet, directly from a device on the same network that has it, asked for only when two devices meet and one is behind. It's checked exactly as from the site: the same app (host and first key), its signed index, withdrawals.
+- **The relay never carries apps,** only sealed changes: it mustn't learn which apps a person uses, apps are large and changes small, and a device that reaches the relay can reach the app's site.
+- **Open windows aren't swapped:** the newer version is kept as from the site, used at the next open or when the person upgrades (PRP-044, PRP-048); that app syncs on this device from then. Other apps keep syncing.
+- **An app that can't upgrade** (the newer version withdrawn, or its publisher's key changed with no signed trail, DECISION-064) doesn't sync between those devices, and the person is told once.
+- **A change for a column or table this device doesn't have is kept in the log, not applied,** and breaks nothing. Changes are untrusted input; this also covers edits made on an old version that arrive after the upgrade.
+- **Guidance for developers** (the contract's Storage section, beside `user_version`): add columns, never rename: to rename, add the new column and copy into it; drop an old column in a later version whenever you like (late edits to it are kept in the log and ignored); never reuse an old name for something new.
+
+**Why:** syncing across versions would leave changes for columns one side lacks; bringing the older device up, from the site or a neighbour, lets them meet on one version without anyone waiting long. Migrations can't translate edits that arrive after they've run, and a translator hook would add contract surface and per-rename code for every developer: add-and-copy with the keep-not-apply rule costs nothing new, and unused columns are cheap in SQLite and can be dropped later.
+
+**Rules out:** syncing an app between different versions; the relay storing apps; a hook for apps to translate old changes (it can come later as its own contract change, if a real app needs it).
+
+**Needs the owner's review when built:** a bundle passed between devices (`trust/`).
+
+---
+
+### DECISION-073 — Synced tables have no rules a merge can break
+
+**Status:** resolved (the owner, 2026-10-31: "yes", to option 3)
+**Raised:** 2026-10-31, after DECISION-011
+
+**Question:** Merged changes can break a table's rules: two devices apart each make a tag "work" in a table whose names are UNIQUE, and each then refuses the other's row, so they never match; an item added to a list another device deleted (DECISION-070) breaks a FOREIGN KEY; two fields moved apart break a CHECK (start before end). Rapidkoi picking a loser, the app resolving it, or no such rules in synced tables?
+
+**Decision:**
+- **A table that syncs may have no UNIQUE (besides its id), no FOREIGN KEY and no CHECK.** Rapidkoi checks its definition when the app creates it and gives the developer a sentence, as for ids (DECISION-071). Part of contract 8's rules.
+- **`local_` tables (DECISION-072) keep every rule.**
+- **The app handles what a merge can leave in what it shows:** two tags of one name (the person can combine them), an item whose list is gone.
+
+**Why:** it can be checked before anything goes wrong, and devices always end up the same (DECISION-068, goal 3); nothing silently disappears, since a duplicate is visible and fixable. Picking a loser hides a row the person made and is hard to get right for every kind of rule; asking the app breaks goal 5 and leaves devices apart until it answers. cr-sqlite, from memory and unchecked, likewise allows no unique index besides the primary key on the tables it syncs.
+
+**Rules out:** Rapidkoi resolving a broken rule; a conflict message to apps.
+
+---
+
+### DECISION-072 — Which tables sync: all but `local_` ones
+
+**Status:** resolved (the owner, 2026-10-31: "yes", to option 2)
+**Raised:** 2026-10-31, after DECISION-071
+
+**Question:** Does every table of an app sync, or does the app mark which do? Some data belongs to one device: a cache, a draft kept here, "last opened on this device".
+
+**Decision:**
+- **Every table syncs, except one whose name starts with `local_`,** which stays on its device.
+- The mark is in the app's own SQL: no new message in the contract for it (it's part of contract 8's rules, with DECISION-071).
+- A `local_` table may number its rows the SQLite way; DECISION-071's check applies only to tables that sync.
+
+**Why:** sync by default keeps DECISION-068's goal 5 (apps don't have to do anything); opting out is one visible word. Syncing everything would carry caches to every device and set "last opened" fighting between them; syncing only marked tables would leave a forgetful developer's data on one device, silently.
+
+**Rules out:** an opt-in list of synced tables; a separate message declaring tables.
+
+---
+
+### DECISION-071 — Ids of synced rows: random, chosen by the app
+
+**Status:** resolved (the owner, 2026-10-31: "yes", to option 1)
+**Raised:** 2026-10-31, after DECISION-011: two offline devices both creating row 5
+
+**Question:** SQLite numbers rows as the highest so far plus one (Notes: `id INTEGER PRIMARY KEY AUTOINCREMENT`, `../notes/src/store.rs`). Two devices apart both make note 5; merged field by field (DECISION-011), two notes become one mixed-up note. Random ids, Rapidkoi renumbering, or a range of numbers per device?
+
+**Decision:**
+- **A synced table's rows have ids the app chooses at random,** time-ordered so rows still sort by creation. Two devices practically never pick the same; a row has the same id on every device, so links work everywhere.
+- **Rapidkoi checks a table's definition when the app creates it.** A table whose ids SQLite assigns (`INTEGER PRIMARY KEY`, `AUTOINCREMENT`) doesn't sync, and the developer gets a sentence saying why.
+- **It's a contract change: contract 8,** made when sync is built (a DECISIONS.md entry and a version bump, as every contract change).
+- **Elsewhere, under their own rules:** `rapidkoi-rust` gains a helper for new ids; Notes moves to them, and its links change.
+
+**Why:** renumbering behind the app's back breaks links (a link to note 5 from one device opens another note on the next); a range per device needs the app to give ids anyway, since SQLite counts on from the highest number it has, which after a sync is another device's, so it costs as much and protects less. Random ids are what local-first systems use.
+
+**Rules out:** Rapidkoi renumbering rows; ids that mean different rows on different devices.
+
+**Next:** which tables sync: DECISION-072.
+
+---
+
+### DECISION-070 — Deleting a synced row
+
+**Status:** resolved (the owner, 2026-10-31: "yes", to rule 2)
+**Raised:** 2026-10-31, after DECISION-011: one device deletes a row that another edited while they were apart
+
+**Question:** When a delete meets an edit made without knowing about it, does the latest time win (the row comes back) or the delete?
+
+**Decision:**
+- **A delete wins over edits made by a device that hadn't seen it.** The row stays deleted everywhere, whatever the edit's time. The losing edit stays in the log, as any losing change does (DECISION-011), for history to show and restore.
+- **A re-creation after seeing the delete brings the row back.** A device that has the delete no longer has the row, so writing it again is deliberate: the row returns everywhere.
+- **The delete is a change in the log** and stays there, so a device that was away learns the row is gone instead of sending it back. The row's earlier changes stay too.
+
+**Why:** people expect what they deleted to stay deleted; rows coming back when another device comes online is a well-known complaint about sync, and it grows with the number of devices. It stays silent (DECISION-011) and loses nothing.
+
+**Rules out:** the latest time deciding between a delete and an edit; removing a deleted row's changes from the log.
+
+**Later:** the log only grows: trimming it is DECISION-077.
+
+---
+
+### DECISION-069 — The time on a synced change
+
+**Status:** resolved (the owner left it to Claude's judgement, 2026-10-31: "here just use your best judgement")
+**Raised:** 2026-10-31, after DECISION-011: the latest time wins, but a device's clock can be wrong
+
+**Question:** What time does a change carry, so that a slow or fast clock can't undo edits?
+
+**Decision:**
+- **A hybrid logical clock.** Each device remembers the latest time on any change it has seen. A new change takes the later of the device's own clock and that latest time, plus one tick. So an edit made after seeing another change always counts as later, whatever the device's clock says. Edits made apart, neither seeing the other, keep their devices' times: either winning is acceptable, and both stay in the log.
+- **A change stamped more than 5 minutes ahead of this device's clock waits** in the log, unapplied, until the clock catches up. It isn't lost, and it can't win against later edits or drag every device's clock forward.
+- **The device with the wrong clock says so,** in one short notice, when other devices' changes look far off to it.
+
+**Why:** a slow clock made a later correction lose to the edit it corrected (the worked example: C two hours slow); a fast one would win every conflict for as long as it's wrong. The hybrid logical clock is the usual answer and small; 5 minutes is wide for ordinary drift and narrow for a wrong clock.
+
+**Rules out:** trusting each device's clock alone; a time from a server (sync works without one, DECISION-068).
+
+**Not decided here:** the notice's words, and where it shows, when it's built.
+
+---
+
+### DECISION-011 — How synced app data resolves conflicts
+
+**Status:** resolved (the owner, 2026-10-31)
+**Raised:** 2026-10-17 — Session 3
+
+**Question:** When two devices or two people edit the same data, what wins: last write per row, a change log with merge rules per table, or CRDTs on SQLite (e.g. cr-sqlite)?
+
+**Decision (the owner: "a", after a worked example of three devices editing one task while apart):**
+- Every change is kept as an entry in a log: which row and field, the new value, the time, and the device that made it.
+- For each field, the change with the latest time wins. Equal times are settled by the device, the same way on every device, so all devices pick the same winner.
+- It's silent: the person isn't asked or told. Changes to different fields of a row never fight (one device's new title and another's tick both stay).
+- The losing changes stay in the log, so nothing is gone (DECISION-068, goal 3). Seeing them comes with history (build step 6).
+- The time is a hybrid logical clock (DECISION-069). Deletes: DECISION-070. Row ids: DECISION-071. Table rules: DECISION-073. Versions: DECISION-074.
+- Order of arrival doesn't matter: devices that have the same changes show the same data.
+
+**Rules out:** last write per row (it drops another device's edit to a different field); asking the person to pick between versions; deleting a losing change.
+
+**Not decided here:** sharing between people isn't in scope (DECISION-068 is one person's devices).
+
+---
+
+### DECISION-068 — What sync is for
+
+**Status:** resolved (the owner, 2026-10-31)
+**Raised:** 2026-10-31, the owner: "let's discuss sync from scratch"; then, lost in the mechanics, "simply answer what do we want"
+
+**Question:** Before choosing how sync works (DECISION-011 and the rest), what must it do?
+
+**Decision (the owner: "yes that's right, record it"):**
+1. Every app's data is on all of a person's devices.
+2. It works with or without the internet: devices that can reach each other (the same Wi-Fi) sync directly; apart, they sync across the internet.
+3. Nothing is lost: devices that changed things while apart end up the same, and no change silently disappears.
+4. Only the person's own devices can read it: anything in between sees sealed data only.
+5. Apps don't have to do anything: they keep writing to their database, and Rapidkoi syncs it.
+6. No single server is required: syncing across the internet goes through a relay, a default one or the person's own, and without any relay, local sync still works.
+
+**Rules out:** sync that needs the internet or one particular server; a relay or network that can read what it carries; sync an app has to code for.
+
+**Not decided here:** how. Conflicts (DECISION-011, since resolved), row ids, sharing with other people, choosing which apps sync, pairing and recovery, how devices find and trust each other on a network, and who runs the default relay are their own questions. Sync stays build step 4; this records what it's for.
+
+**Found while discussing (2026-10-31):** the system's SQLite has the session, changeset and rebaser functions, but `lugha-sqlite` doesn't bind them; `std.net` has TCP but "no UDP yet" (finding devices on a network usually needs it); `std.tls` has no client certificates or pinning. Each is fixed in its own repository when sync is built.
+
+---
 
 ### DECISION-067 — A popover over a big app's screen is slow (kivuli)
 
