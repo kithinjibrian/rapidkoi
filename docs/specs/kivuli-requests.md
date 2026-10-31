@@ -210,4 +210,3 @@ input_group(start, field, end).style([InputGroup.inset(2)])
 or an `input_group_inset(start, field, end, px)`. The default stays 12, so nothing else changes.
 
 **How Rapidkoi will use it.** The address box's add-ons inset by the frame's edge (or by `SPACE_XS` with the same padding above and below), so its pills have equal room on every side. No change to apps or the contract.
-
