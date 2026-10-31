@@ -2,14 +2,15 @@
  * Pictures from servers (PRP-047): after every update, each page's screen
  * is checked for the pictures it names. One from the bundle must be there
  * (an SVG, if it takes a colour); one from a server must be one the app
- * may reach, or the app stops. Those not yet kept are downloaded in kivuli
+ * may reach, or the app stops; one the app stored (`blob:`, PRP-055) is read
+ * from its own folder in a task, as a download is. Those not yet kept are downloaded in kivuli
  * tasks, at most `MAX_DOWNLOADS` a page at a time, in the order the screen
  * shows them; a plain GET, no headers. A result is checked by its header
  * (`lugha-imagesize`) before it's kept, and the app is told (its `on_load`,
  * or `on_fail`, as `on_message`). Kept pictures off screen are dropped, least recently shown
  * first, past `MAX_DECODED`. Nothing is sent from `update`.
  *
- * Depends on: kivuli, imagesize, net.network, net.requests, window.tabs, window.downloaded, window.window, window.actions, guest.pictures, guest.limits, ui.render
+ * Depends on: kivuli, cbor, imagesize, data.databases, net.network, net.requests, window.tabs, window.downloaded, window.window, window.actions, guest.pictures, guest.limits, ui.render
  * Used by: shell
  */
 import kivuli { Cmd };
@@ -20,8 +21,10 @@ import window.tabs { AppPage, Tab, Screen, handle, close_page };
 import window.downloaded { Kept };
 import window.window { Model, with_tab, app };
 import window.actions { Msg };
-import guest.nodes { Picture };
-import guest.pictures { pictures_in, asset_of };
+import guest.nodes { Picture, BlobRead };
+import guest.pictures { pictures_in, asset_of, blob_of };
+import data.databases { Call, path_for, call };
+import cbor { Value };
 import guest.limits {
     MAX_DOWNLOADS,
     MAX_DECODED,
@@ -93,6 +96,21 @@ fun fetch_page(m: Model, t: Tab): (AppPage, Cmd<Msg>[]) {
         if kept.any(fun(e: (string, Kept)) = e.0 == source) || coming >= MAX_DOWNLOADS {
             continue;
         }
+        // A blob the app stored (PRP-055): read from its own folder, no server involved.
+        if let Some(key) = blob_of(source) {
+            match m.store.and_then(fun(s) = path_for(s, p)) {
+                Some(path) => {
+                    kept.push((source, Kept.Coming));
+                    coming += 1;
+                    sends.push(from_blob(t.id, p.load, source, path, key));
+                }
+                None => {
+                    kept.push((source, Kept.Gone));
+                    refused.push((source, "This app keeps no files here"));
+                }
+            }
+            continue;
+        }
         let get = Request { method: "GET", url: source, headers: [], body: [] };
         match check_request(get, rules) {
             Ok(checked) => {
@@ -147,6 +165,37 @@ fun download(id: i64, load: i64, source: string, checked: Request, m: Model): Cm
         fun(): Reply = send(checked, net, PICTURE_TIMEOUT_MS, MAX_PICTURE),
         fun(got: Reply) = Msg.Pictured(id, load, source, got),
     )
+}
+
+/**
+ * Reads a stored blob for a picture, in a task: answered as a download is,
+ * so every picture rule after it applies unchanged.
+ */
+fun from_blob(id: i64, load: i64, source: string, path: string, key: string): Cmd<Msg> = Cmd.task(
+    fun(): Reply = blob_reply(path, key),
+    fun(got: Reply) = Msg.Pictured(id, load, source, got),
+);
+
+/**
+ * A blob's bytes as a picture download's result: the whole blob, at most
+ * `MAX_PICTURE`, or the sentence why not. Touches the disk: run it in a task.
+ *
+ * Example:
+ *     blob_reply(path, "photo-17")
+ */
+fun blob_reply(path: string, key: string): Reply {
+    let read = BlobRead { key: key, from: 0, len: MAX_PICTURE + 1, hash: None };
+    let no_headers: Map<string, string> = #{};
+    match call(path, Call.BlobGet(read)) {
+        Answer(v, _) => match (v.get("bytes"), v.get("size").and_then(fun(n: Value) = n.as_i64())) {
+            (Some(Bytes(b)), Some(size)) if size <= MAX_PICTURE => Reply.Got(200, no_headers, b),
+            (Some(_), Some(_)) => Reply.Failed(
+                "This picture is larger than {MAX_PICTURE / (1024 * 1024)} MB",
+            ),
+            _ => Reply.Failed("This app's files couldn't be read"),
+        },
+        Failed(why) => Reply.Failed(why),
+    }
 }
 
 /** What's kept, with pictures off screen dropped, least recently shown first, until the rest fit `MAX_DECODED`. */

@@ -206,9 +206,9 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
         later.push(p.asks[i]);
     }
     let (got, value, msg) = match ask {
-        Fetch(msg, r) => match slot {
+        Fetch(msg, r, blob) => match slot {
             InTab(id) => {
-                let (held, now, send) = requests.ask(m, id, msg, r);
+                let (held, now, send) = requests.ask(m, id, msg, r, blob);
                 sends.push(send);
                 (held, now, msg)
             }

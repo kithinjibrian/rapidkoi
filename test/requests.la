@@ -2,7 +2,7 @@
 // window's rules around it: refusals answered at once, at most 4 in flight,
 // results for closed tabs dropped, the switches. An echo guest's state
 // becomes the answer it got, so each test reads exactly what Rapidkoi sent.
-// Writes only under test/tmp/.
+// Writes only under test/tmp/, and /tmp for blobs (PRP-055; see test/blobmap.la).
 import rapidkoi.net.requests { send, arrive };
 import rapidkoi.net.network { Request, Reply };
 import rapidkoi.net.dialing { Network };
@@ -19,6 +19,9 @@ import std.http { Request as Incoming, Response };
 import std.task { sleep };
 import wasmtime { Engine, Module };
 import support { echo_init, t, kv, settle, event_in };
+import rapidkoi.data.store { store_at };
+import rapidkoi.data.databases { Call, path_for, call, clear };
+import rapidkoi.guest.nodes { BatchStep };
 
 const TLS: string = "test/fixtures/tls";
 
@@ -259,4 +262,58 @@ fun a_fetch_to_a_name_pointing_here_is_refused() {
         failed(send(req("GET", "https://api.test/notes"), net, 5000, 1000)),
         "api.test points to this computer or your local network, so Rapidkoi won't connect to it",
     );
+}
+
+/** A PUT of a stored blob to `url` (PRP-055). */
+fun upload(url: string, key: string): Value = kv([
+    ("kind", t("fetch")),
+    ("msg", t("got")),
+    ("method", t("PUT")),
+    ("url", t(url)),
+    ("body_blob", t(key)),
+]);
+
+@test
+fun a_stored_blob_is_sent_as_the_body() {
+    server(18907);
+    let p = page(
+        "rapidkoi://localhost:18907",
+        [upload("http://localhost:18907/echo", "note-1")],
+        None,
+    );
+    let s = store_at("/tmp/rapidkoi-test-requests-blob");
+    let path = path_for(s, p).unwrap();
+    let _ = clear(path);
+    match call(path, Call.Write([BatchStep.BlobSet("note-1", "hello blob".to_bytes(), None)])) {
+        Answer(_, _) => {}
+        Failed(why) => panic(why),
+    }
+    let (m, cmd) = answer_all(Model { store: Some(s), ..with_pages(Engine.new(), [p]) });
+    let done = settle(m, cmd, update);
+    assert_eq(value(done).get("body"), Some(Value.Bytes("PUT hello blob".to_bytes())));
+    clear(path).unwrap();
+}
+
+@test
+fun a_missing_blob_is_an_on_fail_and_nothing_is_sent() {
+    let p = page(
+        "rapidkoi://localhost:18908",
+        [upload("http://localhost:18908/echo", "gone")],
+        None,
+    );
+    let s = store_at("/tmp/rapidkoi-test-requests-missing");
+    let path = path_for(s, p).unwrap();
+    let _ = clear(path);
+    // No server listens on 18908: an attempt to send would fail differently.
+    let (m, cmd) = answer_all(Model { store: Some(s), ..with_pages(Engine.new(), [p]) });
+    assert_eq(error(settle(m, cmd, update)), "This app has no blob with that key");
+    // No data folder at all: refused at once.
+    let q = page(
+        "rapidkoi://localhost:18908",
+        [upload("http://localhost:18908/echo", "gone")],
+        None,
+    );
+    let (n, _) = answer_all(with_pages(Engine.new(), [q]));
+    assert_eq(error(n), "This app keeps no files here");
+    clear(path).unwrap();
 }

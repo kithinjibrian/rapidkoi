@@ -1,5 +1,7 @@
 ## FEATURE: Showing a stored blob as a picture, and sending one as a request body (contract 9)
 
+**Status:** approved (the owner, 2026-10-31: "approved").
+
 ## OBJECTIVE
 An app shows a picture it stored with `image("blob:<key>")`, and uploads a blob to its own servers with `fetch`'s `body_blob`, without the bytes passing through the app. A blob that isn't there, or isn't a picture, shows Rapidkoi's broken-picture mark and tells the app why; the app runs on. Replacing a blob shows the new picture in every window of the app. With PRP-054 this completes blobs' part 1 (`docs/specs/blobs.md` 1.6 and 1.7). Notes attaching a photo can then be built, in `../notes`, under its own rules.
 
@@ -48,3 +50,9 @@ An app shows a picture it stored with `image("blob:<key>")`, and uploads a blob 
 - [ ] Every test above passes; no file over 500 lines.
 - [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build -O 2 src/main.la -o main` pass.
 - [ ] For the owner, by eye, once Notes can attach a photo: the photo shows in the note, replacing it shows the new one, deleting the note removes it.
+
+## BUILD NOTES
+
+- Built as designed. `requests.ask` refuses a `body_blob` at once when the app has no data folder ("This app keeps no files here"), before anything is counted in flight.
+- Tests keep their blob databases under `/tmp`, as `test/blobmap.la` does and for the same reason.
+- `lughac fmt --check`, the full suite (698 passed, exit 0) and the `-O 2` build pass. The SDK's `v0.3.0-pre.3` (`docs/specs/rapidkoi-rust-contract-9.md`) isn't needed to merge: the built-ins use neither addition.

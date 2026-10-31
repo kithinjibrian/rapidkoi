@@ -8,6 +8,9 @@ import rapidkoi.guest.effects { answer_all };
 import rapidkoi.window.tabs { AppPage, open_module, state_of };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.data.store { store_at };
+import rapidkoi.data.queries { arrive };
+import rapidkoi.data.databases { Queried };
+import rapidkoi.window.downloaded { Kept };
 import kivuli { Cmd };
 import cbor { Value, Limits, encode, decode };
 import wasmtime { Engine, Module };
@@ -268,4 +271,42 @@ fun a_stored_blob_is_read_back_through_the_window() {
     assert_eq(e.get("event") == Some(t("on_answer")), true);
     assert_eq(e.get("value").unwrap().get("bytes") == Some(Value.Bytes([4, 2])), true);
     clean("test/tmp/queries-blob");
+}
+
+@test
+fun a_write_that_changes_blobs_refreshes_every_window_s_blob_pictures() {
+    // PRP-055: two windows of one app keep a `blob:` picture and a server's.
+    let engine = Engine.new();
+    let keeping = fun(page: AppPage) = AppPage {
+        pictures: [
+            ("blob:photo-1", Kept.Here([1], 4, 1)),
+            ("https://notes.dafifi.net/a.png", Kept.Here([2], 4, 1)),
+        ],
+        ..page,
+    };
+    let m = window("fresh", [keeping(app(engine, asking([]))), keeping(app(engine, asking([])))]);
+    let id = m.tabs[0].id;
+    let load = m.tabs[0].page.load;
+    let answered = kv([("changes", Value.int(0)), ("last_rowid", Value.int(0))]);
+    let sources = fun(at: Model, i: i64) = at.tabs[i].page.pictures.map(
+        fun(e: (string, Kept)) = e.0,
+    );
+    // A write touching no blob keeps them.
+    let plain = arrive(m, id, load, t("saved"), Queried.Answer(answered, ["notes"]));
+    assert_eq(sources(plain, 1).len, 2);
+    // One that did drops the blob pictures in both windows, and only those.
+    let changed = arrive(
+        m,
+        id,
+        load,
+        t("saved"),
+        Queried.Answer(answered, ["notes", "rapidkoi_blobs"]),
+    );
+    for i in 0..2 {
+        assert_eq(sources(changed, i), ["https://notes.dafifi.net/a.png"]);
+    }
+    // The other window hears of its own table only.
+    let heard = last_event(changed, 1);
+    assert_eq(heard.get("tables") == Some(Value.Array([t("notes")])), true);
+    clean("test/tmp/queries-fresh");
 }

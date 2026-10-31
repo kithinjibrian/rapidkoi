@@ -1,5 +1,5 @@
 /**
- * Pictures in a screen (PRP-047), pure: the `image` node's props read and
+ * Pictures in a screen (PRP-047; blobs, PRP-055), pure: the `image` node's props read and
  * checked, and the sources a screen names. Where a source points (the
  * bundle, an allowed server) is checked against the app in `net.pictures`.
  *
@@ -8,7 +8,7 @@
  */
 import cbor { Value };
 import guest.nodes { Node, Look, Picture, Fitting, Shown, ContractError, invalid };
-import guest.limits { MAX_LABEL, MAX_PICTURES, MAX_SOURCE };
+import guest.limits { MAX_LABEL, MAX_PICTURES, MAX_SOURCE, MAX_BLOB_KEY };
 import guest.styles { read_style, colour };
 import bundles.rules { check_asset_name };
 
@@ -31,7 +31,7 @@ fun read_picture(
             return Err(
                 invalid(
                     here,
-                    "src must be asset:NAME or an http(s) address of at most {MAX_SOURCE} bytes",
+                    "src must be asset:NAME, blob:KEY or an http(s) address of at most {MAX_SOURCE} bytes",
                 ),
             );
         }
@@ -79,16 +79,34 @@ fun read_picture(
     Ok((p, read_style(given.get("style"), here)?))
 }
 
-/** Whether a source is `asset:` and a good asset name, or an http(s) address, within `MAX_SOURCE`. */
+/** Whether a source is `asset:` and a good asset name, `blob:` and a good key (PRP-054), or an http(s) address, within `MAX_SOURCE`. */
 fun good_source(s: string): bool {
     if s.len > MAX_SOURCE {
         return false;
+    }
+    if let Some(key) = blob_of(s) {
+        // As `blob_set`'s keys: 1 to MAX_BLOB_KEY bytes, no control characters.
+        return key.len >= 1 && key.len <= MAX_BLOB_KEY && !key.to_bytes().any(
+            fun(b: u8) = b < 32 || b == 127,
+        );
     }
     match asset_of(s) {
         Some(name) => check_asset_name(name).is_ok(),
         None => s.starts_with("https://") || s.starts_with("http://"),
     }
 }
+
+/**
+ * The blob key a source names, if it's one the app stored (PRP-055).
+ *
+ * Example:
+ *     blob_of("blob:photo-17") == Some("photo-17")
+ */
+fun blob_of(source: string): Option<string> = if source.starts_with("blob:") {
+    Some(source.slice(5, source.len))
+} else {
+    None
+};
 
 /**
  * The asset a source names, if it's from the bundle.

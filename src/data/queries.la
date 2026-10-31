@@ -7,12 +7,14 @@
  * after it must not race another write. Reads run beside them. Mirrors
  * `net.requests`.
  *
- * Depends on: kivuli, cbor, guest.nodes, data.databases, window.window, window.tabs, window.actions, guest.contract, guest.limits, net.network, ui.render
+ * Depends on: kivuli, cbor, guest.nodes, guest.pictures, window.downloaded, data.databases, window.window, window.tabs, window.actions, guest.contract, guest.limits, net.network, ui.render
  * Used by: guest.effects, shell
  */
 import kivuli { Cmd };
 import cbor { Value };
 import guest.nodes { BatchStep };
+import guest.pictures { blob_of };
+import window.downloaded { Kept };
 import data.databases { Call, Queried, path_for, call };
 import window.window { Model, app, with_tab };
 import window.tabs { AppPage, Tab, handle, data_changed };
@@ -184,12 +186,29 @@ fun arrive(m: Model, id: i64, load: i64, msg: Value, got: Queried): Model {
             return answered;
         }
     };
+    // Rapidkoi names its own table when blobs changed (PRP-055): every window
+    // of the app reads its `blob:` pictures again. Apps hear only their tables.
+    let blobs = tables.any(fun(t: string) = t == "rapidkoi_blobs");
+    let theirs = tables.filter(fun(t: string) = t != "rapidkoi_blobs");
     // The same database is the same app: only its own windows hear of it.
     let mut told = answered;
     for t of answered.tabs {
         let same = answered.store.and_then(fun(s) = path_for(s, t.page)) == Some(mine);
-        if t.id != id && same {
-            told = with_tab(told, t.id, fun(page: AppPage) = data_changed(page, tables));
+        if !same {
+            continue;
+        }
+        if blobs {
+            told = with_tab(
+                told,
+                t.id,
+                fun(page: AppPage) = AppPage {
+                    pictures: page.pictures.filter(fun(e: (string, Kept)) = blob_of(e.0).is_none()),
+                    ..page,
+                },
+            );
+        }
+        if t.id != id && theirs.len > 0 {
+            told = with_tab(told, t.id, fun(page: AppPage) = data_changed(page, theirs));
         }
     }
     told

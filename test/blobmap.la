@@ -229,9 +229,9 @@ fun the_apps_sql_cant_touch_rapidkois_table() {
     assert_eq(sneak("DELETE FROM RAPIDKOI_BLOBS"), denied);
     assert_eq(sneak("DROP TABLE rapidkoi_blobs"), denied);
     assert_eq(why(call(path, Call.Write([sql("CREATE VIEW rapidkoi_v AS SELECT 1", [])]))), denied);
-    // Its changes are never another window's news.
+    // Its changes are named only as `rapidkoi_blobs` (PRP-055), for `queries` to act on.
     match call(path, Call.Write([set("k2", [2], None)])) {
-        Answer(_, tables) => assert_eq(tables, []),
+        Answer(_, tables) => assert_eq(tables, ["rapidkoi_blobs"]),
         Failed(w) => panic(w),
     }
     clear(path).unwrap();
