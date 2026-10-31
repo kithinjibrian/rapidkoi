@@ -208,6 +208,8 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 **Rules out:** Rapidkoi accounts or servers in the middle; names, emails or phones sent to apps by Rapidkoi; keys for unsigned apps.
 
+**Amended (the owner, 2026-10-31, DECISION-084):** the Account page's Sign out, Sign in, Sign in automatically and Start over as someone new become one switch, "let this app know who I am"; becoming someone new is Forget, then opening it again.
+
 **Amended (the owner, 2026-10-31, core decision 29):** "servers in the middle" means sign-in through a Rapidkoi account or server. The Pond holds only sealed data, reached with device keys and no account, and never stands between a person and an app's sign-in.
 
 ---
@@ -385,7 +387,7 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 3. **Requests from every Rapidkoi look the same:** the same headers, nothing about the device.
 4. **Every capability's PRP says what it reveals:** what an app can learn, to whom it goes, and how many people share each value.
 5. **Visible:** the inspector shows what each app read and which servers it contacted.
-6. **Start over means a new person to the app:** a new key and a clean database (DECISION-079).
+6. **Starting over means a new person to the app:** a new key and a clean database: Forget (DECISION-084).
 
 **Why:** The owner (2026-10-31), asked how Rapidkoi avoids fingerprinting: "yes record it". On the web most fingerprinting comes from a page measuring the machine (fonts, screen, canvas, audio); Rapidkoi apps describe a tree and already never learn Rapidkoi's sizes or colours (contract 7), and per-app keys stop matching by key (core decision 17). What's left leaks through what apps can read and how requests look.
 
@@ -747,9 +749,31 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## RESOLVED
 
+### DECISION-084 — What a person can do to an app: Forget and one sign-in switch
+
+**Status:** resolved (the owner, 2026-10-31: "can this be simplified to a single action", "how many actions do we actually need by neccessity", then "yes record it"); not built yet
+**Raised:** 2026-10-31, from DECISION-079
+
+**Question:** An app's settings offer Start over (its screen), Clear data, Start over as someone new, Sign out and Sign in, Sign in automatically, and Forget. Which are needed?
+
+**Decision:** two, by necessity, plus closing a window (which stops an app and drops that window's state) and, when built, Export.
+- **Forget:** closes its windows and deletes their state; removes its pin, its database, its kept copy and its settings here; keeps its trusted key (a swapped key still asks first, PRP-007); and makes the next open someone new: the generation goes up and survives Forget, kept as one number under a hash of the app's identity (no name, not a readable list of apps). Forgetting never brings an old identity back: today's Forget drops the generation to 0, so reopening gives the app the very first key, undoing every Start over.
+- **One switch per app, "let this app know who I am":** on, the app gets the person's key and signatures whenever it asks, every run; off, it gets nothing, every run, and works as a guest with its data on this device kept. Back on, the same key.
+- **Export** (the vision's data ownership) when it exists, so Forget needn't mean losing data.
+
+**Replaces:** Start over (closing and reopening a window does it, since a window's state goes with it), Clear data (part of Forget), Start over as someone new (Forget, then open it again), Sign out and Sign in (the switch), Sign in automatically (the switch's on), and DECISION-079.
+
+**Why:** one destructive action with one promise ("this app never knew me") is simpler and is what Rapidkoi's privacy rests on (core decision 30, rule 6). Each dropped control was a convenience the remaining ones cover.
+
+**Gives up:** clearing an app's data while staying the same person to its server (rare, mostly repair: a Repair action could come later); signing in for one run only, signed out again at the next start (a shared-computer habit; Rapidkoi is for a personal device; could return as an option on the switch).
+
+**Not decided here:** the words of Forget's dialog and the switch (the owner's); whether Forget on one device forgets on all, when sync is built.
+
+---
+
 ### DECISION-079 — Start over clears the app's database
 
-**Status:** resolved (the owner, 2026-10-31: "start over clears the database"); not built yet
+**Status:** superseded by DECISION-084 (Forget does it, and Start over goes)
 **Raised:** 2026-10-31, from core decision 30
 
 **Question:** Start over gives an app a new key for the person (`StartOverIdentity`, `src/people/account.la`), but the app's database stays: an id the app stored there recognises the person again. Clear it, or ask?
