@@ -7,5 +7,5 @@ source = "src"
 kivuli = { git = "https://github.com/kithinjibrian/kivuli", version = "0.65" }
 wasmtime = { git = "https://github.com/kithinjibrian/lugha-wasmtime", version = "0.1" }
 cbor = { git = "https://github.com/kithinjibrian/lugha-cbor", version = "0.1" }
-sqlite = { git = "https://github.com/kithinjibrian/lugha-sqlite", version = "0.1" }
+sqlite = { git = "https://github.com/kithinjibrian/lugha-sqlite", version = "0.2" }
 imagesize = { git = "https://github.com/kithinjibrian/lugha-imagesize", version = "0.1" }

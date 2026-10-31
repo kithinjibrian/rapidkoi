@@ -67,3 +67,13 @@ An app can store bytes under a key it names, in the same transaction as its rows
 - [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build -O 2 src/main.la -o main` pass.
 - [ ] The built-ins (new tab, Settings) rebuilt on the SDK's contract-9 tag, repacked, and open.
 - [ ] For the owner, by eye: ⚙'s Data row for an app with blobs shows the total; Clear empties it. (Notes attaching a photo proves the pair after PRP-055.)
+
+## BUILD NOTES (the shell's side, branch `prp-054`)
+
+Where the build differs from the design above, and why:
+- **No `effects.la` split** (design 7): routing the storage asks through one `queries.ask_in` kept it at 497 lines.
+- **The sweep runs after every write**, inside the write lane, not once per run before the first write: simpler, and as safe (no other write of the app runs then). A plain `sql` that deletes owner rows removes their keys at once; their files go at the next write.
+- **Rapidkoi's table is made inside the write that keeps the first blob** (`blobmap.made()`), and the owner check only writes when something is orphaned: every commit is a sync to disk.
+- **An owner table must exist before the batch** that names it: owners are checked before anything is placed. The contract says so.
+- **Tests:** `test/blobmap.la` keeps its databases under `/tmp`: on this disk, with the whole suite's processes syncing at once, each sync waited ~600 ms (strace) and the owner tests passed the 10 s limit. The 1 GB and 10,000-blob limits are checked by the same arithmetic as the 16 MB one but not exercised at full size.
+- **rapidkoi-rust `v0.3.0-pre.2`** (`docs/specs/rapidkoi-rust-contract-9.md`): the built-ins moved to it and were repacked; the full suite passes, 693 of 693.

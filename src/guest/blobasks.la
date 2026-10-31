@@ -1,0 +1,141 @@
+/**
+ * Blob asks (PRP-054), pure: a `blob_set` or `blob_delete` step of an
+ * `sql_batch`, a `blob_get` and a `blob_list`, read and held to their
+ * shapes before anything runs. Limits that depend on what's stored (the
+ * app's total, its count, a blob's size) are `data.blobmap`'s: they fail
+ * the call with a sentence rather than stopping the app.
+ *
+ * Depends on: cbor, guest.nodes, guest.limits
+ * Used by: guest.sqlasks, guest.contract
+ */
+import cbor { Value };
+import guest.nodes { BatchStep, Owner, BlobRead, ContractError };
+import guest.limits { MAX_BLOB_KEY, MAX_BLOB_PIECE, MAX_SQL_VALUE };
+
+/**
+ * Reads a batch step that stores or removes a blob, or `None` when it's
+ * neither (then it's a statement).
+ *
+ * @returns the step; `Err(Invalid)` for a bad key, missing bytes or a bad owner
+ *
+ * Example:
+ *     blob_step_of(step)?
+ */
+fun blob_step_of(e: Value): Result<Option<BatchStep>, ContractError> {
+    if let Some(k) = e.get("blob_set") {
+        let key = key_of(k, "a blob_set")?;
+        let bytes = match e.get("bytes") {
+            Some(Bytes(b)) => b,
+            _ => {
+                return Err(bad("a blob_set needs its bytes"));
+            }
+        };
+        let owner = match e.get("owner") {
+            None | Some(Null) => None,
+            Some(o) => Some(owner_of(o)?),
+        };
+        return Ok(Some(BatchStep.BlobSet(key, bytes, owner)));
+    }
+    if let Some(k) = e.get("blob_delete") {
+        return Ok(Some(BatchStep.BlobDelete(key_of(k, "a blob_delete")?)));
+    }
+    Ok(None)
+}
+
+/**
+ * Reads a `blob_get`: its key, `from` (default 0) and `len` (default and
+ * at most `MAX_BLOB_PIECE`), and the hash a later piece expects.
+ *
+ * @returns the read; `Err(Invalid)` for a bad key, a negative number or a hash that isn't 32 bytes
+ *
+ * Example:
+ *     blob_get_of(effect)?
+ */
+fun blob_get_of(e: Value): Result<BlobRead, ContractError> {
+    let key = match e.get("key") {
+        Some(k) => key_of(k, "a blob_get")?,
+        None => {
+            return Err(bad("a blob_get needs its key"));
+        }
+    };
+    let from = count_of(e.get("from"), "from", 0)?;
+    let len = count_of(e.get("len"), "len", MAX_BLOB_PIECE)?;
+    let hash = match e.get("hash") {
+        None | Some(Null) => None,
+        Some(Bytes(h)) if h.len == 32 => Some(h),
+        Some(_) => {
+            return Err(bad("a blob_get's hash is the 32 bytes an earlier piece gave"));
+        }
+    };
+    // A longer piece is cut, never refused: the app sees the length it got.
+    Ok(BlobRead {
+        key: key,
+        from: from,
+        len: if len > MAX_BLOB_PIECE { MAX_BLOB_PIECE } else { len },
+        hash: hash,
+    })
+}
+
+/**
+ * Reads a `blob_list`'s prefix: `""` (every key) when there's none.
+ *
+ * @returns the prefix; `Err(Invalid)` when it isn't text of at most `MAX_BLOB_KEY` bytes
+ *
+ * Example:
+ *     blob_list_of(effect)?
+ */
+fun blob_list_of(e: Value): Result<string, ContractError> = match e.get("prefix") {
+    None | Some(Null) => Ok(""),
+    Some(Text(p)) if p.len <= MAX_BLOB_KEY => Ok(p),
+    Some(_) => Err(bad("a blob_list's prefix is text of at most {MAX_BLOB_KEY} bytes")),
+};
+
+/** A key: text of 1 to `MAX_BLOB_KEY` bytes, no control characters. */
+fun key_of(k: Value, what: string): Result<string, ContractError> {
+    let key = match k {
+        Text(s) => s,
+        _ => {
+            return Err(bad("{what}'s key must be text"));
+        }
+    };
+    if key.len == 0 || key.len > MAX_BLOB_KEY {
+        return Err(bad("{what}'s key is 1 to {MAX_BLOB_KEY} bytes"));
+    }
+    // A key is a name, never a path or a line: no control characters.
+    if key.to_bytes().any(fun(b: u8) = b < 32 || b == 127) {
+        return Err(bad("{what}'s key has a control character"));
+    }
+    Ok(key)
+}
+
+/** An owner: `{table, key}`, a table's name and a primary key's value. */
+fun owner_of(o: Value): Result<Owner, ContractError> {
+    let table = match o.get("table") {
+        Some(Text(t)) if t.len > 0 && t.len <= MAX_BLOB_KEY => t,
+        _ => {
+            return Err(bad("a blob_set's owner needs its table"));
+        }
+    };
+    // Whether the table exists, and its key's name, is the database's question.
+    let key = match o.get("key") {
+        Some(Unsigned(n)) => Value.Unsigned(n),
+        Some(Negative(n)) => Value.Negative(n),
+        Some(Text(s)) if s.len <= MAX_SQL_VALUE => Value.Text(s),
+        Some(Bytes(b)) if b.len <= MAX_SQL_VALUE => Value.Bytes(b),
+        _ => {
+            return Err(bad("a blob_set's owner key is a number, text or bytes"));
+        }
+    };
+    Ok(Owner { table: table, key: key })
+}
+
+/** A count of bytes: absent is `fallback`; it must be a whole number, 0 or more. */
+fun count_of(v: Option<Value>, name: string, fallback: i64): Result<i64, ContractError> = match v {
+    None | Some(Null) => Ok(fallback),
+    Some(n) => match n.as_i64() {
+        Some(x) if x >= 0 => Ok(x),
+        _ => Err(bad("a blob_get's {name} is a whole number, 0 or more")),
+    },
+};
+
+fun bad(problem: string): ContractError = ContractError.Invalid("update", problem);

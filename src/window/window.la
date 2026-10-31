@@ -4,7 +4,7 @@
  * pins, "where you left off" and the theme. Opening files and addresses is
  * `navigate.la`. Never draws.
  *
- * Depends on: wasmtime, trust.verify, data.store, net.fetching, people.people, people.identity, window.actions, window.tabs, window.leftoff, ui.suggestions, ui.frame, ui.themes
+ * Depends on: wasmtime, cbor, trust.verify, data.store, net.fetching, people.people, people.identity, guest.nodes, window.actions, window.tabs, window.leftoff, ui.suggestions, ui.frame, ui.themes
  * Used by: window.navigate, shell
  */
 import wasmtime { Engine };
@@ -19,6 +19,8 @@ import window.tabs { Page, Tab, Pin, AppPage, state_of };
 import window.leftoff { LeftOff, leave, snapshot };
 import data.remembered { Open };
 import ui.suggestions { Card };
+import guest.nodes { BatchStep };
+import cbor { Value };
 import ui.frame { icon_of };
 
 import ui.schemes { Prefs, DEFAULT_PREFS, theme_for, Theme, DARK };
@@ -112,6 +114,8 @@ struct Model {
     master: Option<Master>,
     /** How far the app in a tab sticks out past the window, across and down (PRP-046): its tab's id, then pixels; reported in development only. */
     overflow: (i64, i64, i64),
+    /** Each app's database being written, by its file (PRP-054): the writes waiting their turn, each a tab, load, `msg` and steps. */
+    writing: Map<string, (i64, i64, Value, BatchStep[])[]>,
 }
 
 /**
@@ -165,6 +169,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         people: nobody(),
         master: None,
         overflow: (-1, 0, 0),
+        writing: #{},
     }
 }
 

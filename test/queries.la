@@ -185,3 +185,87 @@ fun a_result_for_a_closed_tab_is_dropped() {
     }
     clean("test/tmp/queries-stale");
 }
+
+/** How many of a command's tasks there are, without running them. */
+fun tasks(c: Cmd<Msg>): i64 = match c {
+    Task(_) => 1,
+    Batch(cs) => cs.iter().map(tasks).sum(),
+    _ => 0,
+};
+
+@test
+fun an_app_s_writes_run_one_at_a_time_and_reads_beside_them() {
+    // PRP-054: two windows of one app share its database; the second write waits its turn.
+    let engine = Engine.new();
+    let first = app(engine, asking([batch("one", ["CREATE TABLE a (x)"])]));
+    let second = app(engine, asking([batch("two", ["CREATE TABLE b (x)"])]));
+    let reader = app(engine, asking([sql("r", "SELECT 1")]));
+    let m = window("lane", [first, second, reader]);
+    let (asked, c) = answer_all(m);
+    // The first write and the read run; the second write waits.
+    assert_eq(tasks(c), 2);
+    assert_eq(asked.writing.len, 1);
+    let mut at = asked;
+    let mut waiting: Cmd<Msg>[] = [c];
+    while waiting.len > 0 {
+        let next = waiting[0];
+        let mut rest: Cmd<Msg>[] = [];
+        for i in 1..waiting.len {
+            rest.push(waiting[i]);
+        }
+        waiting = rest;
+        for msg of run(next) {
+            let (after, more) = update(at, msg);
+            at = after;
+            waiting.push(more);
+        }
+    }
+    // Both writes landed, one after the other, and the lane is free again.
+    assert_eq(at.writing.len, 0);
+    assert_eq(at.tabs.iter().all(fun(tab) = tab.page.in_flight == 0), true);
+    let check = Model {
+        store: Some(store_at("test/tmp/queries-lane")),
+        ..with_pages(Engine.new(), [
+            app(
+                engine,
+                asking([sql("n", "SELECT count(*) FROM sqlite_schema WHERE name IN ('a', 'b')")]),
+            ),
+        ]),
+    };
+    let e = last_event(settle(check), 0);
+    assert_eq(
+        e.get("value").unwrap().get("rows") == Some(Value.Array([Value.Array([Value.int(2)])])),
+        true,
+    );
+    clean("test/tmp/queries-lane");
+}
+
+@test
+fun a_stored_blob_is_read_back_through_the_window() {
+    // PRP-054: a blob kept by one window's batch, read by another's blob_get.
+    let engine = Engine.new();
+    let writer = app(
+        engine,
+        asking([
+            kv([
+                ("kind", t("sql_batch")),
+                ("msg", t("kept")),
+                (
+                    "steps",
+                    Value.Array([kv([("blob_set", t("k")), ("bytes", Value.Bytes([4, 2]))])]),
+                ),
+            ]),
+        ]),
+    );
+    settle(window("blob", [writer]));
+    let reader = Model {
+        store: Some(store_at("test/tmp/queries-blob")),
+        ..with_pages(engine, [
+            app(engine, asking([kv([("kind", t("blob_get")), ("msg", t("b")), ("key", t("k"))])])),
+        ]),
+    };
+    let e = last_event(settle(reader), 0);
+    assert_eq(e.get("event") == Some(t("on_answer")), true);
+    assert_eq(e.get("value").unwrap().get("bytes") == Some(Value.Bytes([4, 2])), true);
+    clean("test/tmp/queries-blob");
+}

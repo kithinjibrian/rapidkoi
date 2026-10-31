@@ -84,9 +84,9 @@ Needs: `lughac` (the owner installs it from `../lugha`), `libgtk-4-dev`, `libsql
 - **GTK 4** only through kivuli. rapidkoi never imports `gtk`.
 - **wasmtime** (C API 49) through `lugha-wasmtime` 0.1 (`wat_to_wasm` since 0.1.1). rapidkoi declares no wasmtime `extern`.
 - **Picture headers** through `lugha-imagesize` 0.1 (PRP-047): a picture's format and size before anything decodes it.
-- **CBOR** through `lugha-cbor` 0.1. **SQLite** through `lugha-sqlite` 0.1: one database per app, every connection `Guard.untrusted()`, every call in a `Cmd.task`.
-- **The contract is version 8, the only one** (`docs/specs/contract-8.md`, DECISION-056, PRP-053): named-field state, links (with `kinds`), `on_` events, boxes, texts (with `parts`: your name and times, filled in by Rapidkoi) and typing boxes (with `label`), styles, roles, storage, `now`. Older apps are refused, never run. Any change to it is a DECISIONS.md entry and a version bump, and the guest↔host contract carries its version from its first commit: published bundles can't be recompiled.
-- **The Rust SDK is `rapidkoi-rust`** (`../rapidkoi-rust`, a git dependency by tag, now `v0.3.0-pre.1`: contract 8, with parts and `now`) with the examples counter and styled. Notes is its own repository, `../notes` (core decision 27). A contract change is tagged there first; then the built-ins move to the tag and are repacked.
+- **CBOR** through `lugha-cbor` 0.1. **SQLite** through `lugha-sqlite` 0.2: one database per app, every connection `Guard.untrusted()` with `rapidkoi_` names reserved (Rapidkoi's own statements through `run_own`, `query_own`, `Step.Own`), every call in a `Cmd.task`; an app's writes one at a time.
+- **The contract is version 9, the only one** (`docs/specs/contract-9.md`, DECISION-056, PRP-053, PRP-054): named-field state, links (with `kinds`), `on_` events, boxes, texts (with `parts`: your name and times, filled in by Rapidkoi) and typing boxes (with `label`), styles, roles, storage with blobs (`docs/specs/blobs.md`), `now`. Older apps are refused, never run. Any change to it is a DECISIONS.md entry and a version bump, and the guest↔host contract carries its version from its first commit: published bundles can't be recompiled.
+- **The Rust SDK is `rapidkoi-rust`** (`../rapidkoi-rust`, a git dependency by tag, now `v0.3.0-pre.2`: contract 9, with parts, `now` and blobs) with the examples counter and styled. Notes is its own repository, `../notes` (core decision 27). A contract change is tagged there first; then the built-ins move to the tag and are repacked.
 
 ## ARCHITECTURE
 

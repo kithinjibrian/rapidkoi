@@ -1,14 +1,16 @@
 /**
  * Storage asks (PRP-041), pure: a `sql` or `sql_batch` effect
  * read and held to its bounds before anything runs. What the SQL may do is
- * the database's guardrails' question (`data.databases`).
+ * the database's guardrails' question (`data.databases`). A batch's blob
+ * steps (PRP-054) are `blobasks`'s.
  *
- * Depends on: cbor, guest.nodes, guest.limits
+ * Depends on: cbor, guest.nodes, guest.limits, guest.blobasks
  * Used by: guest.contract
  */
 import cbor { Value };
-import guest.nodes { Query, ContractError };
+import guest.nodes { Query, BatchStep, ContractError };
 import guest.limits { MAX_SQL, MAX_SQL_PARAMS, MAX_SQL_VALUE, MAX_ROWS, MAX_STEPS };
+import guest.blobasks { blob_step_of };
 
 /**
  * Reads a `sql` effect: `sql`, `params`, and `max_rows` (at most `MAX_ROWS`).
@@ -23,12 +25,13 @@ fun sql_of(e: Value): Result<Query, ContractError> {
 }
 
 /**
- * Reads a `sql_batch` effect's `steps`, at most `MAX_STEPS`.
+ * Reads a `sql_batch` effect's `steps`, at most `MAX_STEPS`: statements,
+ * and blobs stored or removed (PRP-054).
  *
  * Example:
  *     batch_of(effect)?
  */
-fun batch_of(e: Value): Result<Query[], ContractError> {
+fun batch_of(e: Value): Result<BatchStep[], ContractError> {
     let steps = match e.get("steps") {
         Some(Array(xs)) => xs,
         _ => {
@@ -38,9 +41,12 @@ fun batch_of(e: Value): Result<Query[], ContractError> {
     if steps.len > MAX_STEPS {
         return Err(bad("an sql_batch takes at most {MAX_STEPS} steps"));
     }
-    let mut out: Query[] = [];
+    let mut out: BatchStep[] = [];
     for s of steps {
-        out.push(query_of(s, "an sql_batch's step")?);
+        out.push(match blob_step_of(s)? {
+            Some(b) => b,
+            None => BatchStep.Statement(query_of(s, "an sql_batch's step")?),
+        });
     }
     Ok(out)
 }

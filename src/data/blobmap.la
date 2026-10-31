@@ -1,0 +1,316 @@
+/**
+ * Which key holds which blob (PRP-054): the reserved table
+ * `rapidkoi_blobs` in an app's own database, reached only through
+ * lugha-sqlite's own statements (`run_own`, `query_own`, `Step.Own`),
+ * since the app's SQL is refused every `rapidkoi_` name. Checks the
+ * table is Rapidkoi's, reads keys, totals and hashes, builds the steps a
+ * batch commits, and removes the blobs whose owner row is gone. The files
+ * are `data.blobs`'; what to run when is `data.databases`'.
+ *
+ * Never reads the app's data: the owner check asks SQLite only whether a
+ * key exists, and nothing of the app's leaves SQLite (DECISION-087).
+ *
+ * Depends on: sqlite, cbor, data.blobs, trust.keys
+ * Used by: data.databases
+ */
+import sqlite { Database, Rows, SqliteError };
+import cbor { Value, Entry };
+import data.blobs { BlobError };
+import trust.keys { hex };
+
+/** The table's columns, in order: what `ours` expects to find. */
+const COLUMNS: string[] = ["key", "hash", "size", "owner_table", "owner_key"];
+
+/**
+ * Says whether the app's database has Rapidkoi's table yet.
+ *
+ * @returns `true` when it's there in Rapidkoi's shape, `false` when there's none; `Err(NotOurs)` when a table of another shape has the name (an app renamed its own into it), `Err(Disk)` when SQLite failed
+ *
+ * Example:
+ *     ours(db)?
+ */
+fun ours(db: Database): Result<bool, BlobError> {
+    let info = db.query_own("PRAGMA table_info(rapidkoi_blobs)", [], 16).map_err(disk)?;
+    if info.values.len == 0 {
+        return Ok(false);
+    }
+    let names = info.values.map(fun(row: sqlite.Value[]) = text_of(row[1]));
+    if names == COLUMNS { Ok(true) } else { Err(BlobError.NotOurs) }
+}
+
+/**
+ * Returns the steps that make Rapidkoi's table and its index, to run first
+ * in the write that keeps the app's first blob: one transaction, not three.
+ *
+ * Example:
+ *     made()
+ */
+fun made(): sqlite.Step[] = [
+    sqlite.Step.Own(
+        "CREATE TABLE IF NOT EXISTS rapidkoi_blobs (key TEXT PRIMARY KEY, hash BLOB NOT NULL, size INTEGER NOT NULL, owner_table TEXT, owner_key) WITHOUT ROWID",
+        [],
+    ),
+    sqlite.Step.Own(
+        "CREATE INDEX IF NOT EXISTS rapidkoi_blobs_owner ON rapidkoi_blobs (owner_table)",
+        [],
+    ),
+];
+
+/**
+ * Returns a key's hash and size, or `None` when no blob has it.
+ *
+ * Example:
+ *     stored(db, "photo-17")?
+ */
+fun stored(db: Database, key: string): Result<Option<(u8[], i64)>, BlobError> {
+    let rows = db.query_own(
+        "SELECT hash, size FROM rapidkoi_blobs WHERE key = ?",
+        [sqlite.Value.Text(key)],
+        1,
+    ).map_err(disk)?;
+    if rows.values.len == 0 {
+        return Ok(None);
+    }
+    Ok(Some((bytes_of(rows.values[0][0]), int_of(rows.values[0][1]))))
+}
+
+/**
+ * Returns how many blobs the app keeps and their bytes together.
+ *
+ * Example:
+ *     totals(db)?
+ */
+fun totals(db: Database): Result<(i64, i64), BlobError> {
+    let rows = db.query_own(
+        "SELECT count(*), coalesce(sum(size), 0) FROM rapidkoi_blobs",
+        [],
+        1,
+    ).map_err(disk)?;
+    Ok((int_of(rows.values[0][0]), int_of(rows.values[0][1])))
+}
+
+/**
+ * Returns the file names (hex hashes) some key still names: what a sweep keeps.
+ *
+ * Example:
+ *     named(db)?
+ */
+fun named(db: Database): Result<Set<string>, BlobError> {
+    let rows = db.query_own("SELECT DISTINCT hash FROM rapidkoi_blobs", [], 1_000_000).map_err(
+        disk,
+    )?;
+    let mut out: Set<string> = #{};
+    for row of rows.values {
+        out.insert(hex(bytes_of(row[0])));
+    }
+    Ok(out)
+}
+
+/**
+ * Checks an owner table: a name of letters, digits and `_` that isn't
+ * Rapidkoi's, a table that exists, with a primary key of one column.
+ *
+ * @returns the key column's name; `Err(BadOwner)` with the app's sentence, `Err(Disk)`
+ *
+ * Example:
+ *     owner_column(db, "notes")?
+ */
+fun owner_column(db: Database, table: string): Result<string, BlobError> {
+    // The name goes into SQL text (PRAGMA takes no parameters): only plain names, quoted.
+    if !plain(table) || reserved(table) {
+        return Err(
+            BlobError.BadOwner("A blob's owner table is a plain name of letters, digits and _"),
+        );
+    }
+    match key_column(db, table)? {
+        Some(c) => Ok(c),
+        None => Err(
+            BlobError.BadOwner("A blob's owner table must exist, with a primary key of one column"),
+        ),
+    }
+}
+
+/**
+ * Builds the step that stores a key's hash, size and owner.
+ *
+ * Example:
+ *     set_step("photo-17", hash, 2048, Some(("notes", sqlite.Value.Text("n1"))))
+ */
+fun set_step(
+    key: string,
+    hash: u8[],
+    size: i64,
+    owner: Option<(string, sqlite.Value)>,
+): sqlite.Step {
+    let (table, at) = match owner {
+        Some((t, k)) => (sqlite.Value.Text(t), k),
+        None => (sqlite.Value.Null, sqlite.Value.Null),
+    };
+    sqlite.Step.Own(
+        "INSERT OR REPLACE INTO rapidkoi_blobs (key, hash, size, owner_table, owner_key) VALUES (?, ?, ?, ?, ?)",
+        [sqlite.Value.Text(key), sqlite.Value.Bytes(hash), sqlite.Value.Integer(size), table, at],
+    )
+}
+
+/** Builds the step that removes a key. */
+fun delete_step(key: string): sqlite.Step = sqlite.Step.Own(
+    "DELETE FROM rapidkoi_blobs WHERE key = ?",
+    [sqlite.Value.Text(key)],
+);
+
+/**
+ * Removes the blobs whose owner row is gone, in one transaction: for each
+ * owner table, the keys its primary key no longer has, and all of a table
+ * that's gone. A table whose key is no longer one column keeps its blobs:
+ * losing data is worse than keeping it. Run after a write commits, never
+ * inside it (a batch may drop a table the check would name).
+ *
+ * Example:
+ *     check_owners(db)?
+ */
+fun check_owners(db: Database): Result<(), BlobError> {
+    let tables = db.query_own(
+        "SELECT DISTINCT owner_table FROM rapidkoi_blobs WHERE owner_table IS NOT NULL",
+        [],
+        1_000_000,
+    ).map_err(disk)?;
+    let mut steps: sqlite.Step[] = [];
+    for row of tables.values {
+        let t = text_of(row[0]);
+        let mine = [sqlite.Value.Text(t)];
+        if !plain(t) {
+            continue;
+        }
+        let exists = db.query_own(
+            "SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?",
+            mine,
+            1,
+        ).map_err(disk)?;
+        if exists.values.len == 0 {
+            steps.push(sqlite.Step.Own("DELETE FROM rapidkoi_blobs WHERE owner_table = ?", mine));
+            continue;
+        }
+        if let Some(c) = key_column(db, t)? {
+            // Both names were read back from the schema and are plain: safe to quote into SQL.
+            let orphans = "FROM rapidkoi_blobs WHERE owner_table = ? AND NOT EXISTS (SELECT 1 FROM main.\"{t}\" WHERE \"{c}\" = rapidkoi_blobs.owner_key)";
+            // Only a write when something's gone: each commit costs a sync to disk.
+            let found = db.query_own("SELECT 1 {orphans} LIMIT 1", mine, 1).map_err(disk)?;
+            if found.values.len > 0 {
+                steps.push(sqlite.Step.Own("DELETE {orphans}", mine));
+            }
+        }
+    }
+    if steps.len > 0 {
+        db.batch_steps(steps).map_err(disk)?;
+    }
+    Ok(())
+}
+
+/**
+ * Answers a `blob_list`: the keys starting with `prefix`, in key order, at
+ * most `max` of them, with `cut` the number left out.
+ *
+ * Example:
+ *     listed(db, "photo-", 10_000)?
+ */
+fun listed(db: Database, prefix: string, max: i64): Result<Value, BlobError> {
+    let p = sqlite.Value.Text(prefix);
+    let rows = db.query_own(
+        "SELECT key, size, owner_table, owner_key FROM rapidkoi_blobs WHERE substr(key, 1, length(?1)) = ?1 ORDER BY key",
+        [p],
+        max,
+    ).map_err(disk)?;
+    let all = db.query_own(
+        "SELECT count(*) FROM rapidkoi_blobs WHERE substr(key, 1, length(?1)) = ?1",
+        [p],
+        1,
+    ).map_err(disk)?;
+    let mut found: Value[] = [];
+    for row of rows.values {
+        let mut fields = [
+            entry("key", Value.Text(text_of(row[0]))),
+            entry("size", Value.int(int_of(row[1]))),
+        ];
+        if let Text(t) = row[2] {
+            fields.push(
+                entry(
+                    "owner",
+                    Value.Map([entry("table", Value.Text(t)), entry("key", value_of(row[3]))]),
+                ),
+            );
+        }
+        found.push(Value.Map(fields));
+    }
+    let cut = int_of(all.values[0][0]) - found.len;
+    Ok(
+        Value.Map([
+            entry("blobs", Value.Array(found)),
+            entry("cut", Value.int(if cut > 0 { cut } else { 0 })),
+        ]),
+    )
+}
+
+/** A table's one primary-key column, or `None` when it has none, several, or isn't there. */
+fun key_column(db: Database, table: string): Result<Option<string>, BlobError> {
+    let info = db.query_own("PRAGMA table_info(\"{table}\")", [], 1000).map_err(disk)?;
+    // Column 5 is `pk`: its place in the key, 0 for a column outside it.
+    let in_key = info.values.filter(fun(row: sqlite.Value[]) = int_of(row[5]) > 0);
+    if in_key.len != 1 {
+        return Ok(None);
+    }
+    let name = text_of(in_key[0][1]);
+    Ok(if plain(name) { Some(name) } else { None })
+}
+
+/** Whether a name is letters, digits and `_`, not starting with a digit: safe to quote into SQL. */
+fun plain(name: string): bool {
+    if name.len == 0 || name.len > 128 {
+        return false;
+    }
+    let bytes = name.to_bytes();
+    let letter = fun(b: u8) = b >= 65 && b <= 90 || b >= 97 && b <= 122 || b == 95;
+    letter(bytes[0]) && bytes.all(fun(b: u8) = letter(b) || b >= 48 && b <= 57)
+}
+
+/** Whether a name starts with `rapidkoi_`, in any case: SQLite matches names without case. */
+fun reserved(name: string): bool {
+    let want = "rapidkoi_".to_bytes();
+    let got = name.to_bytes();
+    if got.len < want.len {
+        return false;
+    }
+    for i in 0..want.len {
+        let b = if got[i] >= 65 && got[i] <= 90 { got[i] + 32 } else { got[i] };
+        if b != want[i] {
+            return false;
+        }
+    }
+    true
+}
+
+fun disk(e: SqliteError): BlobError = BlobError.Disk(e.message);
+
+fun text_of(v: sqlite.Value): string = match v {
+    Text(s) => s,
+    _ => "",
+};
+
+fun int_of(v: sqlite.Value): i64 = match v {
+    Integer(n) => n,
+    _ => 0,
+};
+
+fun bytes_of(v: sqlite.Value): u8[] = match v {
+    Bytes(b) => b,
+    _ => [],
+};
+
+/** An owner key as the app sees it. */
+fun value_of(v: sqlite.Value): Value = match v {
+    Integer(n) => Value.int(n),
+    Text(s) => Value.Text(s),
+    Bytes(b) => Value.Bytes(b),
+    _ => Value.Null,
+};
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };

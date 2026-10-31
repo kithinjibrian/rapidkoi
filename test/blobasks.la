@@ -1,0 +1,173 @@
+// Blob asks (PRP-054), pure: blob steps in an `sql_batch`, `blob_get` and
+// `blob_list` read from a `handle` result and held to their shapes. No
+// guest, no database.
+import rapidkoi.guest.contract { read_update };
+import rapidkoi.guest.nodes { Effect, BatchStep };
+import rapidkoi.guest.limits { MAX_BLOB_PIECE, MAX_BLOB_KEY };
+import cbor { Value, encode };
+import support { t, kv };
+
+fun asking(effect: Value): Result<Effect[], string> {
+    let result = encode(kv([("state", kv([])), ("effects", Value.Array([effect]))]));
+    match read_update(result) {
+        Ok(u) => Ok(u.effects),
+        Err(Invalid(_, why)) => Err(why),
+        Err(_) => Err("another error"),
+    }
+}
+
+fun batch(steps: Value[]): Value = kv([
+    ("kind", t("sql_batch")),
+    ("msg", t("saved")),
+    ("steps", Value.Array(steps)),
+]);
+
+fun steps_of(effect: Value): Result<BatchStep[], string> = match asking(effect) {
+    Ok(es) => match es[0] {
+        SqlBatch(_, steps) => Ok(steps),
+        _ => Err("not a batch"),
+    },
+    Err(why) => Err(why),
+};
+
+fun get(fields: (string, Value)[]): Value {
+    let mut all = [("kind", t("blob_get")), ("msg", t("piece"))];
+    for f of fields {
+        all.push(f);
+    }
+    kv(all)
+}
+
+/** `n` copies of byte `b`. */
+fun many(b: u8, n: i64): string {
+    let mut out: u8[] = [];
+    for _ in 0..n {
+        out.push(b);
+    }
+    string_from_utf8(out).expect("ASCII is valid UTF-8")
+}
+
+@test
+fun a_batch_reads_blob_steps_beside_statements() {
+    let got = steps_of(
+        batch([
+            kv([
+                ("blob_set", t("photo-17")),
+                ("bytes", Value.Bytes([1, 2, 3])),
+                ("owner", kv([("table", t("notes")), ("key", t("n1"))])),
+            ]),
+            kv([("sql", t("INSERT INTO notes VALUES (?)")), ("params", Value.Array([t("n1")]))]),
+            kv([("blob_set", t("avatar")), ("bytes", Value.Bytes([9]))]),
+            kv([("blob_delete", t("old"))]),
+        ]),
+    ).unwrap();
+    assert_eq(got.len, 4);
+    match got[0] {
+        BlobSet(key, bytes, Some(o)) => {
+            assert_eq((key, bytes, o.table), ("photo-17", [1, 2, 3], "notes"));
+            assert_eq(o.key == t("n1"), true);
+        }
+        _ => panic("expected an owned blob_set"),
+    }
+    match got[1] {
+        Statement(q) => assert_eq(q.sql, "INSERT INTO notes VALUES (?)"),
+        _ => panic("expected a statement"),
+    }
+    match got[2] {
+        BlobSet(key, _, None) => assert_eq(key, "avatar"),
+        _ => panic("expected a blob_set with no owner"),
+    }
+    match got[3] {
+        BlobDelete(key) => assert_eq(key, "old"),
+        _ => panic("expected a blob_delete"),
+    }
+}
+
+@test
+fun bad_blob_steps_say_why() {
+    let set = fun(key: Value) = batch([kv([("blob_set", key), ("bytes", Value.Bytes([1]))])]);
+    assert_eq(steps_of(set(t(""))), Err("a blob_set's key is 1 to 256 bytes"));
+    assert_eq(
+        steps_of(set(t(many(97, MAX_BLOB_KEY + 1)))),
+        Err("a blob_set's key is 1 to 256 bytes"),
+    );
+    assert_eq(steps_of(set(t(many(97, MAX_BLOB_KEY)))).is_ok(), true);
+    assert_eq(steps_of(set(t("a\nb"))), Err("a blob_set's key has a control character"));
+    assert_eq(steps_of(set(Value.int(4))), Err("a blob_set's key must be text"));
+    assert_eq(steps_of(batch([kv([("blob_set", t("k"))])])), Err("a blob_set needs its bytes"));
+    let owned = fun(owner: Value) = batch([
+        kv([("blob_set", t("k")), ("bytes", Value.Bytes([1])), ("owner", owner)]),
+    ]);
+    assert_eq(steps_of(owned(kv([("key", t("n1"))]))), Err("a blob_set's owner needs its table"));
+    assert_eq(
+        steps_of(owned(kv([("table", t("notes")), ("key", Value.Array([]))]))),
+        Err("a blob_set's owner key is a number, text or bytes"),
+    );
+    assert_eq(
+        steps_of(batch([kv([("blob_delete", t(""))])])),
+        Err("a blob_delete's key is 1 to 256 bytes"),
+    );
+}
+
+@test
+fun a_blob_get_reads_its_range_and_hash() {
+    match asking(get([("key", t("photo-17"))])).unwrap()[0] {
+        BlobGet(_, r) => assert_eq(
+            (r.key, r.from, r.len, r.hash.is_none()),
+            ("photo-17", 0, MAX_BLOB_PIECE, true),
+        ),
+        _ => panic("expected a blob_get"),
+    }
+    let hash: u8[] = [7; 32];
+    let piece = get([
+        ("key", t("photo-17")),
+        ("from", Value.int(4194304)),
+        ("len", Value.int(99_000_000)),
+        ("hash", Value.Bytes(hash)),
+    ]);
+    match asking(piece).unwrap()[0] {
+        // A longer piece is cut to the most one answer carries.
+        BlobGet(_, r) => assert_eq((r.from, r.len, r.hash), (4194304, MAX_BLOB_PIECE, Some(hash))),
+        _ => panic("expected a blob_get"),
+    }
+}
+
+@test
+fun bad_blob_gets_say_why() {
+    assert_eq(asking(get([])), Err("a blob_get needs its key"));
+    assert_eq(
+        asking(get([("key", t("k")), ("from", Value.int(-1))])),
+        Err("a blob_get's from is a whole number, 0 or more"),
+    );
+    assert_eq(
+        asking(get([("key", t("k")), ("len", t("all"))])),
+        Err("a blob_get's len is a whole number, 0 or more"),
+    );
+    assert_eq(
+        asking(get([("key", t("k")), ("hash", Value.Bytes([1, 2]))])),
+        Err("a blob_get's hash is the 32 bytes an earlier piece gave"),
+    );
+}
+
+@test
+fun a_blob_list_reads_its_prefix() {
+    let list = fun(fields: (string, Value)[]) {
+        let mut all = [("kind", t("blob_list")), ("msg", t("keys"))];
+        for f of fields {
+            all.push(f);
+        }
+        kv(all)
+    };
+    match asking(list([])).unwrap()[0] {
+        BlobList(_, prefix) => assert_eq(prefix, ""),
+        _ => panic("expected a blob_list"),
+    }
+    match asking(list([("prefix", t("photo-"))])).unwrap()[0] {
+        BlobList(_, prefix) => assert_eq(prefix, "photo-"),
+        _ => panic("expected a blob_list"),
+    }
+    assert_eq(
+        asking(list([("prefix", Value.int(1))])),
+        Err("a blob_list's prefix is text of at most 256 bytes"),
+    );
+}

@@ -202,7 +202,7 @@ fun pending_of(p: AppPage): Option<Pending> = match p.screen {
 /** A format 1 bundle named Plain at `version`, as an unsigned server would send. */
 fun plain(version: string): u8[] = write(Bundle {
     manifest: Manifest {
-        contract: 8,
+        contract: 9,
         name: "Plain",
         version: version,
         description: None,

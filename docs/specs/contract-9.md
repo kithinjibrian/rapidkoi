@@ -1,6 +1,6 @@
-# Contract 8
+# Contract 9
 
-The one contract Rapidkoi speaks (DECISION-056, PRP-045, PRP-053): an app is a WebAssembly module exporting `rapidkoi_version` (8), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". Contract 7 gathered contracts 3–6 (PRP-030, 036–039, 041) with link fields with declared `kinds` and a `label` on typing boxes, then scrolling (PRP-046) and pictures (PRP-047). Contract 8 (PRP-053) adds texts made of parts (your name and times, filled in by Rapidkoi, never known to the app) and the `now` ask, and drops the `{FIRST_NAME}` and `{LAST_NAME}` tokens. Any change after that is a DECISIONS.md entry and a version bump.
+The one contract Rapidkoi speaks (DECISION-056, PRP-045, PRP-053, PRP-054): an app is a WebAssembly module exporting `rapidkoi_version` (9), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". Contract 7 gathered contracts 3–6 (PRP-030, 036–039, 041) with link fields with declared `kinds` and a `label` on typing boxes, then scrolling (PRP-046) and pictures (PRP-047). Contract 8 (PRP-053) adds texts made of parts (your name and times, filled in by Rapidkoi, never known to the app) and the `now` ask, and drops the `{FIRST_NAME}` and `{LAST_NAME}` tokens. Contract 9 (PRP-054, DECISION-087) adds blobs: an app's large bytes, kept beside its database. Any change after that is a DECISIONS.md entry and a version bump.
 
 ## The state
 
@@ -140,6 +140,7 @@ Each has a `kind` and a `msg` (any CBOR value, carried back in the reply):
 | `now` | the time now in UTC, in milliseconds since 1970, rounded down to a second (PRP-053); nothing about where you are | `on_answer` |
 | `set_preference` + `name`, `value` | Settings only (`change_settings`) | not answered |
 | `sql`, `sql_batch` | its database (below) | `on_answer` or `on_fail` |
+| `blob_get`, `blob_list` | its blobs (below) | `on_answer` or `on_fail` |
 | `pins`, `left_off`, `open_pin` + `index`, `continue`, `session`, `restore_session` | the new tab's built-in permissions | `on_answer` |
 
 A bad ask stops the app with its sentence.
@@ -149,10 +150,26 @@ A bad ask stops the app with its sentence.
 Every app gets its own SQLite database on this device: a signed app one for its host and origin key; a local development app one for its server's host and port, or its file's path; built-in apps none. The file is `databases/<sha256 hex>.db`, so no app's name becomes a path. It lasts until the person clears it (⚙ → Data → Clear…) or forgets the app. No permission is asked.
 
 - **`sql`** `{ "msg", "sql", "params", "max_rows"? }`: one statement; answered `{ "columns", "rows", "cut" }` (`cut`: rows left out past `max_rows`, default and at most 10,000, or 4 MB).
-- **`sql_batch`** `{ "msg", "steps": [{ "sql", "params" }] }`: every step in one transaction, all or nothing; answered `{ "changes", "last_rowid" }`.
+- **`sql_batch`** `{ "msg", "steps": [{ "sql", "params" }] }`: every step in one transaction, all or nothing; answered `{ "changes", "last_rowid" }`, `changes` the sum over the app's steps. A step may also store or remove a blob (below).
 - Values are SQLite's types as CBOR (integers, floats, text, bytes, null; a boolean is stored as 1 or 0), and only ever go in as parameters.
 - Bounds: SQL 100 KB, 999 parameters, a value 4 MB, 100 steps; every call 1 second, 100 MB a database, 256 MB of SQLite's memory for all apps. Every connection is guarded by lugha-sqlite's `Guard.untrusted()`.
 - When a write in one window changes tables, the app's other windows get `on_change` with `tables`. A window copies the rows it asked for into its state and asks again then.
+- An app's writes run one at a time, across its windows; reads run beside them. Asks run side by side, so read what a write changed after its answer.
+- Names starting `rapidkoi_` (tables, indexes, triggers, views) are Rapidkoi's: your SQL is refused them. Skip them when you list or copy your schema.
+
+### Blobs
+
+Large bytes (photos, files, your own formats) kept beside the database, each under a key you name (DECISION-087, `docs/specs/blobs.md`). Rapidkoi stores them by their hash, never looks inside them, never runs them, and never gives them to another app.
+
+- **Storing and removing** are steps of `sql_batch`, committed with your rows:
+  - `{ "blob_set": key, "bytes": <bytes>, "owner"?: { "table", "key" } }` stores or replaces a key's bytes;
+  - `{ "blob_delete": key }` removes a key (none is nothing to do).
+- A key is text, 1–256 bytes, no control characters. A blob is at most 16 MB; an app's blobs at most 1 GB together (apart from its database) and 10,000 in number. A batch over one fails whole: "This blob is over 16 MB", "This app's files are full (1 GB)", "This app has 10,000 blobs already".
+- **Owners:** with `owner`, the blob belongs to that row: its table (one that already exists, before the batch, with a primary key of one column) and its key's value. Deleting the row deletes the blob as part of the same write, and so does dropping the table. A migration in one batch (new table, copy, drop, rename) keeps them. **Changing a row's primary key drops its blobs.** Changing which key a row names, without deleting the row, needs `blob_set` or `blob_delete`.
+- **`blob_get`** `{ "msg", "key", "from"?, "len"?, "hash"? }`: answered `{ "bytes", "from", "size", "hash" }`, at most 4 MB from `from` (default 0); a larger blob is read in pieces. Pass the first answer's `hash` with later pieces: if the blob changed in between, `on_fail` "This blob changed while it was being read", and start over. No such key: "This app has no blob with that key".
+- **`blob_list`** `{ "msg", "prefix"? }`: answered `{ "blobs": [{ "key", "size", "owner"? }], "cut" }`, in key order, at most 10,000 (`cut`: those left out).
+- Your app keeps nothing between calls, so bytes you hold sit in the window's state (16 MB, saved with it): handle each piece as it arrives and keep the result, not the bytes.
+- ⚙'s Data row counts blobs with the database; Clear and Forget remove them.
 
 **Changing the database's shape is the app's to manage** (a note, not a rule of the contract; DECISION-066). The database belongs to the app: Rapidkoi never reads it, migrates it or keeps copies of it. What Rapidkoi guarantees is that only one version of an app uses its database at a time: every window of an app moves to a new version together (PRP-048). An *older* version can still open data a newer one changed: the publisher withdraws the newer version, a link names an older one, or an older build is published again. So:
 
@@ -169,4 +186,4 @@ A message is any CBOR value. The Rust library writes typed ones (`#[derive(Messa
 
 ## Rust
 
-`rapidkoi-rust` (`v0.2.0` once contract 7 was released; contract 8's parts and `now`: `docs/specs/rapidkoi-rust-contract-8.md`): `#[derive(State)]` encodes a struct as named fields, gives each field a typed link field (`Counter::count`, `App::editor.then(Editor::task)`), and writes `kinds`; `Next::state(s).link(field)`, `.no_link()`, `.ask(…)`; an `Option` field is "none" in the address and can be set by a link.
+`rapidkoi-rust` (`v0.2.0` once contract 7 was released; contract 8's parts and `now`: `docs/specs/rapidkoi-rust-contract-8.md`; contract 9's blobs: `docs/specs/rapidkoi-rust-contract-9.md`): `#[derive(State)]` encodes a struct as named fields, gives each field a typed link field (`Counter::count`, `App::editor.then(Editor::task)`), and writes `kinds`; `Next::state(s).link(field)`, `.no_link()`, `.ask(…)`; an `Option` field is "none" in the address and can be set by a link.

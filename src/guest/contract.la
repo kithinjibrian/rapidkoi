@@ -1,11 +1,11 @@
 /**
- * Contract 7's results, pure: reads what a guest's `handle` returned (its
+ * Contract 9's results, pure: reads what a guest's `handle` returned (its
  * state of named fields, what it asks for, its address's fields and their
  * kinds), checked against every limit (`limits.la`), and encodes a reply
  * to a request. Never calls a guest or GTK. The screen is `tree.la`'s; the
  * types live in `nodes.la` and are re-exported here.
  *
- * Depends on: cbor, guest.limits, guest.nodes, guest.links, guest.sqlasks, net.network
+ * Depends on: cbor, guest.limits, guest.nodes, guest.links, guest.sqlasks, guest.blobasks, net.network
  * Used by: guest.running, guest.effects, window.tabs
  */
 import cbor { Value, Entry, Limits, decode, encode };
@@ -31,6 +31,7 @@ import guest.nodes {
 };
 import guest.links { read_link, read_kinds };
 import guest.sqlasks { sql_of, batch_of };
+import guest.blobasks { blob_get_of, blob_list_of };
 
 /**
  * Decodes a `handle` result and takes out its state, checking its shape: a
@@ -116,6 +117,10 @@ fun read_update(bytes: u8[]): Result<Update, ContractError> {
             effects.push(Effect.Sql(msg, sql_of(e)?));
         } else if kind == "sql_batch" {
             effects.push(Effect.SqlBatch(msg, batch_of(e)?));
+        } else if kind == "blob_get" {
+            effects.push(Effect.BlobGet(msg, blob_get_of(e)?));
+        } else if kind == "blob_list" {
+            effects.push(Effect.BlobList(msg, blob_list_of(e)?));
         } else if kind == "preferences" {
             effects.push(Effect.Preferences(msg));
         } else if kind == "now" {

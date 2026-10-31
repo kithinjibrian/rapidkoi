@@ -1,0 +1,164 @@
+/**
+ * An app's blob files (PRP-054): each one named by the SHA-256 of its
+ * bytes, in a folder beside the app's database, so nothing an app says
+ * becomes a path. Places bytes safely, reads a piece, sweeps the files no
+ * key names, and removes them all. Which key holds which file is
+ * `data.blobmap`'s; this module never opens a database. Every function
+ * touches the disk: run it in a task (Clear and Forget excepted, as for
+ * the database itself).
+ *
+ * Depends on: std.fs, std.crypto, trust.keys
+ * Used by: data.blobmap, data.databases
+ */
+import std.fs;
+import std.crypto { sha256 };
+import trust.keys { hex };
+
+/** Why a blob couldn't be stored, read or found; each is one sentence for the app (`blob_sentence`). */
+enum BlobError {
+    /** Over `MAX_BLOB`. */
+    TooBig,
+    /** The app's blobs would pass `BLOBS_BYTES`. */
+    Full,
+    /** The app would keep more than `MAX_BLOBS`. */
+    TooMany,
+    /** No blob has this key. */
+    NoSuchKey,
+    /** The key now holds other bytes than the piece before (or its file went while being read). */
+    Changed,
+    /** A read starting past the blob's end. */
+    PastEnd,
+    /** An owner Rapidkoi can't keep: the reason, for the app. */
+    BadOwner(string),
+    /** `rapidkoi_blobs` exists in a shape that isn't Rapidkoi's: an app renamed its own table into the name. */
+    NotOurs,
+    /** The disk refused: the system's message, never shown to the app. */
+    Disk(string),
+}
+
+/**
+ * Returns the sentence an app gets for a blob error.
+ *
+ * Example:
+ *     blob_sentence(BlobError.TooBig)
+ */
+fun blob_sentence(e: BlobError): string = match e {
+    TooBig => "This blob is over 16 MB",
+    Full => "This app's files are full (1 GB)",
+    TooMany => "This app has 10,000 blobs already",
+    NoSuchKey => "This app has no blob with that key",
+    Changed => "This blob changed while it was being read",
+    PastEnd => "This read starts past the blob's end",
+    BadOwner(why) => why,
+    NotOurs => "This app's database has a table Rapidkoi uses for its own",
+    // The system's message stays out of the app's reach.
+    Disk(_) => "This app's files couldn't be written",
+};
+
+/**
+ * Returns the folder an app's blobs live in: beside its database,
+ * `databases/<sha256>.blobs` for `databases/<sha256>.db`.
+ *
+ * Example:
+ *     folder_for("/data/databases/ab12.db")
+ */
+fun folder_for(db_path: string): string {
+    let base = if db_path.ends_with(".db") { db_path.slice(0, db_path.len - 3) } else { db_path };
+    "{base}.blobs"
+}
+
+/**
+ * Stores bytes in `folder` under their hash, unless a file with that hash
+ * is there already: a temporary file, synced, renamed into place, then the
+ * folder synced, so a power cut leaves the old state or the new one.
+ *
+ * @returns the 32-byte hash; `Err(Disk)` when the disk refused
+ *
+ * Example:
+ *     place(folder, bytes)?
+ */
+fun place(folder: string, bytes: u8[]): Result<u8[], BlobError> {
+    let hash = sha256(bytes);
+    let name = hex(hash);
+    let at = "{folder}/{name}";
+    fs.make_dirs(folder).map_err(BlobError.Disk)?;
+    if fs.is_file(at) {
+        return Ok(hash);
+    }
+    // One writer per app at a time (`data.queries`' lane), so one
+    // temporary name per hash can't collide; a leftover one is swept.
+    let tmp = "{folder}/.tmp-{name}";
+    write_bytes(tmp, bytes).map_err(BlobError.Disk)?;
+    fs.sync(tmp).map_err(BlobError.Disk)?;
+    fs.rename(tmp, at).map_err(BlobError.Disk)?;
+    fs.sync(folder).map_err(BlobError.Disk)?;
+    Ok(hash)
+}
+
+/**
+ * Reads up to `len` bytes of the file named by `hash`, from `from`.
+ *
+ * @returns the piece, shorter at the end; `Err(Changed)` when the file is gone (its key moved on while this was read)
+ *
+ * Example:
+ *     piece(folder, hash, 0, MAX_BLOB_PIECE)?
+ */
+fun piece(folder: string, hash: u8[], from: i64, len: i64): Result<u8[], BlobError> {
+    // lughac reads whole files only (DECISION-087, part 3): fine up to MAX_BLOB.
+    let all = match read_bytes("{folder}/{hex(hash)}") {
+        Ok(b) => b,
+        Err(_) => {
+            return Err(BlobError.Changed);
+        }
+    };
+    let end = if from + len > all.len { all.len } else { from + len };
+    let mut out: u8[] = [];
+    for i in from..end {
+        out.push(all[i]);
+    }
+    Ok(out)
+}
+
+/**
+ * Removes every file in `folder` whose name isn't in `keep` (hex hashes):
+ * blobs no key names any more, and temporary files a crash left. Only
+ * while no write of this app runs (`data.queries`' lane). Nothing there is
+ * nothing to do; a file that won't go is left for the next sweep.
+ *
+ * Example:
+ *     sweep(folder, #{"ab12…"})
+ */
+fun sweep(folder: string, keep: Set<string>) {
+    let names = match fs.list_dir(folder) {
+        Ok(ns) => ns,
+        Err(_) => {
+            return;
+        }
+    };
+    for n of names {
+        if !keep.has(n) {
+            let _ = fs.remove_file("{folder}/{n}");
+        }
+    }
+}
+
+/**
+ * Removes an app's blob folder and every file in it (`std.fs` deletes
+ * nothing recursively). Nothing there is nothing to do.
+ *
+ * @returns `Err` with the sentence the person sees
+ *
+ * Example:
+ *     remove_all(folder)?
+ */
+fun remove_all(folder: string): Result<(), string> {
+    if !fs.is_dir(folder) {
+        return Ok(());
+    }
+    let failed = fun(e: string) = "Rapidkoi couldn't remove this app's files: {e}";
+    for n of fs.list_dir(folder).map_err(failed)? {
+        fs.remove_file("{folder}/{n}").map_err(failed)?;
+    }
+    fs.remove_dir(folder).map_err(failed)?;
+    Ok(())
+}

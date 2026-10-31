@@ -105,7 +105,7 @@ kivuli centers text by default. Rapidkoi puts text at the **start of its line** 
 
 ## Apps' own looks (PRP-037, DECISION-049)
 
-- Apps style their content themselves through `style` (`docs/specs/contract-8.md`). Rapidkoi's own screens keep the rules above.
+- Apps style their content themselves through `style` (`docs/specs/contract-9.md`). Rapidkoi's own screens keep the rules above.
 - Rapidkoi's names resolve as follows (`src/ui/paint.la`):
   - **Colours:** `background` = `page`, `surface` = `control`, `text` = `text`, `text_dim` = `dim`, `accent`, `on_accent`, `border` = `edge`, `danger`, `on_danger`.
   - **Spacing:** `xs`–`xl` = the `SPACE_*` tokens.

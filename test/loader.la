@@ -19,7 +19,7 @@ import support { settle };
 fun bundle_file(tag: string, version: string): string {
     let p = "test/tmp/{tag}.rkb";
     let m = Manifest {
-        contract: 8,
+        contract: 9,
         name: "Served",
         version: version,
         description: None,
@@ -125,7 +125,7 @@ fun reload_fetches_the_new_build() {
 fun only_this_contract_s_apps_run_here() {
     // A kept copy built for an older contract is passed over for its site (PRP-045).
     let m = Manifest {
-        contract: 8,
+        contract: 9,
         name: "Notes",
         version: "0.3.0",
         description: None,
@@ -137,6 +137,6 @@ fun only_this_contract_s_apps_run_here() {
         controls: None,
     };
     assert_eq(runs_here(m), true);
-    assert_eq(runs_here(Manifest { contract: 7, ..m }), false);
-    assert_eq(runs_here(Manifest { contract: 9, ..m }), false);
+    assert_eq(runs_here(Manifest { contract: 8, ..m }), false);
+    assert_eq(runs_here(Manifest { contract: 10, ..m }), false);
 }

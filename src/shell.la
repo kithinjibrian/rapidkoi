@@ -375,6 +375,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Pictured(id, load, source, got) => (downloads.arrive(m, id, load, source, got), Cmd.none()),
     Overflowed(id, across, down) => (Model { overflow: (id, across, down), ..m }, Cmd.none()),
     Queried(id, load, msg, got) => (queries.arrive(m, id, load, msg, got), Cmd.none()),
+    Wrote(path, id, load, msg, got) => queries.wrote(m, path, id, load, msg, got),
     DataSized(id, n) => (
         window.with_tab(m, id, fun(a: AppPage) = AppPage { data_size: Some(n), ..a }),
         Cmd.none(),
