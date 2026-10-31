@@ -1,5 +1,7 @@
 ## FEATURE: Single files: an app opens one of the person's files (a copy, or to modify), saves it back, and saves as (contract 9)
 
+**Status:** draft; waits on lughac's `fs.size` (the owner chose (b): "wait for file size query"; `docs/specs/lugha-fs-size.md`).
+
 ## OBJECTIVE
 An app asks for a file; Rapidkoi's own chooser opens, titled with the app's name; the person picks one, or cancels. The app gets the file's bytes as a blob, its name and size, and, when it asked to modify it, a handle to save back to that one file. Saving back is safe and never overwrites a change made elsewhere. Save as writes a new file the person chooses. The app never sees a path. With it, Notes can attach a photo (M5) and an editor can open, change and save a file (M6).
 
@@ -40,8 +42,8 @@ An app asks for a file; Rapidkoi's own chooser opens, titled with the app's name
 5. **Conflict check by hash**, not by modification time: lughac has no file metadata (DECISION-015), and a hash can't be fooled by a clock.
 
 **The open question (the owner's):** lughac has no file-size query (DECISION-015, deferred: "acceptable: the file is local and chosen by the person"). So the 16 MB cap is checked **after** the file is read, and a huge file chosen by mistake (a 4 GB video) is read whole before it's refused, holding memory and, as any blocking read does in Lugha today, the window, for as long as that takes.
-- **(a) Build now under DECISION-015's precedent (recommended):** the person chose the file; request `fs.size(path)` from lughac now (`docs/specs/lugha-fs-size.md`) and check before reading once it ships. Until then a mistaken huge pick is slow, then refused with "This file is over 16 MB".
-- **(b) Wait** for lughac's `fs.size` before building.
+- (a) Build now under DECISION-015's precedent, checking after reading until the query ships.
+- **(b) Wait** for lughac's `fs.size` before building. **Chosen by the owner.** So `data/files.la` checks `fs.size(path)` before `read_bytes`, and a file over 16 MB is refused without a byte read.
 
 **Security** (approved with the spec; restated): every ask's shape checked before anything opens; the chooser is the only way a path enters, and it never leaves the model; writes go only to the handle's own path, atomically, after the conflict check; a handle dies with its tab; names only reach the app; the system's messages never do.
 
