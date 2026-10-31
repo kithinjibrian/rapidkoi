@@ -5,3 +5,6 @@
 /site
 /examples/quote/site
 /quote-server
+# Claude Code: the project's settings are shared; anything local stays local
+/.claude/*
+!/.claude/settings.json
