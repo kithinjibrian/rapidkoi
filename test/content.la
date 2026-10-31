@@ -1,6 +1,8 @@
 // The content area (PRP-047): each picture drawn as its page has it.
 
-import rapidkoi.ui.content { with_shown };
+import rapidkoi.ui.content { with_shown, screen_key };
+import rapidkoi.ui.paint { Own };
+import rapidkoi.ui.schemes { DARK, LIGHT, Theme };
 import rapidkoi.window.downloaded { Kept };
 import rapidkoi.guest.nodes { Node, Picture, Fitting, Shown };
 import rapidkoi.guest.styles { plain };
@@ -58,4 +60,36 @@ fun each_picture_is_drawn_as_its_page_has_it() {
         ],
         true,
     );
+}
+
+@test
+fun an_apps_screen_is_rebuilt_only_when_what_it_shows_changes() {
+    // The lazy fix (the owner, 2026-10-31): a popover, a notice or the dock
+    // leaves this key as it was, so the app's screen is neither rebuilt
+    // nor compared; anything the screen shows changes it.
+    let mine = Own { colours: false, text_size: false };
+    let none: (string, Kept)[] = [];
+    let key = fun(
+        id: i64,
+        state: u8[],
+        t: Theme,
+        own: Own,
+        first: string,
+        pics: (string, Kept)[],
+    ) = screen_key(id, state, t, own, first, "", pics);
+    let base = key(1, [1, 2, 3], DARK, mine, "Amina", none);
+    assert_eq(key(1, [1, 2, 3], DARK, mine, "Amina", none), base);
+    assert(key(2, [1, 2, 3], DARK, mine, "Amina", none) != base);
+    assert(key(1, [1, 2, 4], DARK, mine, "Amina", none) != base);
+    assert(key(1, [1, 2, 3], LIGHT, mine, "Amina", none) != base);
+    assert(key(1, [1, 2, 3], Theme { scale: 1.5, ..DARK }, mine, "Amina", none) != base);
+    assert(key(1, [1, 2, 3], DARK, Own { colours: true, ..mine }, "Amina", none) != base);
+    assert(key(1, [1, 2, 3], DARK, Own { text_size: true, ..mine }, "Amina", none) != base);
+    assert(key(1, [1, 2, 3], DARK, mine, "Juma", none) != base);
+    let coming = key(1, [1, 2, 3], DARK, mine, "Amina", [("a.png", Kept.Coming)]);
+    assert(coming != base);
+    let here = key(1, [1, 2, 3], DARK, mine, "Amina", [("a.png", Kept.Here([9], 4, 1))]);
+    assert(here != coming);
+    // When a picture was last on screen is no part of what it shows.
+    assert_eq(key(1, [1, 2, 3], DARK, mine, "Amina", [("a.png", Kept.Here([9], 4, 7))]), here);
 }

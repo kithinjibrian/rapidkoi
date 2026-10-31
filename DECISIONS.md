@@ -650,6 +650,17 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-067 — A popover over a big app's screen is slow (kivuli)
+
+**Status:** resolved (kivuli 0.64.1 and 0.65.0, PRP-069 and PRP-070 there, 2026-10-31)
+**Raised:** 2026-10-31, the owner: ⚙ and the shield open noticeably slower on Notes than on the new tab
+
+**Question:** every message rebuilt the whole window, the app's screen included, though a popover changes only the frame. Rapidkoi now wraps each app's screen in kivuli's `lazy`, keyed on everything it shows (`ui/content.la`, `screen_key`: the tab, a hash of the app's state, the theme and text size, the looks switches, the name filled in, picture progress), so its own share of a message is under 10 ms whatever the app's size. Measured with Notes from notes.dafifi.net (`perf`, then a probe logging each message), kivuli still cost 70–180 ms a message: kivuli 0.64 re-added every rule an unchanged lazy part held, and its allocations brought full collections over Notes' big heap. And one popover was five messages: GTK reported the window inactive and active twice as its own popover took focus, and each return to the front started a check against the app's site (PRP-044).
+
+**Outcome:** kivuli 0.64.1 (PRP-069) makes a message cost the same whatever an unchanged lazy part holds: the checks outside it are one pass. kivuli 0.65.0 (PRP-070) makes `Sub.window_active` report only the window coming to and leaving the front; its own popovers, menus and drop-downs send nothing, so a popover starts no site check. Rapidkoi moves to 0.65 with no code change. What's left per message grows with the nodes outside the lazy part (about 70 µs a node), not with the app's size.
+
+---
+
 ### DECISION-066 — An older version opening data a newer one changed: the app's to handle
 
 **Status:** resolved (the owner, 2026-10-30)

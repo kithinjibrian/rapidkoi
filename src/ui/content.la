@@ -6,7 +6,10 @@
  * Depends on: kivuli, window.actions, window.tabs, window.window, guest.nodes, guest.pictures, guest.placeholders, people.people, ui.render, ui.frame
  * Used by: ui.layout
  */
-import kivuli { View, Styling, Font, Size, column };
+import kivuli { View, Styling, Font, Size, column, lazy };
+import std.crypto { sha256 };
+import trust.keys { hex };
+import ui.schemes { Theme };
 import window.actions { Msg };
 import window.tabs { AppPage };
 import window.downloaded { Kept };
@@ -41,12 +44,18 @@ fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
     let shown = match a.screen {
         // {FIRST_NAME} and {LAST_NAME} are filled while drawing: the app
         // can show your name, never know it (PRP-011).
-        Running(_, _, d) => {
+        Running(_, state, d) => {
             let (first, last) = match a.trust {
                 Some(t) => name_in(m.people, t.host, t.origin),
                 None => (m.people.first, m.people.last),
             };
-            screen_as(fill(pictured(d.root, a), first, last), m.theme, own_of(a, m))
+            let own = own_of(a, m);
+            // Rebuilt and compared only when what it shows changed: a
+            // popover, a notice or the dock leave it be (kivuli's `lazy`).
+            lazy(
+                screen_key(id, state, m.theme, own, first, last, a.pictures),
+                fun() = screen_as(fill(pictured(d.root, a), first, last), m.theme, own),
+            )
         }
         Stopped(why, can_restart) => stopped(why, can_restart, m.theme),
         Refused(why) => refused(why, m.theme),
@@ -57,6 +66,34 @@ fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
         }
     };
     sized(shown, m).map(fun(inner: render.Msg) = Msg.Tab(id, inner))
+}
+
+/**
+ * What an app's screen shows depends on, as one key for kivuli's `lazy`:
+ * its tab, its state (its screen is drawn from it), the theme and text
+ * size, the person's switches for its looks, the name filled in for them,
+ * and each picture's progress (not when it was last on screen). Anything
+ * else changing (a popover, a notice, the dock) leaves the key as it was,
+ * so the screen is neither rebuilt nor compared.
+ *
+ * Example:
+ *     screen_key(id, state, m.theme, own, first, last, page.pictures)
+ */
+fun screen_key(
+    id: i64,
+    state: u8[],
+    t: Theme,
+    own: Own,
+    first: string,
+    last: string,
+    kept: (string, Kept)[],
+): string {
+    let shown = kept.map(fun(p: (string, Kept)) = match p.1 {
+        Coming => "{p.0}:coming",
+        Here(bytes, size, _) => "{p.0}:here:{bytes.len}:{size}",
+        Gone => "{p.0}:gone",
+    });
+    "{id}|{hex(sha256(state))}|{t.name}|{t.scale}|{own.colours}|{own.text_size}|{first}|{last}|{shown.join(",")}"
 }
 
 /** The person's switch for an app's looks (PRP-038), from its ⚙ card. */
