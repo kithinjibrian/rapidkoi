@@ -418,6 +418,8 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 **Accepted leaks:** which item a person taps (their own act), what they ask a server for, and the hours they're active, which hint at a time zone over weeks.
 
+**Amended (the owner, 2026-10-31: "yes record it"):** **anything Rapidkoi works out from the person's values may only become text on the screen:** never structure (which boxes, buttons or typing boxes exist), addresses (a picture's or a request's), messages, or anything else the app or a server can observe, errors and timing included. A general interpreter, where an app's expressions make decisions on the person's values, is ruled out: any decision can be steered into a message the app receives (a button only in one branch), an address a server receives, or a shape the app can later notice. A small formatting language whose only output is text, which always finishes and touches nothing else (like ICU MessageFormat's plurals: `{count, plural, one {# note} other {# notes}}`), keeps the rule and is allowed, most likely with the language and translations design. Parts come first.
+
 **Still leaks, noted:** the IP address on every request (two apps using one tracking server can match people by it: requests through the Pond is DECISION-080); ids an app puts in links that open another app (can't be stopped; the inspector shows them). To check: what `std.http` adds to a request by default.
 
 ---
