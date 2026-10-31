@@ -118,6 +118,8 @@ fun read_update(bytes: u8[]): Result<Update, ContractError> {
             effects.push(Effect.SqlBatch(msg, batch_of(e)?));
         } else if kind == "preferences" {
             effects.push(Effect.Preferences(msg));
+        } else if kind == "now" {
+            effects.push(Effect.Now(msg));
         } else if kind == "set_preference" {
             // What the value may be is `preferences.apply`'s question, once it's allowed.
             match (e.get("name"), e.get("value")) {

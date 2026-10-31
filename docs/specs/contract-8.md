@@ -1,6 +1,6 @@
-# Contract 7
+# Contract 8
 
-The one contract Rapidkoi speaks (DECISION-056, PRP-045): an app is a WebAssembly module exporting `rapidkoi_version` (7), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". It gathers contracts 3–6 (PRP-030, 036–039, 041) with two additions: link fields with declared `kinds`, and a `label` on typing boxes. Scrolling (PRP-046) and pictures (PRP-047) complete it. Any change after that is a DECISIONS.md entry and a version bump.
+The one contract Rapidkoi speaks (DECISION-056, PRP-045, PRP-053): an app is a WebAssembly module exporting `rapidkoi_version` (8), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". Contract 7 gathered contracts 3–6 (PRP-030, 036–039, 041) with link fields with declared `kinds` and a `label` on typing boxes, then scrolling (PRP-046) and pictures (PRP-047). Contract 8 (PRP-053) adds texts made of parts (your name and times, filled in by Rapidkoi, never known to the app) and the `now` ask, and drops the `{FIRST_NAME}` and `{LAST_NAME}` tokens. Any change after that is a DECISIONS.md entry and a version bump.
 
 ## The state
 
@@ -68,14 +68,14 @@ An app that doesn't know an event changes nothing. There's no event when Rapidko
 | Kind | Props | Children |
 |---|---|---|
 | `box` | `style`, `role`, `checked`, `selected`, `disabled`, `label`, `on_press`, and `title` on the root | yes |
-| `text` | `text` (required), `style`, `role`, `label` | no |
+| `text` | `text` or `parts` (one of them, not both), `style`, `role`, `label` | no |
 | `input` | `value` (required), `placeholder`, `label` (1–200 bytes), `lines` (1–20; more than 1 is a box of several lines), `on_change` (none: disabled), `on_submit` (Enter, on one line; sent with the text as `value`), `style` | no |
 | `image` | `src` (required: `asset:NAME` or an `http(s)://` address, at most 2 KB), `fit` (`contain`, the default, or `cover`), `color` (an `asset:` SVG only), `label` (1–200 bytes), `on_load`, `on_fail`, `style` | no |
 
 - A **box with `on_press`** is pressable: focusable, and pressed by a click, Enter or Space; it sends `on_message` with its message. `disabled: true` greys it, and it sends nothing.
 - A typing box's **`label`** says what it's for: Rapidkoi names the box by it, and screen readers hear it. Without one, its placeholder names it.
 - Any other kind is shown as an unsupported placeholder, its subtree still counted against the limits.
-- `{FIRST_NAME}` and `{LAST_NAME}` in a text become your name for this app while Rapidkoi draws it; the app never learns it. Typing boxes and titles are never filled.
+- **Parts** (PRP-053): a text's `parts` is a list of at most 64, each a string (shown as written), `{ "name": "first" | "last" }` (your name for this app; nothing when unset), or `{ "time": ms, "show": … }` (a moment, whole milliseconds since 1970-01-01 00:00 UTC, within years 1 to 9999). Rapidkoi fills them in while drawing, in your zone, 24-hour clock, day before month; the app never learns the result. `show`: `time` "14:32"; `date` "Thu 31 Oct" (the year when it isn't this one); `date_time` "Thu 31 Oct, 14:32"; `weekday` "Thursday"; `relative` on your calendar: "just now", "5 minutes ago", "in 3 hours", "yesterday", "tomorrow", "Mon", "next Sun", "Thu 24 Oct", "24 Oct 2023", kept current by Rapidkoi. A moment Rapidkoi can't place in your zone is shown in UTC, " UTC" after it. Parts exist only on texts: typing boxes, titles and labels are never filled. Braces in a string are only braces.
 
 ### Style
 
@@ -137,6 +137,7 @@ Each has a `kind` and a `msg` (any CBOR value, carried back in the reply):
 | `sign` + `challenge` (1–1024 bytes) | a sign-in signature | `on_answer`: bytes, or null |
 | `fetch` + `method`, `url`, `headers`, `body` | a request to the app's own or declared servers (HTTPS; `http://localhost` from this machine) | `on_response` or `on_fail` |
 | `preferences` | `{ "theme", "more_contrast", "text_size" }` | `on_answer` |
+| `now` | the time now in UTC, in milliseconds since 1970, rounded down to a second (PRP-053); nothing about where you are | `on_answer` |
 | `set_preference` + `name`, `value` | Settings only (`change_settings`) | not answered |
 | `sql`, `sql_batch` | its database (below) | `on_answer` or `on_fail` |
 | `pins`, `left_off`, `open_pin` + `index`, `continue`, `session`, `restore_session` | the new tab's built-in permissions | `on_answer` |
@@ -168,4 +169,4 @@ A message is any CBOR value. The Rust library writes typed ones (`#[derive(Messa
 
 ## Rust
 
-`rapidkoi-rust` (`v0.2.0` once contract 7 is released): `#[derive(State)]` encodes a struct as named fields, gives each field a typed link field (`Counter::count`, `App::editor.then(Editor::task)`), and writes `kinds`; `Next::state(s).link(field)`, `.no_link()`, `.ask(…)`; an `Option` field is "none" in the address and can be set by a link.
+`rapidkoi-rust` (`v0.2.0` once contract 7 was released; contract 8's parts and `now`: `docs/specs/rapidkoi-rust-contract-8.md`): `#[derive(State)]` encodes a struct as named fields, gives each field a typed link field (`Counter::count`, `App::editor.then(Editor::task)`), and writes `kinds`; `Next::state(s).link(field)`, `.no_link()`, `.ask(…)`; an `Option` field is "none" in the address and can be set by a link.

@@ -1,26 +1,54 @@
-// {FIRST_NAME} and {LAST_NAME} (PRP-011), pure: filled in display text
-// only, never in typing boxes; anything else in braces stays as it is.
+// Parts filled in (PRP-053; names since PRP-011), pure: a text made of parts
+// becomes words just before drawing; typing boxes are never filled, and
+// braces in plain words are only braces.
 import rapidkoi.guest.placeholders { fill };
-import rapidkoi.guest.nodes { Node, Typing };
+import rapidkoi.guest.nodes { Node, Typing, Part, Which, Show };
 import rapidkoi.guest.styles { plain };
 import rapidkoi.guest.roles { no_facts };
 import cbor { Value };
 
+/** Thursday 31 October 2024, 11:32 UTC. */
+const T: i64 = 1730374320000;
+
 fun body(s: string): Node = Node.Words(s, plain(), no_facts());
+
+fun parts(ps: Part[]): Node = Node.Parts(ps, plain(), no_facts());
 
 fun boxed(kids: Node[], press: Option<Value>): Node = Node.Boxed(plain(), no_facts(), press, kids);
 
+/** UTC+3 for the moment T. */
+fun nairobi(): Map<i64, i64> {
+    let mut m: Map<i64, i64> = #{};
+    m[T] = 10800;
+    m
+}
+
+fun filled(n: Node, first: string, last: string): Node = fill(
+    n,
+    first,
+    last,
+    nairobi(),
+    T + 5 * 60_000,
+);
+
 @test
 fun names_fill_texts_however_deep() {
+    let hello = parts([
+        Part.Plain("Hello, "),
+        Part.Name(Which.First),
+        Part.Plain(" "),
+        Part.Name(Which.Last),
+        Part.Plain("!"),
+    ]);
     let tree = boxed(
         [
-            body("Hello, {{FIRST_NAME}} {{LAST_NAME}}!"),
-            boxed([body("Hi {{FIRST_NAME}}")], Some(Value.Text("hi"))),
+            hello,
+            boxed([parts([Part.Plain("Hi "), Part.Name(Which.First)])], Some(Value.Text("hi"))),
         ],
         None,
     );
     assert_eq(
-        fill(tree, "Brian", "Kithinji"),
+        filled(tree, "Brian", "Kithinji"),
         boxed(
             [body("Hello, Brian Kithinji!"), boxed([body("Hi Brian")], Some(Value.Text("hi")))],
             None,
@@ -29,12 +57,33 @@ fun names_fill_texts_however_deep() {
 }
 
 @test
-fun an_empty_name_fills_nothing_and_other_braces_stay() {
-    assert_eq(fill(body("Hello, {{FIRST_NAME}}!"), "", ""), body("Hello, !"));
+fun an_empty_name_fills_nothing() {
     assert_eq(
-        fill(body("{{NAME}} {{first_name}} {{{{FIRST_NAME}}}}"), "B", ""),
-        body("{{NAME}} {{first_name}} {{B}}"),
+        filled(parts([Part.Plain("Hello, "), Part.Name(Which.First), Part.Plain("!")]), "", ""),
+        body("Hello, !"),
     );
+}
+
+@test
+fun times_fill_in_the_person_s_zone() {
+    assert_eq(
+        filled(parts([Part.Plain("At "), Part.Time(T, Show.Time)]), "", ""),
+        body("At 14:32"),
+    );
+    assert_eq(
+        filled(parts([Part.Plain("Edited "), Part.Time(T, Show.Relative)]), "", ""),
+        body("Edited 5 minutes ago"),
+    );
+    // A moment with no offset kept is drawn in UTC, and says so.
+    assert_eq(filled(parts([Part.Time(T + 60_000, Show.Time)]), "", ""), body("11:33 UTC"));
+}
+
+@test
+fun braces_are_only_braces_now() {
+    // The old tokens are gone: plain words are shown as written.
+    assert_eq(filled(body("Hello, {{FIRST_NAME}}!"), "Brian", ""), body("Hello, {{FIRST_NAME}}!"));
+    // A name that looks like a token is shown as typed.
+    assert_eq(filled(parts([Part.Name(Which.First)]), "{{LAST_NAME}}", "x"), body("{{LAST_NAME}}"));
 }
 
 @test
@@ -50,10 +99,5 @@ fun typing_boxes_are_never_filled() {
         },
         plain(),
     );
-    assert_eq(fill(field, "Brian", "K"), field);
-}
-
-@test
-fun a_name_that_looks_like_a_placeholder_isn_t_filled_again() {
-    assert_eq(fill(body("{{FIRST_NAME}}"), "{{LAST_NAME}}", "x"), body("{{LAST_NAME}}"));
+    assert_eq(filled(field, "Brian", "K"), field);
 }

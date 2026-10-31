@@ -1,7 +1,17 @@
 // Screens (contract 7; boxes, texts and styles since PRP-037), pure: boxes,
 // texts and typing boxes, their styles and roles, and the limits.
 import rapidkoi.guest.tree { read_tree };
-import rapidkoi.guest.nodes { Node, Typing, Role, Colour, ContractError, Described };
+import rapidkoi.guest.nodes {
+    Node,
+    Typing,
+    Role,
+    Colour,
+    ContractError,
+    Described,
+    Part,
+    Which,
+    Show,
+};
 import rapidkoi.guest.limits { MAX_NODES, MAX_NODE_DEPTH };
 import cbor { Value, encode };
 import support { t, kv, leaf, parent };
@@ -160,7 +170,7 @@ fun a_bad_style_or_role_stops_it_with_where() {
         why(leaf("box", [("role", t("task"))])).starts_with("root > box: role must be"),
         true,
     );
-    assert_eq(why(leaf("text", [])), "root > text: \"text\" is missing");
+    assert_eq(why(leaf("text", [])), "root > text: a text needs \"text\" or \"parts\"");
 }
 
 @test
@@ -204,4 +214,63 @@ fun a_scroll_inside_a_scroll_the_same_way_is_refused() {
     assert_eq(why(scrolling("vertical", [scrolling("horizontal", [])])), "ok");
     // Side by side, each scrolls.
     assert_eq(why(parent("box", [], [scrolling("vertical", []), scrolling("vertical", [])])), "ok");
+}
+
+/** A text node made of `parts`. */
+fun parts(xs: Value[]): Value = leaf("text", [("parts", Value.Array(xs))]);
+
+fun moment(ms: i64, show: string): Value = kv([("time", Value.int(ms)), ("show", t(show))]);
+
+@test
+fun a_text_may_be_made_of_parts() {
+    // PRP-053: plain words, a name, a moment; Rapidkoi fills them in.
+    let v = parts([
+        t("Hello, "),
+        kv([("name", t("first"))]),
+        t(", "),
+        moment(1730374320000, "relative"),
+    ]);
+    match read(v) {
+        Ok(Parts(ps, _, _)) => assert_eq(ps, [
+            Part.Plain("Hello, "),
+            Part.Name(Which.First),
+            Part.Plain(", "),
+            Part.Time(1730374320000, Show.Relative),
+        ]),
+        _ => assert(false),
+    }
+    for show of ["time", "date", "date_time", "relative", "weekday"] {
+        assert_eq(why(parts([moment(0, show)])), "ok");
+    }
+    assert_eq(why(parts([kv([("name", t("last"))])])), "ok");
+}
+
+@test
+fun bad_parts_stop_it_with_where() {
+    let here = "root > text: ";
+    assert_eq(
+        why(leaf("text", [("text", t("x")), ("parts", Value.Array([]))])),
+        "{here}a text has \"text\" or \"parts\", not both",
+    );
+    let mut many: Value[] = [];
+    for _ in 0..65 {
+        many.push(t("x"));
+    }
+    assert_eq(why(parts(many)), "{here}more than 64 parts");
+    assert_eq(why(parts([Value.int(3)])), "{here}a part must be text, a name or a time");
+    assert_eq(
+        why(parts([kv([("name", t("middle"))])])),
+        "{here}a name part is \"first\" or \"last\"",
+    );
+    // 0001-01-01 and 9999-12-31 are the ends.
+    assert_eq(why(parts([moment(-62135596800000, "time")])), "ok");
+    assert_eq(why(parts([moment(253402300799999, "time")])), "ok");
+    let out = "{here}a time part is whole milliseconds within years 1 to 9999";
+    assert_eq(why(parts([moment(-62135596800001, "time")])), out);
+    assert_eq(why(parts([moment(253402300800000, "time")])), out);
+    assert_eq(why(parts([kv([("time", Value.Float(1.5)), ("show", t("time"))])])), out);
+    assert_eq(
+        why(parts([moment(0, "soon")])),
+        "{here}show must be time, date, date_time, relative or weekday",
+    );
 }

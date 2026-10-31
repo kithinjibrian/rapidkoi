@@ -29,10 +29,42 @@ enum Node {
     Boxed(Look, Facts, Option<Value>, Self[]),
     /** A text, its look and what it is. */
     Words(string, Look, Facts),
+    /** A text made of parts Rapidkoi fills in before drawing (PRP-053): never drawn as it is. */
+    Parts(Part[], Look, Facts),
     /** A typing box. */
     Field(Typing, Look),
     /** A picture (PRP-047), and its look. */
     Pictured(Picture, Look),
+}
+
+/** One part of a text (PRP-053): plain words, or a value only Rapidkoi knows. */
+enum Part {
+    /** Words as the app wrote them. */
+    Plain(string),
+    /** The person's name for this app: first or last. */
+    Name(Which),
+    /** A moment, in milliseconds since 1970-01-01 00:00 UTC, and how to show it. */
+    Time(i64, Show),
+}
+
+/** Which part of the person's name. */
+enum Which {
+    First,
+    Last,
+}
+
+/** How a moment is shown, in the person's zone (PRP-053). */
+enum Show {
+    /** "14:32". */
+    Time,
+    /** "Thu 31 Oct". */
+    Date,
+    /** "Thu 31 Oct, 14:32". */
+    DateTime,
+    /** "5 minutes ago", "yesterday", "in 3 hours". */
+    Relative,
+    /** "Thursday". */
+    Weekday,
 }
 
 /** A picture in a screen (PRP-047): where it's from, and what Rapidkoi has of it. */
@@ -251,6 +283,8 @@ enum Effect {
     RestoreSession(Value),
     /** The person's choices: theme, more contrast, text size (PRP-038, any app); answered with `msg`. */
     Preferences(Value),
+    /** The time now in UTC, to the second (PRP-053, any app); answered with `msg`. */
+    Now(Value),
     /** Change one of them (needs `change_settings`): its name and value; not answered. */
     SetPreference(Value, string, Value),
     /** One statement against the app's database (PRP-041); answered with rows or why not. */

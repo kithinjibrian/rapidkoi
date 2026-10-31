@@ -29,6 +29,7 @@ import people.people { with_looks };
 import window.window { Model, with_pages, title_of };
 import window.navigate;
 import window.pins;
+import window.zones;
 import window.instances { close_instance, close_app, start_rename, confirm_rename, touched };
 import window.newtab;
 import data.saving { session_store, restore, persist, mark, forgotten };
@@ -110,9 +111,13 @@ fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) {
     (opened, both(both(reloads, cmd), sends))
 }
 
+/** A minute, in milliseconds: the time tick (PRP-053). */
+const MINUTE_MS: i64 = 60_000;
+
 /**
  * What the window listens to: the loading tick (120 ms) while some tab is
- * loading in the background, and, while a kept app is in front, a check
+ * loading in the background, a minute's tick while the screen in front
+ * shows a time, and, while a kept app is in front, a check
  * against its site every `CHECK_EVERY_MS` and when the window comes back to
  * the front (PRP-044).
  *
@@ -128,6 +133,10 @@ fun subscriptions(m: Model): Sub<Msg> {
         App(p) => p.cached.is_some(),
         Home => false,
     };
+    // A minute's tick while the screen in front shows a time: "5 minutes ago" moves on (PRP-053).
+    if zones.shows_time(m) {
+        subs.push(Sub.every(MINUTE_MS, Msg.Tick));
+    }
     if in_front {
         subs.push(Sub.every(CHECK_EVERY_MS, Msg.CheckForUpdates));
         // And when the window comes back to the front (PRP-044, DECISION-054).
@@ -187,7 +196,8 @@ fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     let sends = both(both(asked, again), both(more, both(first_pictures, then_pictures)));
     // What each app declares, and "New" cleared once its Access page is left.
     (
-        persist(m, news(looked(m, shown_now)), at),
+        // Offsets for times newly on screen, before anything is drawn (PRP-053).
+        persist(m, zones.settle(news(looked(m, shown_now))), at),
         both(both(both(cmd, denied), sends), into_view(m, answered)),
     )
 }
@@ -370,7 +380,15 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         Cmd.none(),
     ),
     ToggleServer(server) => (on_access(m, server), Cmd.none()),
-    Tick(now) => (Model { now: now, ..m }, Cmd.none()),
+    // A new minute looks the zone up again; the app isn't called (PRP-053).
+    Tick(now) => (
+        if now / MINUTE_MS != m.now / MINUTE_MS {
+            zones.refresh(m, now)
+        } else {
+            Model { now: now, ..m }
+        },
+        Cmd.none(),
+    ),
     OnTab(id, action) => on_tab(m, id, action),
     OnPin(path, origin, action) => navigate.on_pin(m, path, origin, action),
     SetName(_, _, _) | SetSignIn(_) => (on_account(m, msg), Cmd.none()),

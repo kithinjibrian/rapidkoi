@@ -31,11 +31,12 @@ import rapidkoi.people.people {
 import rapidkoi.guest.events { Happened, event_for };
 import rapidkoi.data.preferences { prefs_value };
 import rapidkoi.data.store { Store, store_at };
+import std.time;
 import cbor { Value, Entry, encode, decode, Limits };
 import std.crypto { ed25519_verify };
 import std.fs;
 import wasmtime { Engine, Module };
-import support { echo_init, echo_opening, event_in, t, kv, fixed, counter_tree, result_of };
+import support { echo_init, echo_opening, event_in, t, kv, leaf, fixed, counter_tree, result_of };
 import kivuli.testing { texts };
 
 const HOST: string = "notes.acme.com";
@@ -187,12 +188,24 @@ fun sign_in_off_gets_nothing_and_a_forgotten_app_gets_a_newer_key() {
 /** A page whose screen says hello by name. */
 fun greeting(): AppPage {
     let engine = Engine.new();
-    let tree = counter_tree("Hello, {{FIRST_NAME}} {{LAST_NAME}}!");
+    // PRP-053: the name as parts, filled in by Rapidkoi.
+    let tree = leaf("text", [
+        (
+            "parts",
+            Value.Array([
+                t("Hello, "),
+                kv([("name", t("first"))]),
+                t(" "),
+                kv([("name", t("last"))]),
+                t("!"),
+            ]),
+        ),
+    ]);
     open_module(
         "hi",
         "hi.wasm",
         engine,
-        Module.from_text(engine, fixed(kv([]), tree, result_of(kv([])))).unwrap(),
+        Module.from_text(engine, fixed(kv([]), encode(tree), result_of(kv([])))).unwrap(),
     )
 }
 
@@ -204,6 +217,8 @@ fun an_app_shows_your_name_without_knowing_it() {
     assert_eq(texts(view(named)).any(fun(x: string) = x == "Hello, Brian Kithinji!"), true);
     // No name set: nothing in its place.
     assert_eq(texts(view(m)).any(fun(x: string) = x == "Hello,  !"), true);
+    // Drawn, never sent: the app's state is still the empty map it began as.
+    assert_eq(state_of(named.tabs[0].page), Some(encode(kv([]))));
 }
 
 @test
@@ -253,7 +268,7 @@ fun holding(kind: string, extra: (string, Value)[], declared: string[]): AppPage
     }
     AppPage {
         manifest: Some(Manifest {
-            contract: 7,
+            contract: 8,
             name: "notes",
             version: "1.0.0",
             description: None,
@@ -439,6 +454,23 @@ fun any_app_reads_the_person_s_choices() {
     // PRP-038: theme, more contrast and text size, no permission needed.
     let (m, _) = asked(holding("preferences", [], []));
     assert_eq(got(m), answer(t("got"), prefs_value(m.prefs)));
+}
+
+@test
+fun any_app_learns_the_time_in_utc_to_the_second() {
+    // PRP-053: UTC says nothing of where you are; no permission needed.
+    let before = time.now_ms() / 1000 * 1000;
+    let (m, _) = asked(holding("now", [], []));
+    let after = time.now_ms() / 1000 * 1000;
+    let mut seen = false;
+    let mut at = before;
+    while at <= after {
+        if got(m) == answer(t("got"), Value.int(at)) {
+            seen = true;
+        }
+        at += 1000;
+    }
+    assert(seen);
 }
 
 @test

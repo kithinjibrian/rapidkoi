@@ -9,8 +9,17 @@
  * Used by: guest.running
  */
 import cbor { Value, Limits, decode };
-import guest.nodes { Node, Typing, Described, ContractError, Axis, invalid };
-import guest.limits { MAX_VIEW, MAX_NODES, MAX_NODE_DEPTH, MAX_STRING, MAX_LABEL };
+import guest.nodes { Node, Typing, Described, ContractError, Axis, Part, Which, Show, invalid };
+import guest.limits {
+    MAX_VIEW,
+    MAX_NODES,
+    MAX_NODE_DEPTH,
+    MAX_STRING,
+    MAX_LABEL,
+    MAX_PARTS,
+    FIRST_MOMENT,
+    LAST_MOMENT,
+};
 import guest.pictures { read_picture };
 import guest.props { text, optional_text, maybe_text };
 import guest.styles { read_style };
@@ -125,8 +134,14 @@ fun node(
         );
     }
     if kind == "text" {
-        let s = text(given, "text", here)?;
-        return Ok(Node.Words(s, read_style(given.get("style"), here)?, read_facts(given, here)?));
+        let look = read_style(given.get("style"), here)?;
+        let facts = read_facts(given, here)?;
+        return match (given.get("text"), given.get("parts")) {
+            (Some(_), None) => Ok(Node.Words(text(given, "text", here)?, look, facts)),
+            (None, Some(ps)) => Ok(Node.Parts(read_parts(ps, here)?, look, facts)),
+            (Some(_), Some(_)) => Err(invalid(here, "a text has \"text\" or \"parts\", not both")),
+            (None, None) => Err(invalid(here, "a text needs \"text\" or \"parts\"")),
+        };
     }
     if kind == "input" {
         let lines = match given.get("lines") {
@@ -168,6 +183,63 @@ fun node(
     tally(v, here, depth, count)?;
     Ok(Node.Unsupported(kind))
 }
+
+/**
+ * A text's parts (PRP-053): strings, names and moments, at most `MAX_PARTS`;
+ * each moment whole milliseconds within years 1 to 9999.
+ */
+fun read_parts(v: Value, here: string): Result<Part[], ContractError> {
+    let items = match v {
+        Array(xs) if xs.len <= MAX_PARTS => xs,
+        Array(_) => {
+            return Err(invalid(here, "more than {MAX_PARTS} parts"));
+        }
+        _ => {
+            return Err(invalid(here, "\"parts\" must be an array"));
+        }
+    };
+    let mut out: Part[] = [];
+    for item of items {
+        out.push(match (item, item.get("name"), item.get("time")) {
+            (Text(s), _, _) => Part.Plain(s),
+            (_, Some(Text(n)), None) => match n {
+                "first" => Part.Name(Which.First),
+                "last" => Part.Name(Which.Last),
+                _ => {
+                    return Err(invalid(here, "a name part is \"first\" or \"last\""));
+                }
+            },
+            (_, None, Some(ms)) => Part.Time(moment(ms, here)?, show_of(item.get("show"), here)?),
+            _ => {
+                return Err(invalid(here, "a part must be text, a name or a time"));
+            }
+        });
+    }
+    Ok(out)
+}
+
+/** A time part's moment: an integer within `FIRST_MOMENT` and `LAST_MOMENT`. */
+fun moment(v: Value, here: string): Result<i64, ContractError> = match v {
+    // Integers only: a float, even a whole one, isn't a moment.
+    Unsigned(_) | Negative(_) => match v.as_i64() {
+        Some(ms) if ms >= FIRST_MOMENT && ms <= LAST_MOMENT => Ok(ms),
+        _ => Err(invalid(here, "a time part is whole milliseconds within years 1 to 9999")),
+    },
+    _ => Err(invalid(here, "a time part is whole milliseconds within years 1 to 9999")),
+};
+
+/** A time part's `show`. */
+fun show_of(v: Option<Value>, here: string): Result<Show, ContractError> = match v {
+    Some(Text(s)) => match s {
+        "time" => Ok(Show.Time),
+        "date" => Ok(Show.Date),
+        "date_time" => Ok(Show.DateTime),
+        "relative" => Ok(Show.Relative),
+        "weekday" => Ok(Show.Weekday),
+        _ => Err(invalid(here, "show must be time, date, date_time, relative or weekday")),
+    },
+    _ => Err(invalid(here, "show must be time, date, date_time, relative or weekday")),
+};
 
 /** A box's `children`, each at the next depth, inside what `scrolling` scrolls. */
 fun children(

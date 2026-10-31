@@ -6,8 +6,8 @@
  * Used by: guest.guest, guest.contract
  */
 
-/** The one contract this Rapidkoi speaks (`rapidkoi_version()`): 7 (DECISION-056); older apps are rebuilt, never run. */
-const CONTRACT_VERSION: i32 = 7;
+/** The one contract this Rapidkoi speaks (`rapidkoi_version()`): 8 (PRP-053; DECISION-056); older apps are rebuilt, never run. */
+const CONTRACT_VERSION: i32 = 8;
 
 /** The deepest a state may nest, as CBOR levels (PRP-036). */
 const MAX_STATE_DEPTH: i64 = 64;
@@ -35,6 +35,15 @@ const MAX_NODE_DEPTH: i64 = 64;
 
 /** The longest one string in a screen description, in bytes. */
 const MAX_STRING: i64 = 64 * 1024;
+
+/** The most parts in one text (PRP-053). */
+const MAX_PARTS: i64 = 64;
+
+/** The earliest moment a time part may name: 0001-01-01 00:00 UTC, in milliseconds since 1970. */
+const FIRST_MOMENT: i64 = -62135596800000;
+
+/** The latest: 9999-12-31 23:59:59.999 UTC. */
+const LAST_MOMENT: i64 = 253402300799999;
 
 /**
  * Fuel for one call into a guest: about 100 ms of work.

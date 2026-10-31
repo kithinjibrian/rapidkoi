@@ -1,0 +1,75 @@
+// Times in your zone (PRP-053): a moment drawn as words at an offset,
+// 24-hour clock, day before month; "relative" on your local calendar. Pure.
+import rapidkoi.guest.times { words };
+import rapidkoi.guest.nodes { Show };
+
+/** Thursday 31 October 2024, 11:32 UTC. */
+const T: i64 = 1730374320000;
+const MINUTE: i64 = 60_000;
+const HOUR: i64 = 3_600_000;
+const DAY: i64 = 86_400_000;
+
+fun at(ms: i64, show: Show, offset: i64): string = words(ms, show, Some(offset), T);
+
+fun ago(ms: i64): string = words(ms, Show.Relative, Some(0), T);
+
+@test
+fun the_clock_in_your_zone() {
+    assert_eq(at(T, Show.Time, 0), "11:32");
+    assert_eq(at(T, Show.Time, 3 * 3600), "14:32");
+    assert_eq(at(T, Show.Time, -5 * 3600), "06:32");
+}
+
+@test
+fun the_date_day_first_with_the_year_only_when_it_isn_t_this_one() {
+    assert_eq(at(T, Show.Date, 0), "Thu 31 Oct");
+    assert_eq(at(T, Show.DateTime, 3 * 3600), "Thu 31 Oct, 14:32");
+    assert_eq(at(T, Show.Weekday, 0), "Thursday");
+    // 31 October 2023 was a Tuesday.
+    let last_year = 1698751920000;
+    assert_eq(at(last_year, Show.Date, 0), "Tue 31 Oct 2023");
+    assert_eq(at(last_year, Show.DateTime, 0), "Tue 31 Oct 2023, 11:32");
+}
+
+@test
+fun no_offset_draws_utc_and_says_so() {
+    assert_eq(words(T, Show.Time, None, T), "11:32 UTC");
+    assert_eq(words(T, Show.Date, None, T), "Thu 31 Oct UTC");
+}
+
+@test
+fun just_now_either_way() {
+    assert_eq(ago(T - 30_000), "just now");
+    assert_eq(ago(T + 30_000), "just now");
+    assert_eq(ago(T), "just now");
+}
+
+@test
+fun minutes_and_hours_singular_for_one() {
+    assert_eq(ago(T - MINUTE), "1 minute ago");
+    assert_eq(ago(T - 5 * MINUTE), "5 minutes ago");
+    assert_eq(ago(T + 5 * MINUTE), "in 5 minutes");
+    assert_eq(ago(T - HOUR), "1 hour ago");
+    assert_eq(ago(T - 3 * HOUR), "3 hours ago");
+    assert_eq(ago(T + 3 * HOUR), "in 3 hours");
+}
+
+@test
+fun yesterday_and_tomorrow_are_by_your_calendar() {
+    // 00:30 UTC; two hours earlier was 22:30 the day before in UTC...
+    let now = 1730334600000;
+    let before = now - 2 * HOUR;
+    assert_eq(words(before, Show.Relative, Some(0), now), "yesterday");
+    // ...but at UTC+3 both are on 31 October: two hours ago.
+    assert_eq(words(before, Show.Relative, Some(3 * 3600), now), "2 hours ago");
+    assert_eq(ago(T + DAY), "tomorrow");
+}
+
+@test
+fun this_week_by_its_day_then_the_date() {
+    // Monday 28 and Sunday 3 November.
+    assert_eq(ago(T - 3 * DAY), "Mon");
+    assert_eq(ago(T + 3 * DAY), "next Sun");
+    assert_eq(ago(T - 7 * DAY), "Thu 24 Oct");
+    assert_eq(ago(1698751920000), "31 Oct 2023");
+}

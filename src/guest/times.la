@@ -1,0 +1,130 @@
+/**
+ * Times in the person's zone (PRP-053), pure: a moment, its offset and the
+ * time now turned into the words a time part shows: "14:32", "Thu 31 Oct",
+ * "5 minutes ago". 24-hour clock, day before month, English names. Not how
+ * offsets are found (`window.zones`), nor where parts are filled
+ * (`guest.placeholders`).
+ *
+ * Depends on: std.time, guest.nodes
+ * Used by: guest.placeholders
+ */
+import std.time { Civil, civil };
+import guest.nodes { Show };
+
+const MINUTE: i64 = 60_000;
+const HOUR: i64 = 3_600_000;
+const DAY: i64 = 86_400_000;
+
+const WEEKDAYS: string[] = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+];
+const SHORT_DAYS: string[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTHS: string[] = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+];
+
+/**
+ * Returns the words a time part shows.
+ *
+ * @param at the moment, in milliseconds since 1970-01-01 00:00 UTC
+ * @param offset its offset in the person's zone, in seconds east of UTC;
+ *     `None` when the system couldn't give one: drawn in UTC, " UTC" after it
+ * @param now the time now, in milliseconds since 1970, for "relative" and
+ *     for whether to name the year; seen at the same offset
+ * @returns the words; "" for a moment `civil` can't take (the decoder
+ *     keeps moments within years 1 to 9999, so never in practice)
+ *
+ * Example:
+ *     words(note.updated, Show.Relative, Some(10800), m.now)
+ */
+fun words(at: i64, show: Show, offset: Option<i64>, now: i64): string {
+    let off = offset.unwrap_or(0);
+    let utc = if offset.is_none() { " UTC" } else { "" };
+    let (c, today) = match (civil(at, off), civil(now, off)) {
+        (Ok(c), Ok(t)) => (c, t),
+        _ => {
+            return "";
+        }
+    };
+    match show {
+        Time => "{clock(c)}{utc}",
+        Date => "{date(c, today)}{utc}",
+        DateTime => "{date(c, today)}, {clock(c)}{utc}",
+        Weekday => "{WEEKDAYS[c.weekday - 1]}{utc}",
+        Relative => relative(at, now, off, c, today, utc),
+    }
+}
+
+/** "5 minutes ago" and the rest (PRP-053's table), on the local calendar at `off`. */
+fun relative(at: i64, now: i64, off: i64, c: Civil, today: Civil, utc: string): string {
+    let gap = if at >= now { at - now } else { now - at };
+    let past = at < now;
+    // Minutes and hours don't depend on the zone: no " UTC" after them.
+    if gap < MINUTE {
+        return "just now";
+    }
+    if gap < HOUR {
+        return span(gap / MINUTE, "minute", past);
+    }
+    let days = day_of(at, off) - day_of(now, off);
+    if days == 0 {
+        return span(gap / HOUR, "hour", past);
+    }
+    if days == -1 {
+        return "yesterday{utc}";
+    }
+    if days == 1 {
+        return "tomorrow{utc}";
+    }
+    let short = SHORT_DAYS[c.weekday - 1];
+    if days >= -6 && days <= 6 {
+        return if past { "{short}{utc}" } else { "next {short}{utc}" };
+    }
+    if c.year == today.year {
+        "{short} {c.day} {MONTHS[c.month - 1]}{utc}"
+    } else {
+        "{c.day} {MONTHS[c.month - 1]} {c.year}{utc}"
+    }
+}
+
+/** "1 minute ago", "in 3 hours": singular for one. */
+fun span(n: i64, unit: string, past: bool): string {
+    let units = if n == 1 { unit } else { "{unit}s" };
+    if past { "{n} {units} ago" } else { "in {n} {units}" }
+}
+
+/** "Thu 31 Oct", and the year when it isn't this one: "Thu 31 Oct 2023". */
+fun date(c: Civil, today: Civil): string {
+    let base = "{SHORT_DAYS[c.weekday - 1]} {c.day} {MONTHS[c.month - 1]}";
+    if c.year == today.year { base } else { "{base} {c.year}" }
+}
+
+/** "14:32". */
+fun clock(c: Civil): string = "{two(c.hour)}:{two(c.minute)}";
+
+fun two(n: i64): string = if n < 10 { "0{n}" } else { "{n}" };
+
+/** The local day a moment falls on, counted from 1970: whole days, rounding down before it. */
+fun day_of(ms: i64, off: i64): i64 {
+    let local = ms + off * 1000;
+    let d = local / DAY;
+    // Integer division rounds toward zero; a moment before 1970 belongs to the day before.
+    if local < 0 && d * DAY != local { d - 1 } else { d }
+}

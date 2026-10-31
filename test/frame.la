@@ -110,7 +110,7 @@ fun the_address_box_shows_the_window_s_link() {
     assert_eq(address_of(site), "rapidkoi://localhost:8000");
     let versioned = AppPage {
         manifest: Some(Manifest {
-            contract: 7,
+            contract: 8,
             name: "Counter",
             version: "0.3.0",
             description: None,

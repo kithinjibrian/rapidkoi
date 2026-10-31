@@ -1,0 +1,153 @@
+/**
+ * The person's time zone for the moments on screen (PRP-053): each
+ * moment's offset, looked up once when it first shows and again on the
+ * minute tick, kept in `Model.offsets` for drawing. The only place Rapidkoi
+ * asks the system for its zone (`time.local_offset`, which the C library
+ * caches): `update` calls this, `view` only reads the offsets (CLAUDE.md's
+ * exceptions). Not the words (`guest.times`).
+ *
+ * Depends on: std.time, guest.nodes, window.window, window.tabs
+ * Used by: shell, ui.content
+ */
+import std.time { TimeError, local_offset, now_ms };
+import guest.nodes { Node, Part };
+import window.window { Model, page_of };
+import window.tabs { AppPage, Page };
+
+/**
+ * Returns each moment a screen shows, once, in the order they appear.
+ *
+ * Example:
+ *     moments(d.root)
+ */
+fun moments(n: Node): i64[] {
+    let out: Ref<i64[]> = Ref.new([]);
+    walk(n, fun(p: Part) = match p {
+        Time(at, _) => if !out.get().any(fun(x: i64) = x == at) {
+            out.set(out.get() + [at])
+        },
+        _ => {}
+    });
+    out.get()
+}
+
+/**
+ * Says whether a screen shows the person's name, so its key follows the name.
+ *
+ * Example:
+ *     names_in(d.root)
+ */
+fun names_in(n: Node): bool {
+    let found = Ref.new(false);
+    walk(n, fun(p: Part) = match p {
+        Name(_) => found.set(true),
+        _ => {}
+    });
+    found.get()
+}
+
+/** Calls `each` with every part of every text in the tree. */
+fun walk(n: Node, each: fun(Part)) {
+    match n {
+        Parts(ps, _, _) => {
+            for p of ps {
+                each(p);
+            }
+        }
+        Boxed(_, _, _, kids) => {
+            for k of kids {
+                walk(k, each);
+            }
+        }
+        _ => {}
+    }
+}
+
+/**
+ * Returns `have` with an offset for each moment it lacks; one the lookup
+ * can't give stays out, to be drawn in UTC.
+ *
+ * Example:
+ *     add_missing(m.offsets, moments(root), local_offset)
+ */
+fun add_missing(
+    have: Map<i64, i64>,
+    at: i64[],
+    lookup: fun(i64): Result<i64, TimeError>,
+): Map<i64, i64> {
+    let mut out = have;
+    for ms of at {
+        if !out.has(ms) {
+            if let Ok(off) = lookup(ms) {
+                out[ms] = off;
+            }
+        }
+    }
+    out
+}
+
+/**
+ * Returns an offset for each moment, looked up anew: the minute tick's, so a
+ * change of zone or daylight saving shows, and moments no longer shown go.
+ *
+ * Example:
+ *     fresh(moments(root), local_offset)
+ */
+fun fresh(at: i64[], lookup: fun(i64): Result<i64, TimeError>): Map<i64, i64> = add_missing(
+    #{},
+    at,
+    lookup,
+);
+
+/**
+ * Returns the screen in front: the current app's, else the new tab's on the empty tab.
+ *
+ * Example:
+ *     front(m)
+ */
+fun front(m: Model): Option<Node> = match page_of(m) {
+    App(a) => running_root(a),
+    Home => m.newtab.and_then(running_root),
+};
+
+fun running_root(a: AppPage): Option<Node> = match a.screen {
+    Running(_, _, d) => Some(d.root),
+    _ => None,
+};
+
+/**
+ * Says whether the screen in front shows a moment: then the minute tick runs.
+ *
+ * Example:
+ *     if shows_time(m) { subs.push(Sub.every(MINUTE_MS, Msg.Minute)) }
+ */
+fun shows_time(m: Model): bool = front(m).map(fun(n: Node) = moments(n).len > 0).unwrap_or(false);
+
+/**
+ * Adds offsets for moments newly on the screen in front: at the end of `update`.
+ *
+ * Example:
+ *     settle(next)
+ */
+fun settle(m: Model): Model {
+    let at = front(m).map(moments).unwrap_or([]);
+    if at.len == 0 {
+        return m;
+    }
+    // "now" may be from a load long done, or never set: a minute off at most.
+    let clock = now_ms();
+    let now = if clock - m.now >= 60_000 { clock } else { m.now };
+    Model { offsets: add_missing(m.offsets, at, local_offset), now: now, ..m }
+}
+
+/**
+ * Looks every moment on the screen in front up again, at `now`: the minute tick.
+ *
+ * Example:
+ *     refresh(m, now)
+ */
+fun refresh(m: Model, now: i64): Model = Model {
+    offsets: front(m).map(fun(n: Node) = fresh(moments(n), local_offset)).unwrap_or(#{}),
+    now: now,
+    ..m,
+};
