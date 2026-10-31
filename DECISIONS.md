@@ -657,6 +657,21 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## RESOLVED
 
+### DECISION-078 — Data shared between apps, with the person's consent
+
+**Status:** resolved as a direction (the owner, 2026-10-31: "yes add it to the vision"); designed after sync and live sessions
+**Raised:** 2026-10-31, from a talk on what capabilities would draw developers to Rapidkoi
+
+**Question:** Should a person's common data (contacts, calendar, files, tasks) be something apps share, with consent, instead of each app's silo?
+
+**Decision:** Yes, added to the vision as a signature feature ("Your data, across apps") and a built-in service ("Shared data"). Common kinds of personal data have shapes every app understands; an app reads or adds to them only with the person's consent, given in Rapidkoi's own screens (a picker), and receives only what the person chose.
+
+**Why:** today every app rebuilds the same data and moving between apps means exports; it fits the vision's data ownership. Phones share contacts and calendars this way; the web and desktop apps mostly don't. Worth fixing early: once apps keep contacts their own way, sharing them later is hard.
+
+**Not decided here:** which kinds of data, who defines their shapes and how they change, how consent works (each time, or remembered), how it meets sync and storage, and how it's exposed in the contract. Its design is its own discussion, after sync and live sessions. Anything an app can read of another's data is a capability given to untrusted code: the owner's review.
+
+---
+
 ### DECISION-077 — Trimming the log
 
 **Status:** resolved (the owner, 2026-10-31: "yes"); the numbers are first guesses, revisited when sync is built
