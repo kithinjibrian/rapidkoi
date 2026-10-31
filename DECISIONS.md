@@ -638,6 +638,27 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-071 — Ids of synced rows: random, chosen by the app
+
+**Status:** resolved (the owner, 2026-10-31: "yes", to option 1)
+**Raised:** 2026-10-31, after DECISION-011: two offline devices both creating row 5
+
+**Question:** SQLite numbers rows as the highest so far plus one (Notes: `id INTEGER PRIMARY KEY AUTOINCREMENT`, `../notes/src/store.rs`). Two devices apart both make note 5; merged field by field (DECISION-011), two notes become one mixed-up note. Random ids, Rapidkoi renumbering, or a range of numbers per device?
+
+**Decision:**
+- **A synced table's rows have ids the app chooses at random,** time-ordered so rows still sort by creation. Two devices practically never pick the same; a row has the same id on every device, so links work everywhere.
+- **Rapidkoi checks a table's definition when the app creates it.** A table whose ids SQLite assigns (`INTEGER PRIMARY KEY`, `AUTOINCREMENT`) doesn't sync, and the developer gets a sentence saying why.
+- **It's a contract change: contract 8,** made when sync is built (a DECISIONS.md entry and a version bump, as every contract change).
+- **Elsewhere, under their own rules:** `rapidkoi-rust` gains a helper for new ids; Notes moves to them, and its links change.
+
+**Why:** renumbering behind the app's back breaks links (a link to note 5 from one device opens another note on the next); a range per device needs the app to give ids anyway, since SQLite counts on from the highest number it has, which after a sync is another device's, so it costs as much and protects less. Random ids are what local-first systems use.
+
+**Rules out:** Rapidkoi renumbering rows; ids that mean different rows on different devices.
+
+**Next:** whether every table syncs or an app marks which do.
+
+---
+
 ### DECISION-070 — Deleting a synced row
 
 **Status:** resolved (the owner, 2026-10-31: "yes", to rule 2)
@@ -690,12 +711,12 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - For each field, the change with the latest time wins. Equal times are settled by the device, the same way on every device, so all devices pick the same winner.
 - It's silent: the person isn't asked or told. Changes to different fields of a row never fight (one device's new title and another's tick both stay).
 - The losing changes stay in the log, so nothing is gone (DECISION-068, goal 3). Seeing them comes with history (build step 6).
-- The time is a hybrid logical clock (DECISION-069). Deletes: DECISION-070.
+- The time is a hybrid logical clock (DECISION-069). Deletes: DECISION-070. Row ids: DECISION-071.
 - Order of arrival doesn't matter: devices that have the same changes show the same data.
 
 **Rules out:** last write per row (it drops another device's edit to a different field); asking the person to pick between versions; deleting a losing change.
 
-**Not decided here:** row ids, and edits that break a rule of the app's tables (a unique column). Sharing between people isn't in scope (DECISION-068 is one person's devices).
+**Not decided here:** edits that break a rule of the app's tables (a unique column). Sharing between people isn't in scope (DECISION-068 is one person's devices).
 
 ---
 
