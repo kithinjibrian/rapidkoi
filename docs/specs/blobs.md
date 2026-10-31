@@ -70,17 +70,19 @@ Then one transaction: Rapidkoi's own rows in `rapidkoi_blobs` (insert, replace o
 
 ### 1.4 Owners (agreed)
 
-A blob may belong to a row: `owner: {table, key}`, the table's name and the row's primary key. **Deleting the row deletes its blobs, in the same transaction.**
+A blob may belong to a row: `owner: {table, key}`, the table's name and the row's primary key. **Deleting the row deletes its blobs, as part of the same write.**
 
 - The primary key, never the rowid: `VACUUM` can renumber rowids, and synced rows are known by their own ids (DECISION-071).
 - The table must exist and have a single-column primary key; anything else fails the batch (`on_fail`).
-- **How (amended, the owner: "go with B"):** as the last step of every `sql_batch`, in the same transaction, Rapidkoi removes the blobs whose owner row is gone, for each table `rapidkoi_blobs` names:
+- **How (amended, the owner: "go with B"):** right after every `sql_batch` commits, in the same call, Rapidkoi removes the blobs whose owner row is gone, for each table `rapidkoi_blobs` names that still exists with its single-column primary key:
   ```sql
   DELETE FROM rapidkoi_blobs
   WHERE owner_table = 'notes'
     AND NOT EXISTS (SELECT 1 FROM main.notes WHERE id = rapidkoi_blobs.owner_key);
   ```
-  and every blob of an owner table that no longer exists. One primary-key lookup per owned blob (at most 10,000). The check only asks whether a key exists: no value of the app's leaves SQLite or reaches Rapidkoi (amends DECISION-046's "Rapidkoi doesn't read it", this far and no further).
+  and every blob of an owner table that no longer exists. One primary-key lookup per owned blob (at most 10,000).
+- **After the commit, not inside the batch:** a batch may drop an owner table, and a check naming a missing table would fail to prepare and roll the app's whole batch back. Run after, the check sees the schema the batch left. It's idempotent: a crash between the commit and the check leaves only mappings for rows that are gone (a leak, never a key whose bytes are missing), and the next write's check removes them.
+- **An owner table whose primary key changed shape** (several columns, or none) keeps its blobs: they're left unchecked, never deleted, until it has one again or the app deletes them. Losing data is worse than keeping it. The check only asks whether a key exists: no value of the app's leaves SQLite or reaches Rapidkoi (amends DECISION-046's "Rapidkoi doesn't read it", this far and no further).
 - **Why not triggers** (the first design): lugha-sqlite `v0.2.0` refuses the app's `DROP TABLE` on a table carrying a reserved trigger (SQLite authorizes the implicit trigger drop as an explicit one), so apps couldn't migrate an owner table the usual way (make a new table, copy, drop the old, rename). With the check, a migration in one batch keeps its blobs: the same ids are there when the batch ends.
 - **What it gives up:** changing a row's own primary key drops its blobs (synced ids are random and don't change, DECISION-071); a table dropped in one batch and made again in a later one has lost its blobs. The contract says both.
 - The check's SQL names the app's table and column, so it's built from text the app chose: **only names read back from the app's own schema (`PRAGMA table_info`) and matching `[A-Za-z_][A-Za-z0-9_]*` are used**, quoted as identifiers. Anything else fails the batch. This is for the owner's security review.
