@@ -8,7 +8,7 @@ import rapidkoi.window.actions { Msg, Confirm, PanelPage };
 import rapidkoi.bundles.bundle { Manifest };
 import rapidkoi.bundles.permissions { Permission, Setting };
 import rapidkoi.people.people { nobody, with_setting };
-import rapidkoi.window.tabs { AppPage, open_module, state_of };
+import rapidkoi.window.tabs { AppPage, Tab, open_module, state_of };
 import rapidkoi.ui.render;
 import rapidkoi.guest.events { Happened, event_for };
 import kivuli { Cmd };
@@ -222,8 +222,8 @@ fun each_panel_page_opens_and_comes_back() {
 @test
 fun forget_asks_then_removes_everything() {
     let m = step(two(), Msg.TogglePin);
-    let asking = step(step(m, Msg.TogglePanel), Msg.Ask(Confirm.Forget));
-    assert_eq(asking.confirm, Some(Confirm.Forget));
+    let asking = step(step(m, Msg.TogglePanel), Msg.Ask(Confirm.Forget(m.current.unwrap())));
+    assert_eq(asking.confirm, Some(Confirm.Forget(m.current.unwrap())));
     assert_eq(step(asking, Msg.Cancel).tabs.len, 2);
     let gone = step(asking, Msg.Forget);
     assert_eq(gone.tabs.len, 1);
@@ -233,9 +233,16 @@ fun forget_asks_then_removes_everything() {
 }
 
 @test
-fun switching_tabs_drops_a_pending_confirm() {
-    let asking = step(step(two(), Msg.TogglePanel), Msg.Ask(Confirm.Forget));
-    assert_eq(step(asking, Msg.Select(1)).confirm.is_none(), true);
+fun switching_tabs_keeps_a_question_on_its_own_tab() {
+    // PRP-057: it waits on its tab, and Forget forgets that tab wherever you are.
+    let m = two();
+    let tab = m.current.unwrap();
+    let asking = step(step(m, Msg.TogglePanel), Msg.Ask(Confirm.Forget(tab)));
+    let away = step(asking, Msg.Select(1));
+    assert_eq(away.confirm, Some(Confirm.Forget(tab)));
+    let gone = step(away, Msg.Forget);
+    assert_eq(gone.tabs.any(fun(t: Tab) = t.id == tab), false);
+    assert_eq(gone.tabs.len, 1);
 }
 
 @test

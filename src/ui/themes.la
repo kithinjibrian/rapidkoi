@@ -158,6 +158,35 @@ fun group(t: Theme): Styling[] = [
 ];
 
 /**
+ * The dim layer over an app's area while Rapidkoi asks about it (PRP-057):
+ * the theme's scrim, nothing else.
+ *
+ * Example:
+ *     button_with(spacer(), Msg.Cancel).style(scrim(t))
+ */
+fun scrim(t: Theme): Styling[] = [
+    Background { color: paint(t.scrim), ..Background.theme() },
+    Border {
+        all: Side { width: Width.Px(0), ..Side.theme() },
+        radius: Radius.All(0),
+        ..Border.theme(),
+    },
+    Shadow.off(),
+];
+
+/**
+ * A question's card over an app's area: the page's colour, an edge, rounded.
+ *
+ * Example:
+ *     column(parts).style(question_card(t))
+ */
+fun question_card(t: Theme): Styling[] = [
+    Background { color: paint(t.page), ..Background.theme() },
+    Border { all: line(t.edge), radius: Radius.All(PAGE_RADIUS), ..Border.theme() },
+    Text { color: paint(t.text), ..Text.theme() },
+];
+
+/**
  * Returns the page's look: the content area, its top-right corner curved
  * where the frame wraps it.
  *

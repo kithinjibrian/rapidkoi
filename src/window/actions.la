@@ -239,6 +239,6 @@ enum Answer {
 
 /** A destructive action waiting for "yes". */
 enum Confirm {
-    /** Forget the app entirely (PRP-052). */
-    Forget,
+    /** Forget the app in this tab entirely (PRP-052); the tab it was asked about (PRP-057). */
+    Forget(i64),
 }

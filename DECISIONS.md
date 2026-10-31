@@ -755,6 +755,8 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 **Why:** a question about one app shouldn't freeze the others or Rapidkoi's frame; tied to its tab, it can't act on the wrong app.
 
+**Changes PRP-031's rule:** leaving the tab an approval was asked on no longer answers it Don't allow; it waits there, as the decision says every question does (PRP-057).
+
 ---
 
 ### DECISION-089 — Files and folders: how apps reach the person's files

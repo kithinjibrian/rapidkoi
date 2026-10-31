@@ -78,7 +78,8 @@ fun the_main_page_has_the_app_and_its_sections() {
     assert_eq(flip(v, "sign_in"), Ok(Msg.SetSignIn(false)));
     assert_eq(click(v, "Name"), Ok(Msg.PanelGo(PanelPage.Name)));
     assert_eq(click(v, "Servers"), Ok(Msg.PanelGo(PanelPage.Access)));
-    assert_eq(click(v, "Forget this app…"), Ok(Msg.Ask(Confirm.Forget)));
+    let tab = window(signed()).current.unwrap();
+    assert_eq(click(v, "Forget this app…"), Ok(Msg.Ask(Confirm.Forget(tab))));
     // PRP-052: no Identity page, Start over or Clear; Data is a line.
     for gone of ["Identity", "Data", "Clear…", "Start over as someone new…"] {
         assert(click(v, gone).is_err());
@@ -167,7 +168,9 @@ fun data_is_a_line_with_its_size() {
 fun forget_asks_in_the_owner_s_words_and_can_be_cancelled() {
     let m = window(signed());
     assert(settings.dialog(m).is_none());
-    let asking = step(step(m, Msg.TogglePanel), Msg.Ask(Confirm.Forget));
+    let asking = step(step(m, Msg.TogglePanel), Msg.Ask(Confirm.Forget(m.current.unwrap())));
+    // Over the app's area now, not the window's dialog (PRP-057).
+    assert(settings.dialog(asking).is_none());
     let d = settings.dialog_view(asking);
     // The owner's words (PRP-052).
     assert(shows(d, "Forget Notes?"));

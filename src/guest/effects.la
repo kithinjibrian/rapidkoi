@@ -357,24 +357,6 @@ fun in_front(m: Model, slot: Slot): bool = match slot {
 };
 
 /**
- * Answers a waiting approval with Don't allow once its page isn't in
- * front any more: switching tabs is a no (PRP-031).
- *
- * Example:
- *     let (m, sent) = left_behind(next);
- */
-fun left_behind(m: Model): (Model, Cmd<Msg>) = match m.approval {
-    Some(a) => {
-        let slot = match a.tab {
-            Some(id) => Slot.InTab(id),
-            None => Slot.NewTab,
-        };
-        if in_front(m, slot) { (m, Cmd.none()) } else { approve(m, Answer.Deny) }
-    }
-    None => (m, Cmd.none()),
-};
-
-/**
  * Carries out your answer to the approval dialog (PRP-031): answers the
  * waiting ask (Deny as blocked), and Always allow allows it from now on.
  * The asks after it are `answer_all`'s, as usual.

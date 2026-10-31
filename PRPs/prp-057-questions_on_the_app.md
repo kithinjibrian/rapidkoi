@@ -47,3 +47,11 @@ When Rapidkoi asks about one app ("Forget Notes?", or an app asking for a permis
 - [ ] Every test above passes; no file over 500 lines.
 - [ ] `lughac test test/`, `lughac fmt --check src test` and `lughac build -O 2 src/main.la -o main` pass.
 - [ ] For the owner, by eye: Forget from ⚙ dims only the app's area; the sidebar, address box and ☰ still work; switching tabs and back keeps the question; Escape and a click on the dim cancel; an app asking for a permission (the new tab's Restore, say) shows the same way.
+
+## BUILD NOTES
+
+- **Status:** approved (the owner, 2026-11-01: "approved"); built.
+- `ui/questions.la` decides when a question shows (`asked_here`) and draws it over the content area (`over`); `themes.la` gains `scrim` and `question_card`. Cancel (Forget) and Don't allow (approvals) take `.shortcut("Escape")`.
+- **Also changed, as the decision implies:** PRP-031 answered an approval Don't allow once its tab went to the back (`effects.left_behind`); that's removed, so the approval waits on its tab like Forget. Recorded in DECISION-085.
+- Switching tabs, opening home, the panel's messages and the account card's edits no longer clear a question; `window.close` clears only a question about the tab it closes. `Msg.Forget` shows the question's tab first, so it always forgets that app.
+- Tests: `test/questions.la` (5), and the Forget and approval tests updated for `Confirm.Forget(tab)` and the area; `switching_tabs_drops_a_pending_confirm` became `switching_tabs_keeps_a_question_on_its_own_tab`, `leaving_the_page_is_dont_allow` became `leaving_the_page_keeps_the_approval_waiting`.

@@ -8,6 +8,7 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, ui.frame, ui.icons, ui.tokens, ui.themes
  * Used by: ui.header
  */
+import ui.questions;
 import kivuli {
     View,
     Align,
@@ -273,4 +274,4 @@ fun round(): Styling[] = [
  * Example:
  *     ui_popover(gear, card_open(m), card, Msg.ClosePanel)
  */
-fun card_open(m: Model): bool = m.panel.is_some() && m.confirm.is_none();
+fun card_open(m: Model): bool = m.panel.is_some() && !questions.asked_here(m);

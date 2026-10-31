@@ -274,13 +274,7 @@ fun used_last(m: Model): Option<LeftOff> {
  *     go_home(m)
  */
 fun go_home(m: Model): Model = match m.current {
-    Some(id) if is_blank(m, id) => Model {
-        draft: "",
-        editing: false,
-        panel: None,
-        confirm: None,
-        ..m,
-    },
+    Some(id) if is_blank(m, id) => Model { draft: "", editing: false, panel: None, ..m },
     _ => new_blank(m),
 };
 
@@ -304,7 +298,6 @@ fun new_blank(m: Model): Model {
             draft: "",
             editing: false,
             panel: None,
-            confirm: None,
             ..m,
         };
     }
@@ -322,7 +315,6 @@ fun new_blank(m: Model): Model {
         draft: "",
         editing: false,
         panel: None,
-        confirm: None,
         ..m,
     }
 }
@@ -401,7 +393,7 @@ fun slot(m: Model): i64 = match m.current {
  *     show_tab(m, 2)
  */
 fun show_tab(m: Model, id: i64): Model = if app(m, id).is_some() || is_blank(m, id) {
-    Model { current: Some(id), editing: false, confirm: None, ..m }
+    Model { current: Some(id), editing: false, ..m }
 } else {
     m
 };
@@ -458,7 +450,7 @@ fun close(m: Model, id: i64): Model {
         current: current,
         left_off: left,
         panel: None,
-        confirm: None,
+        confirm: if m.confirm == Some(Confirm.Forget(id)) { None } else { m.confirm },
         ..m,
     };
     // The window always has a tab.

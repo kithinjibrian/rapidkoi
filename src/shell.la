@@ -15,7 +15,7 @@ import net.loads;
 import net.checks;
 import window.choosing;
 import window.notices { for_rapidkoi, told, dismiss, with_more, nothing_saved, data_not_removed };
-import guest.effects { answer_all, approve, left_behind, tell_changes, tell_prefs };
+import guest.effects { answer_all, approve, tell_changes, tell_prefs };
 import net.requests;
 import net.downloads;
 import data.queries;
@@ -175,8 +175,8 @@ fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     } else {
         handled
     };
-    // An approval whose page went to the back is a no (PRP-031).
-    let (decided, denied) = left_behind(next);
+    // An approval waits on its own tab now, not a no when it goes to the back (PRP-057).
+    let decided = next;
     // What a v2 app asked for is answered before anything is drawn or saved:
     // what on_resume and on_change asked for too.
     // The instance now in front is the one its app reopens to (PRP-033).
@@ -199,7 +199,7 @@ fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     (
         // Offsets for times newly on screen, before anything is drawn (PRP-053).
         persist(m, zones.settle(news(looked(m, shown_now))), at),
-        both(both(both(cmd, denied), sends), into_view(m, answered)),
+        both(both(cmd, sends), into_view(m, answered)),
     )
 }
 
@@ -309,8 +309,8 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         Model {
             panel: if m.panel.is_some() { None } else { Some(PanelPage.Main) },
             // One card at a time: site settings close the shield's (PRP-022).
+            // A question stays: it's over the app's area, not in the card (PRP-057).
             shield: None,
-            confirm: None,
             ..m,
         },
         // Opening it: its app's data's size, read in a task (PRP-041).
@@ -318,7 +318,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     ),
     // Closing only, never a toggle: a popover may say it closed more than
     // once, and a toggle reopened it over everything (session 171).
-    ClosePanel => (Model { panel: None, confirm: None, ..m }, Cmd.none()),
+    ClosePanel => (Model { panel: None, ..m }, Cmd.none()),
     TogglePin => (pins.toggle_pin(m), Cmd.none()),
     // ☰ (PRP-038): Settings, About Rapidkoi, Quit.
     Menu(open) => (Model { menu: open, ..m }, Cmd.none()),
@@ -329,11 +329,19 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         Model { people: with_looks(m.people, key, colours, text_size), ..m },
         Cmd.none(),
     ),
-    PanelGo(page) => (Model { panel: Some(page), confirm: None, ..m }, Cmd.none()),
-    PanelBack => (Model { panel: Some(PanelPage.Main), confirm: None, ..m }, Cmd.none()),
+    PanelGo(page) => (Model { panel: Some(page), ..m }, Cmd.none()),
+    PanelBack => (Model { panel: Some(PanelPage.Main), ..m }, Cmd.none()),
     Ask(c) => (Model { confirm: Some(c), ..m }, Cmd.none()),
     Cancel => (Model { confirm: None, renaming: None, ..m }, Cmd.none()),
     Forget => {
+        // The app the question asked about, wherever you are now (PRP-057).
+        let m = match m.confirm {
+            Some(Forget(tab)) if m.tabs.any(fun(t: Tab) = t.id == tab) => window.show_tab(m, tab),
+            Some(Forget(_)) => {
+                return (Model { confirm: None, ..m }, Cmd.none());
+            }
+            None => m,
+        };
         // Its database and its kept copy go with it (PRP-041, PRP-043); a failure is the notice.
         // Its next key is kept past it in forget_account (PRP-052), which never depends on these.
         let said = match (m.current, window.page_of(m)) {
@@ -411,13 +419,10 @@ fun on_tab(m: Model, id: i64, action: TabAction): (Model, Cmd<Msg>) {
         Reload => navigate.reload(at),
         TogglePin => (pins.toggle_pin(at), Cmd.none()),
         // About this app is the shield's card now (PRP-022).
-        About => (
-            Model { shield: Some(ShieldPage.Main), panel: None, confirm: None, ..at },
-            Cmd.none(),
-        ),
+        About => (Model { shield: Some(ShieldPage.Main), panel: None, ..at }, Cmd.none()),
         Close => (window.close(at, id), Cmd.none()),
         Forget => (
-            Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget), ..at },
+            Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget(id)), ..at },
             Cmd.none(),
         ),
     }

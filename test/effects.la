@@ -400,12 +400,14 @@ fun needs_approval_waits_for_the_person() {
 }
 
 @test
-fun leaving_the_page_is_dont_allow() {
+fun leaving_the_page_keeps_the_approval_waiting() {
+    // PRP-057: it waits on its own tab, no longer a no when you leave (PRP-031 had it so).
     let p = holding("pins", [], ["read_pins"]);
     let (m, _) = set(p, Permission.ReadPins, Setting.Ask);
     let (left, _) = update(m, Msg.NewTab);
-    assert_eq(left.approval, None);
-    assert_eq(got(left), answer(t("got"), Value.Array([])));
+    assert_eq(left.approval.is_some(), true);
+    let (back, _) = update(left, Msg.Select(m.tabs[0].id));
+    assert_eq(back.approval.is_some(), true);
 }
 
 @test
