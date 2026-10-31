@@ -638,6 +638,26 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 
 ## RESOLVED
 
+### DECISION-070 — Deleting a synced row
+
+**Status:** resolved (the owner, 2026-10-31: "yes", to rule 2)
+**Raised:** 2026-10-31, after DECISION-011: one device deletes a row that another edited while they were apart
+
+**Question:** When a delete meets an edit made without knowing about it, does the latest time win (the row comes back) or the delete?
+
+**Decision:**
+- **A delete wins over edits made by a device that hadn't seen it.** The row stays deleted everywhere, whatever the edit's time. The losing edit stays in the log, as any losing change does (DECISION-011), for history to show and restore.
+- **A re-creation after seeing the delete brings the row back.** A device that has the delete no longer has the row, so writing it again is deliberate: the row returns everywhere.
+- **The delete is a change in the log** and stays there, so a device that was away learns the row is gone instead of sending it back. The row's earlier changes stay too.
+
+**Why:** people expect what they deleted to stay deleted; rows coming back when another device comes online is a well-known complaint about sync, and it grows with the number of devices. It stays silent (DECISION-011) and loses nothing.
+
+**Rules out:** the latest time deciding between a delete and an edit; removing a deleted row's changes from the log.
+
+**Later:** the log only grows. Trimming it (for instance once every device has seen a change) is its own decision, and bounds how far back history can go.
+
+---
+
 ### DECISION-069 — The time on a synced change
 
 **Status:** resolved (the owner left it to Claude's judgement, 2026-10-31: "here just use your best judgement")
@@ -670,12 +690,12 @@ Built in PRP-002 (frame and tabs) and PRP-003 (remembering), before links. Missi
 - For each field, the change with the latest time wins. Equal times are settled by the device, the same way on every device, so all devices pick the same winner.
 - It's silent: the person isn't asked or told. Changes to different fields of a row never fight (one device's new title and another's tick both stay).
 - The losing changes stay in the log, so nothing is gone (DECISION-068, goal 3). Seeing them comes with history (build step 6).
-- The time is a hybrid logical clock (DECISION-069).
+- The time is a hybrid logical clock (DECISION-069). Deletes: DECISION-070.
 - Order of arrival doesn't matter: devices that have the same changes show the same data.
 
 **Rules out:** last write per row (it drops another device's edit to a different field); asking the person to pick between versions; deleting a losing change.
 
-**Not decided here:** deletions, row ids, and edits that break a rule of the app's tables (a unique column). Sharing between people isn't in scope (DECISION-068 is one person's devices).
+**Not decided here:** row ids, and edits that break a rule of the app's tables (a unique column). Sharing between people isn't in scope (DECISION-068 is one person's devices).
 
 ---
 
