@@ -332,7 +332,7 @@ fun reading(declared: string[]): Model {
     let p = app(engine, "a", echo());
     let declared = AppPage {
         manifest: Some(Manifest {
-            contract: 7,
+            contract: 8,
             name: "a",
             version: "1.0.0",
             description: None,

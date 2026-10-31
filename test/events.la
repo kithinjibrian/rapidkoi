@@ -1,4 +1,4 @@
-// Events (contract 7, docs/specs/contract-7.md): what Rapidkoi sends an
+// Events (contract 8, docs/specs/contract-8.md): what Rapidkoi sends an
 // app's `handle`, named `on_…`. Pure; no guest, no display.
 import rapidkoi.guest.events { Happened, event_for };
 import rapidkoi.guest.contract { reply };

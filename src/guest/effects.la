@@ -22,6 +22,7 @@ import data.preferences { prefs_value, apply };
 import guest.contract { reply };
 import guest.nodes { Effect };
 import cbor { Value };
+import std.time;
 import kivuli { Cmd };
 import window.actions { Msg, Approval, Answer };
 import net.requests;
@@ -255,6 +256,8 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
         }
         // Open to every app (PRP-038): three coarse values, never colours.
         Preferences(msg) => (m, Some(prefs_value(m.prefs)), msg),
+        // Open to every app (PRP-053): UTC, rounded down to a second; nothing about place.
+        Now(msg) => (m, Some(Value.int(time.now_ms() / 1000 * 1000)), msg),
         // Only Rapidkoi's Settings app: applied at once; a bad one stops it.
         SetPreference(msg, name, v) => {
             if !grant {

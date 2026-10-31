@@ -36,7 +36,7 @@ import kivuli {
 };
 import cbor { Value };
 
-import guest.nodes { Look, Facts, Typing, Direction, Node, ButtonLook, Axis };
+import guest.nodes { Look, Facts, Typing, Direction, Node, ButtonLook, Axis, Part };
 import ui.tokens { SPACE_SM, RING_WIDTH, gap, margin, padding_xy };
 import ui.themes { body, dim, title, heading, field, paint as theme_paint, button as button_look };
 import ui.schemes { Theme };
@@ -86,7 +86,15 @@ fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
         Align.Fill,
     ),
     Pictured(p, look) => picture_view(p, look, t, own),
+    // Filled into words before drawing (`guest.placeholders`); unfilled, only the app's own words show.
+    Parts(ps, look, facts) => screen_as(Node.Words(plain_of(ps), look, facts), t, own),
 };
+
+/** A text's plain parts, joined: what's left of it with nothing filled in. */
+fun plain_of(ps: Part[]): string = ps.fold("", fun(out: string, p: Part) = match p {
+    Plain(s) => out + s,
+    _ => out,
+});
 
 /**
  * A box (PRP-037): its children in a row or column, styled as

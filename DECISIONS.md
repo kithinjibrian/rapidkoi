@@ -418,7 +418,7 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 **Time, the first** (contract 8 or later, when apps get time): "now" in UTC at coarse precision; a time node (`{ "time": …, "show": "time" | "date" | "date_time" | "relative" | "weekday" }`) drawn in the person's zone and date style, "relative" kept current by Rapidkoi; a date and time picker that answers an instant in UTC; a "Know your time zone" permission for apps that need local day logic; schedules in local terms ("every day at 09:00") run by Rapidkoi. Data, never code: Rapidkoi runs no expressions an app sends.
 
-**Accepted leaks:** which item a person taps (their own act), what they ask a server for, and the hours they're active, which hint at a time zone over weeks.
+**Accepted leaks:** which item a person taps (their own act), what they ask a server for, the hours they're active, which hint at a time zone over weeks, and the device's clock error through `now` (DECISION-088).
 
 **Amended (the owner, 2026-10-31: "yes record it"):** **anything Rapidkoi works out from the person's values may only become text on the screen:** never structure (which boxes, buttons or typing boxes exist), addresses (a picture's or a request's), messages, or anything else the app or a server can observe, errors and timing included. A general interpreter, where an app's expressions make decisions on the person's values, is ruled out: any decision can be steered into a message the app receives (a button only in one branch), an address a server receives, or a shape the app can later notice. A small formatting language whose only output is text, which always finishes and touches nothing else (like ICU MessageFormat's plurals: `{count, plural, one {# note} other {# notes}}`), keeps the rule and is allowed, most likely with the language and translations design. Parts come first.
 
@@ -459,17 +459,6 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 **Question:** What is the first reason to install Rapidkoi, and for whom? Should Rapidkoi ship its own everyday apps (notes, tasks, calendar, contacts)?
 
 **Recommended (Claude):** yes: Rapidkoi's own everyday apps, private, offline, synced and sharing data with each other (DECISION-078), each in its own repository like Notes (core decision 27) and on the same contract as everyone's, so they prove the platform too; privacy-minded people who want their data back as the first audience; and an early decision on what a link shows someone without Rapidkoi.
-
----
-
-### DECISION-083 — Name tokens become parts, in the contract that brings time
-
-**Status:** open
-**Raised:** 2026-10-31, from core decision 30's show pattern (`docs/source/meetings/2026-10-31-privacy.md`)
-
-**Question:** `{FIRST_NAME}` and `{LAST_NAME}` inside strings (`src/guest/placeholders.la`) predate parts: a text made of plain strings and values Rapidkoi fills in (`["Hello, ", { "name": "first" }, "!"]`). Replace them, and when?
-
-**Recommended (Claude):** replace them outright (nothing outside the shell uses them: `rapidkoi-rust`, `../notes` and `guest/rust` checked), in the contract version that brings time, so name and time parts arrive together and apps are rebuilt once. A plain string's braces are then shown as typed. Steps: the contract's spec; the decoder; `placeholders.la` filling parts; `test/placeholders.la`; comments in `src/people/` and `src/window/actions.la`; `first_name()` and `last_name()` in `rapidkoi-rust` first; the built-ins repacked.
 
 ---
 
@@ -761,6 +750,28 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 ---
 
 ## RESOLVED
+
+### DECISION-088 — Contract 8: time and name parts, and `now`
+
+**Status:** resolved (the owner approved PRP-053, 2026-10-31: "approved")
+**Raised:** 2026-10-31, the owner: "let's do time plus name parts"
+
+**Question:** How do apps show times and the person's name without learning the time zone or the name (core decision 30's show pattern)?
+
+**Outcome (PRP-053):**
+- A `text` node carries `text` or `parts`: strings, `{ "name": "first" | "last" }`, `{ "time": ms, "show": … }` (at most 64; moments whole milliseconds within years 1 to 9999). Rapidkoi fills them in while drawing, in the person's zone, 24-hour clock, day before month; "relative" kept current by a minute's tick that never calls the app. Parts only on texts.
+- `now`: any app; UTC, rounded down to a second.
+- `{FIRST_NAME}` and `{LAST_NAME}` are gone. Contract 7 apps are refused.
+- Offsets are looked up in `update` (`window/zones.la`, `time.local_offset`), never in `view` (CLAUDE.md's exceptions).
+- `rapidkoi-rust` gains parts and `Ask::now` (`docs/specs/rapidkoi-rust-contract-8.md`).
+
+**Resolves:** DECISION-083 (name tokens become parts, in the contract that brings time) and DECISION-086 (time zones from Lugha: shipped in lughac's milestone 145, `std.time`'s `civil`, `from_civil`, `local_offset`).
+
+**Accepted leak (core decision 30):** `now` lets an app's server see the device's clock error, by comparing it with its own clock. Rounding to a second doesn't hide whole seconds; apps need seconds to order edits.
+
+**Later, each its own PRP:** the date and time picker answering UTC, the "Know your time zone" permission, schedules, and the person's clock and date-order settings.
+
+---
 
 ### DECISION-084 — What a person can do to an app: Forget and one sign-in switch
 

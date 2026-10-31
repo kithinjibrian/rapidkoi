@@ -1,0 +1,110 @@
+// Offsets for the moments on screen (PRP-053): found once each, kept,
+// refreshed on the tick; the system's lookup is passed in, so these never
+// depend on this machine's zone. Pure.
+import rapidkoi.window.zones { moments, names_in, add_missing, fresh, shows_time };
+import rapidkoi.guest.nodes { Node, Part, Which, Show };
+import rapidkoi.guest.styles { plain };
+import rapidkoi.guest.roles { no_facts };
+import std.time { TimeError };
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.tabs { open_module, state_of };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.shell { update };
+import rapidkoi.ui.content { timing };
+import support { t, kv, leaf, fixed, result_of };
+import cbor { Value, encode };
+import wasmtime { Engine, Module };
+
+fun parts(ps: Part[]): Node = Node.Parts(ps, plain(), no_facts());
+
+fun boxed(kids: Node[]): Node = Node.Boxed(plain(), no_facts(), None, kids);
+
+fun tree(): Node = boxed([
+    parts([Part.Plain("Edited "), Part.Time(1000, Show.Relative)]),
+    boxed([parts([Part.Time(2000, Show.Time), Part.Time(1000, Show.Date)])]),
+    Node.Words("plain", plain(), no_facts()),
+]);
+
+/** UTC+3 everywhere, counting each call in `calls`. */
+fun counted(calls: Ref<i64>): fun(i64): Result<i64, TimeError> = fun(
+    ms: i64,
+): Result<i64, TimeError> {
+    calls.set(calls.get() + 1);
+    Ok(10800)
+};
+
+@test
+fun each_moment_once_in_order() {
+    assert_eq(moments(tree()), [1000, 2000]);
+    assert_eq(moments(Node.Words("x", plain(), no_facts())).len, 0);
+}
+
+@test
+fun names_are_noticed() {
+    assert_eq(names_in(tree()), false);
+    assert_eq(names_in(boxed([parts([Part.Name(Which.First)])])), true);
+}
+
+@test
+fun only_missing_moments_are_looked_up() {
+    let calls = Ref.new(0);
+    let mut have: Map<i64, i64> = #{};
+    have[1000] = -18000;
+    let got = add_missing(have, [1000, 2000], counted(calls));
+    assert_eq((calls.get(), got.get(1000), got.get(2000)), (1, Some(-18000), Some(10800)));
+}
+
+@test
+fun a_refresh_redoes_and_drops_what_s_gone() {
+    let calls = Ref.new(0);
+    let got = fresh([2000], counted(calls));
+    assert_eq((calls.get(), got.len, got.get(2000)), (1, 1, Some(10800)));
+}
+
+@test
+fun a_failed_lookup_leaves_the_moment_out() {
+    let failing = fun(ms: i64): Result<i64, TimeError> = Err(TimeError { message: "no zone" });
+    assert_eq(add_missing(#{}, [1000], failing).len, 0);
+    assert_eq(fresh([1000], failing).len, 0);
+}
+
+/** A window whose app shows `parts`. */
+fun showing(parts: Value[]): Model {
+    let engine = Engine.new();
+    let tree = encode(leaf("text", [("parts", Value.Array(parts))]));
+    with_pages(engine, [
+        open_module(
+            "clock",
+            "clock.wasm",
+            engine,
+            Module.from_text(engine, fixed(kv([]), tree, result_of(kv([])))).unwrap(),
+        ),
+    ])
+}
+
+fun root_of(m: Model): Node = match m.tabs[0].page.screen {
+    Running(_, _, d) => d.root,
+    _ => Node.Unsupported("not running"),
+};
+
+@test
+fun the_minute_tick_runs_only_while_a_time_shows() {
+    let timed = showing([
+        t("Edited "),
+        kv([("time", Value.int(1730374320000)), ("show", t("relative"))]),
+    ]);
+    assert_eq(shows_time(timed), true);
+    assert_eq(shows_time(showing([t("No time here")])), false);
+}
+
+@test
+fun a_new_minute_redraws_without_calling_the_app() {
+    let m = showing([kv([("time", Value.int(1730374320000)), ("show", t("relative"))])]);
+    let before = state_of(m.tabs[0].page);
+    let key = timing(root_of(m), m);
+    let (ticked, _) = update(m, Msg.Tick(m.now + 61_000));
+    // The key moves on with the minute, so "5 minutes ago" is drawn anew...
+    assert_eq(timing(root_of(ticked), ticked) == key, false);
+    // ...and the app wasn't asked anything.
+    assert_eq(state_of(ticked.tabs[0].page), before);
+}

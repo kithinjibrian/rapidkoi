@@ -100,6 +100,8 @@ struct Model {
     about: bool,
     /** The last loading tick, in milliseconds since 1970: how long a load has taken. */
     now: i64,
+    /** Each moment on screen and its offset in your zone, in seconds east of UTC (PRP-053, `window.zones`). */
+    offsets: Map<i64, i64>,
     /** The last load number given out (PRP-008). */
     loads: i64,
     /** How loads reach the network: the system's roots alone, except in tests (PRP-009). */
@@ -157,6 +159,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         menu: false,
         about: false,
         now: 0,
+        offsets: #{},
         loads: 0,
         network: Network { ca_file: None, hosts: [] },
         people: nobody(),

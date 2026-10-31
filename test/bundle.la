@@ -9,7 +9,7 @@ import support { t, kv, png as png_of };
 fun png(): u8[] = png_of(64, 64);
 
 fun manifest(): Manifest = Manifest {
-    contract: 7,
+    contract: 8,
     name: "Counter",
     version: "0.1.0",
     description: Some("Counts, and says hello"),
