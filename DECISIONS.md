@@ -377,6 +377,24 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ---
 
+### 30. Apps can't fingerprint the person
+
+**Decision:** An app, or its server, mustn't be able to recognise a person without asking, across apps, after Start over, or over time, by combining small signals. The rules, for every capability now and later:
+1. **Apps never get measurements:** no window size, fonts or pixel data. Rapidkoi draws; apps describe. A canvas can be drawn on but never read back.
+2. **Every value an app can read comes from a short list many people share:** steps, not exact numbers (text size in a few steps; time, when apps get it, at coarse precision, and a time zone only if needed).
+3. **Requests from every Rapidkoi look the same:** the same headers, nothing about the device.
+4. **Every capability's PRP says what it reveals:** what an app can learn, to whom it goes, and how many people share each value.
+5. **Visible:** the inspector shows what each app read and which servers it contacted.
+6. **Start over means a new person to the app:** a new key and a clean database (DECISION-079).
+
+**Why:** The owner (2026-10-31), asked how Rapidkoi avoids fingerprinting: "yes record it". On the web most fingerprinting comes from a page measuring the machine (fonts, screen, canvas, audio); Rapidkoi apps describe a tree and already never learn Rapidkoi's sizes or colours (contract 7), and per-app keys stop matching by key (core decision 17). What's left leaks through what apps can read and how requests look.
+
+**Rules out:** capabilities that hand apps exact device facts; reading pixels back; per-device request headers.
+
+**Still leaks, noted:** the IP address on every request (two apps using one tracking server can match people by it: requests through the Pond is DECISION-080); ids an app puts in links that open another app (can't be stopped; the inspector shows them). To check: what `std.http` adds to a request by default.
+
+---
+
 ## OPEN — Requires human input before implementation
 
 ### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
@@ -655,7 +673,32 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ---
 
+### DECISION-080 — Requests through the Pond, to hide the IP address
+
+**Status:** deferred
+**Raised:** 2026-10-31, from core decision 30
+**Revisit when:** The Pond is built.
+
+**Question:** Every request an app makes shows the person's IP address to its server, and two apps using one tracking server can match people by it. Should Rapidkoi offer to send requests through the Pond, as Apple's Private Relay does? It costs the Pond bandwidth, and the Pond would then see which servers a person's apps contact.
+
+---
+
 ## RESOLVED
+
+### DECISION-079 — Start over clears the app's database
+
+**Status:** resolved (the owner, 2026-10-31: "start over clears the database"); not built yet
+**Raised:** 2026-10-31, from core decision 30
+
+**Question:** Start over gives an app a new key for the person (`StartOverIdentity`, `src/people/account.la`), but the app's database stays: an id the app stored there recognises the person again. Clear it, or ask?
+
+**Decision:** Start over clears that app's database too, as ⚙ → Data → Clear does, without asking. To the app it's a new person: a new key and no data.
+
+**Why:** a new identity the app can link to the old one through its own storage isn't new (core decision 30, rule 6).
+
+**Not decided here:** the words on Start over saying the app's data goes with it; how it meets sync (a cleared database on one device, when sync is built).
+
+---
 
 ### DECISION-078 — Data shared between apps, with the person's consent
 
