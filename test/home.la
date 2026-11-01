@@ -12,6 +12,7 @@ import rapidkoi.guest.home {
     recent_msg,
 };
 import rapidkoi.data.remembered { Open, OpenTab, Face };
+import rapidkoi.window.recent { Place, Recent };
 import rapidkoi.data.saving { open_of };
 import rapidkoi.shell { update };
 import rapidkoi.window.window { Model, with_pages };
@@ -203,4 +204,48 @@ fun the_session_saved_keeps_each_app_s_name_and_icon_once() {
         Face { path: "apps/notes.wasm", name: "notes", icon: Some([1, 2]) },
         Face { path: "apps/quote.wasm", name: "quote", icon: None },
     ]);
+}
+
+@test
+fun recent_lists_each_app_once_by_its_newest_place() {
+    // The owner, 2026-11-02: "only one app can be in recents".
+    let place = fun(address: string, path: string, name: string, seen: i64) = Place {
+        address: address,
+        path: path,
+        origin: None,
+        name: name,
+        title: None,
+        seen: seen,
+    };
+    let m = Model {
+        recent: Recent {
+            places: [
+                place(
+                    "rapidkoi://notes.dafifi.net/@0.9.0?note=5",
+                    "rapidkoi://notes.dafifi.net",
+                    "Notes",
+                    3,
+                ),
+                place(
+                    "rapidkoi://notes.dafifi.net/@0.9.0?note=4",
+                    "rapidkoi://notes.dafifi.net",
+                    "Notes",
+                    2,
+                ),
+                place("counter.wasm", "counter.wasm", "Counter", 1),
+            ],
+            apps: [],
+        },
+        ..with_pages(Engine.new(), []),
+    };
+    let listed = match recent_of(m).get("places") {
+        Some(Array(xs)) => xs.map(
+            fun(x: Value) = x.get("address").and_then(fun(a: Value) = a.as_text()).unwrap_or(""),
+        ),
+        _ => [],
+    };
+    assert_eq(listed, ["rapidkoi://notes.dafifi.net/@0.9.0?note=5", "counter.wasm"]);
+    // The index is into that list: 1 is Counter, not Notes' older place.
+    assert_eq(recent_msg(m, 1), Some(Msg.OpenPlace("counter.wasm", None)));
+    assert_eq(recent_msg(m, 2), None);
 }

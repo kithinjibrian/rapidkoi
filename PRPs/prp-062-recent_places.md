@@ -121,6 +121,7 @@
 - **Opening a place carries its origin** (`Msg.OpenPlace(address, origin)`). Without fields it opens as a pin does; with fields, a new window for that exact app at them (`net.loads.begin_place`), never asking which.
 - **Where recording happens:** closing a window, replacing its app, and choosing another app record its place where they close the page (`window.recent.remember`). Moves while open (first running, address or title changes, leaving the front) are recorded by `window.remembering.noted`, called from `data.saving.persist` before the data folder check, so places are kept with or without a folder. That keeps Forget from re-recording what it closes.
 - **The picture area** is the app's icon on a wash of the theme's own colours, since an app's colour isn't known (PRP-060). An app's own picture comes with the next PRP.
+- **Each app once in Recent** (the owner, 2026-11-02, seeing Notes fill all five cards: "only one app can be in recents"): the `recent` answer lists each app by its newest place, and `open_recent`'s index is into that list. Every place is still kept (the newest 100), so a later history page can show them all.
 - **The new tab's placeholder pictures** for Recent (the beach, counter and settings icons) are gone.
 
 ## TESTS

@@ -69,7 +69,8 @@ fun left_off_of(m: Model): Value = match m.recent.places.len {
 
 /**
  * Returns the `recent` answer (PRP-062): `{places: [...]}`, newest first and
- * at most `MAX_PLACES`, each `{name, place, icon, address, title?, seen}`.
+ * at most `MAX_PLACES`, each app once by its newest place (the owner,
+ * 2026-11-02), each `{name, place, icon, address, title?, seen}`.
  * The address is as the address box shows it: a site's link, or a file's
  * name, never its folders.
  *
@@ -78,7 +79,7 @@ fun left_off_of(m: Model): Value = match m.recent.places.len {
  */
 fun recent_of(m: Model): Value {
     let mut out: Value[] = [];
-    for p of m.recent.places {
+    for p of listed(m) {
         if out.len >= MAX_PLACES {
             break;
         }
@@ -99,11 +100,25 @@ fun recent_of(m: Model): Value {
  * Example:
  *     recent_msg(m, 0)
  */
-fun recent_msg(m: Model, index: i64): Option<Msg> = if index >= 0 && index < m.recent.places.len {
-    Some(Msg.OpenPlace(m.recent.places[index].address, m.recent.places[index].origin))
-} else {
-    None
-};
+fun recent_msg(m: Model, index: i64): Option<Msg> {
+    let places = listed(m);
+    if index >= 0 && index < places.len {
+        Some(Msg.OpenPlace(places[index].address, places[index].origin))
+    } else {
+        None
+    }
+}
+
+/** Your recent places as the new tab lists them: each app once, by its newest place. */
+fun listed(m: Model): Place[] {
+    let mut out: Place[] = [];
+    for p of m.recent.places {
+        if !out.any(fun(q: Place) = q.path == p.path && q.origin == p.origin) {
+            out.push(p);
+        }
+    }
+    out
+}
 
 /**
  * Returns what `open_pin(index)` opens: your pin at `index` as the pins
