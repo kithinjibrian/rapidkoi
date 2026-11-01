@@ -9,6 +9,7 @@ Never deleted. Older entries are never modified.
 ## [Unreleased]
 
 ### Added
+- The new tab is a still copy of its target design (A5, `docs/designs/newtab-target.md`), filling the window's width: every name, place and notification is a placeholder, it asks Rapidkoi for nothing, and nothing on it does anything yet. What contract 9 can't draw (gradients, layers) is bundle pictures.
 - Contract 10 (PRP-059, DECISION-091): apps can draw a `gradient` over a box's background (linear, or an ellipse sized and placed as fractions of the box, so a colour washes in from a corner), and lay a box's children in `layers` (each where its `place` says: a badge on a face), in a `wrap` that re-flows as the window changes (`equal`, `per_line`), or in a `fit` row that shows as many as fit. Contract 9 apps are refused with "This app needs to be rebuilt for this Rapidkoi". Built on kivuli 0.67; the SDK is rapidkoi-rust `v0.4.0-pre.1`.
 - Open App… (PRP-058): ☰'s first item, and Ctrl+O, open the system's chooser ("Open an app", showing Rapidkoi apps: `.rkb` and `.wasm`); the chosen file opens as typing its path does.
 - Project scaffold: a Lugha program with kivuli as its UI dependency.
