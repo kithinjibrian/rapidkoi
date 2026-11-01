@@ -13,7 +13,7 @@
 1. **The wordmark and Restore.** "Rapidkoi" at the start, in the brand gradient (`accent` → `accent_end`, `#ff7700 → #ff2e63`). At the end, only while there's a session to restore, a pill: "Restore previous session", the icons of the apps it brings back, and Restore (primary).
 2. **Notifications**, only while something is unread: the heading with an accent count, See all at its end, then the newest four in two equal columns.
 3. **Recent**: places, not apps. The newest one large in the left half; the next four as small cards, two by two, in the right half.
-4. **Pinned**: the pinned apps as large icons with their names.
+4. **Pinned**: the pinned apps as large icons with their names, one line of them, and See all at the heading's end (up to 256 pins; a line never wraps, as contract 9's rows don't and the app doesn't know the window's width).
 
 The page has a faint glow of the brand colours at its top-left corner. Sections are `SPACE_XL` apart; headings are small, bold, spaced capitals in `dim`.
 
@@ -50,14 +50,52 @@ The page has a faint glow of the brand colours at its top-left corner. Sections 
 - The whole card opens the place; hovering lifts it and edges it in `accent`.
 - Small cards are the large card made small, so they read as places, not as pinned apps.
 
-## What it needs that doesn't exist
+## What it needs, by repository
 
-- **A record of recent places** with when each was last open (today there's one "where you left off").
-- **A place's card, from the app:** beside `title` on the view's root, an optional `summary` (one line, about 200 bytes) and `picture` (`asset:` or `blob:` only: a server's picture would be fetched each time the new tab opens, and fail offline). Rapidkoi keeps the latest with the place. A value that breaks a rule is ignored and the card falls back; it never stops the app. A contract change: a new contract version and a DECISIONS.md entry.
-- **"Show in Recent"**, a switch per app in its ⚙ card.
-- **Notifications**: the manifest's `notifications` permission (in the vision), the asks and their limits, the bell and its card, the notifications page (a built-in app, core decision 19, DECISION-027), the dock's dot.
-- **Invites and shared links** wait on live sessions and sharing (build path steps 5 onwards); **updates** on PRP-044's upgrade.
-- **App icons on the new tab** (contract 9 can draw pictures; the comment in `newtab/src/lib.rs` saying otherwise is out of date).
+Checked 2026-11-01 against kivuli 0.66, lugha-gtk, rapidkoi-rust v0.3.0-pre.4 and contract 9. **Shipped** (2026-11-01): kivuli 1 (kivuli 0.67, its PRP-072) and the contract's 1–4 (contract 10, PRP-059, rapidkoi-rust `v0.4.0-pre.1`); the replica draws with them, and only the wordmark, the beach and the apps' icons stay pictures. Every rapidkoi item is a PRP first; contract items share one new contract version (a DECISIONS.md entry), tagged in rapidkoi-rust before the built-ins move to it.
+
+### kivuli
+
+Nearly everything is there already: `Gradient.Linear`/`Radial`, `overlay`, `wrap` with `.equal()` and `.max_per_line(n)`, `fit_row` (as many as fit, then a "more"), pictures with `cover`.
+
+1. **Shipped (0.67).** **A radial gradient with a shape and a centre**: an ellipse from a corner (`radial-gradient(ellipse 95% 130% at 0% 0%, …)`). Today's `Radial` is a circle from the centre. For the washes and the page's corner glow *(replica: wash-\*.svg)*.
+
+The wordmark's gradient stays a picture: GTK's CSS can't fill text with a gradient.
+
+### lugha-gtk
+
+1. **Desktop alerts**: `GNotification` (new, title, body, icon, buttons) and `g_application_send_notification` / `withdraw_notification`. Nothing else here: the rest is CSS and widgets kivuli already binds.
+
+### rapidkoi: the contract (1–4 shipped in contract 10; 5–7 wait for what reads them)
+
+1. **Gradients** in `background`: linear, and radial with a shape and a centre *(replica: wordmark aside, every wash)*.
+2. **Layers**: a box whose children sit on top of each other, for a face with the app on its corner, an icon on its wash, and Restore's overlapping icons *(replica: face-\*.svg, update-notes.svg, restore-apps.svg)*.
+3. **Wrapping boxes** (kivuli's `wrap`, `equal`, `max_per_line`): Notifications' two equal columns and the small cards' grid, without the replica's wide filler picture (wash-fill.svg) or fixed minimum widths.
+4. **A fitting row** (kivuli's `fit_row`): Pinned's one line, as many as fit, then See all.
+5. **A place's card**: `summary` and `picture` (`asset:`/`blob:` only) on the view's root beside `title`; a bad value is ignored, never stops the app.
+6. **Pictures Rapidkoi hands over**: a picture source for an app's icon from an answer (pins, recent places, the session, notifications). Today an answer carries the icon's PNG bytes, which no `image` can show.
+7. **An app's colour** in those answers (the theme's `publishers`), for the initial of an app without an icon and for its wash.
+
+### rapidkoi: the shell
+
+1. **Recent places**: a record of places with when each was last open, replacing the one "where you left off"; an ask answering the newest five (title, summary, picture, icon, colour, link, time) and one opening a place by its index.
+2. **Show in Recent**: a switch per app in its ⚙ card; off forgets its places.
+3. **The session's apps**: Restore's answer gives each app's name, icon and colour, not only names and a window count.
+4. **Notifications**: the manifest's `notifications` permission; an ask to send one (a sentence and a place) and its limits (length, how many kept per app, how often, only while running); keeping them; a built-in permission for the new tab to read them; ordering (with a button first, newest first) and removal when no longer true; opening one opens its place.
+5. **The bell**: in the header before 👤 and ☰, an accent dot while anything is unread, opening a card of the latest.
+6. **The dock's dot**: on each entry with something unread.
+7. **The notifications page**: a built-in app (core decision 19, DECISION-027), Notifications' See all.
+8. **Desktop alerts**: off per app until turned on in its ⚙ card; sent only when Rapidkoi isn't in front (lugha-gtk 1).
+9. **The pins page**: Pinned's See all, every pin (up to 256): a second screen of the new tab, or a built-in app.
+10. **The new tab itself**: from the replica to real data, and the shell tests that check the new tab (`test/layout.la`, `test/newtab.la`, `test/restore.la`) back on real behaviour.
+11. **Later**: invites and shared links with live sessions and sharing (build path step 5 onwards); updates with PRP-044's upgrade.
+
+### rapidkoi-rust (a tag per contract version)
+
+1. **The contract's new styles and nodes**: `Background` gradients, a layer box, `wrap` (equal, per line), the fitting row with its "more".
+2. **A place's card**: setting `summary` and `picture` on the view's root.
+3. **Pictures from answers**: an `image` source for an icon Rapidkoi gave, and the colour on `Place`.
+4. **Asks**: recent places and opening one; the session's apps with icons and colours (`Session` today has `count` and `apps` as names); reading notifications and opening one (built-in); sending one (`notifications` permission).
 
 ## Not decided
 

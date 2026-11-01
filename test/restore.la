@@ -7,8 +7,9 @@
 // in for each app (it stops for want of memory, which is fine here: the
 // tab, its name and its place are what's checked). Writes only under
 // test/tmp/.
-import support { said };
-import rapidkoi.shell { start, update };
+import support { said, newtab_stand_in, guest_of, asking, ask, boxed, press };
+import cbor { encode };
+import rapidkoi.shell { start, start_with, update };
 import rapidkoi.window.window { Model };
 import rapidkoi.ui.layout { view };
 import kivuli { Cmd };
@@ -198,9 +199,17 @@ fun later(c: Cmd<Msg>): Msg[] = match c {
 @test
 fun the_new_tabs_restore_button_restores() {
     // Session 185: the new tab's own buttons reach it (they were dropped).
+    // A stand-in new tab whose Restore asks Rapidkoi to restore the session.
     let s = with_session("button");
-    let (m, _) = start(["./main"], Some(s));
-    let pressed = click(view(m), "Restore previous session (2)").unwrap();
+    let tree = encode(boxed([], [press("Restore previous session", "restore")]));
+    let restoring = guest_of(
+        asking([]),
+        None,
+        Some(asking([ask("restore_session", "restored")])),
+        tree,
+    );
+    let (m, _) = start_with(["./main"], Some(s), newtab_stand_in(restoring));
+    let pressed = click(view(m), "Restore previous session").unwrap();
     let (_, c) = update(m, pressed);
     assert_eq(later(c), [Msg.RestoreSession]);
     clean("test/tmp/restore-button");
