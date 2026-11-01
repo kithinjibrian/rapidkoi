@@ -3,14 +3,13 @@
  * window that was left, with its saved state; starting a page again from a
  * saved state; and ⟳ Reload's load from where it came from.
  *
- * Depends on: wasmtime, bundles.loader, trust.verify, guest.running, window.tabs, window.leftoff
+ * Depends on: wasmtime, bundles.loader, trust.verify, guest.running, window.tabs
  * Used by: window.navigate, net.loads
  */
 import wasmtime { Engine };
 import bundles.loader { load };
 import trust.verify { Keyring };
 import guest.running { start };
-import window.leftoff { LeftOff };
 import window.tabs {
     AppPage,
     Screen,
@@ -21,45 +20,6 @@ import window.tabs {
     refused,
     failed,
     open_program,
-};
-
-/**
- * Reopens a page that was left, in a fresh store, with its saved state:
- * `view(state)` without calling `init`. A page left stopped starts afresh.
- *
- * @param l what `leave` kept
- * @returns the page, running or stopped
- *
- * Example:
- *     resume(left)
- */
-fun resume(l: LeftOff): AppPage = match l.program {
-    Some(prog) => {
-        // Resumed from its state: no init, but it's opened, so it may ask.
-        ran(AppPage {
-            name: l.name,
-            manifest: l.manifest,
-            icon: l.icon,
-            path: l.path,
-            title: l.title,
-            trust: l.trust,
-            program: Some(prog),
-            asks: [],
-            load: 0,
-            in_flight: 0,
-            screen: Screen.Stopped("", true),
-            // The same instance, under its name (PRP-033).
-            instance: l.instance,
-            label: l.label,
-            seen: 0,
-            link: [],
-            fields: [],
-            data_size: None,
-            cached: None,
-            pictures: [],
-        }, start(prog, l.state, []))
-    }
-    None => failed(l.name, l.path, "This app couldn't be reopened"),
 };
 
 /**

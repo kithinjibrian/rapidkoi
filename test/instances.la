@@ -18,7 +18,6 @@ import rapidkoi.data.saving { restore };
 import rapidkoi.data.store { store_at };
 import rapidkoi.data.states { saved_state_in };
 import rapidkoi.data.remembered { Recalled };
-import rapidkoi.window.leftoff { LeftOff };
 import std.fs;
 
 fun app(engine: Engine, name: string): AppPage = open_module(

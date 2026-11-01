@@ -1,0 +1,65 @@
+// Recording recent places as windows move (PRP-062), pure: a window's place
+// is recorded when it first runs, when its address or title changes, and
+// when it leaves the front, the window in front last; never Rapidkoi's own
+// apps or a window that isn't running. No display.
+import rapidkoi.window.remembering { noted };
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.tabs { AppPage, Tab, open_module, failed_page };
+import rapidkoi.window.recent { Place };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun app(engine: Engine, name: string): AppPage = open_module(
+    name,
+    "apps/{name}.wasm",
+    engine,
+    Module.from_text(engine, echo()).unwrap(),
+);
+
+fun names(m: Model): string[] = m.recent.places.map(fun(p: Place) = p.name);
+
+@test
+fun a_window_newly_open_or_retitled_or_leaving_the_front_is_recorded() {
+    let engine = Engine.new();
+    let one = with_pages(engine, [app(engine, "a")]);
+    let none = with_pages(engine, []);
+    // Newly open: recorded.
+    assert_eq(names(noted(none, one)), ["a"]);
+    // Nothing changed: nothing recorded.
+    assert_eq(names(noted(one, one)), []);
+    // Retitled: recorded.
+    let titled = Model {
+        tabs: [
+            Tab { page: AppPage { title: Some("Shopping"), ..one.tabs[0].page }, ..one.tabs[0] },
+        ],
+        ..one,
+    };
+    assert_eq(m_titles(noted(one, titled)), [Some("Shopping")]);
+}
+
+fun m_titles(m: Model): Option<string>[] = m.recent.places.map(fun(p: Place) = p.title);
+
+@test
+fun the_window_in_front_is_the_newest() {
+    let engine = Engine.new();
+    let two = with_pages(engine, [app(engine, "a"), app(engine, "b")]);
+    let empty = with_pages(engine, []);
+    // Both newly open, b in front: b is recorded last, so it's the newest.
+    let front_b = Model { current: Some(two.tabs[1].id), ..two };
+    assert_eq(names(noted(empty, front_b)), ["b", "a"]);
+    // a leaves the front for b: a is recorded.
+    let front_a = Model { current: Some(two.tabs[0].id), ..two };
+    assert_eq(names(noted(front_a, front_b)), ["a"]);
+}
+
+@test
+fun rapidkoi_s_own_apps_and_windows_not_running_are_never_recorded() {
+    let engine = Engine.new();
+    let none = with_pages(engine, []);
+    let builtin = with_pages(engine, [
+        AppPage { path: "builtin:settings", ..app(engine, "Settings") },
+    ]);
+    assert_eq(names(noted(none, builtin)), []);
+    let broken = with_pages(engine, [failed_page("gone.wasm", "Couldn't read gone.wasm")]);
+    assert_eq(names(noted(none, broken)), []);
+}

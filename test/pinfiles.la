@@ -1,9 +1,8 @@
 // The pins and left-off files (`data.pinfiles`): each round trips, and every
 // way one can be wrong is Broken (naming the field) or Newer, never a panic.
 import rapidkoi.data.remembered { Unreadable, trust_file };
-import rapidkoi.data.pinfiles { pins_file, read_pins, left_file, read_left };
+import rapidkoi.data.pinfiles { pins_file, read_pins };
 import rapidkoi.window.tabs { Pin };
-import rapidkoi.window.leftoff { recalled, signer_of, as_instance };
 import cbor { Value, Entry, encode };
 import support { png };
 
@@ -41,46 +40,4 @@ fun pins_round_trip_and_a_bad_icon_drops_only_the_icon() {
             Pin { name: "Junk", path: "junk.rkb", icon: None, origin: None },
         ]),
     );
-}
-
-@test
-fun where_you_left_off_keeps_its_instance() {
-    // PRP-033: Continue reopens that instance, under its name.
-    let l = as_instance(recalled("Notes", "notes.wasm", None, None, None), "2", Some("Work"));
-    let back = read_left(left_file(l)).unwrap();
-    assert_eq((back.instance, back.label), ("2", Some("Work")));
-    let first = read_left(left_file(recalled("Notes", "notes.wasm", None, None, None))).unwrap();
-    assert_eq((first.instance, first.label), ("", None));
-    let odd = as_instance(recalled("Notes", "notes.wasm", None, None, None), "../x", None);
-    assert_eq(broken(read_left(left_file(odd))), "the app's instance isn't one Rapidkoi gave");
-}
-
-@test
-fun left_off_round_trips() {
-    // A signed app: which one it is, and no state (that's in states/).
-    let l = recalled(
-        "Counter",
-        "rapidkoi://localhost:8000",
-        Some("Count: 3"),
-        None,
-        Some(("localhost:8000", [7; 32])),
-    );
-    let back = read_left(left_file(l)).unwrap();
-    assert_eq(
-        (back.name, back.path, back.title, back.state, signer_of(back)),
-        (
-            "Counter",
-            "rapidkoi://localhost:8000",
-            Some("Count: 3"),
-            None,
-            Some(("localhost:8000", [7; 32])),
-        ),
-    );
-    let unsigned = recalled("Counter", "c.wasm", None, None, None);
-    assert_eq(signer_of(read_left(left_file(unsigned)).unwrap()), None);
-    assert_eq(broken(read_left(trust_file([]))), "it isn't Rapidkoi's left-off file");
-    let bad = recalled("Counter", "c.rkb", None, None, Some(("Bad Host", [7; 32])));
-    assert_eq(broken(read_left(left_file(bad))), "the app's host isn't a host name");
-    let short = recalled("Counter", "c.rkb", None, None, Some(("a.example", [7; 31])));
-    assert_eq(broken(read_left(left_file(short))), "the app's key isn't 32 bytes");
 }

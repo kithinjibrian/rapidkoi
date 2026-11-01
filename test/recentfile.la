@@ -1,0 +1,92 @@
+// The recent file (PRP-062): it round-trips, hostile fields are refused or
+// dropped as specified, and the left-off file it replaces becomes a first
+// place. No guest, no display.
+import rapidkoi.data.recentfile { recent_file, read_recent, left_place };
+import rapidkoi.window.recent { Place, Recent };
+import rapidkoi.data.remembered { Face };
+import cbor { Value, Entry, encode };
+import support { png, t, kv };
+
+fun place(address: string, seen: i64): Place = Place {
+    address: address,
+    path: "rapidkoi://notes.dafifi.net",
+    origin: Some([7; 32]),
+    name: "Notes",
+    title: Some("Shopping"),
+    seen: seen,
+};
+
+fun notes(icon: Option<u8[]>): Face = Face {
+    path: "rapidkoi://notes.dafifi.net",
+    name: "Notes",
+    icon: icon,
+};
+
+fun broken(r: Recent): bool = read_recent(recent_file(r)).is_err();
+
+@test
+fun the_recent_file_round_trips() {
+    let r = Recent {
+        places: [
+            place("rapidkoi://notes.dafifi.net/@0.9.0?note=2", 2),
+            place("rapidkoi://notes.dafifi.net/@0.9.0?note=1", 1),
+        ],
+        apps: [notes(Some(png(128, 128)))],
+    };
+    assert_eq(read_recent(recent_file(r)).unwrap() == r, true);
+    let none = Recent { places: [], apps: [] };
+    assert_eq(read_recent(recent_file(none)).unwrap() == none, true);
+}
+
+@test
+fun hostile_places_are_refused_and_bad_icons_dropped() {
+    let mut long = "rapidkoi://a.com/";
+    while long.len <= 4096 {
+        long = long + "x";
+    }
+    assert(broken(Recent { places: [place(long, 1)], apps: [] }));
+    assert(broken(Recent { places: [place("", 1)], apps: [] }));
+    assert(broken(Recent { places: [place("a.wasm", -1)], apps: [] }));
+    assert(broken(Recent { places: [Place { name: "", ..place("a.wasm", 1) }], apps: [] }));
+    assert(
+        broken(Recent { places: [Place { origin: Some([1, 2]), ..place("a.wasm", 1) }], apps: [] }),
+    );
+    assert(broken(Recent { places: [place("a.wasm", 1), place("a.wasm", 2)], apps: [] }));
+    let mut title = "";
+    while title.len <= 200 {
+        title = title + "t";
+    }
+    assert(
+        broken(Recent { places: [Place { title: Some(title), ..place("a.wasm", 1) }], apps: [] }),
+    );
+    let bad_icon = Recent { places: [place("a.wasm", 1)], apps: [notes(Some([1, 2, 3]))] };
+    assert_eq(read_recent(recent_file(bad_icon)).unwrap().apps, [notes(None)]);
+    assert_eq(read_recent([1, 2, 3]).is_err(), true);
+}
+
+@test
+fun the_left_off_file_becomes_a_first_place() {
+    // DECISION-044: where you left off goes; its app is kept as a recent place.
+    let left = encode(
+        kv([
+            ("format", Value.int(1)),
+            ("kind", t("rapidkoi left-off")),
+            (
+                "app",
+                kv([
+                    ("name", t("Notes")),
+                    ("path", t("rapidkoi://notes.dafifi.net")),
+                    ("title", t("Shopping")),
+                    ("host", t("notes.dafifi.net")),
+                    ("key", Value.Bytes([7; 32])),
+                ]),
+            ),
+        ]),
+    );
+    let (p, f) = left_place(left).unwrap();
+    assert_eq(p.address, "rapidkoi://notes.dafifi.net");
+    assert_eq(p.origin, Some([7; 32]));
+    assert_eq(p.title, Some("Shopping"));
+    assert_eq(f.name, "Notes");
+    assert_eq(left_place([1, 2, 3]).is_none(), true);
+}

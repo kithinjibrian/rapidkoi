@@ -61,12 +61,13 @@ fun finish(m: Model, dir: string) {
     clean("{dir}.alice");
 }
 
-/** Both apps open: Alice's Counting (back with Continue) and "Bob's Notes", Bob's in front. */
+/** Both apps open: Alice's Counting (back from its recent place) and "Bob's Notes", Bob's in front. */
 fun both(port: i64, name: string): (Model, string) {
     let (m, dir) = moved_on(port, name);
     let named = step(step(m, Msg.SeparateMoved), Msg.NameSeparate("Bob's Notes"));
-    // Bob's opens in place; Continue brings yours back beside it.
-    let back = step(step(named, Msg.ConfirmSeparate), Msg.Continue);
+    // Bob's opens in place; your app's recent place brings it back beside it (PRP-062).
+    let bobs = step(named, Msg.ConfirmSeparate);
+    let back = step(bobs, back_to(bobs, "Counting"));
     (on(back, "Bob's Notes"), dir)
 }
 
@@ -76,3 +77,13 @@ fun origin_of(p: AppPage): Option<u8[]> = p.trust.map(fun(t) = t.origin);
 fun page_name(m: Model): string = m.tabs.iter().find(fun(t) = Some(t.id) == m.current).expect(
     "a tab in front",
 ).page.name;
+
+/** Opening the newest recent place of the app called `name` (PRP-062). */
+fun back_to(m: Model, name: string): Msg {
+    for p of m.recent.places {
+        if p.name == name {
+            return Msg.OpenPlace(p.address, p.origin);
+        }
+    }
+    panic("no recent place for {name}")
+}

@@ -314,11 +314,15 @@ enum Effect {
     Fetch(Value, Request, Option<string>),
     /** Your pins (PRP-030, needs `read_pins`); answered with `msg`. */
     Pins(Value),
-    /** Where you left off (needs `read_left_off`); answered with `msg`. */
+    /** Where you left off: the newest recent place (needs `read_left_off`; to go at the next contract); answered with `msg`. */
     LeftOff(Value),
+    /** Your recent places (PRP-062, needs `read_left_off`); answered with `msg`. */
+    Recent(Value),
+    /** Open your recent place at this index, as they are now (PRP-062, needs `open_apps`); not answered. */
+    OpenRecent(Value, i64),
     /** Open your pin at this index, as your pins are now (needs `open_apps`); not answered. */
     OpenPin(Value, i64),
-    /** Open where you left off (needs `open_apps`); not answered. */
+    /** Open the newest recent place (needs `open_apps`; to go at the next contract); not answered. */
     Continue(Value),
     /** Your last session, if there's one to restore (PRP-035, needs `restore_session`); answered with `msg`. */
     Session(Value),

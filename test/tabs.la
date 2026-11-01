@@ -1,9 +1,7 @@
 // Pages in tabs: starting a guest, events and Restart, leaving a page and
 // resuming it with its saved state. Fixture guests; no display.
 import rapidkoi.bundles.bundle { Bundle, Manifest, write };
-import rapidkoi.window.tabs { AppPage, open_module, open_path, handle, state_of };
-import rapidkoi.window.restarts { resume };
-import rapidkoi.window.leftoff { leave };
+import rapidkoi.window.tabs { AppPage, open_module, open_path, handle, state_of, state_version_of };
 import rapidkoi.ui.render { Msg };
 import rapidkoi.guest.events { Happened, event_for };
 import cbor { Value, encode };
@@ -65,23 +63,6 @@ fun a_crash_stops_the_page_and_events_are_then_ignored() {
 }
 
 @test
-fun leaving_keeps_the_state_and_resume_restores_it() {
-    let p = handle(page(echo()), Msg.Event(t("add"), None));
-    let left = leave(p);
-    assert_eq(left.state.map(event_in), Some(added()));
-    // `init` would give an empty state, so this one can only come from `view(saved)`.
-    assert_eq(state_of(resume(left)).map(event_in), Some(added()));
-}
-
-@test
-fun leaving_a_stopped_page_resumes_fresh() {
-    let p = handle(page(crashing()), Msg.Event(t("add"), None));
-    let left = leave(p);
-    assert_eq(left.state, None);
-    assert_eq(state_of(resume(left)).map(event_in), Some([]));
-}
-
-@test
 fun opening_paths() {
     let engine = Engine.new();
     assert_eq(
@@ -132,7 +113,7 @@ fun opening_a_bundle_uses_its_manifest() {
     assert_eq(p.manifest.map(fun(m: Manifest) = m.version), Some("2.0.1"));
     // The module compiled; the empty module has no memory, so it stops with Restart offered.
     assert_eq(reason_of(p), "This app is missing \"memory\"");
-    assert_eq(leave(p).state_version, 4);
+    assert_eq(state_version_of(p), 4);
 }
 
 @test

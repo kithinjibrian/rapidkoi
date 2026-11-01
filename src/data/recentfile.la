@@ -1,0 +1,182 @@
+/**
+ * The `recent` file (PRP-062): your recent places, newest first, and each of
+ * their apps once with its name and icon. Read as hostile, every field
+ * checked, as the other files in the data folder are. Also reads, once, the
+ * `left-off` file it replaces (DECISION-044): its app becomes a first place.
+ *
+ * Depends on: cbor, data.remembered, window.recent, bundles.rules
+ * Used by: data.saving
+ */
+import cbor { Value };
+import data.remembered { Unreadable, Face, file, root, icon, entry, text, blob };
+import window.recent { Place, Recent, no_recent };
+import bundles.rules { check_host };
+
+/** The most places the file holds. */
+const MAX_PLACES_KEPT: i64 = 100;
+
+/** The file's cap in bytes: its apps' icons are kept with it, as the session's are. */
+const MAX_RECENT_FILE: i64 = 32 * 1024 * 1024;
+
+/** The longest address a place keeps. */
+const MAX_ADDRESS: i64 = 4096;
+
+/** The longest title a place keeps, in bytes. */
+const MAX_TITLE: i64 = 200;
+
+/** The last moment a place can have been seen: the end of year 9999, in milliseconds. */
+const LAST_SEEN: i64 = 253402300799999;
+
+/** The left-off file's cap in bytes, for reading it once. */
+const MAX_LEFT_FILE: i64 = 8 * 1024 * 1024;
+
+/**
+ * Encodes the recent file.
+ *
+ * Example:
+ *     save(s, "recent", recent_file(m.recent))?
+ */
+fun recent_file(r: Recent): u8[] = file("recent", "recent", Value.Map([
+    entry("places", Value.Array(r.places.map(fun(p: Place) {
+        let mut fields = [
+            entry("address", Value.Text(p.address)),
+            entry("path", Value.Text(p.path)),
+            entry("name", Value.Text(p.name)),
+            entry("seen", Value.int(p.seen)),
+        ];
+        if let Some(o) = p.origin {
+            fields.push(entry("origin", Value.Bytes(o)));
+        }
+        if let Some(t) = p.title {
+            fields.push(entry("title", Value.Text(t)));
+        }
+        Value.Map(fields)
+    }))),
+    entry("apps", Value.Array(r.apps.map(fun(a: Face) {
+        let mut fields = [entry("path", Value.Text(a.path)), entry("name", Value.Text(a.name))];
+        if let Some(i) = a.icon {
+            fields.push(entry("icon", Value.Bytes(i)));
+        }
+        Value.Map(fields)
+    }))),
+]));
+
+/**
+ * Reads the recent file: at most 100 places, each an address and app path
+ * of at most 4,096 bytes, a name of 1–64 characters, a title of at most 200
+ * bytes, a time within years 1970 to 9999 and a 32-byte origin; no address
+ * twice. An app's icon breaking the icon rules is dropped.
+ *
+ * Example:
+ *     read_recent(bytes)?
+ */
+fun read_recent(bytes: u8[]): Result<Recent, Unreadable> {
+    let v = root(
+        bytes,
+        "recent",
+        5,
+        16 * MAX_PLACES_KEPT + 8 * MAX_PLACES_KEPT + 16,
+        MAX_RECENT_FILE,
+    )?.get("recent").ok_or(Unreadable.Broken("there are no places"))?;
+    let items = match v.get("places") {
+        Some(Array(xs)) => xs,
+        _ => {
+            return Err(Unreadable.Broken("its places aren't a list"));
+        }
+    };
+    if items.len > MAX_PLACES_KEPT {
+        return Err(Unreadable.Broken("it lists more than {MAX_PLACES_KEPT} places"));
+    }
+    let mut places: Place[] = [];
+    for x of items {
+        let address = text(x, "address").unwrap_or("");
+        let path = text(x, "path").unwrap_or("");
+        if address == "" || address.len > MAX_ADDRESS || path == "" || path.len > MAX_ADDRESS {
+            return Err(Unreadable.Broken("a place's address is empty or too long"));
+        }
+        let name = named(x)?;
+        let title = text(x, "title");
+        if title.map(fun(t: string) = t.len > MAX_TITLE).unwrap_or(false) {
+            return Err(Unreadable.Broken("a place's title is too long"));
+        }
+        let seen = match x.get("seen").and_then(fun(n: Value) = n.as_i64()) {
+            Some(n) if n >= 0 && n <= LAST_SEEN => n,
+            _ => {
+                return Err(Unreadable.Broken("a place's time isn't one"));
+            }
+        };
+        let origin = match blob(x, "origin") {
+            Some(o) if o.len == 32 => Some(o),
+            None => None,
+            _ => {
+                return Err(Unreadable.Broken("a place's app key isn't 32 bytes"));
+            }
+        };
+        if places.any(fun(p: Place) = p.address == address && p.origin == origin) {
+            return Err(Unreadable.Broken("a place is listed twice"));
+        }
+        places.push(Place {
+            address: address,
+            path: path,
+            origin: origin,
+            name: name,
+            title: title,
+            seen: seen,
+        });
+    }
+    let mut apps: Face[] = [];
+    match v.get("apps") {
+        Some(Array(xs)) => {
+            for x of xs {
+                let path = text(x, "path").unwrap_or("");
+                if path == "" || path.len > MAX_ADDRESS || apps.any(fun(a: Face) = a.path == path) {
+                    return Err(Unreadable.Broken("an app is listed twice, or has no path"));
+                }
+                apps.push(Face { path: path, name: named(x)?, icon: icon(blob(x, "icon")) });
+            }
+        }
+        None => {}
+        _ => {
+            return Err(Unreadable.Broken("its apps aren't a list"));
+        }
+    }
+    Ok(Recent { places: places, apps: apps })
+}
+
+/**
+ * Reads the left-off file this one replaces (DECISION-044) into a first
+ * place: its app, at its path, never seen with a time (0). `None` for a
+ * file that isn't a good left-off file: it's dropped either way.
+ *
+ * Example:
+ *     left_place(bytes)
+ */
+fun left_place(bytes: u8[]): Option<(Place, Face)> {
+    let v = root(bytes, "left-off", 4, 64, MAX_LEFT_FILE).ok()?.get("app")?;
+    let name = named(v).ok()?;
+    let path = text(v, "path")?;
+    if path.len > MAX_ADDRESS {
+        return None;
+    }
+    let origin = match text(v, "host") {
+        Some(host) if check_host(host).is_ok() => blob(v, "key").and_then(
+            fun(k: u8[]) = if k.len == 32 { Some(k) } else { None },
+        ),
+        _ => None,
+    };
+    let title = text(v, "title").and_then(
+        fun(t: string) = if t.len <= MAX_TITLE { Some(t) } else { None },
+    );
+    Some(
+        (
+            Place { address: path, path: path, origin: origin, name: name, title: title, seen: 0 },
+            Face { path: path, name: name, icon: icon(blob(v, "icon")) },
+        ),
+    )
+}
+
+/** A name of 1–64 characters. */
+fun named(v: Value): Result<string, Unreadable> = match text(v, "name") {
+    Some(n) if n != "" && n.char_count() <= 64 => Ok(n),
+    _ => Err(Unreadable.Broken("a name is empty or too long")),
+};

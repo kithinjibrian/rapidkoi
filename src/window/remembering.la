@@ -1,0 +1,53 @@
+/**
+ * Recording recent places as windows move (PRP-062), pure: given the window
+ * before and after a message, the open windows it moved through. A window's
+ * place is recorded when it first runs, when its address or title changes,
+ * and when it leaves the front. Closing a window or replacing its app
+ * records it where that happens (`window.window`, `window.navigate`,
+ * `window.choosing`), so Forget can drop what it closes.
+ *
+ * Depends on: window.window, window.tabs, window.recent
+ * Used by: data.saving
+ */
+import window.window { Model };
+import window.tabs { Tab };
+import window.recent { remember, address_of };
+
+/**
+ * Returns `after` with the places its open windows moved through recorded,
+ * the window in front last, so it's the newest.
+ *
+ * Example:
+ *     noted(before, after)
+ */
+fun noted(before: Model, after: Model): Model {
+    let now = if after.now > before.now { after.now } else { before.now };
+    let ordered = after.tabs.filter(fun(t: Tab) = after.current != Some(t.id)) + after.tabs.filter(
+        fun(t: Tab) = after.current == Some(t.id),
+    );
+    let mut r = after.recent;
+    for t of ordered {
+        if moved(before, after, t) {
+            r = remember(r, after.people, t.page, now);
+        }
+    }
+    Model { recent: r, ..after }
+}
+
+/**
+ * Whether a window moved you somewhere: it's newly open or newly running,
+ * its address or title changed, or it left the front.
+ */
+fun moved(before: Model, after: Model, t: Tab): bool {
+    let was = before.tabs.filter(fun(b: Tab) = b.id == t.id);
+    if was.len == 0 {
+        return true;
+    }
+    let b = was[0].page;
+    let ran = match b.screen {
+        Running(_, _, _) => true,
+        _ => false,
+    };
+    let left_front = before.current == Some(t.id) && after.current != Some(t.id);
+    !ran || address_of(b) != address_of(t.page) || b.title != t.page.title || left_front
+}

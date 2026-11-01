@@ -1,7 +1,7 @@
 /**
  * Apps' icons by place (PRP-060), pure: what a built-in app's
  * `icon:PLACE` picture draws. The app's own icon, from wherever Rapidkoi
- * already holds it: your pins, your open windows, where you left off, your
+ * already holds it: your pins, your open windows, your recent places, your
  * last session. Or, for an app it has no icon for (a bare `.wasm`, or one
  * it has never seen), Rapidkoi's mark: the app's initial on a colour from
  * the theme, as the dock draws it. The app naming it never holds the bytes.
@@ -18,7 +18,7 @@ import guest.home { place_of };
  * Returns the icon to draw for the app at `place`: its own, or its initial
  * on a theme colour (`fallback_svg`) when Rapidkoi holds none.
  *
- * @param m the window: its pins, tabs, where you left off and last session
+ * @param m the window: its pins, tabs, recent places and last session
  * @param place a host, or a file's name (`guest.home.place_of`)
  * @returns PNG or SVG bytes, never empty
  *
@@ -43,10 +43,11 @@ fun icon_for(m: Model, place: string): u8[] {
             }
         }
     }
-    if let Some(l) = m.left_off {
-        if place_of(l.path) == place {
-            name = l.name;
-            if let Some(i) = l.icon {
+    // Your recent places' apps (PRP-062), none of them open now perhaps.
+    for f of m.recent.apps {
+        if place_of(f.path) == place {
+            name = f.name;
+            if let Some(i) = f.icon {
                 return i;
             }
         }

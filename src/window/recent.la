@@ -1,0 +1,170 @@
+/**
+ * Recent places (PRP-062, DECISION-044), pure: the places you were, newest
+ * first. A place is a window's address (a site's link with its fields, or
+ * a local file's path) with its app and its last title; opening one opens a
+ * fresh window there, as following the link would. Each app's name and
+ * icon are kept once beside them, as the session keeps its apps' (PRP-060).
+ *
+ * Depends on: data.remembered, net.address, bundles.bundle, window.tabs, people.people
+ * Used by: window.window, window.navigate, window.choosing, window.remembering, data.recentfile, guest.home, ui.suggestions, ui.appicons
+ */
+import data.remembered { Face };
+import net.address { parse, link_of };
+import bundles.bundle { Manifest };
+import window.tabs { AppPage };
+import people.people { People, shows_in_recent };
+
+/** The most places kept. */
+const MAX_RECENT: i64 = 100;
+
+/** Where you were: one window's address, its app and title, and when. */
+struct Place {
+    /** What opens it again: a site's link with its fields, or a local file's path. */
+    address: string,
+    /** Its app's path, as its window names it. */
+    path: string,
+    /** Which app at its address, by first key; `None` when unsigned. */
+    origin: Option<u8[]>,
+    /** Its app's name. */
+    name: string,
+    /** Its screen's title, if it gave one. */
+    title: Option<string>,
+    /** When it was last open, in milliseconds since 1970. */
+    seen: i64,
+}
+
+/** The places you were, newest first, and each of their apps once. */
+struct Recent {
+    places: Place[],
+    apps: Face[],
+}
+
+/**
+ * Returns no places.
+ *
+ * Example:
+ *     no_recent()
+ */
+fun no_recent(): Recent = Recent { places: [], apps: [] };
+
+/**
+ * Records a place: it moves to the front with its newest title and time,
+ * and its app's name and icon are kept (the newest). Past `MAX_RECENT`, the
+ * oldest go, and an app with no place left goes with them.
+ *
+ * Example:
+ *     record(m.recent, place, Face { path: p.path, name: p.name, icon: p.icon })
+ */
+fun record(r: Recent, place: Place, app: Face): Recent {
+    let mut places = [place];
+    for p of r.places {
+        // Two apps at one address are two places (PRP-049): the address and the app name a place.
+        if !(p.address == place.address && p.origin == place.origin) && places.len < MAX_RECENT {
+            places.push(p);
+        }
+    }
+    let mut apps = [app];
+    for a of r.apps {
+        if a.path != app.path {
+            apps.push(a);
+        }
+    }
+    kept(places, apps)
+}
+
+/**
+ * Forgets one app's places: Show in Recent turned off, or the app
+ * forgotten. At an address with several apps, only that one's (its origin).
+ *
+ * Example:
+ *     forget_app(m.recent, page.path, origin)
+ */
+fun forget_app(r: Recent, path: string, origin: Option<u8[]>): Recent = kept(
+    r.places.filter(fun(p: Place) = !(p.path == path && p.origin == origin)),
+    r.apps,
+);
+
+/**
+ * Returns the places matching `query` by title, app name or address,
+ * ignoring ASCII case, newest first; blank matches nothing.
+ *
+ * Example:
+ *     matching(m.recent, "notes")
+ */
+fun matching(r: Recent, query: string): Place[] {
+    let q = lower(query.trim());
+    if q == "" {
+        return [];
+    }
+    r.places.filter(
+        fun(p: Place) = lower(p.name).contains(q) || lower(p.title.unwrap_or("")).contains(
+            q,
+        ) || lower(p.address).contains(q),
+    )
+}
+
+/** The places, and only the apps some place still names. */
+fun kept(places: Place[], apps: Face[]): Recent = Recent {
+    places: places,
+    apps: apps.filter(fun(a: Face) = places.any(fun(p: Place) = p.path == a.path)),
+};
+
+/** ASCII lower case: enough to match what's typed against names and addresses. */
+fun lower(s: string): string {
+    let mut out = "";
+    for c of s.chars() {
+        out = out + "{c.to_lower()}";
+    }
+    out
+}
+
+/**
+ * Records a page's place when it's kept (`shown`): where a window is closed,
+ * or its app replaced, and where it moves while open (`window.remembering`).
+ *
+ * Example:
+ *     remember(m.recent, m.people, page, m.now)
+ */
+fun remember(r: Recent, who: People, p: AppPage, now: i64): Recent = if shown(who, p) {
+    record(r, place_of(p, now), Face { path: p.path, name: p.name, icon: p.icon })
+} else {
+    r
+};
+
+/**
+ * Whether a page's place is kept: it's running, it isn't Rapidkoi's own,
+ * and its app's "Show in Recent" is on (keyed as permissions are).
+ */
+fun shown(who: People, p: AppPage): bool {
+    let running = match p.screen {
+        Running(_, _, _) => true,
+        _ => false,
+    };
+    let key = match p.trust {
+        Some(t) => t.host,
+        None => p.path,
+    };
+    running && !p.path.starts_with("builtin:") && shows_in_recent(who, key)
+}
+
+/**
+ * What opens a page's place again: a site's link with its fields, or a
+ * local file's path.
+ *
+ * Example:
+ *     address_of(page)
+ */
+fun address_of(p: AppPage): string = match parse(p.path) {
+    Ok(a) => link_of(a, p.manifest.map(fun(m: Manifest) = m.version), p.fields),
+    Err(_) => p.path,
+};
+
+/** A page's place, seen now. */
+fun place_of(p: AppPage, now: i64): Place = Place {
+    address: address_of(p),
+    path: p.path,
+    origin: p.trust.map(fun(t) = t.origin),
+    name: p.name,
+    title: p.title,
+    seen: now,
+};

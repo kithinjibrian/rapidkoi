@@ -12,7 +12,7 @@
 
 1. **The wordmark and Restore.** "Rapidkoi" at the start, in the brand gradient (`accent` → `accent_end`, `#ff7700 → #ff2e63`). At the end, only while there's a session to restore, a pill: "Restore previous session", the icons of the apps it brings back, and Restore (primary).
 2. **Notifications**, only while something is unread: the heading with an accent count, See all at its end, then the newest four in two equal columns.
-3. **Recent**: places, not apps. The newest one large in the left half; the next four as small cards, two by two, in the right half.
+3. **Recent** (real since PRP-062, without an app's own picture or summary yet): places, not apps. The newest one large in the left half; the next four as small cards, two by two, in the right half.
 4. **Pinned** (real since PRP-061): the pinned apps as large icons with their names, one line of them, and See all at the heading's end (up to 256 pins; a line never wraps, as contract 9's rows don't and the app doesn't know the window's width).
 
 The page has a faint glow of the brand colours at its top-left corner. Sections are `SPACE_XL` apart; headings are small, bold, spaced capitals in `dim`.

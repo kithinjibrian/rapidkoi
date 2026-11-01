@@ -5,7 +5,7 @@
  * (`loads.la`); the state itself lives in `window.la`. Reads local files
  * (CLAUDE.md rule 3).
  *
- * Depends on: std.fs, kivuli, window.tabs, window.leftoff, window.window, net.address, trust.verify, net.loads, window.upgrades, window.actions
+ * Depends on: std.fs, kivuli, window.tabs, window.window, net.address, trust.verify, net.loads, window.upgrades, window.actions
  * Used by: shell
  */
 import std.fs;
@@ -19,7 +19,8 @@ import window.tabs {
     state_version_of,
     failed_page,
 };
-import window.restarts { resume, load_again };
+import window.restarts { load_again };
+import window.recent { remember };
 import window.upgrades { upgrading, landed };
 import window.notices {
     here,
@@ -34,10 +35,9 @@ import window.notices {
 import window.choosing { asks_which };
 import window.instances { next_instance, next_instance_of, another };
 import data.remembered { Open };
-import window.leftoff { LeftOff, leave, compiled, signer_of };
 import trust.verify { Identity, known_for };
 import std.crypto { equal };
-import net.loads { begin, begin_app, begin_link, begin_restoring, resumed };
+import net.loads { begin, begin_app, begin_link, begin_restoring, resumed, begin_place };
 import window.apps { tab_of };
 import window.pins { pins_app };
 import kivuli { Cmd };
@@ -86,7 +86,7 @@ fun go(m: Model): (Model, Cmd<Msg>) {
 
 /**
  * Opens a local app file or address: in a new tab from home, or in place
- * of the current tab's app (which becomes "where you left off"). A file
+ * of the current tab's app (its place kept in Recent, PRP-062). A file
  * opens at once; an address loads in the background (PRP-008). A link
  * (PRP-036) opens at its version; one with fields always in a new window.
  *
@@ -122,9 +122,14 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
         // The app in this tab gives way to the new one, which starts as its
         // first instance: the old one's name and key don't carry over.
         Some(id) if app(m, id).is_some() => (
-            Model {
-                left_off: app(m, id).map(leave),
-                ..with_tab(m, id, fun(_: AppPage) = failed_page(path, "")),
+            {
+                // Its place is kept (PRP-062); its window's state goes with it (session 189).
+                let mut kept = m;
+                if let Some(a) = app(m, id) {
+                    kept = Model { recent: remember(m.recent, m.people, a, m.now), ..m };
+                    close_page(a);
+                }
+                with_tab(kept, id, fun(_: AppPage) = failed_page(path, ""))
             },
             id,
         ),
@@ -299,65 +304,6 @@ fun open_pin(m: Model, path: string, origin: Option<u8[]>): (Model, Cmd<Msg>) = 
 };
 
 /**
- * Reopens the last app closed, with its saved state, in a new tab.
- *
- * Example:
- *     reopen(m)
- */
-fun reopen(m: Model): (Model, Cmd<Msg>) = match m.left_off {
-    // Already open again (reopened at launch, PRP-034): shown, not started twice.
-    Some(l) if instance_open(m, l).is_some() => (
-        show_tab(m, instance_open(m, l).unwrap_or(-1)),
-        Cmd.none(),
-    ),
-    Some(l) if compiled(l) => (Model { left_off: None, ..add_tab(m, resume(l)) }, Cmd.none()),
-    // Remembered from an earlier run: open its path again; a signed app's
-    // state comes back from states/. Kept until it runs: a failed load
-    // leaves Continue in place.
-    Some(l) => {
-        let id = slot(m);
-        let tab = add_tab(m, failed_page(l.path, ""));
-        if is_address(l.path) && parse(l.path).is_ok() {
-            // The app it was (PRP-049): its key names it among those at its address.
-            return match left_origin(m, l) {
-                Some(o) => begin_app(tab, id, l.path, o),
-                None => begin(tab, id, l.path, false, None, []),
-            };
-        }
-        let opened = open_path(m.engine, m.ring, l.path);
-        let (page, notice) = resumed(tab, opened, opened.link);
-        let left = if state_of(page).is_some() { None } else { Some(l) };
-        (
-            told(Model { left_off: left, ..with_tab(tab, id, fun(_: AppPage) = page) }, id, notice),
-            Cmd.none(),
-        )
-    }
-    None => (m, Cmd.none()),
-};
-
-/** The first key of a left-off's app, from the key it was signed with: `None` when unsigned or unknown. */
-fun left_origin(m: Model, l: LeftOff): Option<u8[]> {
-    let (host, key) = signer_of(l)?;
-    let i = known_for(m.ring, host).iter().find(fun(i: Identity) = equal(i.key, key))?;
-    Some(i.origin)
-}
-
-/** The tab showing a left-off's app as the same instance, if one is open. */
-fun instance_open(m: Model, l: LeftOff): Option<i64> {
-    for t of m.tabs {
-        // The same app (PRP-049): at an address with several, the one with its key.
-        let theirs = match (signer_of(l), t.page.trust) {
-            (Some((_, k)), Some(tr)) => equal(k, tr.key) || equal(k, tr.origin),
-            _ => true,
-        };
-        if same_app(t.page.path, l.path) && theirs && t.page.instance == l.instance {
-            return Some(t.id);
-        }
-    }
-    None
-}
-
-/**
  * ⟳ Reload: loads the current app again from its file or server and
  * continues with its current state when the state's shape is unchanged; a
  * changed shape starts fresh, with a notice. A stopped page starts fresh.
@@ -455,4 +401,29 @@ fun on_pin(
         let tab = opened.current.unwrap_or(-1);
         (Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget(tab)), ..opened }, cmd)
     }
+};
+
+/**
+ * Opens a recent place (PRP-062): a fresh window at its address. Without
+ * fields it opens as a pin does (its app's open tab, or that exact app
+ * again); a link's fields open a new window for that exact app, at them.
+ *
+ * Example:
+ *     open_place(m, "rapidkoi://notes.dafifi.net/@0.9.0?note=3", origin)
+ */
+fun open_place(m: Model, to: string, origin: Option<u8[]>): (Model, Cmd<Msg>) = match (
+    parse(to),
+    origin,
+) {
+    (Ok(a), Some(o)) if is_address(to) && a.fields.len > 0 => {
+        let path = without_link(to);
+        let home = Model { draft: "", editing: false, ..go_home(m) };
+        let placed = add_tab(home, AppPage {
+            instance: next_instance(home, path),
+            ..failed_page(path, ""),
+        });
+        begin_place(placed, placed.current.unwrap_or(-1), path, a.version, a.fields, o)
+    },
+    (Ok(_), Some(_)) if is_address(to) => open_pin(m, without_link(to), origin),
+    _ => open_file(Model { draft: "", editing: false, ..go_home(m) }, to),
 };

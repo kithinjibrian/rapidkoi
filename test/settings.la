@@ -13,7 +13,7 @@ import kivuli { View };
 import kivuli.testing { click, flip, texts, type_into };
 import wasmtime { Engine, Module };
 import support { echo };
-import rapidkoi.people.people { looks_of };
+import rapidkoi.people.people { looks_of, shows_in_recent };
 import rapidkoi.people.access { key_of };
 
 fun plain(): AppPage {
@@ -204,4 +204,21 @@ fun the_card_switches_an_app_to_your_colours_and_text_size() {
     assert_eq(looks_of(after.people, key_of(after.tabs[0].page)), (true, false));
     let both = step(after, flip(card(after, PanelPage.Main), "use_my_text_size").unwrap());
     assert_eq(looks_of(both.people, key_of(both.tabs[0].page)), (true, true));
+}
+
+@test
+fun the_card_takes_an_app_out_of_recent_and_its_places_go() {
+    // PRP-062: Show in Recent, on by default; off, the app's places go and none are kept.
+    let m = step(step(window(plain()), Msg.NewTab), Msg.Select(0));
+    assert_eq(m.recent.places.len, 1);
+    let opened = step(m, Msg.TogglePanel);
+    let v = card(opened, PanelPage.Main);
+    assert(shows(v, "Show in Recent"));
+    let off = step(opened, flip(v, "show_in_recent").unwrap());
+    assert_eq(shows_in_recent(off.people, key_of(off.tabs[0].page)), false);
+    assert_eq(off.recent.places.len, 0);
+    // Moving on records nothing for it now.
+    assert_eq(step(off, Msg.NewTab).recent.places.len, 0);
+    let on = step(off, flip(card(off, PanelPage.Main), "show_in_recent").unwrap());
+    assert_eq(shows_in_recent(on.people, key_of(on.tabs[0].page)), true);
 }

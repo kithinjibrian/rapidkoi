@@ -26,7 +26,7 @@ import window.tabs { AppPage, state_of };
 import window.window { Model, page_of };
 import people.account { Account, account_of, generation_for };
 import people.access { Access, access_of, key_of };
-import people.people { Person, looks_of, name_in };
+import people.people { Person, looks_of, name_in, shows_in_recent };
 import people.identity { public_key };
 import trust.keys { fingerprint };
 import guest.nodes { ButtonLook };
@@ -209,6 +209,18 @@ fun front(m: Model, p: AppPage, you: Account, reach: Access): View<Msg> {
                 fun(on: bool) = Msg.OwnLooks(key, colours, on),
             ),
         );
+        // Whether its places are kept (PRP-062); Rapidkoi's own apps are never recorded.
+        if !p.path.starts_with("builtin:") {
+            app_rows.push(
+                switch_row(
+                    t,
+                    "Show in Recent",
+                    "show_in_recent",
+                    shows_in_recent(m.people, key),
+                    fun(on: bool) = Msg.ShowInRecent(key, on),
+                ),
+            );
+        }
     }
     if app_rows.len > 0 {
         parts.push(section(t, "App settings", app_rows));

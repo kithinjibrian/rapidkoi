@@ -3,7 +3,8 @@
 // Fixture guests; no display.
 import rapidkoi.shell { start, update };
 import rapidkoi.ui.layout { view };
-import rapidkoi.window.window { card, page_of, Model, with_pages, title_of };
+import rapidkoi.window.window { page_of, Model, with_pages, title_of };
+import rapidkoi.window.recent { Place };
 import rapidkoi.window.actions { Msg, Confirm, PanelPage };
 import rapidkoi.bundles.bundle { Manifest };
 import rapidkoi.bundles.permissions { Permission, Setting };
@@ -106,35 +107,27 @@ fun new_tab_and_home_show_an_empty_tab_and_keep_every_app() {
     assert_eq(ev(page(home, 0)), Some(added()));
 }
 
+/** Your recent places' app names, newest first. */
+fun names(m: Model): string[] = m.recent.places.map(fun(p: Place) = p.name);
+
 @test
-fun where_you_left_off_selects_an_open_app() {
-    let m = step(step(two(), Msg.Select(1)), Msg.Home);
-    assert_eq(card(m).map(fun(c) = c.msg), Some(Msg.Select(1)));
-    assert_eq(step(m, Msg.Select(1)).current, Some(1));
+fun leaving_and_closing_apps_record_their_places() {
+    // PRP-062: where you were, newest first; nothing revives a closed window.
+    let m = step(two(), Msg.Select(1));
+    assert_eq(names(m), ["a"]);
+    let closed = step(m, Msg.CloseTab(1));
+    assert_eq(names(closed), ["b", "a"]);
+    assert_eq(closed.recent.places[0].address, "b.wasm");
 }
 
 @test
-fun a_closed_app_reopens_with_its_state() {
+fun a_recent_place_opens_fresh_at_its_address() {
+    // DECISION-044: a place opens a new window at its link; the closed window's state is gone.
     let closed = step(step(two(), add(0)), Msg.CloseTab(0));
-    assert_eq(closed.current, Some(1));
-    let home = step(closed, Msg.Home);
-    // Tab 1 is still open and was visited last, so it's the card; close it too.
-    let both = step(step(home, Msg.Select(1)), Msg.CloseTab(1));
-    // The empty tab from Home is what's left (PRP-024).
-    assert(on_home(both));
-    assert_eq(card(both).map(fun(c) = c.msg), Some(Msg.Continue));
-    let back = step(both, Msg.Continue);
-    assert_eq(back.tabs.len, 1);
-    assert_eq(back.left_off.is_none(), true);
-}
-
-@test
-fun continue_restores_the_closed_apps_state() {
-    let closed = step(step(two(), add(0)), Msg.CloseTab(0));
-    let back = step(step(closed, Msg.Home), Msg.Continue);
-    let reopened = page(back, back.current.unwrap());
-    // init gives [], so this state comes from view(saved state).
-    assert_eq(ev(reopened), Some(added()));
+    let back = step(closed, Msg.OpenPlace(closed.recent.places[0].address, None));
+    assert_eq(back.tabs.len, 2);
+    // Its file doesn't exist here, so the new window shows why: it was opened anew.
+    assert_eq(texts(view(back)).any(fun(s: string) = s.starts_with("Couldn't read a.wasm")), true);
 }
 
 @test
@@ -172,7 +165,8 @@ fun the_address_box_on_an_app_replaces_its_app() {
     let replaced = step(step(editing, Msg.Draft("lugha.toml")), Msg.Go);
     assert_eq(replaced.tabs.len, 2);
     assert_eq(page(replaced, 0).name, "lugha.toml");
-    assert_eq(replaced.left_off.map(fun(l) = l.name), Some("a"));
+    // The app it replaced is kept as a recent place (PRP-062).
+    assert_eq(names(replaced).any(fun(n: string) = n == "a"), true);
 }
 
 @test
@@ -228,7 +222,8 @@ fun forget_asks_then_removes_everything() {
     let gone = step(asking, Msg.Forget);
     assert_eq(gone.tabs.len, 1);
     assert_eq(gone.pinned.len, 0);
-    assert_eq(gone.left_off.is_none(), true);
+    // Its places go too (PRP-062).
+    assert_eq(gone.recent.places.len, 0);
     assert_eq(gone.panel.is_none(), true);
 }
 

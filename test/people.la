@@ -56,6 +56,7 @@ fun switches_and_seen_servers_round_trip() {
 @test
 fun settings_round_trip_and_forgetting_removes_one_app() {
     let mut ps = People {
+        unlisted: [],
         first: "Brian",
         last: "Kithinji",
         apps: [],
@@ -80,6 +81,7 @@ fun settings_round_trip_and_forgetting_removes_one_app() {
 @test
 fun an_app_s_own_name_wins_else_the_one_for_every_app() {
     let mut ps = People {
+        unlisted: [],
         first: "Brian",
         last: "Kithinji",
         apps: [],
