@@ -5,6 +5,8 @@ import rapidkoi.shell { update };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.addressbox;
 import rapidkoi.ui.layout;
+import rapidkoi.ui.icons { Icon, icon, filled };
+import rapidkoi.ui.schemes { DARK };
 import rapidkoi.window.actions { Msg, Confirm };
 import rapidkoi.window.tabs { AppPage, open_module };
 import kivuli.testing { click, press, type_into, submit };
@@ -87,4 +89,11 @@ fun the_settings_card_steps_aside_while_a_dialog_asks() {
     assert_eq(addressbox.card_open(asking), false);
     // Cancel: the card comes back where it was.
     assert_eq(addressbox.card_open(step(asking, Msg.Cancel)), true);
+}
+
+@test
+fun the_star_is_filled_in_the_brand_colour_while_the_app_is_pinned() {
+    // PRP-061: pinned, the ☆ is the accent-filled star; else the text-coloured outline.
+    assert_eq(addressbox.pin_icon(true, DARK), filled(Icon.Star, DARK.accent));
+    assert_eq(addressbox.pin_icon(false, DARK), icon(Icon.Star, DARK.text));
 }

@@ -134,3 +134,21 @@ fun icon(i: Icon, colour: string): Image = Image.Bytes(
     "icon:{file(i)}:{colour}",
     recolour(svg(i), colour).to_bytes(),
 );
+
+/**
+ * Returns an outline icon filled as well as stroked in `colour` (PRP-061):
+ * the ☆ while the app shown is pinned. Keyed apart from the outline one.
+ *
+ * @param i an icon drawn with a white stroke
+ * @param colour a theme colour, `#rrggbb`
+ * @returns the SVG as image bytes
+ *
+ * Example:
+ *     image(filled(Icon.Star, t.accent))
+ */
+fun filled(i: Icon, colour: string): Image = Image.Bytes(
+    "icon:{file(i)}:filled:{colour}",
+    recolour(svg(i), colour).split("stroke=\"{colour}\"").join(
+        "fill=\"{colour}\" stroke=\"{colour}\"",
+    ).to_bytes(),
+);

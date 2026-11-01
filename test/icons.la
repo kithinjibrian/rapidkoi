@@ -1,6 +1,6 @@
 // Rapidkoi's own icons (PRP-019): the Iconsax SVGs built in from
 // assets/icons/ (PRP-029), each drawn in a theme colour. No display.
-import rapidkoi.ui.icons { Icon, ALL, svg, icon, recolour };
+import rapidkoi.ui.icons { Icon, ALL, svg, icon, recolour, filled };
 import kivuli { Image };
 
 @test
@@ -26,4 +26,16 @@ fun an_icon_is_keyed_by_its_name_and_colour() {
         recolour(svg(Icon.Home), "#e8e8e8").to_bytes(),
     );
     assert_eq(icon(Icon.Home, "#e8e8e8"), expected);
+}
+
+@test
+fun a_filled_icon_is_filled_and_stroked_in_its_colour_and_keyed_apart() {
+    // PRP-061: the ☆ while the app shown is pinned, in the brand colour.
+    let star = filled(Icon.Star, "#ff7700");
+    let bytes = recolour(svg(Icon.Star), "#ff7700").split("stroke=\"#ff7700\"").join(
+        "fill=\"#ff7700\" stroke=\"#ff7700\"",
+    );
+    assert_eq(star, Image.Bytes("icon:star.svg:filled:#ff7700", bytes.to_bytes()));
+    assert(bytes.contains("fill=\"#ff7700\" stroke=\"#ff7700\""));
+    assert(star != icon(Icon.Star, "#ff7700"));
 }
