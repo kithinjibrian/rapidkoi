@@ -3,26 +3,12 @@
  * computer and matches what was typed. Nothing typed leaves the computer;
  * an app's screens join once links exist.
  *
- * Depends on: kivuli, window.actions, window.tabs
- * Used by: ui.addressbox, window.window
+ * Depends on: window.actions, window.tabs, window.recent
+ * Used by: ui.addressbox
  */
-import kivuli { Image };
 import window.actions { Msg };
 import window.tabs { Tab, Pin };
-
-/** "Where you left off": the app and its last screen, and what Continue sends. */
-struct Card {
-    /** The app's name. */
-    name: string,
-    /** Its last screen's title, if any. */
-    title: Option<string>,
-    /** `Select(id)` for an open tab, `Continue` for a closed app. */
-    msg: Msg,
-    /** The app's file or address, for its menu's Forget. */
-    path: string,
-    /** The app's icon, keyed, if it has one. */
-    icon: Option<Image>,
-}
+import window.recent { Place };
 
 /** One suggestion: what it's called, and what choosing it sends. */
 struct Suggestion {
@@ -30,24 +16,25 @@ struct Suggestion {
     label: string,
     /** Its screen's title, when it has one. */
     detail: Option<string>,
-    /** `Select(id)` for an open tab, `OpenPinned(path, origin)` for a pin, `Continue` for a closed app. */
+    /** `Select(id)` for an open tab, `OpenPinned(path, origin)` for a pin, `OpenPlace(address, origin)` for a recent place. */
     msg: Msg,
 }
 
 /**
  * Returns what matches `query` by name or screen title, ignoring case:
- * open tabs, then pins, then where-you-left-off when it's closed.
+ * open tabs, then pins, then your recent places whose apps aren't open
+ * (PRP-062).
  *
  * @param query what's typed; blank suggests nothing
  * @param open the open tabs
  * @param pinned the pinned apps
- * @param card where you left off, if anywhere
+ * @param places your recent places, newest first
  * @returns the suggestions, in that order
  *
  * Example:
- *     suggest("count", m.tabs, m.pinned, window.card(m))
+ *     suggest("count", m.tabs, m.pinned, m.recent.places)
  */
-fun suggest(query: string, open: Tab[], pinned: Pin[], card: Option<Card>): Suggestion[] {
+fun suggest(query: string, open: Tab[], pinned: Pin[], places: Place[]): Suggestion[] {
     let q = query.trim();
     let mut found: Suggestion[] = [];
     if q == "" {
@@ -71,10 +58,15 @@ fun suggest(query: string, open: Tab[], pinned: Pin[], card: Option<Card>): Sugg
             });
         }
     }
-    // An open tab is already among the tabs above; only a closed app is added.
-    if let Some(c) = card {
-        if c.msg == Msg.Continue && matches(q, c.name, c.title) {
-            found.push(Suggestion { label: c.name, detail: c.title, msg: Msg.Continue });
+    // An open app is already among the tabs above; only a closed one's places are added.
+    for p of places {
+        let open_now = open.any(fun(t: Tab) = t.page.path == p.path);
+        if !open_now && matches(q, p.name, p.title) {
+            found.push(Suggestion {
+                label: p.name,
+                detail: p.title,
+                msg: Msg.OpenPlace(p.address, p.origin),
+            });
         }
     }
     found

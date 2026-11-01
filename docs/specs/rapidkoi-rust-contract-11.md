@@ -24,3 +24,12 @@ Contract 11 is contract 10 with icons, and Rapidkoi runs **only** contract 11 (`
 ## Done
 
 Tagged `v0.5.0-pre.1` and pushed (2026-11-01); `guest/rust` moved to it, the built-ins repacked and `./main` rebuilt. Notes needs its icon, then Notes and the counter are republished, asked for separately.
+
+## Next: `v0.5.0-pre.2` (PRP-062)
+
+Additions to contract 11, nothing removed; apps on `pre.1` keep working.
+
+1. **`Ask::recent(msg)`**: answered as `Data`, read with `Recent::read` into `Vec<RecentPlace { name, place, icon, address, title, seen }>`, newest first.
+2. **`Ask::open_recent(msg, index)`**: opens that place as the places are now.
+
+Tagged `v0.5.0-pre.2` and pushed (2026-11-02); `guest/rust` moved to it, the built-ins repacked and `./main` rebuilt.

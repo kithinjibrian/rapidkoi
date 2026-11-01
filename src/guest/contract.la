@@ -78,7 +78,8 @@ fun read_state(bytes: u8[]): Result<(Value, u8[]), ContractError> {
 /**
  * Reads what the guest's `handle` returned: the state and what it asks
  * for, its address's fields and their kinds, checked (at most `MAX_EFFECTS`; `identity`, `sign`, `fetch`, and
- * PRP-030's `pins`, `left_off`, `open_pin` and `continue`, whose
+ * PRP-030's `pins`, `left_off`, `open_pin` and `continue`, PRP-062's
+ * `recent` and `open_recent`, whose
  * permissions `effects` checks; a challenge of 1 to `MAX_CHALLENGE` bytes;
  * every one with a `msg`).
  *
@@ -110,6 +111,8 @@ fun read_update(bytes: u8[]): Result<Update, ContractError> {
             effects.push(Effect.LeftOff(msg));
         } else if kind == "continue" {
             effects.push(Effect.Continue(msg));
+        } else if kind == "recent" {
+            effects.push(Effect.Recent(msg));
         } else if kind == "session" {
             effects.push(Effect.Session(msg));
         } else if kind == "restore_session" {
@@ -150,6 +153,15 @@ fun read_update(bytes: u8[]): Result<Update, ContractError> {
                 Some(Some(i)) if i >= 0 => effects.push(Effect.OpenPin(msg, i)),
                 _ => {
                     return Err(nodes.invalid("update", "an open_pin needs an index of 0 or more"));
+                }
+            }
+        } else if kind == "open_recent" {
+            match e.get("index").map(fun(i: Value) = i.as_i64()) {
+                Some(Some(i)) if i >= 0 => effects.push(Effect.OpenRecent(msg, i)),
+                _ => {
+                    return Err(
+                        nodes.invalid("update", "an open_recent needs an index of 0 or more"),
+                    );
                 }
             }
         } else if kind == "fetch" {

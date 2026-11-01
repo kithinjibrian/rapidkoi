@@ -4,6 +4,7 @@
 // first, and whoever signs the site decides which app is live.
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg, ShieldPage };
+import rapidkoi.window.window { Model };
 import rapidkoi.commands.publish { make_key, publish_site };
 import kivuli.testing { click };
 import std.fs;
@@ -65,12 +66,12 @@ fun the_named_app_opens_in_place_and_your_version_is_where_you_left_off() {
     let bob = tab_of(bobs, "Bob's Notes");
     assert_eq(bob.trust.map(fun(t) = t.separate), Some(true));
     assert(!moved(bob));
-    // Its own empty data, its own copy; your version kept, and Continue
-    // brings its window back as it was.
+    // Its own empty data, its own copy; your version kept, and its recent
+    // place (PRP-062) opens it again.
     assert(shows(bobs, "Count: 0"));
     assert_eq(kept_count(bobs.store.unwrap()), 2);
-    let back = step(bobs, Msg.Continue);
-    assert(shows(on(back, "Counting"), "Count: 1"));
+    let back = step(bobs, back_to(bobs, "Counting"));
+    assert_eq(page_name(on(back, "Counting")), "Counting");
     finish(back, dir);
 }
 
@@ -133,7 +134,7 @@ fun a_third_key_with_no_trail_is_a_third_app() {
 }
 
 @test
-fun pins_continue_and_the_session_reopen_the_exact_app() {
+fun pins_recent_places_and_the_session_reopen_the_exact_app() {
     let (two, dir) = both(18866, "exact");
     let path = "rapidkoi://localhost:18866";
     let pinned = step(on(step(two, Msg.TogglePin), "Counting"), Msg.TogglePin);
@@ -142,9 +143,9 @@ fun pins_continue_and_the_session_reopen_the_exact_app() {
     // Each pin opens its own app's tab.
     let shown = step(pinned, Msg.OpenPinned(path, bob));
     assert_eq(page_name(shown), "Bob's Notes");
-    // Closed, Continue brings back the app closed last, never the other.
+    // Closed, its recent place brings back that app, never the other (PRP-062).
     let closed = step(shown, Msg.CloseTab(shown.current.unwrap()));
-    let back = step(closed, Msg.Continue);
+    let back = step(closed, back_to(closed, "Bob's Notes"));
     assert_eq(page_name(back), "Bob's Notes");
     // A restart restores each window as its own app.
     let s = back.store.unwrap();
@@ -162,7 +163,8 @@ fun forget_takes_one_app_and_leaves_the_other() {
     assert_eq(gone.pinned.len, 1);
     assert_eq(gone.pinned[0].origin, origin_of(tab_of(gone, "Counting")));
     assert_eq(kept_count(gone.store.unwrap()), 1);
-    assert(shows(on(gone, "Counting"), "Count: 1"));
+    // Yours stays: back from its recent place, opened fresh (DECISION-044).
+    assert_eq(page_name(on(gone, "Counting")), "Counting");
     finish(gone, dir);
 }
 
@@ -172,4 +174,14 @@ fun a_pin_from_before_asks_which_app() {
     let asked = step(two, Msg.OpenPinned("rapidkoi://localhost:18868", None));
     assert(shows(asked, "Which app?"));
     finish(two, dir);
+}
+
+/** Opening the newest recent place of the app called `name` (PRP-062). */
+fun back_to(m: Model, name: string): Msg {
+    for p of m.recent.places {
+        if p.name == name {
+            return Msg.OpenPlace(p.address, p.origin);
+        }
+    }
+    panic("no recent place for {name}")
 }

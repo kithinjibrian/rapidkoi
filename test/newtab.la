@@ -11,7 +11,8 @@ import rapidkoi.data.pinfiles { pins_file };
 import std.fs;
 import rapidkoi.shell { start, start_with, update };
 import rapidkoi.guest.nodes { Node };
-import support { newtab_stand_in, echo_opening, asking, ask, event_in, holds, png };
+import rapidkoi.window.recent { Place };
+import support { newtab_stand_in, echo_opening, asking, ask, event_in, holds, png, write_counting };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
@@ -141,9 +142,9 @@ fun an_app_tab_doesnt() {
     let m = fresh();
     let opened = step(step(m, Msg.Draft("lugha.toml")), Msg.Go);
     assert(!shows(opened, "Rapidkoi"));
-    // The new-tab app is no tab, pin or "left off".
+    // The new-tab app is no tab, pin or recent place.
     assert_eq((opened.tabs.len, opened.pinned.len), (1, 0));
-    assert(opened.left_off.is_none());
+    assert(!opened.recent.places.any(fun(p: Place) = p.path.starts_with("builtin:")));
 }
 
 @test
@@ -235,4 +236,22 @@ fun the_new_tab_shows_your_pins_and_a_pin_opens_its_app() {
     fs.remove_file("{dir}/pins").unwrap();
     // No pins: no Pinned.
     assert(!shows(fresh(), "PINNED"));
+}
+
+@test
+fun an_app_you_closed_is_on_recent_and_its_card_opens_it_again() {
+    // PRP-062: the real new tab's Recent, from your recent places.
+    let path = "test/tmp/newtab-recent.wasm";
+    write_counting(path);
+    let (m, _) = start(["./main", path], None);
+    let closed = step(m, Msg.CloseTab(m.current.unwrap()));
+    assert(shows(closed, "RECENT"));
+    let name = closed.recent.places[0].name;
+    assert(shows(closed, name));
+    let pressed = click(view(closed), name).unwrap();
+    let (_, c) = update(closed, pressed);
+    assert_eq(later(c), [Msg.OpenPlace(path, None)]);
+    fs.remove_file(path).unwrap();
+    // No places: no Recent.
+    assert(!shows(fresh(), "RECENT"));
 }

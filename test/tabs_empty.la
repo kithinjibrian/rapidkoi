@@ -3,7 +3,7 @@
 // order. Fixture guests; no display.
 import rapidkoi.shell { start, update };
 import rapidkoi.ui.sidebar;
-import rapidkoi.window.window { page_of, card, Model, with_pages };
+import rapidkoi.window.window { page_of, Model, with_pages };
 import rapidkoi.window.actions { Msg, TabAction };
 import rapidkoi.window.tabs { AppPage, Page, Pin, open_module };
 import kivuli.testing { click, pick, press };
@@ -124,6 +124,6 @@ fun home_shows_an_empty_tab() {
     assert_eq(home.blanks.len, 1);
     // On an empty tab already: it stays.
     assert_eq(step(home, Msg.Home).blanks.len, 1);
-    // The app is still "where you left off".
-    assert_eq(card(home).map(fun(c) = c.msg), Some(Msg.Select(0)));
+    // The app left the front: it's your newest recent place (PRP-062).
+    assert_eq(home.recent.places[0].name, "a");
 }

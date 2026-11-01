@@ -161,7 +161,7 @@ Each has a `kind` and a `msg` (any CBOR value, carried back in the reply):
 | `sql`, `sql_batch` | its database (below) | `on_answer` or `on_fail` |
 | `blob_get`, `blob_list` | its blobs (below) | `on_answer` or `on_fail` |
 | `file_open`, `file_save`, `file_save_as` | one of the person's files, chosen in Rapidkoi's dialog (below, PRP-056) | `on_answer` (`null` when cancelled) or `on_fail` |
-| `pins`, `left_off`, `open_pin` + `index`, `continue`, `session`, `restore_session` | the new tab's built-in permissions. A place is `{ "name", "place", "icon" }` (`icon` is `"icon:PLACE"`, never the icon's bytes; PRP-060); `session` is `{ "count", "apps": [place] }`, each app once | `on_answer` |
+| `pins`, `open_pin` + `index`, `recent`, `open_recent` + `index`, `session`, `restore_session` | the new tab's built-in permissions. A place is `{ "name", "place", "icon" }` (`icon` is `"icon:PLACE"`, never the icon's bytes; PRP-060); `session` is `{ "count", "apps": [place] }`, each app once; `recent` (PRP-062, an addition) is `{ "places": [place + "address", "title"?, "seen"] }`, your recent places newest first, at most 64 (`address` as the address box shows it: a site's link with its fields, or a file's name; `seen` in ms), and `open_recent` opens one as they are now, a fresh window at its address. `left_off` and `continue` answer from the newest place, and go at the next contract version | `on_answer` |
 
 A bad ask stops the app with its sentence.
 

@@ -2,9 +2,10 @@
 //! `./main`. A copy of its target design (`docs/designs/newtab-target.md`,
 //! board A5), becoming real a part at a time. Real: Restore, which asks for
 //! your last session each time the tab is shown and shows its apps' icons
-//! (PRP-060: `icon:PLACE`, drawn by Rapidkoi), and Pinned, your pins, each
-//! opening its app (PRP-061). Still placeholders, doing nothing:
-//! notifications and Recent.
+//! (PRP-060: `icon:PLACE`, drawn by Rapidkoi); Pinned, your pins, each
+//! opening its app (PRP-061); and Recent, your recent places, each opening a
+//! fresh window there (PRP-062). Still placeholders, doing nothing:
+//! notifications.
 //!
 //! Drawn with contract 10's looks (PRP-059): gradients for the washes, the
 //! page's glow and Rapidkoi's mark; layers for a face or an icon with
@@ -12,8 +13,7 @@
 //! the two-column sections, which fall to one column on a narrow window;
 //! a fitting row for Pinned. What stays a picture in `assets/` (packed by
 //! `scripts/newtab.sh`): the wordmark (GTK can't fill text with a
-//! gradient), the beach (the picture a real app would give its place), and
-//! the apps' icons.
+//! gradient), and the notifications' placeholder icons.
 
 use minicbor::{Decode, Encode};
 use rapidkoi::raw::boxed;
@@ -22,13 +22,12 @@ use rapidkoi::style::{
     TextSize, Weight, When,
 };
 use rapidkoi::{
-    column, fit, image, layers, row, spacer, text, wrap, App, Ask, Event, Fit, Message, Next, Session, Space, State,
-    View,
+    column, fit, image, layers, row, spacer, text, text_of, wrap, App, Ask, Event, Message, Next, Recent, Session,
+    Space, State, View,
 };
 
 /// Every picture the screen shows, each packed from `assets/` under its name.
-const ASSETS: [&str; 7] =
-    ["wordmark.svg", "beach.svg", "notes.svg", "counter.svg", "trip.svg", "settings.svg", "board.svg"];
+const ASSETS: [&str; 4] = ["wordmark.svg", "notes.svg", "trip.svg", "board.svg"];
 
 /// The card colour behind a badge's ring, so the ring reads as a gap.
 const CARD: (u8, u8, u8) = (0x1e, 0x1e, 0x1e);
@@ -42,6 +41,8 @@ enum Msg {
     Restore,
     /// Open the pin at this place in your pins.
     OpenPin(u32),
+    /// Open your recent place at this index (PRP-062).
+    OpenRecent(u32),
 }
 
 /// One of your pins as the new tab shows it: its name and its icon's source (`icon:PLACE`).
@@ -61,6 +62,23 @@ struct NewTab {
     restore: Option<Vec<String>>,
     /// Your pins, in your order, as last read.
     pins: Vec<Pin>,
+    /// Your recent places, newest first, as last read (PRP-062).
+    recent: Vec<Spot>,
+}
+
+/// One of your recent places as the new tab shows it.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+struct Spot {
+    #[n(0)]
+    name: String,
+    #[n(1)]
+    icon: String,
+    #[n(2)]
+    address: String,
+    #[n(3)]
+    title: Option<String>,
+    #[n(4)]
+    seen: i64,
 }
 
 impl App for NewTab {
@@ -73,7 +91,8 @@ impl App for NewTab {
 
     fn view(&self) -> V {
         // The page fills the window's width (the owner's choice over the design's cap).
-        let mut sections = vec![top(&self.restore), notifications(), recent()];
+        let mut sections = vec![top(&self.restore), notifications()];
+        sections.extend(recent(&self.recent));
         sections.extend(pinned(&self.pins));
         let page =
             column(sections).style([Spacing::padding_xy(Space::Px(32), Space::Px(36)), Spacing::gap(Space::Px(32))]);
@@ -104,7 +123,7 @@ impl NewTab {
         match event {
             // Each time it's shown, or told something changed: the session and your pins may have.
             Event::Opened | Event::Resume | Event::Change { .. } => {
-                (self, vec![Ask::session("session"), Ask::pins("pins")])
+                (self, vec![Ask::session("session"), Ask::pins("pins"), Ask::recent("recent")])
             }
             Event::Data { msg, cbor } if msg == "pins" => {
                 let pins = rapidkoi::Place::list(&cbor).unwrap_or_default();
@@ -121,6 +140,15 @@ impl NewTab {
             Event::Answer { msg, .. } if msg == "session" => (NewTab { restore: None, ..self }, vec![]),
             Event::Message { msg: Msg::Restore, .. } => (self, vec![Ask::restore_session("restore")]),
             Event::Message { msg: Msg::OpenPin(i), .. } => (self, vec![Ask::open_pin("open", i)]),
+            Event::Data { msg, cbor } if msg == "recent" => {
+                let places = Recent::read(&cbor).unwrap_or_default();
+                let spots = places
+                    .into_iter()
+                    .map(|p| Spot { name: p.name, icon: p.icon, address: p.address, title: p.title, seen: p.seen })
+                    .collect();
+                (NewTab { recent: spots, ..self }, vec![])
+            }
+            Event::Message { msg: Msg::OpenRecent(i), .. } => (self, vec![Ask::open_recent("open", i)]),
             _ => (self, vec![]),
         }
     }
@@ -346,57 +374,71 @@ fn notifications() -> V {
     column([head, halves([invite, shared, update, own])]).style([Spacing::gap(Space::Px(12))])
 }
 
-/// A small card's picture area without an app's picture: its colour washing
-/// in from the top-left, and its icon on it.
-fn wash(icon: &str, colour: (u8, u8, u8)) -> V {
-    let (r, g, b) = colour;
-    column([picture(icon, 44, 44).style([Layout::align(Align::Start)])]).style([
-        Sizing::height(84),
+/// A card's picture area until apps give one (a later PRP): the app's icon
+/// on a wash from the top-left, in the theme's colours, fading into the card.
+fn wash(icon: &str, height: u16, size: u16, centred: bool) -> V {
+    let place = if centred { Align::Center } else { Align::Start };
+    let middle = if centred { vec![spacer()] } else { vec![] };
+    let mut kids = middle.clone();
+    kids.push(image(icon).style([Sizing::width(size), Sizing::height(size), Layout::align(place)]));
+    kids.extend(middle);
+    column(kids).style([
+        Sizing::height(height),
         Spacing::padding(Space::Px(12)),
-        Border::corner(Corner::Px(8)),
-        Background::color(Color::rgb(0x1b, 0x1b, 0x1b)),
-        Background::ellipse(
-            0.0,
-            0.0,
-            1.1,
-            1.5,
-            [(Color::rgba(r, g, b, 128), 0.0), (Color::rgba(r, g, b, 31), 0.6), (Color::rgba(r, g, b, 0), 0.9)],
-        ),
+        Border::corner(Corner::Px(10)),
+        Background::color(lift(0.06)),
+        Background::ellipse(0.0, 0.0, 1.1, 1.5, [(lift(0.16), 0.0), (lift(0.06), 0.9)]),
     ])
 }
 
-/// A small Recent card: its picture area, title and details.
-fn mini(icon: &str, colour: (u8, u8, u8), title: &str, detail: &str) -> V {
+/// When a place was last open: Rapidkoi fills it in and keeps it current ("2 min ago").
+fn when(seen: i64) -> rapidkoi::Part {
+    rapidkoi::time(seen).relative()
+}
+
+/// Small, dim words with a time at their end.
+fn note_at(words: &str, seen: i64) -> V {
+    text_of([words.into(), when(seen)]).style([Font::size(TextSize::Small), Text::color(Color::system("text_dim"))])
+}
+
+/// A small Recent card: its picture area, title, app and when.
+fn mini(i: usize, p: &Spot) -> V {
     column([
-        wash(icon, colour),
-        column([text(title).style([Font::weight(Weight::Bold), Text::truncate()]), note(detail)])
-            .style([Spacing::padding_xy(Space::None, Space::Px(4)), Spacing::gap(Space::Px(3))]),
+        wash(&p.icon, 84, 44, false),
+        column([
+            text(p.title.as_deref().unwrap_or(&p.name)).style([Font::weight(Weight::Bold), Text::truncate()]),
+            note_at(&format!("{} · ", p.name), p.seen),
+        ])
+        .style([Spacing::padding_xy(Space::None, Space::Px(4)), Spacing::gap(Space::Px(3))]),
     ])
     .style([vec![Spacing::padding(Space::Px(8)), Spacing::gap(Space::Px(10))], card(14, true)].concat())
+    .on_press(Msg::OpenRecent(i as u32))
 }
 
-/// Recent: the newest place large in the left half, the next four small in the right.
-fn recent() -> V {
+/// Recent: your newest place large in the left half, the next four small in
+/// the right, each opening a fresh window there; nothing when you have none.
+fn recent(places: &[Spot]) -> Option<V> {
+    let newest = places.first()?;
     let large = column([
-        // As wide as the card, cut to its height (`beach.svg` is drawn wide for this).
-        image("asset:beach.svg").fit(Fit::Cover).style([Sizing::height(240), Border::corner(Corner::Px(10))]),
+        wash(&newest.icon, 240, 88, true),
         column([
-            text("Mombasa, 12–15 Nov").style([Font::size(TextSize::Rem(1.45)), Font::weight(Weight::Bold)]),
-            text("3 nights · 2 bookings confirmed"),
-            row([picture("trip.svg", 18, 18), note("Trip · localhost:8000/trips/12 · 2 min ago")])
-                .style([Spacing::gap(Space::Sm)]),
+            text(newest.title.as_deref().unwrap_or(&newest.name)).style([
+                Font::size(TextSize::Rem(1.45)),
+                Font::weight(Weight::Bold),
+                Text::truncate(),
+            ]),
+            row([
+                image(&newest.icon).style([Sizing::width(18), Sizing::height(18)]),
+                note_at(&format!("{} · {} · ", newest.name, newest.address), newest.seen),
+            ])
+            .style([Spacing::gap(Space::Sm)]),
         ])
         .style([Spacing::padding_xy(Space::None, Space::Px(8)), Spacing::gap(Space::Px(6))]),
     ])
-    .style([vec![Spacing::padding(Space::Px(12)), Spacing::gap(Space::Px(14))], card(16, true)].concat());
-    let teal = (20, 184, 166);
-    let small = halves([
-        mini("notes.svg", teal, "Shopping list", "4 items left · Notes · 1 h ago"),
-        mini("counter.svg", (139, 92, 246), "Counter", "Counter · Yesterday"),
-        mini("notes.svg", teal, "Ideas for the new tab", "Notes · Yesterday"),
-        mini("settings.svg", (113, 113, 122), "Appearance", "Settings · Monday"),
-    ]);
-    column([heading("RECENT"), halves([large, small])]).style([Spacing::gap(Space::Px(12))])
+    .style([vec![Spacing::padding(Space::Px(12)), Spacing::gap(Space::Px(14))], card(16, true)].concat())
+    .on_press(Msg::OpenRecent(0));
+    let small = halves(places.iter().enumerate().skip(1).take(4).map(|(i, p)| mini(i, p)));
+    Some(column([heading("RECENT"), halves([large, small])]).style([Spacing::gap(Space::Px(12))]))
 }
 
 /// Pinned: your pins, as many icons and names as fit on a line, each opening

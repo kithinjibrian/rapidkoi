@@ -1,0 +1,92 @@
+// Recent places (PRP-062), pure: recording moves a place to the front with
+// its newest title and time, keeps the newest 100 and each app once, and
+// forgetting an app or searching works on them. No guest, no display.
+import rapidkoi.window.recent { Place, Recent, no_recent, record, forget_app, matching };
+import rapidkoi.data.remembered { Face };
+
+fun place(address: string, path: string, title: Option<string>, seen: i64): Place = Place {
+    address: address,
+    path: path,
+    origin: None,
+    name: "Notes",
+    title: title,
+    seen: seen,
+};
+
+fun face(path: string, name: string): Face = Face { path: path, name: name, icon: None };
+
+@test
+fun a_place_recorded_goes_to_the_front() {
+    let a = place(
+        "rapidkoi://notes.dafifi.net/@0.9.0?note=1",
+        "rapidkoi://notes.dafifi.net",
+        Some("Shopping"),
+        1,
+    );
+    let b = place(
+        "rapidkoi://notes.dafifi.net/@0.9.0?note=2",
+        "rapidkoi://notes.dafifi.net",
+        Some("Ideas"),
+        2,
+    );
+    let r = record(record(no_recent(), a, face(a.path, "Notes")), b, face(b.path, "Notes"));
+    assert_eq(r.places.map(fun(p: Place) = p.address), [b.address, a.address]);
+    // The same address again: it moves up with its newest title and time, never twice.
+    let again = record(
+        r,
+        Place { title: Some("Shopping list"), seen: 3, ..a },
+        face(a.path, "Notes"),
+    );
+    assert_eq(again.places.len, 2);
+    assert_eq(again.places[0].title, Some("Shopping list"));
+    assert_eq(again.places[0].seen, 3);
+    // Each app is kept once.
+    assert_eq(again.apps.len, 1);
+}
+
+@test
+fun the_newest_100_are_kept_and_an_app_goes_with_its_last_place() {
+    let mut r = record(
+        no_recent(),
+        place("old.wasm", "old.wasm", None, 0),
+        face("old.wasm", "Old"),
+    );
+    for i of range(1, 101) {
+        r = record(r, place("p{i}.wasm", "notes.wasm", None, i), face("notes.wasm", "Notes"));
+    }
+    assert_eq(r.places.len, 100);
+    assert_eq(r.places[0].address, "p100.wasm");
+    assert_eq(r.places.any(fun(p: Place) = p.address == "old.wasm"), false);
+    assert_eq(r.apps.map(fun(f: Face) = f.name), ["Notes"]);
+}
+
+@test
+fun forgetting_an_app_removes_its_places() {
+    let r = record(
+        record(no_recent(), place("a.wasm", "a.wasm", None, 1), face("a.wasm", "A")),
+        place("b.wasm", "b.wasm", None, 2),
+        face("b.wasm", "B"),
+    );
+    let left = forget_app(r, "a.wasm", None);
+    assert_eq(left.places.map(fun(p: Place) = p.address), ["b.wasm"]);
+    assert_eq(left.apps.map(fun(f: Face) = f.path), ["b.wasm"]);
+}
+
+@test
+fun places_match_by_title_name_or_address_ignoring_case() {
+    let r = record(
+        no_recent(),
+        place(
+            "rapidkoi://notes.dafifi.net/@0.9.0?note=1",
+            "rapidkoi://notes.dafifi.net",
+            Some("Shopping"),
+            1,
+        ),
+        face("rapidkoi://notes.dafifi.net", "Notes"),
+    );
+    assert_eq(matching(r, "SHOP").len, 1);
+    assert_eq(matching(r, "notes").len, 1);
+    assert_eq(matching(r, "dafifi").len, 1);
+    assert_eq(matching(r, "weather").len, 0);
+    assert_eq(matching(r, "  ").len, 0);
+}

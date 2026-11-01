@@ -9,7 +9,7 @@
  * is checked against its site after (PRP-043, `net.keeping`); `refreshed`
  * takes that check.
  *
- * Depends on: kivuli, std.time, std.crypto, window.tabs, window.leftoff, window.window, window.upgrades, net.fetching, net.keeping, net.checks, bundles.loader, trust.verify, data.states, data.remembered, data.store, net.address, window.actions, guest.limits
+ * Depends on: kivuli, std.time, std.crypto, window.tabs, window.window, window.upgrades, net.fetching, net.keeping, net.checks, bundles.loader, trust.verify, data.states, data.remembered, data.store, net.address, window.actions, guest.limits
  * Used by: window.navigate, shell
  */
 import kivuli { Cmd };
@@ -29,8 +29,6 @@ import window.tabs {
 };
 import window.restarts { with_saved };
 import window.upgrades { landed, adopted };
-import window.leftoff { LeftOff };
-import window.pins { left_is };
 import window.window { Model, Notice, with_tab, app };
 import window.notices {
     for_tab,
@@ -156,6 +154,22 @@ fun begin_link(
     // Typed or followed: a site that moved on asks which (PRP-049).
     true,
 );
+
+/**
+ * Starts loading a recent place (PRP-062): its app, by first key, at its
+ * link's version and fields, never asking which (the place names it).
+ *
+ * Example:
+ *     begin_place(m, id, "rapidkoi://notes.dafifi.net", Some("0.9.0"), [("note", "3")], origin)
+ */
+fun begin_place(
+    m: Model,
+    id: i64,
+    path: string,
+    version: Option<string>,
+    link: (string, string)[],
+    origin: u8[],
+): (Model, Cmd<Msg>) = begin_at(m, id, path, false, None, [], version, link, Some(origin), false);
 
 /** `begin`, with a link's version and fields, which app it opens, and whether a moved-on site asks. */
 fun begin_at(
@@ -366,18 +380,12 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
     };
     // Every window of the app moves, or none (PRP-048).
     let (after, said) = landed(m, id, pending.kept, page, notice);
-    // Continue keeps "where you left off" until that app runs: another
-    // app at the same address doesn't count (PRP-049).
-    let ran = m.left_off.map(fun(l: LeftOff) = left_is(l, page)).unwrap_or(false) && state_of(
-        page,
-    ).is_some();
-    let left = if ran { None } else { m.left_off };
     // What this load says is about this tab's app (PRP-051).
     let told = match said {
         Some(n) => for_tab(after, id, n),
         None => after,
     };
-    (Model { left_off: left, ..told }, check_after(m, id, page, source))
+    (told, check_after(m, id, page, source))
 }
 
 /**

@@ -49,10 +49,50 @@ fn pins(names: &[(&str, &str)]) -> Vec<u8> {
 }
 
 #[test]
-fn it_asks_for_the_session_and_your_pins_each_time_it_s_shown_or_told_they_changed() {
+fn it_asks_for_the_session_your_pins_and_places_each_time_it_s_shown_or_told_they_changed() {
     for e in [Event::Opened, Event::Resume, Event::Change { tables: vec![] }] {
-        assert_eq!(NewTab::default().step(e).1, vec![Ask::session("session"), Ask::pins("pins")]);
+        assert_eq!(
+            NewTab::default().step(e).1,
+            vec![Ask::session("session"), Ask::pins("pins"), Ask::recent("recent")]
+        );
     }
+}
+
+/// A recent answer: each `(name, address, title)`, seen at 1, 2, 3… newest first.
+fn places(list: &[(&str, &str, Option<&str>)]) -> Vec<u8> {
+    let mut e = Encoder::new(Vec::new());
+    e.map(1).unwrap().str("places").unwrap().array(list.len() as u64).unwrap();
+    for (i, (name, address, title)) in list.iter().enumerate() {
+        e.map(if title.is_some() { 6 } else { 5 }).unwrap();
+        e.str("name").unwrap().str(name).unwrap();
+        e.str("place").unwrap().str(address).unwrap();
+        e.str("icon").unwrap().str(&format!("icon:{address}")).unwrap();
+        e.str("address").unwrap().str(address).unwrap();
+        if let Some(t) = title {
+            e.str("title").unwrap().str(t).unwrap();
+        }
+        e.str("seen").unwrap().i64(i as i64 + 1).unwrap();
+    }
+    e.into_writer()
+}
+
+#[test]
+fn your_places_become_recent_and_a_card_opens_its_place() {
+    let cbor = places(&[("Notes", "notes.dafifi.net", Some("Shopping")), ("Counter", "counter.rkb", None)]);
+    let (t, asks) = NewTab::default().step(Event::Data { msg: "recent".into(), cbor });
+    assert!(asks.is_empty());
+    assert_eq!(t.recent.len(), 2);
+    assert_eq!(t.recent[0].title.as_deref(), Some("Shopping"));
+    assert_eq!(t.recent[1].icon, "icon:counter.rkb");
+    let _ = t.view();
+    assert!(recent(&t.recent).is_some());
+    let pressed = Event::Message { msg: Msg::OpenRecent(1), value: None };
+    assert_eq!(t.step(pressed).1, vec![Ask::open_recent("open", 1)]);
+}
+
+#[test]
+fn with_no_places_there_s_no_recent() {
+    assert!(recent(&[]).is_none());
 }
 
 #[test]

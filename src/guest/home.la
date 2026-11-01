@@ -1,7 +1,8 @@
 /**
- * What the new tab reads (PRP-030), pure: your pins and where you left
- * off, as the `pins` and `left_off` answers, and what `open_pin` and
- * `continue` open. Names, places (a host, or a file's name alone), icons
+ * What the new tab reads (PRP-030), pure: your pins, your recent places
+ * (PRP-062) and your last session, as the `pins`, `recent` and `session`
+ * answers, and what `open_pin` and `open_recent` open (`left_off` and
+ * `continue` answer from the newest place until the next contract). Names, places (a host, or a file's name alone), icons
  * and a screen title: never a path, state, keys or trust.
  *
  * Depends on: cbor, guest.limits, net.address, window.window, window.tabs, window.actions
@@ -11,7 +12,8 @@ import cbor { Value, Entry };
 import guest.limits { MAX_PLACES };
 import data.remembered { Face };
 import net.address { is_address, parse, shown };
-import window.window { Model, card };
+import window.window { Model };
+import window.recent { Place };
 import window.tabs { Pin, AppPage, Tab };
 import window.actions { Msg };
 
@@ -51,23 +53,57 @@ fun pins_of(m: Model): Value {
 }
 
 /**
- * Returns the `left_off` answer: `{name, place, icon, title?}` for the app
- * used last (open in a tab, or closed and remembered), or null.
+ * Returns the `left_off` answer: your newest recent place as
+ * `{name, place, icon, title?}`, or null (DECISION-044; the ask goes at the
+ * next contract version).
  *
  * Example:
  *     left_off_of(m)
  */
-fun left_off_of(m: Model): Value {
-    if let Some(id) = m.last {
-        if let Some(a) = page(m, id) {
-            return Value.Map(fields(a.name, a.path, a.title));
+fun left_off_of(m: Model): Value = match m.recent.places.len {
+    0 => Value.Null,
+    _ => Value.Map(
+        fields(m.recent.places[0].name, m.recent.places[0].path, m.recent.places[0].title),
+    ),
+};
+
+/**
+ * Returns the `recent` answer (PRP-062): `{places: [...]}`, newest first and
+ * at most `MAX_PLACES`, each `{name, place, icon, address, title?, seen}`.
+ * The address is as the address box shows it: a site's link, or a file's
+ * name, never its folders.
+ *
+ * Example:
+ *     recent_of(m)
+ */
+fun recent_of(m: Model): Value {
+    let mut out: Value[] = [];
+    for p of m.recent.places {
+        if out.len >= MAX_PLACES {
+            break;
         }
+        let mut f = fields(p.name, p.path, p.title);
+        // A site's link keeps its fields: only a file's folders are hidden.
+        let shown = if is_address(p.address) { p.address } else { place_of(p.address) };
+        f.push(entry("address", Value.Text(shown)));
+        f.push(entry("seen", Value.int(p.seen)));
+        out.push(Value.Map(f));
     }
-    match m.left_off {
-        Some(l) => Value.Map(fields(l.name, l.path, l.title)),
-        None => Value.Null,
-    }
+    Value.Map([entry("places", Value.Array(out))])
 }
+
+/**
+ * Returns what `open_recent(index)` opens: that place as your places are
+ * now, a fresh window at its address; nothing when there's no such place.
+ *
+ * Example:
+ *     recent_msg(m, 0)
+ */
+fun recent_msg(m: Model, index: i64): Option<Msg> = if index >= 0 && index < m.recent.places.len {
+    Some(Msg.OpenPlace(m.recent.places[index].address, m.recent.places[index].origin))
+} else {
+    None
+};
 
 /**
  * Returns what `open_pin(index)` opens: your pin at `index` as the pins
@@ -83,13 +119,13 @@ fun pin_msg(m: Model, index: i64): Option<Msg> = if index >= 0 && index < m.pinn
 };
 
 /**
- * Returns what `continue` does: the "where you left off" card's own action
- * (its tab, or Continue), or nothing when there's none.
+ * Returns what `continue` does: opens your newest recent place
+ * (DECISION-044; the ask goes at the next contract version), or nothing.
  *
  * Example:
  *     continue_msg(m)
  */
-fun continue_msg(m: Model): Option<Msg> = card(m).map(fun(c) = c.msg);
+fun continue_msg(m: Model): Option<Msg> = recent_msg(m, 0);
 
 /**
  * Returns the `session` answer (PRP-035): how many windows the last

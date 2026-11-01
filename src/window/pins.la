@@ -4,18 +4,18 @@
  * and forgetting the current app. Each acts on one app: at an address
  * with several, the one with that first key (PRP-049).
  *
- * Depends on: std.crypto, window.window, window.tabs, window.leftoff
+ * Depends on: std.crypto, window.window, window.tabs
  * Used by: shell, ui.addressbox
  */
 import std.crypto { equal };
 import window.window { Model, page_of, close };
 import window.tabs { Pin, AppPage };
-import window.leftoff { LeftOff, signer_of };
+import window.recent { forget_app };
+import people.people { with_shown_in_recent };
 
 /**
- * Forgets the current app: closes its tab without making it "where you left
- * off", unpins it, drops a "where you left off" from the same place, and
- * closes the panel. `saving` then saves both; the app's trusted key stays,
+ * Forgets the current app: closes its tab, unpins it, drops its recent
+ * places (PRP-062), and closes the panel. `saving` then saves both; the app's trusted key stays,
  * so a swapped key still asks first (PRP-007).
  *
  * Example:
@@ -24,15 +24,10 @@ import window.leftoff { LeftOff, signer_of };
 fun forget(m: Model): Model = match (m.current, page_of(m)) {
     (Some(id), App(a)) => {
         let closed = close(m, id);
-        // close() made this app "where you left off"; forgetting keeps the
-        // one from before, unless that was this app too.
-        let left = match m.left_off {
-            Some(l) if left_is(l, a) => None,
-            _ => m.left_off,
-        };
         Model {
             pinned: closed.pinned.filter(fun(p: Pin) = !pins_app(p, a.path, origin_of(a))),
-            left_off: left,
+            // Its places go too (PRP-062).
+            recent: forget_app(closed.recent, a.path, origin_of(a)),
             panel: None,
             confirm: None,
             ..closed,
@@ -98,8 +93,21 @@ fun pins_app(p: Pin, path: string, origin: Option<u8[]>): bool = p.path == path 
 /** A page's app's first key, when it's signed (PRP-049). */
 fun origin_of(a: AppPage): Option<u8[]> = a.trust.map(fun(t) = t.origin);
 
-/** Whether "where you left off" is app `a`: its address, and its key when it was signed. */
-fun left_is(l: LeftOff, a: AppPage): bool = l.path == a.path && match (signer_of(l), a.trust) {
-    (Some((_, k)), Some(t)) => equal(k, t.key) || equal(k, t.origin),
-    _ => true,
-};
+/**
+ * Turns "Show in Recent" on or off for an app (PRP-062): off, the places of
+ * the app in front go at once, and none are kept until it's on again.
+ *
+ * Example:
+ *     shown_in_recent(m, "notes.dafifi.net", false)
+ */
+fun shown_in_recent(m: Model, key: string, on: bool): Model {
+    let switched = with_shown_in_recent(m.people, key, on);
+    match (on, page_of(m)) {
+        (false, App(a)) => Model {
+            people: switched,
+            recent: forget_app(m.recent, a.path, origin_of(a)),
+            ..m,
+        },
+        _ => Model { people: switched, ..m },
+    }
+}

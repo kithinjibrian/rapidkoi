@@ -77,6 +77,7 @@ fun people_file(p: People): u8[] = encode(
             ),
         ),
         entry("forgotten", forgotten_value(p.forgotten)),
+        entry("unlisted", Value.Array(p.unlisted.map(fun(a: string) = Value.Text(a)))),
     ]),
 );
 
@@ -151,6 +152,7 @@ fun read_people(bytes: u8[]): Result<People, Unreadable> {
         grants: grants_of(v, format)?,
         looks: looks_in(v, format)?,
         forgotten: read_forgotten(v, format)?,
+        unlisted: unlisted_in(v)?,
     })
 }
 
@@ -280,3 +282,26 @@ fun text(v: Value, field: string): Option<string> = match v.get(field) {
 };
 
 fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };
+
+/** The apps out of Recent (PRP-062): none in a file from before. */
+fun unlisted_in(v: Value): Result<string[], Unreadable> {
+    let items = match v.get("unlisted") {
+        None => {
+            return Ok([]);
+        }
+        Some(Array(xs)) if xs.len <= MAX_PEOPLE => xs,
+        _ => {
+            return Err(Unreadable.Broken("its apps out of Recent aren't a list"));
+        }
+    };
+    let mut out: string[] = [];
+    for x of items {
+        match x {
+            Text(a) if a.len >= 1 && a.len <= 256 => out.push(a),
+            _ => {
+                return Err(Unreadable.Broken("an app out of Recent isn't named"));
+            }
+        }
+    }
+    Ok(out)
+}

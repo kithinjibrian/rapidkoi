@@ -12,9 +12,9 @@
 enum Permission {
     /** Your pins: name, place and icon. */
     ReadPins,
-    /** The app you left off: name, place, icon and screen title. */
+    /** Your recent places (PRP-062): each app's name, place, icon, address, screen title and when. */
     ReadLeftOff,
-    /** Opening one of your pins, or where you left off. */
+    /** Opening one of your pins, or one of your recent places. */
     OpenApps,
     /** Reading and restoring your last session (PRP-035). */
     RestoreSession,
@@ -145,7 +145,7 @@ fun tier_of(p: Permission): Tier = match p {
  */
 fun words_of(p: Permission): string = match p {
     ReadPins => "reading your pins",
-    ReadLeftOff => "reading where you left off",
+    ReadLeftOff => "reading your recent places",
     OpenApps => "opening your apps",
     RestoreSession => "restoring your last session",
     ChangeSettings => "changing Rapidkoi's settings",
@@ -159,7 +159,7 @@ fun words_of(p: Permission): string = match p {
  */
 fun label_of(p: Permission): string = match p {
     ReadPins => "Reading your pins",
-    ReadLeftOff => "Reading where you left off",
+    ReadLeftOff => "Reading your recent places",
     OpenApps => "Opening your apps",
     RestoreSession => "Restoring your last session",
     ChangeSettings => "Changing Rapidkoi's settings",
@@ -173,7 +173,7 @@ fun label_of(p: Permission): string = match p {
  */
 fun wish_of(p: Permission): string = match p {
     ReadPins => "read your pins",
-    ReadLeftOff => "read where you left off",
+    ReadLeftOff => "read your recent places",
     OpenApps => "open your apps",
     RestoreSession => "restore your last session",
     ChangeSettings => "change Rapidkoi's settings",

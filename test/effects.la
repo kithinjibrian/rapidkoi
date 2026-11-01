@@ -325,7 +325,7 @@ fun asking_without_declaring_stops_the_app() {
     let (left, _) = asked(holding("left_off", [], []));
     assert_eq(
         stopped_why(left),
-        "This app asked for reading where you left off without declaring it",
+        "This app asked for reading your recent places without declaring it",
     );
     let (open, sent) = asked(holding("open_pin", [("index", Value.int(0))], ["read_pins"]));
     assert_eq(stopped_why(open), "This app asked for opening your apps without declaring it");

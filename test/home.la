@@ -1,7 +1,16 @@
 // What the new tab reads (PRP-030): your pins and where you left off, as
 // Rapidkoi answers them, and what open_pin and continue open. Pure apart
 // from fixture guests; no display.
-import rapidkoi.guest.home { place_of, pins_of, left_off_of, pin_msg, continue_msg, session_of };
+import rapidkoi.guest.home {
+    place_of,
+    pins_of,
+    left_off_of,
+    pin_msg,
+    continue_msg,
+    session_of,
+    recent_of,
+    recent_msg,
+};
 import rapidkoi.data.remembered { Open, OpenTab, Face };
 import rapidkoi.data.saving { open_of };
 import rapidkoi.shell { update };
@@ -74,7 +83,8 @@ fun at_most_64_pins_are_listed() {
 }
 
 @test
-fun where_you_left_off_is_the_app_used_last() {
+fun left_off_and_continue_answer_from_the_newest_place() {
+    // DECISION-044: kept for contract 11 apps, from your recent places.
     let engine = Engine.new();
     let m = step(with_pages(engine, [app(engine, "notes")]), Msg.NewTab);
     let notes = kv([
@@ -82,12 +92,48 @@ fun where_you_left_off_is_the_app_used_last() {
         ("place", t("notes.wasm")),
         ("icon", t("icon:notes.wasm")),
     ]);
+    // It left the front: it's your newest place.
     assert_eq(left_off_of(m), notes);
-    assert_eq(continue_msg(m), Some(Msg.Select(0)));
-    // Closed: it's remembered, and Continue reopens it.
+    assert_eq(continue_msg(m), Some(Msg.OpenPlace("apps/notes.wasm", None)));
     let closed = step(m, Msg.CloseTab(0));
     assert_eq(left_off_of(closed), notes);
-    assert_eq(continue_msg(closed), Some(Msg.Continue));
+}
+
+@test
+fun recent_answers_newest_first_and_opens_a_place() {
+    // PRP-062: at most 64, each with its icon to show, its address, and when; no folders.
+    let engine = Engine.new();
+    let m = step(
+        step(with_pages(engine, [app(engine, "notes"), app(engine, "quote")]), Msg.Select(1)),
+        Msg.CloseTab(1),
+    );
+    assert_eq(
+        recent_of(m),
+        kv([
+            (
+                "places",
+                Value.Array([
+                    kv([
+                        ("name", t("quote")),
+                        ("place", t("quote.wasm")),
+                        ("icon", t("icon:quote.wasm")),
+                        ("address", t("quote.wasm")),
+                        ("seen", Value.int(m.recent.places[0].seen)),
+                    ]),
+                    kv([
+                        ("name", t("notes")),
+                        ("place", t("notes.wasm")),
+                        ("icon", t("icon:notes.wasm")),
+                        ("address", t("notes.wasm")),
+                        ("seen", Value.int(m.recent.places[1].seen)),
+                    ]),
+                ]),
+            ),
+        ]),
+    );
+    assert_eq(recent_msg(m, 1), Some(Msg.OpenPlace("apps/notes.wasm", None)));
+    assert_eq(recent_msg(m, 2), None);
+    assert_eq(recent_of(with_pages(engine, [])), kv([("places", Value.Array([]))]));
 }
 
 @test

@@ -67,7 +67,7 @@ fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) = start_with(argv
  * Builds the first window on a data folder (or none, saving nothing), the
  * new tab running `bundle`. Tests start here with a folder of their own.
  * The launch order (session 170), so no app runs before what it reads:
- * 1. Restore what the data folder holds: trust, pins, where you left off,
+ * 1. Restore what the data folder holds: trust, pins, recent places,
  *    people and permission settings.
  * 2. Build the window: the empty tab, or the app's tab.
  * 3. Start the apps: the new tab, then the one named on the command line.
@@ -98,7 +98,7 @@ fun start_with(argv: string[], s: Option<Store>, bundle: u8[]): (Model, Cmd<Msg>
         // clears the notice line; what restoring said still shows.
         let window_ = Model { notice: remembered.notice, ..window.new_blank(remembered) };
         // 4. What the apps asked for when they opened: the new tab's your
-        // pins and where you left off, so the first screen shows them.
+        // pins, recent places and session, so the first screen shows them.
         let (answered, sends) = answer_all(window_);
         let focus: Cmd<Msg> = Cmd.focus("address");
         return (answered, both(both(focus, reloads), sends));
@@ -303,7 +303,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
         Home => (m, Cmd.focus("address")),
     },
     OpenPinned(path, origin) => navigate.open_pin(m, path, origin),
-    Continue => navigate.reopen(Model { draft: "", editing: false, ..m }),
+    OpenPlace(to, origin) => navigate.open_place(m, to, origin),
     Approve(a) => approve(m, a),
     SetPermission(name, s) => (set_permission(m, name, s), Cmd.none()),
     TogglePanel => (
@@ -337,10 +337,8 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     AppChosen(None) => (m, Cmd.none()),
     About(open) => (Model { about: open, menu: false, ..m }, Cmd.none()),
     Quit => (m, Cmd.quit()),
-    OwnLooks(key, colours, text_size) => (
-        Model { people: with_looks(m.people, key, colours, text_size), ..m },
-        Cmd.none(),
-    ),
+    OwnLooks(key, c, t) => (Model { people: with_looks(m.people, key, c, t), ..m }, Cmd.none()),
+    ShowInRecent(key, on) => (pins.shown_in_recent(m, key, on), Cmd.none()),
     PanelGo(page) => (Model { panel: Some(page), ..m }, Cmd.none()),
     PanelBack => (Model { panel: Some(PanelPage.Main), ..m }, Cmd.none()),
     Ask(c) => (Model { confirm: Some(c), ..m }, Cmd.none()),

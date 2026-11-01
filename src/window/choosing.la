@@ -11,8 +11,8 @@
 import kivuli { Cmd };
 import std.crypto { equal };
 import window.window { Model, Naming, app, add_tab, close, show_tab, with_tab, page_of };
-import window.leftoff { leave };
 import window.tabs { AppPage, Tab, Page, Pin, open_path, close_page, failed_page };
+import window.recent { remember };
 import window.actions { Msg };
 import trust.verify { Change, Identity, known_for, separate };
 import trust.publishers { apps_at, default_at, set_default, renamed };
@@ -209,12 +209,13 @@ fun confirm_naming(m: Model): (Model, Cmd<Msg>) {
         Unapproved(_, _) => None,
         _ => Some(a),
     };
-    let left = match yours {
-        Some(y) => Some(leave(y)),
-        None => base.left_off,
+    // Its place is kept (PRP-062), as closing it would.
+    let recorded = match yours {
+        Some(y) => Model { recent: remember(base.recent, base.people, y, base.now), ..base },
+        None => base,
     };
     close_page(a);
-    opened(Model { left_off: left, ..base }, id, a.path, c.new)
+    opened(recorded, id, a.path, c.new)
 }
 
 /**

@@ -432,17 +432,6 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 
 
-### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
-
-**Status:** open (parked by the owner, session 189)
-**Raised:** 2026-10-23 — Session 189
-
-**Question:** State lives with its window (the owner, session 189): closing a window deletes its state, and an app opened anew starts fresh. Continue used to reopen the last closed app with its state. Should it become a browser's "reopen closed tab" (the last closed window with its state, this run only, held in memory), or go?
-
-**Meanwhile:** Continue works as it did within a run (a window closed this run is held in memory with its state). After a restart it reopens the app fresh, since its state file is gone. Not redesigned until the owner decides.
-
-
----
 
 ### DECISION-081 — Who Rapidkoi is for first, among developers
 
@@ -757,6 +746,19 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 ---
 
 ## RESOLVED
+
+### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
+
+**Status:** resolved (the owner, 2026-11-01: "yes for the two"; PRP-062)
+**Raised:** 2026-10-23 — Session 189
+
+**Question:** State lives with its window (the owner, session 189): closing a window deletes its state, and an app opened anew starts fresh. Continue used to reopen the last closed app with its state. Should it become a browser's "reopen closed tab" (the last closed window with its state, this run only, held in memory), or go?
+
+**Meanwhile:** Continue works as it did within a run (a window closed this run is held in memory with its state). After a restart it reopens the app fresh, since its state file is gone. Not redesigned until the owner decides.
+
+**Outcome (PRP-062):** Recent replaces "Continue where you left off". A place is a link (an app and the fields its address names); opening one opens a fresh window at that link, as following the link would. Closing a window still deletes its state, and nothing is revived. The left-off record and Continue go; recent places, newest first, show on the new tab and in the address box's suggestions, with "Show in Recent" per app. The app's own summary and picture for a place come in a later PRP with a contract change.
+
+---
 
 ### DECISION-092 — Every app has an icon; Rapidkoi's own apps show apps' icons (contract 11)
 

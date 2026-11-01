@@ -55,6 +55,8 @@ struct People {
     looks: OwnLooks[],
     /** The apps you forgot: where each one's next key starts (PRP-052). */
     forgotten: Forgotten[],
+    /** The apps you took out of Recent ("Show in Recent" off, PRP-062), by key. */
+    unlisted: string[],
 }
 
 /** The person's switch for one app's looks (PRP-038). */
@@ -90,6 +92,7 @@ fun nobody(): People = People {
     grants: [],
     looks: [],
     forgotten: [],
+    unlisted: [],
 };
 
 /**
@@ -226,4 +229,24 @@ fun with_looks(p: People, app: string, colours: bool, text_size: bool): People {
         kept.push(OwnLooks { app: app, colours: colours, text_size: text_size });
     }
     People { looks: kept, ..p }
+}
+
+/**
+ * Whether an app's places go into Recent (PRP-062): yes unless you turned
+ * "Show in Recent" off for it.
+ *
+ * Example:
+ *     shows_in_recent(people, "notes.dafifi.net")
+ */
+fun shows_in_recent(p: People, app: string): bool = !p.unlisted.any(fun(a: string) = a == app);
+
+/**
+ * Turns an app's "Show in Recent" on or off (PRP-062).
+ *
+ * Example:
+ *     with_shown_in_recent(people, "notes.dafifi.net", false)
+ */
+fun with_shown_in_recent(p: People, app: string, on: bool): People {
+    let rest = p.unlisted.filter(fun(a: string) = a != app);
+    People { unlisted: if on { rest } else { rest + [app] }, ..p }
 }

@@ -1,10 +1,10 @@
 /**
  * The window's state and the changes that open nothing: tabs (apps only;
  * home isn't a tab), the current one or home, the address box's text,
- * pins, "where you left off" and the theme. Opening files and addresses is
+ * pins, your recent places (PRP-062) and the theme. Opening files and addresses is
  * `navigate.la`. Never draws.
  *
- * Depends on: wasmtime, cbor, trust.verify, data.store, net.fetching, people.people, people.identity, guest.nodes, window.handles, window.actions, window.tabs, window.leftoff, ui.suggestions, ui.frame, ui.themes
+ * Depends on: wasmtime, cbor, trust.verify, data.store, net.fetching, people.people, people.identity, guest.nodes, window.handles, window.actions, window.tabs, ui.suggestions, ui.frame, ui.themes
  * Used by: window.navigate, shell
  */
 import wasmtime { Engine };
@@ -15,10 +15,9 @@ import people.people { People, nobody };
 import people.identity { Master };
 import net.address { parse };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm, Approval };
-import window.tabs { Page, Tab, Pin, AppPage, state_of };
-import window.leftoff { LeftOff, leave, snapshot };
+import window.tabs { Page, Tab, Pin, AppPage, state_of, close_page };
+import window.recent { Recent, no_recent, remember };
 import data.remembered { Open };
-import ui.suggestions { Card };
 import guest.nodes { BatchStep };
 import window.handles { Files, no_files };
 import cbor { Value };
@@ -86,8 +85,8 @@ struct Model {
     pinned: Pin[],
     /** The last app tab visited before home, if it's still open. */
     last: Option<i64>,
-    /** The last app closed, with its state, in this session. */
-    left_off: Option<LeftOff>,
+    /** Your recent places, newest first (PRP-062): what replaced "where you left off". */
+    recent: Recent,
     /** Rapidkoi's own notice (PRP-051): about its files, your identity, its data folder; it follows you. */
     notice: Option<Notice>,
     /** Each tab's notice, about its app (PRP-051): shown while that tab is in front. */
@@ -157,7 +156,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         previous: None,
         pinned: [],
         last: None,
-        left_off: None,
+        recent: no_recent(),
         notice: None,
         tab_notices: [],
         theme: DARK,
@@ -212,63 +211,8 @@ fun title_of(m: Model): string = match page_of(m) {
 };
 
 /**
- * Returns "Where you left off": the last app visited if its tab is open,
- * else the last app closed.
- *
- * Example:
- *     card(m)
- */
-fun card(m: Model): Option<Card> {
-    if let Some(id) = m.last {
-        if let Some(a) = app(m, id) {
-            return Some(Card {
-                name: a.name,
-                title: a.title,
-                msg: Msg.Select(id),
-                path: a.path,
-                icon: icon_of(a.path, a.icon),
-            });
-        }
-    }
-    m.left_off.map(
-        fun(l: LeftOff) = Card {
-            name: l.name,
-            title: l.title,
-            msg: Msg.Continue,
-            path: l.path,
-            icon: icon_of(l.path, l.icon),
-        },
-    )
-}
-
-/**
- * Returns what to remember as "where you left off": the app used last.
- * That's the current tab's, else the last visited tab's while it's open,
- * else the last app closed; an open page that isn't running doesn't
- * replace a remembered one. Saved as it changes, so quitting at any moment
- * keeps it (PRP-007 amendment 1).
- *
- * Example:
- *     used_last(m)
- */
-fun used_last(m: Model): Option<LeftOff> {
-    // On an empty tab, as on home before it, the last app visited counts.
-    let open = match m.current.and_then(fun(id: i64) = app(m, id)) {
-        Some(a) => Some(a),
-        None => m.last.and_then(fun(id: i64) = app(m, id)),
-    };
-    match open {
-        // A page that isn't running (its file gone, its server down) never
-        // replaces a remembered app's state with nothing.
-        Some(a) if state_of(a).is_some() || m.left_off.is_none() => Some(snapshot(a)),
-        _ => m.left_off,
-    }
-}
-
-/**
  * Shows an empty tab (PRP-024): the current one if it's empty, else a new
- * one. The app that was showing stays open in its tab and becomes "where
- * you left off".
+ * one. The app that was showing stays open in its tab.
  *
  * Example:
  *     go_home(m)
@@ -410,7 +354,7 @@ fun with_tab(m: Model, id: i64, f: fun(AppPage): AppPage): Model = Model {
 };
 
 /**
- * Closes a tab, app or empty; an app becomes "where you left off". The tab
+ * Closes a tab, app or empty; an app's window state goes with it. The tab
  * after it in creation order (else the one before) becomes current; closing
  * the last tab leaves one empty tab (PRP-024).
  *
@@ -430,10 +374,12 @@ fun close(m: Model, id: i64): Model {
     if at < 0 {
         return m;
     }
-    let left = match app(m, id) {
-        Some(a) => Some(leave(a)),
-        None => m.left_off,
-    };
+    // Its place is kept (PRP-062); its window's state goes with it (session 189).
+    let mut places = m.recent;
+    if let Some(a) = app(m, id) {
+        places = remember(m.recent, m.people, a, m.now);
+        close_page(a);
+    }
     let rest = all.filter(fun(x: i64) = x != id);
     let current: Option<i64> = if m.current != Some(id) {
         m.current
@@ -448,7 +394,7 @@ fun close(m: Model, id: i64): Model {
         tab_notices: m.tab_notices.filter(fun(x: (i64, Notice)) = x.0 != id),
         blanks: m.blanks.filter(fun(b: i64) = b != id),
         current: current,
-        left_off: left,
+        recent: places,
         panel: None,
         confirm: if m.confirm == Some(Confirm.Forget(id)) { None } else { m.confirm },
         ..m,

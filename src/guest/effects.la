@@ -28,7 +28,16 @@ import window.actions { Msg, Approval, Answer };
 import net.requests;
 import guest.storing;
 import ui.render;
-import guest.home { pins_of, left_off_of, pin_msg, continue_msg, session_of };
+import window.recent { no_recent };
+import guest.home {
+    pins_of,
+    left_off_of,
+    pin_msg,
+    continue_msg,
+    session_of,
+    recent_of,
+    recent_msg,
+};
 import bundles.permissions { Permission, Setting, name_of, words_of };
 import people.access { key_of };
 import bundles.bundle { Manifest };
@@ -102,6 +111,8 @@ fun holds(page: AppPage, p: Permission): bool = page.manifest.map(
 fun needed(ask: Effect): Option<Permission> = match ask {
     Pins(_) => Some(Permission.ReadPins),
     LeftOff(_) => Some(Permission.ReadLeftOff),
+    Recent(_) => Some(Permission.ReadLeftOff),
+    OpenRecent(_, _) => Some(Permission.OpenApps),
     OpenPin(_, _) => Some(Permission.OpenApps),
     Continue(_) => Some(Permission.OpenApps),
     Session(_) => Some(Permission.RestoreSession),
@@ -222,6 +233,15 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
         }
         Pins(msg) => (m, Some(if grant { pins_of(m) } else { Value.Array([]) }), msg),
         LeftOff(msg) => (m, Some(if grant { left_off_of(m) } else { Value.Null }), msg),
+        Recent(msg) => (m, Some(if grant { recent_of(m) } else { recent_of(nowhere(m)) }), msg),
+        OpenRecent(msg, index) => {
+            if grant {
+                if let Some(open) = recent_msg(m, index) {
+                    sends.push(Cmd.after(0, open));
+                }
+            }
+            (m, None, msg)
+        }
         // Opening is the window's own message, after this update: one tab
         // per app and the empty tab, as for a click (PRP-026).
         OpenPin(msg, index) => {
@@ -291,7 +311,7 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
 
 /**
  * Tells the page in front that something it may read changed while it
- * stayed there (`on_change`, PRP-031): your pins, where you left off (for
+ * stayed there (`on_change`, PRP-031): your pins, your recent places (for
  * a permission it holds that isn't blocked), or one of its own permission
  * settings. A page that just came to the front heard `on_resume` instead.
  *
@@ -325,9 +345,9 @@ fun tell_changes(before: Model, after: Model): Model {
     let mine = fun(m: Model): Grant[] = m.people.grants.filter(fun(g: Grant) = g.app == key);
     let moved = reads(Permission.ReadPins) && pins_of(before) != pins_of(after) || reads(
         Permission.ReadLeftOff,
-    ) && left_off_of(before) != left_off_of(after) || reads(
-        Permission.RestoreSession,
-    ) && session_of(before) != session_of(after) || mine(before) != mine(after);
+    ) && recent_of(before) != recent_of(after) || reads(Permission.RestoreSession) && session_of(
+        before,
+    ) != session_of(after) || mine(before) != mine(after);
     if moved { put(after, slot, changed) } else { after }
 }
 
@@ -461,3 +481,6 @@ fun find(m: Model, id: i64): Option<AppPage> {
     }
     None
 }
+
+/** The window with no recent places: what an app refused them is answered. */
+fun nowhere(m: Model): Model = Model { recent: no_recent(), ..m };
