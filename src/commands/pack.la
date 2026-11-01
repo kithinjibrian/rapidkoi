@@ -28,6 +28,8 @@ struct Request {
     servers: string[],
     permissions: string[],
     controls: Option<Controls>,
+    /** `--color primary=#rrggbb` (PRP-063). */
+    primary_color: Option<string>,
     out: string,
     force: bool,
 }
@@ -106,6 +108,7 @@ fun make(args: string[]): Result<string, string> {
         servers: r.servers,
         permissions: r.permissions,
         controls: r.controls,
+        primary_color: r.primary_color,
     };
     let bytes = write(Bundle { manifest: manifest, module: module, assets: assets }).map_err(
         reason,
@@ -133,6 +136,7 @@ fun parse(args: string[]): Result<Request, string> {
     let mut address: string[] = [];
     let mut settings: string[] = [];
     let mut out: Option<string> = None;
+    let mut primary_color: Option<string> = None;
     let mut force = false;
     let mut i = 0;
     while i < args.len {
@@ -181,6 +185,13 @@ fun parse(args: string[]): Result<Request, string> {
             } else {
                 return Err("--control takes address=ICON or settings=ROW");
             }
+        } else if a == "--color" {
+            let (name, c) = pair(v, "--color takes NAME=#rrggbb")?;
+            // Only the colours Rapidkoi draws are known (PRP-063).
+            if name != "primary" {
+                return Err("--color takes primary=#rrggbb");
+            }
+            primary_color = Some(c);
         } else if a == "-o" {
             out = Some(v);
         } else {
@@ -206,6 +217,7 @@ fun parse(args: string[]): Result<Request, string> {
         } else {
             None
         },
+        primary_color: primary_color,
         out: out.ok_or("-o is required")?,
         force: force,
     })

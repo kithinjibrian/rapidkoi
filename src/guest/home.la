@@ -14,6 +14,7 @@ import data.remembered { Face };
 import net.address { is_address, parse, shown };
 import window.window { Model };
 import window.recent { Place };
+import ui.themes { publisher_colour };
 import window.tabs { Pin, AppPage, Tab };
 import window.actions { Msg };
 
@@ -70,7 +71,8 @@ fun left_off_of(m: Model): Value = match m.recent.places.len {
 /**
  * Returns the `recent` answer (PRP-062): `{places: [...]}`, newest first and
  * at most `MAX_PLACES`, each app once by its newest place (the owner,
- * 2026-11-02), each `{name, place, icon, address, title?, seen}`.
+ * 2026-11-02), each `{name, place, icon, address, title?, seen, colors}`
+ * (`colors.primary`, PRP-063).
  * The address is as the address box shows it: a site's link, or a file's
  * name, never its folders.
  *
@@ -88,6 +90,7 @@ fun recent_of(m: Model): Value {
         let shown = if is_address(p.address) { p.address } else { place_of(p.address) };
         f.push(entry("address", Value.Text(shown)));
         f.push(entry("seen", Value.int(p.seen)));
+        f.push(entry("colors", Value.Map([entry("primary", Value.Text(primary_of(m, p)))])));
         out.push(Value.Map(f));
     }
     Value.Map([entry("places", Value.Array(out))])
@@ -107,6 +110,21 @@ fun recent_msg(m: Model, index: i64): Option<Msg> {
     } else {
         None
     }
+}
+
+/**
+ * A place's app's primary colour (PRP-063): the one it names, else the
+ * palette's for it, as the dock gives it (by its first key, else its name).
+ */
+fun primary_of(m: Model, p: Place): string {
+    for a of m.recent.apps {
+        if a.path == p.path {
+            if let Some(c) = a.colour {
+                return c;
+            }
+        }
+    }
+    publisher_colour(m.theme, p.origin.unwrap_or(p.name.to_bytes()))
 }
 
 /** Your recent places as the new tab lists them: each app once, by its newest place. */

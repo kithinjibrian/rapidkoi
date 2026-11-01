@@ -121,3 +121,13 @@ fun huge_files_are_refused() {
     let big: u8[] = [35; 70000];
     assert_eq(why(string_from_utf8(big).unwrap()).starts_with("rapidkoi.toml: "), true);
 }
+
+@test
+fun an_app_s_colours_are_under_colors() {
+    // PRP-063 (the owner: "have the colors under [colors]").
+    let app = "[app]\nname = \"N\"\nversion = \"0.1.0\"\nmodule = \"m\"\n";
+    assert_eq(ok(app + "[colors]\nprimary = \"#14b8a6\"\n").primary_color, Some("#14b8a6"));
+    assert_eq(ok(app).primary_color, None);
+    // Only the colours Rapidkoi draws are known.
+    assert_eq(why(app + "[colors]\naccent = \"#ff0000\"\n").contains("accent"), true);
+}

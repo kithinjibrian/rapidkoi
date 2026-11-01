@@ -19,6 +19,7 @@ fun manifest(): Manifest = Manifest {
     servers: ["api.acme.com", "localhost:9000"],
     permissions: [],
     controls: None,
+    primary_color: None,
 };
 
 fun good(): Bundle = Bundle {

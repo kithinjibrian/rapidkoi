@@ -278,6 +278,7 @@ fun holding(kind: string, extra: (string, Value)[], declared: string[]): AppPage
             servers: [],
             permissions: declared,
             controls: None,
+            primary_color: None,
         }),
         ..page([kv(fields)], false),
     }

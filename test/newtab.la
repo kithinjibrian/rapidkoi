@@ -64,6 +64,7 @@ fun declaring_all(permissions: string[], controls: Option<Controls>): u8[] = wri
         servers: [],
         permissions: permissions,
         controls: controls,
+        primary_color: None,
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [("icon.png", png(128, 128))],

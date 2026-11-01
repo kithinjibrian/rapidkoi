@@ -30,6 +30,8 @@ struct Project {
     icon: Option<string>,
     /** [banners]: page → file. */
     banners: (string, string)[],
+    /** [colors] primary, if given (PRP-063). */
+    primary_color: Option<string>,
     /** [assets]: name → file. */
     assets: (string, string)[],
     /** [publish] key: the secret key file. */
@@ -92,7 +94,7 @@ fun parse_project(text: string, dir: string, home: Option<string>): Result<Proje
     let bounds = Limits { bytes: 64 * 1024, depth: 8, values: 10_000 };
     let doc = parse_with(text, bounds).map_err(fun(e) = ProjectError.Toml(e.message()))?;
     for (k, v) of doc {
-        let known = k == "app" || k == "banners" || k == "assets" || k == "publish" || k == "network";
+        let known = k == "app" || k == "banners" || k == "assets" || k == "publish" || k == "network" || k == "colors";
         if !known {
             return Err(match as_table(v) {
                 Some(_) => ProjectError.UnknownTable(k),
@@ -118,6 +120,9 @@ fun parse_project(text: string, dir: string, home: Option<string>): Result<Proje
     }
     let network = table(doc, "network")?;
     only(network, "network", ["servers"])?;
+    // An app's colours (PRP-063): only those Rapidkoi draws are known.
+    let colors = table(doc, "colors")?;
+    only(colors, "colors", ["primary"])?;
     let key = match words(publish, "publish", "key")? {
         Some(k) => Some(expand(k, home, "publish", "key")?),
         None => None,
@@ -132,6 +137,7 @@ fun parse_project(text: string, dir: string, home: Option<string>): Result<Proje
         module: at(dir, required(app, "app", "module")?),
         icon: words(app, "app", "icon")?.map(fun(p: string) = at(dir, p)),
         banners: files(table(doc, "banners")?, "banners", dir)?,
+        primary_color: words(colors, "colors", "primary")?,
         assets: files(table(doc, "assets")?, "assets", dir)?,
         key: key,
         site: at(dir, words(publish, "publish", "site")?.unwrap_or("site")),

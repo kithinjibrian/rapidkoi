@@ -47,6 +47,8 @@ struct Manifest {
     permissions: string[],
     /** The frame it shows (PRP-031): only an app built into `./main` may choose. */
     controls: Option<Controls>,
+    /** Its primary colour, `#rrggbb`, if it names one (PRP-063): `colors.primary` in the manifest. */
+    primary_color: Option<string>,
 }
 
 /**
@@ -189,6 +191,9 @@ fun manifest_fields(m: Manifest): Entry[] {
     if let Some(i) = m.icon {
         fields.push(entry("icon", Value.Text(i)));
     }
+    if let Some(c) = m.primary_color {
+        fields.push(entry("colors", Value.Map([entry("primary", Value.Text(c))])));
+    }
     fields
 }
 
@@ -222,6 +227,9 @@ fun check(b: Bundle): Result<(), BundleError> {
     }
     if let Some(d) = m.description {
         rules.check_description(d)?;
+    }
+    if let Some(c) = m.primary_color {
+        rules.check_colour("primary", c)?;
     }
     if m.servers.len > MAX_SERVERS {
         return Err(
@@ -303,8 +311,23 @@ fun manifest_of(m: Value): Result<Manifest, BundleError> {
         servers: servers,
         permissions: permissions,
         controls: controls_of(m)?,
+        primary_color: primary_of(m)?,
     })
 }
+
+/**
+ * A manifest's primary colour (PRP-063), from its `colors` map; other names
+ * there are later colours, ignored here. Checked by `check`.
+ */
+fun primary_of(m: Value): Result<Option<string>, BundleError> = match m.get("colors") {
+    None => Ok(None),
+    Some(Map(_)) => match m.get("colors").and_then(fun(c: Value) = c.get("primary")) {
+        None => Ok(None),
+        Some(Text(c)) => Ok(Some(c)),
+        Some(_) => Err(BundleError.BadColour("primary")),
+    },
+    Some(_) => Err(BundleError.Wrong("colors", "must be a map")),
+};
 
 /** A manifest's `controls`, if it has them: two lists of names. */
 fun controls_of(m: Value): Result<Option<Controls>, BundleError> {

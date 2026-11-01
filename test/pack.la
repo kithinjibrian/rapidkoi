@@ -356,3 +356,23 @@ fun an_svg_icon_keeps_its_name() {
     assert_eq(b.manifest.icon, Some("icon.svg"));
     fs.remove_file(out).unwrap();
 }
+
+@test
+fun the_primary_colour_is_declared_with_a_flag() {
+    // PRP-063: --color NAME=#rrggbb; only primary is known.
+    let out = path("colour.rkb");
+    let m = module("colour");
+    let flags = [m, "--name", "M", "--version", "0.1.0", "--icon", icon("colour")];
+    assert_eq(make(flags + ["--color", "primary=#14b8a6", "-o", out]).is_ok(), true);
+    assert_eq(read(read_bytes(out).unwrap()).unwrap().manifest.primary_color, Some("#14b8a6"));
+    fs.remove_file(out).unwrap();
+    assert_eq(
+        make(flags + ["--color", "accent=#14b8a6", "-o", out]),
+        Err("--color takes primary=#rrggbb"),
+    );
+    assert_eq(
+        make(flags + ["--color", "primary=teal", "-o", out]),
+        Err("This app's primary colour must be #rrggbb"),
+    );
+    assert_eq(fs.exists(out), false);
+}
