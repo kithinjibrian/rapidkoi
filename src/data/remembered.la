@@ -13,7 +13,7 @@
 import cbor { Value, Entry, Limits, decode, encode };
 import data.store { Store, StoreError, load, set_aside, reason as store_reason };
 import trust.verify { Identity };
-import bundles.rules { check_host, check_asset, check_role };
+import bundles.rules { check_host, check_asset, check_role, check_colour };
 import guest.limits { MAX_ICON_PX };
 import guest.links { read_link };
 import net.address { MAX_LINK_FIELDS };
@@ -80,6 +80,8 @@ struct Face {
     name: string,
     /** Its icon, when it has one that keeps the icon rules. */
     icon: Option<u8[]>,
+    /** Its primary colour, `#rrggbb`, when it names one (PRP-063). */
+    colour: Option<string>,
 }
 
 /** Why a file's bytes can't be used. */
@@ -275,13 +277,7 @@ fun open_file(o: Open): u8[] = encode(Value.Map([
         Some(i) => Value.int(i),
         None => Value.Null,
     }),
-    entry("apps", Value.Array(o.apps.map(fun(a: Face) {
-        let mut fields = [entry("path", Value.Text(a.path)), entry("name", Value.Text(a.name))];
-        if let Some(i) = a.icon {
-            fields.push(entry("icon", Value.Bytes(i)));
-        }
-        Value.Map(fields)
-    }))),
+    entry("apps", Value.Array(o.apps.map(face_value))),
 ]));
 
 /**
@@ -396,7 +392,12 @@ fun read_faces(v: Option<Value>): Result<Face[], Unreadable> {
         if out.any(fun(f: Face) = f.path == path) {
             return Err(Unreadable.Broken("an app is listed twice"));
         }
-        out.push(Face { path: path, name: name, icon: icon(blob(x, "icon")) });
+        out.push(Face {
+            path: path,
+            name: name,
+            icon: icon(blob(x, "icon")),
+            colour: colour_in(x),
+        });
     }
     Ok(out)
 }
@@ -477,5 +478,26 @@ fun text(v: Value, field: string): Option<string> = match v.get(field) {
 
 fun blob(v: Value, field: string): Option<u8[]> = match v.get(field) {
     Some(Bytes(b)) => Some(b),
+    _ => None,
+};
+
+/**
+ * One app as the session and recent files keep it (PRP-060, PRP-063): its
+ * path and name, and its icon and primary colour when it has them.
+ */
+fun face_value(a: Face): Value {
+    let mut fields = [entry("path", Value.Text(a.path)), entry("name", Value.Text(a.name))];
+    if let Some(i) = a.icon {
+        fields.push(entry("icon", Value.Bytes(i)));
+    }
+    if let Some(c) = a.colour {
+        fields.push(entry("colour", Value.Text(c)));
+    }
+    Value.Map(fields)
+}
+
+/** An app's primary colour as kept: `#rrggbb`, or none when it's missing or isn't one (PRP-063). */
+fun colour_in(x: Value): Option<string> = match text(x, "colour") {
+    Some(c) if check_colour("primary", c).is_ok() => Some(c),
     _ => None,
 };

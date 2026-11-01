@@ -344,6 +344,7 @@ fun reading(declared: string[]): Model {
             servers: [],
             permissions: declared,
             controls: None,
+            primary_color: None,
         }),
         ..p,
     };

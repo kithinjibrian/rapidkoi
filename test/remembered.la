@@ -262,23 +262,31 @@ fun the_session_keeps_each_app_s_name_and_icon() {
         ],
         current: Some(0),
         apps: [
-            Face { path: "rapidkoi://notes.dafifi.net", name: "Notes", icon: Some(png(128, 128)) },
-            Face { path: "/apps/counter.wasm", name: "counter", icon: None },
+            Face {
+                path: "rapidkoi://notes.dafifi.net",
+                name: "Notes",
+                icon: Some(png(128, 128)),
+                colour: None,
+            },
+            Face { path: "/apps/counter.wasm", name: "counter", icon: None, colour: None },
         ],
     };
     assert_eq(read_open(open_file(o)).unwrap() == o, true);
     // An icon that breaks the icon rules is dropped, as a pin's is: the app stays.
-    let bad = Open { apps: [Face { path: "a.rkb", name: "A", icon: Some([1, 2, 3]) }], ..o };
+    let bad = Open {
+        apps: [Face { path: "a.rkb", name: "A", icon: Some([1, 2, 3]), colour: None }],
+        ..o,
+    };
     assert_eq(read_open(open_file(bad)).unwrap().apps, [
-        Face { path: "a.rkb", name: "A", icon: None },
+        Face { path: "a.rkb", name: "A", icon: None, colour: None },
     ]);
     // A name that's empty or too long, or an app listed twice, breaks the file.
-    let unnamed = Open { apps: [Face { path: "a.rkb", name: "", icon: None }], ..o };
+    let unnamed = Open { apps: [Face { path: "a.rkb", name: "", icon: None, colour: None }], ..o };
     assert_eq(read_open(open_file(unnamed)).is_err(), true);
     let twice = Open {
         apps: [
-            Face { path: "a.rkb", name: "A", icon: None },
-            Face { path: "a.rkb", name: "B", icon: None },
+            Face { path: "a.rkb", name: "A", icon: None, colour: None },
+            Face { path: "a.rkb", name: "B", icon: None, colour: None },
         ],
         ..o,
     };

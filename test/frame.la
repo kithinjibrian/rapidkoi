@@ -120,6 +120,7 @@ fun the_address_box_shows_the_window_s_link() {
             servers: [],
             permissions: [],
             controls: None,
+            primary_color: None,
         }),
         fields: [("count", "3")],
         ..site,

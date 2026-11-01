@@ -8,7 +8,18 @@
  * Used by: data.saving
  */
 import cbor { Value };
-import data.remembered { Unreadable, Face, file, root, icon, entry, text, blob };
+import data.remembered {
+    Unreadable,
+    Face,
+    file,
+    root,
+    icon,
+    entry,
+    text,
+    blob,
+    face_value,
+    colour_in,
+};
 import window.recent { Place, Recent, no_recent };
 import bundles.rules { check_host };
 
@@ -52,13 +63,7 @@ fun recent_file(r: Recent): u8[] = file("recent", "recent", Value.Map([
         }
         Value.Map(fields)
     }))),
-    entry("apps", Value.Array(r.apps.map(fun(a: Face) {
-        let mut fields = [entry("path", Value.Text(a.path)), entry("name", Value.Text(a.name))];
-        if let Some(i) = a.icon {
-            fields.push(entry("icon", Value.Bytes(i)));
-        }
-        Value.Map(fields)
-    }))),
+    entry("apps", Value.Array(r.apps.map(face_value))),
 ]));
 
 /**
@@ -132,7 +137,12 @@ fun read_recent(bytes: u8[]): Result<Recent, Unreadable> {
                 if path == "" || path.len > MAX_ADDRESS || apps.any(fun(a: Face) = a.path == path) {
                     return Err(Unreadable.Broken("an app is listed twice, or has no path"));
                 }
-                apps.push(Face { path: path, name: named(x)?, icon: icon(blob(x, "icon")) });
+                apps.push(Face {
+                    path: path,
+                    name: named(x)?,
+                    icon: icon(blob(x, "icon")),
+                    colour: colour_in(x),
+                });
             }
         }
         None => {}
@@ -170,7 +180,7 @@ fun left_place(bytes: u8[]): Option<(Place, Face)> {
     Some(
         (
             Place { address: path, path: path, origin: origin, name: name, title: title, seen: 0 },
-            Face { path: path, name: name, icon: icon(blob(v, "icon")) },
+            Face { path: path, name: name, icon: icon(blob(v, "icon")), colour: None },
         ),
     )
 }

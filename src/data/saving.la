@@ -475,7 +475,12 @@ fun faces_of(open: Tab[]): Face[] {
     let mut out: Face[] = [];
     for t of open {
         if !out.any(fun(f: Face) = f.path == t.page.path) {
-            out.push(Face { path: t.page.path, name: t.page.name, icon: t.page.icon });
+            out.push(Face {
+                path: t.page.path,
+                name: t.page.name,
+                icon: t.page.icon,
+                colour: t.page.manifest.and_then(fun(m) = m.primary_color),
+            });
         }
     }
     out

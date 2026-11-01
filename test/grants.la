@@ -33,6 +33,7 @@ fun declaring(controls: Option<Controls>): AppPage {
             servers: [],
             permissions: ALL,
             controls: controls,
+            primary_color: None,
         }),
         ..open_module(
             "New tab",

@@ -67,6 +67,8 @@ enum BundleError {
     IconTooSmall(i64, i64),
     /** The icon is neither a PNG nor an SVG. */
     IconFormat,
+    /** A colour under `colors` (PRP-063) isn't `#rrggbb`: its name. */
+    BadColour(string),
 }
 
 /**
@@ -105,7 +107,22 @@ fun reason(e: BundleError): string = match e {
     IconNotSquare(w, h) => "This app's icon isn't square ({w} × {h} px)",
     IconTooSmall(w, h) => "This app's icon is smaller than {MIN_ICON_PX} px ({w} × {h})",
     IconFormat => "This app's icon must be a PNG or an SVG",
+    BadColour(name) => "This app's {name} colour must be #rrggbb",
 };
+
+/**
+ * Checks one of an app's colours (PRP-063): `#rrggbb`, six hex digits, no
+ * alpha (a wash fades it itself).
+ *
+ * Example:
+ *     check_colour("primary", "#14b8a6")?
+ */
+fun check_colour(name: string, c: string): Result<(), BundleError> {
+    let hex = c.len == 7 && c.starts_with("#") && c.to_bytes().iter().skip(1).all(
+        fun(b: u8) = b >= 48 && b <= 57 || b >= 97 && b <= 102 || b >= 65 && b <= 70,
+    );
+    if hex { Ok(()) } else { Err(BundleError.BadColour(name)) }
+}
 
 /**
  * Checks an app's icon (PRP-060): an SVG, or a square PNG of at least

@@ -79,6 +79,9 @@ struct Spot {
     title: Option<String>,
     #[n(4)]
     seen: i64,
+    /// Its app's primary colour, `#rrggbb` (PRP-063).
+    #[n(5)]
+    colour: String,
 }
 
 impl App for NewTab {
@@ -144,7 +147,14 @@ impl NewTab {
                 let places = Recent::read(&cbor).unwrap_or_default();
                 let spots = places
                     .into_iter()
-                    .map(|p| Spot { name: p.name, icon: p.icon, address: p.address, title: p.title, seen: p.seen })
+                    .map(|p| Spot {
+                        name: p.name,
+                        icon: p.icon,
+                        address: p.address,
+                        title: p.title,
+                        seen: p.seen,
+                        colour: p.primary_color,
+                    })
                     .collect();
                 (NewTab { recent: spots, ..self }, vec![])
             }
@@ -375,20 +385,29 @@ fn notifications() -> V {
 }
 
 /// A card's picture area until apps give one (a later PRP): the app's icon
-/// on a wash from the top-left, in the theme's colours, fading into the card.
-fn wash(icon: &str, height: u16, size: u16, centred: bool) -> V {
-    let place = if centred { Align::Center } else { Align::Start };
-    let middle = if centred { vec![spacer()] } else { vec![] };
-    let mut kids = middle.clone();
-    kids.push(image(icon).style([Sizing::width(size), Sizing::height(size), Layout::align(place)]));
-    kids.extend(middle);
-    column(kids).style([
+/// at the top-left, on its primary colour washing in from that corner and
+/// fading before the far edges (PRP-063, as board A5's washes).
+fn wash(icon: &str, colour: &str, height: u16, size: u16, room: u16) -> V {
+    let (r, g, b) = rgb_of(colour);
+    column([image(icon).style([Sizing::width(size), Sizing::height(size), Layout::align(Align::Start)])]).style([
         Sizing::height(height),
-        Spacing::padding(Space::Px(12)),
+        Spacing::padding(Space::Px(room)),
         Border::corner(Corner::Px(10)),
-        Background::color(lift(0.06)),
-        Background::ellipse(0.0, 0.0, 1.1, 1.5, [(lift(0.16), 0.0), (lift(0.06), 0.9)]),
+        Background::color(Color::rgb(0x1b, 0x1b, 0x1b)),
+        Background::ellipse(
+            0.0,
+            0.0,
+            1.1,
+            1.5,
+            [(Color::rgba(r, g, b, 128), 0.0), (Color::rgba(r, g, b, 31), 0.6), (Color::rgba(r, g, b, 0), 0.9)],
+        ),
     ])
+}
+
+/// A `#rrggbb` colour's channels; Rapidkoi checked it, so a bad one is grey.
+fn rgb_of(c: &str) -> (u8, u8, u8) {
+    let byte = |i: usize| c.get(i..i + 2).and_then(|h| u8::from_str_radix(h, 16).ok()).unwrap_or(0x71);
+    (byte(1), byte(3), byte(5))
 }
 
 /// When a place was last open: Rapidkoi fills it in and keeps it current ("2 min ago").
@@ -404,7 +423,7 @@ fn note_at(words: &str, seen: i64) -> V {
 /// A small Recent card: its picture area, title, app and when.
 fn mini(i: usize, p: &Spot) -> V {
     column([
-        wash(&p.icon, 84, 44, false),
+        wash(&p.icon, &p.colour, 84, 44, 12),
         column([
             text(p.title.as_deref().unwrap_or(&p.name)).style([Font::weight(Weight::Bold), Text::truncate()]),
             note_at(&format!("{} · ", p.name), p.seen),
@@ -420,7 +439,7 @@ fn mini(i: usize, p: &Spot) -> V {
 fn recent(places: &[Spot]) -> Option<V> {
     let newest = places.first()?;
     let large = column([
-        wash(&newest.icon, 240, 88, true),
+        wash(&newest.icon, &newest.colour, 240, 88, 28),
         column([
             text(newest.title.as_deref().unwrap_or(&newest.name)).style([
                 Font::size(TextSize::Rem(1.45)),

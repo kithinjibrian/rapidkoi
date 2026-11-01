@@ -20,6 +20,7 @@ fun notes(icon: Option<u8[]>): Face = Face {
     path: "rapidkoi://notes.dafifi.net",
     name: "Notes",
     icon: icon,
+    colour: Some("#14b8a6"),
 };
 
 fun broken(r: Recent): bool = read_recent(recent_file(r)).is_err();

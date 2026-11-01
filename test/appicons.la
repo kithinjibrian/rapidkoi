@@ -30,7 +30,14 @@ fun an_icon_is_found_wherever_rapidkoi_holds_it() {
         previous: Some(Open {
             tabs: [],
             current: None,
-            apps: [Face { path: "rapidkoi://notes.dafifi.net", name: "Notes", icon: Some([3]) }],
+            apps: [
+                Face {
+                    path: "rapidkoi://notes.dafifi.net",
+                    name: "Notes",
+                    icon: Some([3]),
+                    colour: None,
+                },
+            ],
         }),
         ..with_pages(engine, [app(engine, "counter", Some([2]))]),
     };

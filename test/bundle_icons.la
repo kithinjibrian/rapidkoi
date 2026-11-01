@@ -16,6 +16,7 @@ fun with_icon(icon: Option<(string, u8[])>): Bundle = Bundle { manifest: Manifes
     servers: [],
     permissions: [],
     controls: None,
+    primary_color: None,
 }, module: [0, 97, 115, 109, 1, 0, 0, 0], assets: match icon {
     Some(i) => [i],
     None => [],
@@ -89,4 +90,20 @@ fun a_jpeg_icon_is_refused() {
         1,
     ];
     assert_eq(said(with_icon(Some(("icon.jpg", jpeg)))), "This app's icon must be a PNG or an SVG");
+}
+
+fun coloured(c: Option<string>): Bundle = Bundle {
+    manifest: Manifest { primary_color: c, ..with_icon(Some(("icon.svg", svg()))).manifest },
+    ..with_icon(Some(("icon.svg", svg()))),
+};
+
+@test
+fun an_app_may_name_its_primary_colour_as_rrggbb() {
+    // PRP-063: kept as colors.primary in the manifest.
+    let back = read(write(coloured(Some("#14b8a6"))).unwrap()).unwrap();
+    assert_eq(back.manifest.primary_color, Some("#14b8a6"));
+    assert_eq(read(write(coloured(None)).unwrap()).unwrap().manifest.primary_color, None);
+    for bad of ["teal", "#14b8a", "#14b8a6ff", "14b8a6", "#14b8ag"] {
+        assert_eq(said(coloured(Some(bad))), "This app's primary colour must be #rrggbb");
+    }
 }

@@ -13,7 +13,12 @@ fun place(address: string, path: string, title: Option<string>, seen: i64): Plac
     seen: seen,
 };
 
-fun face(path: string, name: string): Face = Face { path: path, name: name, icon: None };
+fun face(path: string, name: string): Face = Face {
+    path: path,
+    name: name,
+    icon: None,
+    colour: None,
+};
 
 @test
 fun a_place_recorded_goes_to_the_front() {

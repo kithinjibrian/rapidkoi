@@ -53,7 +53,7 @@ fun no_recent(): Recent = Recent { places: [], apps: [] };
  * oldest go, and an app with no place left goes with them.
  *
  * Example:
- *     record(m.recent, place, Face { path: p.path, name: p.name, icon: p.icon })
+ *     record(m.recent, place, Face { path: p.path, name: p.name, icon: p.icon, colour: None })
  */
 fun record(r: Recent, place: Place, app: Face): Recent {
     let mut places = [place];
@@ -126,7 +126,12 @@ fun lower(s: string): string {
  *     remember(m.recent, m.people, page, m.now)
  */
 fun remember(r: Recent, who: People, p: AppPage, now: i64): Recent = if shown(who, p) {
-    record(r, place_of(p, now), Face { path: p.path, name: p.name, icon: p.icon })
+    record(r, place_of(p, now), Face {
+        path: p.path,
+        name: p.name,
+        icon: p.icon,
+        colour: p.manifest.and_then(fun(m: Manifest) = m.primary_color),
+    })
 } else {
     r
 };

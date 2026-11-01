@@ -126,6 +126,10 @@ Rapidkoi builds apps, not sites (PRP-046): an app's page is exactly the window's
 - What still doesn't fit is cut off at the window's edge, and never makes the window bigger: silently in a published app; in development (a local file or a `localhost` address), with a striped band along the cut edge and "Bottom overflowed by 42 px" (or Right) in its corner.
 - A `vertical` box scrolls only up and down (what's wider is cut), and a `horizontal` one only sideways.
 
+### An app's colours
+
+PRP-063, an addition. An app may name colours under `[colors]` in `rapidkoi.toml` (`pack --color NAME=#rrggbb`), kept in its manifest as `colors`. Each is `#rrggbb`; a bad one is refused ("This app's primary colour must be #rrggbb"). Only `primary` is known today: the app's main colour, the one its icon is in, which washes behind it on the new tab's Recent. Other names are later colours, each added when Rapidkoi first draws it, and ignored until then. An app that names none gets its colour from Rapidkoi's palette, as the dock gives it. Each `recent` place carries `colors: { "primary" }`.
+
 ### Every app's icon
 
 PRP-060. A bundle names its icon in its manifest: a square PNG of 128 to 1,024 px a side, or an SVG. Without one Rapidkoi refuses it ("This app has no icon"), and `./main pack` and `./main publish` refuse to make one. A PNG that isn't square or is under 128 px is refused too; a JPEG can't be see-through, so it isn't an icon. A bare `.wasm` (development, no manifest) still runs, drawn as its initial.

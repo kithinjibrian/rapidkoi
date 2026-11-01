@@ -63,7 +63,7 @@ fn places(list: &[(&str, &str, Option<&str>)]) -> Vec<u8> {
     let mut e = Encoder::new(Vec::new());
     e.map(1).unwrap().str("places").unwrap().array(list.len() as u64).unwrap();
     for (i, (name, address, title)) in list.iter().enumerate() {
-        e.map(if title.is_some() { 6 } else { 5 }).unwrap();
+        e.map(if title.is_some() { 7 } else { 6 }).unwrap();
         e.str("name").unwrap().str(name).unwrap();
         e.str("place").unwrap().str(address).unwrap();
         e.str("icon").unwrap().str(&format!("icon:{address}")).unwrap();
@@ -72,6 +72,7 @@ fn places(list: &[(&str, &str, Option<&str>)]) -> Vec<u8> {
             e.str("title").unwrap().str(t).unwrap();
         }
         e.str("seen").unwrap().i64(i as i64 + 1).unwrap();
+        e.str("colors").unwrap().map(1).unwrap().str("primary").unwrap().str("#14b8a6").unwrap();
     }
     e.into_writer()
 }
@@ -84,6 +85,9 @@ fn your_places_become_recent_and_a_card_opens_its_place() {
     assert_eq!(t.recent.len(), 2);
     assert_eq!(t.recent[0].title.as_deref(), Some("Shopping"));
     assert_eq!(t.recent[1].icon, "icon:counter.rkb");
+    // Its app's primary colour reaches its card (PRP-063).
+    assert_eq!(t.recent[0].colour, "#14b8a6");
+    assert_eq!(rgb_of("#14b8a6"), (0x14, 0xb8, 0xa6));
     let _ = t.view();
     assert!(recent(&t.recent).is_some());
     let pressed = Event::Message { msg: Msg::OpenRecent(1), value: None };

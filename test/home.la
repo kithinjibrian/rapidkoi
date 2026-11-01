@@ -13,6 +13,7 @@ import rapidkoi.guest.home {
 };
 import rapidkoi.data.remembered { Open, OpenTab, Face };
 import rapidkoi.window.recent { Place, Recent };
+import rapidkoi.ui.themes { publisher_colour };
 import rapidkoi.data.saving { open_of };
 import rapidkoi.shell { update };
 import rapidkoi.window.window { Model, with_pages };
@@ -120,6 +121,8 @@ fun recent_answers_newest_first_and_opens_a_place() {
                         ("icon", t("icon:quote.wasm")),
                         ("address", t("quote.wasm")),
                         ("seen", Value.int(m.recent.places[0].seen)),
+                        // No colour named: the palette's, by its name (PRP-063).
+                        ("colors", kv([("primary", t(publisher_colour(m.theme, "quote".to_bytes())))])),
                     ]),
                     kv([
                         ("name", t("notes")),
@@ -127,6 +130,7 @@ fun recent_answers_newest_first_and_opens_a_place() {
                         ("icon", t("icon:notes.wasm")),
                         ("address", t("notes.wasm")),
                         ("seen", Value.int(m.recent.places[1].seen)),
+                        ("colors", kv([("primary", t(publisher_colour(m.theme, "notes".to_bytes())))])),
                     ]),
                 ]),
             ),
@@ -167,7 +171,14 @@ fun the_last_session_is_its_size_and_its_apps() {
     };
     let m = Model {
         previous: Some(Open {
-            apps: [Face { path: "rapidkoi://quote.dafifi.net", name: "Quote", icon: None }],
+            apps: [
+                Face {
+                    path: "rapidkoi://quote.dafifi.net",
+                    name: "Quote",
+                    icon: None,
+                    colour: None,
+                },
+            ],
             tabs: [
                 tab("rapidkoi://quote.dafifi.net", ""),
                 tab("apps/notes.wasm", ""),
@@ -201,8 +212,8 @@ fun the_session_saved_keeps_each_app_s_name_and_icon_once() {
     let notes = AppPage { icon: Some([1, 2]), ..app(engine, "notes") };
     let m = with_pages(engine, [notes, app(engine, "quote"), notes]);
     assert_eq(open_of(m).apps, [
-        Face { path: "apps/notes.wasm", name: "notes", icon: Some([1, 2]) },
-        Face { path: "apps/quote.wasm", name: "quote", icon: None },
+        Face { path: "apps/notes.wasm", name: "notes", icon: Some([1, 2]), colour: None },
+        Face { path: "apps/quote.wasm", name: "quote", icon: None, colour: None },
     ]);
 }
 
@@ -248,4 +259,29 @@ fun recent_lists_each_app_once_by_its_newest_place() {
     // The index is into that list: 1 is Counter, not Notes' older place.
     assert_eq(recent_msg(m, 1), Some(Msg.OpenPlace("counter.wasm", None)));
     assert_eq(recent_msg(m, 2), None);
+}
+
+@test
+fun a_place_carries_its_app_s_primary_colour() {
+    // PRP-063: the colour the app names, kept with its recent places.
+    let p = Place {
+        address: "notes.wasm",
+        path: "notes.wasm",
+        origin: None,
+        name: "Notes",
+        title: None,
+        seen: 1,
+    };
+    let m = Model {
+        recent: Recent {
+            places: [p],
+            apps: [Face { path: "notes.wasm", name: "Notes", icon: None, colour: Some("#14b8a6") }],
+        },
+        ..with_pages(Engine.new(), []),
+    };
+    let colour = match recent_of(m).get("places") {
+        Some(Array(xs)) => xs[0].get("colors").and_then(fun(c: Value) = c.get("primary")),
+        _ => None,
+    };
+    assert_eq(colour, Some(t("#14b8a6")));
 }
