@@ -9,7 +9,18 @@ import rapidkoi.guest.events { Happened, event_for };
 import cbor { Value, encode };
 import wasmtime { Engine, Module };
 import rapidkoi.trust.verify { keyring };
-import support { t, kv, fixed, counter_tree, result_of, echo, event_in, titled_tree, crashing };
+import support {
+    t,
+    kv,
+    fixed,
+    counter_tree,
+    result_of,
+    echo,
+    event_in,
+    titled_tree,
+    crashing,
+    png,
+};
 
 fun page(wat: string): AppPage {
     let engine = Engine.new();
@@ -98,7 +109,7 @@ fun rkb(tag: string, speaks: i64): string {
         version: "2.0.1",
         description: Some("A bundle"),
         state_version: 4,
-        icon: None,
+        icon: Some("icon.png"),
         banners: [],
         servers: [],
         permissions: [],
@@ -108,7 +119,7 @@ fun rkb(tag: string, speaks: i64): string {
     let bytes = write(Bundle {
         manifest: m,
         module: [0, 97, 115, 109, 1, 0, 0, 0],
-        assets: [],
+        assets: [("icon.png", png(128, 128))],
     }).unwrap();
     write_bytes(path, bytes).unwrap();
     path
@@ -116,7 +127,7 @@ fun rkb(tag: string, speaks: i64): string {
 
 @test
 fun opening_a_bundle_uses_its_manifest() {
-    let p = open_path(Engine.new(), keyring(), rkb("opening", 10));
+    let p = open_path(Engine.new(), keyring(), rkb("opening", 11));
     assert_eq(p.name, "Bundled");
     assert_eq(p.manifest.map(fun(m: Manifest) = m.version), Some("2.0.1"));
     // The module compiled; the empty module has no memory, so it stops with Restart offered.
@@ -126,7 +137,7 @@ fun opening_a_bundle_uses_its_manifest() {
 
 @test
 fun a_bundle_for_a_newer_contract_says_so() {
-    let p = open_path(Engine.new(), keyring(), rkb("newer", 11));
+    let p = open_path(Engine.new(), keyring(), rkb("newer", 12));
     assert_eq(reason_of(p), "This app needs a newer version of Rapidkoi");
     assert_eq(p.name, "Bundled");
 }
@@ -134,7 +145,7 @@ fun a_bundle_for_a_newer_contract_says_so() {
 @test
 fun a_bundle_for_an_older_contract_is_to_be_rebuilt() {
     // DECISION-056: refused before its module is touched.
-    for v of [2, 6, 9] {
+    for v of [2, 6, 10] {
         let p = open_path(Engine.new(), keyring(), rkb("older-{v}", v));
         assert_eq(reason_of(p), "This app needs to be rebuilt for this Rapidkoi");
     }

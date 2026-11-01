@@ -20,7 +20,7 @@ import std.http { Request };
 import std.env;
 import std.fs;
 import std.task { sleep };
-import support { settle, write_counting, said };
+import support { settle, write_counting, said, write_icon };
 
 fun clean(path: string) {
     if fs.is_dir(path) {
@@ -78,9 +78,10 @@ fun site_of(port: i64, module: string, sv: i64): string {
 }
 
 fun write_toml(dir: string, port: i64, module: string, version: string, sv: i64) {
+    write_icon(dir);
     write_file(
         "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Counter\"\nversion = \"{version}\"\nstate_version = {sv}\nhost = \"localhost:{port}\"\nmodule = \"{module}\"\n[publish]\nkey = \"{dir}.key\"\n",
+        "[app]\nname = \"Counter\"\nversion = \"{version}\"\nstate_version = {sv}\nhost = \"localhost:{port}\"\nmodule = \"{module}\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}.key\"\n",
     ).unwrap();
 }
 

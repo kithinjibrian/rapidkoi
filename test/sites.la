@@ -17,7 +17,7 @@ import std.http { Request };
 import std.env;
 import std.fs;
 import std.task { sleep };
-import support { settle, write_counting };
+import support { settle, write_counting, write_icon };
 
 /** Removes a file or a folder and everything in it. */
 fun clean(path: string) {
@@ -73,9 +73,10 @@ fun site(port: i64, v: string): string {
 }
 
 fun toml(dir: string, port: i64, v: string, state_version: i64) {
+    write_icon(dir);
     write_file(
         "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Counting\"\nversion = \"{v}\"\nstate_version = {state_version}\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+        "[app]\nname = \"Counting\"\nversion = \"{v}\"\nstate_version = {state_version}\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}.key\"\n",
     ).unwrap();
 }
 

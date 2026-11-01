@@ -1,0 +1,92 @@
+// Every app has an icon (PRP-060), pure: a bundle without one, or with one
+// that isn't a square PNG of 128 to 1,024 px or an SVG, is refused where
+// bundles are read, and write refuses to make one. No files, no guest.
+import rapidkoi.bundles.bundle { Bundle, Manifest, read, write };
+import rapidkoi.bundles.rules { BundleError, reason };
+import support { png };
+
+fun with_icon(icon: Option<(string, u8[])>): Bundle = Bundle { manifest: Manifest {
+    contract: 11,
+    name: "Counter",
+    version: "0.1.0",
+    description: None,
+    state_version: 1,
+    icon: icon.map(fun(i: (string, u8[])) = i.0),
+    banners: [],
+    servers: [],
+    permissions: [],
+    controls: None,
+}, module: [0, 97, 115, 109, 1, 0, 0, 0], assets: match icon {
+    Some(i) => [i],
+    None => [],
+} };
+
+/** What reading the bundle says: "ok", or the sentence for its error. */
+fun said(b: Bundle): string = match write(b) {
+    Ok(bytes) => match read(bytes) {
+        Ok(_) => "ok",
+        Err(e) => reason(e),
+    },
+    Err(e) => reason(e),
+};
+
+fun svg(): u8[] = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><rect width=\"24\" height=\"24\"/></svg>".to_bytes();
+
+@test
+fun a_bundle_needs_an_icon() {
+    assert_eq(said(with_icon(None)), "This app has no icon");
+    assert_eq(reason(BundleError.NoIcon), "This app has no icon");
+}
+
+@test
+fun a_png_icon_is_square_and_at_least_128_px() {
+    assert_eq(said(with_icon(Some(("icon.png", png(128, 128))))), "ok");
+    assert_eq(said(with_icon(Some(("icon.png", png(1024, 1024))))), "ok");
+    assert_eq(
+        said(with_icon(Some(("icon.png", png(256, 128))))),
+        "This app's icon isn't square (256 × 128 px)",
+    );
+    assert_eq(
+        said(with_icon(Some(("icon.png", png(64, 64))))),
+        "This app's icon is smaller than 128 px (64 × 64)",
+    );
+    // The largest stays the role's limit.
+    assert_eq(
+        said(with_icon(Some(("icon.png", png(2048, 2048))))),
+        "This bundle's \"icon\" image is too large (2048 × 2048 px; at most 1024 × 1024)",
+    );
+}
+
+@test
+fun an_svg_icon_has_no_size_to_check() {
+    assert_eq(said(with_icon(Some(("icon.svg", svg())))), "ok");
+}
+
+@test
+fun a_jpeg_icon_is_refused() {
+    // A JPEG can't be see-through, so an icon on Rapidkoi's dark and light pages would show its box.
+    let jpeg: u8[] = [
+        0xff,
+        0xd8,
+        0xff,
+        0xc0,
+        0,
+        17,
+        8,
+        0,
+        128,
+        0,
+        128,
+        3,
+        1,
+        0x22,
+        0,
+        2,
+        0x11,
+        1,
+        3,
+        0x11,
+        1,
+    ];
+    assert_eq(said(with_icon(Some(("icon.jpg", jpeg)))), "This app's icon must be a PNG or an SVG");
+}

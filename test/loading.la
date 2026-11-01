@@ -20,7 +20,7 @@ import std.http { Request };
 import std.env;
 import std.fs;
 import std.task { sleep };
-import support { settle };
+import support { settle, write_icon, png };
 
 const ADDRESS: string = "rapidkoi://localhost:18771";
 
@@ -56,19 +56,19 @@ fun loading(m: Model): bool = match m.tabs[0].page.screen {
 /** A format 1 bundle's bytes, as an unsigned server would send. */
 fun plain(): u8[] = write(Bundle {
     manifest: Manifest {
-        contract: 10,
+        contract: 11,
         name: "Plain",
         version: "1.0.0",
         description: None,
         state_version: 1,
-        icon: None,
+        icon: Some("icon.png"),
         banners: [],
         servers: [],
         permissions: [],
         controls: None,
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
-    assets: [],
+    assets: [("icon.png", png(128, 128))],
 }).unwrap();
 
 /** The load number of the first tab's page, from the task's own message. */
@@ -199,9 +199,10 @@ fun site(port: i64): string {
     clean("{dir}.key");
     fs.make_dirs(dir).unwrap();
     write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    write_icon(dir);
     write_file(
         "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}.key\"\n",
     ).unwrap();
     make_key(dir).unwrap();
     publish_site(dir).unwrap();

@@ -23,10 +23,13 @@ fun file(name: string, bytes: u8[]): string {
     p
 }
 
-fun png(): u8[] = png_of(32, 32);
+fun png(): u8[] = png_of(128, 128);
 
 /** A module file of one test's own: tests run in parallel, so none share a path. */
 fun module(tag: string): string = file("{tag}.wasm", [0, 97, 115, 109, 1, 0, 0, 0]);
+
+/** A square 128 px icon on disk: every app has one (PRP-060). */
+fun icon(tag: string): string = file("{tag}-icon.png", png());
 
 @test
 fun packing_with_every_flag() {
@@ -74,10 +77,24 @@ fun packing_with_every_flag() {
 @test
 fun the_simplest_pack() {
     let out = path("min.rkb");
-    assert_eq(make([module("min"), "--name", "M", "--version", "0.1.0", "-o", out]).is_ok(), true);
+    assert_eq(
+        make([
+            module("min"),
+            "--name",
+            "M",
+            "--version",
+            "0.1.0",
+            "--icon",
+            icon("the_simplest_pack"),
+            "-o",
+            out,
+        ]).is_ok(),
+        true,
+    );
     let b = read(read_bytes(out).unwrap()).unwrap();
     assert_eq(b.manifest.state_version, 1);
-    assert_eq(b.assets.len, 0);
+    // Only its icon, which every app has (PRP-060).
+    assert_eq(b.assets.len, 1);
     fs.remove_file(out).unwrap();
 }
 
@@ -86,13 +103,35 @@ fun permissions_are_declared_with_a_flag() {
     // PRP-030: scripts/newtab.sh declares the new tab's this way.
     let out = path("perm.rkb");
     let m = module("perm");
-    let flags = [m, "--name", "M", "--version", "0.1.0", "--permission", "read_pins"];
+    let flags = [
+        m,
+        "--name",
+        "M",
+        "--version",
+        "0.1.0",
+        "--icon",
+        icon("permissions_are_declared_with_a_flag"),
+        "--permission",
+        "read_pins",
+    ];
     assert_eq(make(flags + ["--permission", "open_apps", "-o", out]).is_ok(), true);
     let b = read(read_bytes(out).unwrap()).unwrap();
     assert_eq(b.manifest.permissions, ["read_pins", "open_apps"]);
     fs.remove_file(out).unwrap();
     assert_eq(
-        make([m, "--name", "M", "--version", "0.1.0", "--permission", "Pins!", "-o", out]),
+        make([
+            m,
+            "--name",
+            "M",
+            "--version",
+            "0.1.0",
+            "--icon",
+            icon("permissions_are_declared_with_a_flag"),
+            "--permission",
+            "Pins!",
+            "-o",
+            out,
+        ]),
         Err("This bundle's \"permissions\" lists \"Pins!\", which isn't a permission name"),
     );
 }
@@ -102,7 +141,17 @@ fun controls_are_declared_with_a_flag() {
     // PRP-031: scripts/newtab.sh chooses the new tab's ⚙ and share this way.
     let out = path("ctl.rkb");
     let m = module("ctl");
-    let flags = [m, "--name", "M", "--version", "0.1.0", "--control", "address=settings"];
+    let flags = [
+        m,
+        "--name",
+        "M",
+        "--version",
+        "0.1.0",
+        "--icon",
+        icon("controls_are_declared_with_a_flag"),
+        "--control",
+        "address=settings",
+    ];
     assert_eq(
         make(flags + ["--control", "settings=app_settings.permissions", "-o", out]).is_ok(),
         true,
@@ -114,7 +163,19 @@ fun controls_are_declared_with_a_flag() {
     );
     fs.remove_file(out).unwrap();
     assert_eq(
-        make([m, "--name", "M", "--version", "0.1.0", "--control", "header=menu", "-o", out]),
+        make([
+            m,
+            "--name",
+            "M",
+            "--version",
+            "0.1.0",
+            "--icon",
+            icon("controls_are_declared_with_a_flag"),
+            "--control",
+            "header=menu",
+            "-o",
+            out,
+        ]),
         Err("--control takes address=ICON or settings=ROW"),
     );
 }
@@ -131,11 +192,33 @@ fun pack_errors_are_plain() {
     assert_eq(make([m, "--name", "M", "-o", out]), Err("--version is required"));
     assert_eq(make([m, "--name", "M", "--version", "0.1.0"]), Err("-o is required"));
     assert_eq(
-        make([m, "--name", "M", "--version", "1.0", "-o", out]),
+        make([
+            m,
+            "--name",
+            "M",
+            "--version",
+            "1.0",
+            "--icon",
+            icon("pack_errors_are_plain"),
+            "-o",
+            out,
+        ]),
         Err("This bundle's \"version\" must be MAJOR.MINOR.PATCH, like 1.4.0"),
     );
     assert_eq(
-        make([m, "--name", "M", "--version", "0.1.0", "--colour", "red", "-o", out]),
+        make([
+            m,
+            "--name",
+            "M",
+            "--version",
+            "0.1.0",
+            "--icon",
+            icon("pack_errors_are_plain"),
+            "--colour",
+            "red",
+            "-o",
+            out,
+        ]),
         Err("unknown flag --colour"),
     );
     assert_eq(make([m, "--name"]), Err("--name needs a value"));
@@ -151,15 +234,51 @@ fun pack_errors_are_plain() {
         Err("This bundle's asset \"icon.png\" isn't a PNG, JPEG or SVG picture"),
     );
     assert_eq(
-        make([m, "--name", "M", "--version", "0.1.0", "--banner", "home", "-o", out]),
+        make([
+            m,
+            "--name",
+            "M",
+            "--version",
+            "0.1.0",
+            "--icon",
+            icon("pack_errors_are_plain"),
+            "--banner",
+            "home",
+            "-o",
+            out,
+        ]),
         Err("--banner takes PAGE=FILE"),
     );
     assert_eq(
-        make([m, "--name", "M", "--version", "0.1.0", "--state-version", "x", "-o", out]),
+        make([
+            m,
+            "--name",
+            "M",
+            "--version",
+            "0.1.0",
+            "--icon",
+            icon("pack_errors_are_plain"),
+            "--state-version",
+            "x",
+            "-o",
+            out,
+        ]),
         Err("--state-version takes a whole number"),
     );
     assert_eq(
-        make([m, "--name", "M", "--version", "0.1.0", "--server", "10.0.0.1", "-o", out]),
+        make([
+            m,
+            "--name",
+            "M",
+            "--version",
+            "0.1.0",
+            "--icon",
+            icon("pack_errors_are_plain"),
+            "--server",
+            "10.0.0.1",
+            "-o",
+            out,
+        ]),
         Err("This bundle's \"servers\" lists \"10.0.0.1\", which isn't a server name"),
     );
     assert_eq(fs.exists(out), false);
@@ -170,9 +289,70 @@ fun pack_never_overwrites_without_force() {
     let m = module("force");
     let out = file("there.rkb", [1]);
     assert_eq(
-        make([m, "--name", "M", "--version", "0.1.0", "-o", out]),
+        make([
+            m,
+            "--name",
+            "M",
+            "--version",
+            "0.1.0",
+            "--icon",
+            icon("pack_never_overwrites_without_force"),
+            "-o",
+            out,
+        ]),
         Err("{out} exists; add --force to replace it"),
     );
-    assert_eq(make([m, "--name", "M", "--version", "0.1.0", "-o", out, "--force"]).is_ok(), true);
+    assert_eq(
+        make([
+            m,
+            "--name",
+            "M",
+            "--version",
+            "0.1.0",
+            "--icon",
+            icon("pack_never_overwrites_without_force"),
+            "-o",
+            out,
+            "--force",
+        ]).is_ok(),
+        true,
+    );
+    fs.remove_file(out).unwrap();
+}
+
+@test
+fun an_app_without_an_icon_isn_t_packed() {
+    // PRP-060: refused before anything is written, saying how to add one.
+    let out = path("noicon.rkb");
+    assert_eq(
+        make([module("noicon"), "--name", "M", "--version", "0.1.0", "-o", out]),
+        Err("Give the app an icon: --icon icon.png (a square PNG of at least 128 px, or an SVG)"),
+    );
+    assert_eq(fs.exists(out), false);
+}
+
+@test
+fun an_svg_icon_keeps_its_name() {
+    let out = path("svgicon.rkb");
+    let svg = file(
+        "icon.svg",
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"/>".to_bytes(),
+    );
+    assert_eq(
+        make([
+            module("svgicon"),
+            "--name",
+            "M",
+            "--version",
+            "0.1.0",
+            "--icon",
+            svg,
+            "-o",
+            out,
+        ]).is_ok(),
+        true,
+    );
+    let b = read(read_bytes(out).unwrap()).unwrap();
+    assert_eq(b.manifest.icon, Some("icon.svg"));
     fs.remove_file(out).unwrap();
 }

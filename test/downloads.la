@@ -21,6 +21,7 @@ import support { guest_of, result_of, t, kv, leaf, parent, png, settle, event_in
 import rapidkoi.data.store { store_at };
 import rapidkoi.data.databases { Call, path_for, call, clear };
 import rapidkoi.guest.nodes { BatchStep };
+import rapidkoi.bundles.bundle { Manifest };
 
 /** `/N.png` is an N × 10 PNG; `/huge.png` 5000 × 10; `/a.webp` a WebP; anything else 404. */
 fun serving(r: Incoming): Response {
@@ -313,3 +314,39 @@ fun a_blob_that_can_t_be_shown_sends_its_on_fail_with_why() {
     clear(path).unwrap();
     clear(at).unwrap();
 }
+
+@test
+fun only_rapidkoi_s_own_apps_show_other_apps_icons() {
+    // PRP-060: no outside app may name `icon:`, so none can probe which apps you have.
+    let outside = showing(8801, [leaf("image", [("src", t("icon:notes.dafifi.net"))])], []);
+    let (m, c) = fetch_all(outside);
+    assert_eq(
+        stopped(m),
+        "This app's screen names a picture it can't have: Only Rapidkoi's own apps can show other apps' icons",
+    );
+    assert_eq(tasks(c), 0);
+    // A built-in app (one holding a built-in permission) shows it, and nothing is fetched.
+    let own = showing(8802, [leaf("image", [("src", t("icon:notes.dafifi.net"))])], []);
+    let p = page(own);
+    let built_in = Model {
+        tabs: [Tab { page: AppPage { manifest: Some(newtab_manifest()), ..p }, ..own.tabs[0] }],
+        ..own,
+    };
+    let (after, sends) = fetch_all(built_in);
+    assert_eq(stopped(after), "running");
+    assert_eq(tasks(sends), 0);
+    assert_eq(kept_in(page(after), "icon:notes.dafifi.net").is_none(), true);
+}
+
+fun newtab_manifest(): Manifest = Manifest {
+    contract: 11,
+    name: "New tab",
+    version: "0.1.0",
+    description: None,
+    state_version: 1,
+    icon: Some("icon.svg"),
+    banners: [],
+    servers: [],
+    permissions: ["read_pins", "restore_session"],
+    controls: None,
+};

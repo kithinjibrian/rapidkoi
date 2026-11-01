@@ -13,7 +13,7 @@ import bundles.bundle { Bundle, Manifest, Controls, write };
 import bundles.rules { reason };
 import guest.limits { CONTRACT_VERSION };
 import std.env;
-import commands.publish { pack_project };
+import commands.publish { pack_project, icon_name };
 
 /** What the command line asked for. */
 struct Request {
@@ -76,16 +76,16 @@ fun make(args: string[]): Result<string, string> {
         return pack_project(dir, args.len == 1);
     }
     let r = parse(args)?;
+    // Every app has an icon (PRP-060): refused before anything is read or written.
+    let icon_file = r.icon.ok_or(
+        "Give the app an icon: --icon icon.png (a square PNG of at least 128 px, or an SVG)",
+    )?;
     if fs.exists(r.out) && !r.force {
         return Err("{r.out} exists; add --force to replace it");
     }
     let module = load(r.module)?;
-    let mut assets: (string, u8[])[] = [];
-    let mut icon: Option<string> = None;
-    if let Some(file) = r.icon {
-        assets.push(("icon.png", load(file)?));
-        icon = Some("icon.png");
-    }
+    let icon = icon_name(icon_file);
+    let mut assets: (string, u8[])[] = [(icon, load(icon_file)?)];
     let mut banners: (string, string)[] = [];
     for b of r.banners {
         let name = "banner/{b.0}.png";
@@ -101,7 +101,7 @@ fun make(args: string[]): Result<string, string> {
         version: r.version,
         description: r.description,
         state_version: r.state_version,
-        icon: icon,
+        icon: Some(icon),
         banners: banners,
         servers: r.servers,
         permissions: r.permissions,

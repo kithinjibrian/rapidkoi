@@ -18,7 +18,7 @@ import std.env;
 import std.fs;
 import std.task { sleep };
 import std.time;
-import support { settle };
+import support { settle, write_icon };
 
 const TLS: string = "test/fixtures/tls";
 
@@ -39,9 +39,10 @@ fun tls_site(port: i64): string {
     clean("{dir}.key");
     fs.make_dirs(dir).unwrap();
     write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    write_icon(dir);
     write_file(
         "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}.key\"\n",
     ).unwrap();
     make_key(dir).unwrap();
     publish_site(dir).unwrap();

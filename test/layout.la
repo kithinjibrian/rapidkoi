@@ -35,11 +35,11 @@ fun a_fresh_window_shows_only_the_new_tab() {
     let page = texts(newtab_view(m));
     assert(page.len > 0);
     // The frame's only other texts are its cards', built while closed: ⚙
-    // for the new tab (PRP-031) and ☰ (PRP-038).
+    // for the new tab (PRP-031; its icon, not its initial, since PRP-060)
+    // and ☰ (PRP-038).
     assert_eq(
         texts(layout.view(m)),
         page + [
-            "N",
             "New tab",
             "0.1.0",
             "App settings",

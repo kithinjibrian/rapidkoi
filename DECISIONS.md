@@ -431,6 +431,7 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 ## OPEN — Requires human input before implementation
 
 
+
 ### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
 
 **Status:** open (parked by the owner, session 189)
@@ -756,6 +757,20 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 ---
 
 ## RESOLVED
+
+### DECISION-092 — Every app has an icon; Rapidkoi's own apps show apps' icons (contract 11)
+
+**Status:** resolved (the owner approved PRP-060, 2026-11-01: "yes for the two")
+**Raised:** 2026-11-01, the owner: "let's build it. also we need to enforce that each app have an icon"
+
+**Question:** How is an icon required, and how does a built-in app show other apps' icons without being handed their bytes?
+
+**Outcome (PRP-060):**
+- Every bundle names an icon: a square PNG of 128 to 1,024 px, or an SVG. Bundles without one are refused where bundles are read, and `pack` and `publish` refuse to make one. A bare `.wasm` (development) still runs.
+- Contract 11 adds `icon:PLACE`, a picture source only built-in apps may use: the app's icon, found by Rapidkoi, or its initial on its colour when there's none.
+- Answers name icons (`icon: "icon:PLACE"`) instead of carrying their bytes, and the session answer lists each app's name and icon.
+
+---
 
 ### DECISION-091 — Contract 10: gradients, layers, wrapping and fitting rows
 

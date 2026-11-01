@@ -1,0 +1,98 @@
+/**
+ * Apps' icons by place (PRP-060), pure: what a built-in app's
+ * `icon:PLACE` picture draws. The app's own icon, from wherever Rapidkoi
+ * already holds it: your pins, your open windows, where you left off, your
+ * last session. Or, for an app it has no icon for (a bare `.wasm`, or one
+ * it has never seen), Rapidkoi's mark: the app's initial on a colour from
+ * the theme, as the dock draws it. The app naming it never holds the bytes.
+ *
+ * Depends on: ui.schemes, ui.themes, window.window, guest.home
+ * Used by: ui.content
+ */
+import ui.schemes { Theme };
+import ui.themes { publisher_colour };
+import window.window { Model };
+import guest.home { place_of };
+
+/**
+ * Returns the icon to draw for the app at `place`: its own, or its initial
+ * on a theme colour (`fallback_svg`) when Rapidkoi holds none.
+ *
+ * @param m the window: its pins, tabs, where you left off and last session
+ * @param place a host, or a file's name (`guest.home.place_of`)
+ * @returns PNG or SVG bytes, never empty
+ *
+ * Example:
+ *     icon_for(m, "notes.dafifi.net")
+ */
+fun icon_for(m: Model, place: string): u8[] {
+    let mut name = place;
+    for p of m.pinned {
+        if place_of(p.path) == place {
+            name = p.name;
+            if let Some(i) = p.icon {
+                return i;
+            }
+        }
+    }
+    for t of m.tabs {
+        if place_of(t.page.path) == place {
+            name = t.page.name;
+            if let Some(i) = t.page.icon {
+                return i;
+            }
+        }
+    }
+    if let Some(l) = m.left_off {
+        if place_of(l.path) == place {
+            name = l.name;
+            if let Some(i) = l.icon {
+                return i;
+            }
+        }
+    }
+    if let Some(o) = m.previous {
+        for f of o.apps {
+            if place_of(f.path) == place {
+                name = f.name;
+                if let Some(i) = f.icon {
+                    return i;
+                }
+            }
+        }
+    }
+    fallback_svg(name, m.theme)
+}
+
+/**
+ * Returns Rapidkoi's mark for an app without an icon: the first letter of
+ * `name`, capitalised and escaped, on one of the theme's publisher colours
+ * chosen by that letter, so an app keeps its colour.
+ *
+ * Example:
+ *     fallback_svg("Notes", m.theme)
+ */
+fun fallback_svg(name: string, t: Theme): u8[] {
+    let mut letter = "?";
+    for c of name.chars() {
+        letter = "{c.to_upper()}";
+        break;
+    }
+    let colour = publisher_colour(t, letter.to_bytes());
+    [
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\">",
+        "<rect width=\"64\" height=\"64\" rx=\"18\" fill=\"{colour}\"/>",
+        "<text x=\"32\" y=\"43\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"30\" font-weight=\"700\" fill=\"#ffffff\">{escaped(letter)}</text>",
+        "</svg>",
+    ].join("").to_bytes()
+}
+
+/** A letter safe inside SVG text: the five characters XML gives meaning to, written as entities. */
+fun escaped(s: string): string = match s {
+    "<" => "&lt;",
+    ">" => "&gt;",
+    "&" => "&amp;",
+    "\"" => "&quot;",
+    "'" => "&apos;",
+    _ => s,
+};

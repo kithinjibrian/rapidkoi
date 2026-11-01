@@ -18,7 +18,7 @@ import rapidkoi.data.kept {
 import rapidkoi.data.store { Store, store_at };
 import rapidkoi.trust.verify { Identity, VerifyError, check_site_at };
 import rapidkoi.commands.publish { make_key, publish_site };
-import support { write_counting };
+import support { write_counting, write_icon };
 import std.crypto { sha256, equal };
 import std.env;
 import std.fs;
@@ -51,9 +51,10 @@ fun published(name: string, host: string): string {
     clean("{dir}.key");
     fs.make_dirs(dir).unwrap();
     write_counting("{dir}/m.wasm");
+    write_icon(dir);
     write_file(
         "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Counting\"\nversion = \"1.0.0\"\nhost = \"{host}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+        "[app]\nname = \"Counting\"\nversion = \"1.0.0\"\nhost = \"{host}\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}.key\"\n",
     ).unwrap();
     make_key(dir).unwrap();
     publish_site(dir).unwrap();

@@ -73,14 +73,14 @@ The wordmark's gradient stays a picture: GTK's CSS can't fill text with a gradie
 3. **Wrapping boxes** (kivuli's `wrap`, `equal`, `max_per_line`): Notifications' two equal columns and the small cards' grid, without the replica's wide filler picture (wash-fill.svg) or fixed minimum widths.
 4. **A fitting row** (kivuli's `fit_row`): Pinned's one line, as many as fit, then See all.
 5. **A place's card**: `summary` and `picture` (`asset:`/`blob:` only) on the view's root beside `title`; a bad value is ignored, never stops the app.
-6. **Pictures Rapidkoi hands over**: a picture source for an app's icon from an answer (pins, recent places, the session, notifications). Today an answer carries the icon's PNG bytes, which no `image` can show.
-7. **An app's colour** in those answers (the theme's `publishers`), for the initial of an app without an icon and for its wash.
+6. **Shipped (contract 11, PRP-060)** as `icon:PLACE`. **Pictures Rapidkoi hands over**: a picture source for an app's icon from an answer (pins, recent places, the session, notifications). Today an answer carries the icon's PNG bytes, which no `image` can show.
+7. **Not needed (PRP-060):** `icon:` draws an app without an icon as its initial on a theme colour. **An app's colour** in those answers (the theme's `publishers`), for the initial of an app without an icon and for its wash.
 
 ### rapidkoi: the shell
 
 1. **Recent places**: a record of places with when each was last open, replacing the one "where you left off"; an ask answering the newest five (title, summary, picture, icon, colour, link, time) and one opening a place by its index.
 2. **Show in Recent**: a switch per app in its ⚙ card; off forgets its places.
-3. **The session's apps**: Restore's answer gives each app's name, icon and colour, not only names and a window count.
+3. **Shipped (PRP-060)**, with names and icons, and the new tab's Restore is real. **The session's apps**: Restore's answer gives each app's name, icon and colour, not only names and a window count.
 4. **Notifications**: the manifest's `notifications` permission; an ask to send one (a sentence and a place) and its limits (length, how many kept per app, how often, only while running); keeping them; a built-in permission for the new tab to read them; ordering (with a button first, newest first) and removal when no longer true; opening one opens its place.
 5. **The bell**: in the header before 👤 and ☰, an accent dot while anything is unread, opening a card of the latest.
 6. **The dock's dot**: on each entry with something unread.

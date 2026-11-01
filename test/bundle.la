@@ -9,7 +9,7 @@ import support { t, kv, png as png_of };
 fun png(): u8[] = png_of(64, 64);
 
 fun manifest(): Manifest = Manifest {
-    contract: 10,
+    contract: 11,
     name: "Counter",
     version: "0.1.0",
     description: Some("Counts, and says hello"),
@@ -24,24 +24,34 @@ fun manifest(): Manifest = Manifest {
 fun good(): Bundle = Bundle {
     manifest: manifest(),
     module: [0, 97, 115, 109, 1, 0, 0, 0],
-    assets: [("icon.png", png()), ("banner/home.png", png())],
+    assets: [("icon.png", png_of(128, 128)), ("banner/home.png", png())],
 };
 
-/** A bundle's CBOR with the manifest given as raw pairs, to break rules write won't. */
-fun raw(fields: (string, Value)[], assets: (string, Value)[]): u8[] = encode(
-    kv([
-        ("format", Value.int(1)),
-        ("manifest", kv(fields)),
-        ("module", Value.Bytes([0, 97, 115, 109])),
-        ("assets", kv(assets)),
-    ]),
-);
+/**
+ * A bundle's CBOR with the manifest given as raw pairs, to break rules write
+ * won't. Its icon (PRP-060) is added unless the assets already hold one.
+ */
+fun raw(fields: (string, Value)[], assets: (string, Value)[]): u8[] {
+    let mut all = assets;
+    if !assets.any(fun(a: (string, Value)) = a.0 == "icon.png") {
+        all = [("icon.png", Value.Bytes(png_of(128, 128)))] + assets;
+    }
+    encode(
+        kv([
+            ("format", Value.int(1)),
+            ("manifest", kv(fields)),
+            ("module", Value.Bytes([0, 97, 115, 109])),
+            ("assets", kv(all)),
+        ]),
+    )
+}
 
 fun base(): (string, Value)[] = [
     ("contract", Value.int(1)),
     ("name", t("Counter")),
     ("version", t("0.1.0")),
     ("state_version", Value.int(1)),
+    ("icon", t("icon.png")),
 ];
 
 /** `base()` with one field replaced or added. */
@@ -64,7 +74,7 @@ fun a_bundle_round_trips() {
     let back = read(write(b).unwrap()).unwrap();
     assert_eq(back.manifest == b.manifest, true);
     assert_eq(back.module, b.module);
-    assert_eq(asset(back, "icon.png"), Some(png()));
+    assert_eq(asset(back, "icon.png"), Some(png_of(128, 128)));
     assert_eq(asset(back, "nope.png"), None);
 }
 
@@ -72,7 +82,8 @@ fun a_bundle_round_trips() {
 fun a_minimal_bundle_reads() {
     let b = read(raw(base(), [])).unwrap();
     assert_eq(b.manifest.description, None);
-    assert_eq(b.manifest.icon, None);
+    // Every bundle names its icon (PRP-060).
+    assert_eq(b.manifest.icon, Some("icon.png"));
     assert_eq(b.manifest.banners.len, 0);
     // Bundles from before PRP-012 reach nothing beyond their own host.
     assert_eq(b.manifest.servers.len, 0);
@@ -208,8 +219,8 @@ fun assets_must_be_pictures_and_referenced_ones_must_exist() {
         "This bundle's asset \"a.png\" isn't a PNG, JPEG or SVG picture",
     );
     assert_eq(
-        error_of(raw(with("icon", t("icon.png")), [])),
-        "This bundle's \"icon\" names an asset it doesn't have: \"icon.png\"",
+        error_of(raw(with("icon", t("logo.png")), [])),
+        "This bundle's \"icon\" names an asset it doesn't have: \"logo.png\"",
     );
     assert_eq(
         error_of(raw(with("banners", kv([("home", t("b.png"))])), [])),
@@ -267,7 +278,8 @@ fun prerendered_must_be_empty() {
 @test
 fun sizes_and_counts_are_limited() {
     let mut many: (string, Value)[] = [];
-    for i in 0..257 {
+    // 256 and the icon `raw` adds.
+    for i in 0..256 {
         many.push(("a{i}.png", Value.Bytes(png())));
     }
     assert_eq(error_of(raw(base(), many)), "This bundle has too many assets (257; at most 256)");

@@ -14,7 +14,8 @@ import window.actions { Msg };
 import window.tabs { AppPage };
 import window.downloaded { Kept };
 import guest.nodes { Node, Picture, Shown };
-import guest.pictures { asset_of };
+import guest.pictures { asset_of, icon_of };
+import ui.appicons { icon_for };
 import guest.placeholders { fill };
 import window.zones { moments };
 import people.people { name_in, looks_of };
@@ -56,7 +57,7 @@ fun app_view(id: i64, a: AppPage, m: Model): View<Msg> {
             lazy(
                 screen_key(id, state, m.theme, own, first, last, a.pictures) + timing(d.root, m),
                 fun() = screen_as(
-                    fill(pictured(d.root, a), first, last, m.offsets, m.now),
+                    fill(pictured(d.root, a, m), first, last, m.offsets, m.now),
                     m.theme,
                     own,
                 ),
@@ -147,7 +148,7 @@ fun newtab_view(m: Model): View<Msg> = match m.newtab {
         // Rapidkoi's own app: your name for every app, times in your zone.
         Running(_, _, d) => sized(
             screen_as(
-                fill(pictured(d.root, p), m.people.first, m.people.last, m.offsets, m.now),
+                fill(pictured(d.root, p, m), m.people.first, m.people.last, m.offsets, m.now),
                 m.theme,
                 own_of(p, m),
             ),
@@ -158,36 +159,52 @@ fun newtab_view(m: Model): View<Msg> = match m.newtab {
     None => column([]),
 };
 
-/** A page's screen with its pictures as the page has them. */
-fun pictured(root: Node, a: AppPage): Node = with_shown(
+/** A page's screen with its pictures as the page has them, and apps' icons as Rapidkoi holds them. */
+fun pictured(root: Node, a: AppPage, m: Model): Node = with_shown(
     root,
     a.program.map(fun(g) = g.assets).unwrap_or([]),
     a.pictures,
+    fun(place: string): u8[] = icon_for(m, place),
 );
 
 /**
  * A screen with each picture as the page has it (PRP-047): a bundle's
- * from its assets, a server's from what's kept; one missing from the
- * bundle, or gone, is broken; one not yet here waits.
+ * from its assets, a server's from what's kept, an app's icon from `icon`
+ * (PRP-060); one missing from the bundle, or gone, is broken; one not yet
+ * here waits.
  *
  * Example:
- *     with_shown(d.root, assets, page.pictures)
+ *     with_shown(d.root, assets, page.pictures, fun(place: string): u8[] = icon_for(m, place))
  */
-fun with_shown(n: Node, assets: (string, u8[])[], kept: (string, Kept)[]): Node = match n {
+fun with_shown(
+    n: Node,
+    assets: (string, u8[])[],
+    kept: (string, Kept)[],
+    icon: fun(string): u8[],
+): Node = match n {
     Pictured(p, look) => Node.Pictured(
-        Picture { shown: shown_of(p.source, assets, kept), ..p },
+        Picture { shown: shown_of(p.source, assets, kept, icon), ..p },
         look,
     ),
     Boxed(look, facts, press, kids) => Node.Boxed(
         look,
         facts,
         press,
-        kids.map(fun(k: Node) = with_shown(k, assets, kept)),
+        kids.map(fun(k: Node) = with_shown(k, assets, kept, icon)),
     ),
     _ => n,
 };
 
-fun shown_of(source: string, assets: (string, u8[])[], kept: (string, Kept)[]): Shown {
+fun shown_of(
+    source: string,
+    assets: (string, u8[])[],
+    kept: (string, Kept)[],
+    icon: fun(string): u8[],
+): Shown {
+    // Rapidkoi holds it already: shown at once, never fetched (PRP-060).
+    if let Some(place) = icon_of(source) {
+        return Shown.Ready(icon(place));
+    }
     match asset_of(source) {
         Some(name) => {
             for (n, bytes) of assets {

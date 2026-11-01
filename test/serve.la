@@ -1,6 +1,7 @@
 // The development server, without a network: what its handler answers,
 // and how the command checks its arguments. Writes only under test/tmp/.
 import rapidkoi.commands.serve { BUNDLE_PATH, handle, prepare };
+import support { png };
 import rapidkoi.bundles.bundle { Bundle, Manifest, write };
 import std.http { Request };
 import std.fs;
@@ -18,12 +19,12 @@ fun request(method: string, path: string): Request = Request {
 fun bundle_file(tag: string, version: string): string {
     let p = "test/tmp/{tag}.rkb";
     let m = Manifest {
-        contract: 10,
+        contract: 11,
         name: "Served",
         version: version,
         description: None,
         state_version: 1,
-        icon: None,
+        icon: Some("icon.png"),
         banners: [],
         servers: [],
         permissions: [],
@@ -31,7 +32,11 @@ fun bundle_file(tag: string, version: string): string {
     };
     write_bytes(
         p,
-        write(Bundle { manifest: m, module: [0, 97, 115, 109, 1, 0, 0, 0], assets: [] }).unwrap(),
+        write(Bundle {
+            manifest: m,
+            module: [0, 97, 115, 109, 1, 0, 0, 0],
+            assets: [("icon.png", png(128, 128))],
+        }).unwrap(),
     ).unwrap();
     p
 }
