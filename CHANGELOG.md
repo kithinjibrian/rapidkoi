@@ -8,6 +8,9 @@ Never deleted. Older entries are never modified.
 
 ## [Unreleased]
 
+### Fixed
+- A recent place recorded before the first tick showed "1 Jan 1970": Rapidkoi reads the clock at launch, and the new tab leaves out a time it doesn't know (0) and an empty address; Rapidkoi's own apps answer with no address (`builtin:settings` was shown).
+
 ### Added
 - Rapidkoi's own apps go into Recent, all but the new tab, and Settings comes pinned on a first run (PRP-064); unpinning it sticks. Settings opens by its path (`builtin:settings`) from a pin, a recent card or the address box, as ☰ opens it. "Show in Recent" is its own ⚙ row (`app_settings.recent`), Settings' included.
 - An app's colours (PRP-063): `[colors] primary = "#rrggbb"` in `rapidkoi.toml` (`pack --color primary=…`), kept in the manifest as `colors`; Recent's cards wash in each app's primary colour from the top-left, its icon at the top-left, the large card as the small ones; an app with none gets the dock's palette colour. The new tab and Settings name theirs. Recent places carry `colors.primary` (rapidkoi-rust `v0.5.0-pre.3`).

@@ -383,3 +383,10 @@ fun closing_the_card_never_reopens_it() {
     let closed = step(step(m, Msg.ClosePanel), Msg.ClosePanel);
     assert_eq(closed.panel, None);
 }
+
+@test
+fun a_fresh_start_knows_the_time() {
+    // A place recorded before the first tick has a real time, not 1970 (the owner, 2026-11-02).
+    let (m, _) = start(["./main"], None);
+    assert_eq(m.now > 1_700_000_000_000, true);
+}

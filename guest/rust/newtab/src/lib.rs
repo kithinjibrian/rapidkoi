@@ -415,9 +415,21 @@ fn when(seen: i64) -> rapidkoi::Part {
     rapidkoi::time(seen).relative()
 }
 
-/// Small, dim words with a time at their end.
-fn note_at(words: &str, seen: i64) -> V {
-    text_of([words.into(), when(seen)]).style([Font::size(TextSize::Small), Text::color(Color::system("text_dim"))])
+/// Small, dim words: an app and, when it has one, an address, then when it
+/// was open, left out when it isn't known (a time of 0).
+fn note_at(words: &[&str], seen: i64) -> V {
+    let mut parts: Vec<rapidkoi::Part> = Vec::new();
+    for w in words.iter().filter(|w| !w.is_empty()) {
+        if !parts.is_empty() {
+            parts.push(" · ".into());
+        }
+        parts.push((*w).into());
+    }
+    if seen > 0 {
+        parts.push(" · ".into());
+        parts.push(when(seen));
+    }
+    text_of(parts).style([Font::size(TextSize::Small), Text::color(Color::system("text_dim"))])
 }
 
 /// A small Recent card: its picture area, title, app and when.
@@ -426,7 +438,7 @@ fn mini(i: usize, p: &Spot) -> V {
         wash(&p.icon, &p.colour, 84, 44, 12),
         column([
             text(p.title.as_deref().unwrap_or(&p.name)).style([Font::weight(Weight::Bold), Text::truncate()]),
-            note_at(&format!("{} · ", p.name), p.seen),
+            note_at(&[&p.name], p.seen),
         ])
         .style([Spacing::padding_xy(Space::None, Space::Px(4)), Spacing::gap(Space::Px(3))]),
     ])
@@ -448,7 +460,7 @@ fn recent(places: &[Spot]) -> Option<V> {
             ]),
             row([
                 image(&newest.icon).style([Sizing::width(18), Sizing::height(18)]),
-                note_at(&format!("{} · {} · ", newest.name, newest.address), newest.seen),
+                note_at(&[&newest.name, &newest.address], newest.seen),
             ])
             .style([Spacing::gap(Space::Sm)]),
         ])
