@@ -37,6 +37,7 @@ import data.remembered {
     MAX_OPEN_FILE,
     open_file,
     read_open,
+    Face,
 };
 import data.pinfiles { MAX_PINS_FILE, MAX_LEFT_FILE, read_pins, read_left, pins_file, left_file };
 import trust.verify { keyring, keyring_of, identities, changes, moves };
@@ -444,7 +445,19 @@ fun open_of(m: Model): Open {
             },
         ),
         current: current,
+        apps: faces_of(m.tabs),
     }
+}
+
+/** Each app of these tabs once, in the order of its first, with its name and icon (PRP-060). */
+fun faces_of(open: Tab[]): Face[] {
+    let mut out: Face[] = [];
+    for t of open {
+        if !out.any(fun(f: Face) = f.path == t.page.path) {
+            out.push(Face { path: t.page.path, name: t.page.name, icon: t.page.icon });
+        }
+    }
+    out
 }
 
 /**

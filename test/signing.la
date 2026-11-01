@@ -15,7 +15,7 @@ fun key(host: string): SecretKey {
 
 fun sample(): Bundle = Bundle {
     manifest: Manifest {
-        contract: 10,
+        contract: 11,
         name: "Notes",
         version: "1.0.0",
         description: None,
@@ -27,7 +27,7 @@ fun sample(): Bundle = Bundle {
         controls: None,
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
-    assets: [("icon.png", png(32, 32))],
+    assets: [("icon.png", png(128, 128))],
 };
 
 fun why(bytes: u8[]): string = match read_any(bytes) {
@@ -105,7 +105,7 @@ fun a_changed_byte_anywhere_is_refused() {
         why(with(bytes, "module", Value.Bytes(module))),
         "This bundle's module doesn't match its signed hash",
     );
-    let mut icon = png(32, 32);
+    let mut icon = png(128, 128);
     icon[20] = 1;
     let assets = Value.Map([Entry { key: Value.Text("icon.png"), value: Value.Bytes(icon) }]);
     assert_eq(
@@ -118,7 +118,7 @@ fun a_changed_byte_anywhere_is_refused() {
 fun assets_must_match_the_signed_list() {
     let bytes = write_signed(sample(), key("a.example")).unwrap();
     let extra = Value.Map([
-        Entry { key: Value.Text("icon.png"), value: Value.Bytes(png(32, 32)) },
+        Entry { key: Value.Text("icon.png"), value: Value.Bytes(png(128, 128)) },
         Entry { key: Value.Text("x.png"), value: Value.Bytes(png(8, 8)) },
     ]);
     assert_eq(

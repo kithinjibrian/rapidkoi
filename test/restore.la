@@ -13,7 +13,7 @@ import rapidkoi.shell { start, start_with, update };
 import rapidkoi.window.window { Model };
 import rapidkoi.ui.layout { view };
 import kivuli { Cmd };
-import kivuli.testing { click };
+import kivuli.testing { click, texts };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.instances { display_name };
 import rapidkoi.window.tabs { Tab };
@@ -79,6 +79,7 @@ fun with_session(name: string): Store {
     let path = module_of(s);
     fs.make_dirs(s.dir).unwrap();
     let o = Open {
+        apps: [],
         tabs: [
             OpenTab { link: [], path: path, instance: "", label: None, seen: 1, origin: None },
             OpenTab {
@@ -133,6 +134,7 @@ fun restore_adds_to_an_app_named_at_launch() {
 fun a_tab_that_cant_come_back_says_why_and_the_rest_open() {
     let s = folder("gone");
     let o = Open {
+        apps: [],
         tabs: [
             OpenTab {
                 link: [],
@@ -264,6 +266,7 @@ fun a_replaced_session_takes_its_extra_windows_with_it() {
     fs.make_dirs(s.dir).unwrap();
     let site = "rapidkoi://localhost:18798";
     let o = Open {
+        apps: [],
         tabs: [
             OpenTab { link: [], path: site, instance: "", label: None, seen: 1, origin: None },
             OpenTab { link: [], path: site, instance: "2", label: None, seen: 2, origin: None },
@@ -290,6 +293,7 @@ fun the_current_session_wins_per_app() {
     write_bytes("{dir}/n.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
     let n = "{s.dir}/../n.wasm";
     let o = Open {
+        apps: [],
         tabs: [
             OpenTab {
                 link: [],
@@ -327,4 +331,15 @@ fun the_current_session_wins_per_app() {
     let back = step(opened, Msg.RestoreSession);
     assert_eq(names(back), ["m", "n", "Two"]);
     clean(dir);
+}
+
+@test
+fun the_new_tab_shows_restore_only_while_there_s_a_session() {
+    // PRP-060: the real new tab asks for the session and shows Restore with its apps.
+    let s = with_session("pill");
+    let (m, _) = start(["./main"], Some(s));
+    assert_eq(texts(view(m)).any(fun(x: string) = x == "Restore previous session"), true);
+    clean("test/tmp/restore-pill");
+    let (fresh, _) = start(["./main"], None);
+    assert_eq(texts(view(fresh)).any(fun(x: string) = x == "Restore previous session"), false);
 }

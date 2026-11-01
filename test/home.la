@@ -2,7 +2,8 @@
 // Rapidkoi answers them, and what open_pin and continue open. Pure apart
 // from fixture guests; no display.
 import rapidkoi.guest.home { place_of, pins_of, left_off_of, pin_msg, continue_msg, session_of };
-import rapidkoi.data.remembered { Open, OpenTab };
+import rapidkoi.data.remembered { Open, OpenTab, Face };
+import rapidkoi.data.saving { open_of };
 import rapidkoi.shell { update };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.actions { Msg };
@@ -50,12 +51,13 @@ fun pins_are_listed_in_order_without_paths() {
     assert_eq(
         pins_of(m),
         Value.Array([
+            // PRP-060: an icon is named for Rapidkoi to draw (`icon:`), never sent as bytes.
             kv([
                 ("name", t("Quote")),
                 ("place", t("quote.dafifi.net")),
-                ("icon", Value.Bytes([1, 2])),
+                ("icon", t("icon:quote.dafifi.net")),
             ]),
-            kv([("name", t("Counter")), ("place", t("counter.rkb"))]),
+            kv([("name", t("Counter")), ("place", t("counter.rkb")), ("icon", t("icon:counter.rkb"))]),
         ]),
     );
     assert_eq(pins_of(with_pages(Engine.new(), [])), Value.Array([]));
@@ -75,11 +77,16 @@ fun at_most_64_pins_are_listed() {
 fun where_you_left_off_is_the_app_used_last() {
     let engine = Engine.new();
     let m = step(with_pages(engine, [app(engine, "notes")]), Msg.NewTab);
-    assert_eq(left_off_of(m), kv([("name", t("notes")), ("place", t("notes.wasm"))]));
+    let notes = kv([
+        ("name", t("notes")),
+        ("place", t("notes.wasm")),
+        ("icon", t("icon:notes.wasm")),
+    ]);
+    assert_eq(left_off_of(m), notes);
     assert_eq(continue_msg(m), Some(Msg.Select(0)));
     // Closed: it's remembered, and Continue reopens it.
     let closed = step(m, Msg.CloseTab(0));
-    assert_eq(left_off_of(closed), kv([("name", t("notes")), ("place", t("notes.wasm"))]));
+    assert_eq(left_off_of(closed), notes);
     assert_eq(continue_msg(closed), Some(Msg.Continue));
 }
 
@@ -113,6 +120,7 @@ fun the_last_session_is_its_size_and_its_apps() {
     };
     let m = Model {
         previous: Some(Open {
+            apps: [Face { path: "rapidkoi://quote.dafifi.net", name: "Quote", icon: None }],
             tabs: [
                 tab("rapidkoi://quote.dafifi.net", ""),
                 tab("apps/notes.wasm", ""),
@@ -124,10 +132,29 @@ fun the_last_session_is_its_size_and_its_apps() {
     };
     assert_eq(
         session_of(m),
+        // PRP-060: each app once, by its name (its place when the session didn't keep one) and its icon.
         kv([
             ("count", Value.int(3)),
-            ("apps", Value.Array([t("quote.dafifi.net"), t("notes.wasm")])),
+            (
+                "apps",
+                Value.Array([
+                    kv([("name", t("Quote")), ("place", t("quote.dafifi.net")), ("icon", t("icon:quote.dafifi.net"))]),
+                    kv([("name", t("notes.wasm")), ("place", t("notes.wasm")), ("icon", t("icon:notes.wasm"))]),
+                ]),
+            ),
         ]),
     );
     assert_eq(session_of(with_pages(Engine.new(), [])), Value.Null);
+}
+
+@test
+fun the_session_saved_keeps_each_app_s_name_and_icon_once() {
+    // PRP-060: what the new tab's Restore will show, kept as the session's apps.
+    let engine = Engine.new();
+    let notes = AppPage { icon: Some([1, 2]), ..app(engine, "notes") };
+    let m = with_pages(engine, [notes, app(engine, "quote"), notes]);
+    assert_eq(open_of(m).apps, [
+        Face { path: "apps/notes.wasm", name: "notes", icon: Some([1, 2]) },
+        Face { path: "apps/quote.wasm", name: "quote", icon: None },
+    ]);
 }

@@ -1,6 +1,7 @@
 // Verifying a signed site, without a network: sites are built in memory
 // with real keys and signatures, and fetched through a fake `get`. Every
 // check has a case that fails it, and trust is recorded only on success.
+import support { png };
 import rapidkoi.trust.verify {
     Standing,
     Change,
@@ -47,19 +48,19 @@ fun key(host: string): SecretKey {
 
 fun app(version: string): Bundle = Bundle {
     manifest: Manifest {
-        contract: 10,
+        contract: 11,
         name: "Notes",
         version: version,
         description: None,
         state_version: 1,
-        icon: None,
+        icon: Some("icon.png"),
         banners: [],
         servers: [],
         permissions: [],
         controls: None,
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
-    assets: [],
+    assets: [("icon.png", png(128, 128))],
 };
 
 /** A site's files by path. */

@@ -22,7 +22,8 @@ import window.downloaded { Kept };
 import window.window { Model, with_tab, app };
 import window.actions { Msg };
 import guest.nodes { Picture, BlobRead };
-import guest.pictures { pictures_in, asset_of, blob_of };
+import guest.pictures { pictures_in, asset_of, blob_of, icon_of };
+import bundles.permissions { holds_built_in };
 import data.databases { Call, path_for, call };
 import cbor { Value };
 import guest.limits {
@@ -66,6 +67,12 @@ fun fetch_page(m: Model, t: Tab): (AppPage, Cmd<Msg>[]) {
         }
     };
     let assets = p.program.map(fun(g) = g.assets).unwrap_or([]);
+    // Apps' icons (PRP-060) are Rapidkoi's own apps' alone: no other app may
+    // learn, from what loads, which apps you have.
+    let own = p.manifest.map(fun(mf) = holds_built_in(mf.permissions)).unwrap_or(false);
+    if !own && shown.any(fun(q: Picture) = icon_of(q.source).is_some()) {
+        return (stopped(p, "Only Rapidkoi's own apps can show other apps' icons"), []);
+    }
     for pic of shown {
         if let Some(name) = asset_of(pic.source) {
             if let Err(why) = check_asset(assets, name, pic) {
@@ -73,9 +80,9 @@ fun fetch_page(m: Model, t: Tab): (AppPage, Cmd<Msg>[]) {
             }
         }
     }
-    let wanted = shown.filter(fun(q: Picture) = asset_of(q.source).is_none()).map(
-        fun(q: Picture) = q.source,
-    );
+    let wanted = shown.filter(
+        fun(q: Picture) = asset_of(q.source).is_none() && icon_of(q.source).is_none(),
+    ).map(fun(q: Picture) = q.source);
     let on = fun(s: string): bool = wanted.any(fun(w: string) = w == s);
     // Each check stamps what's on screen: the least recently shown go first.
     let now = stamp(p) + 1;

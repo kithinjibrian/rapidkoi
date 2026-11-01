@@ -2,6 +2,7 @@
 // wrong is Broken (naming the field) or Newer, never a panic. Writes only
 // under test/tmp/.
 import rapidkoi.data.remembered {
+    Face,
     Unreadable,
     Recalled,
     trust_file,
@@ -192,6 +193,7 @@ fun tab(path: string, instance: string, label: Option<string>, seen: i64): OpenT
 fun the_open_tabs_round_trip() {
     // PRP-034: what's open when Rapidkoi closes, to reopen at launch.
     let o = Open {
+        apps: [],
         tabs: [
             tab("rapidkoi://counter.dafifi.net", "", None, 3),
             tab("rapidkoi://counter.dafifi.net", "2", Some("Work"), 5),
@@ -202,19 +204,20 @@ fun the_open_tabs_round_trip() {
     assert_eq(read_open(open_file(o)).unwrap() == o, true);
     // A window keeps the fields its address names (PRP-036).
     let linked = Open {
+        apps: [],
         tabs: [
             OpenTab { link: ["count", "filter"], ..tab("rapidkoi://localhost:8000", "", None, 1) },
         ],
         current: Some(0),
     };
     assert_eq(read_open(open_file(linked)).unwrap() == linked, true);
-    let none = Open { tabs: [], current: None };
+    let none = Open { tabs: [], current: None, apps: [] };
     assert_eq(read_open(open_file(none)).unwrap() == none, true);
 }
 
 @test
 fun a_bad_open_file_is_broken_naming_why() {
-    let one = fun(t: OpenTab) = open_file(Open { tabs: [t], current: Some(0) });
+    let one = fun(t: OpenTab) = open_file(Open { tabs: [t], current: Some(0), apps: [] });
     assert_eq(broken(read_open(one(tab("", "", None, 0)))), "a tab's path is empty or too long");
     assert_eq(
         broken(read_open(one(tab("a.wasm", "1", None, 0)))),
@@ -225,6 +228,7 @@ fun a_bad_open_file_is_broken_naming_why() {
         "a tab's name is empty or too long",
     );
     let twice = Open {
+        apps: [],
         tabs: [tab("a.wasm", "", None, 0), tab("a.wasm", "", None, 1)],
         current: None,
     };
@@ -234,15 +238,49 @@ fun a_bad_open_file_is_broken_naming_why() {
     );
     assert_eq(named(["Count"]), "a tab's link isn't field names");
     assert_eq(named(["count", "count"]), "a tab's link isn't field names");
-    let off = Open { tabs: [tab("a.wasm", "", None, 0)], current: Some(3) };
+    let off = Open { tabs: [tab("a.wasm", "", None, 0)], current: Some(3), apps: [] };
     assert_eq(broken(read_open(open_file(off))), "the tab in front isn't one of them");
     let mut many: OpenTab[] = [];
     for i in 0..MAX_OPEN + 1 {
         many.push(tab("a{i}.wasm", "", None, i));
     }
     assert_eq(
-        broken(read_open(open_file(Open { tabs: many, current: None }))),
+        broken(read_open(open_file(Open { tabs: many, current: None, apps: [] }))),
         "it lists more than 64 tabs",
     );
     assert_eq(broken(read_open(trust_file([]))), "it isn't Rapidkoi's open file");
+}
+
+@test
+fun the_session_keeps_each_app_s_name_and_icon() {
+    // PRP-060: the new tab's Restore shows the last session's apps by their
+    // icons, though none is open, so the session keeps them as pins do.
+    let o = Open {
+        tabs: [
+            tab("rapidkoi://notes.dafifi.net", "", None, 1),
+            tab("/apps/counter.wasm", "", None, 2),
+        ],
+        current: Some(0),
+        apps: [
+            Face { path: "rapidkoi://notes.dafifi.net", name: "Notes", icon: Some(png(128, 128)) },
+            Face { path: "/apps/counter.wasm", name: "counter", icon: None },
+        ],
+    };
+    assert_eq(read_open(open_file(o)).unwrap() == o, true);
+    // An icon that breaks the icon rules is dropped, as a pin's is: the app stays.
+    let bad = Open { apps: [Face { path: "a.rkb", name: "A", icon: Some([1, 2, 3]) }], ..o };
+    assert_eq(read_open(open_file(bad)).unwrap().apps, [
+        Face { path: "a.rkb", name: "A", icon: None },
+    ]);
+    // A name that's empty or too long, or an app listed twice, breaks the file.
+    let unnamed = Open { apps: [Face { path: "a.rkb", name: "", icon: None }], ..o };
+    assert_eq(read_open(open_file(unnamed)).is_err(), true);
+    let twice = Open {
+        apps: [
+            Face { path: "a.rkb", name: "A", icon: None },
+            Face { path: "a.rkb", name: "B", icon: None },
+        ],
+        ..o,
+    };
+    assert_eq(read_open(open_file(twice)).is_err(), true);
 }

@@ -50,7 +50,7 @@ fun each_picture_is_drawn_as_its_page_has_it() {
         ("https://a.com/gone.png", Kept.Gone),
     ];
     assert_eq(
-        shown(with_shown(root, assets, kept)) == [
+        shown(with_shown(root, assets, kept, fun(place: string): u8[] = [9])) == [
             Shown.Ready([1, 2]),
             Shown.Broken,
             Shown.Ready([3, 4]),
@@ -92,4 +92,12 @@ fun an_apps_screen_is_rebuilt_only_when_what_it_shows_changes() {
     assert(here != coming);
     // When a picture was last on screen is no part of what it shows.
     assert_eq(key(1, [1, 2, 3], DARK, mine, "Amina", [("a.png", Kept.Here([9], 4, 7))]), here);
+}
+
+@test
+fun an_icon_rapidkoi_hands_over_is_shown_at_once() {
+    // PRP-060: `icon:PLACE` is drawn from what Rapidkoi holds, never fetched.
+    let root = Node.Boxed(plain(), no_facts(), None, [picture("icon:notes.dafifi.net")]);
+    let icon = fun(place: string): u8[] = if place == "notes.dafifi.net" { [7, 7] } else { [] };
+    assert_eq(shown(with_shown(root, [], [], icon)) == [Shown.Ready([7, 7])], true);
 }

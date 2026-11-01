@@ -6,8 +6,8 @@
  * Used by: guest.guest, guest.contract
  */
 
-/** The one contract this Rapidkoi speaks (`rapidkoi_version()`): 10 (PRP-059; DECISION-056, DECISION-091); older apps are rebuilt, never run. */
-const CONTRACT_VERSION: i32 = 10;
+/** The one contract this Rapidkoi speaks (`rapidkoi_version()`): 11 (PRP-060; DECISION-056, DECISION-092); older apps are rebuilt, never run. */
+const CONTRACT_VERSION: i32 = 11;
 
 /** The deepest a state may nest, as CBOR levels (PRP-036). */
 const MAX_STATE_DEPTH: i64 = 64;
@@ -112,6 +112,9 @@ const MAX_SVG: i64 = 1024 * 1024;
 /** The largest icon, in pixels per side. */
 const MAX_ICON_PX: i64 = 1024;
 
+/** The smallest PNG icon, in pixels per side (PRP-060): sharp at the new tab's largest. */
+const MIN_ICON_PX: i64 = 128;
+
 /** The largest banner, in pixels: width. */
 const MAX_BANNER_WIDTH: i64 = 2048;
 
@@ -142,8 +145,8 @@ const MAX_SERVERS: i64 = 32;
 /** The most pins the new tab is told about (PRP-030). */
 const MAX_PLACES: i64 = 64;
 
-/** The largest icon handed to the new tab, in bytes; a bigger one is left out. */
-const MAX_PLACE_ICON: i64 = 64 * 1024;
+/** The longest place an `icon:` source names (PRP-060), as a host's longest. */
+const MAX_PLACE: i64 = 253;
 
 /** The most permissions a manifest may declare (PRP-030). */
 const MAX_PERMISSIONS: i64 = 16;

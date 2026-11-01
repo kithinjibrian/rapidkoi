@@ -3,6 +3,7 @@
 // bundle; a server that never answers; a tampered build. One port per test.
 // Writes only under test/tmp/.
 import rapidkoi.net.fetching { Fetched, fetch_app };
+import support { write_icon, png };
 import rapidkoi.net.dialing { Network };
 import rapidkoi.bundles.loader { why };
 import rapidkoi.net.address { Address, parse };
@@ -33,9 +34,10 @@ fun site(port: i64): string {
     clean("{dir}.key");
     fs.make_dirs(dir).unwrap();
     write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    write_icon(dir);
     write_file(
         "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}.key\"\n",
     ).unwrap();
     make_key(dir).unwrap();
     publish_site(dir).unwrap();
@@ -76,12 +78,12 @@ fun a_signed_site_comes_back_checked_with_what_to_record() {
 fun an_unsigned_server_gives_its_bundle() {
     let file = "test/tmp/fetching-unsigned.rkb";
     let m = Manifest {
-        contract: 10,
+        contract: 11,
         name: "Plain",
         version: "1.0.0",
         description: None,
         state_version: 1,
-        icon: None,
+        icon: Some("icon.png"),
         banners: [],
         servers: [],
         permissions: [],
@@ -89,7 +91,11 @@ fun an_unsigned_server_gives_its_bundle() {
     };
     write_bytes(
         file,
-        write(Bundle { manifest: m, module: [0, 97, 115, 109, 1, 0, 0, 0], assets: [] }).unwrap(),
+        write(Bundle {
+            manifest: m,
+            module: [0, 97, 115, 109, 1, 0, 0, 0],
+            assets: [("icon.png", png(128, 128))],
+        }).unwrap(),
     ).unwrap();
     spawn http.serve("127.0.0.1:18762", fun(r: Request) = handle(file, 18762, r));
     sleep(100);
@@ -158,9 +164,10 @@ fun tls_site(port: i64, cert: string): string {
     clean("{dir}.key");
     fs.make_dirs(dir).unwrap();
     write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
+    write_icon(dir);
     write_file(
         "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:{port}\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}.key\"\n",
     ).unwrap();
     make_key(dir).unwrap();
     publish_site(dir).unwrap();

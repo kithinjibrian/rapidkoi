@@ -40,8 +40,8 @@ const MAX_TRUST_FILE: i64 = 1024 * 1024;
 /** The most tabs the open file lists (PRP-034). */
 const MAX_OPEN: i64 = 64;
 
-/** The open file's cap in bytes: paths and names, no icons. */
-const MAX_OPEN_FILE: i64 = 1024 * 1024;
+/** The open file's cap in bytes: its apps' icons are kept with it (PRP-060), as pins' are. */
+const MAX_OPEN_FILE: i64 = 32 * 1024 * 1024;
 
 /** The longest path the open file keeps. */
 const MAX_OPEN_PATH: i64 = 4096;
@@ -68,6 +68,18 @@ struct Open {
     tabs: OpenTab[],
     /** The index in `tabs` of the one in front; `None` on an empty tab. */
     current: Option<i64>,
+    /** Each of its apps once (PRP-060): what the new tab's Restore shows, none of them open. */
+    apps: Face[],
+}
+
+/** An app as Rapidkoi shows it without running it (PRP-060): where it came from, its name and icon. */
+struct Face {
+    /** Where it came from, as its tabs name it. */
+    path: string,
+    /** Its manifest's name, or its file's for a bare module. */
+    name: string,
+    /** Its icon, when it has one that keeps the icon rules. */
+    icon: Option<u8[]>,
 }
 
 /** Why a file's bytes can't be used. */
@@ -263,6 +275,13 @@ fun open_file(o: Open): u8[] = encode(Value.Map([
         Some(i) => Value.int(i),
         None => Value.Null,
     }),
+    entry("apps", Value.Array(o.apps.map(fun(a: Face) {
+        let mut fields = [entry("path", Value.Text(a.path)), entry("name", Value.Text(a.name))];
+        if let Some(i) = a.icon {
+            fields.push(entry("icon", Value.Bytes(i)));
+        }
+        Value.Map(fields)
+    }))),
 ]));
 
 /**
@@ -274,8 +293,14 @@ fun open_file(o: Open): u8[] = encode(Value.Map([
  *     read_open(bytes)?
  */
 fun read_open(bytes: u8[]): Result<Open, Unreadable> {
-    // A tab's link is one level deeper, and up to 16 names more.
-    let v = root(bytes, "open", 5, (8 + MAX_LINK_FIELDS) * MAX_OPEN + 16, MAX_OPEN_FILE)?;
+    // A tab's link is one level deeper, and up to 16 names more; each app is a map of three (PRP-060).
+    let v = root(
+        bytes,
+        "open",
+        5,
+        (8 + MAX_LINK_FIELDS) * MAX_OPEN + 8 * MAX_OPEN + 16,
+        MAX_OPEN_FILE,
+    )?;
     let items = match v.get("tabs") {
         Some(Array(xs)) => xs,
         _ => {
@@ -339,7 +364,41 @@ fun read_open(bytes: u8[]): Result<Open, Unreadable> {
             }
         },
     };
-    Ok(Open { tabs: found, current: current })
+    Ok(Open { tabs: found, current: current, apps: read_faces(v.get("apps"))? })
+}
+
+/**
+ * The open file's apps (PRP-060): at most `MAX_OPEN`, each a path and a
+ * name of 1–64 characters, none twice. An icon breaking the icon rules is
+ * dropped, as a pin's is; a file from before has none.
+ */
+fun read_faces(v: Option<Value>): Result<Face[], Unreadable> {
+    let items = match v {
+        None => [],
+        Some(Array(xs)) => xs,
+        Some(_) => {
+            return Err(Unreadable.Broken("its apps aren't a list"));
+        }
+    };
+    if items.len > MAX_OPEN {
+        return Err(Unreadable.Broken("it lists more than 64 apps"));
+    }
+    let mut out: Face[] = [];
+    for x of items {
+        let path = text(x, "path").unwrap_or("");
+        if path == "" || path.len > MAX_OPEN_PATH {
+            return Err(Unreadable.Broken("an app's path is empty or too long"));
+        }
+        let name = text(x, "name").unwrap_or("");
+        if name == "" || name.char_count() > MAX_NAME {
+            return Err(Unreadable.Broken("an app's name is empty or too long"));
+        }
+        if out.any(fun(f: Face) = f.path == path) {
+            return Err(Unreadable.Broken("an app is listed twice"));
+        }
+        out.push(Face { path: path, name: name, icon: icon(blob(x, "icon")) });
+    }
+    Ok(out)
 }
 
 /** An instance key Rapidkoi gives: "" for the first, else a number from 2, at most four digits. */

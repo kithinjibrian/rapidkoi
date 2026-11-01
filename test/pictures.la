@@ -137,3 +137,26 @@ fun at_most_256_pictures_a_screen() {
         "root > box > image[{MAX_PICTURES + 1}]: more than {MAX_PICTURES} pictures",
     );
 }
+
+@test
+fun an_icon_source_names_a_place() {
+    // PRP-060: Rapidkoi's own apps show apps' icons by place (a host, or a file's name).
+    assert_eq(
+        picture(image([("src", t("icon:notes.dafifi.net"))])).source,
+        "icon:notes.dafifi.net",
+    );
+    assert_eq(picture(image([("src", t("icon:counter 2.rkb"))])).source, "icon:counter 2.rkb");
+    let problem = "src must be asset:NAME, blob:KEY or an http(s) address of at most 2048 bytes";
+    let mut long = "icon:";
+    while long.len <= 5 + 253 {
+        long = long + "x";
+    }
+    for bad of ["icon:", "icon:a/b", "icon:a\\b", "icon:a\nb", long] {
+        assert_eq(why(image([("src", t(bad))])), "root > image: {problem}");
+    }
+    // Only the bundle's own SVGs take a colour.
+    assert_eq(
+        why(image([("src", t("icon:notes.dafifi.net")), ("color", t("accent"))])),
+        "root > image: color only goes on a picture from the app's bundle",
+    );
+}

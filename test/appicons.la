@@ -1,0 +1,67 @@
+// Apps' icons by place (PRP-060), pure: what `icon:PLACE` draws. The app's
+// own icon, from wherever Rapidkoi holds it (your pins, your open windows,
+// where you left off, your last session), or Rapidkoi's mark for an app it
+// has no icon for: its initial on a colour from the theme.
+import rapidkoi.ui.appicons { icon_for, fallback_svg };
+import rapidkoi.ui.schemes { DARK };
+import rapidkoi.data.remembered { Open, Face };
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.tabs { AppPage, Pin, open_module };
+import wasmtime { Engine, Module };
+import support { echo };
+
+fun app(engine: Engine, name: string, icon: Option<u8[]>): AppPage = AppPage {
+    icon: icon,
+    ..open_module(name, "apps/{name}.rkb", engine, Module.from_text(engine, echo()).unwrap()),
+};
+
+@test
+fun an_icon_is_found_wherever_rapidkoi_holds_it() {
+    let engine = Engine.new();
+    let m = Model {
+        pinned: [
+            Pin {
+                name: "Quote",
+                path: "rapidkoi://quote.dafifi.net",
+                icon: Some([1]),
+                origin: None,
+            },
+        ],
+        previous: Some(Open {
+            tabs: [],
+            current: None,
+            apps: [Face { path: "rapidkoi://notes.dafifi.net", name: "Notes", icon: Some([3]) }],
+        }),
+        ..with_pages(engine, [app(engine, "counter", Some([2]))]),
+    };
+    assert_eq(icon_for(m, "quote.dafifi.net"), [1]);
+    assert_eq(icon_for(m, "counter.rkb"), [2]);
+    assert_eq(icon_for(m, "notes.dafifi.net"), [3]);
+}
+
+@test
+fun an_app_with_no_icon_rapidkoi_holds_gets_its_initial() {
+    let engine = Engine.new();
+    let m = with_pages(engine, [app(engine, "counter", None)]);
+    let drawn = string_from_utf8(icon_for(m, "counter.rkb")).unwrap();
+    assert(drawn.starts_with("<svg"));
+    assert(drawn.contains(">C</text>"));
+    // Nothing known about it at all: its place's first letter.
+    let unknown = string_from_utf8(icon_for(m, "weather.example.com")).unwrap();
+    assert(unknown.contains(">W</text>"));
+}
+
+@test
+fun the_initial_is_drawn_safely_on_a_theme_colour() {
+    // One letter of the app's name, escaped: a name can't add to the SVG.
+    let lt = string_from_utf8(fallback_svg("<script>", DARK)).unwrap();
+    assert(lt.contains(">&lt;</text>"));
+    assert(!lt.contains("<script"));
+    let amp = string_from_utf8(fallback_svg("&co", DARK)).unwrap();
+    assert(amp.contains(">&amp;</text>"));
+    let q = string_from_utf8(fallback_svg("\"q", DARK)).unwrap();
+    assert(q.contains(">&quot;</text>"));
+    // The colour is one of the theme's publisher colours, as the dock's.
+    let one = string_from_utf8(fallback_svg("Notes", DARK)).unwrap();
+    assert(DARK.publishers.any(fun(c: string) = one.contains("fill=\"{c}\"")));
+}

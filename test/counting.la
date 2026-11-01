@@ -67,7 +67,7 @@ fun packed_as_a_bundle_it_runs_the_same() {
     let icon = "test/tmp/counting-icon.png";
     let out = "test/tmp/counting.rkb";
     write_counting(module);
-    write_bytes(icon, png(16, 16)).unwrap();
+    write_bytes(icon, png(128, 128)).unwrap();
     let packed = make([
         module,
         "--name",

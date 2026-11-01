@@ -8,7 +8,7 @@
  */
 import cbor { Value };
 import guest.nodes { Node, Look, Picture, Fitting, Shown, ContractError, invalid };
-import guest.limits { MAX_LABEL, MAX_PICTURES, MAX_SOURCE, MAX_BLOB_KEY };
+import guest.limits { MAX_LABEL, MAX_PICTURES, MAX_SOURCE, MAX_BLOB_KEY, MAX_PLACE };
 import guest.styles { read_style, colour };
 import bundles.rules { check_asset_name };
 
@@ -79,10 +79,20 @@ fun read_picture(
     Ok((p, read_style(given.get("style"), here)?))
 }
 
-/** Whether a source is `asset:` and a good asset name, `blob:` and a good key (PRP-054), or an http(s) address, within `MAX_SOURCE`. */
+/**
+ * Whether a source is `asset:` and a good asset name, `blob:` and a good
+ * key (PRP-054), `icon:` and a place (PRP-060), or an http(s) address,
+ * within `MAX_SOURCE`.
+ */
 fun good_source(s: string): bool {
     if s.len > MAX_SOURCE {
         return false;
+    }
+    // An app's icon by its place (PRP-060): a host, or a file's name.
+    if let Some(place) = icon_of(s) {
+        return place.len >= 1 && place.len <= MAX_PLACE && !place.to_bytes().any(
+            fun(b: u8) = b < 32 || b == 127 || b == 47 || b == 92,
+        );
     }
     if let Some(key) = blob_of(s) {
         // As `blob_set`'s keys: 1 to MAX_BLOB_KEY bytes, no control characters.
@@ -103,6 +113,19 @@ fun good_source(s: string): bool {
  *     blob_of("blob:photo-17") == Some("photo-17")
  */
 fun blob_of(source: string): Option<string> = if source.starts_with("blob:") {
+    Some(source.slice(5, source.len))
+} else {
+    None
+};
+
+/**
+ * The place an icon source names (PRP-060): `icon:PLACE`, which only
+ * Rapidkoi's own apps may show (`net.downloads` stops any other).
+ *
+ * Example:
+ *     icon_of("icon:notes.dafifi.net") == Some("notes.dafifi.net")
+ */
+fun icon_of(source: string): Option<string> = if source.starts_with("icon:") {
     Some(source.slice(5, source.len))
 } else {
     None

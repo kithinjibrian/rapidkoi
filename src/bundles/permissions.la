@@ -206,3 +206,15 @@ fun parse(names: string[]): Result<Permission[], PermissionError> {
     }
     Ok(out)
 }
+
+/**
+ * Whether a manifest's permissions hold a built-in one: only bytes compiled
+ * into ./main may (PRP-030), so it marks Rapidkoi's own apps (PRP-060).
+ *
+ * Example:
+ *     holds_built_in(manifest.permissions)
+ */
+fun holds_built_in(names: string[]): bool = match parse(names) {
+    Ok(ps) => ps.any(fun(p: Permission) = tier_of(p) == Tier.BuiltIn),
+    Err(_) => false,
+};

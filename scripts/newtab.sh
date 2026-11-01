@@ -5,12 +5,13 @@
 # into ./main may hold them. Run from the repository's root, after
 # `lughac build -O 2 src/main.la -o main`. The .rkb is committed, so building
 # ./main never needs cargo. Rebuild ./main after: it embeds the bundle.
-# Its pictures are guest/rust/newtab/assets/, each packed under its name.
+# Its pictures are guest/rust/newtab/assets/, each packed under its name;
+# its icon (every app has one, PRP-060) is guest/rust/newtab/icon.svg.
 set -eu
 cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown -p newtab
 a=guest/rust/newtab/assets
 ./main pack guest/rust/target/wasm32-unknown-unknown/release/newtab.wasm \
-    --name "New tab" --version 0.1.0 \
+    --name "New tab" --version 0.1.0 --icon guest/rust/newtab/icon.svg \
     --asset wordmark.svg=$a/wordmark.svg --asset beach.svg=$a/beach.svg \
     --asset notes.svg=$a/notes.svg --asset counter.svg=$a/counter.svg \
     --asset trip.svg=$a/trip.svg --asset settings.svg=$a/settings.svg \

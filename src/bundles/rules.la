@@ -18,6 +18,7 @@ import guest.limits {
     MAX_IMAGE_PX,
     MAX_IMAGE_PIXELS,
     MAX_SVG,
+    MIN_ICON_PX,
 };
 
 /** Why a bundle was refused. */
@@ -58,6 +59,14 @@ enum BundleError {
     TooManyAssets(i64),
     /** A field that must be empty in format 1. */
     NotEmpty(string),
+    /** The manifest names no icon: every app has one (PRP-060). */
+    NoIcon,
+    /** The icon is a PNG that isn't square: its width and height. */
+    IconNotSquare(i64, i64),
+    /** The icon is a PNG under `MIN_ICON_PX` a side: its width and height. */
+    IconTooSmall(i64, i64),
+    /** The icon is neither a PNG nor an SVG. */
+    IconFormat,
 }
 
 /**
@@ -92,6 +101,32 @@ fun reason(e: BundleError): string = match e {
     MissingAsset(field, name) => "This bundle's \"{field}\" names an asset it doesn't have: \"{name}\"",
     TooManyAssets(n) => "This bundle has too many assets ({n}; at most {MAX_ASSETS})",
     NotEmpty(field) => "This bundle asks for \"{field}\", which this version of Rapidkoi can't grant yet",
+    NoIcon => "This app has no icon",
+    IconNotSquare(w, h) => "This app's icon isn't square ({w} × {h} px)",
+    IconTooSmall(w, h) => "This app's icon is smaller than {MIN_ICON_PX} px ({w} × {h})",
+    IconFormat => "This app's icon must be a PNG or an SVG",
+};
+
+/**
+ * Checks an app's icon (PRP-060): an SVG, or a square PNG of at least
+ * `MIN_ICON_PX` a side. A JPEG can't be see-through, so it would show its
+ * box on Rapidkoi's pages. The largest is `check_role`'s.
+ *
+ * @param bytes the icon, already checked by `check_asset`
+ *
+ * Example:
+ *     check_icon(bytes)?
+ */
+fun check_icon(bytes: u8[]): Result<(), BundleError> = match size_of(bytes) {
+    Ok(s) if s.format == Format.Svg => Ok(()),
+    Ok(s) if s.format == Format.Png => if s.width != s.height {
+        Err(BundleError.IconNotSquare(s.width, s.height))
+    } else if s.width < MIN_ICON_PX {
+        Err(BundleError.IconTooSmall(s.width, s.height))
+    } else {
+        Ok(())
+    },
+    _ => Err(BundleError.IconFormat),
 };
 
 /**

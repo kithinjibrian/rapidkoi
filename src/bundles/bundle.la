@@ -241,10 +241,11 @@ fun check(b: Bundle): Result<(), BundleError> {
     for a of b.assets {
         rules.check_asset(a.0, a.1)?;
     }
-    if let Some(i) = m.icon {
-        let bytes = asset(b, i).ok_or(BundleError.MissingAsset("icon", i))?;
-        rules.check_role("icon", bytes, MAX_ICON_PX, MAX_ICON_PX)?;
-    }
+    // Every app has an icon (PRP-060): wherever it's shown, it's there.
+    let i = m.icon.ok_or(BundleError.NoIcon)?;
+    let bytes = asset(b, i).ok_or(BundleError.MissingAsset("icon", i))?;
+    rules.check_role("icon", bytes, MAX_ICON_PX, MAX_ICON_PX)?;
+    rules.check_icon(bytes)?;
     for banner of m.banners {
         let bytes = asset(b, banner.1).ok_or(BundleError.MissingAsset("banners", banner.1))?;
         rules.check_role("banners", bytes, MAX_BANNER_WIDTH, MAX_BANNER_HEIGHT)?;

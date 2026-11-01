@@ -7,7 +7,7 @@ import rapidkoi.trust.keys { read_secret, hex };
 import rapidkoi.bundles.signing { read_any };
 import std.env;
 import std.fs;
-import support { png };
+import support { png, write_icon };
 
 /** Removes a folder and everything in it (test folders only). */
 fun clean(path: string) {
@@ -29,13 +29,14 @@ fun project(name: string, version: string, keep: i64): string {
     clean("{dir}.key");
     fs.make_dirs(dir).unwrap();
     write_bytes("{dir}/m.wasm", [0, 97, 115, 109, 1, 0, 0, 0]).unwrap();
-    write_bytes("{dir}/icon.png", png(32, 32)).unwrap();
+    write_bytes("{dir}/icon.png", png(128, 128)).unwrap();
     set_version(dir, version, keep);
     make_key(dir).unwrap();
     dir
 }
 
 fun set_version(dir: string, version: string, keep: i64) {
+    write_icon(dir);
     write_file(
         "{dir}/rapidkoi.toml",
         "[app]\nname = \"Notes\"\nversion = \"{version}\"\nhost = \"localhost:8000\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}.key\"\nkeep = {keep}\n",
@@ -145,9 +146,10 @@ fun the_secret_key_never_reaches_the_site() {
 @test
 fun keys_and_signing_need_the_project_to_say_so() {
     let dir = project("nokey", "1.0.0", 3);
+    write_icon(dir);
     write_file(
         "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nmodule = \"m.wasm\"\n",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n",
     ).unwrap();
     assert_eq(publish_site(dir), Err("rapidkoi.toml: [app] needs host to sign"));
     assert_eq(make_key(dir), Err("rapidkoi.toml: [app] needs host to sign"));
@@ -158,9 +160,10 @@ fun keys_and_signing_need_the_project_to_say_so() {
         true,
     );
     assert_eq(err(pack_project(dir, false)).ends_with("exists; add --force to replace it"), true);
+    write_icon(dir);
     write_file(
         "{dir}/rapidkoi.toml",
-        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:8000\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}/inside.key\"\n",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:8000\"\nmodule = \"m.wasm\"\nicon = \"icon.png\"\n[publish]\nkey = \"{dir}/inside.key\"\n",
     ).unwrap();
     assert_eq(err(publish_site(dir)).contains("is inside the project"), true);
     done(dir);
@@ -205,5 +208,20 @@ fun publishing_writes_the_landing_page() {
     let page = read_file("{dir}/site/index.html").unwrap();
     assert_eq(page.contains("<title>Notes</title>"), true);
     assert_eq(page.contains("href=\"rapidkoi://localhost:8000/\""), true);
+    done(dir);
+}
+
+@test
+fun an_app_without_an_icon_is_neither_published_nor_packed() {
+    // PRP-060: every app has an icon; nothing is written without one.
+    let dir = project("noicon", "1.0.0", 3);
+    write_file(
+        "{dir}/rapidkoi.toml",
+        "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nhost = \"localhost:8000\"\nmodule = \"m.wasm\"\n[publish]\nkey = \"{dir}.key\"\n",
+    ).unwrap();
+    let fix = "Give the app an icon: icon = \"icon.png\" in rapidkoi.toml (a square PNG of at least 128 px, or an SVG)";
+    assert_eq(publish_site(dir), Err(fix));
+    assert_eq(pack_project(dir, false), Err(fix));
+    assert_eq(fs.exists("{dir}/Notes-1.0.0.rkb"), false);
     done(dir);
 }

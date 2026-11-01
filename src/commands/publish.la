@@ -214,6 +214,19 @@ fun pack_project(dir: string, force: bool): Result<string, string> {
 }
 
 /**
+ * The asset name an icon file is packed under: `icon.svg` for an SVG,
+ * `icon.png` otherwise (the bundle's rules check what it really is).
+ *
+ * Example:
+ *     icon_name("art/notes.svg")   // "icon.svg"
+ */
+fun icon_name(file: string): string = if file.ends_with(".svg") || file.ends_with(".SVG") {
+    "icon.svg"
+} else {
+    "icon.png"
+};
+
+/**
  * Reads a project's files into a bundle: the module, the icon, banners
  * and assets, named as `pack` names them.
  *
@@ -221,12 +234,12 @@ fun pack_project(dir: string, force: bool): Result<string, string> {
  *     bundle_of(read_project(dir)?)?
  */
 fun bundle_of(p: Project): Result<Bundle, string> {
-    let mut assets: (string, u8[])[] = [];
-    let mut icon: Option<string> = None;
-    if let Some(file) = p.icon {
-        assets.push(("icon.png", load(file)?));
-        icon = Some("icon.png");
-    }
+    // Every app has an icon (PRP-060): nothing is packed or signed without one.
+    let icon_file = p.icon.ok_or(
+        "Give the app an icon: icon = \"icon.png\" in rapidkoi.toml (a square PNG of at least 128 px, or an SVG)",
+    )?;
+    let icon = icon_name(icon_file);
+    let mut assets: (string, u8[])[] = [(icon, load(icon_file)?)];
     let mut banners: (string, string)[] = [];
     for b of p.banners {
         let name = "banner/{b.0}.png";
@@ -243,7 +256,7 @@ fun bundle_of(p: Project): Result<Bundle, string> {
             version: p.version,
             description: p.description,
             state_version: p.state_version,
-            icon: icon,
+            icon: Some(icon),
             banners: banners,
             servers: p.servers,
             permissions: [],

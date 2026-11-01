@@ -13,18 +13,18 @@ import rapidkoi.window.tabs { open_path };
 import std.http { Request };
 import wasmtime { Engine };
 import std.task { sleep };
-import support { settle };
+import support { settle, png };
 
 /** Writes a bundle of `version` to test/tmp and gives its path. */
 fun bundle_file(tag: string, version: string): string {
     let p = "test/tmp/{tag}.rkb";
     let m = Manifest {
-        contract: 10,
+        contract: 11,
         name: "Served",
         version: version,
         description: None,
         state_version: 1,
-        icon: None,
+        icon: Some("icon.png"),
         banners: [],
         servers: [],
         permissions: [],
@@ -32,7 +32,11 @@ fun bundle_file(tag: string, version: string): string {
     };
     write_bytes(
         p,
-        write(Bundle { manifest: m, module: [0, 97, 115, 109, 1, 0, 0, 0], assets: [] }).unwrap(),
+        write(Bundle {
+            manifest: m,
+            module: [0, 97, 115, 109, 1, 0, 0, 0],
+            assets: [("icon.png", png(128, 128))],
+        }).unwrap(),
     ).unwrap();
     p
 }
@@ -125,18 +129,18 @@ fun reload_fetches_the_new_build() {
 fun only_this_contract_s_apps_run_here() {
     // A kept copy built for an older contract is passed over for its site (PRP-045).
     let m = Manifest {
-        contract: 10,
+        contract: 11,
         name: "Notes",
         version: "0.3.0",
         description: None,
         state_version: 1,
-        icon: None,
+        icon: Some("icon.png"),
         banners: [],
         servers: [],
         permissions: [],
         controls: None,
     };
     assert_eq(runs_here(m), true);
-    assert_eq(runs_here(Manifest { contract: 9, ..m }), false);
-    assert_eq(runs_here(Manifest { contract: 11, ..m }), false);
+    assert_eq(runs_here(Manifest { contract: 10, ..m }), false);
+    assert_eq(runs_here(Manifest { contract: 12, ..m }), false);
 }

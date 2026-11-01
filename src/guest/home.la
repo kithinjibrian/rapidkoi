@@ -8,7 +8,8 @@
  * Used by: guest.effects
  */
 import cbor { Value, Entry };
-import guest.limits { MAX_PLACES, MAX_PLACE_ICON };
+import guest.limits { MAX_PLACES };
+import data.remembered { Face };
 import net.address { is_address, parse, shown };
 import window.window { Model, card };
 import window.tabs { Pin, AppPage, Tab };
@@ -32,7 +33,7 @@ fun place_of(path: string): string {
 }
 
 /**
- * Returns the `pins` answer: up to `MAX_PLACES` maps `{name, place, icon?}`,
+ * Returns the `pins` answer: up to `MAX_PLACES` maps `{name, place, icon}`,
  * in the sidebar's order.
  *
  * Example:
@@ -44,13 +45,13 @@ fun pins_of(m: Model): Value {
         if out.len >= MAX_PLACES {
             break;
         }
-        out.push(Value.Map(fields(p.name, p.path, p.icon, None)));
+        out.push(Value.Map(fields(p.name, p.path, None)));
     }
     Value.Array(out)
 }
 
 /**
- * Returns the `left_off` answer: `{name, place, icon?, title?}` for the app
+ * Returns the `left_off` answer: `{name, place, icon, title?}` for the app
  * used last (open in a tab, or closed and remembered), or null.
  *
  * Example:
@@ -59,11 +60,11 @@ fun pins_of(m: Model): Value {
 fun left_off_of(m: Model): Value {
     if let Some(id) = m.last {
         if let Some(a) = page(m, id) {
-            return Value.Map(fields(a.name, a.path, a.icon, a.title));
+            return Value.Map(fields(a.name, a.path, a.title));
         }
     }
     match m.left_off {
-        Some(l) => Value.Map(fields(l.name, l.path, l.icon, l.title)),
+        Some(l) => Value.Map(fields(l.name, l.path, l.title)),
         None => Value.Null,
     }
 }
@@ -92,37 +93,46 @@ fun continue_msg(m: Model): Option<Msg> = card(m).map(fun(c) = c.msg);
 
 /**
  * Returns the `session` answer (PRP-035): how many windows the last
- * session had and the apps they were of (each app once, by place), or null
- * when there's none to restore.
+ * session had and the apps they were of, each once as `{name, place, icon}`
+ * (PRP-060: the name the session kept, else its place), or null when
+ * there's none to restore.
  *
  * Example:
  *     session_of(m)
  */
 fun session_of(m: Model): Value = match m.previous {
     Some(o) if o.tabs.len > 0 => {
-        let mut apps: string[] = [];
+        let mut places: string[] = [];
+        let mut apps: Value[] = [];
         for t of o.tabs {
             let p = place_of(t.path);
-            if !apps.any(fun(a: string) = a == p) {
-                apps.push(p);
+            if !places.any(fun(a: string) = a == p) {
+                places.push(p);
+                let mut name = p;
+                for f of o.apps {
+                    if f.path == t.path {
+                        name = f.name;
+                    }
+                }
+                apps.push(Value.Map(fields(name, t.path, None)));
             }
         }
-        Value.Map([
-            entry("count", Value.int(o.tabs.len)),
-            entry("apps", Value.Array(apps.map(fun(a: string) = Value.Text(a)))),
-        ])
+        Value.Map([entry("count", Value.int(o.tabs.len)), entry("apps", Value.Array(apps))])
     }
     _ => Value.Null,
 };
 
-/** One place's fields; an icon past `MAX_PLACE_ICON` is left out. */
-fun fields(name: string, path: string, icon: Option<u8[]>, title: Option<string>): Entry[] {
-    let mut out = [entry("name", Value.Text(name)), entry("place", Value.Text(place_of(path)))];
-    if let Some(i) = icon {
-        if i.len <= MAX_PLACE_ICON {
-            out.push(entry("icon", Value.Bytes(i)));
-        }
-    }
+/**
+ * One place's fields. Its icon is named for Rapidkoi to draw (`icon:PLACE`,
+ * PRP-060), never sent: the new tab shows it without ever holding it.
+ */
+fun fields(name: string, path: string, title: Option<string>): Entry[] {
+    let place = place_of(path);
+    let mut out = [
+        entry("name", Value.Text(name)),
+        entry("place", Value.Text(place)),
+        entry("icon", Value.Text("icon:{place}")),
+    ];
     if let Some(s) = title {
         out.push(entry("title", Value.Text(s)));
     }

@@ -1,8 +1,9 @@
 //! Rapidkoi's new tab (PRP-027): the app every empty tab runs, built into
-//! `./main`. For now a still copy of its target design
-//! (`docs/designs/newtab-target.md`, board A5), at the owner's request:
-//! every name, place and notification on it is a placeholder, it asks
-//! Rapidkoi for nothing, and nothing on it does anything yet.
+//! `./main`. A copy of its target design (`docs/designs/newtab-target.md`,
+//! board A5), becoming real a part at a time. Real: Restore, which asks for
+//! your last session each time the tab is shown and shows its apps' icons
+//! (PRP-060: `icon:PLACE`, drawn by Rapidkoi). Still placeholders, doing
+//! nothing: notifications, Recent and Pinned.
 //!
 //! Drawn with contract 10's looks (PRP-059): gradients for the washes, the
 //! page's glow and Rapidkoi's mark; layers for a face or an icon with
@@ -18,7 +19,10 @@ use rapidkoi::style::{
     Align, Background, Border, Color, Corner, Font, Layout, Place, Sizing, Spacing, State as Look, Style, Text,
     TextSize, Weight, When,
 };
-use rapidkoi::{column, fit, image, layers, row, spacer, text, wrap, App, Event, Fit, Next, Space, State, View};
+use rapidkoi::{
+    column, fit, image, layers, row, spacer, text, wrap, App, Ask, Event, Fit, Message, Next, Session, Space, State,
+    View,
+};
 
 /// Every picture the screen shows, each packed from `assets/` under its name.
 const ASSETS: [&str; 7] =
@@ -29,22 +33,32 @@ const CARD: (u8, u8, u8) = (0x1e, 0x1e, 0x1e);
 /// The Restore pill's colour behind its icons' rings.
 const PILL: (u8, u8, u8) = (0x23, 0x23, 0x23);
 
-type V = View<String>;
+/// What the new tab's screen sends.
+#[derive(Debug, Clone, PartialEq, Message)]
+enum Msg {
+    /// Bring back the last session.
+    Restore,
+}
+
+type V = View<Msg>;
 
 #[derive(Default, State)]
-struct NewTab {}
+struct NewTab {
+    /// The last session's apps' icons, in order (`icon:PLACE`), while there's one to restore.
+    restore: Option<Vec<String>>,
+}
 
 impl App for NewTab {
-    // Nothing on the screen sends anything yet.
-    type Msg = String;
+    type Msg = Msg;
 
-    fn handle(self, _event: Event<String>) -> Next<Self> {
-        Next::state(self)
+    fn handle(self, event: Event<Msg>) -> Next<Self> {
+        // The new tab has no address of its own to put fields in.
+        self.step(event).into()
     }
 
     fn view(&self) -> V {
         // The page fills the window's width (the owner's choice over the design's cap).
-        let page = column([top(), notifications(), recent(), pinned()])
+        let page = column([top(&self.restore), notifications(), recent(), pinned()])
             .style([Spacing::padding_xy(Space::Px(32), Space::Px(36)), Spacing::gap(Space::Px(32))]);
         // Rapidkoi never scrolls an app's page (PRP-046): the page scrolls itself,
         // under a faint glow of the brand's colours from its top-left corner.
@@ -67,6 +81,29 @@ impl App for NewTab {
 }
 
 rapidkoi::export!(NewTab);
+
+impl NewTab {
+    fn step(self, event: Event<Msg>) -> (Self, Vec<Ask>) {
+        match event {
+            // Each time it's shown: the session may have changed.
+            Event::Opened | Event::Resume => (self, vec![Ask::session("session")]),
+            Event::Data { msg, cbor } if msg == "session" => {
+                let icons = Session::read(&cbor).map(|s| s.apps.into_iter().map(|p| p.icon).collect());
+                (NewTab { restore: icons, ..self }, vec![])
+            }
+            // No session to restore.
+            Event::Answer { msg, .. } if msg == "session" => (NewTab { restore: None, ..self }, vec![]),
+            Event::Message { msg: Msg::Restore, .. } => (self, vec![Ask::restore_session("restore")]),
+            _ => (self, vec![]),
+        }
+    }
+}
+
+/// The icons Restore shows, at most three, and how many apps more.
+fn shown_and_more(icons: &[String]) -> (&[String], usize) {
+    let n = icons.len().min(3);
+    (&icons[..n], icons.len() - n)
+}
 
 /// A picture from the bundle, at its size.
 fn picture(name: &str, w: u16, h: u16) -> V {
@@ -172,34 +209,41 @@ fn mark(size: u16) -> V {
     disc("R", size, vec![brand], Color::rgb(0x16, 0x16, 0x16), TextSize::Rem(0.6), Some(rgb(CARD)))
 }
 
-/// The wordmark, and Restore with the apps it brings back.
-fn top() -> V {
-    // Notes and Trip, then Counter, which has no icon: its initial. Each
-    // overlaps the one before, by its place in a box narrower than the three.
-    let apps = layers([
-        boxed().style([Sizing::width(62), Sizing::height(26)]),
-        ringed("notes.svg", 26, rgb(PILL)).style([Layout::place(Place::Start)]),
-        ringed("trip.svg", 26, rgb(PILL)).style([Layout::place(Place::Center)]),
-        disc(
-            "C",
-            26,
-            vec![Background::color(Color::rgb(0x6d, 0x28, 0xd9))],
-            Color::rgb(255, 255, 255),
-            TextSize::Rem(0.75),
-            Some(rgb(PILL)),
-        )
-        .style([Layout::place(Place::End)]),
-    ])
-    .style([Layout::align(Align::Center)]);
-    let restore = row([
+/// The wordmark, and, while there's a session to restore, Restore with the apps it brings back.
+fn top(restore: &Option<Vec<String>>) -> V {
+    let wordmark = picture("wordmark.svg", 176, 44).label("Rapidkoi");
+    let Some(icons) = restore else {
+        return row([wordmark]);
+    };
+    let (shown, more) = shown_and_more(icons);
+    // Each overlaps the one before, by its place in a box narrower than them all.
+    let width = 26 + 18 * (shown.len().max(1) as u16 - 1);
+    let mut apps = vec![boxed().style([Sizing::width(width), Sizing::height(26)])];
+    for (i, icon) in shown.iter().enumerate() {
+        let place = match (i, shown.len()) {
+            (0, _) => Place::Start,
+            (i, n) if i + 1 == n => Place::End,
+            _ => Place::Center,
+        };
+        apps.push(image(icon).style([
+            Sizing::width(26),
+            Sizing::height(26),
+            Border::all(2, rgb(PILL)),
+            Border::corner(Corner::Px(8)),
+            Layout::place(place),
+        ]));
+    }
+    let mut parts = vec![
         // The pill's text sits further from its edge than Restore does.
         boxed().style([Sizing::width(8)]),
         text("Restore previous session").style([Layout::align(Align::Center)]),
-        apps,
-        note("+2").style([Layout::align(Align::Center)]),
-        pill("Restore", true),
-    ])
-    .style([
+        layers(apps).style([Layout::align(Align::Center)]),
+    ];
+    if more > 0 {
+        parts.push(note(&format!("+{more}")).style([Layout::align(Align::Center)]));
+    }
+    parts.push(pill("Restore", true).on_press(Msg::Restore));
+    let pill_row = row(parts).style([
         Spacing::gap(Space::Md),
         Spacing::padding(Space::Px(6)),
         Background::color(lift(0.06)),
@@ -207,7 +251,7 @@ fn top() -> V {
         Border::corner(Corner::Round),
         Layout::align(Align::Center),
     ]);
-    row([picture("wordmark.svg", 176, 44).label("Rapidkoi"), spacer(), restore])
+    row([wordmark, spacer(), pill_row])
 }
 
 /// One notification: who or what it's from, its words (each bold or not), and its button if it has one.
@@ -372,10 +416,59 @@ mod tests {
         }
     }
 
+    use minicbor::Encoder;
+
+    /// A session answer: `count` windows of these apps, each `{name, place, icon}`.
+    fn session(count: u32, places: &[&str]) -> Vec<u8> {
+        let mut e = Encoder::new(Vec::new());
+        e.map(2).unwrap().str("count").unwrap().u32(count).unwrap();
+        e.str("apps").unwrap().array(places.len() as u64).unwrap();
+        for p in places {
+            e.map(3).unwrap();
+            e.str("name").unwrap().str(p).unwrap();
+            e.str("place").unwrap().str(p).unwrap();
+            e.str("icon").unwrap().str(&format!("icon:{p}")).unwrap();
+        }
+        e.into_writer()
+    }
+
     #[test]
-    fn nothing_on_it_asks_or_changes() {
-        // A still copy: whatever happens, the state stays and nothing is asked.
-        let _ = NewTab::default().handle(Event::Opened);
-        let _ = NewTab::default().handle(Event::Resume);
+    fn it_asks_for_the_last_session_each_time_it_s_shown() {
+        for e in [Event::Opened, Event::Resume] {
+            assert_eq!(NewTab::default().step(e).1, vec![Ask::session("session")]);
+        }
+    }
+
+    #[test]
+    fn restore_shows_the_session_s_apps_while_there_is_one() {
+        let data = Event::Data { msg: "session".into(), cbor: session(5, &["notes.dafifi.net", "trip.app"]) };
+        let (t, asks) = NewTab::default().step(data);
+        assert_eq!(t.restore, Some(vec!["icon:notes.dafifi.net".to_string(), "icon:trip.app".to_string()]));
+        assert!(asks.is_empty());
+        let _ = t.view();
+        // Nothing to restore: no pill.
+        let (none, _) = t.step(Event::Answer { msg: "session".into(), value: None });
+        assert_eq!(none.restore, None);
+    }
+
+    #[test]
+    fn at_most_three_icons_then_how_many_more() {
+        let icons: Vec<String> = (0..5).map(|i| format!("icon:a{i}")).collect();
+        assert_eq!(shown_and_more(&icons), (&icons[..3], 2));
+        assert_eq!(shown_and_more(&icons[..2]), (&icons[..2], 0));
+    }
+
+    #[test]
+    fn pressing_restore_asks_rapidkoi_to_restore() {
+        let pressed = Event::Message { msg: Msg::Restore, value: None };
+        assert_eq!(NewTab::default().step(pressed).1, vec![Ask::restore_session("restore")]);
+    }
+
+    #[test]
+    fn it_has_its_icon() {
+        // Every app has one (PRP-060).
+        let script = include_str!("../../../../scripts/newtab.sh");
+        assert!(script.contains("--icon guest/rust/newtab/icon.svg"));
+        assert!(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/icon.svg")).is_file());
     }
 }

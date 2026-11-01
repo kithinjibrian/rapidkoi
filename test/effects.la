@@ -268,7 +268,7 @@ fun holding(kind: string, extra: (string, Value)[], declared: string[]): AppPage
     }
     AppPage {
         manifest: Some(Manifest {
-            contract: 10,
+            contract: 11,
             name: "notes",
             version: "1.0.0",
             description: None,
@@ -432,6 +432,7 @@ fun an_approval_waits_while_a_card_is_open() {
 fun the_new_tab_reads_and_restores_the_last_session() {
     // PRP-035: behind restore_session, like the other built-in reads.
     let o = Open {
+        apps: [],
         tabs: [
             OpenTab { link: [], path: "a.wasm", instance: "", label: None, seen: 0, origin: None },
         ],

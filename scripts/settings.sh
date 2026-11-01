@@ -4,11 +4,12 @@
 # built-in permission it needs: only a bundle built into ./main may hold
 # it. Run from the repository's root, after `lughac build -O 2 src/main.la -o
 # main`. The .rkb is committed, so building ./main never needs cargo.
-# Rebuild ./main after: it embeds the bundle.
+# Rebuild ./main after: it embeds the bundle. Its icon (every app has one,
+# PRP-060) is guest/rust/settings/icon.svg.
 set -eu
 cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unknown-unknown -p settings
 ./main pack guest/rust/target/wasm32-unknown-unknown/release/settings.wasm \
-    --name "Settings" --version 0.1.0 \
+    --name "Settings" --version 0.1.0 --icon guest/rust/settings/icon.svg \
     --permission change_settings \
     --control address=settings \
     --control settings=app_settings.permissions \

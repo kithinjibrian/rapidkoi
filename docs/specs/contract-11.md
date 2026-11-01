@@ -1,6 +1,6 @@
-# Contract 10
+# Contract 11
 
-The one contract Rapidkoi speaks (DECISION-056, PRP-045, PRP-053, PRP-054, PRP-059): an app is a WebAssembly module exporting `rapidkoi_version` (10), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". Contract 7 gathered contracts 3–6 (PRP-030, 036–039, 041) with link fields with declared `kinds` and a `label` on typing boxes, then scrolling (PRP-046) and pictures (PRP-047). Contract 8 (PRP-053) adds texts made of parts (your name and times, filled in by Rapidkoi, never known to the app) and the `now` ask, and drops the `{FIRST_NAME}` and `{LAST_NAME}` tokens. Contract 9 (PRP-054, DECISION-087) adds blobs: an app's large bytes, kept on this device apart from its database. Contract 10 (PRP-059, DECISION-091) adds gradients and boxes whose children sit in layers, wrap onto new lines, or fit a line. Any change after that is a DECISIONS.md entry and a version bump.
+The one contract Rapidkoi speaks (DECISION-056, PRP-045, PRP-053, PRP-054, PRP-059, PRP-060): an app is a WebAssembly module exporting `rapidkoi_version` (11), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". Contract 7 gathered contracts 3–6 (PRP-030, 036–039, 041) with link fields with declared `kinds` and a `label` on typing boxes, then scrolling (PRP-046) and pictures (PRP-047). Contract 8 (PRP-053) adds texts made of parts (your name and times, filled in by Rapidkoi, never known to the app) and the `now` ask, and drops the `{FIRST_NAME}` and `{LAST_NAME}` tokens. Contract 9 (PRP-054, DECISION-087) adds blobs: an app's large bytes, kept on this device apart from its database. Contract 10 (PRP-059, DECISION-091) adds gradients and boxes whose children sit in layers, wrap onto new lines, or fit a line. Contract 11 (PRP-060, DECISION-092) requires every app to have an icon, and lets Rapidkoi's own apps show apps' icons. Any change after that is a DECISIONS.md entry and a version bump.
 
 ## The state
 
@@ -126,12 +126,17 @@ Rapidkoi builds apps, not sites (PRP-046): an app's page is exactly the window's
 - What still doesn't fit is cut off at the window's edge, and never makes the window bigger: silently in a published app; in development (a local file or a `localhost` address), with a striped band along the cut edge and "Bottom overflowed by 42 px" (or Right) in its corner.
 - A `vertical` box scrolls only up and down (what's wider is cut), and a `horizontal` one only sideways.
 
+### Every app's icon
+
+PRP-060. A bundle names its icon in its manifest: a square PNG of 128 to 1,024 px a side, or an SVG. Without one Rapidkoi refuses it ("This app has no icon"), and `./main pack` and `./main publish` refuse to make one. A PNG that isn't square or is under 128 px is refused too; a JPEG can't be see-through, so it isn't an icon. A bare `.wasm` (development, no manifest) still runs, drawn as its initial.
+
 ### Pictures
 
 PRP-047. A picture comes from the app's bundle or from a server it may reach, never anywhere else, and Rapidkoi loads it: the app names it in its view, as a web page names an `<img>`.
 
 - **From the bundle:** `asset:NAME`, packed from `[assets]` in `rapidkoi.toml`. A bundle holds PNG and JPEG (at most 4 MB, 4,096 px a side) and SVG (at most 1 MB, UTF-8). Shown at once. With `color`, an SVG's `currentColor` is drawn in that colour (Rapidkoi's names follow the theme).
 - **From a server:** an address `fetch` could reach (the app's own host or a server it declares; HTTPS; `http://localhost` from this machine). Downloaded in the background with a plain GET (no headers, no cookies), at most 6 at a time a window, in the order the screen shows them, each within 30 seconds and 10 MB; PNG or JPEG, at most 4,096 px a side and 16 MP, checked from its header before it's kept. WebP waits on kivuli (DECISION-058). Kept while the window lasts; past 256 MB decoded, those off screen go, least recently shown first.
+- **An app's icon** (PRP-060): `icon:PLACE`, the icon of the app at a place (a host, or a file's name; 1–253 bytes, no `/`, `\\` or control characters), as the `pins`, `left_off` and `session` answers name it. Only Rapidkoi's own apps may show one: any other naming it stops with "This app's screen names a picture it can't have: Only Rapidkoi's own apps can show other apps' icons". Rapidkoi draws the app's own icon from what it holds (your pins, open windows, where you left off, your last session), or the app's initial on a theme colour when it holds none. Shown at once, never fetched; no `color`, and no `on_load` or `on_fail`, so no app learns which apps you have.
 - **From your blobs** (PRP-055): `blob:KEY`, a blob your app stored. Read from this device, never passing through your app, under the same rules as a server's picture (PNG or JPEG, at most 10 MB, 4,096 px a side and 16 MP). No such key: "This app has no blob with that key". When a write of yours stores, replaces or removes blobs, every window of your app reads its `blob:` pictures again.
 - **While it loads** its box is empty, at its style's size. **When it can't be shown** (refused, not found, too large, not PNG or JPEG), Rapidkoi's broken-picture mark takes its place, and the app runs on.
 - **`on_load`** arrives as `on_message` with its `msg` once the picture is shown; **`on_fail`** as `on_message` with its `msg` and Rapidkoi's sentence as `value`. Neither is sent without a message, and each once while the picture stays on screen.
@@ -156,7 +161,7 @@ Each has a `kind` and a `msg` (any CBOR value, carried back in the reply):
 | `sql`, `sql_batch` | its database (below) | `on_answer` or `on_fail` |
 | `blob_get`, `blob_list` | its blobs (below) | `on_answer` or `on_fail` |
 | `file_open`, `file_save`, `file_save_as` | one of the person's files, chosen in Rapidkoi's dialog (below, PRP-056) | `on_answer` (`null` when cancelled) or `on_fail` |
-| `pins`, `left_off`, `open_pin` + `index`, `continue`, `session`, `restore_session` | the new tab's built-in permissions | `on_answer` |
+| `pins`, `left_off`, `open_pin` + `index`, `continue`, `session`, `restore_session` | the new tab's built-in permissions. A place is `{ "name", "place", "icon" }` (`icon` is `"icon:PLACE"`, never the icon's bytes; PRP-060); `session` is `{ "count", "apps": [place] }`, each app once | `on_answer` |
 
 A bad ask stops the app with its sentence.
 

@@ -15,7 +15,7 @@ import rapidkoi.window.window { Model };
 import rapidkoi.window.actions { Msg as AppMsg };
 import rapidkoi.net.fetching { Fetched };
 import rapidkoi.bundles.bundle { Bundle, Manifest, write };
-import support { t, kv, linking, said };
+import support { t, kv, linking, said, png };
 
 fun result(state: Value, link: Option<Value>): u8[] {
     let mut pairs = [("state", state), ("effects", Value.Array([]))];
@@ -202,19 +202,19 @@ fun pending_of(p: AppPage): Option<Pending> = match p.screen {
 /** A format 1 bundle named Plain at `version`, as an unsigned server would send. */
 fun plain(version: string): u8[] = write(Bundle {
     manifest: Manifest {
-        contract: 10,
+        contract: 11,
         name: "Plain",
         version: version,
         description: None,
         state_version: 1,
-        icon: None,
+        icon: Some("icon.png"),
         banners: [],
         servers: [],
         permissions: [],
         controls: None,
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
-    assets: [],
+    assets: [("icon.png", png(128, 128))],
 }).unwrap();
 
 @test
