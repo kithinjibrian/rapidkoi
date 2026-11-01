@@ -12,6 +12,7 @@ Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fi
 15. [Bug: a popover's `destroy` handler unparents a popover GTK already took apart (a crash)](#7-bug-a-popovers-destroy-handler-unparents-a-popover-gtk-already-took-apart-a-crash) (DECISION-063)
 14. [Bug: an overlay layer with a maximum size takes the clicks of everything under it (0.62)](#14-bug-an-overlay-layer-with-a-maximum-size-takes-the-clicks-of-everything-under-it-062) (DECISION-062)
 16. [An input group's add-ons, inset as the caller asks](#16-an-input-groups-add-ons-inset-as-the-caller-asks) (DECISION-065)
+17. [Bug: a button's shortcut inside a closed popover doesn't fire](#17-bug-a-buttons-shortcut-inside-a-closed-popover-doesnt-fire-066) (DECISION-090)
 
 
 ---
@@ -190,3 +191,18 @@ input_group(start, field, end).style([InputGroup.inset(2)])
 or an `input_group_inset(start, field, end, px)`. The default stays 12, so nothing else changes.
 
 **How Rapidkoi will use it.** The address box's add-ons inset by the frame's edge (or by `SPACE_XS` with the same padding above and below), so its pills have equal room on every side. No change to apps or the contract.
+
+---
+
+## 17. Bug: a button's shortcut inside a closed popover doesn't fire (0.66)
+
+DECISION-090.
+
+**What happens.** Rapidkoi's ☰ card is `ui.popover(…)`; its first item is `button_with(…).shortcut("Ctrl+O")` (PRP-058). The README says a shortcut presses its button "from anywhere in the window", and `kivuli.testing.press(view, "Ctrl+O")` finds it in the whole window's view. On screen (the owner, 2026-11-01), Ctrl+O does nothing while the card is closed.
+
+**Why (from kivuli's source).** `render/buttons.la:102` gives each button a shortcut controller with `GTK_SHORTCUT_SCOPE_GLOBAL`. Global means global to the widget's `GtkShortcutManager`, and a `GtkPopover` is one (it's a `GtkNative`), so the controller is managed by the popover, not the window: its keys work only while the popover is mapped.
+
+**What Rapidkoi needs.** A button's shortcut that works from anywhere in the window while the window is in front, wherever the button is (a closed popover's content included), as the README promises; or, if kivuli prefers, a window-level shortcut not tied to a button (`Sub.keys("Ctrl+O", Msg.OpenApp)`, or `.shortcuts([(keys, msg)])` on the root). Either is kivuli's to choose; `kivuli.testing.press` should then agree with what the screen does.
+
+**How Rapidkoi will use it.** Ctrl+O for Open App…, from anywhere. Nothing else changes.
+

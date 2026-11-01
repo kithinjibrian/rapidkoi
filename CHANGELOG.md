@@ -9,6 +9,7 @@ Never deleted. Older entries are never modified.
 ## [Unreleased]
 
 ### Added
+- Open App… (PRP-058): ☰'s first item, and Ctrl+O, open the system's chooser ("Open an app", showing Rapidkoi apps: `.rkb` and `.wasm`); the chosen file opens as typing its path does.
 - Project scaffold: a Lugha program with kivuli as its UI dependency.
 - The shell: `./main app.wasm` runs a WebAssembly app under UI contract v1 (text, button, input, column, row).
 - Apps that crash, loop forever, misbehave or are incompatible show "This app stopped working" with Restart, and never take Rapidkoi down.

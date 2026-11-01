@@ -59,6 +59,10 @@ enum Msg {
     Menu(bool),
     /** Open Rapidkoi's Settings app in a tab, or show its tab. */
     OpenSettings,
+    /** ☰'s Open App… and Ctrl+O (PRP-058): the system's chooser for a local app file. */
+    OpenApp,
+    /** The app file the person chose, or `None` when they cancelled. */
+    AppChosen(Option<string>),
     /** The About dialog shown or closed. */
     About(bool),
     /** Close Rapidkoi. */

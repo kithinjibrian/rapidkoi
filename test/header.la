@@ -69,7 +69,7 @@ fun account_waits_and_the_menu_opens_its_card() {
     // PRP-038: ☰ opens Settings, About Rapidkoi and Quit.
     assert_eq(click(end[1], "Menu"), Ok(Msg.Menu(true)));
     let card = header.menu_card(m.theme);
-    assert_eq(texts(card), ["Settings", "About Rapidkoi", "Quit"]);
+    assert_eq(texts(card), ["Open App…", "Settings", "About Rapidkoi", "Quit"]);
     assert_eq(click(card, "Settings"), Ok(Msg.OpenSettings));
     assert_eq(click(card, "About Rapidkoi"), Ok(Msg.About(true)));
     assert_eq(click(card, "Quit"), Ok(Msg.Quit));

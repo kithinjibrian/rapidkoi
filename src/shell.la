@@ -7,7 +7,7 @@
  * Depends on: kivuli, wasmtime, window.actions, window.tabs, window.window, data.saving, data.store, net.loads, guest.effects, net.requests, people.access, people.account, ui.render, ui.layout
  * Used by: main
  */
-import kivuli { View, Cmd, Sub };
+import kivuli { View, Cmd, Sub, FileFilter };
 import wasmtime { Engine };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm, TabAction, PinAction };
 import window.tabs { AppPage, Tab, Pin, handle, is_loading, to_front };
@@ -323,6 +323,17 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     // ☰ (PRP-038): Settings, About Rapidkoi, Quit.
     Menu(open) => (Model { menu: open, ..m }, Cmd.none()),
     OpenSettings => (navigate.open_settings(Model { menu: false, ..m }), Cmd.none()),
+    // The owner's words (PRP-058); the chosen file opens as a typed path does.
+    OpenApp => (
+        Model { menu: false, ..m },
+        Cmd.open_file(
+            "Open an app",
+            [FileFilter { name: "Rapidkoi apps", patterns: ["*.rkb", "*.wasm"] }],
+            fun(c: Option<string>) = Msg.AppChosen(c),
+        ),
+    ),
+    AppChosen(Some(path)) => navigate.open_file(m, path),
+    AppChosen(None) => (m, Cmd.none()),
     About(open) => (Model { about: open, menu: false, ..m }, Cmd.none()),
     Quit => (m, Cmd.quit()),
     OwnLooks(key, colours, text_size) => (

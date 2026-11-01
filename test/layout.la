@@ -43,6 +43,7 @@ fun a_fresh_window_shows_only_the_new_tab() {
         "App settings",
         "Permissions",
         "4 allowed",
+        "Open App…",
         "Settings",
         "About Rapidkoi",
         "Quit",
