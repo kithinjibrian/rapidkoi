@@ -43,3 +43,4 @@
 - **Status:** approved (the owner, 2026-11-01); built.
 - `Msg.OpenApp` closes ☰'s card and returns `Cmd.open_file`; `Msg.AppChosen(Some(path))` goes to `navigate.open_file`, as a typed path does; `None` does nothing. Ctrl+O is the item's `.shortcut`, found by `kivuli.testing.press` on the whole window's view (the card is built while closed).
 - `shell.la` is at 499 lines.
+- **Ctrl+O from anywhere doesn't work on screen** (the owner): kivuli's button shortcut is global to the popover holding it, so it fires only with ☰'s card open. Recorded as DECISION-090 and kivuli request § 17; not worked around.

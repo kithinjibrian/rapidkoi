@@ -466,6 +466,18 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-090 — A shortcut inside a closed popover doesn't fire (kivuli)
+
+**Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 17)
+**Raised:** 2026-11-01, the owner, checking PRP-058: "ctrl+o doesn't work so it seems"
+**Revisit when:** kivuli fixes it; then Ctrl+O opens Open App… from anywhere.
+
+**Question:** ☰'s "Open App…" carries `.shortcut("Ctrl+O")`, but the card is a popover, and kivuli's global shortcut controller is global to the popover (a `GtkShortcutManager`), so Ctrl+O works only while the card is open. `kivuli.testing.press` finds it regardless.
+
+**Meanwhile:** Open App… works from ☰; Ctrl+O works only with ☰'s card open. No workaround (a hidden button, a second shortcut elsewhere): it's kivuli's to fix.
+
+---
+
 ### DECISION-065 — The address box's pills sit 12 px in from its left end, flush at top and bottom (kivuli)
 
 **Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 16)
