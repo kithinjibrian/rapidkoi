@@ -16,6 +16,9 @@ import kivuli {
     Font,
     Text,
     Background,
+    Gradient,
+    Ellipse,
+    Stop,
     Border,
     Outline,
     Sizing,
@@ -33,7 +36,7 @@ import kivuli {
     State,
     hex,
 };
-import guest.nodes { Look, Colour, Measure, TextSize, Place };
+import guest.nodes { Look, Colour, Measure, TextSize, Place, Blend, ColourStop };
 import ui.tokens {
     SPACE_XS,
     SPACE_SM,
@@ -54,6 +57,8 @@ import ui.schemes { Theme };
 /** A look with every name resolved: what kivuli will draw. Only what the app set is `Some`. */
 struct Drawn {
     background: Option<Paint>,
+    /** Over the background colour (contract 10). */
+    gradient: Option<Gradient>,
     color: Option<Paint>,
     border: Option<(i64, Paint)>,
     outline: Option<(i64, Paint)>,
@@ -203,6 +208,7 @@ fun resolve_for(l: Look, t: Theme, own: Own, pressable: bool): Drawn {
         background: l.background.and_then(
             fun(c: Colour) = forced(c, if pressable { "surface" } else { "" }),
         ),
+        gradient: l.gradient.and_then(fun(g: Blend) = gradient_of(g, t, own)),
         color: l.color.and_then(fun(c: Colour) = forced(c, "text")),
         border: l.border.and_then(edge),
         outline: l.outline.and_then(edge),
@@ -255,6 +261,10 @@ fun styles_of(d: Drawn): Styling[] {
     let mut out: Styling[] = [];
     if let Some(p) = d.background {
         out.push(Background { color: p, ..Background.theme() });
+    }
+    if let Some(g) = d.gradient {
+        // A separate value: kivuli merges it with the colour, under one background.
+        out.push(Background { gradient: g, ..Background.theme() });
     }
     if let Some(p) = d.color {
         out.push(Text { color: p, ..Text.theme() });
@@ -319,6 +329,34 @@ fun styles_of(d: Drawn): Styling[] {
         out.push(When(state, styles_of(inner)));
     }
     out
+}
+
+/**
+ * A gradient as kivuli draws it, its colours resolved. With Use my colours, a
+ * gradient holding any of the app's own colours goes, as the app's own fills
+ * do; one of Rapidkoi's names only is the person's already.
+ */
+fun gradient_of(g: Blend, t: Theme, own: Own): Option<Gradient> {
+    let stops = match g {
+        Linear(_, ss) => ss,
+        Ellipse(_, _, _, _, ss) => ss,
+    };
+    let named = fun(s: ColourStop): bool = match s.colour {
+        Named(_) => true,
+        _ => false,
+    };
+    if own.colours && !stops.all(named) {
+        return None;
+    }
+    let drawn = stops.map(fun(s: ColourStop) = Stop { color: colour_of(s.colour, t), at: s.at });
+    Some(match g {
+        Linear(deg, _) => Gradient.Linear(deg, drawn),
+        // kivuli keeps an ellipse in f32s (its PRP-072): ample for a shape.
+        Ellipse(x, y, a, d, _) => Gradient.Ellipse(
+            Ellipse { x: x as f32, y: y as f32, across: a as f32, down: d as f32 },
+            drawn,
+        ),
+    })
 }
 
 /** A colour's channels: a name's from the theme's hex, a mix computed. */

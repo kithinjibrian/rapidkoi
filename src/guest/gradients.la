@@ -1,0 +1,135 @@
+/**
+ * Apps' gradients (contract 10, PRP-059), pure: a style's `gradient` read
+ * into a checked `Blend`. Every number is hostile input, so each is held to
+ * its range before kivuli sees it: a linear gradient's angle, an ellipse's
+ * centre and radii, and 2 to 8 stops in order. A bad one stops the app with
+ * why. Kept apart from `styles.la`, which reads every other key.
+ *
+ * Depends on: cbor, guest.nodes
+ * Used by: guest.styles
+ */
+import cbor { Value };
+import guest.nodes { Blend, Colour, ColourStop, ContractError };
+
+/** The fewest and most stops a gradient may have. */
+const FEWEST_STOPS: i64 = 2;
+const MOST_STOPS: i64 = 8;
+
+/** How far beyond the box an ellipse's centre may sit, as fractions of it. */
+const LOWEST_CENTRE: f64 = -1.0;
+const HIGHEST_CENTRE: f64 = 2.0;
+
+/** The largest radius, against the box's width or height. */
+const LARGEST_RADIUS: f64 = 4.0;
+
+/**
+ * Reads a style's `gradient`: `{linear, stops}` or `{ellipse, stops}`.
+ *
+ * @param v the value under `gradient`
+ * @param here the node's path, for errors
+ * @param name the key's place in the style (`style.gradient`)
+ * @param colour reads one colour as the style's other colours are read
+ * @returns the gradient; `Err(Invalid)` naming what's wrong
+ *
+ * Example:
+ *     read_gradient(v, here, "style.gradient", fun(c: Value) = colour(c, here, name, true))?
+ */
+fun read_gradient(
+    v: Value,
+    here: string,
+    name: string,
+    colour: fun(Value): Result<Colour, ContractError>,
+): Result<Blend, ContractError> {
+    let shape = "{name} must be {{linear, stops}} or {{ellipse, stops}}";
+    if v.as_map().is_none() {
+        return Err(bad(here, shape));
+    }
+    let stops = match v.get("stops") {
+        Some(Array(xs)) => read_stops(xs, here, name, colour)?,
+        _ => {
+            return Err(bad(here, shape));
+        }
+    };
+    match (v.get("linear"), v.get("ellipse")) {
+        (Some(a), None) => match a {
+            // An angle is a whole number of degrees: a float isn't one.
+            Float(_) => Err(bad(here, "{name}'s angle must be 0–359")),
+            _ => match a.as_i64() {
+                Some(deg) if deg >= 0 && deg <= 359 => Ok(Blend.Linear(deg, stops)),
+                _ => Err(bad(here, "{name}'s angle must be 0–359")),
+            },
+        },
+        (None, Some(Array(xs))) => {
+            if xs.len != 4 {
+                return Err(bad(here, "{name}'s ellipse must be [x, y, across, down]"));
+            }
+            let mut ns: f64[] = [];
+            for x of xs {
+                match number(x) {
+                    Some(n) => ns.push(n),
+                    None => {
+                        return Err(bad(here, "{name}'s ellipse must be [x, y, across, down]"));
+                    }
+                }
+            }
+            for c of [ns[0], ns[1]] {
+                if c < LOWEST_CENTRE || c > HIGHEST_CENTRE {
+                    return Err(bad(here, "{name}'s centre must be −1 to 2"));
+                }
+            }
+            for r of [ns[2], ns[3]] {
+                if r <= 0.0 || r > LARGEST_RADIUS {
+                    return Err(bad(here, "{name}'s radii must be above 0, at most 4"));
+                }
+            }
+            Ok(Blend.Ellipse(ns[0], ns[1], ns[2], ns[3], stops))
+        },
+        (None, Some(_)) => Err(bad(here, "{name}'s ellipse must be [x, y, across, down]")),
+        _ => Err(bad(here, shape)),
+    }
+}
+
+/** A gradient's stops: 2 to 8 `[colour, at]`, each `at` 0 to 1, in order. */
+fun read_stops(
+    xs: Value[],
+    here: string,
+    name: string,
+    colour: fun(Value): Result<Colour, ContractError>,
+): Result<ColourStop[], ContractError> {
+    if xs.len < FEWEST_STOPS || xs.len > MOST_STOPS {
+        return Err(bad(here, "{name} must have 2 to 8 stops"));
+    }
+    let mut out: ColourStop[] = [];
+    let mut last = 0.0;
+    for x of xs {
+        let (c, at) = match x {
+            Array(pair) if pair.len == 2 => match number(pair[1]) {
+                Some(n) => (pair[0], n),
+                None => {
+                    return Err(bad(here, "{name}'s stops must be [colour, 0 to 1]"));
+                }
+            },
+            _ => {
+                return Err(bad(here, "{name}'s stops must be [colour, 0 to 1]"));
+            }
+        };
+        // NaN fails both comparisons, so it's refused here too.
+        if !(at >= 0.0 && at <= 1.0) {
+            return Err(bad(here, "{name}'s stops must be at 0 to 1"));
+        }
+        if at < last {
+            return Err(bad(here, "{name}'s stops must be in order"));
+        }
+        last = at;
+        out.push(ColourStop { colour: colour(c)?, at: at });
+    }
+    Ok(out)
+}
+
+/** A number as a float: CBOR floats and integers alike. */
+fun number(v: Value): Option<f64> = match v {
+    Float(x) => Some(x),
+    _ => v.as_i64().map(fun(n: i64) = n as f64),
+};
+
+fun bad(here: string, problem: string): ContractError = ContractError.Invalid(here, problem);

@@ -430,6 +430,7 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## OPEN — Requires human input before implementation
 
+
 ### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
 
 **Status:** open (parked by the owner, session 189)
@@ -755,6 +756,21 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 ---
 
 ## RESOLVED
+
+### DECISION-091 — Contract 10: gradients, layers, wrapping and fitting rows
+
+**Status:** resolved (the owner approved PRP-059, 2026-11-01: "yes for the two")
+**Raised:** 2026-11-01, the owner: "let's work on the rapidkoi contract items" (the new tab's target design, `docs/designs/newtab-target.md`)
+
+**Question:** Which of the design's contract items go into contract 10, and how is each written?
+
+**Outcome (PRP-059):**
+- Contract 10 carries the drawing items only: a `gradient` style (linear, or an ellipse sized and placed as fractions of the box), and three new directions, `layers` (with `place`), `wrap` (with `equal` and `per_line`) and `fit`.
+- A place's card, pictures Rapidkoi hands over, and an app's colour in answers wait for the features that read them (Recent places, the new tab on real data), in a later version.
+- Contract 9 apps are refused, as every earlier contract was.
+- rapidkoi-rust's part is built in that repository (the owner: yes), tagged `v0.4.0-pre.1` before the built-ins move.
+
+---
 
 ### DECISION-085 — Questions about an app stay on its screen
 

@@ -1,6 +1,6 @@
-# Contract 9
+# Contract 10
 
-The one contract Rapidkoi speaks (DECISION-056, PRP-045, PRP-053, PRP-054): an app is a WebAssembly module exporting `rapidkoi_version` (9), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". Contract 7 gathered contracts 3–6 (PRP-030, 036–039, 041) with link fields with declared `kinds` and a `label` on typing boxes, then scrolling (PRP-046) and pictures (PRP-047). Contract 8 (PRP-053) adds texts made of parts (your name and times, filled in by Rapidkoi, never known to the app) and the `now` ask, and drops the `{FIRST_NAME}` and `{LAST_NAME}` tokens. Contract 9 (PRP-054, DECISION-087) adds blobs: an app's large bytes, kept on this device apart from its database. Any change after that is a DECISIONS.md entry and a version bump.
+The one contract Rapidkoi speaks (DECISION-056, PRP-045, PRP-053, PRP-054, PRP-059): an app is a WebAssembly module exporting `rapidkoi_version` (10), `alloc`, `handle(state, event)` and `view(state)`. Anything older is refused: "This app needs to be rebuilt for this Rapidkoi". Contract 7 gathered contracts 3–6 (PRP-030, 036–039, 041) with link fields with declared `kinds` and a `label` on typing boxes, then scrolling (PRP-046) and pictures (PRP-047). Contract 8 (PRP-053) adds texts made of parts (your name and times, filled in by Rapidkoi, never known to the app) and the `now` ask, and drops the `{FIRST_NAME}` and `{LAST_NAME}` tokens. Contract 9 (PRP-054, DECISION-087) adds blobs: an app's large bytes, kept on this device apart from its database. Contract 10 (PRP-059, DECISION-091) adds gradients and boxes whose children sit in layers, wrap onto new lines, or fit a line. Any change after that is a DECISIONS.md entry and a version bump.
 
 ## The state
 
@@ -83,12 +83,16 @@ One map, every key optional, at most 32 keys. A known key with a bad value stops
 
 | Key | Value |
 |---|---|
-| `direction` | `"column"` (default) or `"row"` |
+| `direction` | `"column"` (default), `"row"`, `"layers"`, `"wrap"` or `"fit"` (below) |
 | `gap`, `padding` | `"xs"`…`"xl"` or 0–256 px; `padding` also `[vertical, horizontal]` |
 | `align` | `"start"`, `"center"`, `"end"`, `"stretch"` |
 | `grow` | `true`: take the spare room along the parent's direction |
 | `width`, `height`, `min_width`, `max_width`, `min_height`, `max_height` | 0–4096 px |
 | `background`, `color` | a colour |
+| `gradient` | `{ "linear": 0–359, "stops": … }` or `{ "ellipse": [x, y, across, down], "stops": … }`, over `background`, on a box's own look (below) |
+| `place` | a layer's place on its base: `"top_start"`, `"top"`, `"top_end"`, `"start"`, `"center"`, `"end"`, `"bottom_start"`, `"bottom"`, `"bottom_end"` or `"fill"` (the default) |
+| `equal` | `true`: in a wrap, every child as wide as the widest |
+| `per_line` | 1–32: in a wrap, at most this many on a line |
 | `border` | `{ "width": 0–16, "color": colour }` |
 | `outline` | `{ "width": 0–8, "color": colour }` |
 | `corner` | `"small"`, `"medium"`, `"large"`, `"round"`, or 0–256 px |
@@ -103,6 +107,15 @@ One map, every key optional, at most 32 keys. A known key with a bad value stops
 | `hover`, `pressed`, `focus`, `disabled`, `checked` | a style map without these keys |
 
 **A colour** is one of Rapidkoi's names (`background`, `surface`, `text`, `text_dim`, `accent`, `on_accent`, `border`, `danger`, `on_danger`), the app's own `#rrggbb`/`#rrggbbaa`, or `{ "mix": [colour, colour, 0–1] }` (no mix inside a mix). Rapidkoi's names, spacing, corner and text sizes are resolved when Rapidkoi draws: the app never learns their values, and they follow the theme. A pressable box starts with no look but an accent ring when it has the keyboard; a text in the theme's text colour; a typing box in Rapidkoi's field look.
+
+### Gradients, layers, wrapping and fitting
+
+Contract 10 (PRP-059).
+
+- **`gradient`** is drawn over the box's `background` colour and under its content. `{ "linear": deg, "stops": … }` runs along an angle (0 points up, 90 right, whole degrees 0–359). `{ "ellipse": [x, y, across, down], "stops": … }` runs from an ellipse's centre out to its edge: `x` and `y` are the centre as fractions of the box (0 the left or top, 1 the right or bottom; −1 to 2, so a glow can start beyond an edge), `across` and `down` its radii against the box's width and height (above 0, at most 4). Physical: `x` runs from the left in every language. `stops` is 2 to 8 `[colour, at]` pairs, each `at` from 0 to 1 and in order (equal places make a hard edge); a colour is any colour above, so Rapidkoi's names follow the theme. Only on a box's own look, never inside `hover` and the other states: "style.hover.gradient only goes on a box's own look". With Use my colours, a gradient holding any of the app's own colours isn't drawn, as the app's own fills aren't.
+- **`direction: "layers"`**: the first child is the base and gives the box its size; each later child is drawn over it, in order, where its own `place` says (covering the base without one). Start and end follow the text's direction. A layer takes the pointer only where it is, so a pressable base stays pressable around a badge. `place` anywhere else is ignored.
+- **`direction: "wrap"`**: children side by side, moving to a new line when one is full, so they re-flow as the window changes; `gap` is the room across and down. `equal` and `per_line` shape it, and are ignored on other directions.
+- **`direction: "fit"`**: children side by side, as many as fit from the start at their natural widths; the rest are hidden from the end. It never makes the window wider, and nothing tells the app how many are hidden.
 
 ### Scrolling
 
@@ -199,4 +212,4 @@ A message is any CBOR value. The Rust library writes typed ones (`#[derive(Messa
 
 ## Rust
 
-`rapidkoi-rust` (`v0.2.0` once contract 7 was released; contract 8's parts and `now`: `docs/specs/rapidkoi-rust-contract-8.md`; contract 9's blobs: `docs/specs/rapidkoi-rust-contract-9.md`): `#[derive(State)]` encodes a struct as named fields, gives each field a typed link field (`Counter::count`, `App::editor.then(Editor::task)`), and writes `kinds`; `Next::state(s).link(field)`, `.no_link()`, `.ask(…)`; an `Option` field is "none" in the address and can be set by a link.
+`rapidkoi-rust` (`v0.2.0` once contract 7 was released; contract 8's parts and `now`: `docs/specs/rapidkoi-rust-contract-8.md`; contract 9's blobs: `docs/specs/rapidkoi-rust-contract-9.md`; contract 10's looks: `docs/specs/rapidkoi-rust-contract-10.md`, from `v0.4.0-pre.1`, with `Background::linear`, `Background::ellipse`, `layers`, `wrap`, `fit`, `Layout::place`, `equal` and `per_line`): `#[derive(State)]` encodes a struct as named fields, gives each field a typed link field (`Counter::count`, `App::editor.then(Editor::task)`), and writes `kinds`; `Next::state(s).link(field)`, `.no_link()`, `.ask(…)`; an `Option` field is "none" in the address and can be set by a link.

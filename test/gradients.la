@@ -1,0 +1,172 @@
+// Contract 10's gradients (PRP-059), pure: a `gradient` read from an app's
+// style and checked, each bad value refused with why, and drawn with the
+// theme's colours. No guest, no display.
+import rapidkoi.guest.styles { read_style };
+import rapidkoi.guest.nodes { Look, Colour, ColourStop, Blend, ContractError };
+import rapidkoi.ui.paint { Own, resolve, resolve_for, styles_of };
+import rapidkoi.ui.schemes { DARK };
+import kivuli { Background, Gradient, Ellipse, Stop, Paint, Color, Styling };
+import cbor { Value };
+import support { t, kv };
+
+fun f(x: f64): Value = Value.Float(x);
+
+fun n(x: i64): Value = Value.int(x);
+
+fun stop(colour: string, at: f64): Value = Value.Array([t(colour), f(at)]);
+
+fun read(gradient: Value): Result<Look, ContractError> = read_style(
+    Some(kv([("gradient", gradient)])),
+    "root > box",
+);
+
+fun why(gradient: Value): string = match read(gradient) {
+    Err(Invalid(_, problem)) => problem,
+    Err(_) => "another error",
+    Ok(_) => "ok",
+};
+
+fun linear(angle: Value, stops: Value[]): Value = kv([
+    ("linear", angle),
+    ("stops", Value.Array(stops)),
+]);
+
+fun ellipse(shape: Value[], stops: Value[]): Value = kv([
+    ("ellipse", Value.Array(shape)),
+    ("stops", Value.Array(stops)),
+]);
+
+fun two(): Value[] = [stop("#14b8a680", 0.0), stop("accent", 0.9)];
+
+@test
+fun a_linear_gradient_and_an_ellipse_are_read() {
+    let l = read(linear(n(90), two())).unwrap();
+    assert_eq(
+        l.gradient == Some(
+            Blend.Linear(90, [
+                ColourStop { colour: Colour.Raw(20, 184, 166, 128), at: 0.0 },
+                ColourStop { colour: Colour.Named("accent"), at: 0.9 },
+            ]),
+        ),
+        true,
+    );
+    // Integers and floats alike, as every number in a style.
+    let e = read(ellipse([n(0), f(0.0), f(1.1), n(2)], two())).unwrap();
+    match e.gradient {
+        Some(Ellipse(x, y, across, down, stops)) => {
+            assert_eq((x, y, across, down, stops.len), (0.0, 0.0, 1.1, 2.0, 2));
+        }
+        _ => panic("expected an ellipse"),
+    }
+}
+
+@test
+fun a_gradient_s_bad_values_say_what_is_wrong() {
+    assert_eq(why(t("sunset")), "style.gradient must be {{linear, stops}} or {{ellipse, stops}}");
+    assert_eq(
+        why(kv([("stops", Value.Array(two()))])),
+        "style.gradient must be {{linear, stops}} or {{ellipse, stops}}",
+    );
+    assert_eq(why(linear(n(360), two())), "style.gradient's angle must be 0–359");
+    assert_eq(why(linear(f(1.5), two())), "style.gradient's angle must be 0–359");
+    assert_eq(why(linear(n(0), [stop("accent", 0.0)])), "style.gradient must have 2 to 8 stops");
+    let nine = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(fun(i: i64) = stop("accent", i as f64 / 8.0));
+    assert_eq(why(linear(n(0), nine)), "style.gradient must have 2 to 8 stops");
+    assert_eq(
+        why(linear(n(0), [stop("accent", 0.6), stop("text", 0.2)])),
+        "style.gradient's stops must be in order",
+    );
+    assert_eq(
+        why(linear(n(0), [stop("accent", 0.0), stop("text", 1.5)])),
+        "style.gradient's stops must be at 0 to 1",
+    );
+    assert_eq(
+        why(linear(n(0), [t("accent"), stop("text", 1.0)])),
+        "style.gradient's stops must be [colour, 0 to 1]",
+    );
+    assert_eq(
+        why(linear(n(0), [stop("plum", 0.0), stop("text", 1.0)])),
+        "style.gradient must be one of Rapidkoi's colours, #rrggbb, #rrggbbaa or a mix",
+    );
+    assert_eq(
+        why(ellipse([f(0.0), f(0.0), f(1.0)], two())),
+        "style.gradient's ellipse must be [x, y, across, down]",
+    );
+    assert_eq(
+        why(ellipse([f(-1.1), f(0.0), f(1.0), f(1.0)], two())),
+        "style.gradient's centre must be −1 to 2",
+    );
+    assert_eq(
+        why(ellipse([f(0.0), f(2.1), f(1.0), f(1.0)], two())),
+        "style.gradient's centre must be −1 to 2",
+    );
+    assert_eq(
+        why(ellipse([f(0.0), f(0.0), f(0.0), f(1.0)], two())),
+        "style.gradient's radii must be above 0, at most 4",
+    );
+    assert_eq(
+        why(ellipse([f(0.0), f(0.0), f(1.0), f(4.1)], two())),
+        "style.gradient's radii must be above 0, at most 4",
+    );
+}
+
+@test
+fun a_gradient_s_limits_pass_at_their_edges() {
+    let eight = [0, 1, 2, 3, 4, 5, 6, 7].map(fun(i: i64) = stop("accent", i as f64 / 7.0));
+    assert_eq(why(linear(n(0), eight)), "ok");
+    assert_eq(why(linear(n(359), two())), "ok");
+    assert_eq(why(ellipse([f(-1.0), f(2.0), f(4.0), f(0.01)], two())), "ok");
+    // Stops at the same place are in order: a hard edge.
+    assert_eq(why(linear(n(0), [stop("accent", 0.5), stop("text", 0.5)])), "ok");
+}
+
+@test
+fun a_gradient_goes_only_on_a_box_s_own_look() {
+    // kivuli draws it as a background image, which can't change per state.
+    let hovered = read_style(
+        Some(kv([("hover", kv([("gradient", linear(n(0), two()))]))])),
+        "root > box",
+    );
+    match hovered {
+        Err(Invalid(_, problem)) => assert_eq(
+            problem,
+            "style.hover.gradient only goes on a box's own look",
+        ),
+        _ => panic("expected the gradient refused in a state"),
+    }
+}
+
+fun drawn_gradient(l: Look, own: Own): Option<Gradient> = resolve_for(l, DARK, own, false).gradient;
+
+@test
+fun a_gradient_is_drawn_with_the_theme_s_colours() {
+    let l = read(ellipse([f(0.0), f(0.0), f(1.1), f(1.5)], two())).unwrap();
+    let accent = resolve(
+        read_style(Some(kv([("color", t("accent"))])), "x").unwrap(),
+        DARK,
+    ).color.unwrap();
+    assert_eq(
+        drawn_gradient(l, Own { colours: false, text_size: false }) == Some(
+            Gradient.Ellipse(Ellipse { x: 0.0, y: 0.0, across: 1.1, down: 1.5 }, [
+                Stop {
+                    color: Paint.Color(Color { red: 20, green: 184, blue: 166, alpha: 128 }),
+                    at: 0.0,
+                },
+                Stop { color: accent, at: 0.9 },
+            ]),
+        ),
+        true,
+    );
+    // Drawn as a background, over the colour (kivuli merges the two).
+    let drawn = styles_of(resolve(l, DARK));
+    assert_eq(drawn.len, 1);
+}
+
+@test
+fun use_my_colours_drops_a_gradient_of_the_app_s_own_colours() {
+    // As the app's own fills go: only Rapidkoi's names are the person's already.
+    let own = Own { colours: true, text_size: false };
+    assert_eq(drawn_gradient(read(linear(n(0), two())).unwrap(), own).is_none(), true);
+    let named = read(linear(n(0), [stop("accent", 0.0), stop("background", 1.0)])).unwrap();
+    assert_eq(drawn_gradient(named, own).is_some(), true);
+}

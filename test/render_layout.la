@@ -1,0 +1,95 @@
+// Contract 10's boxes drawn (PRP-059), pure: layers, wrapping rows and
+// fitting rows become kivuli's overlay, wrap and fit row, checked through
+// kivuli.testing with no display.
+import rapidkoi.ui.render { Msg, screen, layer_place };
+import rapidkoi.ui.schemes { DARK };
+import rapidkoi.guest.nodes { Look, Facts, Role, Node, Direction, Spot };
+import rapidkoi.guest.styles { plain };
+import rapidkoi.guest.roles { no_facts };
+import kivuli.testing { click, texts };
+import kivuli { View, Align };
+import support { t };
+
+fun words(s: string): Node = Node.Words(s, plain(), no_facts());
+
+fun laid(d: Direction, kids: Node[]): Node = Node.Boxed(
+    Look { direction: d, ..plain() },
+    no_facts(),
+    None,
+    kids,
+);
+
+/** What a view is under its modifiers: "overlay 2" (its layers), "wrap 3", "fit 3" (its children), or "other". */
+fun shape(v: View<Msg>): string = match v {
+    Styled(inner, _) => shape(inner),
+    Overlay(_, layers) => "overlay {layers.len}",
+    Wrap(kids) => "wrap {kids.len}",
+    Fit(kids, _, _) => "fit {kids.len}",
+    _ => "other",
+};
+
+@test
+fun a_layers_box_is_its_base_with_its_layers_on_top_in_order() {
+    let v = screen(laid(Direction.Layers, [words("base"), words("badge"), words("dot")]), DARK);
+    assert_eq(shape(v), "overlay 2");
+    assert_eq(texts(v), ["base", "badge", "dot"]);
+}
+
+@test
+fun a_layers_box_with_one_child_is_just_its_base_and_with_none_draws_nothing() {
+    assert_eq(shape(screen(laid(Direction.Layers, [words("base")]), DARK)), "overlay 0");
+    let empty = screen(laid(Direction.Layers, []), DARK);
+    assert_eq(texts(empty), []);
+    assert_eq(shape(empty), "other");
+}
+
+@test
+fun a_layer_sits_where_its_place_says() {
+    let places = [
+        (Spot.TopStart, (Align.Start, Align.Start)),
+        (Spot.Top, (Align.Center, Align.Start)),
+        (Spot.TopEnd, (Align.End, Align.Start)),
+        (Spot.Start, (Align.Start, Align.Center)),
+        (Spot.Center, (Align.Center, Align.Center)),
+        (Spot.End, (Align.End, Align.Center)),
+        (Spot.BottomStart, (Align.Start, Align.End)),
+        (Spot.Bottom, (Align.Center, Align.End)),
+        (Spot.BottomEnd, (Align.End, Align.End)),
+        (Spot.Fill, (Align.Fill, Align.Fill)),
+    ];
+    for (spot, across_down) of places {
+        assert_eq(layer_place(spot) == across_down, true);
+    }
+}
+
+@test
+fun a_pressable_base_is_still_pressed_under_a_badge() {
+    let base = Node.Boxed(
+        plain(),
+        Facts { role: Some(Role.Button), ..no_facts() },
+        Some(t("open")),
+        [words("Open")],
+    );
+    let badge = Node.Words("3", Look { place: Some(Spot.TopEnd), ..plain() }, no_facts());
+    let v = screen(laid(Direction.Layers, [base, badge]), DARK);
+    assert_eq(click(v, "Open"), Ok(Msg.Event(t("open"), None)));
+}
+
+@test
+fun a_wrap_and_a_fit_row_hold_every_child() {
+    let kids = [words("a"), words("b"), words("c")];
+    let wrapped = screen(
+        Node.Boxed(
+            Look { direction: Direction.Wrap, equal: true, per_line: Some(2), ..plain() },
+            no_facts(),
+            None,
+            kids,
+        ),
+        DARK,
+    );
+    assert_eq(shape(wrapped), "wrap 3");
+    assert_eq(texts(wrapped), ["a", "b", "c"]);
+    let fitted = screen(laid(Direction.Fit, kids), DARK);
+    assert_eq(shape(fitted), "fit 3");
+    assert_eq(texts(fitted), ["a", "b", "c"]);
+}

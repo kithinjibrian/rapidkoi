@@ -29,7 +29,7 @@ fun plain(path: string): AppPage {
 }
 
 fun manifest(): Manifest = Manifest {
-    contract: 9,
+    contract: 10,
     name: "Notes",
     version: "1.2.0",
     description: None,

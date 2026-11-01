@@ -10,6 +10,7 @@ import rapidkoi.guest.nodes {
     Place,
     ContractError,
     Axis,
+    Spot,
 };
 import cbor { Value };
 import support { t, kv };
@@ -200,4 +201,51 @@ fun truncate_reads_and_text_wraps_otherwise() {
         read_style(Some(kv([("truncate", t("yes"))])), "root > text").map(fun(_l) = ()),
         Err(ContractError.Invalid("root > text", "style.truncate must be true or false")),
     );
+}
+
+@test
+fun contract_10_directions_read() {
+    // PRP-059: layers, wrapping rows and fitting rows.
+    assert_eq(read([("direction", t("layers"))]).unwrap().direction == Direction.Layers, true);
+    assert_eq(read([("direction", t("wrap"))]).unwrap().direction == Direction.Wrap, true);
+    assert_eq(read([("direction", t("fit"))]).unwrap().direction == Direction.Fit, true);
+    assert_eq(
+        why([("direction", t("grid"))]),
+        "style.direction must be column, row, layers, wrap or fit",
+    );
+}
+
+@test
+fun a_layer_s_place_reads() {
+    let words = [
+        ("top_start", Spot.TopStart),
+        ("top", Spot.Top),
+        ("top_end", Spot.TopEnd),
+        ("start", Spot.Start),
+        ("center", Spot.Center),
+        ("end", Spot.End),
+        ("bottom_start", Spot.BottomStart),
+        ("bottom", Spot.Bottom),
+        ("bottom_end", Spot.BottomEnd),
+        ("fill", Spot.Fill),
+    ];
+    for (word, spot) of words {
+        assert_eq(read([("place", t(word))]).unwrap().place == Some(spot), true);
+    }
+    assert_eq(read([]).unwrap().place.is_none(), true);
+    assert_eq(
+        why([("place", t("corner"))]),
+        "style.place must be top_start, top, top_end, start, center, end, bottom_start, bottom, bottom_end or fill",
+    );
+}
+
+@test
+fun a_wrap_s_equal_and_per_line_read() {
+    let l = read([("equal", Value.Bool(true)), ("per_line", n(2))]).unwrap();
+    assert_eq((l.equal, l.per_line), (true, Some(2)));
+    assert_eq((plain().equal, plain().per_line), (false, None));
+    assert_eq(read([("per_line", n(32))]).unwrap().per_line, Some(32));
+    assert_eq(why([("per_line", n(33))]), "style.per_line must be 1–32");
+    assert_eq(why([("per_line", n(0))]), "style.per_line must be 1–32");
+    assert_eq(why([("equal", n(1))]), "style.equal must be true or false");
 }

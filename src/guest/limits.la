@@ -6,8 +6,8 @@
  * Used by: guest.guest, guest.contract
  */
 
-/** The one contract this Rapidkoi speaks (`rapidkoi_version()`): 9 (PRP-054; DECISION-056); older apps are rebuilt, never run. */
-const CONTRACT_VERSION: i32 = 9;
+/** The one contract this Rapidkoi speaks (`rapidkoi_version()`): 10 (PRP-059; DECISION-056, DECISION-091); older apps are rebuilt, never run. */
+const CONTRACT_VERSION: i32 = 10;
 
 /** The deepest a state may nest, as CBOR levels (PRP-036). */
 const MAX_STATE_DEPTH: i64 = 64;
