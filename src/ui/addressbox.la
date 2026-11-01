@@ -10,6 +10,7 @@
  */
 import ui.questions;
 import kivuli {
+    Image,
     View,
     Align,
     Border,
@@ -31,7 +32,8 @@ import window.actions { Msg, ShieldPage, PanelPage };
 import window.window { Model, page_of };
 import window.pins { is_pinned };
 import ui.frame { marker_note, file_of, address_of };
-import ui.icons { Icon, icon };
+import ui.icons { Icon, icon, filled };
+import ui.schemes { Theme };
 import ui.shield { facts, look_colour, card };
 import ui.settings;
 import ui.several;
@@ -217,14 +219,11 @@ fun field(m: Model): View<Msg> {
         );
     }
     if let App(p) = page {
-        let tip = if is_pinned(m, p.path, p.trust.map(fun(t) = t.origin)) {
-            "Unpin"
-        } else {
-            "Pin"
-        };
+        let pinned = is_pinned(m, p.path, p.trust.map(fun(t) = t.origin));
+        let tip = if pinned { "Unpin" } else { "Pin" };
         end.push(
             group_button_with(
-                [image(icon(Icon.Star, t.text)).style([square(ADDRESS_ICON)]).align(Align.Center)],
+                [image(pin_icon(pinned, t)).style([square(ADDRESS_ICON)]).align(Align.Center)],
                 Msg.TogglePin,
             ).style(round()).align(Align.Center).tooltip(tip),
         );
@@ -275,3 +274,16 @@ fun round(): Styling[] = [
  *     ui_popover(gear, card_open(m), card, Msg.ClosePanel)
  */
 fun card_open(m: Model): bool = m.panel.is_some() && !questions.asked_here(m);
+
+/**
+ * The ☆'s picture (PRP-061): filled in the brand colour while the app shown
+ * is pinned, the outline in the text colour otherwise.
+ *
+ * Example:
+ *     pin_icon(true, m.theme)
+ */
+fun pin_icon(pinned: bool, t: Theme): Image = if pinned {
+    filled(Icon.Star, t.accent)
+} else {
+    icon(Icon.Star, t.text)
+};

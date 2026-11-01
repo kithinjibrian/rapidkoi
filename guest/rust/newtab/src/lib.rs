@@ -2,8 +2,9 @@
 //! `./main`. A copy of its target design (`docs/designs/newtab-target.md`,
 //! board A5), becoming real a part at a time. Real: Restore, which asks for
 //! your last session each time the tab is shown and shows its apps' icons
-//! (PRP-060: `icon:PLACE`, drawn by Rapidkoi). Still placeholders, doing
-//! nothing: notifications, Recent and Pinned.
+//! (PRP-060: `icon:PLACE`, drawn by Rapidkoi), and Pinned, your pins, each
+//! opening its app (PRP-061). Still placeholders, doing nothing:
+//! notifications and Recent.
 //!
 //! Drawn with contract 10's looks (PRP-059): gradients for the washes, the
 //! page's glow and Rapidkoi's mark; layers for a face or an icon with
@@ -14,6 +15,7 @@
 //! gradient), the beach (the picture a real app would give its place), and
 //! the apps' icons.
 
+use minicbor::{Decode, Encode};
 use rapidkoi::raw::boxed;
 use rapidkoi::style::{
     Align, Background, Border, Color, Corner, Font, Layout, Place, Sizing, Spacing, State as Look, Style, Text,
@@ -38,6 +40,17 @@ const PILL: (u8, u8, u8) = (0x23, 0x23, 0x23);
 enum Msg {
     /// Bring back the last session.
     Restore,
+    /// Open the pin at this place in your pins.
+    OpenPin(u32),
+}
+
+/// One of your pins as the new tab shows it: its name and its icon's source (`icon:PLACE`).
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+struct Pin {
+    #[n(0)]
+    name: String,
+    #[n(1)]
+    icon: String,
 }
 
 type V = View<Msg>;
@@ -46,6 +59,8 @@ type V = View<Msg>;
 struct NewTab {
     /// The last session's apps' icons, in order (`icon:PLACE`), while there's one to restore.
     restore: Option<Vec<String>>,
+    /// Your pins, in your order, as last read.
+    pins: Vec<Pin>,
 }
 
 impl App for NewTab {
@@ -58,8 +73,10 @@ impl App for NewTab {
 
     fn view(&self) -> V {
         // The page fills the window's width (the owner's choice over the design's cap).
-        let page = column([top(&self.restore), notifications(), recent(), pinned()])
-            .style([Spacing::padding_xy(Space::Px(32), Space::Px(36)), Spacing::gap(Space::Px(32))]);
+        let mut sections = vec![top(&self.restore), notifications(), recent()];
+        sections.extend(pinned(&self.pins));
+        let page =
+            column(sections).style([Spacing::padding_xy(Space::Px(32), Space::Px(36)), Spacing::gap(Space::Px(32))]);
         // Rapidkoi never scrolls an app's page (PRP-046): the page scrolls itself,
         // under a faint glow of the brand's colours from its top-left corner.
         column([page]).style([
@@ -85,8 +102,17 @@ rapidkoi::export!(NewTab);
 impl NewTab {
     fn step(self, event: Event<Msg>) -> (Self, Vec<Ask>) {
         match event {
-            // Each time it's shown: the session may have changed.
-            Event::Opened | Event::Resume => (self, vec![Ask::session("session")]),
+            // Each time it's shown, or told something changed: the session and your pins may have.
+            Event::Opened | Event::Resume | Event::Change { .. } => {
+                (self, vec![Ask::session("session"), Ask::pins("pins")])
+            }
+            Event::Data { msg, cbor } if msg == "pins" => {
+                let pins = rapidkoi::Place::list(&cbor).unwrap_or_default();
+                (
+                    NewTab { pins: pins.into_iter().map(|p| Pin { name: p.name, icon: p.icon }).collect(), ..self },
+                    vec![],
+                )
+            }
             Event::Data { msg, cbor } if msg == "session" => {
                 let icons = Session::read(&cbor).map(|s| s.apps.into_iter().map(|p| p.icon).collect());
                 (NewTab { restore: icons, ..self }, vec![])
@@ -94,6 +120,7 @@ impl NewTab {
             // No session to restore.
             Event::Answer { msg, .. } if msg == "session" => (NewTab { restore: None, ..self }, vec![]),
             Event::Message { msg: Msg::Restore, .. } => (self, vec![Ask::restore_session("restore")]),
+            Event::Message { msg: Msg::OpenPin(i), .. } => (self, vec![Ask::open_pin("open", i)]),
             _ => (self, vec![]),
         }
     }
@@ -372,103 +399,32 @@ fn recent() -> V {
     column([heading("RECENT"), halves([large, small])]).style([Spacing::gap(Space::Px(12))])
 }
 
-/// Pinned: as many apps' icons and names as fit on a line, and See all.
-fn pinned() -> V {
-    let tile = |icon: &str, name: &str| {
+/// Pinned: your pins, as many icons and names as fit on a line, each opening
+/// its app, and See all; nothing when you have none.
+fn pinned(pins: &[Pin]) -> Option<V> {
+    if pins.is_empty() {
+        return None;
+    }
+    let tiles = pins.iter().enumerate().map(|(i, p)| {
         column([
-            picture(icon, 56, 56).style([Layout::align(Align::Center)]),
-            text(name).style([Font::size(TextSize::Small), Layout::align(Align::Center)]),
+            image(&p.icon).style([Sizing::width(56), Sizing::height(56), Layout::align(Align::Center)]),
+            text(&p.name).style([Font::size(TextSize::Small), Layout::align(Align::Center), Text::truncate()]),
         ])
-        .style([Sizing::width(80), Spacing::gap(Space::Sm)])
-    };
+        .style([
+            Sizing::width(80),
+            Spacing::gap(Space::Sm),
+            Border::corner(Corner::Px(12)),
+            When(Look::Hover, [Background::color(lift(0.07))]),
+        ])
+        .on_press(Msg::OpenPin(i as u32))
+    });
     // One line of pins, then See all (the owner's choice): the line ends
     // cleanly at the window's edge, the rest hidden.
-    column([
-        row([heading("PINNED"), spacer(), note("See all")]),
-        fit([
-            tile("notes.svg", "Notes"),
-            tile("counter.svg", "Counter"),
-            tile("trip.svg", "Trip"),
-            tile("settings.svg", "Settings"),
-        ])
-        .style([Spacing::gap(Space::Lg)]),
-    ])
-    .style([Spacing::gap(Space::Px(12))])
+    Some(
+        column([row([heading("PINNED"), spacer(), note("See all")]), fit(tiles).style([Spacing::gap(Space::Lg)])])
+            .style([Spacing::gap(Space::Px(12))]),
+    )
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_screen_names_only_packed_pictures() {
-        // `picture` checks each name against ASSETS while the view is built.
-        let _ = NewTab::default().view();
-    }
-
-    #[test]
-    fn every_picture_is_in_assets_and_packed() {
-        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/");
-        let script = include_str!("../../../../scripts/newtab.sh");
-        for name in ASSETS {
-            assert!(std::path::Path::new(&format!("{dir}{name}")).is_file(), "assets/{name} is missing");
-            assert!(script.contains(&format!("--asset {name}=")), "scripts/newtab.sh doesn't pack {name}");
-        }
-    }
-
-    use minicbor::Encoder;
-
-    /// A session answer: `count` windows of these apps, each `{name, place, icon}`.
-    fn session(count: u32, places: &[&str]) -> Vec<u8> {
-        let mut e = Encoder::new(Vec::new());
-        e.map(2).unwrap().str("count").unwrap().u32(count).unwrap();
-        e.str("apps").unwrap().array(places.len() as u64).unwrap();
-        for p in places {
-            e.map(3).unwrap();
-            e.str("name").unwrap().str(p).unwrap();
-            e.str("place").unwrap().str(p).unwrap();
-            e.str("icon").unwrap().str(&format!("icon:{p}")).unwrap();
-        }
-        e.into_writer()
-    }
-
-    #[test]
-    fn it_asks_for_the_last_session_each_time_it_s_shown() {
-        for e in [Event::Opened, Event::Resume] {
-            assert_eq!(NewTab::default().step(e).1, vec![Ask::session("session")]);
-        }
-    }
-
-    #[test]
-    fn restore_shows_the_session_s_apps_while_there_is_one() {
-        let data = Event::Data { msg: "session".into(), cbor: session(5, &["notes.dafifi.net", "trip.app"]) };
-        let (t, asks) = NewTab::default().step(data);
-        assert_eq!(t.restore, Some(vec!["icon:notes.dafifi.net".to_string(), "icon:trip.app".to_string()]));
-        assert!(asks.is_empty());
-        let _ = t.view();
-        // Nothing to restore: no pill.
-        let (none, _) = t.step(Event::Answer { msg: "session".into(), value: None });
-        assert_eq!(none.restore, None);
-    }
-
-    #[test]
-    fn at_most_three_icons_then_how_many_more() {
-        let icons: Vec<String> = (0..5).map(|i| format!("icon:a{i}")).collect();
-        assert_eq!(shown_and_more(&icons), (&icons[..3], 2));
-        assert_eq!(shown_and_more(&icons[..2]), (&icons[..2], 0));
-    }
-
-    #[test]
-    fn pressing_restore_asks_rapidkoi_to_restore() {
-        let pressed = Event::Message { msg: Msg::Restore, value: None };
-        assert_eq!(NewTab::default().step(pressed).1, vec![Ask::restore_session("restore")]);
-    }
-
-    #[test]
-    fn it_has_its_icon() {
-        // Every app has one (PRP-060).
-        let script = include_str!("../../../../scripts/newtab.sh");
-        assert!(script.contains("--icon guest/rust/newtab/icon.svg"));
-        assert!(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/icon.svg")).is_file());
-    }
-}
+mod tests;

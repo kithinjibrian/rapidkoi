@@ -1,0 +1,113 @@
+//! The new tab's tests (split from lib.rs at the owner's word, 2026-11-01:
+//! files stay under 500 lines).
+
+use super::*;
+
+#[test]
+fn the_screen_names_only_packed_pictures() {
+    // `picture` checks each name against ASSETS while the view is built.
+    let _ = NewTab::default().view();
+}
+
+#[test]
+fn every_picture_is_in_assets_and_packed() {
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/");
+    let script = include_str!("../../../../scripts/newtab.sh");
+    for name in ASSETS {
+        assert!(std::path::Path::new(&format!("{dir}{name}")).is_file(), "assets/{name} is missing");
+        assert!(script.contains(&format!("--asset {name}=")), "scripts/newtab.sh doesn't pack {name}");
+    }
+}
+
+use minicbor::Encoder;
+
+/// A session answer: `count` windows of these apps, each `{name, place, icon}`.
+fn session(count: u32, places: &[&str]) -> Vec<u8> {
+    let mut e = Encoder::new(Vec::new());
+    e.map(2).unwrap().str("count").unwrap().u32(count).unwrap();
+    e.str("apps").unwrap().array(places.len() as u64).unwrap();
+    for p in places {
+        e.map(3).unwrap();
+        e.str("name").unwrap().str(p).unwrap();
+        e.str("place").unwrap().str(p).unwrap();
+        e.str("icon").unwrap().str(&format!("icon:{p}")).unwrap();
+    }
+    e.into_writer()
+}
+
+/// A pins answer: each `{name, place, icon}`.
+fn pins(names: &[(&str, &str)]) -> Vec<u8> {
+    let mut e = Encoder::new(Vec::new());
+    e.array(names.len() as u64).unwrap();
+    for (name, place) in names {
+        e.map(3).unwrap();
+        e.str("name").unwrap().str(name).unwrap();
+        e.str("place").unwrap().str(place).unwrap();
+        e.str("icon").unwrap().str(&format!("icon:{place}")).unwrap();
+    }
+    e.into_writer()
+}
+
+#[test]
+fn it_asks_for_the_session_and_your_pins_each_time_it_s_shown_or_told_they_changed() {
+    for e in [Event::Opened, Event::Resume, Event::Change { tables: vec![] }] {
+        assert_eq!(NewTab::default().step(e).1, vec![Ask::session("session"), Ask::pins("pins")]);
+    }
+}
+
+#[test]
+fn your_pins_become_the_tiles_and_a_tile_opens_its_pin() {
+    let data =
+        Event::Data { msg: "pins".into(), cbor: pins(&[("Quote", "quote.dafifi.net"), ("Counter", "counter.rkb")]) };
+    let (t, asks) = NewTab::default().step(data);
+    assert!(asks.is_empty());
+    assert_eq!(
+        t.pins,
+        vec![
+            Pin { name: "Quote".into(), icon: "icon:quote.dafifi.net".into() },
+            Pin { name: "Counter".into(), icon: "icon:counter.rkb".into() },
+        ]
+    );
+    let _ = t.view();
+    let pressed = Event::Message { msg: Msg::OpenPin(1), value: None };
+    assert_eq!(t.step(pressed).1, vec![Ask::open_pin("open", 1)]);
+}
+
+#[test]
+fn with_no_pins_there_s_no_pinned_section() {
+    assert!(pinned(&[]).is_none());
+    assert!(pinned(&[Pin { name: "Quote".into(), icon: "icon:quote.dafifi.net".into() }]).is_some());
+}
+
+#[test]
+fn restore_shows_the_session_s_apps_while_there_is_one() {
+    let data = Event::Data { msg: "session".into(), cbor: session(5, &["notes.dafifi.net", "trip.app"]) };
+    let (t, asks) = NewTab::default().step(data);
+    assert_eq!(t.restore, Some(vec!["icon:notes.dafifi.net".to_string(), "icon:trip.app".to_string()]));
+    assert!(asks.is_empty());
+    let _ = t.view();
+    // Nothing to restore: no pill.
+    let (none, _) = t.step(Event::Answer { msg: "session".into(), value: None });
+    assert_eq!(none.restore, None);
+}
+
+#[test]
+fn at_most_three_icons_then_how_many_more() {
+    let icons: Vec<String> = (0..5).map(|i| format!("icon:a{i}")).collect();
+    assert_eq!(shown_and_more(&icons), (&icons[..3], 2));
+    assert_eq!(shown_and_more(&icons[..2]), (&icons[..2], 0));
+}
+
+#[test]
+fn pressing_restore_asks_rapidkoi_to_restore() {
+    let pressed = Event::Message { msg: Msg::Restore, value: None };
+    assert_eq!(NewTab::default().step(pressed).1, vec![Ask::restore_session("restore")]);
+}
+
+#[test]
+fn it_has_its_icon() {
+    // Every app has one (PRP-060).
+    let script = include_str!("../../../../scripts/newtab.sh");
+    assert!(script.contains("--icon guest/rust/newtab/icon.svg"));
+    assert!(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/icon.svg")).is_file());
+}

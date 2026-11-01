@@ -15,7 +15,8 @@ import support { newtab_stand_in, echo_opening, asking, ask, event_in, holds, pn
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
-import kivuli.testing { texts };
+import kivuli.testing { texts, click };
+import kivuli { Cmd };
 import wasmtime { Engine };
 
 fun fresh(): Model {
@@ -193,4 +194,45 @@ fun the_first_screen_already_shows_what_s_remembered() {
     };
     assert(answered);
     fs.remove_file("{dir}/pins").unwrap();
+}
+
+/** The messages a command sends later, as kivuli would. */
+fun later(c: Cmd<Msg>): Msg[] = match c {
+    After(_, msg) => [msg],
+    Batch(cs) => {
+        let mut all: Msg[] = [];
+        for inner of cs {
+            for msg of later(inner) {
+                all.push(msg);
+            }
+        }
+        all
+    }
+    _ => [],
+};
+
+@test
+fun the_new_tab_shows_your_pins_and_a_pin_opens_its_app() {
+    // PRP-061: the real new tab's Pinned, from your pins file.
+    let dir = "test/tmp/newtab-pins";
+    if fs.is_file("{dir}/pins") {
+        fs.remove_file("{dir}/pins").unwrap();
+    }
+    let s = store_at(dir);
+    save(
+        s,
+        "pins",
+        pins_file([
+            Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None, origin: None },
+        ]),
+    ).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    assert(shows(m, "PINNED"));
+    assert(shows(m, "Quote"));
+    let pressed = click(view(m), "Quote").unwrap();
+    let (_, c) = update(m, pressed);
+    assert_eq(later(c), [Msg.OpenPinned("rapidkoi://quote.dafifi.net", None)]);
+    fs.remove_file("{dir}/pins").unwrap();
+    // No pins: no Pinned.
+    assert(!shows(fresh(), "PINNED"));
 }
