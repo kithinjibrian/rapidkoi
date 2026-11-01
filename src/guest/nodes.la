@@ -124,6 +124,41 @@ enum Direction {
     Column,
     /** Left to right. */
     Row,
+    /** On top of each other (contract 10): the first is the base, the rest drawn over it. */
+    Layers,
+    /** Side by side, a new line when one is full (contract 10). */
+    Wrap,
+    /** Side by side, as many as fit; the rest hidden from the end (contract 10). */
+    Fit,
+}
+
+/** Where a layer sits on its base (contract 10): start and end follow the text's direction. */
+enum Spot {
+    TopStart,
+    Top,
+    TopEnd,
+    Start,
+    Center,
+    End,
+    BottomStart,
+    Bottom,
+    BottomEnd,
+    /** Covering the whole base: a layer without a place. */
+    Fill,
+}
+
+/** A gradient in an app's style (contract 10), drawn over its background colour. */
+enum Blend {
+    /** Along an angle in degrees, 0–359 (0 up, 90 right), through its stops. */
+    Linear(i64, ColourStop[]),
+    /** From an ellipse's centre out: x and y as fractions of the box (−1 to 2), radii across and down (above 0, at most 4). */
+    Ellipse(f64, f64, f64, f64, ColourStop[]),
+}
+
+/** One colour of a gradient, at its place along it: 0 the start, 1 the end. */
+struct ColourStop {
+    colour: Colour,
+    at: f64,
 }
 
 /** Where a node sits across its parent. */
@@ -181,6 +216,8 @@ struct Look {
     min_height: Option<i64>,
     max_height: Option<i64>,
     background: Option<Colour>,
+    /** Drawn over the background colour (contract 10); only on a box's own look. */
+    gradient: Option<Blend>,
     color: Option<Colour>,
     /** Its width and colour. */
     border: Option<(i64, Colour)>,
@@ -200,6 +237,12 @@ struct Look {
     truncate: bool,
     /** Which way the box scrolls (PRP-046): it shows what fits and scrolls the rest. */
     scroll: Option<Axis>,
+    /** Where it sits on its base, in a layers box (contract 10). */
+    place: Option<Spot>,
+    /** In a wrap: every child as wide as the widest (contract 10). */
+    equal: bool,
+    /** In a wrap: at most this many on a line, 1–32 (contract 10). */
+    per_line: Option<i64>,
     /** Looks for `hover`, `pressed`, `focus`, `disabled` and `checked`, none of which has its own. */
     states: (string, Self)[],
 }

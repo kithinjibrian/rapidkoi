@@ -26,6 +26,9 @@ import kivuli {
     column,
     input,
     row,
+    overlay,
+    wrap,
+    fit_row,
     text,
     text_area,
     scroll,
@@ -36,7 +39,7 @@ import kivuli {
 };
 import cbor { Value };
 
-import guest.nodes { Look, Facts, Typing, Direction, Node, ButtonLook, Axis, Part };
+import guest.nodes { Look, Facts, Typing, Direction, Node, ButtonLook, Axis, Part, Spot };
 import ui.tokens { SPACE_SM, RING_WIDTH, gap, margin, padding_xy };
 import ui.themes { body, dim, title, heading, field, paint as theme_paint, button as button_look };
 import ui.schemes { Theme };
@@ -112,10 +115,7 @@ fun boxed(
     own: Own,
 ): View<Msg> {
     let inside = kids.map(fun(k: Node) = screen_as(k, t, own));
-    let layout = match look.direction {
-        Row => row(inside),
-        Column => column(inside),
-    };
+    let layout = laid_out(look, kids, inside);
     let resolved = resolve_for(look, t, own, false);
     let mut inner: Styling[] = [];
     if look.gap.is_some() {
@@ -151,6 +151,70 @@ fun boxed(
         None => placed(spaced.style(styles), look, Align.Fill),
     }
 }
+
+/** A box's children in its direction (contract 10 adds layers, wrapping and fitting rows). */
+fun laid_out(look: Look, kids: Node[], inside: View<Msg>[]): View<Msg> = match look.direction {
+    Row => row(inside),
+    Column => column(inside),
+    Layers => {
+        if inside.len == 0 {
+            return column([]);
+        }
+        // Each layer where its own place says; without one it covers the base.
+        let mut layers: View<Msg>[] = [];
+        let mut i = 1;
+        while i < inside.len {
+            layers.push(match look_of(kids[i]).and_then(fun(l: Look) = l.place) {
+                Some(s) => {
+                    let (across, down) = layer_place(s);
+                    inside[i].place(across, down)
+                }
+                None => inside[i],
+            });
+            i = i + 1;
+        }
+        overlay(inside[0], layers)
+    }
+    Wrap => {
+        let w = wrap(inside);
+        let evened = if look.equal { w.equal() } else { w };
+        match look.per_line {
+            Some(n) => evened.max_per_line(n),
+            None => evened,
+        }
+    }
+    // Nothing shows after the last child that fits: the design asks for no "more".
+    Fit => fit_row(inside, column([])),
+};
+
+/**
+ * Where a layer sits on its base, across and down, as kivuli places it.
+ *
+ * Example:
+ *     layer_place(Spot.BottomEnd)   // (Align.End, Align.End)
+ */
+fun layer_place(s: Spot): (Align, Align) = match s {
+    TopStart => (Align.Start, Align.Start),
+    Top => (Align.Center, Align.Start),
+    TopEnd => (Align.End, Align.Start),
+    Start => (Align.Start, Align.Center),
+    Center => (Align.Center, Align.Center),
+    End => (Align.End, Align.Center),
+    BottomStart => (Align.Start, Align.End),
+    Bottom => (Align.Center, Align.End),
+    BottomEnd => (Align.End, Align.End),
+    Fill => (Align.Fill, Align.Fill),
+};
+
+/** A node's look, for what its parent reads from it (a layer's place). */
+fun look_of(n: Node): Option<Look> = match n {
+    Boxed(l, _, _, _) => Some(l),
+    Words(_, l, _) => Some(l),
+    Parts(_, l, _) => Some(l),
+    Field(_, l) => Some(l),
+    Pictured(_, l) => Some(l),
+    Unsupported(_) => None,
+};
 
 /** The way a scrolling box is kept to, when it scrolls one way only (kivuli 0.57, DECISION-057). */
 fun one_way(axis: Axis): Option<Overflow> = match axis {

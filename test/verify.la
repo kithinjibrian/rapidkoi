@@ -47,7 +47,7 @@ fun key(host: string): SecretKey {
 
 fun app(version: string): Bundle = Bundle {
     manifest: Manifest {
-        contract: 9,
+        contract: 10,
         name: "Notes",
         version: version,
         description: None,

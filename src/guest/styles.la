@@ -6,11 +6,12 @@
  * names: `ui.paint` resolves them when drawing, so the app never learns
  * their values.
  *
- * Depends on: cbor, guest.nodes
+ * Depends on: cbor, guest.nodes, guest.gradients
  * Used by: guest.tree
  */
 import cbor { Value, Entry };
-import guest.nodes { Look, Colour, Measure, TextSize, Direction, Place, ContractError, Axis };
+import guest.nodes { Look, Colour, Measure, TextSize, Direction, Place, ContractError, Axis, Spot };
+import guest.gradients { read_gradient };
 
 /** The most keys one style map may have. */
 const MAX_STYLE_KEYS: i64 = 32;
@@ -56,6 +57,7 @@ fun plain(): Look = Look {
     min_height: None,
     max_height: None,
     background: None,
+    gradient: None,
     color: None,
     border: None,
     corner: None,
@@ -68,6 +70,9 @@ fun plain(): Look = Look {
     italic: false,
     truncate: false,
     scroll: None,
+    place: None,
+    equal: false,
+    per_line: None,
     states: [],
 };
 
@@ -120,8 +125,11 @@ fun look(entries: Entry[], here: string, at: string, top: bool): Result<Look, Co
                 direction: match v.as_text() {
                     Some("column") => Direction.Column,
                     Some("row") => Direction.Row,
+                    Some("layers") => Direction.Layers,
+                    Some("wrap") => Direction.Wrap,
+                    Some("fit") => Direction.Fit,
                     _ => {
-                        return Err(bad(here, "{name} must be column or row"));
+                        return Err(bad(here, "{name} must be column, row, layers, wrap or fit"));
                     }
                 },
                 ..l,
@@ -165,6 +173,27 @@ fun look(entries: Entry[], here: string, at: string, top: bool): Result<Look, Co
                     Some("both") => Axis.Both,
                     _ => {
                         return Err(bad(here, "{name} must be vertical, horizontal or both"));
+                    }
+                }),
+                ..l,
+            };
+        } else if key == "gradient" {
+            // kivuli draws it as a background image, which can't change per state.
+            if !top {
+                return Err(bad(here, "{name} only goes on a box's own look"));
+            }
+            let read = fun(c: Value) = colour(c, here, name, true);
+            l = Look { gradient: Some(read_gradient(v, here, name, read)?), ..l };
+        } else if key == "place" {
+            l = Look { place: Some(spot(v, here, name)?), ..l };
+        } else if key == "equal" {
+            l = Look { equal: flag(v, here, name)?, ..l };
+        } else if key == "per_line" {
+            l = Look {
+                per_line: Some(match v.as_i64() {
+                    Some(k) if k >= 1 && k <= 32 => k,
+                    _ => {
+                        return Err(bad(here, "{name} must be 1–32"));
                     }
                 }),
                 ..l,
@@ -275,6 +304,26 @@ fun space(v: Value, here: string, name: string): Result<Measure, ContractError> 
         Some(px) if px >= 0 && px <= MAX_SPACE => Ok(Measure.Px(px)),
         _ => Err(bad(here, "{name} must be xs, sm, md, lg, xl or 0–256 px")),
     },
+};
+
+/** A layer's place on its base (contract 10). */
+fun spot(v: Value, here: string, name: string): Result<Spot, ContractError> = match v.as_text() {
+    Some("top_start") => Ok(Spot.TopStart),
+    Some("top") => Ok(Spot.Top),
+    Some("top_end") => Ok(Spot.TopEnd),
+    Some("start") => Ok(Spot.Start),
+    Some("center") => Ok(Spot.Center),
+    Some("end") => Ok(Spot.End),
+    Some("bottom_start") => Ok(Spot.BottomStart),
+    Some("bottom") => Ok(Spot.Bottom),
+    Some("bottom_end") => Ok(Spot.BottomEnd),
+    Some("fill") => Ok(Spot.Fill),
+    _ => Err(
+        bad(
+            here,
+            "{name} must be top_start, top, top_end, start, center, end, bottom_start, bottom, bottom_end or fill",
+        ),
+    ),
 };
 
 /** A width or height: 0–4096 px. */
