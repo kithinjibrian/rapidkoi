@@ -42,9 +42,10 @@ import data.remembered {
     Face,
 };
 import data.pinfiles { MAX_PINS_FILE, read_pins, pins_file };
-import data.recentfile { MAX_RECENT_FILE, MAX_LEFT_FILE, read_recent, recent_file, left_place };
-import window.recent { Recent, no_recent, record };
+import data.recentfile { MAX_RECENT_FILE, read_recent, recent_file, with_left_off };
+import window.recent { no_recent };
 import window.remembering { noted };
+import window.settings_app;
 import trust.verify { keyring, keyring_of, identities, changes, moves };
 import window.window { Model, Notice, page_of };
 import window.notices { joined, with_more, couldnt_save, set_aside, not_kept, identity_trouble };
@@ -128,9 +129,6 @@ const RECENT: Part = Part {
     after: "",
 };
 
-/** The file recent places replaced (DECISION-044): read once into a first place, then removed. */
-const LEFT_OFF: string = "left-off";
-
 /**
  * This session's data folder, from `$XDG_DATA_HOME` and `$HOME`.
  *
@@ -162,9 +160,12 @@ fun restore(m: Model, s: Store): Model {
         notes,
         held,
     ).unwrap_or([]);
-    let pins = settle(recall(s, PINS.file, MAX_PINS_FILE, read_pins), PINS, notes, held).unwrap_or(
-        [],
-    );
+    // A first run, with no pins yet, starts with Settings pinned (PRP-064).
+    let read = recall(s, PINS.file, MAX_PINS_FILE, read_pins);
+    let pins = match read {
+        Fresh => [settings_app.pin()],
+        _ => settle(read, PINS, notes, held).unwrap_or([]),
+    };
     let places = settle(
         recall(s, RECENT.file, MAX_RECENT_FILE, read_recent),
         RECENT,
@@ -402,28 +403,6 @@ fun settle<T>(r: Recalled<T>, p: Part, notes: Ref<Notice[]>, held: Ref<Store>): 
 fun problem(r: Result<(), StoreError>, p: Part): Option<Notice> = match r {
     Err(e) => Some(couldnt_save(p.noun, store_reason(e))),
     Ok(()) => None,
-};
-
-/**
- * Recent places with the left-off file's app added once (DECISION-044):
- * read, kept as the oldest place, and the file removed. A broken or missing
- * file changes nothing.
- */
-fun with_left_off(s: Store, r: Recent): Recent = match load(s, LEFT_OFF, MAX_LEFT_FILE) {
-    Ok(Some(bytes)) => {
-        let _ = remove(s, LEFT_OFF);
-        match left_place(bytes) {
-            // The oldest: it goes to the end, not the front.
-            Some((p, f)) if !r.places.any(
-                fun(q) = q.address == p.address && q.origin == p.origin,
-            ) => {
-                let added = record(r, p, f);
-                Recent { places: r.places + [p], apps: added.apps }
-            }
-            _ => r,
-        }
-    }
-    _ => r,
 };
 
 fun say_to(notes: Ref<Notice[]>, s: Notice) = notes.update(fun(all: Notice[]) {

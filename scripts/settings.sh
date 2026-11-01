@@ -12,5 +12,5 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
     --name "Settings" --version 0.1.0 --icon guest/rust/settings/icon.svg --color primary=#71717a \
     --permission change_settings \
     --control address=settings \
-    --control settings=app_settings.permissions \
+    --control settings=app_settings.permissions --control settings=app_settings.recent \
     -o assets/apps/settings.rkb --force

@@ -138,7 +138,8 @@ fun pins_recent_places_and_the_session_reopen_the_exact_app() {
     let (two, dir) = both(18866, "exact");
     let path = "rapidkoi://localhost:18866";
     let pinned = step(on(step(two, Msg.TogglePin), "Counting"), Msg.TogglePin);
-    assert_eq(pinned.pinned.len, 2);
+    // Both, after Settings, which a first run pins (PRP-064).
+    assert_eq(pinned.pinned.len, 3);
     let bob = origin_of(tab_of(pinned, "Bob's Notes"));
     // Each pin opens its own app's tab.
     let shown = step(pinned, Msg.OpenPinned(path, bob));
@@ -160,8 +161,9 @@ fun forget_takes_one_app_and_leaves_the_other() {
     let (two, dir) = both(18867, "forget");
     let pinned = step(on(step(two, Msg.TogglePin), "Counting"), Msg.TogglePin);
     let gone = step(on(pinned, "Bob's Notes"), Msg.Forget);
-    assert_eq(gone.pinned.len, 1);
-    assert_eq(gone.pinned[0].origin, origin_of(tab_of(gone, "Counting")));
+    // Yours stays pinned, after Settings, which a first run pins (PRP-064).
+    assert_eq(gone.pinned.len, 2);
+    assert_eq(gone.pinned[1].origin, origin_of(tab_of(gone, "Counting")));
     assert_eq(kept_count(gone.store.unwrap()), 1);
     // Yours stays: back from its recent place, opened fresh (DECISION-044).
     assert_eq(page_name(on(gone, "Counting")), "Counting");

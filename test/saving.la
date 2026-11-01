@@ -229,9 +229,10 @@ fun no_store_writes_nothing() {
 fun pins_survive_a_restart_for_every_app() {
     let s = folder("pins");
     let m = step(started(s, ["./main", "lugha.toml"]), Msg.TogglePin);
-    assert_eq(read_pins(read_bytes("{s.dir}/pins").unwrap()).unwrap().len, 1);
+    // After Settings, which a first run pins (PRP-064).
+    assert_eq(read_pins(read_bytes("{s.dir}/pins").unwrap()).unwrap().len, 2);
     let again = started(s, ["./main"]);
-    assert_eq((again.pinned.len, again.pinned[0].path), (1, "lugha.toml"));
+    assert_eq((again.pinned.len, again.pinned[1].path), (2, "lugha.toml"));
     assert_eq(m.tabs.len, 1);
     clean(s.dir);
 }
@@ -314,7 +315,8 @@ fun forget_drops_the_pin_its_places_and_state_and_keeps_trust() {
     assert_eq(fs.list_dir("{s.dir}/states").unwrap().len, 1);
     step(m, Msg.Forget);
     let again = started(s, ["./main"]);
-    assert_eq((again.pinned.len, again.recent.places.len), (0, 0));
+    // Settings, pinned on the first run, stays (PRP-064).
+    assert_eq((again.pinned.len, again.recent.places.len), (1, 0));
     assert_eq(fs.list_dir("{s.dir}/states").unwrap().len, 0);
     assert_eq(read_trust(read_bytes("{s.dir}/trust").unwrap()).unwrap().len, 1);
     assert_eq(shows(started(s, ["./main", "rapidkoi://localhost:18753"]), "Count: 0"), true);

@@ -223,3 +223,10 @@ fun the_card_takes_an_app_out_of_recent_and_its_places_go() {
     let on = step(off, flip(card(off, PanelPage.Main), "show_in_recent").unwrap());
     assert_eq(shows_in_recent(on.people, key_of(on.tabs[0].page)), true);
 }
+
+@test
+fun settings_own_card_offers_show_in_recent() {
+    // PRP-064: Rapidkoi's own apps are recorded too; Settings declares the row.
+    let m = step(step(with_pages(Engine.new(), []), Msg.OpenSettings), Msg.TogglePanel);
+    assert(shows(card(m, PanelPage.Main), "Show in Recent"));
+}

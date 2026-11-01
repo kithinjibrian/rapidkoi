@@ -53,13 +53,16 @@ fun the_window_in_front_is_the_newest() {
 }
 
 @test
-fun rapidkoi_s_own_apps_and_windows_not_running_are_never_recorded() {
+fun the_new_tab_and_windows_not_running_are_never_recorded() {
     let engine = Engine.new();
     let none = with_pages(engine, []);
-    let builtin = with_pages(engine, [
+    // Rapidkoi's own apps are recorded (PRP-064), but never the new tab.
+    let settings = with_pages(engine, [
         AppPage { path: "builtin:settings", ..app(engine, "Settings") },
     ]);
-    assert_eq(names(noted(none, builtin)), []);
+    assert_eq(names(noted(none, settings)), ["Settings"]);
+    let newtab = with_pages(engine, [AppPage { path: "builtin:newtab", ..app(engine, "New tab") }]);
+    assert_eq(names(noted(none, newtab)), []);
     let broken = with_pages(engine, [failed_page("gone.wasm", "Couldn't read gone.wasm")]);
     assert_eq(names(noted(none, broken)), []);
 }

@@ -4,6 +4,8 @@
 // under test/tmp/.
 import rapidkoi.shell { start, update };
 import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.tabs { Tab, Pin };
+import rapidkoi.window.recent { Place };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.settings_app { SETTINGS_KEY, BUNDLE };
@@ -67,4 +69,40 @@ fun choices_are_remembered_across_restarts() {
     let (again, _) = start(["./main"], Some(s));
     assert_eq((again.prefs.light, again.theme.name), (true, "light"));
     clean(dir);
+}
+
+@test
+fun settings_opens_by_its_path_and_is_a_recent_place() {
+    // PRP-064: from a pin or a recent card, as the menu opens it; and kept in Recent.
+    let pinned = step(with_pages(Engine.new(), []), Msg.OpenPinned(SETTINGS_KEY, None));
+    assert_eq(pinned.tabs.any(fun(t: Tab) = t.page.path == SETTINGS_KEY), true);
+    // Its tab again, not a second one.
+    let again = step(pinned, Msg.OpenPlace(SETTINGS_KEY, None));
+    assert_eq(again.tabs.filter(fun(t: Tab) = t.page.path == SETTINGS_KEY).len, 1);
+    // Left for a new tab: its place is kept, unlike the new tab's.
+    let left = step(again, Msg.NewTab);
+    assert_eq(left.recent.places.map(fun(p: Place) = p.address), [SETTINGS_KEY]);
+}
+
+@test
+fun a_first_run_starts_with_settings_pinned() {
+    // PRP-064: no pins file yet; once you change your pins, that's what's kept.
+    let dir = "test/tmp/settings-pinned";
+    clean(dir);
+    let first = started(store_at(dir));
+    assert_eq(first.pinned.map(fun(p: Pin) = p.path), [SETTINGS_KEY]);
+    assert_eq(first.pinned[0].icon.is_some(), true);
+    // Unpinned (here, from its open tab), it stays unpinned after a restart.
+    let unpinned = step(step(first, Msg.OpenSettings), Msg.TogglePin);
+    assert_eq(unpinned.pinned.len, 0);
+    assert_eq(started(store_at(dir)).pinned.len, 0);
+    clean(dir);
+    // With no data folder, no pins.
+    let (none, _) = start(["./main"], None);
+    assert_eq(none.pinned.len, 0);
+}
+
+fun started(s: Store): Model {
+    let (m, _) = start(["./main"], Some(s));
+    m
 }
