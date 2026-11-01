@@ -1,0 +1,235 @@
+<!doctype html>
+<!-- Target design for Rapidkoi's new tab (not built). See docs/designs/newtab-target.md. Sample content only. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A5b: Recent without a picture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cantarell:wght@400;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.win{width:1280px;height:960px;background:#242424;display:flex;flex-direction:column;font-family:Cantarell,"Noto Sans",system-ui,sans-serif;color:#e8e8e8;font-size:15px;overflow:hidden}
+.hdr{height:46px;flex:none;display:flex;align-items:center;padding:0 4px 0 12px;gap:4px}
+.strip{width:480px;flex:none}
+.addr{flex:1;min-width:0;display:flex;justify-content:center}
+.addrbox{width:100%;max-width:560px;height:30px;border-radius:15px;background:#161616;border:1px solid #3a3a3a;display:flex;align-items:center;padding:0 14px;color:rgba(232,232,232,.55);font-size:14px;box-sizing:border-box}
+.hbtn{width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;background:none;border:0;padding:0;position:relative}
+.hbtn .dot{position:absolute;top:6px;right:7px;width:8px;height:8px;border-radius:50%;background:#ff7700;border:2px solid #242424}
+.wc{width:32px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;background:none;border:0;padding:0}
+.body{flex:1;display:flex;min-height:0}
+.page{flex:1;background:#161616;border-top-right-radius:12px;overflow:hidden;background-image:radial-gradient(ellipse 60% 35% at 0% 0%, rgba(255,119,0,.12), rgba(255,46,99,.04) 55%, transparent 80%)}
+.side{width:50px;flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:4px}
+.dock{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border:1px solid transparent;background:none;padding:0;color:#fff;position:relative}
+.dock.cur{border-color:#ff7700}
+.di{width:26px;height:26px;border-radius:8px}
+.dock .dot{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:#ff7700;border:2px solid #242424}
+.sep{width:24px;height:1px;background:#3a3a3a}
+.wrap{max-width:1080px;margin:0 auto;padding:32px 36px;display:flex;flex-direction:column;gap:32px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.mark{margin:0;font-size:36px;font-weight:700;letter-spacing:-.02em;line-height:1.1;background:linear-gradient(90deg,#ff7700,#ff2e63);-webkit-background-clip:text;background-clip:text;color:transparent}
+.restore{display:flex;align-items:center;gap:12px;padding:6px 6px 6px 16px;border-radius:999px;background:#242424;border:1px solid #3a3a3a}
+.stack{display:flex;align-items:center}
+.si{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;border:2px solid #242424;margin-left:-6px}
+.si:first-child{margin-left:0}
+.si.round{border-radius:50%}
+.more{margin-left:6px;font-size:13px;color:rgba(232,232,232,.55)}
+.pill{background:#ff7700;color:#161616;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-weight:700;font-size:14px}
+.pill:hover{background:#ff8c2e}
+.dim{color:rgba(232,232,232,.55)}
+.small{font-size:13px}
+.sec{display:flex;flex-direction:column;gap:12px}
+.head{display:flex;align-items:center;justify-content:space-between}
+.h{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(232,232,232,.55);margin:0;display:flex;align-items:center;gap:8px}
+.count{background:#ff7700;color:#161616;border-radius:999px;padding:0 7px;font-size:12px;letter-spacing:0;line-height:18px}
+.all{color:rgba(232,232,232,.55);font-size:14px;text-decoration:none}
+.all:hover{color:#e8e8e8}
+.notes{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px 16px}
+.nr{display:flex;align-items:center;gap:14px;padding:12px 12px 12px 14px;border-radius:14px;background:#1f1f1f;border:1px solid #2e2e2e}
+.nr:hover{background:#262626;border-color:#3a3a3a}
+.nr .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.who{width:40px;height:40px;flex:none;position:relative;display:flex;align-items:center;justify-content:center}
+.face{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff}
+.corner{position:absolute;right:-4px;bottom:-4px;width:18px;height:18px;border-radius:6px;border:2px solid #1f1f1f}
+.rk{position:absolute;right:-5px;bottom:-5px;width:18px;height:18px;border-radius:50%;border:2px solid #1f1f1f;background:linear-gradient(135deg,#ff7700,#ff2e63);color:#161616;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.ghost{background:#2e2e2e;color:#e8e8e8;border:0;border-radius:999px;padding:6px 14px;font:inherit;font-size:14px;flex:none}
+.ghost:hover{background:#383838}
+.nt{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:14px;background:#1f1f1f;border:1px solid #2e2e2e;color:inherit;font:inherit;text-align:left}
+.nt:hover{background:#262626;border-color:#3a3a3a}
+.nt .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.nt .line{display:flex;justify-content:space-between;gap:8px}
+.ai{flex:none;display:flex;align-items:center;justify-content:center;color:#fff}
+.ai.s{width:30px;height:30px;border-radius:9px}
+.ai.xs{width:18px;height:18px;border-radius:5px}
+.ai.l{width:56px;height:56px;border-radius:16px;box-shadow:0 6px 16px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.18)}
+.main{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:16px;align-items:stretch}
+.hero{flex:3;min-width:0;display:flex;flex-direction:column;gap:14px;padding:12px;border-radius:16px;background:#1d1d1d;border:1px solid #2e2e2e;color:inherit;font:inherit;text-align:left}
+.hero:hover{border-color:#ff7700}
+.photo{height:240px;border-radius:10px;overflow:hidden;position:relative}
+.sky{position:absolute;left:0;right:0;top:0;height:56%;background:linear-gradient(180deg,#ff9e6b,#ffd3a1)}
+.sun{position:absolute;width:64px;height:64px;border-radius:50%;background:#fff3d6;left:64%;top:20%;box-shadow:0 0 48px rgba(255,240,200,.85)}
+.sea{position:absolute;left:0;right:0;top:56%;height:24%;background:linear-gradient(180deg,#2a8fb8,#1d6f99)}
+.sand{position:absolute;left:0;right:0;bottom:0;height:20%;background:linear-gradient(180deg,#f0d6a0,#d9b779)}
+.wash{height:240px;border-radius:10px;box-sizing:border-box;padding:28px;display:flex;align-items:flex-start;background:radial-gradient(ellipse 95% 130% at 0% 0%, rgba(59,130,246,.55), rgba(29,78,216,.16) 55%, transparent 85%), #1b1b1b}
+.big{width:88px;height:88px;border-radius:24px;background:linear-gradient(160deg,#60a5fa,#1d4ed8);box-shadow:0 10px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.2)}
+.sum{font-size:15px}
+.ic{width:44px;height:44px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
+.minis{flex:2;min-width:0;display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));grid-auto-rows:1fr;gap:16px}
+.mini{display:flex;flex-direction:column;gap:10px;padding:8px;border-radius:14px;background:#1d1d1d;border:1px solid #2e2e2e;color:inherit;font:inherit;text-align:left}
+.mini:hover{border-color:#ff7700}
+.mwash{height:84px;border-radius:8px;padding:12px;box-sizing:border-box;display:flex;align-items:flex-start}
+.mm{display:flex;flex-direction:column;gap:3px;padding:0 4px 4px;min-width:0}
+.mt{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shot{height:240px;border-radius:10px;overflow:hidden;display:flex;background:#1b1b1b}
+.n-l{width:30%;background:#202020;padding:16px 12px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box}
+.n-r{flex:1;padding:20px 24px;display:flex;flex-direction:column;gap:12px}
+.bar{height:8px;border-radius:4px;background:#3a3a3a}
+.bar.t{height:14px;background:#e8e8e8;opacity:.85;width:55%}
+.bar.on{background:#14b8a6}
+.hm{display:flex;flex-direction:column;gap:6px;padding:0 8px 4px}
+.hm .t{font-size:22px;font-weight:700}
+.sub{display:flex;align-items:center;gap:8px}
+.list{flex:2;min-width:0;display:flex;flex-direction:column;gap:4px}
+.row{display:flex;align-items:center;gap:12px;padding:8px;border-radius:10px;background:none;border:0;color:inherit;font:inherit;text-align:left;width:100%;box-sizing:border-box}
+.row:hover{background:rgba(255,255,255,.06)}
+.thumb{width:84px;height:56px;border-radius:8px;flex:none;border:1px solid #2e2e2e;box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:20px}
+.txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pins{display:flex;gap:24px;flex-wrap:wrap}
+.tile{width:80px;display:flex;flex-direction:column;align-items:center;gap:8px;background:none;border:0;padding:4px 0;color:inherit;font:inherit;font-size:14px}
+.tile .ai{transition:transform .15s}
+.tile:hover .ai{transform:scale(1.06)}
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="hdr">
+    <div class="strip"></div>
+    <div class="addr"><div class="addrbox">Enter Address</div></div>
+    <button class="hbtn" aria-label="Notifications, 3 unread"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span class="dot"></span></button>
+    <button class="hbtn" aria-label="Account"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg></button>
+    <button class="hbtn" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+    <button class="wc" aria-label="Minimize"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 11h8"></path></svg></button>
+    <button class="wc" aria-label="Maximize"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1"></rect></svg></button>
+    <button class="wc" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"></path></svg></button>
+  </div>
+  <div class="body">
+    <div class="page">
+      <div class="wrap">
+        <div class="top">
+          <h1 class="mark">Rapidkoi</h1>
+          <div class="restore" title="Notes (2 windows), Trip, Counter, Board, Settings" aria-label="Restore previous session: Notes, Trip, Counter and 2 more"><span>Restore previous session</span><span class="stack" aria-hidden="true"><span class="si" style="background: linear-gradient(160deg,#2dd4bf,#0f766e)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 3h7l4 4v14H7z"></path></svg></span><span class="si" style="background: linear-gradient(160deg,#60a5fa,#1d4ed8)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 13l18-7-7 18-2-8z"></path></svg></span><span class="si round" style="background: #6d28d9">C</span><span class="more">+2</span></span><button class="pill">Restore</button></div>
+        </div>
+
+        <div class="sec">
+          <div class="head">
+            <h2 class="h">Notifications <span class="count">4</span></h2>
+            <a class="all" href="#">See all</a>
+          </div>
+          <div class="notes">
+            <div class="nr">
+              <span class="who"><span class="face" style="background: #b45309">AO</span><span class="corner" style="background: linear-gradient(160deg,#fbbf24,#b45309)"></span></span>
+              <span class="txt"><span>Amina invited you to <b>Sprint 3</b></span><span class="dim small">Board · live now</span></span>
+              <button class="pill">Join</button>
+            </div>
+            <div class="nr">
+              <span class="who"><span class="face" style="background: #0e7490">WK</span><span class="corner" style="background: linear-gradient(160deg,#60a5fa,#1d4ed8)"></span></span>
+              <span class="txt"><span>Wanjiku shared <b>Mombasa, 12–15 Nov</b></span><span class="dim small">Trip · 20 min ago</span></span>
+              <button class="ghost">Open</button>
+            </div>
+            <div class="nr">
+              <span class="who"><span class="ai" style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(160deg,#2dd4bf,#0f766e)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"></path><path d="M10 11h5M10 15h5"></path></svg></span><span class="rk" aria-label="From Rapidkoi">R</span></span>
+              <span class="txt"><span><b>Notes 2.5</b> is ready</span><span class="dim small">notes.dafifi.net · 1 h ago</span></span>
+              <button class="ghost">Update</button>
+            </div>
+            <button class="nr" style="color: inherit; font: inherit; text-align: left">
+              <span class="who"><span class="ai" style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(160deg,#2dd4bf,#0f766e)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"></path><path d="M10 11h5M10 15h5"></path></svg></span></span>
+              <span class="txt"><span>“Shopping list” is due today</span><span class="dim small">Notes · 2 h ago</span></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h2 class="h">Recent</h2>
+          <div class="main">
+            <button class="hero">
+              <div class="wash"><span class="big ai"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 13l18-7-7 18-2-8z"></path></svg></span></div>
+              <div class="hm">
+                <span class="t">Mombasa, 12–15 Nov</span>
+                <span class="sub dim small"><span class="ai xs" style="background: linear-gradient(160deg,#60a5fa,#1d4ed8)"></span>Trip · localhost:8000/trips/12 · 2 min ago</span>
+              </div>
+            </button>
+            <div class="minis">
+              
+                <button class="mini">
+                  <span class="mwash" style="background: radial-gradient(ellipse 110% 150% at 0% 0%, rgba(20,184,166,.5), rgba(20,184,166,.12) 60%, transparent 90%), #1b1b1b">
+                  <span class="ic" style="background: linear-gradient(160deg,#2dd4bf,#0f766e)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"></path><path d="M10 11h5M10 15h5"></path></svg>
+                    
+                    
+                  </span>
+                  </span>
+                  <span class="mm"><span class="mt">Shopping list</span><span class="dim small">Notes · 1 h ago</span></span>
+                </button>
+              
+                <button class="mini">
+                  <span class="mwash" style="background: radial-gradient(ellipse 110% 150% at 0% 0%, rgba(139,92,246,.5), rgba(139,92,246,.12) 60%, transparent 90%), #1b1b1b">
+                  <span class="ic" style="background: linear-gradient(160deg,#a78bfa,#6d28d9)">
+                    
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg>
+                    
+                  </span>
+                  </span>
+                  <span class="mm"><span class="mt">Counter</span><span class="dim small">Counter · Yesterday</span></span>
+                </button>
+              
+                <button class="mini">
+                  <span class="mwash" style="background: radial-gradient(ellipse 110% 150% at 0% 0%, rgba(20,184,166,.5), rgba(20,184,166,.12) 60%, transparent 90%), #1b1b1b">
+                  <span class="ic" style="background: linear-gradient(160deg,#2dd4bf,#0f766e)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"></path><path d="M10 11h5M10 15h5"></path></svg>
+                    
+                    
+                  </span>
+                  </span>
+                  <span class="mm"><span class="mt">Ideas for the new tab</span><span class="dim small">Notes · Yesterday</span></span>
+                </button>
+              
+                <button class="mini">
+                  <span class="mwash" style="background: radial-gradient(ellipse 110% 150% at 0% 0%, rgba(113,113,122,.5), rgba(113,113,122,.12) 60%, transparent 90%), #1b1b1b">
+                  <span class="ic" style="background: linear-gradient(160deg,#71717a,#3f3f46)">
+                    
+                    
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3"></path></svg>
+                  </span>
+                  </span>
+                  <span class="mm"><span class="mt">Appearance</span><span class="dim small">Settings · Monday</span></span>
+                </button>
+              
+            </div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h2 class="h">Pinned</h2>
+          <div class="pins">
+            <button class="tile"><span class="ai l" style="background: linear-gradient(160deg,#2dd4bf,#0f766e)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"></path><path d="M10 11h5M10 15h5"></path></svg></span><span>Notes</span></button>
+            <button class="tile"><span class="ai l" style="background: linear-gradient(160deg,#a78bfa,#6d28d9)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 6v12M6 12h12"></path></svg></span><span>Counter</span></button>
+            <button class="tile"><span class="ai l" style="background: linear-gradient(160deg,#60a5fa,#1d4ed8)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 13l18-7-7 18-2-8z"></path></svg></span><span>Trip</span></button>
+            <button class="tile"><span class="ai l" style="background: linear-gradient(160deg,#71717a,#3f3f46)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"></path></svg></span><span>Settings</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="side">
+      <button class="dock" aria-label="Notes, unread notifications"><span class="di" style="background: linear-gradient(160deg,#2dd4bf,#0f766e)"></span><span class="dot"></span></button>
+      <button class="dock" aria-label="Counter"><span class="di" style="background: linear-gradient(160deg,#a78bfa,#6d28d9)"></span></button>
+      <button class="dock" aria-label="Trip, unread notifications"><span class="di" style="background: linear-gradient(160deg,#60a5fa,#1d4ed8)"></span><span class="dot"></span></button>
+      <button class="dock" aria-label="Settings"><span class="di" style="background: linear-gradient(160deg,#71717a,#3f3f46)"></span></button>
+      <div class="sep"></div>
+      <button class="dock cur" aria-label="New tab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"></rect><path d="M4 9h16"></path></svg></button>
+      <button class="dock" aria-label="Add a tab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
