@@ -52,13 +52,13 @@ The page has a faint glow of the brand colours at its top-left corner. Sections 
 
 ## What it needs, by repository
 
-Checked 2026-11-01 against kivuli 0.66, lugha-gtk, rapidkoi-rust v0.3.0-pre.4 and contract 9. The replica on the `newtab-replica` branch fakes each look marked *(replica)* with a bundle picture; each one goes when its feature lands. Every rapidkoi item is a PRP first; contract items share one new contract version (a DECISIONS.md entry), tagged in rapidkoi-rust before the built-ins move to it.
+Checked 2026-11-01 against kivuli 0.66, lugha-gtk, rapidkoi-rust v0.3.0-pre.4 and contract 9. **Shipped** (2026-11-01): kivuli 1 (kivuli 0.67, its PRP-072) and the contract's 1–4 (contract 10, PRP-059, rapidkoi-rust `v0.4.0-pre.1`); the replica draws with them, and only the wordmark, the beach and the apps' icons stay pictures. Every rapidkoi item is a PRP first; contract items share one new contract version (a DECISIONS.md entry), tagged in rapidkoi-rust before the built-ins move to it.
 
 ### kivuli
 
 Nearly everything is there already: `Gradient.Linear`/`Radial`, `overlay`, `wrap` with `.equal()` and `.max_per_line(n)`, `fit_row` (as many as fit, then a "more"), pictures with `cover`.
 
-1. **A radial gradient with a shape and a centre**: an ellipse from a corner (`radial-gradient(ellipse 95% 130% at 0% 0%, …)`). Today's `Radial` is a circle from the centre. For the washes and the page's corner glow *(replica: wash-\*.svg)*.
+1. **Shipped (0.67).** **A radial gradient with a shape and a centre**: an ellipse from a corner (`radial-gradient(ellipse 95% 130% at 0% 0%, …)`). Today's `Radial` is a circle from the centre. For the washes and the page's corner glow *(replica: wash-\*.svg)*.
 
 The wordmark's gradient stays a picture: GTK's CSS can't fill text with a gradient.
 
@@ -66,7 +66,7 @@ The wordmark's gradient stays a picture: GTK's CSS can't fill text with a gradie
 
 1. **Desktop alerts**: `GNotification` (new, title, body, icon, buttons) and `g_application_send_notification` / `withdraw_notification`. Nothing else here: the rest is CSS and widgets kivuli already binds.
 
-### rapidkoi: the contract (one new version)
+### rapidkoi: the contract (1–4 shipped in contract 10; 5–7 wait for what reads them)
 
 1. **Gradients** in `background`: linear, and radial with a shape and a centre *(replica: wordmark aside, every wash)*.
 2. **Layers**: a box whose children sit on top of each other, for a face with the app on its corner, an icon on its wash, and Restore's overlapping icons *(replica: face-\*.svg, update-notes.svg, restore-apps.svg)*.

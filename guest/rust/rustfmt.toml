@@ -1,0 +1,3 @@
+# The same as Notes' (../notes/rustfmt.toml): long lines, so a screen's view reads as one piece.
+max_width = 120
+use_small_heuristics = "Max"
