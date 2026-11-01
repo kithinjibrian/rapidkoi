@@ -73,6 +73,7 @@ const SETTINGS_ROWS: string[] = [
     "app_settings",
     "app_settings.servers",
     "app_settings.permissions",
+    "app_settings.recent",
     "app_data",
     "app_data.state",
     "forget",

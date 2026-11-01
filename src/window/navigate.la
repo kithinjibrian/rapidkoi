@@ -96,6 +96,10 @@ fun go(m: Model): (Model, Cmd<Msg>) {
  *     open_file(m, "counter.wasm")
  */
 fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
+    // Settings by its path (PRP-064): from a pin, a recent card or the address box, as ☰ opens it.
+    if text == settings_app.SETTINGS_KEY {
+        return (open_settings(Model { draft: "", editing: false, ..m }), Cmd.none());
+    }
     // A link (PRP-036) is its app's address with a version and fields.
     let (path, version, fields) = match parse(text) {
         Ok(a) if is_address(text) => (without_link(text), a.version, a.fields),

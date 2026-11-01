@@ -100,4 +100,4 @@ The wordmark's gradient stays a picture: GTK's CSS can't fill text with a gradie
 ## Not decided
 
 - Whether the bell's card and the new tab show the same list, or the bell only what arrived since you last looked.
-- The first run: an empty page, or pins Rapidkoi ships with (Notes isn't built in; it would be a pin to its site).
+- ~~The first run: an empty page, or pins Rapidkoi ships with~~ Answered (PRP-064): a first run starts with Settings pinned.

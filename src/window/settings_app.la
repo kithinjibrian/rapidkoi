@@ -10,7 +10,8 @@
 import wasmtime { Engine };
 import bundles.loader { Origin, Refusal, from_bytes };
 import trust.verify { keyring };
-import window.tabs { AppPage, from_loaded };
+import window.tabs { AppPage, Pin, from_loaded };
+import bundles.bundle { read, asset };
 
 /** Settings' path and settings key: no host or file, so a name of its own. */
 const SETTINGS_KEY: string = "builtin:settings";
@@ -31,4 +32,19 @@ fun open(engine: Engine): Result<AppPage, Refusal> {
     // Built in: the only bytes that may hold built-in permissions (PRP-030).
     let l = from_bytes(engine, keyring(), "settings.rkb", BUNDLE, Origin.BuiltIn)?;
     Ok(from_loaded(engine, l, SETTINGS_KEY, []))
+}
+
+/**
+ * Settings as a pin (PRP-064): what a first run's pins start with, its
+ * icon from its bundle, opened by its path as ☰ opens it.
+ *
+ * Example:
+ *     settings_app.pin()
+ */
+fun pin(): Pin {
+    let icon = match read(BUNDLE) {
+        Ok(b) => b.manifest.icon.and_then(fun(i: string) = asset(b, i)),
+        Err(_) => None,
+    };
+    Pin { name: "Settings", path: SETTINGS_KEY, icon: icon, origin: None }
 }

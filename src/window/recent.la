@@ -137,8 +137,9 @@ fun remember(r: Recent, who: People, p: AppPage, now: i64): Recent = if shown(wh
 };
 
 /**
- * Whether a page's place is kept: it's running, it isn't Rapidkoi's own,
- * and its app's "Show in Recent" is on (keyed as permissions are).
+ * Whether a page's place is kept: it's running, it isn't the new tab (the
+ * page Recent lives on; PRP-064: Rapidkoi's other apps are), and its app's
+ * "Show in Recent" is on (keyed as permissions are).
  */
 fun shown(who: People, p: AppPage): bool {
     let running = match p.screen {
@@ -149,7 +150,7 @@ fun shown(who: People, p: AppPage): bool {
         Some(t) => t.host,
         None => p.path,
     };
-    running && !p.path.starts_with("builtin:") && shows_in_recent(who, key)
+    running && p.path != "builtin:newtab" && shows_in_recent(who, key)
 }
 
 /**
