@@ -9,7 +9,9 @@ import rapidkoi.window.tabs { AppPage, Pin, failed_page };
 import rapidkoi.data.store { store_at, save };
 import rapidkoi.data.pinfiles { pins_file };
 import std.fs;
-import rapidkoi.shell { start, update };
+import rapidkoi.shell { start, start_with, update };
+import rapidkoi.guest.nodes { Node };
+import support { newtab_stand_in, echo_opening, asking, ask, event_in, holds };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
@@ -116,9 +118,21 @@ fun from_bytes_refuses_what_isnt_a_bundle() {
     assert(from_bytes(Engine.new(), keyring(), "x.rkb", [1, 2, 3], Origin.BuiltIn).is_err());
 }
 
+/** Whether a decoded tree holds a picture labelled `label`. */
+fun pictured(n: Node, label: string): bool = match n {
+    Pictured(p, _) => p.label == Some(label),
+    Boxed(_, _, _, kids) => kids.any(fun(k: Node) = pictured(k, label)),
+    _ => false,
+};
+
 @test
 fun an_empty_tab_shows_the_wordmark() {
-    assert(shows(fresh(), "Rapidkoi"));
+    // The wordmark is a picture (its gradient can't be drawn as text), named for screen readers.
+    let shown = match fresh().newtab.map(fun(p: AppPage) = p.screen) {
+        Some(Running(_, _, d)) => pictured(d.root, "Rapidkoi"),
+        _ => false,
+    };
+    assert(shown);
 }
 
 @test
@@ -155,7 +169,8 @@ fun only_a_built_in_app_chooses_its_controls() {
 @test
 fun the_first_screen_already_shows_what_s_remembered() {
     // The launch order (session 170): restore, build the window, start the
-    // apps, answer them. The new tab's on_open sees your pins.
+    // apps, answer them. A stand-in new tab asks for your pins when it opens,
+    // and has its answer before the first screen.
     let dir = "test/tmp/newtab-launch";
     if fs.is_file("{dir}/pins") {
         fs.remove_file("{dir}/pins").unwrap();
@@ -168,9 +183,14 @@ fun the_first_screen_already_shows_what_s_remembered() {
             Pin { name: "Quote", path: "rapidkoi://quote.dafifi.net", icon: None, origin: None },
         ]),
     ).unwrap();
-    let (m, _) = start(["./main"], Some(s));
+    let stand_in = newtab_stand_in(echo_opening(asking([ask("pins", "pins")])));
+    let (m, _) = start_with(["./main"], Some(s), stand_in);
     assert_eq(m.newtab.map(fun(p: AppPage) = p.asks.len), Some(0));
-    assert(shows(m, "Pinned"));
-    assert(shows(m, "Quote"));
+    // The answer became its state (the stand-in echoes what it's sent): your pin is in it.
+    let answered = match m.newtab.map(fun(p: AppPage) = p.screen) {
+        Some(Running(_, state, _)) => holds(event_in(state), "Quote".to_bytes()),
+        _ => false,
+    };
+    assert(answered);
     fs.remove_file("{dir}/pins").unwrap();
 }

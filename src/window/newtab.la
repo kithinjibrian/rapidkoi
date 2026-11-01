@@ -27,10 +27,20 @@ const BUNDLE: u8[] = include_bytes("../../assets/apps/newtab.rkb");
  * Example:
  *     newtab.open(engine)
  */
-fun open(engine: Engine): Result<AppPage, Refusal> {
+fun open(engine: Engine): Result<AppPage, Refusal> = open_bundle(engine, BUNDLE);
+
+/**
+ * Starts a new-tab app from `bundle`: `BUNDLE` in Rapidkoi, a stand-in in tests.
+ * Only bytes compiled into the program reach it, so they may hold built-in
+ * permissions; nothing a guest sends or a file holds is ever passed here.
+ *
+ * Example:
+ *     newtab.open_bundle(engine, BUNDLE)
+ */
+fun open_bundle(engine: Engine, bundle: u8[]): Result<AppPage, Refusal> {
     // An empty keyring: the bundle is unsigned, so nothing is looked up.
     // Built in: the only bytes that may hold built-in permissions (PRP-030).
-    let l = from_bytes(engine, keyring(), "newtab.rkb", BUNDLE, Origin.BuiltIn)?;
+    let l = from_bytes(engine, keyring(), "newtab.rkb", bundle, Origin.BuiltIn)?;
     // Its path is its key for your permission settings (`access.key_of`).
     Ok(from_loaded(engine, l, NEWTAB_KEY, []))
 }

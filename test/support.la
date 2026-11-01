@@ -1,7 +1,8 @@
 /**
- * Helpers shared by the tests: short CBOR value builders for contract 9
- * trees, WebAssembly text for fixture guests, and `settle`, which runs a
- * command's background tasks in place. Holds no tests itself.
+ * Helpers shared by the tests: short CBOR value builders for contract 10
+ * trees, WebAssembly text for fixture guests, a stand-in new tab, and
+ * `settle`, which runs a command's background tasks in place. Holds no
+ * tests itself.
  *
  * Depends on: cbor, kivuli, wasmtime
  * Used by: contract, render, guest, shell, loading, opening, saving, counting
@@ -10,6 +11,7 @@ import cbor { Value, Entry, Limits, encode, decode };
 import kivuli { Cmd };
 import wasmtime { wat_to_wasm };
 import rapidkoi.window.window { Model, Notice };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
 import rapidkoi.window.notices { shown };
 
 /**
@@ -380,3 +382,52 @@ fun after(hay: u8[], needle: u8[]): i64 {
 
 /** What the notice bar says on hover now (PRP-051): the full message of the notice showing. */
 fun said(m: Model): Option<string> = shown(m).map(fun(n: Notice) = n.full);
+
+/**
+ * A bundle standing in for the new tab (`shell.start_with`): the guest
+ * `wat`, declaring the new tab's built-in permissions, so the shell's side
+ * of them (answering its asks, its Restore) is tested whatever the real new
+ * tab draws.
+ */
+fun newtab_stand_in(wat: string): u8[] = write(Bundle {
+    manifest: Manifest {
+        contract: 10,
+        name: "New tab",
+        version: "0.1.0",
+        description: None,
+        state_version: 1,
+        icon: None,
+        banners: [],
+        servers: [],
+        permissions: ["read_pins", "read_left_off", "open_apps", "restore_session"],
+        controls: None,
+    },
+    module: wat_to_wasm(wat).unwrap(),
+    assets: [],
+}).unwrap();
+
+/** One ask for a result's `effects`: `{kind, msg}`. */
+fun ask(kind: string, msg: string): Value = kv([("kind", t(kind)), ("msg", t(msg))]);
+
+/** A `handle` result keeping an empty state and asking for `asks`. */
+fun asking(asks: Value[]): u8[] = encode(kv([("state", kv([])), ("effects", Value.Array(asks))]));
+
+/** Whether `needle` is somewhere in `hay`. */
+fun holds(hay: u8[], needle: u8[]): bool {
+    if needle.len > hay.len {
+        return false;
+    }
+    for i in 0..hay.len - needle.len + 1 {
+        let mut same = true;
+        for j in 0..needle.len {
+            if hay[i + j] != needle[j] {
+                same = false;
+                break;
+            }
+        }
+        if same {
+            return true;
+        }
+    }
+    false
+}
