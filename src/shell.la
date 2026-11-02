@@ -8,6 +8,7 @@
  * Used by: main
  */
 import kivuli { View, Cmd, Sub, FileFilter };
+import std.time;
 import wasmtime { Engine };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm, TabAction, PinAction };
 import window.tabs { AppPage, Tab, Pin, handle, is_loading, to_front };
@@ -81,7 +82,8 @@ fun start_with(argv: string[], s: Option<Store>, bundle: u8[]): (Model, Cmd<Msg>
     // Every app's database shares SQLite's memory: one cap for all (PRP-041).
     sqlite.heap_limit(SQLITE_HEAP);
     // 1. Restore.
-    let empty = with_pages(engine, []);
+    // The clock from the start, so a place recorded before the first tick has its time.
+    let empty = Model { now: time.now_ms(), ..with_pages(engine, []) };
     // The session that just ended becomes the previous one, for the new
     // tab's Restore (PRP-035; the owner's model, session 186).
     let recalled = match s {

@@ -86,8 +86,15 @@ fun recent_of(m: Model): Value {
             break;
         }
         let mut f = fields(p.name, p.path, p.title);
-        // A site's link keeps its fields: only a file's folders are hidden.
-        let shown = if is_address(p.address) { p.address } else { place_of(p.address) };
+        // A site's link keeps its fields: only a file's folders are hidden, and
+        // Rapidkoi's own apps have no address a person types.
+        let shown = if is_address(p.address) {
+            p.address
+        } else if p.address.starts_with("builtin:") {
+            ""
+        } else {
+            place_of(p.address)
+        };
         f.push(entry("address", Value.Text(shown)));
         f.push(entry("seen", Value.int(p.seen)));
         f.push(entry("colors", Value.Map([entry("primary", Value.Text(primary_of(m, p)))])));

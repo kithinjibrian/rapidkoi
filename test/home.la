@@ -285,3 +285,22 @@ fun a_place_carries_its_app_s_primary_colour() {
     };
     assert_eq(colour, Some(t("#14b8a6")));
 }
+
+@test
+fun a_built_in_app_s_place_shows_no_address() {
+    // `builtin:settings` is no address a person types (the owner, 2026-11-02).
+    let p = Place {
+        address: "builtin:settings",
+        path: "builtin:settings",
+        origin: None,
+        name: "Settings",
+        title: None,
+        seen: 1,
+    };
+    let m = Model { recent: Recent { places: [p], apps: [] }, ..with_pages(Engine.new(), []) };
+    let address = match recent_of(m).get("places") {
+        Some(Array(xs)) => xs[0].get("address"),
+        _ => None,
+    };
+    assert_eq(address, Some(t("")));
+}

@@ -155,3 +155,18 @@ fn it_has_its_icon() {
     assert!(script.contains("--icon guest/rust/newtab/icon.svg"));
     assert!(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/icon.svg")).is_file());
 }
+
+#[test]
+fn a_card_leaves_out_an_empty_address_and_an_unknown_time() {
+    // Rapidkoi's own apps have no address; a place from before has no time (0).
+    let settings = Spot {
+        name: "Settings".into(),
+        icon: "icon:builtin:settings".into(),
+        address: "".into(),
+        title: None,
+        seen: 0,
+        colour: "#71717a".into(),
+    };
+    let _ = recent(&[settings]);
+    let _ = note_at(&["Settings", ""], 0);
+}
