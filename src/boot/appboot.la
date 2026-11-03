@@ -1,0 +1,110 @@
+/**
+ * An app's start as one pipeline (PRP-069, DECISION-096), however it was
+ * opened:
+ *
+ *   1. Source    its bytes: built into ./main, a local file, or what a
+ *                site's background load fetched (`net.loads`)
+ *   2. Checked   every rule, before anything is compiled: its contract,
+ *                Rapidkoi's own controls, built-in permissions only from
+ *                ./main, a site's signature and key (`bundles.loader`)
+ *   3. Compiled  through the modules kept for the run (`guest.modules`)
+ *   4. Started   its page: instantiated, `on_init` (or its saved state),
+ *                `on_open` (`window.tabs`, `guest.running`)
+ *
+ * What it asks when it starts is Settle's to answer (`boot.settle`), as
+ * after any message. Another window, Restart and restoring a window
+ * re-enter at Started with the page's own program.
+ *
+ * Depends on: wasmtime, bundles.loader, net.fetching, trust.verify, guest.modules, window.tabs
+ * Used by: window.navigate, window.choosing, window.restarts, net.loads
+ */
+import wasmtime { Engine };
+import bundles.loader {
+    Loaded,
+    Refusal,
+    Checked,
+    Origin,
+    checked_file,
+    checked_bytes,
+    checked_fetched,
+    compiled_with,
+};
+import net.fetching { Fetched };
+import trust.verify { Keyring };
+import guest.modules { Modules, maker };
+import window.tabs { AppPage, from_loaded, refused };
+
+/** Where an app's bytes come from: stage 1. */
+enum Source {
+    /** Built into ./main: its file's name and its bytes; the only bytes that may hold built-in permissions. */
+    BuiltIn(string, u8[]),
+    /** A local file, or a local development address. */
+    File(string),
+    /** What a site's background load fetched. */
+    Fetched(Fetched),
+}
+
+/**
+ * Stages 1 and 2: the app's bytes from its source, every rule checked,
+ * nothing compiled.
+ *
+ * Example:
+ *     checked(m.ring, Source.File("counter.rkb"))?
+ */
+fun checked(ring: Keyring, s: Source): Result<Checked, Refusal> = match s {
+    BuiltIn(file, bytes) => checked_bytes(ring, file, bytes, Origin.BuiltIn),
+    File(path) => checked_file(ring, path),
+    Fetched(f) => checked_fetched(ring, f),
+};
+
+/**
+ * Stages 1 to 3: the app checked and compiled through the modules kept for
+ * the run, ready to start.
+ *
+ * @param held the modules kept; what's compiled is kept there
+ * @param now when, for which module goes first past the cap
+ * @returns the app; or why not, nothing compiled when a check failed
+ *
+ * Example:
+ *     loaded(held, m.engine, m.now, m.ring, Source.Fetched(f))
+ */
+fun loaded(
+    held: Ref<Modules>,
+    engine: Engine,
+    now: i64,
+    ring: Keyring,
+    s: Source,
+): Result<Loaded, Refusal> = compiled_with(checked(ring, s)?, maker(held, engine, now));
+
+/**
+ * Stage 4: the app's page, started at `path` with the link's fields.
+ *
+ * Example:
+ *     started(m.engine, app, "rapidkoi://notes.dafifi.net", link)
+ */
+fun started(
+    engine: Engine,
+    l: Loaded,
+    path: string,
+    link: (string, string)[],
+): AppPage = from_loaded(engine, l, path, link);
+
+/**
+ * The whole pipeline for a local file the person chose (a `.rkb` bundle or
+ * a `.wasm`) or a local development address: running, or stopped with the
+ * reason (no Restart when it couldn't be read or compiled), refused, or
+ * asking about a changed key.
+ *
+ * Example:
+ *     opened(held, m.engine, m.now, m.ring, "counter.wasm")
+ */
+fun opened(
+    held: Ref<Modules>,
+    engine: Engine,
+    now: i64,
+    ring: Keyring,
+    path: string,
+): AppPage = match loaded(held, engine, now, ring, Source.File(path)) {
+    Ok(l) => started(engine, l, path, []),
+    Err(r) => refused(r, path),
+};

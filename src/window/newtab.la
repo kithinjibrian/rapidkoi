@@ -8,10 +8,11 @@
  * Used by: shell
  */
 import wasmtime { Engine };
-import bundles.loader { Origin, Refusal, from_bytes, from_bytes_with };
-import guest.modules { Modules, maker };
+import bundles.loader { Refusal };
+import guest.modules { Modules, no_modules };
+import boot.appboot { Source, loaded, started };
 import trust.verify { keyring };
-import window.tabs { AppPage, from_loaded };
+import window.tabs { AppPage };
 
 /** The new tab's path and settings key: no host or file, so a name of its own (PRP-031). */
 const NEWTAB_KEY: string = "builtin:newtab";
@@ -38,13 +39,12 @@ fun open(engine: Engine): Result<AppPage, Refusal> = open_bundle(engine, BUNDLE)
  * Example:
  *     newtab.open_bundle(engine, BUNDLE)
  */
-fun open_bundle(engine: Engine, bundle: u8[]): Result<AppPage, Refusal> {
-    // An empty keyring: the bundle is unsigned, so nothing is looked up.
-    // Built in: the only bytes that may hold built-in permissions (PRP-030).
-    let l = from_bytes(engine, keyring(), "newtab.rkb", bundle, Origin.BuiltIn)?;
-    // Its path is its key for your permission settings (`access.key_of`).
-    Ok(from_loaded(engine, l, NEWTAB_KEY, []))
-}
+fun open_bundle(engine: Engine, bundle: u8[]): Result<AppPage, Refusal> = open_kept(
+    Ref.new(no_modules()),
+    engine,
+    0,
+    bundle,
+);
 
 /**
  * Starts a new-tab app from `bundle` as `open_bundle` does, its module
@@ -61,13 +61,9 @@ fun open_kept(
     now: i64,
     bundle: u8[],
 ): Result<AppPage, Refusal> {
+    // An empty keyring: the bundle is unsigned, so nothing is looked up.
     // Built in: the only bytes that may hold built-in permissions (PRP-030).
-    let l = from_bytes_with(
-        maker(held, engine, now),
-        keyring(),
-        "newtab.rkb",
-        bundle,
-        Origin.BuiltIn,
-    )?;
-    Ok(from_loaded(engine, l, NEWTAB_KEY, []))
+    let l = loaded(held, engine, now, keyring(), Source.BuiltIn("newtab.rkb", bundle))?;
+    // Its path is its key for your permission settings (`access.key_of`).
+    Ok(started(engine, l, NEWTAB_KEY, []))
 }

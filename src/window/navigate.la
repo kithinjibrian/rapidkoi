@@ -9,16 +9,7 @@
  * Used by: shell
  */
 import std.fs;
-import window.tabs {
-    AppPage,
-    Tab,
-    Pin,
-    open_path,
-    close_page,
-    state_of,
-    state_version_of,
-    failed_page,
-};
+import window.tabs { AppPage, Tab, Pin, close_page, state_of, state_version_of, failed_page };
 import window.restarts { load_again };
 import window.recent { remember };
 import window.upgrades { upgrading, landed };
@@ -59,6 +50,7 @@ import window.window {
 import net.address { is_address, parse, without_link };
 import window.settings_app;
 import window.allapps;
+import boot.appboot { opened };
 import bundles.loader { why };
 
 /**
@@ -150,8 +142,13 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
     }
     // A new window starts fresh: state lives with its window, and only
     // Restore brings a saved one back (session 189). Its old notice goes.
-    let page = open_path(m.engine, m.ring, path);
-    (with_tab(tab_loaded(tidy, id), id, fun(_: AppPage) = page), Cmd.none())
+    // Through the pipeline (PRP-069): opened again, it compiles nothing.
+    let held = Ref.new(tidy.modules);
+    let page = opened(held, m.engine, m.now, m.ring, path);
+    (
+        with_tab(tab_loaded(Model { modules: held.get(), ..tidy }, id), id, fun(_: AppPage) = page),
+        Cmd.none(),
+    )
 }
 
 /**
@@ -268,8 +265,10 @@ fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
             at = loading;
             tasks.push(task);
         } else {
-            let (page, said) = resumed(at, named(open_path(at.engine, at.ring, t.path)), t.link);
-            let placed = add_tab(at, page);
+            let held = Ref.new(at.modules);
+            let local = opened(held, at.engine, at.now, at.ring, t.path);
+            let (page, said) = resumed(at, named(local), t.link);
+            let placed = add_tab(Model { modules: held.get(), ..at }, page);
             // About that window's app: on its tab (PRP-051).
             at = told(placed, placed.current.unwrap_or(-1), said);
         }
@@ -352,7 +351,8 @@ fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
                 _ => begin(m, id, a.path, false, saved, [a]),
             };
         }
-        let (loaded, over) = load_again(m.engine, m.ring, a.path, saved, a.link);
+        let held = Ref.new(m.modules);
+        let (loaded, over) = load_again(held, m.engine, m.now, m.ring, a.path, saved, a.link);
         // A changed key asks first: the open page waits, in case the
         // person keeps using it.
         let page = match loaded.screen {
@@ -363,7 +363,7 @@ fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
         // Reloaded, it's still the same instance; every window of the app
         // moves with it, or none (PRP-048).
         let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
-        let (moved, said) = landed(m, id, [a], same, notice);
+        let (moved, said) = landed(Model { modules: held.get(), ..m }, id, [a], same, notice);
         (told(moved, id, said), Cmd.none())
     }
     _ => (m, Cmd.none()),

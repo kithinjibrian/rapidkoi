@@ -1,0 +1,126 @@
+// An app's start as one pipeline (PRP-069, DECISION-096): Source, Checked,
+// Compiled, Started. Each kind of app reaches a running page; each failure
+// ends as it did before the pipeline; every app compiles through the
+// modules kept for the run, so a file opened twice compiles once and a
+// changed one compiles again. No display.
+import rapidkoi.boot.appboot { Source, opened, loaded, started };
+import rapidkoi.guest.modules { Modules, no_modules };
+import rapidkoi.window.tabs { AppPage, Screen };
+import rapidkoi.window.newtab { BUNDLE };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
+import rapidkoi.trust.verify { keyring };
+import wasmtime { Engine, wat_to_wasm };
+import support { write_counting, newtab_stand_in, echo, png };
+
+fun running(p: AppPage): bool = match p.screen {
+    Running(_, _, _) => true,
+    _ => false,
+};
+
+fun why_not(p: AppPage): string = match p.screen {
+    Stopped(r, _) => r,
+    Refused(r) => r,
+    _ => "running",
+};
+
+/** A bundle at `path` speaking `contract` and declaring `permissions`, its module the echo app. */
+fun bundle_at(path: string, contract: i64, permissions: string[]): string {
+    let bytes = write(Bundle {
+        manifest: Manifest {
+            contract: contract,
+            name: "Echo",
+            version: "1.0.0",
+            description: None,
+            state_version: 1,
+            icon: Some("icon.png"),
+            banners: [],
+            servers: [],
+            permissions: permissions,
+            controls: None,
+            primary_color: None,
+        },
+        module: wat_to_wasm(echo()).unwrap(),
+        assets: [("icon.png", png(128, 128))],
+    }).unwrap();
+    write_bytes(path, bytes).unwrap();
+    path
+}
+
+fun open_here(held: Ref<Modules>, engine: Engine, path: string): AppPage = opened(
+    held,
+    engine,
+    1,
+    keyring(),
+    path,
+);
+
+@test
+fun each_kind_of_app_starts() {
+    let engine = Engine.new();
+    let held = Ref.new(no_modules());
+    // Built in.
+    let l = loaded(held, engine, 1, keyring(), Source.BuiltIn("newtab.rkb", BUNDLE)).unwrap();
+    assert(running(started(engine, l, "builtin:newtab", [])));
+    // A local module, and a local bundle.
+    let wasm = "test/tmp/appboot.wasm";
+    write_counting(wasm);
+    assert(running(open_here(held, engine, wasm)));
+    assert(running(open_here(held, engine, bundle_at("test/tmp/appboot.rkb", 11, []))));
+}
+
+@test
+fun each_failure_ends_as_before() {
+    let engine = Engine.new();
+    let held = Ref.new(no_modules());
+    // Unreadable: stopped, its sentence.
+    assert(
+        why_not(open_here(held, engine, "no/such/app.wasm")).starts_with(
+            "Couldn't read no/such/app.wasm",
+        ),
+    );
+    // Another contract: refused before anything compiles.
+    let older = open_here(held, engine, bundle_at("test/tmp/appboot-older.rkb", 10, []));
+    assert_eq(running(older), false);
+    // Built-in permissions from outside ./main.
+    let grabby = open_here(
+        held,
+        engine,
+        bundle_at("test/tmp/appboot-grabby.rkb", 11, ["read_pins"]),
+    );
+    assert(
+        why_not(grabby).starts_with(
+            "This app asks for something only Rapidkoi's own apps can have",
+        ),
+    );
+    // Nothing refused was compiled.
+    assert_eq(held.get().items.len, 0);
+    // A module that won't compile: stopped.
+    write_bytes("test/tmp/appboot-bad.wasm", [0, 1, 2, 3]).unwrap();
+    assert_eq(running(open_here(held, engine, "test/tmp/appboot-bad.wasm")), false);
+}
+
+@test
+fun a_file_opened_twice_compiles_once() {
+    let engine = Engine.new();
+    let held = Ref.new(no_modules());
+    let wasm = "test/tmp/appboot-twice.wasm";
+    write_counting(wasm);
+    let _ = open_here(held, engine, wasm);
+    let _ = open_here(held, engine, wasm);
+    assert_eq(held.get().items.len, 1);
+    // Changed: new bytes, compiled again.
+    write_bytes(wasm, wat_to_wasm(echo()).unwrap()).unwrap();
+    let _ = open_here(held, engine, wasm);
+    assert_eq(held.get().items.len, 2);
+}
+
+@test
+fun a_built_in_bundle_holds_built_in_permissions() {
+    // Origin is the source's, never the manifest's: the same bytes from a file are refused.
+    let engine = Engine.new();
+    let held = Ref.new(no_modules());
+    let bytes = newtab_stand_in(echo());
+    assert(loaded(held, engine, 1, keyring(), Source.BuiltIn("newtab.rkb", bytes)).is_ok());
+    write_bytes("test/tmp/appboot-newtab.rkb", bytes).unwrap();
+    assert_eq(running(open_here(held, engine, "test/tmp/appboot-newtab.rkb")), false);
+}

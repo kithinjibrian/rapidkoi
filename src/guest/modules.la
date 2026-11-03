@@ -7,7 +7,7 @@
  * disk. A module belongs to its engine: keep one `Modules` per engine.
  *
  * Depends on: std.crypto, wasmtime, guest.guest
- * Used by: window.window, window.newtab, window.settings_app, window.allapps, boot.boot
+ * Used by: window.window, boot.appboot, boot.boot
  */
 import std.crypto { sha256, equal };
 import wasmtime { Engine, Module };
@@ -91,12 +91,12 @@ fun newest(items: (u8[], Module, i64)[]): (u8[], Module, i64)[] {
 }
 
 /**
- * Returns a compile function for the loader (`from_bytes_with`) that
+ * Returns a compile function for the loader (`compiled_with`) that
  * compiles through the modules in `held`, keeping what it compiles there.
  *
  * Example:
  *     let held = Ref.new(m.modules);
- *     from_bytes_with(maker(held, m.engine, m.now), keyring(), file, bytes, Origin.BuiltIn)
+ *     compiled_with(checked, maker(held, m.engine, m.now))
  */
 fun maker(
     held: Ref<Modules>,

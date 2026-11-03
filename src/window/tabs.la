@@ -11,9 +11,9 @@ import cbor { Value };
 import wasmtime { Engine, Module };
 import guest.guest { Guest, open, reason };
 import bundles.bundle { Manifest };
-import bundles.loader { Loaded, Refusal, load, why };
+import bundles.loader { Loaded, Refusal, why };
 import net.address;
-import trust.verify { Trust, Change, Keyring };
+import trust.verify { Trust, Change };
 import guest.nodes { Described, ContractError, Effect, LinkChange };
 import guest.events { Happened };
 import ui.render { Msg };
@@ -159,38 +159,6 @@ struct Pin {
 }
 
 /**
- * Opens the app in a local file the person chose: a `.rkb` bundle or a `.wasm`.
- *
- * @param engine the program's engine
- * @param ring this session's trusted keys
- * @param path the file or address
- * @returns the page: running, or stopped with the reason (no Restart when
- *     the file couldn't be read or compiled), refused, or asking about a
- *     changed key
- *
- * Example:
- *     open_path(engine, ring, "counter.wasm")
- */
-fun open_path(engine: Engine, ring: Keyring, path: string): AppPage = match load(
-    engine,
-    ring,
-    path,
-) {
-    Ok(l) => AppPage {
-        manifest: l.manifest,
-        icon: l.icon,
-        trust: l.trust,
-        ..open_program(
-            l.name,
-            path,
-            Program { engine: engine, module: l.module, assets: l.assets },
-            [],
-        ),
-    },
-    Err(r) => refused(r, path),
-};
-
-/**
  * Says whether a page is loading in the background.
  *
  * Example:
@@ -233,7 +201,7 @@ fun loading(path: string, number: i64, pending: Pending): AppPage = AppPage {
 };
 
 /**
- * The page for an app that arrived: started fresh, as `open_path` starts
+ * The page for an app that arrived: started fresh, as `boot.appboot.opened` starts
  * one, with a link's fields set in its first state (PRP-036).
  *
  * Example:

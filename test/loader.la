@@ -2,14 +2,16 @@
 // on a spawned green thread, a client in the test. Each test has its own
 // port (tests run in parallel processes). Writes only under test/tmp/.
 import rapidkoi.bundles.loader { load, fetch, why, runs_here };
-import rapidkoi.trust.verify { keyring };
+import rapidkoi.trust.verify { keyring, Keyring };
 import rapidkoi.net.address { parse };
 import rapidkoi.commands.serve { handle };
 import rapidkoi.bundles.bundle { Bundle, Manifest, write };
 import rapidkoi.shell { update };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.navigate { reload };
-import rapidkoi.window.tabs { open_path };
+import rapidkoi.window.tabs { AppPage };
+import rapidkoi.boot.appboot { opened };
+import rapidkoi.guest.modules { no_modules };
 import std.http { Request };
 import wasmtime { Engine };
 import std.task { sleep };
@@ -146,3 +148,12 @@ fun only_this_contract_s_apps_run_here() {
     assert_eq(runs_here(Manifest { contract: 10, ..m }), false);
     assert_eq(runs_here(Manifest { contract: 12, ..m }), false);
 }
+
+/** A local app opened through the pipeline (PRP-069), nothing kept between calls. */
+fun open_path(engine: Engine, ring: Keyring, path: string): AppPage = opened(
+    Ref.new(no_modules()),
+    engine,
+    0,
+    ring,
+    path,
+);
