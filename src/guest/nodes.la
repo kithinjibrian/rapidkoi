@@ -348,6 +348,16 @@ enum Effect {
     FileSave(Value, string, string),
     /** A blob's bytes saved to a file the person chooses; answered with its name, size and handle, or null. */
     FileSaveAs(Value, FileSaveAs),
+    /** A notification (PRP-065, needs `notifications`): its sentence, its place's fields, its key; not answered. */
+    Notify(Value, string, (string, string)[], Option<string>),
+    /** Take back its notification with this key (PRP-065); not answered. */
+    Withdraw(Value, string),
+    /** Your notifications (PRP-065, needs `read_notifications`); answered with `msg`. */
+    Notifications(Value),
+    /** Open your notification at this index, as they're listed now (needs `read_notifications`); not answered. */
+    OpenNotification(Value, i64),
+    /** Remove your notification at this index (needs `read_notifications`); not answered. */
+    DismissNotification(Value, i64),
 }
 
 /** One statement an app asks its database to run (PRP-041), its shape checked. */

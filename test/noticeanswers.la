@@ -1,0 +1,176 @@
+// Answering notification asks (PRP-065): an app that declares
+// `notifications` is asked about first, kept as its own once allowed, runs
+// on when blocked, and is stopped when it didn't declare it; the new tab
+// reads, opens and dismisses them. An echo stand-in app; no display.
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.guest.effects { answer_all };
+import rapidkoi.guest.home { notifications_of };
+import rapidkoi.window.tabs { AppPage, open_module, state_of };
+import rapidkoi.window.actions { Msg, Approval, Answer };
+import rapidkoi.window.notifications { Notification, no_notifications, listed, unread, add, Kind };
+import rapidkoi.bundles.permissions { Permission, Setting };
+import rapidkoi.bundles.bundle { Manifest };
+import rapidkoi.people.access { key_of };
+import rapidkoi.people.people { nobody, with_setting };
+import rapidkoi.guest.events { Happened, event_for };
+import rapidkoi.data.remembered { Face };
+import kivuli { Cmd };
+import cbor { Value, encode };
+import wasmtime { Engine, Module };
+import support { echo_init, event_in, t, kv, asking };
+
+/** An echo page at a local file asking `asks` at init, declaring `declared`. */
+fun page(asks: Value[], declared: string[]): AppPage {
+    let engine = Engine.new();
+    let p = open_module(
+        "Counter",
+        "counter.rkb",
+        engine,
+        Module.from_text(engine, echo_init(asking(asks))).unwrap(),
+    );
+    AppPage {
+        manifest: Some(Manifest {
+            contract: 11,
+            name: "Counter",
+            version: "1.0.0",
+            description: None,
+            state_version: 1,
+            icon: Some("icon.png"),
+            banners: [],
+            servers: [],
+            permissions: declared,
+            controls: None,
+            primary_color: None,
+        }),
+        ..p,
+    }
+}
+
+fun notify(text: string, key: Option<string>): Value {
+    let mut fields = [("kind", t("notify")), ("msg", t("sent")), ("text", t(text))];
+    fields.push(("fields", kv([("count", Value.int(10))])));
+    if let Some(k) = key {
+        fields.push(("key", t(k)));
+    }
+    kv(fields)
+}
+
+/** A window showing `p` with `s` for its notifications, its asks answered. */
+fun with(p: AppPage, s: Setting): (Model, Cmd<Msg>) = answer_all(Model {
+    people: with_setting(nobody(), key_of(p), Permission.Notify, s),
+    ..with_pages(Engine.new(), [p]),
+});
+
+fun texts_of(m: Model): string[] = listed(m.notifications).map(fun(x: Notification) = x.text);
+
+fun stopped_why(m: Model): string = match m.tabs[0].page.screen {
+    Stopped(why, _) => why,
+    _ => "running",
+};
+
+@test
+fun the_first_notification_asks_you_first() {
+    let p = page([notify("Your count reached 10", None)], ["notifications"]);
+    let (m, _) = answer_all(with_pages(Engine.new(), [p]));
+    assert_eq(
+        m.approval,
+        Some(Approval { tab: Some(0), permission: Permission.Notify, app: "Counter" }),
+    );
+    assert_eq(m.notifications.items.len, 0);
+    // Always allow: kept, as the app's own, at its place.
+    let (always, _) = update(m, Msg.Approve(Answer.Always));
+    assert_eq(texts_of(always), ["Your count reached 10"]);
+    let kept = always.notifications.items[0];
+    assert_eq((kept.path, kept.origin, kept.kind), ("counter.rkb", None, Kind.App));
+    assert_eq(always.notifications.apps.map(fun(f: Face) = f.name), ["Counter"]);
+    // Don't allow: nothing kept, and the app runs on.
+    let (deny, _) = update(m, Msg.Approve(Answer.Deny));
+    assert_eq((deny.notifications.items.len, stopped_why(deny)), (0, "running"));
+}
+
+@test
+fun allowed_is_kept_and_blocked_is_dropped() {
+    let p = page([notify("one", Some("count")), notify("two", Some("count"))], ["notifications"]);
+    let (m, _) = with(p, Setting.Allowed);
+    // The same key: the second replaced the first.
+    assert_eq(texts_of(m), ["two"]);
+    let (blocked, _) = with(p, Setting.Blocked);
+    assert_eq((blocked.notifications.items.len, stopped_why(blocked)), (0, "running"));
+}
+
+@test
+fun notifying_without_declaring_stops_the_app() {
+    let (m, _) = with(page([notify("Hi", None)], []), Setting.Allowed);
+    assert_eq(stopped_why(m), "This app asked for sending you notifications without declaring it");
+    assert_eq(m.notifications.items.len, 0);
+}
+
+@test
+fun an_app_withdraws_its_own() {
+    let withdraw = kv([("kind", t("withdraw")), ("msg", t("w")), ("key", t("count"))]);
+    let p = page([notify("one", Some("count")), withdraw], ["notifications"]);
+    let (m, _) = with(p, Setting.Allowed);
+    assert_eq(m.notifications.items.len, 0);
+}
+
+/** A window holding one notification from Notes, and `p` asking. */
+fun reading(p: AppPage): (Model, Cmd<Msg>) {
+    let note = Notification {
+        id: 0,
+        kind: Kind.App,
+        path: "rapidkoi://notes.dafifi.net",
+        origin: None,
+        text: "Shopping is due",
+        address: "rapidkoi://notes.dafifi.net/@0.9.0?note=1",
+        key: None,
+        sent: 5,
+        read: false,
+    };
+    let face = Face { path: note.path, name: "Notes", icon: None, colour: None };
+    answer_all(Model {
+        notifications: add(no_notifications(), note, face, 5),
+        ..with_pages(Engine.new(), [p]),
+    })
+}
+
+fun ask(kind: string, index: Option<i64>): Value {
+    let mut fields = [("kind", t(kind)), ("msg", t("got"))];
+    if let Some(i) = index {
+        fields.push(("index", Value.int(i)));
+    }
+    kv(fields)
+}
+
+/** Every message a command sends after a delay. */
+fun later(c: Cmd<Msg>): Msg[] = match c {
+    After(_, msg) => [msg],
+    Batch(cs) => {
+        let mut all: Msg[] = [];
+        for inner of cs {
+            for msg of later(inner) {
+                all.push(msg);
+            }
+        }
+        all
+    }
+    _ => [],
+};
+
+@test
+fun the_new_tab_reads_opens_and_dismisses_them() {
+    let (m, _) = reading(page([ask("notifications", None)], ["read_notifications"]));
+    let answered = event_in(state_of(m.tabs[0].page).unwrap_or([]));
+    assert_eq(answered, event_for(Happened.Answer(t("got"), notifications_of(m))));
+    let (opened, c) = reading(page([ask("open_notification", Some(0))], ["read_notifications"]));
+    assert_eq(later(c), [Msg.OpenPlace("rapidkoi://notes.dafifi.net/@0.9.0?note=1", None)]);
+    assert_eq(unread(opened.notifications), 0);
+    let (gone, _) = reading(page([ask("dismiss_notification", Some(0))], ["read_notifications"]));
+    assert_eq(gone.notifications.items.len, 0);
+    // Only Rapidkoi's own apps may read them: an app without it is stopped.
+    let (stopped, _) = reading(page([ask("notifications", None)], []));
+    assert_eq(
+        stopped_why(stopped),
+        "This app asked for reading your notifications without declaring it",
+    );
+}

@@ -5,7 +5,7 @@
  * to a request. Never calls a guest or GTK. The screen is `tree.la`'s; the
  * types live in `nodes.la` and are re-exported here.
  *
- * Depends on: cbor, guest.limits, guest.nodes, guest.links, guest.sqlasks, guest.blobasks, guest.fileasks, net.network
+ * Depends on: cbor, guest.limits, guest.nodes, guest.links, guest.sqlasks, guest.blobasks, guest.fileasks, guest.notifyasks, net.network
  * Used by: guest.running, guest.effects, window.tabs
  */
 import cbor { Value, Entry, Limits, decode, encode };
@@ -33,6 +33,7 @@ import guest.links { read_link, read_kinds };
 import guest.sqlasks { sql_of, batch_of };
 import guest.blobasks { blob_get_of, blob_list_of, key_of as blob_key_of };
 import guest.fileasks { file_open_of, file_save_of, file_save_as_of };
+import guest.notifyasks { notice_ask_of };
 
 /**
  * Decodes a `handle` result and takes out its state, checking its shape: a
@@ -181,6 +182,9 @@ fun read_update(bytes: u8[]): Result<Update, ContractError> {
                     );
                 }
             }
+        } else if let Some(ask) = notice_ask_of(kind, msg, e)? {
+            // Notifications' asks (PRP-065): `notifyasks`'.
+            effects.push(ask);
         } else {
             return Err(nodes.invalid("update", "unknown effect \"{kind}\""));
         }

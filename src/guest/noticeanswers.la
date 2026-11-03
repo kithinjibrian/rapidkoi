@@ -1,0 +1,78 @@
+/**
+ * Answering notification asks (PRP-065): an app's `notify` is kept as its
+ * own (its path, first key, name and icon, never anything it names), a
+ * `withdraw` takes its own back, and the new tab's `notifications`,
+ * `open_notification` and `dismiss_notification` read, open and remove
+ * yours. Whether the app may ask is `guest.effects`' question; a blocked
+ * one is answered with nothing kept, an empty list, nothing opened.
+ *
+ * Depends on: cbor, kivuli, guest.nodes, guest.home, window.window, window.tabs, window.notifications, window.actions
+ * Used by: guest.effects
+ */
+import cbor { Value };
+import kivuli { Cmd };
+import guest.nodes { Effect };
+import guest.home { notifications_of };
+import window.window { Model };
+import window.tabs { AppPage };
+import window.notifications { no_notifications, notify, withdraw, open_at, dismiss };
+import window.actions { Msg };
+
+/**
+ * Answers one notification ask from page `p`.
+ *
+ * @param m the window
+ * @param p the page that asked
+ * @param ask a `Notify`, `Withdraw`, `Notifications`, `OpenNotification` or `DismissNotification`
+ * @param grant false when its permission is blocked or wasn't allowed
+ * @returns the window, the answer (only `notifications` has one), and
+ *     what opening sends: the window's own message, after this update
+ *
+ * Example:
+ *     answer_notice(m, page, ask, true)
+ */
+fun answer_notice(
+    m: Model,
+    p: AppPage,
+    ask: Effect,
+    grant: bool,
+): (Model, Option<Value>, Cmd<Msg>) {
+    let origin = p.trust.map(fun(t) = t.origin);
+    match ask {
+        Notify(_, text, fields, key) if grant => (
+            Model { notifications: notify(m.notifications, p, text, fields, key, m.now), ..m },
+            None,
+            Cmd.none(),
+        ),
+        // Its own only: another app's with the same key stays.
+        Withdraw(_, key) => (
+            Model { notifications: withdraw(m.notifications, p.path, origin, key), ..m },
+            None,
+            Cmd.none(),
+        ),
+        Notifications(_) => (
+            m,
+            Some(
+                notifications_of(
+                    if grant { m } else { Model { notifications: no_notifications(), ..m } },
+                ),
+            ),
+            Cmd.none(),
+        ),
+        OpenNotification(_, index) if grant => {
+            let (marked, opened) = open_at(m.notifications, index);
+            let send = match opened {
+                // Opening is the window's own message, as a recent card's is.
+                Some(x) => Cmd.after(0, Msg.OpenPlace(x.address, x.origin)),
+                None => Cmd.none(),
+            };
+            (Model { notifications: marked, ..m }, None, send)
+        }
+        DismissNotification(_, index) if grant => (
+            Model { notifications: dismiss(m.notifications, index), ..m },
+            None,
+            Cmd.none(),
+        ),
+        _ => (m, None, Cmd.none()),
+    }
+}

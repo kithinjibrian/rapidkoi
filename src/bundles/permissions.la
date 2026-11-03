@@ -1,7 +1,7 @@
 /**
  * Permissions (PRP-030), pure: what an app's manifest says it needs, by
  * name, and who may hold each. A built-in permission is only for an app
- * compiled into `./main`; an `Any` one is for every app (none yet). Fine
+ * compiled into `./main`; an `Any` one is for every app (`notifications`, PRP-065). Fine
  * grained: one per thing an app can reach (the owner, session 166).
  *
  * Depends on: nothing
@@ -20,6 +20,10 @@ enum Permission {
     RestoreSession,
     /** Changing Rapidkoi's settings: light or dark, contrast, text size (PRP-038). */
     ChangeSettings,
+    /** Sending you notifications (PRP-065): any app may declare it. */
+    Notify,
+    /** Reading, opening and dismissing your notifications (PRP-065). */
+    ReadNotifications,
 }
 
 /** Who may hold a permission. */
@@ -107,6 +111,8 @@ const ALL: Permission[] = [
     Permission.OpenApps,
     Permission.RestoreSession,
     Permission.ChangeSettings,
+    Permission.Notify,
+    Permission.ReadNotifications,
 ];
 
 /**
@@ -121,6 +127,8 @@ fun name_of(p: Permission): string = match p {
     OpenApps => "open_apps",
     RestoreSession => "restore_session",
     ChangeSettings => "change_settings",
+    Notify => "notifications",
+    ReadNotifications => "read_notifications",
 };
 
 /**
@@ -135,6 +143,8 @@ fun tier_of(p: Permission): Tier = match p {
     OpenApps => Tier.BuiltIn,
     RestoreSession => Tier.BuiltIn,
     ChangeSettings => Tier.BuiltIn,
+    Notify => Tier.Any,
+    ReadNotifications => Tier.BuiltIn,
 };
 
 /**
@@ -149,6 +159,8 @@ fun words_of(p: Permission): string = match p {
     OpenApps => "opening your apps",
     RestoreSession => "restoring your last session",
     ChangeSettings => "changing Rapidkoi's settings",
+    Notify => "sending you notifications",
+    ReadNotifications => "reading your notifications",
 };
 
 /**
@@ -163,6 +175,8 @@ fun label_of(p: Permission): string = match p {
     OpenApps => "Opening your apps",
     RestoreSession => "Restoring your last session",
     ChangeSettings => "Changing Rapidkoi's settings",
+    Notify => "Sending you notifications",
+    ReadNotifications => "Reading your notifications",
 };
 
 /**
@@ -177,6 +191,8 @@ fun wish_of(p: Permission): string = match p {
     OpenApps => "open your apps",
     RestoreSession => "restore your last session",
     ChangeSettings => "change Rapidkoi's settings",
+    Notify => "send you notifications",
+    ReadNotifications => "read your notifications",
 };
 
 /**

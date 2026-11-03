@@ -1,0 +1,106 @@
+// Notification asks (PRP-065), pure: `notify`, `withdraw` and the new tab's
+// three, read and held to their shapes; a bad one is the sentence that
+// stops the app. No guest, no display.
+import rapidkoi.guest.contract { read_update };
+import rapidkoi.guest.nodes { Effect, Update };
+import cbor { Value, encode };
+import support { t, kv };
+
+/** What one effect reads as: its effect, or the sentence that stops the app. */
+fun read_one(effect: (string, Value)[]): Result<Effect, string> {
+    let mut fields = [("msg", t("m"))];
+    for f of effect {
+        fields.push(f);
+    }
+    let bytes = encode(kv([("state", kv([])), ("effects", Value.Array([kv(fields)]))]));
+    match read_update(bytes) {
+        Ok(u) => Ok(u.effects[0]),
+        Err(Invalid(_, what)) => Err(what),
+        Err(e) => Err("{e}"),
+    }
+}
+
+fun notify(extra: (string, Value)[]): Result<Effect, string> {
+    let mut fields = [("kind", t("notify"))];
+    for e of extra {
+        fields.push(e);
+    }
+    read_one(fields)
+}
+
+@test
+fun a_notify_gives_its_sentence_place_and_key() {
+    assert_eq(
+        notify([
+            ("text", t("Your count reached 10")),
+            (
+                "fields",
+                kv([("count", Value.int(10)), ("label", t("ten")), ("on", Value.Bool(true))]),
+            ),
+            ("key", t("reached-10")),
+        ]),
+        Ok(
+            Effect.Notify(
+                t("m"),
+                "Your count reached 10",
+                [("count", "10"), ("label", "ten"), ("on", "true")],
+                Some("reached-10"),
+            ),
+        ),
+    );
+    // Its place and key are its own to leave out.
+    assert_eq(notify([("text", t("Hi"))]), Ok(Effect.Notify(t("m"), "Hi", [], None)));
+}
+
+@test
+fun a_bad_notify_stops_the_app_with_its_sentence() {
+    let text = "a notify needs a text of 1 to 200 characters";
+    assert_eq(notify([]), Err(text));
+    assert_eq(notify([("text", t("  "))]), Err(text));
+    assert_eq(notify([("text", Value.int(3))]), Err(text));
+    let mut long = "";
+    for _ of range(0, 201) {
+        long = long + "é";
+    }
+    assert_eq(notify([("text", t(long))]), Err(text));
+    // 200 characters, more bytes: still a sentence.
+    assert_eq(notify([("text", t(long.slice(0, 400)))]).is_ok(), true);
+    let key = "a notification's key is 1 to 64 of a-z, 0-9, _ and -";
+    assert_eq(notify([("text", t("Hi")), ("key", t("Big"))]), Err(key));
+    assert_eq(notify([("text", t("Hi")), ("key", t(""))]), Err(key));
+    assert_eq(notify([("text", t("Hi")), ("key", Value.int(1))]), Err(key));
+    assert_eq(
+        notify([("text", t("Hi")), ("fields", Value.Array([]))]),
+        Err("a notify's fields must map names to values"),
+    );
+    assert_eq(
+        notify([("text", t("Hi")), ("fields", kv([("items", Value.Array([]))]))]),
+        Err("a notify's fields: This app put a list in its address"),
+    );
+    assert_eq(
+        notify([("text", t("Hi")), ("fields", kv([("Bad name", Value.int(1))]))]).is_err(),
+        true,
+    );
+}
+
+@test
+fun withdraw_and_the_new_tab_s_asks_read() {
+    assert_eq(
+        read_one([("kind", t("withdraw")), ("key", t("k"))]),
+        Ok(Effect.Withdraw(t("m"), "k")),
+    );
+    assert_eq(read_one([("kind", t("withdraw"))]), Err("a withdraw needs a key"));
+    assert_eq(read_one([("kind", t("notifications"))]), Ok(Effect.Notifications(t("m"))));
+    assert_eq(
+        read_one([("kind", t("open_notification")), ("index", Value.int(2))]),
+        Ok(Effect.OpenNotification(t("m"), 2)),
+    );
+    assert_eq(
+        read_one([("kind", t("dismiss_notification")), ("index", Value.int(0))]),
+        Ok(Effect.DismissNotification(t("m"), 0)),
+    );
+    assert_eq(
+        read_one([("kind", t("open_notification")), ("index", Value.int(-1))]),
+        Err("an open_notification needs an index of 0 or more"),
+    );
+}

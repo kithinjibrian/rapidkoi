@@ -747,6 +747,21 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## RESOLVED
 
+### DECISION-093 — Notifications: one record for every kind, and the permission that gates apps
+
+**Status:** resolved (the owner, 2026-11-03: "yes for the three", then "approved, go ahead"; PRP-065)
+**Raised:** 2026-11-03, the owner: "there should be a permission for gating which apps can send notifications … a notification structure that should handle any kind of notification we will design now and in the future"
+
+**Question:** How does an app get to send notifications, and what does Rapidkoi keep, so invites, shares, updates and reminders fit later without a new shape?
+
+**Outcome (PRP-065):**
+- `notifications` is the first permission any app may declare (`Tier.Any`). Its first use asks the person, with the dialog every permission has; Blocked drops them and the app runs on. Reading them is the built-in `read_notifications`.
+- One record for every kind: its kind, its app (path and first key), a sentence, a place (an address), an app's key, when, and read. Only an app's own kind is built; invites, shares and updates, which only Rapidkoi makes, add a kind, a sender and a button with their own PRPs. An app gives a sentence, a place and a key, never a kind, a look, a name or an icon.
+- Apps send only while they run. Scheduled reminders, the bell, the dock dot, the See all page and desktop alerts are later PRPs.
+- Additions to contract 11, with no new version (as PRP-055 and PRP-062).
+
+---
+
 ### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
 
 **Status:** resolved (the owner, 2026-11-01: "yes for the two"; PRP-062)

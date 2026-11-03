@@ -2,11 +2,12 @@
  * What the new tab reads (PRP-030), pure: your pins, your recent places
  * (PRP-062) and your last session, as the `pins`, `recent` and `session`
  * answers, and what `open_pin` and `open_recent` open (`left_off` and
- * `continue` answer from the newest place until the next contract). Names, places (a host, or a file's name alone), icons
+ * `continue` answer from the newest place until the next contract), and
+ * your notifications (PRP-065). Names, places (a host, or a file's name alone), icons
  * and a screen title: never a path, state, keys or trust.
  *
- * Depends on: cbor, guest.limits, net.address, window.window, window.tabs, window.actions
- * Used by: guest.effects
+ * Depends on: cbor, guest.limits, net.address, window.window, window.tabs, window.actions, window.notifications
+ * Used by: guest.effects, guest.noticeanswers
  */
 import cbor { Value, Entry };
 import guest.limits { MAX_PLACES };
@@ -14,6 +15,7 @@ import data.remembered { Face };
 import net.address { is_address, parse, shown };
 import window.window { Model };
 import window.recent { Place };
+import window.notifications { kind_name };
 import ui.themes { publisher_colour };
 import window.tabs { Pin, AppPage, Tab };
 import window.actions { Msg };
@@ -86,21 +88,59 @@ fun recent_of(m: Model): Value {
             break;
         }
         let mut f = fields(p.name, p.path, p.title);
-        // A site's link keeps its fields: only a file's folders are hidden, and
-        // Rapidkoi's own apps have no address a person types.
-        let shown = if is_address(p.address) {
-            p.address
-        } else if p.address.starts_with("builtin:") {
-            ""
-        } else {
-            place_of(p.address)
-        };
-        f.push(entry("address", Value.Text(shown)));
+        f.push(entry("address", Value.Text(address_shown(p.address))));
         f.push(entry("seen", Value.int(p.seen)));
         f.push(entry("colors", Value.Map([entry("primary", Value.Text(primary_of(m, p)))])));
         out.push(Value.Map(f));
     }
     Value.Map([entry("places", Value.Array(out))])
+}
+
+/**
+ * An address as the new tab may show it: a site's link keeps its fields,
+ * only a file's folders are hidden, and Rapidkoi's own apps have no
+ * address a person types.
+ */
+fun address_shown(link: string): string = if is_address(link) {
+    link
+} else if link.starts_with("builtin:") {
+    ""
+} else {
+    place_of(link)
+};
+
+/**
+ * Returns the `notifications` answer (PRP-065): `{unread, items: [...]}`,
+ * unread first, then newest first, at most `MAX_PLACES`, each
+ * `{kind, name, place, icon, text, address, sent, read}`. The app's name
+ * and icon are Rapidkoi's, from the app that sent it.
+ *
+ * Example:
+ *     notifications_of(m)
+ */
+fun notifications_of(m: Model): Value {
+    let mut out: Value[] = [];
+    for x of notifications.listed(m.notifications) {
+        if out.len >= MAX_PLACES {
+            break;
+        }
+        let name = notifications.face_for(m.notifications, x).map(fun(f: Face) = f.name).unwrap_or(
+            place_of(x.path),
+        );
+        let mut f = [entry("kind", Value.Text(kind_name(x.kind)))];
+        for e of fields(name, x.path, None) {
+            f.push(e);
+        }
+        f.push(entry("text", Value.Text(x.text)));
+        f.push(entry("address", Value.Text(address_shown(x.address))));
+        f.push(entry("sent", Value.int(x.sent)));
+        f.push(entry("read", Value.Bool(x.read)));
+        out.push(Value.Map(f));
+    }
+    Value.Map([
+        entry("unread", Value.int(notifications.unread(m.notifications))),
+        entry("items", Value.Array(out)),
+    ])
 }
 
 /**

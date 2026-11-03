@@ -8,6 +8,9 @@ Never deleted. Older entries are never modified.
 
 ## [Unreleased]
 
+### Added
+- Notifications (PRP-065, DECISION-093): an app that declares `notifications` can send you one while it runs: a sentence and a place in it, with a key that replaces or withdraws it. The first time, Rapidkoi asks (Don't allow, Allow once, Always allow); Blocked in ⚙ drops them and the app runs on. Rapidkoi keeps them in a `notifications` file (20 per app, 200 in all, at most 10 a minute from one app), with each app's name and icon; Forget removes an app's. The new tab's Notifications is real: only while something is unread, its count in the accent, then the newest four, unread first; a row opens its place and marks it read, × removes it. Contract 11 additions: `notify`, `withdraw`, and the new tab's `notifications`, `open_notification` and `dismiss_notification` (built-in `read_notifications`). The counter example has "Notify me".
+
 ### Fixed
 - A recent place recorded before the first tick showed "1 Jan 1970": Rapidkoi reads the clock at launch, and the new tab leaves out a time it doesn't know (0) and an empty address; Rapidkoi's own apps answer with no address (`builtin:settings` was shown).
 

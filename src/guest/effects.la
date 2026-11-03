@@ -9,7 +9,7 @@
  * declare is stopped. Each answer goes back through the app's `update`,
  * which may ask again, up to `MAX_ANSWERS` in a row.
  *
- * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, bundles.permissions, ui.render, net.requests, guest.storing, window.actions
+ * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, bundles.permissions, ui.render, net.requests, guest.storing, guest.noticeanswers, window.actions
  * Used by: shell
  */
 import people.identity { Master, master, public_key, sign_in };
@@ -26,6 +26,7 @@ import std.time;
 import kivuli { Cmd };
 import window.actions { Msg, Approval, Answer };
 import net.requests;
+import guest.noticeanswers { answer_notice };
 import guest.storing;
 import ui.render;
 import window.recent { no_recent };
@@ -118,6 +119,11 @@ fun needed(ask: Effect): Option<Permission> = match ask {
     Session(_) => Some(Permission.RestoreSession),
     RestoreSession(_) => Some(Permission.RestoreSession),
     SetPreference(_, _, _) => Some(Permission.ChangeSettings),
+    // A withdraw needs none: an app holds only its own notifications (PRP-065).
+    Notify(_, _, _, _) => Some(Permission.Notify),
+    Notifications(_) | OpenNotification(_, _) | DismissNotification(_, _) => Some(
+        Permission.ReadNotifications,
+    ),
     _ => None,
 };
 
@@ -228,6 +234,12 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
         // Its own data and the person's files (PRP-041, PRP-054, PRP-056): `storing`'s.
         Sql(msg, _) | SqlBatch(msg, _) | BlobGet(msg, _) | BlobList(msg, _) | FileOpen(msg, _) | FileSave(msg, _, _) | FileSaveAs(msg, _) => {
             let (held, now, send) = storing.ask(m, tab_of(slot), ask);
+            sends.push(send);
+            (held, now, msg)
+        }
+        // Notifications (PRP-065): `noticeanswers`'.
+        Notify(msg, _, _, _) | Withdraw(msg, _) | Notifications(msg) | OpenNotification(msg, _) | DismissNotification(msg, _) => {
+            let (held, now, send) = answer_notice(m, p, ask, grant);
             sends.push(send);
             (held, now, msg)
         }
@@ -347,7 +359,9 @@ fun tell_changes(before: Model, after: Model): Model {
         Permission.ReadLeftOff,
     ) && recent_of(before) != recent_of(after) || reads(Permission.RestoreSession) && session_of(
         before,
-    ) != session_of(after) || mine(before) != mine(after);
+    ) != session_of(after) || mine(before) != mine(after) || reads(
+        Permission.ReadNotifications,
+    ) && before.notifications.items != after.notifications.items;
     if moved { put(after, slot, changed) } else { after }
 }
 

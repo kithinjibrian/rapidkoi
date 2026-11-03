@@ -10,7 +10,9 @@ import rapidkoi.guest.home {
     session_of,
     recent_of,
     recent_msg,
+    notifications_of,
 };
+import rapidkoi.window.notifications { Notification, Kind, no_notifications, add };
 import rapidkoi.data.remembered { Open, OpenTab, Face };
 import rapidkoi.window.recent { Place, Recent };
 import rapidkoi.ui.themes { publisher_colour };
@@ -303,4 +305,46 @@ fun a_built_in_app_s_place_shows_no_address() {
         _ => None,
     };
     assert_eq(address, Some(t("")));
+}
+
+@test
+fun a_notification_is_answered_with_its_app_s_name_and_icon_never_its_path() {
+    // PRP-065: Rapidkoi's name and icon for the app that sent it.
+    let note = Notification {
+        id: 0,
+        kind: Kind.App,
+        path: "/home/me/apps/counter.rkb",
+        origin: None,
+        text: "Your count reached 10",
+        address: "/home/me/apps/counter.rkb",
+        key: None,
+        sent: 7,
+        read: false,
+    };
+    let face = Face { path: note.path, name: "Counter", icon: None, colour: None };
+    let m = Model {
+        notifications: add(no_notifications(), note, face, 7),
+        ..with_pages(Engine.new(), []),
+    };
+    assert_eq(
+        notifications_of(m),
+        kv([
+            ("unread", Value.int(1)),
+            (
+                "items",
+                Value.Array([
+                    kv([
+                        ("kind", t("app")),
+                        ("name", t("Counter")),
+                        ("place", t("counter.rkb")),
+                        ("icon", t("icon:counter.rkb")),
+                        ("text", t("Your count reached 10")),
+                        ("address", t("counter.rkb")),
+                        ("sent", Value.int(7)),
+                        ("read", Value.Bool(false)),
+                    ]),
+                ]),
+            ),
+        ]),
+    );
 }

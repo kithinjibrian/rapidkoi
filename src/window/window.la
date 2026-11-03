@@ -1,7 +1,7 @@
 /**
  * The window's state and the changes that open nothing: tabs (apps only;
  * home isn't a tab), the current one or home, the address box's text,
- * pins, your recent places (PRP-062) and the theme. Opening files and addresses is
+ * pins, your recent places (PRP-062), your notifications (PRP-065) and the theme. Opening files and addresses is
  * `navigate.la`. Never draws.
  *
  * Depends on: wasmtime, cbor, trust.verify, data.store, net.fetching, people.people, people.identity, guest.nodes, window.handles, window.actions, window.tabs, ui.suggestions, ui.frame, ui.themes
@@ -17,6 +17,7 @@ import net.address { parse };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm, Approval };
 import window.tabs { Page, Tab, Pin, AppPage, state_of, close_page };
 import window.recent { Recent, no_recent, remember };
+import window.notifications { Notifications, no_notifications };
 import data.remembered { Open };
 import guest.nodes { BatchStep };
 import window.handles { Files, no_files };
@@ -87,6 +88,8 @@ struct Model {
     last: Option<i64>,
     /** Your recent places, newest first (PRP-062): what replaced "where you left off". */
     recent: Recent,
+    /** What apps told you (PRP-065), newest first. */
+    notifications: Notifications,
     /** Rapidkoi's own notice (PRP-051): about its files, your identity, its data folder; it follows you. */
     notice: Option<Notice>,
     /** Each tab's notice, about its app (PRP-051): shown while that tab is in front. */
@@ -157,6 +160,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         pinned: [],
         last: None,
         recent: no_recent(),
+        notifications: no_notifications(),
         notice: None,
         tab_notices: [],
         theme: DARK,

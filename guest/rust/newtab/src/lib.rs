@@ -4,8 +4,8 @@
 //! your last session each time the tab is shown and shows its apps' icons
 //! (PRP-060: `icon:PLACE`, drawn by Rapidkoi); Pinned, your pins, each
 //! opening its app (PRP-061); and Recent, your recent places, each opening a
-//! fresh window there (PRP-062). Still placeholders, doing nothing:
-//! notifications.
+//! fresh window there (PRP-062); and Notifications, what apps told you,
+//! while something is unread (PRP-065, `notices.rs`).
 //!
 //! Drawn with contract 10's looks (PRP-059): gradients for the washes, the
 //! page's glow and Rapidkoi's mark; layers for a face or an icon with
@@ -13,7 +13,7 @@
 //! the two-column sections, which fall to one column on a narrow window;
 //! a fitting row for Pinned. What stays a picture in `assets/` (packed by
 //! `scripts/newtab.sh`): the wordmark (GTK can't fill text with a
-//! gradient), and the notifications' placeholder icons.
+//! gradient).
 
 use minicbor::{Decode, Encode};
 use rapidkoi::raw::boxed;
@@ -22,15 +22,16 @@ use rapidkoi::style::{
     TextSize, Weight, When,
 };
 use rapidkoi::{
-    column, fit, image, layers, row, spacer, text, text_of, wrap, App, Ask, Event, Message, Next, Recent, Session,
-    Space, State, View,
+    column, fit, image, layers, row, spacer, text, text_of, wrap, App, Ask, Event, Message, Next, Notifications,
+    Recent, Session, Space, State, View,
 };
 
-/// Every picture the screen shows, each packed from `assets/` under its name.
-const ASSETS: [&str; 4] = ["wordmark.svg", "notes.svg", "trip.svg", "board.svg"];
+mod notices;
+use notices::Alert;
 
-/// The card colour behind a badge's ring, so the ring reads as a gap.
-const CARD: (u8, u8, u8) = (0x1e, 0x1e, 0x1e);
+/// Every picture the screen shows, each packed from `assets/` under its name.
+const ASSETS: [&str; 1] = ["wordmark.svg"];
+
 /// The Restore pill's colour behind its icons' rings.
 const PILL: (u8, u8, u8) = (0x23, 0x23, 0x23);
 
@@ -43,6 +44,10 @@ enum Msg {
     OpenPin(u32),
     /// Open your recent place at this index (PRP-062).
     OpenRecent(u32),
+    /// Open your notification at this index, as they were listed (PRP-065).
+    OpenNotice(u32),
+    /// Remove your notification at this index.
+    DismissNotice(u32),
 }
 
 /// One of your pins as the new tab shows it: its name and its icon's source (`icon:PLACE`).
@@ -64,6 +69,10 @@ struct NewTab {
     pins: Vec<Pin>,
     /// Your recent places, newest first, as last read (PRP-062).
     recent: Vec<Spot>,
+    /// Your notifications, unread first, as last read (PRP-065).
+    notices: Vec<Alert>,
+    /// How many of them are unread.
+    unread: u32,
 }
 
 /// One of your recent places as the new tab shows it.
@@ -94,7 +103,8 @@ impl App for NewTab {
 
     fn view(&self) -> V {
         // The page fills the window's width (the owner's choice over the design's cap).
-        let mut sections = vec![top(&self.restore), notifications()];
+        let mut sections = vec![top(&self.restore)];
+        sections.extend(notices::section(self.unread, &self.notices));
         sections.extend(recent(&self.recent));
         sections.extend(pinned(&self.pins));
         let page =
@@ -126,7 +136,8 @@ impl NewTab {
         match event {
             // Each time it's shown, or told something changed: the session and your pins may have.
             Event::Opened | Event::Resume | Event::Change { .. } => {
-                (self, vec![Ask::session("session"), Ask::pins("pins"), Ask::recent("recent")])
+                let asks = vec![Ask::session("session"), Ask::pins("pins"), Ask::recent("recent")];
+                (self, [asks, vec![Ask::notifications("notifications")]].concat())
             }
             Event::Data { msg, cbor } if msg == "pins" => {
                 let pins = rapidkoi::Place::list(&cbor).unwrap_or_default();
@@ -159,6 +170,13 @@ impl NewTab {
                 (NewTab { recent: spots, ..self }, vec![])
             }
             Event::Message { msg: Msg::OpenRecent(i), .. } => (self, vec![Ask::open_recent("open", i)]),
+            Event::Data { msg, cbor } if msg == "notifications" => {
+                let read = Notifications::read(&cbor).unwrap_or_default();
+                let notices = read.items.into_iter().map(Alert::from).collect();
+                (NewTab { notices, unread: read.unread, ..self }, vec![])
+            }
+            Event::Message { msg: Msg::OpenNotice(i), .. } => (self, vec![Ask::open_notification("open", i)]),
+            Event::Message { msg: Msg::DismissNotice(i), .. } => (self, vec![Ask::dismiss_notification("dismiss", i)]),
             _ => (self, vec![]),
         }
     }
@@ -228,52 +246,6 @@ fn card(round: u16, hover_edge: bool) -> Vec<Style> {
     ]
 }
 
-/// A word centred in a round box of `size` pixels: an initial, a mark.
-fn disc(word: &str, size: u16, fill: Vec<Style>, ink: Color, words: TextSize, ring: Option<Color>) -> V {
-    let mut look =
-        vec![Sizing::width(size), Sizing::height(size), Border::corner(Corner::Round), Layout::align(Align::Center)];
-    if let Some(c) = ring {
-        look.push(Border::all(2, c));
-    }
-    look.extend(fill);
-    column([
-        spacer(),
-        text(word).style([
-            Text::color(ink),
-            Font::size(words),
-            Font::weight(Weight::Bold),
-            Layout::align(Align::Center),
-        ]),
-        spacer(),
-    ])
-    .style(look)
-}
-
-/// An app's icon with a ring of the colour behind it, so neighbours or a base show a gap.
-fn ringed(icon: &str, size: u16, behind: Color) -> V {
-    picture(icon, size, size).style([Border::all(2, behind), Border::corner(Corner::Px(size * 2 / 7))])
-}
-
-/// Something 44 pixels square with a small thing on its bottom-end corner.
-fn cornered(base: V, badge: V) -> V {
-    // The base sits at the top-start of a 44-pixel square, so the badge overhangs it as drawn.
-    let square = column([base]).style([Sizing::width(44), Sizing::height(44)]);
-    layers([square, badge.style([Layout::place(Place::BottomEnd)])])
-}
-
-/// A person's face (their initials on their colour) with their app on its corner.
-fn face(initials: &str, colour: (u8, u8, u8), app: &str) -> V {
-    let circle =
-        disc(initials, 40, vec![Background::color(rgb(colour))], Color::rgb(255, 255, 255), TextSize::Small, None);
-    cornered(circle.style([Layout::align(Align::Start)]), ringed(app, 18, rgb(CARD)))
-}
-
-/// Rapidkoi's mark: an "R" on the brand's gradient.
-fn mark(size: u16) -> V {
-    let brand = Background::linear(135, [(Color::rgb(0xff, 0x77, 0x00), 0.0), (Color::rgb(0xff, 0x2e, 0x63), 1.0)]);
-    disc("R", size, vec![brand], Color::rgb(0x16, 0x16, 0x16), TextSize::Rem(0.6), Some(rgb(CARD)))
-}
-
 /// The wordmark, and, while there's a session to restore, Restore with the apps it brings back.
 fn top(restore: &Option<Vec<String>>) -> V {
     let wordmark = picture("wordmark.svg", 176, 44).label("Rapidkoi");
@@ -319,69 +291,9 @@ fn top(restore: &Option<Vec<String>>) -> V {
     row([wordmark, spacer(), pill_row])
 }
 
-/// One notification: who or what it's from, its words (each bold or not), and its button if it has one.
-fn notice(from: V, words: &[(&str, bool)], detail: &str, button: Option<(&str, bool)>) -> V {
-    let line = row(words.iter().map(|(w, bold)| {
-        let t = text(w);
-        if *bold {
-            t.style([Font::weight(Weight::Bold)])
-        } else {
-            t
-        }
-    }));
-    let mut parts = vec![
-        from.style([Layout::align(Align::Center)]),
-        column([line, note(detail)]).style([Spacing::gap(Space::Px(3)), Layout::grow(), Layout::align(Align::Center)]),
-    ];
-    if let Some((word, first)) = button {
-        parts.push(pill(word, first));
-    }
-    row(parts).style(
-        [vec![Spacing::gap(Space::Px(14)), Spacing::padding_xy(Space::Px(12), Space::Px(14))], card(14, false)]
-            .concat(),
-    )
-}
-
 /// Two equal columns that fall to one on a narrow window.
 fn halves(children: impl IntoIterator<Item = V>) -> V {
     wrap(children).style([Layout::equal(), Layout::per_line(2), Spacing::gap(Space::Px(16))])
-}
-
-/// Notifications: the count, See all, then the newest four, two by two.
-fn notifications() -> V {
-    let count = boxed()
-        .style([
-            Background::color(Color::system("accent")),
-            Border::corner(Corner::Round),
-            Spacing::padding_xy(Space::None, Space::Px(7)),
-        ])
-        .children([text("4").style([
-            Text::color(Color::system("on_accent")),
-            Font::size(TextSize::Small),
-            Font::weight(Weight::Bold),
-        ])]);
-    let head = row([heading("NOTIFICATIONS").style([Layout::align(Align::Center)]), count, spacer(), note("See all")])
-        .style([Spacing::gap(Space::Sm)]);
-    let invite = notice(
-        face("AO", (0xb4, 0x53, 0x09), "board.svg"),
-        &[("Amina invited you to ", false), ("Sprint 3", true)],
-        "Board · live now",
-        Some(("Join", true)),
-    );
-    let shared = notice(
-        face("WK", (0x0e, 0x74, 0x90), "trip.svg"),
-        &[("Wanjiku shared ", false), ("Mombasa, 12–15 Nov", true)],
-        "Trip · 20 min ago",
-        Some(("Open", false)),
-    );
-    let update = notice(
-        cornered(picture("notes.svg", 40, 40).style([Layout::align(Align::Start)]), mark(18)),
-        &[("Notes 2.5", true), (" is ready", false)],
-        "notes.dafifi.net · 1 h ago",
-        Some(("Update", false)),
-    );
-    let own = notice(picture("notes.svg", 40, 40), &[("“Shopping list” is due today", false)], "Notes · 2 h ago", None);
-    column([head, halves([invite, shared, update, own])]).style([Spacing::gap(Space::Px(12))])
 }
 
 /// A card's picture area until apps give one (a later PRP): the app's icon
