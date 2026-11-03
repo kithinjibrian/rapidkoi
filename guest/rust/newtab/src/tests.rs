@@ -35,27 +35,14 @@ fn session(count: u32, places: &[&str]) -> Vec<u8> {
     e.into_writer()
 }
 
-/// A pins answer: each `{name, place, icon}`.
-fn pins(names: &[(&str, &str)]) -> Vec<u8> {
-    let mut e = Encoder::new(Vec::new());
-    e.array(names.len() as u64).unwrap();
-    for (name, place) in names {
-        e.map(3).unwrap();
-        e.str("name").unwrap().str(name).unwrap();
-        e.str("place").unwrap().str(place).unwrap();
-        e.str("icon").unwrap().str(&format!("icon:{place}")).unwrap();
-    }
-    e.into_writer()
-}
-
 #[test]
-fn it_asks_for_the_session_your_pins_places_and_notifications_each_time_it_s_shown_or_told_they_changed() {
+fn it_asks_for_the_session_places_and_notifications_each_time_it_s_shown_or_told_they_changed() {
+    // No pins (PRP-067): the dock has them, and All apps every app.
     for e in [Event::Opened, Event::Resume, Event::Change { tables: vec![] }] {
         assert_eq!(
             NewTab::default().step(e).1,
             vec![
                 Ask::session("session"),
-                Ask::pins("pins"),
                 Ask::recent("recent"),
                 Ask::notifications("notifications")
             ]
@@ -102,30 +89,6 @@ fn your_places_become_recent_and_a_card_opens_its_place() {
 #[test]
 fn with_no_places_there_s_no_recent() {
     assert!(recent(&[]).is_none());
-}
-
-#[test]
-fn your_pins_become_the_tiles_and_a_tile_opens_its_pin() {
-    let data =
-        Event::Data { msg: "pins".into(), cbor: pins(&[("Quote", "quote.dafifi.net"), ("Counter", "counter.rkb")]) };
-    let (t, asks) = NewTab::default().step(data);
-    assert!(asks.is_empty());
-    assert_eq!(
-        t.pins,
-        vec![
-            Pin { name: "Quote".into(), icon: "icon:quote.dafifi.net".into() },
-            Pin { name: "Counter".into(), icon: "icon:counter.rkb".into() },
-        ]
-    );
-    let _ = t.view();
-    let pressed = Event::Message { msg: Msg::OpenPin(1), value: None };
-    assert_eq!(t.step(pressed).1, vec![Ask::open_pin("open", 1)]);
-}
-
-#[test]
-fn with_no_pins_there_s_no_pinned_section() {
-    assert!(pinned(&[]).is_none());
-    assert!(pinned(&[Pin { name: "Quote".into(), icon: "icon:quote.dafifi.net".into() }]).is_some());
 }
 
 #[test]

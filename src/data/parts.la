@@ -93,3 +93,12 @@ const RECENT: Part = Part {
     it: "them",
     after: "",
 };
+
+const APPS: Part = Part {
+    file: "apps",
+    noun: "your apps",
+    title: "Your apps",
+    verb: "were",
+    it: "them",
+    after: "",
+};

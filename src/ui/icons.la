@@ -44,6 +44,10 @@ enum Icon {
     Bell,
     /** `x.svg`: closing or dismissing something (the owner, 2026-11-03). */
     Close,
+    /** `layout-grid-circles.svg`: All apps, at the dock's end (PRP-067). */
+    Apps,
+    /** `pin.svg`: on the dock (PRP-067: the address bar's, and All apps' mark, in place of ☆). */
+    Pin,
 }
 
 /** Every icon, for tests and for listing. */
@@ -64,6 +68,8 @@ const ALL: Icon[] = [
     Icon.BrokenPicture,
     Icon.Bell,
     Icon.Close,
+    Icon.Apps,
+    Icon.Pin,
 ];
 
 /**
@@ -90,6 +96,8 @@ fun file(i: Icon): string = match i {
     BrokenPicture => "gallery-slash.svg",
     Bell => "notification.svg",
     Close => "x.svg",
+    Apps => "layout-grid-circles.svg",
+    Pin => "pin.svg",
 };
 
 /**
@@ -116,6 +124,8 @@ fun svg(i: Icon): string = match i {
     BrokenPicture => include_str("../../assets/icons/gallery-slash.svg"),
     Bell => include_str("../../assets/icons/notification.svg"),
     Close => include_str("../../assets/icons/x.svg"),
+    Apps => include_str("../../assets/icons/layout-grid-circles.svg"),
+    Pin => include_str("../../assets/icons/pin.svg"),
 };
 
 /**

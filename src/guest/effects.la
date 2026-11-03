@@ -9,7 +9,7 @@
  * declare is stopped. Each answer goes back through the app's `update`,
  * which may ask again, up to `MAX_ANSWERS` in a row.
  *
- * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, bundles.permissions, ui.render, net.requests, guest.storing, guest.noticeanswers, window.actions
+ * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, guest.needs, bundles.permissions, ui.render, net.requests, guest.storing, guest.noticeanswers, guest.appanswers, window.actions
  * Used by: shell
  */
 import people.identity { Master, master, public_key, sign_in };
@@ -27,6 +27,8 @@ import kivuli { Cmd };
 import window.actions { Msg, Approval, Answer };
 import net.requests;
 import guest.noticeanswers { answer_notice };
+import guest.appanswers { answer_app, apps_of };
+import guest.needs { holds, needed };
 import guest.storing;
 import ui.render;
 import window.recent { no_recent };
@@ -74,8 +76,13 @@ fun answer_all(m: Model): (Model, Cmd<Msg>) {
     for slot of slots {
         let (next, cmds) = answer_slot(at, slot);
         at = next;
+        // Only what does something: an answer with nothing to send (a
+        // notification's, an app list's) isn't a command to batch.
         for c of cmds {
-            sends.push(c);
+            match c {
+                Nothing => {}
+                _ => sends.push(c),
+            }
         }
     }
     (at, if sends.len == 0 { Cmd.none() } else { Cmd.batch(sends) })
@@ -101,30 +108,6 @@ fun put(m: Model, slot: Slot, f: fun(AppPage): AppPage): Model = match slot {
 fun tab_of(slot: Slot): Option<i64> = match slot {
     InTab(id) => Some(id),
     NewTab => None,
-};
-
-/** Whether a page's manifest declares `p`: the loader let it through only if it may hold it. */
-fun holds(page: AppPage, p: Permission): bool = page.manifest.map(
-    fun(m: Manifest) = m.permissions.any(fun(n: string) = n == name_of(p)),
-).unwrap_or(false);
-
-/** The permission an ask needs, if any. */
-fun needed(ask: Effect): Option<Permission> = match ask {
-    Pins(_) => Some(Permission.ReadPins),
-    LeftOff(_) => Some(Permission.ReadLeftOff),
-    Recent(_) => Some(Permission.ReadLeftOff),
-    OpenRecent(_, _) => Some(Permission.OpenApps),
-    OpenPin(_, _) => Some(Permission.OpenApps),
-    Continue(_) => Some(Permission.OpenApps),
-    Session(_) => Some(Permission.RestoreSession),
-    RestoreSession(_) => Some(Permission.RestoreSession),
-    SetPreference(_, _, _) => Some(Permission.ChangeSettings),
-    // A withdraw needs none: an app holds only its own notifications (PRP-065).
-    Notify(_, _, _, _) => Some(Permission.Notify),
-    Notifications(_) | OpenNotification(_, _) | DismissNotification(_, _) => Some(
-        Permission.ReadNotifications,
-    ),
-    _ => None,
 };
 
 /** A page stopped with `why`, its asks dropped. */
@@ -199,8 +182,13 @@ fun answer_slot(m: Model, slot: Slot): (Model, Cmd<Msg>[]) {
         }
         let (next, cmds) = answer_head(at, slot, p, grant);
         at = next;
+        // Only what does something: an answer with nothing to send (a
+        // notification's, an app list's) isn't a command to batch.
         for c of cmds {
-            sends.push(c);
+            match c {
+                Nothing => {}
+                _ => sends.push(c),
+            }
         }
         answered += 1;
     }
@@ -240,6 +228,12 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
         // Notifications (PRP-065): `noticeanswers`'.
         Notify(msg, _, _, _) | Withdraw(msg, _) | Notifications(msg) | OpenNotification(msg, _) | DismissNotification(msg, _) => {
             let (held, now, send) = answer_notice(m, p, ask, grant);
+            sends.push(send);
+            (held, now, msg)
+        }
+        // All apps (PRP-067): `appanswers`'.
+        Apps(msg) | OpenApp(msg, _) | PinApp(msg, _) | UnpinApp(msg, _) | AppPermissions(msg, _) | ForgetApp(msg, _) => {
+            let (held, now, send) = answer_app(m, p, ask, grant);
             sends.push(send);
             (held, now, msg)
         }
@@ -361,7 +355,9 @@ fun tell_changes(before: Model, after: Model): Model {
         before,
     ) != session_of(after) || mine(before) != mine(after) || reads(
         Permission.ReadNotifications,
-    ) && before.notifications.items != after.notifications.items;
+    ) && before.notifications.items != after.notifications.items || reads(
+        Permission.ReadApps,
+    ) && apps_of(before) != apps_of(after);
     if moved { put(after, slot, changed) } else { after }
 }
 

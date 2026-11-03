@@ -24,6 +24,10 @@ enum Permission {
     Notify,
     /** Reading, opening and dismissing your notifications (PRP-065). */
     ReadNotifications,
+    /** Your apps (PRP-067): every app you have opened, its name, icon, address and publisher. */
+    ReadApps,
+    /** Pinning an app to the dock, or unpinning it (PRP-067). */
+    ManagePins,
 }
 
 /** Who may hold a permission. */
@@ -113,6 +117,8 @@ const ALL: Permission[] = [
     Permission.ChangeSettings,
     Permission.Notify,
     Permission.ReadNotifications,
+    Permission.ReadApps,
+    Permission.ManagePins,
 ];
 
 /**
@@ -129,6 +135,8 @@ fun name_of(p: Permission): string = match p {
     ChangeSettings => "change_settings",
     Notify => "notifications",
     ReadNotifications => "read_notifications",
+    ReadApps => "read_apps",
+    ManagePins => "manage_pins",
 };
 
 /**
@@ -145,6 +153,8 @@ fun tier_of(p: Permission): Tier = match p {
     ChangeSettings => Tier.BuiltIn,
     Notify => Tier.Any,
     ReadNotifications => Tier.BuiltIn,
+    ReadApps => Tier.BuiltIn,
+    ManagePins => Tier.BuiltIn,
 };
 
 /**
@@ -161,6 +171,8 @@ fun words_of(p: Permission): string = match p {
     ChangeSettings => "changing Rapidkoi's settings",
     Notify => "sending you notifications",
     ReadNotifications => "reading your notifications",
+    ReadApps => "reading your apps",
+    ManagePins => "changing your pins",
 };
 
 /**
@@ -177,6 +189,8 @@ fun label_of(p: Permission): string = match p {
     ChangeSettings => "Changing Rapidkoi's settings",
     Notify => "Sending you notifications",
     ReadNotifications => "Reading your notifications",
+    ReadApps => "Reading your apps",
+    ManagePins => "Changing your pins",
 };
 
 /**
@@ -193,6 +207,8 @@ fun wish_of(p: Permission): string = match p {
     ChangeSettings => "change Rapidkoi's settings",
     Notify => "send you notifications",
     ReadNotifications => "read your notifications",
+    ReadApps => "read your apps",
+    ManagePins => "change your pins",
 };
 
 /**

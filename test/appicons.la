@@ -7,6 +7,7 @@ import rapidkoi.ui.schemes { DARK };
 import rapidkoi.data.remembered { Open, Face };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.tabs { AppPage, Pin, open_module };
+import rapidkoi.window.yourapps { App, Apps };
 import wasmtime { Engine, Module };
 import support { echo };
 
@@ -71,4 +72,30 @@ fun the_initial_is_drawn_safely_on_a_theme_colour() {
     // The colour is one of the theme's publisher colours, as the dock's.
     let one = string_from_utf8(fallback_svg("Notes", DARK)).unwrap();
     assert(DARK.publishers.any(fun(c: string) = one.contains("fill=\"{c}\"")));
+}
+
+@test
+fun an_app_you_opened_long_ago_keeps_its_icon() {
+    // PRP-067: in none of your pins, windows or places, but one of your apps.
+    let m = Model {
+        apps: Apps {
+            items: [
+                App {
+                    path: "rapidkoi://board.example",
+                    origin: None,
+                    host: None,
+                    face: Face {
+                        path: "rapidkoi://board.example",
+                        name: "Board",
+                        icon: Some([9]),
+                        colour: None,
+                    },
+                    first: 1,
+                    last: 1,
+                },
+            ],
+        },
+        ..with_pages(Engine.new(), []),
+    };
+    assert_eq(icon_for(m, "board.example"), [9]);
 }

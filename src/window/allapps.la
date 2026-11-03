@@ -1,0 +1,35 @@
+/**
+ * Rapidkoi's All apps (PRP-067): a built-in app, a bundle built into
+ * `./main` from `assets/apps/allapps.rkb` (`scripts/allapps.sh` packs it),
+ * as Settings is. It alone holds `read_apps` and `manage_pins`. Unsigned:
+ * it's trusted because it's part of Rapidkoi. Still a guest, under every
+ * limit.
+ *
+ * Depends on: wasmtime, bundles.loader, trust.verify, window.tabs
+ * Used by: window.navigate
+ */
+import wasmtime { Engine };
+import bundles.loader { Origin, Refusal, from_bytes };
+import trust.verify { keyring };
+import window.tabs { AppPage, from_loaded };
+
+/** All apps' path and settings key: no host or file, so a name of its own. */
+const ALL_APPS_KEY: string = "builtin:allapps";
+
+/** All apps' bundle, as built into the program. */
+const BUNDLE: u8[] = include_bytes("../../assets/apps/allapps.rkb");
+
+/**
+ * Starts All apps.
+ *
+ * @param engine the engine to compile it with
+ * @returns its page, running; or why it couldn't start
+ *
+ * Example:
+ *     allapps.open(engine)
+ */
+fun open(engine: Engine): Result<AppPage, Refusal> {
+    // Built in: the only bytes that may hold built-in permissions (PRP-030).
+    let l = from_bytes(engine, keyring(), "allapps.rkb", BUNDLE, Origin.BuiltIn)?;
+    Ok(from_loaded(engine, l, ALL_APPS_KEY, []))
+}

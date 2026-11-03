@@ -231,3 +231,6 @@ fun identity_trouble(e: IdentityError): Notice = Notice {
 
 /** Settings couldn't open. */
 fun settings_failed(why: string): Notice = Notice { short: "Settings couldn't open", full: why };
+
+/** All apps couldn't open (PRP-067). */
+fun all_apps_failed(why: string): Notice = Notice { short: "All apps couldn't open", full: why };

@@ -1,12 +1,12 @@
 /**
  * Remembering across restarts: `restore` reads trust, pins, your recent
- * places (PRP-062) and your notifications (PRP-065) into a new window's model; `persist` records the places a
+ * places (PRP-062), your notifications (PRP-065) and your apps (PRP-067) into a new window's model; `persist` records the places a
  * message moved you through and saves whichever of them a
  * message changed, right away (PRP-007). Broken files are set aside and a
  * newer Rapidkoi's are left alone, each with a notice; a failed save is a
  * notice too, never a crash.
  *
- * Depends on: std.env, std.time, data.store, data.states, people.people, people.identity, data.remembered, data.recentfile, data.notificationsfile, data.parts, trust.verify, window.window, window.remembering
+ * Depends on: std.env, std.time, data.store, data.states, people.people, people.identity, data.remembered, data.recentfile, data.notificationsfile, data.yourappsfile, data.parts, window.yourapps, trust.verify, window.window, window.remembering
  * Used by: shell
  */
 import data.preferences { MAX_PREFS_FILE, read_prefs, prefs_file };
@@ -44,7 +44,9 @@ import data.remembered {
 import data.pinfiles { MAX_PINS_FILE, read_pins, pins_file };
 import data.recentfile { MAX_RECENT_FILE, read_recent, recent_file, with_left_off };
 import data.notificationsfile { MAX_NOTIFICATIONS_FILE, read_notifications, notifications_file };
-import data.parts { Part, TRUST, PINS, STATE, PEOPLE, OPEN, PREFS, RECENT, NOTIFICATIONS };
+import data.parts { Part, TRUST, PINS, STATE, PEOPLE, OPEN, PREFS, RECENT, NOTIFICATIONS, APPS };
+import data.yourappsfile { MAX_APPS_FILE, read_apps, apps_file };
+import window.yourapps { seeded };
 import window.recent { no_recent };
 import window.notifications { no_notifications };
 import window.remembering { noted };
@@ -124,6 +126,10 @@ fun restore(m: Model, s: Store): Model {
         notes,
         held,
     ).unwrap_or(no_notifications());
+    // Your apps (PRP-067): with no file, or one set aside, from Recent and your pins.
+    let yours = settle(recall(s, APPS.file, MAX_APPS_FILE, read_apps), APPS, notes, held).unwrap_or(
+        seeded(kept, pins),
+    );
     let said = notes.get();
     Model {
         prefs: prefs,
@@ -132,6 +138,7 @@ fun restore(m: Model, s: Store): Model {
         pinned: pins,
         recent: kept,
         notifications: told,
+        apps: yours,
         people: known,
         // Read now if it exists (never made here), so the Account page can
         // name you though no app has asked yet this run.
@@ -260,6 +267,12 @@ fun persist(before: Model, given: Model, at: Mark): Model {
     if after.notifications.items != before.notifications.items {
         let bytes = notifications_file(after.notifications);
         if let Some(e) = problem(save(s, NOTIFICATIONS.file, bytes), NOTIFICATIONS) {
+            failed.push(e);
+        }
+    }
+    // Your apps (PRP-067).
+    if after.apps != before.apps {
+        if let Some(e) = problem(save(s, APPS.file, apps_file(after.apps)), APPS) {
             failed.push(e);
         }
     }

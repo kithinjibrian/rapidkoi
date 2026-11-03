@@ -31,6 +31,7 @@ import window.notices {
     no_such,
     started_over,
     settings_failed,
+    all_apps_failed,
 };
 import window.choosing { asks_which };
 import window.instances { next_instance, next_instance_of, another };
@@ -57,6 +58,7 @@ import window.window {
 };
 import net.address { is_address, parse, without_link };
 import window.settings_app;
+import window.allapps;
 import bundles.loader { why };
 
 /**
@@ -389,7 +391,24 @@ fun open_settings(m: Model): Model {
     }
 }
 
-/** A home tile's menu item, for the app at `path`. Forget opens it, then the panel at its question. */
+/**
+ * Opens All apps (PRP-067): its tab when it's open, else a new one. If it
+ * can't start, why is the notice.
+ *
+ * Example:
+ *     open_all_apps(m)
+ */
+fun open_all_apps(m: Model): Model {
+    if let Some(id) = open_tab_of(m, allapps.ALL_APPS_KEY) {
+        return show_tab(m, id);
+    }
+    match allapps.open(m.engine) {
+        Ok(page) => add_tab(m, page),
+        Err(r) => for_rapidkoi(m, all_apps_failed(why(r))),
+    }
+}
+
+/** A home tile's menu item, for the app at `path`. Forget opens it, then the panel at its question; Permissions, the panel on its permissions (PRP-067). */
 fun on_pin(
     m: Model,
     path: string,
@@ -405,6 +424,10 @@ fun on_pin(
         let (opened, cmd) = open_pin(m, path, origin);
         let tab = opened.current.unwrap_or(-1);
         (Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget(tab)), ..opened }, cmd)
+    }
+    Permissions => {
+        let (opened, cmd) = open_pin(m, path, origin);
+        (Model { panel: Some(PanelPage.Permissions), ..opened }, cmd)
     }
 };
 

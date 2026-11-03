@@ -358,6 +358,18 @@ enum Effect {
     OpenNotification(Value, i64),
     /** Remove your notification at this index (needs `read_notifications`); not answered. */
     DismissNotification(Value, i64),
+    /** Your apps, A–Z (PRP-067, needs `read_apps`); answered with `msg`. */
+    Apps(Value),
+    /** Open your app at this index, as listed now (needs `open_apps`); not answered. */
+    OpenApp(Value, i64),
+    /** Pin your app at this index to the dock (needs `manage_pins`); not answered. */
+    PinApp(Value, i64),
+    /** Unpin your app at this index (needs `manage_pins`); not answered. */
+    UnpinApp(Value, i64),
+    /** Open your app at this index with Rapidkoi's panel on its permissions (needs `open_apps`); not answered. */
+    AppPermissions(Value, i64),
+    /** Open your app at this index with Rapidkoi's "Forget this app?" (needs `open_apps`); not answered. */
+    ForgetApp(Value, i64),
 }
 
 /** One statement an app asks its database to run (PRP-041), its shape checked. */

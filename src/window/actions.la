@@ -61,6 +61,8 @@ enum Msg {
     Bell(BellAction),
     /** Open Rapidkoi's Settings app in a tab, or show its tab. */
     OpenSettings,
+    /** Open All apps (PRP-067): the dock's last button; its tab when it's open. */
+    OpenAllApps,
     /** ☰'s Open App… and Ctrl+O (PRP-058): the system's chooser for a local app file. */
     OpenApp,
     /** The app file the person chose, or `None` when they cancelled. */
@@ -209,6 +211,8 @@ enum PinAction {
     Unpin,
     /** Open it, with the panel's "Forget this app?" question. */
     Forget,
+    /** Open it, with the panel on its permissions (PRP-067: from All apps). */
+    Permissions,
 }
 
 /** The shield's card's pages (PRP-021). */

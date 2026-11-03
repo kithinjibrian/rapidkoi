@@ -26,6 +26,8 @@ import kivuli {
     row,
     text,
     Sizing,
+    Font,
+    Size,
 };
 import kivuli.ui { input_group, group_input, group_button_with, popover as ui_popover };
 import window.actions { Msg, ShieldPage, PanelPage };
@@ -38,7 +40,7 @@ import ui.shield { facts, look_colour, card };
 import ui.settings;
 import ui.several;
 import ui.frame_looks { app_chip };
-import ui.themes { body };
+import ui.themes { body, at_scale };
 import ui.grants { shows_icon };
 import ui.tokens {
     SPACE_XS,
@@ -57,6 +59,7 @@ import ui.tokens {
     UPDATE_DOT,
     gap,
     ADDRESS_MAX_WIDTH,
+    TEXT_ADDRESS,
 };
 
 /** The upgrade button's tooltip (PRP-044): the owner's words. */
@@ -97,7 +100,12 @@ fun field(m: Model): View<Msg> {
     // (session 122).
     let typing = group_input(shown, Msg.Draft).placeholder("Enter Address").name(
         "address",
-    ).on_submit(Msg.Go).style([inside, flush_y()]);
+    ).on_submit(Msg.Go).style([
+        inside,
+        flush_y(),
+        // A step above the body (the owner, 2026-11-03), following the text size.
+        Font { size: Size.Pt(at_scale(TEXT_ADDRESS, t)), ..Font.theme() },
+    ]);
     // It takes the keyboard by itself only on an empty tab, not over an app.
     let with_focus = match page {
         Home => typing.autofocus(),
@@ -138,40 +146,50 @@ fun field(m: Model): View<Msg> {
                 );
             }
         }
-        // The shield, always, in its look (PRP-021); its card hangs from it
-        // while `m.shield` says it's open. A click outside or Escape closes it.
-        let f = facts(p);
-        // Nothing trusted vouches for it: shield-cross and why, in a pill,
-        // in the text's own colour (the owner, 2026-10-30). Else the round shield.
-        let shield_button = match f.warning {
-            Some(why) => group_button_with(
-                [
-                    row([
-                        image(icon(Icon.ShieldCross, t.text)).style([square(ADDRESS_ICON)]).align(
-                            Align.Center,
-                        ),
-                        text(why).style(body(t)).align(Align.Center),
-                    ]).style([gap(SPACE_XS)]).align(Align.Center),
-                ],
-                Msg.Shield(Some(ShieldPage.Main)),
-            ).style(app_chip(t, ADDRESS_HEIGHT - 2 * EDGE_WIDTH)),
-            None => group_button_with(
-                [
-                    image(icon(Icon.Shield, look_colour(t, f.look))).style([
-                        square(ADDRESS_ICON),
-                    ]).align(Align.Center),
-                ],
-                Msg.Shield(Some(ShieldPage.Main)),
-            ).style(round()),
-        }.align(Align.Center).tooltip("Site information");
-        start.push(
-            ui_popover(
-                shield_button,
-                m.shield.is_some(),
-                card(t, p, m.shield.unwrap_or(ShieldPage.Main), m.now),
-                Msg.Shield(None),
-            ),
-        );
+        // Rapidkoi's own apps (PRP-067): its name in a chip, not the shield,
+        // which would call them a local file nothing signed.
+        if own(p.path) {
+            start.push(
+                row([text("Rapidkoi").style(body(t)).align(Align.Center)]).style(
+                    app_chip(t, ADDRESS_HEIGHT - 2 * EDGE_WIDTH),
+                ).align(Align.Center),
+            );
+        } else {
+            // The shield, always, in its look (PRP-021); its card hangs from it
+            // while `m.shield` says it's open. A click outside or Escape closes it.
+            let f = facts(p);
+            // Nothing trusted vouches for it: shield-cross and why, in a pill,
+            // in the text's own colour (the owner, 2026-10-30). Else the round shield.
+            let shield_button = match f.warning {
+                Some(why) => group_button_with(
+                    [
+                        row([
+                            image(icon(Icon.ShieldCross, t.text)).style([
+                                square(ADDRESS_ICON),
+                            ]).align(Align.Center),
+                            text(why).style(body(t)).align(Align.Center),
+                        ]).style([gap(SPACE_XS)]).align(Align.Center),
+                    ],
+                    Msg.Shield(Some(ShieldPage.Main)),
+                ).style(app_chip(t, ADDRESS_HEIGHT - 2 * EDGE_WIDTH)),
+                None => group_button_with(
+                    [
+                        image(icon(Icon.Shield, look_colour(t, f.look))).style([
+                            square(ADDRESS_ICON),
+                        ]).align(Align.Center),
+                    ],
+                    Msg.Shield(Some(ShieldPage.Main)),
+                ).style(round()),
+            }.align(Align.Center).tooltip("Site information");
+            start.push(
+                ui_popover(
+                    shield_button,
+                    m.shield.is_some(),
+                    card(t, p, m.shield.unwrap_or(ShieldPage.Main), m.now),
+                    Msg.Shield(None),
+                ),
+            );
+        }
     }
     // Site settings, right of the shield (PRP-020): its card hangs from ⚙
     // while `m.panel` says it's open (PRP-022). A click outside or Escape
@@ -218,15 +236,19 @@ fun field(m: Model): View<Msg> {
             ).disabled(!on_app).style(round()).align(Align.Center).tooltip("Share"),
         );
     }
-    if let App(p) = page {
-        let pinned = is_pinned(m, p.path, p.trust.map(fun(t) = t.origin));
-        let tip = if pinned { "Unpin" } else { "Pin" };
-        end.push(
-            group_button_with(
-                [image(pin_icon(pinned, t)).style([square(ADDRESS_ICON)]).align(Align.Center)],
-                Msg.TogglePin,
-            ).style(round()).align(Align.Center).tooltip(tip),
-        );
+    // Every app but All apps, which is the dock's own button (PRP-067).
+    match page {
+        App(p) if p.path != "builtin:allapps" => {
+            let pinned = is_pinned(m, p.path, p.trust.map(fun(t) = t.origin));
+            let tip = if pinned { "Unpin" } else { "Pin" };
+            end.push(
+                group_button_with(
+                    [image(pin_icon(pinned, t)).style([square(ADDRESS_ICON)]).align(Align.Center)],
+                    Msg.TogglePin,
+                ).style(round()).align(Align.Center).tooltip(tip),
+            );
+        }
+        _ => {}
     }
     // A pill, as the owner asked (sessions 75, 121): GTK caps a radius at half
     // the box, so CIRCLE rounds each end fully whatever height kivuli.ui's
@@ -276,14 +298,18 @@ fun round(): Styling[] = [
 fun card_open(m: Model): bool = m.panel.is_some() && !questions.asked_here(m);
 
 /**
- * The ☆'s picture (PRP-061): filled in the brand colour while the app shown
- * is pinned, the outline in the text colour otherwise.
+ * The pin's picture (PRP-061; a pin, not ☆, since PRP-067): filled in the
+ * brand colour while the app shown is pinned, the outline in the text colour
+ * otherwise.
  *
  * Example:
  *     pin_icon(true, m.theme)
  */
 fun pin_icon(pinned: bool, t: Theme): Image = if pinned {
-    filled(Icon.Star, t.accent)
+    filled(Icon.Pin, t.accent)
 } else {
-    icon(Icon.Star, t.text)
+    icon(Icon.Pin, t.text)
 };
+
+/** Whether an app is one of Rapidkoi's own, built into `./main` (PRP-067). */
+fun own(path: string): bool = path.starts_with("builtin:");

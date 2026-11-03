@@ -5,6 +5,7 @@ import rapidkoi.shell { start, update };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.window { page_of, Model, with_pages, title_of };
 import rapidkoi.window.recent { Place };
+import rapidkoi.window.yourapps { App, Apps, no_apps, opened, app_of };
 import rapidkoi.window.actions { Msg, Confirm, PanelPage };
 import rapidkoi.bundles.bundle { Manifest };
 import rapidkoi.bundles.permissions { Permission, Setting };
@@ -224,6 +225,10 @@ fun forget_asks_then_removes_everything() {
     assert_eq(gone.pinned.len, 0);
     // Its places go too (PRP-062).
     assert_eq(gone.recent.places.len, 0);
+    // And it's no longer one of your apps (PRP-067); the other stays.
+    let both = asking.tabs.fold(no_apps(), fun(a: Apps, t: Tab) = opened(a, app_of(t.page, 1)));
+    let left = step(Model { apps: both, ..asking }, Msg.Forget).apps.items;
+    assert_eq(left.map(fun(x: App) = x.path), gone.tabs.map(fun(t: Tab) = t.page.path));
     assert_eq(gone.panel.is_none(), true);
 }
 

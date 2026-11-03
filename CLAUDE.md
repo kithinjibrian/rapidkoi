@@ -61,9 +61,9 @@ lughac update src/main.la             # re-resolve git packages (rewrites lugha.
 lughac explain E0312                  # an error code
 lughac spec                           # the language reference: check it before using any feature
 
-# Rapidkoi's own apps (guest/rust/: newtab, settings), on rapidkoi-rust by tag: cargo, never lughac
+# Rapidkoi's own apps (guest/rust/: newtab, settings, allapps), on rapidkoi-rust by tag: cargo, never lughac
 cargo test --manifest-path guest/rust/Cargo.toml
-./scripts/newtab.sh && ./scripts/settings.sh   # build and repack into assets/apps/ (after building ./main), then rebuild ./main
+./scripts/newtab.sh && ./scripts/settings.sh && ./scripts/allapps.sh   # build and repack into assets/apps/ (after building ./main), then rebuild ./main
 
 # Running apps (opening a window is the owner's)
 ./main app.wasm | ./main app.rkb | ./main rapidkoi://localhost:8000
@@ -86,7 +86,7 @@ Needs: `lughac` (the owner installs it from `../lugha`), `libgtk-4-dev`, `libsql
 - **Picture headers** through `lugha-imagesize` 0.1 (PRP-047): a picture's format and size before anything decodes it.
 - **CBOR** through `lugha-cbor` 0.1. **SQLite** through `lugha-sqlite` 0.2: one database per app, every connection `Guard.untrusted()` with `rapidkoi_` names reserved (Rapidkoi's own statements through `run_own`, `query_own`, `Step.Own`), every call in a `Cmd.task`; an app's writes one at a time.
 - **The contract is version 11, the only one** (`docs/specs/contract-11.md`, DECISION-056, PRP-053, PRP-054, PRP-059, PRP-060): named-field state, links (with `kinds`), `on_` events, boxes (in columns, rows, layers, wrapping or fitting rows), texts (with `parts`: your name and times, filled in by Rapidkoi) and typing boxes (with `label`), styles (with gradients), roles, storage with blobs (`docs/specs/blobs.md`), `now`, a required icon. Older apps are refused, never run. Any change to it is a DECISIONS.md entry and a version bump, and the guest↔host contract carries its version from its first commit: published bundles can't be recompiled.
-- **The Rust SDK is `rapidkoi-rust`** (`../rapidkoi-rust`, a git dependency by tag, now `v0.5.0-pre.4`: contract 11, with parts, `now`, blobs, blob pictures and bodies, the file asks Rapidkoi answers since PRP-056, contract 10's gradients, layers, wraps and fitting rows, contract 11's icons, its recent places, apps' primary colours, and notifications) with the examples counter and styled. Notes is its own repository, `../notes` (core decision 27). A contract change is tagged there first; then the built-ins move to the tag and are repacked.
+- **The Rust SDK is `rapidkoi-rust`** (`../rapidkoi-rust`, a git dependency by tag, now `v0.5.0-pre.5`: contract 11, with parts, `now`, blobs, blob pictures and bodies, the file asks Rapidkoi answers since PRP-056, contract 10's gradients, layers, wraps and fitting rows, contract 11's icons, its recent places, apps' primary colours, notifications, and All apps' asks) with the examples counter and styled. Notes is its own repository, `../notes` (core decision 27). A contract change is tagged there first; then the built-ins move to the tag and are repacked.
 
 ## ARCHITECTURE
 

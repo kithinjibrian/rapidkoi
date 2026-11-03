@@ -2,18 +2,17 @@
 //! `./main`. A copy of its target design (`docs/designs/newtab-target.md`,
 //! board A5), becoming real a part at a time. Real: Restore, which asks for
 //! your last session each time the tab is shown and shows its apps' icons
-//! (PRP-060: `icon:PLACE`, drawn by Rapidkoi); Pinned, your pins, each
-//! opening its app (PRP-061); and Recent, your recent places, each opening a
-//! fresh window there (PRP-062); and Notifications, what apps told you,
-//! while something is unread (PRP-065, `notices.rs`).
+//! (PRP-060: `icon:PLACE`, drawn by Rapidkoi); Recent, your recent places,
+//! each opening a fresh window there (PRP-062); and Notifications, what apps
+//! told you, while something is unread (PRP-065, `notices.rs`). No Pinned
+//! (PRP-067): your pins are the dock, and All apps has every app.
 //!
 //! Drawn with contract 10's looks (PRP-059): gradients for the washes, the
 //! page's glow and Rapidkoi's mark; layers for a face or an icon with
 //! something on its corner, and for Restore's overlapping icons; wraps for
-//! the two-column sections, which fall to one column on a narrow window;
-//! a fitting row for Pinned. What stays a picture in `assets/` (packed by
-//! `scripts/newtab.sh`): the wordmark (GTK can't fill text with a
-//! gradient).
+//! the two-column sections, which fall to one column on a narrow window.
+//! What stays a picture in `assets/` (packed by `scripts/newtab.sh`): the
+//! wordmark (GTK can't fill text with a gradient), and the ×.
 
 use minicbor::{Decode, Encode};
 use rapidkoi::raw::boxed;
@@ -22,7 +21,7 @@ use rapidkoi::style::{
     TextSize, Weight, When,
 };
 use rapidkoi::{
-    column, fit, image, layers, row, spacer, text, text_of, wrap, App, Ask, Event, Message, Next, Notifications,
+    column, image, layers, row, spacer, text, text_of, wrap, App, Ask, Event, Message, Next, Notifications,
     Recent, Session, Space, State, View,
 };
 
@@ -40,8 +39,6 @@ const PILL: (u8, u8, u8) = (0x23, 0x23, 0x23);
 enum Msg {
     /// Bring back the last session.
     Restore,
-    /// Open the pin at this place in your pins.
-    OpenPin(u32),
     /// Open your recent place at this index (PRP-062).
     OpenRecent(u32),
     /// Open your notification at this index, as they were listed (PRP-065).
@@ -50,23 +47,12 @@ enum Msg {
     DismissNotice(u32),
 }
 
-/// One of your pins as the new tab shows it: its name and its icon's source (`icon:PLACE`).
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
-struct Pin {
-    #[n(0)]
-    name: String,
-    #[n(1)]
-    icon: String,
-}
-
 type V = View<Msg>;
 
 #[derive(Default, State)]
 struct NewTab {
     /// The last session's apps' icons, in order (`icon:PLACE`), while there's one to restore.
     restore: Option<Vec<String>>,
-    /// Your pins, in your order, as last read.
-    pins: Vec<Pin>,
     /// Your recent places, newest first, as last read (PRP-062).
     recent: Vec<Spot>,
     /// Your notifications, unread first, as last read (PRP-065).
@@ -106,7 +92,6 @@ impl App for NewTab {
         let mut sections = vec![top(&self.restore)];
         sections.extend(notices::section(self.unread, &self.notices));
         sections.extend(recent(&self.recent));
-        sections.extend(pinned(&self.pins));
         let page =
             column(sections).style([Spacing::padding_xy(Space::Px(32), Space::Px(36)), Spacing::gap(Space::Px(32))]);
         // Rapidkoi never scrolls an app's page (PRP-046): the page scrolls itself,
@@ -134,17 +119,10 @@ rapidkoi::export!(NewTab);
 impl NewTab {
     fn step(self, event: Event<Msg>) -> (Self, Vec<Ask>) {
         match event {
-            // Each time it's shown, or told something changed: the session and your pins may have.
+            // Each time it's shown, or told something changed: the session and your places may have.
             Event::Opened | Event::Resume | Event::Change { .. } => {
-                let asks = vec![Ask::session("session"), Ask::pins("pins"), Ask::recent("recent")];
+                let asks = vec![Ask::session("session"), Ask::recent("recent")];
                 (self, [asks, vec![Ask::notifications("notifications")]].concat())
-            }
-            Event::Data { msg, cbor } if msg == "pins" => {
-                let pins = rapidkoi::Place::list(&cbor).unwrap_or_default();
-                (
-                    NewTab { pins: pins.into_iter().map(|p| Pin { name: p.name, icon: p.icon }).collect(), ..self },
-                    vec![],
-                )
             }
             Event::Data { msg, cbor } if msg == "session" => {
                 let icons = Session::read(&cbor).map(|s| s.apps.into_iter().map(|p| p.icon).collect());
@@ -153,7 +131,6 @@ impl NewTab {
             // No session to restore.
             Event::Answer { msg, .. } if msg == "session" => (NewTab { restore: None, ..self }, vec![]),
             Event::Message { msg: Msg::Restore, .. } => (self, vec![Ask::restore_session("restore")]),
-            Event::Message { msg: Msg::OpenPin(i), .. } => (self, vec![Ask::open_pin("open", i)]),
             Event::Data { msg, cbor } if msg == "recent" => {
                 let places = Recent::read(&cbor).unwrap_or_default();
                 let spots = places
@@ -382,33 +359,6 @@ fn recent(places: &[Spot]) -> Option<V> {
     .on_press(Msg::OpenRecent(0));
     let small = halves(places.iter().enumerate().skip(1).take(4).map(|(i, p)| mini(i, p)));
     Some(column([heading("RECENT"), halves([large, small])]).style([Spacing::gap(Space::Px(12))]))
-}
-
-/// Pinned: your pins, as many icons and names as fit on a line, each opening
-/// its app, and See all; nothing when you have none.
-fn pinned(pins: &[Pin]) -> Option<V> {
-    if pins.is_empty() {
-        return None;
-    }
-    let tiles = pins.iter().enumerate().map(|(i, p)| {
-        column([
-            image(&p.icon).style([Sizing::width(56), Sizing::height(56), Layout::align(Align::Center)]),
-            text(&p.name).style([Font::size(TextSize::Small), Layout::align(Align::Center), Text::truncate()]),
-        ])
-        .style([
-            Sizing::width(80),
-            Spacing::gap(Space::Sm),
-            Border::corner(Corner::Px(12)),
-            When(Look::Hover, [Background::color(lift(0.07))]),
-        ])
-        .on_press(Msg::OpenPin(i as u32))
-    });
-    // One line of pins, then See all (the owner's choice): the line ends
-    // cleanly at the window's edge, the rest hidden.
-    Some(
-        column([row([heading("PINNED"), spacer(), note("See all")]), fit(tiles).style([Spacing::gap(Space::Lg)])])
-            .style([Spacing::gap(Space::Px(12))]),
-    )
 }
 
 #[cfg(test)]

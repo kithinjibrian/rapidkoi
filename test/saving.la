@@ -11,6 +11,7 @@ import rapidkoi.data.remembered { read_trust, Face };
 import rapidkoi.data.pinfiles { read_pins };
 import rapidkoi.data.recentfile { read_recent };
 import rapidkoi.window.recent { Place };
+import rapidkoi.window.yourapps { App, opened, listed as listed_apps };
 import rapidkoi.data.saving { restore, persist, mark };
 import rapidkoi.window.notifications {
     Notification,
@@ -417,5 +418,30 @@ fun notifications_are_kept_across_a_restart() {
     let again = restore(with_pages(Engine.new(), []), s);
     assert_eq(listed(again.notifications).map(fun(x: Notification) = x.text), ["Your count is 3"]);
     assert_eq(again.notifications.apps, [face]);
+    clean(s.dir);
+}
+
+@test
+fun your_apps_are_kept_across_a_restart() {
+    // PRP-067: a fresh folder starts from your pins (Settings, PRP-064); an
+    // app opened is there after a restart, and the file is what's read then.
+    let s = folder("yourapps");
+    let first = restore(with_pages(Engine.new(), []), s);
+    assert_eq(first.apps.items.map(fun(x: App) = x.path), ["builtin:settings"]);
+    let counter = App {
+        path: "counter.rkb",
+        origin: None,
+        host: None,
+        face: Face { path: "counter.rkb", name: "Counter", icon: None, colour: None },
+        first: 4,
+        last: 9,
+    };
+    let used = Model { apps: opened(first.apps, counter), ..first };
+    let _ = persist(first, used, mark(first));
+    let again = restore(with_pages(Engine.new(), []), s);
+    assert_eq(listed_apps(again.apps).map(fun(x: App) = x.path), [
+        "counter.rkb",
+        "builtin:settings",
+    ]);
     clean(s.dir);
 }

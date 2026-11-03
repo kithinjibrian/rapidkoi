@@ -150,7 +150,11 @@ fun shown(who: People, p: AppPage): bool {
         Some(t) => t.host,
         None => p.path,
     };
-    running && p.path != "builtin:newtab" && shows_in_recent(who, key)
+    // Nor All apps (PRP-067): like the new tab, it's where you find apps.
+    running && p.path != "builtin:newtab" && p.path != "builtin:allapps" && shows_in_recent(
+        who,
+        key,
+    )
 }
 
 /**

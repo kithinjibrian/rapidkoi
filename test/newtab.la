@@ -41,7 +41,6 @@ fun the_built_in_bundle_is_unsigned_and_named() {
     let b = read(BUNDLE).unwrap();
     assert_eq((b.manifest.name, b.manifest.version, b.manifest.contract), ("New tab", "0.1.0", 11));
     assert_eq(b.manifest.permissions, [
-        "read_pins",
         "read_left_off",
         "open_apps",
         "restore_session",
@@ -117,7 +116,7 @@ fun an_unknown_permission_needs_a_newer_rapidkoi() {
 fun it_opens_and_runs() {
     let p = open(Engine.new()).unwrap();
     assert_eq((p.name, p.trust.is_none()), ("New tab", true));
-    assert_eq(p.manifest.map(fun(m: Manifest) = m.permissions.len), Some(5));
+    assert_eq(p.manifest.map(fun(m: Manifest) = m.permissions.len), Some(4));
 }
 
 @test
@@ -218,8 +217,8 @@ fun later(c: Cmd<Msg>): Msg[] = match c {
 };
 
 @test
-fun the_new_tab_shows_your_pins_and_a_pin_opens_its_app() {
-    // PRP-061: the real new tab's Pinned, from your pins file.
+fun your_pins_are_the_dock_s_not_the_new_tab_s() {
+    // PRP-067: no Pinned on the new tab; a pin opens from the dock.
     let dir = "test/tmp/newtab-pins";
     if fs.is_file("{dir}/pins") {
         fs.remove_file("{dir}/pins").unwrap();
@@ -233,14 +232,12 @@ fun the_new_tab_shows_your_pins_and_a_pin_opens_its_app() {
         ]),
     ).unwrap();
     let (m, _) = start(["./main"], Some(s));
-    assert(shows(m, "PINNED"));
-    assert(shows(m, "Quote"));
-    let pressed = click(view(m), "Quote").unwrap();
-    let (_, c) = update(m, pressed);
-    assert_eq(later(c), [Msg.OpenPinned("rapidkoi://quote.dafifi.net", None)]);
+    assert(!shows(m, "PINNED"));
+    assert_eq(
+        click(view(m), "Open Quote"),
+        Ok(Msg.OpenPinned("rapidkoi://quote.dafifi.net", None)),
+    );
     fs.remove_file("{dir}/pins").unwrap();
-    // No pins: no Pinned.
-    assert(!shows(fresh(), "PINNED"));
 }
 
 @test

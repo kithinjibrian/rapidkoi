@@ -23,6 +23,8 @@ const SPACE_XL: i64 = 36;
 const TEXT_TITLE: i64 = 18;
 /** A section heading, in points (with bold). */
 const TEXT_HEADING: i64 = 14;
+/** The address box's text, in points: a step above the body (the owner, 2026-11-03). */
+const TEXT_ADDRESS: i64 = 12;
 
 /** The window's default width, in pixels. */
 const WINDOW_WIDTH: i64 = 960;

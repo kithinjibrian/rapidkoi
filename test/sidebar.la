@@ -5,7 +5,7 @@ import rapidkoi.shell { update };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.sidebar;
 import rapidkoi.window.actions { Msg, TabAction, PinAction };
-import rapidkoi.window.tabs { AppPage, Pin, open_module };
+import rapidkoi.window.tabs { AppPage, Pin, Tab, open_module };
 import kivuli.testing { click, pick, press };
 import wasmtime { Engine, Module };
 import support { echo };
@@ -110,4 +110,52 @@ fun the_docks_count_stops_at_nine() {
         (sidebar.count_text(2), sidebar.count_text(9), sidebar.count_text(10)),
         ("2", "9", "9+"),
     );
+}
+
+@test
+fun the_dock_ends_with_all_apps() {
+    // PRP-067: its last button opens All apps.
+    assert_eq(click(sidebar.view(two()), "All apps"), Ok(Msg.OpenAllApps));
+}
+
+@test
+fun all_apps_open_is_the_button_not_a_tab_in_the_dock() {
+    // Its tab is the button's: not listed among the open apps.
+    let engine = Engine.new();
+    let m = with_pages(engine, [
+        app(engine, "notes"),
+        AppPage { path: "builtin:allapps", ..app(engine, "allapps") },
+    ]);
+    assert_eq(sidebar.dock_order(m), [m.tabs[0].id]);
+}
+
+@test
+fun all_apps_opens_once() {
+    // PRP-067: a tab of its own, in front; pressed again, the same tab.
+    let opened = step(two(), Msg.OpenAllApps);
+    let mine = opened.tabs.filter(fun(t: Tab) = t.page.path == "builtin:allapps");
+    assert_eq(mine.len, 1);
+    assert_eq(opened.current, Some(mine[0].id));
+    let again = step(step(opened, Msg.Select(0)), Msg.OpenAllApps);
+    assert_eq((again.tabs.len, again.current), (opened.tabs.len, Some(mine[0].id)));
+}
+
+@test
+fun all_apps_closes_from_its_button_back_to_where_you_were() {
+    // PRP-067 (the owner, 2026-11-03): pressed while it's in front, it closes,
+    // and you're back on the app you were on.
+    let m = step(two(), Msg.Select(1));
+    let opened = step(m, Msg.OpenAllApps);
+    let closed = step(opened, Msg.OpenAllApps);
+    assert_eq(closed.tabs.any(fun(t: Tab) = t.page.path == "builtin:allapps"), false);
+    assert_eq(closed.current, Some(1));
+}
+
+@test
+fun going_to_another_app_closes_all_apps() {
+    // Leaving it for any other app closes it: it's a place to find apps.
+    let opened = step(two(), Msg.OpenAllApps);
+    let left = step(opened, Msg.Select(1));
+    assert_eq(left.tabs.any(fun(t: Tab) = t.page.path == "builtin:allapps"), false);
+    assert_eq(left.current, Some(1));
 }

@@ -52,6 +52,15 @@ fun icon_for(m: Model, place: string): u8[] {
             }
         }
     }
+    // Every app you've opened (PRP-067): All apps' icons.
+    for a of m.apps.items {
+        if place_of(a.path) == place {
+            name = a.face.name;
+            if let Some(i) = a.face.icon {
+                return i;
+            }
+        }
+    }
     // The apps that sent you notifications (PRP-065).
     for f of m.notifications.apps {
         if place_of(f.path) == place {

@@ -1,0 +1,77 @@
+// The apps file (PRP-067): your apps round-trip with each one's face, host
+// and times, and hostile fields are refused. No guest, no display.
+import rapidkoi.data.yourappsfile { apps_file, read_apps };
+import rapidkoi.window.yourapps { App, Apps };
+import rapidkoi.data.remembered { Face };
+import cbor { Value, encode };
+import support { png, t, kv };
+
+fun notes(): App = App {
+    path: "rapidkoi://notes.dafifi.net",
+    origin: Some([7; 32]),
+    host: Some("notes.dafifi.net"),
+    face: Face {
+        path: "rapidkoi://notes.dafifi.net",
+        name: "Notes",
+        icon: Some(png(128, 128)),
+        colour: Some("#14b8a6"),
+    },
+    first: 1762000000000,
+    last: 1762100000000,
+};
+
+fun counter(): App = App {
+    path: "counter.rkb",
+    origin: None,
+    host: None,
+    face: Face { path: "counter.rkb", name: "Counter", icon: None, colour: None },
+    first: 0,
+    last: 0,
+};
+
+/** A file of one app made of `fields`. */
+fun with_app(fields: (string, Value)[]): u8[] = encode(
+    kv([
+        ("format", Value.int(1)),
+        ("kind", t("rapidkoi apps")),
+        ("apps", kv([("items", Value.Array([kv(fields)]))])),
+    ]),
+);
+
+fun good(): (string, Value)[] = [
+    ("path", t("counter.rkb")),
+    ("name", t("Counter")),
+    ("first", Value.int(0)),
+    ("last", Value.int(0)),
+];
+
+/** `good()` with `field` set to `v`, or added. */
+fun changed(field: string, v: Value): u8[] {
+    let mut fields = good().filter(fun(f: (string, Value)) = f.0 != field);
+    fields.push((field, v));
+    with_app(fields)
+}
+
+@test
+fun the_apps_file_round_trips() {
+    let a = Apps { items: [notes(), counter()] };
+    let back = read_apps(apps_file(a)).unwrap();
+    assert_eq(back.items == a.items, true);
+    assert_eq(read_apps(apps_file(Apps { items: [] })).unwrap().items.len, 0);
+    assert_eq(read_apps(with_app(good())).is_ok(), true);
+}
+
+@test
+fun hostile_fields_are_refused() {
+    assert_eq(read_apps(changed("path", t(""))).is_err(), true);
+    assert_eq(read_apps(changed("name", t(""))).is_err(), true);
+    assert_eq(read_apps(changed("first", Value.int(-1))).is_err(), true);
+    assert_eq(read_apps(changed("last", t("soon"))).is_err(), true);
+    assert_eq(read_apps(changed("origin", Value.Bytes([1; 31]))).is_err(), true);
+    assert_eq(read_apps(changed("host", t(""))).is_err(), true);
+    // An icon breaking the icon rules is dropped, not refused.
+    assert_eq(read_apps(changed("icon", Value.Bytes([1, 2, 3]))).unwrap().items[0].face.icon, None);
+    // The same app twice.
+    assert_eq(read_apps(apps_file(Apps { items: [counter(), counter()] })).is_err(), true);
+    assert_eq(read_apps([1, 2, 3]).is_err(), true);
+}

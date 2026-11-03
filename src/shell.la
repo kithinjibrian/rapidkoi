@@ -323,6 +323,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Menu(open) => (Model { menu: open, ..m }, Cmd.none()),
     Bell(action) => navigate.on_bell(m, action),
     OpenSettings => (navigate.open_settings(Model { menu: false, ..m }), Cmd.none()),
+    OpenAllApps => (navigate.open_all_apps(m), Cmd.none()),
     // The owner's words (PRP-058); the chosen file opens as a typed path does.
     OpenApp => (
         Model { menu: false, ..m },

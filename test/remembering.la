@@ -6,6 +6,7 @@ import rapidkoi.window.remembering { noted };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.tabs { AppPage, Tab, open_module, failed_page };
 import rapidkoi.window.recent { Place };
+import rapidkoi.window.yourapps { App };
 import wasmtime { Engine, Module };
 import support { echo };
 
@@ -63,6 +64,26 @@ fun the_new_tab_and_windows_not_running_are_never_recorded() {
     assert_eq(names(noted(none, settings)), ["Settings"]);
     let newtab = with_pages(engine, [AppPage { path: "builtin:newtab", ..app(engine, "New tab") }]);
     assert_eq(names(noted(none, newtab)), []);
+    // Nor All apps (PRP-067): like the new tab, it's where you find apps.
+    let all = with_pages(engine, [AppPage { path: "builtin:allapps", ..app(engine, "All apps") }]);
+    assert_eq(names(noted(none, all)), []);
     let broken = with_pages(engine, [failed_page("gone.wasm", "Couldn't read gone.wasm")]);
     assert_eq(names(noted(none, broken)), []);
+}
+
+@test
+fun an_app_that_runs_is_one_of_your_apps() {
+    // PRP-067: recorded where its place is; opened again, only its last time moves.
+    let engine = Engine.new();
+    let one = with_pages(engine, [app(engine, "a")]);
+    let none = with_pages(engine, []);
+    let first = noted(none, Model { now: 5, ..one });
+    assert_eq(first.apps.items.map(fun(x: App) = (x.face.name, x.first, x.last)), [("a", 5, 5)]);
+    let titled = Model {
+        tabs: [Tab { page: AppPage { title: Some("Later"), ..one.tabs[0].page }, ..one.tabs[0] }],
+        now: 9,
+        ..first,
+    };
+    let again = noted(first, titled);
+    assert_eq(again.apps.items.map(fun(x: App) = (x.first, x.last)), [(5, 9)]);
 }

@@ -1,0 +1,198 @@
+/**
+ * Your apps (PRP-067, DECISION-094), pure: every app you've opened, kept
+ * until you Forget it, so All apps can list it and you never need its
+ * address again. One entry per app, by its path and first key (PRP-049),
+ * with its name, icon and colour, its host when signed, and when you first
+ * and last opened it. Recent can't be this list: it keeps 100 places, and
+ * an app goes with its last one. The new tab and All apps aren't listed.
+ *
+ * Depends on: std.crypto, data.remembered, bundles.bundle, window.tabs, window.recent
+ * Used by: window.window, window.remembering, window.pins, data.yourappsfile, data.saving, guest.home
+ */
+import std.crypto { equal };
+import data.remembered { Face };
+import bundles.bundle { Manifest };
+import window.tabs { AppPage, Pin };
+import window.recent { Place, Recent };
+
+/** The most apps kept: past it, the one opened longest ago goes. */
+const MAX_APPS: i64 = 500;
+
+/** One of your apps. */
+struct App {
+    /** Where it came from, as its tabs name it. */
+    path: string,
+    /** Which app at its address, by first key; `None` when unsigned. */
+    origin: Option<u8[]>,
+    /** The host that signed it; `None` when unsigned. */
+    host: Option<string>,
+    /** Its name, icon and colour, as last seen. */
+    face: Face,
+    /** When you first opened it, in milliseconds since 1970; 0 when not known. */
+    first: i64,
+    /** When you last opened it; 0 when not known. */
+    last: i64,
+}
+
+/** Every app you've opened. */
+struct Apps {
+    items: App[],
+}
+
+/**
+ * Returns no apps.
+ *
+ * Example:
+ *     no_apps()
+ */
+fun no_apps(): Apps = Apps { items: [] };
+
+/**
+ * Whether an app at `path` is listed: not the new tab or All apps, the
+ * pages you find apps from.
+ *
+ * Example:
+ *     listable("builtin:settings") == true
+ */
+fun listable(path: string): bool = path != "builtin:newtab" && path != "builtin:allapps";
+
+/**
+ * Records an app opened: a new one is added; one already kept keeps its
+ * first time and takes the new last time, name, icon and colour.
+ *
+ * Example:
+ *     opened(m.apps, app_of(page, m.now))
+ */
+fun opened(a: Apps, x: App): Apps {
+    if !listable(x.path) {
+        return a;
+    }
+    let mut items: App[] = [];
+    let mut first = x.first;
+    for y of a.items {
+        if same(y, x.path, x.origin) {
+            first = y.first;
+        } else {
+            items.push(y);
+        }
+    }
+    items.push(App { first: first, ..x });
+    Apps { items: newest(items) }
+}
+
+/**
+ * Removes an app: Forget (PRP-052). At an address with several, only the
+ * one with that first key.
+ *
+ * Example:
+ *     forgotten(m.apps, page.path, origin)
+ */
+fun forgotten(a: Apps, path: string, origin: Option<u8[]>): Apps = Apps {
+    items: a.items.filter(fun(y: App) = !same(y, path, origin)),
+};
+
+/**
+ * Returns your apps A–Z by name, ignoring case; the same name by path.
+ *
+ * Example:
+ *     listed(m.apps)
+ */
+fun listed(a: Apps): App[] = a.items.sort_by(fun(x: App, y: App) {
+    let (p, q) = (lower(x.face.name), lower(y.face.name));
+    p < q || p == q && x.path < y.path
+});
+
+/**
+ * Your apps on a first run with no `apps` file (PRP-067): each app Recent
+ * has a place of, first and last as its places' oldest and newest, then
+ * each pin not among them, never opened as far as Rapidkoi knows (0).
+ *
+ * Example:
+ *     seeded(m.recent, m.pinned)
+ */
+fun seeded(r: Recent, pins: Pin[]): Apps {
+    let mut a = no_apps();
+    for f of r.apps {
+        let mine = r.places.filter(fun(p: Place) = p.path == f.path);
+        if mine.len > 0 {
+            let seen = mine.map(fun(p: Place) = p.seen);
+            a = opened(a, App {
+                path: f.path,
+                origin: mine[0].origin,
+                host: None,
+                face: f,
+                first: least(seen),
+                last: most(seen),
+            });
+        }
+    }
+    for p of pins {
+        if !a.items.any(fun(y: App) = same(y, p.path, p.origin)) {
+            a = opened(a, App {
+                path: p.path,
+                origin: p.origin,
+                host: None,
+                face: Face { path: p.path, name: p.name, icon: p.icon, colour: None },
+                first: 0,
+                last: 0,
+            });
+        }
+    }
+    a
+}
+
+/**
+ * A page's app, opened `now`.
+ *
+ * Example:
+ *     app_of(page, m.now)
+ */
+fun app_of(p: AppPage, now: i64): App = App {
+    path: p.path,
+    origin: p.trust.map(fun(t) = t.origin),
+    host: p.trust.map(fun(t) = t.host),
+    face: Face {
+        path: p.path,
+        name: p.name,
+        icon: p.icon,
+        colour: p.manifest.and_then(fun(m: Manifest) = m.primary_color),
+    },
+    first: now,
+    last: now,
+};
+
+/** Whether `y` is the app at `path` with first key `origin`. */
+fun same(y: App, path: string, origin: Option<u8[]>): bool = y.path == path && match (
+    y.origin,
+    origin,
+) {
+    (Some(a), Some(b)) => equal(a, b),
+    (None, None) => true,
+    _ => false,
+};
+
+/** At most `MAX_APPS`: the ones opened longest ago go first. */
+fun newest(items: App[]): App[] {
+    if items.len <= MAX_APPS {
+        return items;
+    }
+    let by_last = items.sort_by(fun(x: App, y: App) = x.last > y.last);
+    let mut kept: App[] = [];
+    for i in 0..MAX_APPS {
+        kept.push(by_last[i]);
+    }
+    kept
+}
+
+fun least(xs: i64[]): i64 = xs.fold(xs[0], fun(m: i64, x: i64) = if x < m { x } else { m });
+
+fun most(xs: i64[]): i64 = xs.fold(xs[0], fun(m: i64, x: i64) = if x > m { x } else { m });
+
+/** ASCII lower case, for ordering names. */
+fun lower(s: string): string {
+    let mut out = "";
+    for c of s.chars() {
+        out = out + "{c.to_lower()}";
+    }
+    out
+}

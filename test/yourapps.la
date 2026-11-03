@@ -1,0 +1,108 @@
+// Your apps (PRP-067, DECISION-094), pure: every app you open is kept
+// once, by its path and first key, with when you first and last opened it,
+// until Forget; listed A–Z; seeded from Recent and pins on a first run.
+// The new tab and All apps are never listed. No guest, no display.
+import rapidkoi.window.yourapps { App, Apps, no_apps, opened, forgotten, listed, seeded, listable };
+import rapidkoi.window.recent { Place, Recent };
+import rapidkoi.window.tabs { Pin };
+import rapidkoi.data.remembered { Face };
+
+fun app(path: string, name: string, at: i64): App = App {
+    path: path,
+    origin: None,
+    host: None,
+    face: Face { path: path, name: name, icon: None, colour: None },
+    first: at,
+    last: at,
+};
+
+fun names(a: Apps): string[] = listed(a).map(fun(x: App) = x.face.name);
+
+@test
+fun an_app_opened_is_kept_once_with_when() {
+    let a = opened(
+        opened(no_apps(), app("notes.rkb", "Notes", 1)),
+        app("counter.rkb", "Counter", 2),
+    );
+    assert_eq(a.items.len, 2);
+    // Again: only its last time and its face move; its first stays.
+    let again = opened(a, app("notes.rkb", "Notes 2", 5));
+    assert_eq(again.items.len, 2);
+    let notes = again.items.filter(fun(x: App) = x.path == "notes.rkb")[0];
+    assert_eq((notes.first, notes.last, notes.face.name), (1, 5, "Notes 2"));
+}
+
+@test
+fun two_apps_at_one_address_are_two() {
+    // PRP-049: an address with several apps names each by its first key.
+    let signed = App { origin: Some([1; 32]), ..app("rapidkoi://a.example", "A", 1) };
+    let other = App { origin: Some([2; 32]), ..app("rapidkoi://a.example", "A", 2) };
+    let a = opened(opened(no_apps(), signed), other);
+    assert_eq(a.items.len, 2);
+    assert_eq(forgotten(a, "rapidkoi://a.example", Some([1; 32])).items.len, 1);
+}
+
+@test
+fun forget_removes_it() {
+    let a = opened(no_apps(), app("notes.rkb", "Notes", 1));
+    assert_eq(forgotten(a, "notes.rkb", None).items.len, 0);
+    // Another app's stays.
+    assert_eq(forgotten(a, "counter.rkb", None).items.len, 1);
+}
+
+@test
+fun listed_a_to_z_ignoring_case() {
+    let a = opened(
+        opened(opened(no_apps(), app("z.rkb", "zebra", 1)), app("b.rkb", "Board", 2)),
+        app("a.rkb", "apple", 3),
+    );
+    assert_eq(names(a), ["apple", "Board", "zebra"]);
+}
+
+@test
+fun the_new_tab_and_all_apps_are_never_listed() {
+    assert_eq((listable("builtin:newtab"), listable("builtin:allapps")), (false, false));
+    assert_eq((listable("builtin:settings"), listable("notes.rkb")), (true, true));
+    let a = opened(
+        opened(no_apps(), app("builtin:newtab", "New tab", 1)),
+        app("builtin:allapps", "All apps", 2),
+    );
+    assert_eq(a.items.len, 0);
+}
+
+@test
+fun a_first_run_is_seeded_from_recent_and_pins() {
+    let history = Recent {
+        places: [
+            Place {
+                address: "notes.rkb",
+                path: "notes.rkb",
+                origin: None,
+                name: "Notes",
+                title: None,
+                seen: 7,
+            },
+            Place {
+                address: "notes.rkb?note=2",
+                path: "notes.rkb",
+                origin: None,
+                name: "Notes",
+                title: None,
+                seen: 3,
+            },
+        ],
+        apps: [Face { path: "notes.rkb", name: "Notes", icon: None, colour: Some("#00aa88") }],
+    };
+    let pins = [
+        Pin { name: "Settings", path: "builtin:settings", icon: None, origin: None },
+        Pin { name: "Notes", path: "notes.rkb", icon: None, origin: None },
+    ];
+    let a = seeded(history, pins);
+    assert_eq(names(a), ["Notes", "Settings"]);
+    let notes = a.items.filter(fun(x: App) = x.path == "notes.rkb")[0];
+    // Its places' oldest and newest; its face from Recent, with its colour.
+    assert_eq((notes.first, notes.last, notes.face.colour), (3, 7, Some("#00aa88")));
+    // A pin with no place: never opened as far as Rapidkoi knows, so 0.
+    let settings = a.items.filter(fun(x: App) = x.path == "builtin:settings")[0];
+    assert_eq(settings.last, 0);
+}
