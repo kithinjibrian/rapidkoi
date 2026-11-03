@@ -131,13 +131,15 @@ fun all_apps_open_is_the_button_not_a_tab_in_the_dock() {
 
 @test
 fun all_apps_opens_once() {
-    // PRP-067: a tab of its own, in front; pressed again, the same tab.
+    // PRP-067: a tab of its own, in front; left and opened again, still one.
     let opened = step(two(), Msg.OpenAllApps);
     let mine = opened.tabs.filter(fun(t: Tab) = t.page.path == "builtin:allapps");
     assert_eq(mine.len, 1);
     assert_eq(opened.current, Some(mine[0].id));
     let again = step(step(opened, Msg.Select(0)), Msg.OpenAllApps);
-    assert_eq((again.tabs.len, again.current), (opened.tabs.len, Some(mine[0].id)));
+    let now = again.tabs.filter(fun(t: Tab) = t.page.path == "builtin:allapps");
+    assert_eq((again.tabs.len, now.len), (opened.tabs.len, 1));
+    assert_eq(again.current, Some(now[0].id));
 }
 
 @test

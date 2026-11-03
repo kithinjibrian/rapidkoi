@@ -11,5 +11,5 @@ cargo build --manifest-path guest/rust/Cargo.toml --release --target wasm32-unkn
     --name "All apps" --version 0.1.0 --icon guest/rust/allapps/icon.svg --color primary=#ff7700 \
     --asset search.svg=guest/rust/allapps/assets/search.svg --asset pin.svg=guest/rust/allapps/assets/pin.svg \
     --permission read_apps --permission open_apps --permission manage_pins \
-    --control address=settings \
+    --control address=settings --control settings=app_settings.permissions \
     -o assets/apps/allapps.rkb --force

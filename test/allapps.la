@@ -2,7 +2,7 @@
 // the dock. It holds read_apps, open_apps and manage_pins, reads your apps
 // through them, and lists them; pressing one opens it. No display.
 import rapidkoi.window.allapps { BUNDLE, open };
-import rapidkoi.bundles.bundle { read, Manifest };
+import rapidkoi.bundles.bundle { read, Manifest, Controls };
 import rapidkoi.guest.modules { holds };
 import rapidkoi.shell { start, update };
 import rapidkoi.ui.layout { view };
@@ -36,6 +36,11 @@ fun the_built_in_bundle_holds_its_three_permissions() {
     let b = read(BUNDLE).unwrap();
     assert_eq((b.manifest.name, b.manifest.contract), ("All apps", 11));
     assert_eq(b.manifest.permissions, ["read_apps", "open_apps", "manage_pins"]);
+    // ⚙ shows its permissions (the owner, 2026-11-03).
+    assert_eq(
+        b.manifest.controls.map(fun(c: Controls) = c.settings),
+        Some(["app_settings.permissions"]),
+    );
     let p = open(Engine.new()).unwrap();
     assert_eq((p.path, p.trust.is_none()), ("builtin:allapps", true));
 }

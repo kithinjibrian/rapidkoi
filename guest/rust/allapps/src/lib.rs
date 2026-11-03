@@ -2,7 +2,7 @@
 //! `./main` like Settings. It lists every app the person has opened, A–Z or
 //! last used first, with a search box: typing filters by name and Enter
 //! opens the first match. When two apps share a name, each also shows where
-//! it's from. Each app's details (on a right-click, PRP-068) show what can be done with it:
+//! it's from. Each app's details (on a right-click, a later PRP) show what can be done with it:
 //! open, pin or unpin, its permissions, Forget. Forget and permissions only
 //! open Rapidkoi's own panel on the app, where the person decides.
 //!
@@ -192,11 +192,24 @@ impl App for AllApps {
 }
 
 impl AllApps {
-    /// One app: its icon and name (and where it's from, when names clash)
-    /// opening it; a pin when it's on the dock.
+    /// One app: its icon (with the address bar's pin on its corner when
+    /// it's on the dock) and name (and where it's from, when names clash),
+    /// opening it.
     fn tile(&self, a: &Item, first: bool) -> V {
+        let face = image(&a.icon).style([Sizing::width(56), Sizing::height(56)]);
+        let icon = if a.pinned {
+            layers([
+                face,
+                boxed()
+                    .children([picture("pin.svg", 16, 16)])
+                    .style([Layout::place(Place::TopEnd)])
+                    .label("On the dock"),
+            ])
+        } else {
+            face
+        };
         let mut lines = vec![
-            image(&a.icon).style([Sizing::width(56), Sizing::height(56), Layout::align(Align::Center)]),
+            icon.style([Layout::align(Align::Center)]),
             text(&a.name).style([Font::size(TextSize::Small), Layout::align(Align::Center), Text::truncate()]),
         ];
         if self.clashes(a) && !a.from.is_empty() {
@@ -210,9 +223,9 @@ impl AllApps {
             );
         }
         let mut look = vec![
-            Sizing::height(132),
+            Sizing::height(116),
             Spacing::gap(Space::Sm),
-            Spacing::padding_xy(Space::Px(18), Space::Px(8)),
+            Spacing::padding_xy(Space::Px(12), Space::Px(4)),
             Border::corner(Corner::Px(12)),
             When(Look::Hover, [Background::color(lift(0.07))]),
         ];
@@ -222,19 +235,9 @@ impl AllApps {
         if first {
             look.push(Border::all(2, Color::system("accent")));
         }
-        let open = column(lines).style(look).label(&a.name).on_press(Msg::Open(a.at));
-        let mut parts = vec![open];
-        if a.pinned {
-            parts.push(
-                boxed()
-                    .children([picture("pin.svg", 14, 14)])
-                    .style([Layout::place(Place::TopStart), Spacing::padding(Space::Px(10))])
-                    .label("On the dock"),
-            );
-        }
-        // Its details open on a right-click once the contract has `on_context`
-        // (PRP-068): no ⋯ on the tile (the owner, 2026-11-03).
-        layers(parts)
+        // Its details open on a right-click once the contract has
+        // `on_context` (a later PRP): no ⋯ on the tile (the owner, 2026-11-03).
+        column(lines).style(look).label(&a.name).on_press(Msg::Open(a.at))
     }
 }
 

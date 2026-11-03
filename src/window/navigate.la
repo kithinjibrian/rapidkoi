@@ -13,17 +13,7 @@ import window.tabs { AppPage, Tab, Pin, close_page, state_of, state_version_of, 
 import window.restarts { load_again };
 import window.recent { remember };
 import window.upgrades { upgrading, landed };
-import window.notices {
-    here,
-    told,
-    tab_loaded,
-    for_rapidkoi,
-    bad_address,
-    no_such,
-    started_over,
-    settings_failed,
-    all_apps_failed,
-};
+import window.notices { here, told, tab_loaded, for_rapidkoi, bad_address, no_such, started_over };
 import window.choosing { asks_which };
 import window.instances { next_instance, next_instance_of, another };
 import data.remembered { Open };
@@ -49,7 +39,7 @@ import window.window {
 };
 import net.address { is_address, parse, without_link };
 import window.settings_app;
-import window.allapps;
+import window.ownapps { open_settings };
 import boot.appboot { opened };
 import bundles.loader { why };
 
@@ -384,44 +374,6 @@ fun keep_mine(m: Model): Model = match (m.current, page_of(m)) {
     },
     _ => m,
 };
-
-/**
- * Opens Rapidkoi's Settings app (PRP-038): its tab when it's open, else a
- * new one. If it can't start, why is the notice.
- *
- * Example:
- *     open_settings(m)
- */
-fun open_settings(m: Model): Model {
-    if let Some(id) = open_tab_of(m, settings_app.SETTINGS_KEY) {
-        return show_tab(m, id);
-    }
-    // Compiled once for the run (PRP-068).
-    let held = Ref.new(m.modules);
-    match settings_app.open_kept(held, m.engine, m.now) {
-        Ok(page) => add_tab(Model { modules: held.get(), ..m }, page),
-        Err(r) => for_rapidkoi(m, settings_failed(why(r))),
-    }
-}
-
-/**
- * Opens All apps (PRP-067): its tab when it's open, else a new one. If it
- * can't start, why is the notice.
- *
- * Example:
- *     open_all_apps(m)
- */
-fun open_all_apps(m: Model): Model {
-    if let Some(id) = open_tab_of(m, allapps.ALL_APPS_KEY) {
-        return show_tab(m, id);
-    }
-    // Compiled once for the run (PRP-068).
-    let held = Ref.new(m.modules);
-    match allapps.open_kept(held, m.engine, m.now) {
-        Ok(page) => add_tab(Model { modules: held.get(), ..m }, page),
-        Err(r) => for_rapidkoi(m, all_apps_failed(why(r))),
-    }
-}
 
 /** A home tile's menu item, for the app at `path`. Forget opens it, then the panel at its question; Permissions, the panel on its permissions (PRP-067). */
 fun on_pin(

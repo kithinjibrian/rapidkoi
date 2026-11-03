@@ -94,3 +94,12 @@
 - [x] All apps lists every app you've opened, opens, pins, unpins, and sends you to Rapidkoi's own Forget and permissions; the new tab has no Pinned.
 - [x] `lughac test test/`, `lughac fmt --check src test` and `lughac build -O 2 src/main.la -o main` pass; `cargo test` for the built-in apps passes.
 - [ ] For the owner, by eye: open a few apps, then the dock's All apps. Compare with the canvas's three boards; search, open one, pin and unpin one, try Forget from its ⋯. The new tab: Notifications and Recent only.
+
+## AS BUILT (after the owner's review, 2026-11-03)
+
+- **The dock's button opens and closes All apps:** pressed while it's in front, it closes and you're back on the tab you were on (`before_all_apps`); leaving it for any other tab closes it (`ownapps.left_all_apps`, first in `update` before Settle). It opens fresh each time, cheaply: its module is kept for the run (PRP-068).
+- **⚙ shows its permissions** (`--control settings=app_settings.permissions`).
+- **Rapidkoi's own apps** show a "Rapidkoi" chip in the address bar, then their address, and no shield; the address text is a step larger (`TEXT_ADDRESS`).
+- **A pin replaces ☆** in the address bar (the owner's `pin.svg`, filled in the accent while pinned); All apps marks pinned apps with the same pin on the icon's corner; All apps itself is never pinned.
+- **No ⋯ on tiles:** an app's details open on a right-click once the contract has `on_context` (a later PRP; kivuli first).
+- **Opening Settings and All apps** moved from `window.navigate` to `window.ownapps` (its size).

@@ -1,0 +1,85 @@
+/**
+ * Rapidkoi's own apps in the window (moved from `window.navigate` for its
+ * size): opening Settings (PRP-038) and All apps (PRP-067), each in its tab
+ * when it's open, its module compiled once for the run (PRP-068).
+ *
+ * Depends on: window.window, window.notices, window.settings_app, window.allapps, bundles.loader
+ * Used by: shell, window.navigate
+ */
+import window.window { Model, add_tab, open_tab_of, show_tab, close };
+import window.notices { for_rapidkoi, settings_failed, all_apps_failed };
+import window.settings_app;
+import window.allapps;
+import bundles.loader { why };
+
+/**
+ * Opens Rapidkoi's Settings app (PRP-038): its tab when it's open, else a
+ * new one. If it can't start, why is the notice.
+ *
+ * Example:
+ *     open_settings(m)
+ */
+fun open_settings(m: Model): Model {
+    if let Some(id) = open_tab_of(m, settings_app.SETTINGS_KEY) {
+        return show_tab(m, id);
+    }
+    // Compiled once for the run (PRP-068).
+    let held = Ref.new(m.modules);
+    match settings_app.open_kept(held, m.engine, m.now) {
+        Ok(page) => add_tab(Model { modules: held.get(), ..m }, page),
+        Err(r) => for_rapidkoi(m, settings_failed(why(r))),
+    }
+}
+
+/**
+ * The dock's All apps button (PRP-067): opens All apps, remembering the tab
+ * you were on; pressed while All apps is in front, closes it and takes you
+ * back there (the owner, 2026-11-03). If it can't start, why is the notice.
+ *
+ * Example:
+ *     open_all_apps(m)
+ */
+fun open_all_apps(m: Model): Model {
+    if let Some(id) = open_tab_of(m, allapps.ALL_APPS_KEY) {
+        return if m.current == Some(id) { closed_all_apps(m, id) } else { show_tab(m, id) };
+    }
+    // Compiled once for the run (PRP-068).
+    let held = Ref.new(m.modules);
+    match allapps.open_kept(held, m.engine, m.now) {
+        Ok(page) => add_tab(Model { modules: held.get(), before_all_apps: m.current, ..m }, page),
+        Err(r) => for_rapidkoi(m, all_apps_failed(why(r))),
+    }
+}
+
+/**
+ * Closes All apps when a message took you to another tab (PRP-067, the
+ * owner: "if All Apps is open and you open another app close it
+ * automatically"): it's where you find apps, not one you keep open. The tab
+ * now in front stays in front.
+ *
+ * @param before the window before the message
+ * @param after the window after it
+ *
+ * Example:
+ *     left_all_apps(m, next)
+ */
+fun left_all_apps(before: Model, after: Model): Model = match open_tab_of(
+    after,
+    allapps.ALL_APPS_KEY,
+) {
+    Some(id) if before.current == Some(id) && after.current != Some(id) => Model {
+        before_all_apps: None,
+        ..close(after, id),
+    },
+    _ => after,
+};
+
+/** All apps closed from its button: back to the tab you were on, when it's still open. */
+fun closed_all_apps(m: Model, id: i64): Model {
+    let closed = close(m, id);
+    let back = match m.before_all_apps {
+        Some(b) => show_tab(closed, b),
+        None => closed,
+    };
+    Model { before_all_apps: None, ..back }
+}

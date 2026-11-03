@@ -29,6 +29,7 @@ import people.access { on_access, set_permission };
 import people.people { with_looks };
 import window.window { Model };
 import window.navigate;
+import window.ownapps;
 import window.pins;
 import window.zones;
 import window.instances { close_instance, close_app, start_rename, confirm_rename };
@@ -143,8 +144,9 @@ fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
         handled
     };
     // An approval waits on its own tab now, not a no when it goes to the back
-    // (PRP-057). The rest is Settle's, as after Rapidkoi starts (PRP-068).
-    settled(m, next, cmd, at)
+    // (PRP-057). Leaving All apps closes it (PRP-067). The rest is Settle's,
+    // as after Rapidkoi starts (PRP-068).
+    settled(m, ownapps.left_all_apps(m, next), cmd, at)
 }
 
 /** The page the window shows: its tab and its app's path; `None` on home. */
@@ -232,8 +234,8 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     TogglePin => (pins.toggle_pin(m), Cmd.none()),
     Menu(open) => (Model { menu: open, ..m }, Cmd.none()),
     Bell(action) => navigate.on_bell(m, action),
-    OpenSettings => (navigate.open_settings(Model { menu: false, ..m }), Cmd.none()),
-    OpenAllApps => (navigate.open_all_apps(m), Cmd.none()),
+    OpenSettings => (ownapps.open_settings(Model { menu: false, ..m }), Cmd.none()),
+    OpenAllApps => (ownapps.open_all_apps(m), Cmd.none()),
     // The owner's words (PRP-058); the chosen file opens as a typed path does.
     OpenApp => (
         Model { menu: false, ..m },
