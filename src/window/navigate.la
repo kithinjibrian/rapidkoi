@@ -9,29 +9,11 @@
  * Used by: shell
  */
 import std.fs;
-import window.tabs {
-    AppPage,
-    Tab,
-    Pin,
-    open_path,
-    close_page,
-    state_of,
-    state_version_of,
-    failed_page,
-};
+import window.tabs { AppPage, Tab, Pin, close_page, state_of, state_version_of, failed_page };
 import window.restarts { load_again };
 import window.recent { remember };
 import window.upgrades { upgrading, landed };
-import window.notices {
-    here,
-    told,
-    tab_loaded,
-    for_rapidkoi,
-    bad_address,
-    no_such,
-    started_over,
-    settings_failed,
-};
+import window.notices { here, told, tab_loaded, for_rapidkoi, bad_address, no_such, started_over };
 import window.choosing { asks_which };
 import window.instances { next_instance, next_instance_of, another };
 import data.remembered { Open };
@@ -41,7 +23,8 @@ import net.loads { begin, begin_app, begin_link, begin_restoring, resumed, begin
 import window.apps { tab_of };
 import window.pins { pins_app };
 import kivuli { Cmd };
-import window.actions { Msg, PanelPage, Confirm, PinAction };
+import window.actions { Msg, PanelPage, Confirm, PinAction, BellAction };
+import window.notifications { open_at, dismiss };
 import window.window {
     Model,
     page_of,
@@ -56,6 +39,8 @@ import window.window {
 };
 import net.address { is_address, parse, without_link };
 import window.settings_app;
+import window.ownapps { open_settings };
+import boot.appboot { opened };
 import bundles.loader { why };
 
 /**
@@ -147,8 +132,13 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
     }
     // A new window starts fresh: state lives with its window, and only
     // Restore brings a saved one back (session 189). Its old notice goes.
-    let page = open_path(m.engine, m.ring, path);
-    (with_tab(tab_loaded(tidy, id), id, fun(_: AppPage) = page), Cmd.none())
+    // Through the pipeline (PRP-069): opened again, it compiles nothing.
+    let held = Ref.new(tidy.modules);
+    let page = opened(held, m.engine, m.now, m.ring, path);
+    (
+        with_tab(tab_loaded(Model { modules: held.get(), ..tidy }, id), id, fun(_: AppPage) = page),
+        Cmd.none(),
+    )
 }
 
 /**
@@ -253,8 +243,9 @@ fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
         };
         if t.path == settings_app.SETTINGS_KEY {
             // Rapidkoi's own Settings comes back built in, never from a file (PRP-038).
-            if let Ok(page) = settings_app.open(at.engine) {
-                at = add_tab(at, named(page));
+            let held = Ref.new(at.modules);
+            if let Ok(page) = settings_app.open_kept(held, at.engine, at.now) {
+                at = add_tab(Model { modules: held.get(), ..at }, named(page));
             }
         } else if is_address(t.path) && parse(t.path).is_ok() {
             // Its tab first, under its name; begin keeps the instance (loads).
@@ -264,8 +255,10 @@ fun reopen_all(m: Model, o: Open): (Model, Cmd<Msg>) {
             at = loading;
             tasks.push(task);
         } else {
-            let (page, said) = resumed(at, named(open_path(at.engine, at.ring, t.path)), t.link);
-            let placed = add_tab(at, page);
+            let held = Ref.new(at.modules);
+            let local = opened(held, at.engine, at.now, at.ring, t.path);
+            let (page, said) = resumed(at, named(local), t.link);
+            let placed = add_tab(Model { modules: held.get(), ..at }, page);
             // About that window's app: on its tab (PRP-051).
             at = told(placed, placed.current.unwrap_or(-1), said);
         }
@@ -318,14 +311,24 @@ fun open_pin(m: Model, path: string, origin: Option<u8[]>): (Model, Cmd<Msg>) = 
 fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
     // One upgrade or reload of an app at a time (PRP-048).
     (Some(_), App(a)) if upgrading(m, a.path) => (m, Cmd.none()),
-    (Some(id), App(a)) if a.path == settings_app.SETTINGS_KEY => match settings_app.open(m.engine) {
-        // Built in: started again as it is, its settings read afresh.
-        Ok(page) => {
-            let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
-            let (moved, notice) = landed(m, id, [a], same, None);
-            (told(moved, id, notice), Cmd.none())
+    (Some(id), App(a)) if a.path == settings_app.SETTINGS_KEY => {
+        // Built in: started again as it is, its settings read afresh; its
+        // module from the modules kept for the run (PRP-068).
+        let held = Ref.new(m.modules);
+        match settings_app.open_kept(held, m.engine, m.now) {
+            Ok(page) => {
+                let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
+                let (moved, notice) = landed(
+                    Model { modules: held.get(), ..m },
+                    id,
+                    [a],
+                    same,
+                    None,
+                );
+                (told(moved, id, notice), Cmd.none())
+            }
+            Err(_) => (m, Cmd.none()),
         }
-        Err(_) => (m, Cmd.none()),
     },
     (Some(id), App(a)) => {
         let saved = state_of(a).map(fun(st: u8[]) = (st, state_version_of(a)));
@@ -338,7 +341,8 @@ fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
                 _ => begin(m, id, a.path, false, saved, [a]),
             };
         }
-        let (loaded, over) = load_again(m.engine, m.ring, a.path, saved, a.link);
+        let held = Ref.new(m.modules);
+        let (loaded, over) = load_again(held, m.engine, m.now, m.ring, a.path, saved, a.link);
         // A changed key asks first: the open page waits, in case the
         // person keeps using it.
         let page = match loaded.screen {
@@ -349,7 +353,7 @@ fun reload(m: Model): (Model, Cmd<Msg>) = match (m.current, page_of(m)) {
         // Reloaded, it's still the same instance; every window of the app
         // moves with it, or none (PRP-048).
         let same = AppPage { instance: a.instance, label: a.label, seen: a.seen, ..page };
-        let (moved, said) = landed(m, id, [a], same, notice);
+        let (moved, said) = landed(Model { modules: held.get(), ..m }, id, [a], same, notice);
         (told(moved, id, said), Cmd.none())
     }
     _ => (m, Cmd.none()),
@@ -371,24 +375,7 @@ fun keep_mine(m: Model): Model = match (m.current, page_of(m)) {
     _ => m,
 };
 
-/**
- * Opens Rapidkoi's Settings app (PRP-038): its tab when it's open, else a
- * new one. If it can't start, why is the notice.
- *
- * Example:
- *     open_settings(m)
- */
-fun open_settings(m: Model): Model {
-    if let Some(id) = open_tab_of(m, settings_app.SETTINGS_KEY) {
-        return show_tab(m, id);
-    }
-    match settings_app.open(m.engine) {
-        Ok(page) => add_tab(m, page),
-        Err(r) => for_rapidkoi(m, settings_failed(why(r))),
-    }
-}
-
-/** A home tile's menu item, for the app at `path`. Forget opens it, then the panel at its question. */
+/** A home tile's menu item, for the app at `path`. Forget opens it, then the panel at its question; Permissions, the panel on its permissions (PRP-067). */
 fun on_pin(
     m: Model,
     path: string,
@@ -404,6 +391,10 @@ fun on_pin(
         let (opened, cmd) = open_pin(m, path, origin);
         let tab = opened.current.unwrap_or(-1);
         (Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget(tab)), ..opened }, cmd)
+    }
+    Permissions => {
+        let (opened, cmd) = open_pin(m, path, origin);
+        (Model { panel: Some(PanelPage.Permissions), ..opened }, cmd)
     }
 };
 
@@ -430,4 +421,25 @@ fun open_place(m: Model, to: string, origin: Option<u8[]>): (Model, Cmd<Msg>) = 
     },
     (Ok(_), Some(_)) if is_address(to) => open_pin(m, without_link(to), origin),
     _ => open_file(Model { draft: "", editing: false, ..go_home(m) }, to),
+};
+
+/**
+ * The bell's card (PRP-066): opening it closes ☰'s; a row opens its
+ * notification's place, marks it read and closes the card; × removes it.
+ * An index past the end changes nothing.
+ *
+ * Example:
+ *     on_bell(m, BellAction.Open(0))
+ */
+fun on_bell(m: Model, action: BellAction): (Model, Cmd<Msg>) = match action {
+    Show(open) => (Model { bell: open, menu: if open { false } else { m.menu }, ..m }, Cmd.none()),
+    Open(index) => match open_at(m.notifications, index) {
+        (marked, Some(x)) => open_place(
+            Model { notifications: marked, bell: false, ..m },
+            x.address,
+            x.origin,
+        ),
+        (_, None) => (m, Cmd.none()),
+    },
+    Dismiss(index) => (Model { notifications: dismiss(m.notifications, index), ..m }, Cmd.none()),
 };

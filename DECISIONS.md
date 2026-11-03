@@ -457,6 +457,18 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-095 — An app can't put the focus in a typing box, or take arrow keys (contract)
+
+**Status:** deferred
+**Raised:** 2026-11-03, building PRP-067: All apps' design has its search box focused when it opens and arrow keys moving between tiles
+**Revisit when:** a contract version adds focus and keys; All apps is the first app to use them.
+
+**Question:** The contract has no way for an app to say which typing box has the focus when its screen opens, and no events for arrow keys. All apps wants you to type the moment it opens, and to move between matches with the arrows.
+
+**Meanwhile:** click the search box to type; Enter opens the first match (`on_submit`); Tab moves between tiles (pressable boxes are focusable). A contract change is a version bump and its own decision, so nothing is worked around here.
+
+---
+
 ### DECISION-090 — A shortcut inside a closed popover doesn't fire (kivuli)
 
 **Status:** deferred (reported: `docs/specs/kivuli-requests.md` § 17)
@@ -746,6 +758,53 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 ---
 
 ## RESOLVED
+
+### DECISION-096 — Start-up as named pipelines, and compiled modules kept for the run
+
+**Status:** resolved (the owner, 2026-11-03: "I'm thinking of it like a chain or graph and not something done haphazardly", "the rapidkoi app itself should also have a boot sequence", caching over hiding, "let's start with rapidkoi itself", then "yes" to the drawn sequence; PRP-068)
+**Raised:** 2026-11-03, during PRP-067: All apps closing whenever you leave it means it starts again each time, and every start compiles its module.
+
+**Question:** How are Rapidkoi's start and an app's start coded, so their order is visible and each step happens once?
+
+**Outcome:**
+- **Rapidkoi's start is a chain of named stages**, each a function returning its result or a notice: Command → Setup → Data folder → Restore → Session → Built-ins → Window → Settle → Running. Restore reads a list of parts (file, reader, default), not one function per file. PRP-068.
+- **Settle is one set of passes** (tell what changed, answer, fetch pictures, settle time zones, save), run after Rapidkoi starts and after every update, so the two can't drift apart (PRP-065's empty-command bug reached start and not updates).
+- **Compiled modules are kept for the run**, keyed by a hash of the module's bytes, capped, oldest dropped: a changed app has a new hash and compiles fresh. Rapidkoi's start compiles the built-in apps into it once. Nothing is kept on disk: loading saved native code is a security decision of its own.
+- **Caching, not hiding:** All apps still closes when you leave it, and opens fresh (empty search) and cheaply.
+- **An app's start** becomes one pipeline too (Source → Checked → Compiled → Started → Answered → Shown), every way of opening an app entering at Source: its own PRP, after this one.
+
+---
+
+### DECISION-094 — Your apps: every app you open is kept and listed; pinning only puts it on the dock
+
+**Status:** resolved (the owner, 2026-11-03, in conversation: "pinned apps shouldn't really be on the new tab because it duplicates the dock. what the dock should have is a button that opens to show all apps", "i feel like all apps should be an app on its own", then "yes" to All apps before widgets; PRP-067)
+**Raised:** 2026-11-03, the owner: "when a user visits an app. they will use pinning as a subsitute of installing because that is the only way the app remains … so user will endup with so many pins"
+
+**Question:** Pinning is the only way back to an app without its address, so people will pin everything and the dock fills up. What keeps an app, and where do you find the ones you don't pin?
+
+**Outcome (PRP-067):**
+- Rapidkoi already keeps every app you open (its copy, database, state, trust). What was missing is finding it again: an app you opened is listed in **All apps** until you Forget it. No "install" or "keep" step: it would be a fiction, since everything is kept, and people would press it as they pin.
+- Pinning means only "on the dock". The new tab no longer shows Pinned (it repeated the dock).
+- All apps is a built-in app (`builtin:apps`, `guest/rust/apps`), as the new tab and Settings are, opened from a button at the dock's end. It reads your apps with the built-in `read_apps`, opens them with `open_apps`, and pins with the built-in `manage_pins`; Forget and an app's permissions open Rapidkoi's own panel on that app, where the person decides.
+- Rapidkoi keeps your apps in their own `apps` file: Recent forgets an app once its places drop out of the 100 it keeps.
+- Widgets (an app's card on the new tab) come after, as their own PRP; adding one goes in All apps' details.
+
+---
+
+### DECISION-093 — Notifications: one record for every kind, and the permission that gates apps
+
+**Status:** resolved (the owner, 2026-11-03: "yes for the three", then "approved, go ahead"; PRP-065)
+**Raised:** 2026-11-03, the owner: "there should be a permission for gating which apps can send notifications … a notification structure that should handle any kind of notification we will design now and in the future"
+
+**Question:** How does an app get to send notifications, and what does Rapidkoi keep, so invites, shares, updates and reminders fit later without a new shape?
+
+**Outcome (PRP-065):**
+- `notifications` is the first permission any app may declare (`Tier.Any`). Its first use asks the person, with the dialog every permission has; Blocked drops them and the app runs on. Reading them is the built-in `read_notifications`.
+- One record for every kind: its kind, its app (path and first key), a sentence, a place (an address), an app's key, when, and read. Only an app's own kind is built; invites, shares and updates, which only Rapidkoi makes, add a kind, a sender and a button with their own PRPs. An app gives a sentence, a place and a key, never a kind, a look, a name or an icon.
+- Apps send only while they run. Scheduled reminders, the bell, the dock dot, the See all page and desktop alerts are later PRPs.
+- Additions to contract 11, with no new version (as PRP-055 and PRP-062).
+
+---
 
 ### DECISION-044 — What "Continue where you left off" means now that a window's state goes with it
 

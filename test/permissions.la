@@ -27,10 +27,23 @@ fun each_permission_has_its_name_tier_and_words() {
         "open_apps",
         "restore_session",
         "change_settings",
+        "notifications",
+        "read_notifications",
+        "read_apps",
+        "manage_pins",
     ]);
+    // Any app may send you notifications (PRP-065); everything else is Rapidkoi's own apps'.
     for p of ALL {
-        assert_eq(tier_of(p), Tier.BuiltIn);
+        assert_eq(tier_of(p), if p == Permission.Notify { Tier.Any } else { Tier.BuiltIn });
     }
+    assert_eq(words_of(Permission.Notify), "sending you notifications");
+    assert_eq(label_of(Permission.Notify), "Sending you notifications");
+    assert_eq(wish_of(Permission.Notify), "send you notifications");
+    assert_eq(words_of(Permission.ReadNotifications), "reading your notifications");
+    // PRP-067: All apps.
+    assert_eq(words_of(Permission.ReadApps), "reading your apps");
+    assert_eq(label_of(Permission.ManagePins), "Changing your pins");
+    assert_eq(wish_of(Permission.ManagePins), "change your pins");
     assert_eq(words_of(Permission.ReadPins), "reading your pins");
     assert_eq(words_of(Permission.ReadLeftOff), "reading your recent places");
     assert_eq(words_of(Permission.OpenApps), "opening your apps");
@@ -47,6 +60,10 @@ fun each_permission_has_its_name_tier_and_words() {
 fun a_list_parses_in_order() {
     assert_eq(parse(["open_apps", "read_pins"]), Ok([Permission.OpenApps, Permission.ReadPins]));
     assert_eq(parse([]), Ok([]));
+    assert_eq(
+        parse(["notifications", "read_notifications"]),
+        Ok([Permission.Notify, Permission.ReadNotifications]),
+    );
 }
 
 @test
@@ -56,9 +73,13 @@ fun an_unknown_name_is_named() {
 
 @test
 fun each_setting_has_its_name_and_words() {
-    // PRP-031: the person decides; built-in permissions start allowed.
+    // PRP-031: the person decides; built-in permissions start allowed, and
+    // notifications ask first (PRP-065).
     for p of ALL {
-        assert_eq(default_of(p), Setting.Allowed);
+        assert_eq(
+            default_of(p),
+            if p == Permission.Notify { Setting.Ask } else { Setting.Allowed },
+        );
     }
     assert_eq(SETTINGS.map(fun(s: Setting) = setting_name(s)), ["allowed", "ask", "blocked"]);
     assert_eq(SETTINGS.map(fun(s: Setting) = setting_words(s)), [

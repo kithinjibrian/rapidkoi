@@ -1,0 +1,92 @@
+// The notifications file (PRP-065): it round-trips with each app's face,
+// and hostile fields are refused. No guest, no display.
+import rapidkoi.data.notificationsfile { notifications_file, read_notifications };
+import rapidkoi.window.notifications { Kind, Notification, Notifications };
+import rapidkoi.data.remembered { Face };
+import cbor { Value, encode };
+import support { png, t, kv };
+
+fun note(id: i64, read: bool): Notification = Notification {
+    id: id,
+    kind: Kind.App,
+    path: "rapidkoi://notes.dafifi.net",
+    origin: Some([7; 32]),
+    text: "Shopping is due",
+    address: "rapidkoi://notes.dafifi.net/@0.9.0?note=1",
+    key: Some("due-1"),
+    sent: 1762000000000,
+    read: read,
+};
+
+fun notes(): Face = Face {
+    path: "rapidkoi://notes.dafifi.net",
+    name: "Notes",
+    icon: Some(png(128, 128)),
+    colour: Some("#14b8a6"),
+};
+
+fun kept(items: Notification[]): Notifications = Notifications {
+    items: items,
+    apps: [notes()],
+    next: 1,
+    lately: [],
+};
+
+/** A file of one item made of `fields`. */
+fun with_item(fields: (string, Value)[]): u8[] = encode(
+    kv([
+        ("format", Value.int(1)),
+        ("kind", t("rapidkoi notifications")),
+        ("notifications", kv([("items", Value.Array([kv(fields)])), ("apps", Value.Array([]))])),
+    ]),
+);
+
+fun good(): (string, Value)[] = [
+    ("id", Value.int(1)),
+    ("kind", t("app")),
+    ("path", t("counter.rkb")),
+    ("text", t("Hi")),
+    ("address", t("counter.rkb")),
+    ("sent", Value.int(0)),
+    ("read", Value.Bool(false)),
+];
+
+/** `good()` with `field` set to `v`. */
+fun changed(field: string, v: Value): u8[] = with_item(
+    good().map(fun(f: (string, Value)) = if f.0 == field { (field, v) } else { f }),
+);
+
+@test
+fun the_notifications_file_round_trips() {
+    let n = kept([note(2, false), note(1, true)]);
+    let back = read_notifications(notifications_file(n)).unwrap();
+    assert_eq(back.items == n.items, true);
+    assert_eq(back.apps == n.apps, true);
+    // The next number follows the highest kept.
+    assert_eq(back.next, 3);
+    let none = read_notifications(notifications_file(kept([]))).unwrap();
+    assert_eq((none.items.len, none.next), (0, 1));
+    assert_eq(read_notifications(with_item(good())).is_ok(), true);
+}
+
+@test
+fun hostile_fields_are_refused() {
+    assert_eq(read_notifications(changed("id", Value.int(0))).is_err(), true);
+    assert_eq(read_notifications(changed("kind", t("invite"))).is_err(), true);
+    assert_eq(read_notifications(changed("path", t(""))).is_err(), true);
+    assert_eq(read_notifications(changed("text", t(""))).is_err(), true);
+    assert_eq(read_notifications(changed("sent", Value.int(-1))).is_err(), true);
+    assert_eq(read_notifications(changed("read", Value.int(1))).is_err(), true);
+    let mut long = "";
+    for _ of range(0, 201) {
+        long = long + "a";
+    }
+    assert_eq(read_notifications(changed("text", t(long))).is_err(), true);
+    let mut with_origin = good();
+    with_origin.push(("origin", Value.Bytes([1; 31])));
+    assert_eq(read_notifications(with_item(with_origin)).is_err(), true);
+    // The same number twice.
+    let n = kept([note(1, false), note(1, true)]);
+    assert_eq(read_notifications(notifications_file(n)).is_err(), true);
+    assert_eq(read_notifications([1, 2, 3]).is_err(), true);
+}

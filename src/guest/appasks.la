@@ -1,0 +1,46 @@
+/**
+ * All apps' asks (PRP-067): `apps`, and `open_app`, `pin_app`,
+ * `unpin_app`, `app_permissions` and `forget_app` by index, read and held
+ * to their shapes before anything is done. A bad one stops the app with
+ * its sentence, as other bad asks do. Whether the app may is
+ * `guest.needs`' question.
+ *
+ * Depends on: cbor, guest.nodes, guest.notifyasks
+ * Used by: guest.contract
+ */
+import cbor { Value };
+import guest.nodes { ContractError, Effect };
+import guest.notifyasks { index_of };
+
+/**
+ * Reads an All apps ask, or `None` when `kind` names none.
+ *
+ * @param kind the effect's kind
+ * @param msg its `msg`
+ * @param e the effect
+ * @returns the ask; `Err(Invalid)` for a missing or negative index
+ *
+ * Example:
+ *     app_ask_of("open_app", msg, e)?
+ */
+fun app_ask_of(kind: string, msg: Value, e: Value): Result<Option<Effect>, ContractError> {
+    if kind == "apps" {
+        return Ok(Some(Effect.Apps(msg)));
+    }
+    if kind == "open_app" {
+        return Ok(Some(Effect.OpenApp(msg, index_of(e, kind)?)));
+    }
+    if kind == "pin_app" {
+        return Ok(Some(Effect.PinApp(msg, index_of(e, kind)?)));
+    }
+    if kind == "unpin_app" {
+        return Ok(Some(Effect.UnpinApp(msg, index_of(e, kind)?)));
+    }
+    if kind == "app_permissions" {
+        return Ok(Some(Effect.AppPermissions(msg, index_of(e, kind)?)));
+    }
+    if kind == "forget_app" {
+        return Ok(Some(Effect.ForgetApp(msg, index_of(e, kind)?)));
+    }
+    Ok(None)
+}

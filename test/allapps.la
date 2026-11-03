@@ -1,0 +1,84 @@
+// Rapidkoi's All apps (PRP-067): the bundle built into ./main, opened from
+// the dock. It holds read_apps, open_apps and manage_pins, reads your apps
+// through them, and lists them; pressing one opens it. No display.
+import rapidkoi.window.allapps { BUNDLE, open };
+import rapidkoi.bundles.bundle { read, Manifest, Controls };
+import rapidkoi.guest.modules { holds };
+import rapidkoi.shell { start, update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.window { Model };
+import rapidkoi.window.yourapps { App, opened as kept };
+import rapidkoi.data.remembered { Face };
+import kivuli.testing { texts, click };
+import kivuli { Cmd };
+import wasmtime { Engine };
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+/** The messages a command sends later, as kivuli would. */
+fun later(c: Cmd<Msg>): Msg[] = match c {
+    After(_, msg) => [msg],
+    Batch(cs) => {
+        let mut all: Msg[] = [];
+        for inner of cs {
+            for msg of later(inner) {
+                all.push(msg);
+            }
+        }
+        all
+    }
+    _ => [],
+};
+
+@test
+fun the_built_in_bundle_holds_its_three_permissions() {
+    let b = read(BUNDLE).unwrap();
+    assert_eq((b.manifest.name, b.manifest.contract), ("All apps", 11));
+    assert_eq(b.manifest.permissions, ["read_apps", "open_apps", "manage_pins"]);
+    // ⚙ shows its permissions (the owner, 2026-11-03).
+    assert_eq(
+        b.manifest.controls.map(fun(c: Controls) = c.settings),
+        Some(["app_settings.permissions"]),
+    );
+    let p = open(Engine.new()).unwrap();
+    assert_eq((p.path, p.trust.is_none()), ("builtin:allapps", true));
+}
+
+@test
+fun it_lists_your_apps_and_opens_one() {
+    // A first run: Settings is pinned (PRP-064), so it's one of your apps;
+    // and a Counter you opened.
+    let (m, _) = start(["./main"], None);
+    let counter = App {
+        path: "counter.rkb",
+        origin: None,
+        host: None,
+        face: Face { path: "counter.rkb", name: "Counter", icon: None, colour: None },
+        first: 1,
+        last: 1,
+    };
+    let (opened, _) = update(Model { apps: kept(m.apps, counter), ..m }, Msg.OpenAllApps);
+    assert(shows(opened, "All apps"));
+    assert(shows(opened, "Settings"));
+    // Pressing its tile opens it, as the dock does.
+    let (_, c) = update(opened, click(view(opened), "Counter").unwrap());
+    assert_eq(later(c), [Msg.OpenPinned("counter.rkb", None)]);
+}
+
+@test
+fun opening_it_again_compiles_nothing() {
+    // PRP-068: its module is kept for the run; opening it again after it
+    // closed reuses it.
+    let (m, _) = start(["./main"], None);
+    let (once, _) = update(m, Msg.OpenAllApps);
+    let kept = once.modules.items.len;
+    assert(holds(once.modules, module_of_bundle()));
+    let id = once.current.unwrap();
+    let (closed, _) = update(once, Msg.CloseTab(id));
+    let (again, _) = update(closed, Msg.OpenAllApps);
+    assert_eq(again.modules.items.len, kept);
+}
+
+/** All apps' module, out of its bundle. */
+fun module_of_bundle(): u8[] = read(BUNDLE).unwrap().module;

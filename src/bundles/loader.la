@@ -2,15 +2,18 @@
  * Loading an app: from a local file the person chose (a `.rkb` bundle,
  * signed or not, or a bare `.wasm`) or a local development address. A
  * signed site is verified first (`verify`), and a failed check never
- * loads. A signed file says how far its key is trusted. Never runs it;
- * `tabs` starts the guest.
+ * loads. A signed file says how far its key is trusted. Never runs it.
+ * Its stages are the app pipeline's first three (PRP-069, `boot.appboot`):
+ * `checked_file`, `checked_bytes` and `checked_fetched` (Source and
+ * Checked), then `compiled_with` (Compiled); `load`, `from_bytes` and
+ * `from_fetched` are them chained, compiling plainly (tests).
  *
  * Depends on: wasmtime, std.http, guest.guest, bundles.bundle, bundles.signing, trust.verify, trust.publishers, net.fetching, net.address, guest.limits
- * Used by: window.tabs
+ * Used by: boot.appboot, window.tabs, net.loads
  */
 import trust.publishers { known_of };
 import wasmtime { Engine, Module };
-import guest.guest { compile, reason, OLDER };
+import guest.guest { GuestError, compile, reason, OLDER };
 import bundles.bundle { Manifest, asset };
 import bundles.rules { reason as bundle_reason };
 import bundles.signing { Opened, read_any };
@@ -70,7 +73,7 @@ enum Refusal {
 }
 
 /**
- * Loads the app in a local file.
+ * Loads the app in a local file: checked (`checked_file`), then compiled.
  *
  * @param engine the program's engine
  * @param ring this session's trusted keys
@@ -81,9 +84,24 @@ enum Refusal {
  * Example:
  *     load(engine, ring, "counter.rkb")
  */
-fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Refusal> {
+fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Refusal> = compiled_with(
+    checked_file(ring, path)?,
+    plain(engine),
+);
+
+/**
+ * The Source and Checked stages for a local file (PRP-069): its bytes read
+ * and every rule checked, nothing compiled. A bare `.wasm` has no manifest
+ * to check; a local development address is fetched and waited for (tests,
+ * and `load_again`'s files).
+ *
+ * @returns what's checked; or why not, as `load`
+ *
+ * Example:
+ *     checked_file(ring, "counter.rkb")?
+ */
+fun checked_file(ring: Keyring, path: string): Result<Checked, Refusal> {
     if is_address(path) {
-        // The same work a background load does, waited for (tests, and `load_again`'s files).
         let a = parse(path).map_err(fun(e) = Refusal.Failed(path, address.reason(e)))?;
         let f = fetch_app(
             a,
@@ -91,24 +109,23 @@ fun load(engine: Engine, ring: Keyring, path: string): Result<Loaded, Refusal> {
             Network { ca_file: None, hosts: [] },
             FETCH_TIMEOUT_MS,
         );
-        return from_fetched(engine, ring, f);
+        return checked_fetched(ring, f);
     }
     let file = name_of(path);
     let bytes = read_bytes(path).map_err(
         fun(e: string) = Refusal.Failed(file, "Couldn't read {path}: {e}"),
     )?;
     if !path.ends_with(".rkb") {
-        let module = compile(engine, bytes).map_err(fun(e) = Refusal.Failed(file, reason(e)))?;
-        return Ok(Loaded {
+        return Ok(Checked {
             name: file,
             manifest: None,
             icon: None,
-            module: module,
+            module: bytes,
             assets: [],
             trust: None,
         });
     }
-    from_bundle(engine, ring, file, bytes, Origin.External)
+    checked_bytes(ring, file, bytes, Origin.External)
 }
 
 /**
@@ -146,22 +163,35 @@ fun fetch(a: Address): Result<u8[], string> {
 }
 
 /**
- * Turns what a background load fetched into an app: records the trust a
- * signed site's check found, then compiles (only now, after every check
- * passed). Call `current` first: a result checked against a snapshot
- * that's since changed must load again instead.
+ * Turns what a background load fetched into an app: checked
+ * (`checked_fetched`), then compiled, only after every check passed. Call
+ * `current` first: a result checked against a snapshot that's since
+ * changed must load again instead.
  *
  * @returns the app; or why not (as `load`)
  *
  * Example:
  *     from_fetched(engine, ring, fetched)
  */
-fun from_fetched(engine: Engine, ring: Keyring, f: Fetched): Result<Loaded, Refusal> = match f {
+fun from_fetched(
+    engine: Engine,
+    ring: Keyring,
+    f: Fetched,
+): Result<Loaded, Refusal> = compiled_with(checked_fetched(ring, f)?, plain(engine));
+
+/**
+ * The Checked stage for what a site's background load fetched (PRP-069):
+ * records the trust a signed site's check found, then checks its bundle.
+ *
+ * Example:
+ *     checked_fetched(ring, fetched)?
+ */
+fun checked_fetched(ring: Keyring, f: Fetched): Result<Checked, Refusal> = match f {
     Signed(v, r, _, _) => {
         record(ring, r);
-        from_opened(engine, v.trust.host, v.opened, Some(v.trust), Origin.External)
+        vetted(v.opened, Some(v.trust), Origin.External)
     }
-    Unsigned(name, bytes) => from_bundle(engine, ring, name, bytes, Origin.External),
+    Unsigned(name, bytes) => checked_bytes(ring, name, bytes, Origin.External),
     Refused(r) => Err(r),
 };
 
@@ -182,7 +212,6 @@ fun current(ring: Keyring, f: Fetched): bool = match f {
     _ => true,
 };
 
-/** A bundle's bytes (either format), checked; a signed one says how far its key is trusted. */
 /**
  * Opens a bundle already in memory, as `load` opens a `.rkb` file: every
  * rule checked, a signed one verified against `ring`.
@@ -203,18 +232,27 @@ fun from_bytes(
     file: string,
     bytes: u8[],
     origin: Origin,
-): Result<Loaded, Refusal> = from_bundle(engine, ring, file, bytes, origin);
+): Result<Loaded, Refusal> = compiled_with(
+    checked_bytes(ring, file, bytes, origin)?,
+    plain(engine),
+);
 
-fun from_bundle(
-    engine: Engine,
+/**
+ * The Checked stage for a bundle's bytes (either format, PRP-069): read,
+ * a signed one's key's standing found, every rule checked.
+ *
+ * Example:
+ *     checked_bytes(ring, "settings.rkb", BUNDLE, Origin.BuiltIn)?
+ */
+fun checked_bytes(
     ring: Keyring,
     file: string,
     bytes: u8[],
     origin: Origin,
-): Result<Loaded, Refusal> {
+): Result<Checked, Refusal> {
     let o = read_any(bytes).map_err(fun(e) = Refusal.Failed(file, bundle_reason(e)))?;
     let trust = o.signed.map(fun(s) = standing_of(ring, s));
-    from_opened(engine, file, o, trust, origin)
+    vetted(o, trust, origin)
 }
 
 /**
@@ -226,14 +264,24 @@ fun from_bundle(
  */
 fun runs_here(m: Manifest): bool = m.contract == CONTRACT_VERSION as i64;
 
-/** A checked bundle's module compiled. */
-fun from_opened(
-    engine: Engine,
-    file: string,
-    o: Opened,
+/** An app checked and ready to compile (PRP-069): what `Loaded` holds, its module still bytes. */
+struct Checked {
+    name: string,
+    manifest: Option<Manifest>,
+    icon: Option<u8[]>,
+    /** The module's bytes, compiled by the Compiled stage. */
+    module: u8[],
+    assets: (string, u8[])[],
     trust: Option<Trust>,
-    origin: Origin,
-): Result<Loaded, Refusal> {
+}
+
+/**
+ * A bundle's rules checked, before anything is compiled: a refused app's
+ * module is never touched. Its contract, Rapidkoi's own controls (a site
+ * choosing them could hide the shield, PRP-031), and built-in permissions
+ * only from `./main`.
+ */
+fun vetted(o: Opened, trust: Option<Trust>, origin: Origin): Result<Checked, Refusal> {
     let b = o.bundle;
     let m = b.manifest;
     let newer = Refusal.Failed(m.name, "This app needs a newer version of Rapidkoi");
@@ -243,8 +291,6 @@ fun from_opened(
     if m.contract > CONTRACT_VERSION as i64 {
         return Err(newer);
     }
-    // Before compiling: a refused app's module is never touched. A site
-    // choosing Rapidkoi's own controls could hide the shield (PRP-031).
     if m.controls.is_some() && origin == Origin.External {
         return Err(Refusal.Failed(m.name, "This app asks to change Rapidkoi's own controls"));
     }
@@ -259,20 +305,47 @@ fun from_opened(
             );
         }
     }
-    let module = compile(engine, b.module).map_err(fun(e) = Refusal.Failed(m.name, reason(e)))?;
     let icon = match m.icon {
         Some(name) => asset(b, name),
         None => None,
     };
-    Ok(Loaded {
+    Ok(Checked {
         name: m.name,
         manifest: Some(m),
         icon: icon,
-        module: module,
+        module: b.module,
         assets: b.assets,
         trust: trust,
     })
 }
+
+/**
+ * The Compiled stage (PRP-069): what's checked, its module made by `make`
+ * (through the modules kept for the run, or plainly).
+ *
+ * Example:
+ *     compiled_with(checked_file(ring, path)?, plain(engine))
+ */
+fun compiled_with(
+    c: Checked,
+    make: fun(u8[]): Result<Module, GuestError>,
+): Result<Loaded, Refusal> {
+    let module = make(c.module).map_err(fun(e) = Refusal.Failed(c.name, reason(e)))?;
+    Ok(Loaded {
+        name: c.name,
+        manifest: c.manifest,
+        icon: c.icon,
+        module: module,
+        assets: c.assets,
+        trust: c.trust,
+    })
+}
+
+/** Compiling with nothing kept: tests, and the commands that load an app once. */
+fun plain(engine: Engine): fun(u8[]): Result<Module, GuestError> = fun(bytes: u8[]) = compile(
+    engine,
+    bytes,
+);
 
 /**
  * Returns a file path's last part, without `.wasm`.

@@ -1,0 +1,178 @@
+/**
+ * The `notifications` file (PRP-065): your notifications, newest first,
+ * and each of their apps once with its name, icon and colour. Read as
+ * hostile, every field checked, as the other files in the data folder are.
+ * What an app sent in the last minute (the rate) isn't kept: it starts
+ * again each run.
+ *
+ * Depends on: cbor, data.remembered, data.recentfile, window.notifications, guest.limits
+ * Used by: data.saving
+ */
+import cbor { Value };
+import data.remembered {
+    Unreadable,
+    Face,
+    file,
+    root,
+    icon,
+    entry,
+    text,
+    blob,
+    face_value,
+    colour_in,
+};
+import data.recentfile { MAX_ADDRESS, LAST_SEEN, named };
+import window.notifications { Kind, Notification, Notifications, MAX_NOTICES, kind_name };
+import guest.limits { MAX_NOTICE_TEXT, MAX_NOTICE_KEY };
+
+/** The file's cap in bytes: its apps' icons are kept with it, as the recent file's are. */
+const MAX_NOTIFICATIONS_FILE: i64 = 32 * 1024 * 1024;
+
+/**
+ * Encodes the notifications file.
+ *
+ * Example:
+ *     save(s, "notifications", notifications_file(m.notifications))?
+ */
+fun notifications_file(n: Notifications): u8[] = file("notifications", "notifications", Value.Map([
+    entry("items", Value.Array(n.items.map(fun(x: Notification) {
+        let mut fields = [
+            entry("id", Value.int(x.id)),
+            entry("kind", Value.Text(kind_name(x.kind))),
+            entry("path", Value.Text(x.path)),
+            entry("text", Value.Text(x.text)),
+            entry("address", Value.Text(x.address)),
+            entry("sent", Value.int(x.sent)),
+            entry("read", Value.Bool(x.read)),
+        ];
+        if let Some(o) = x.origin {
+            fields.push(entry("origin", Value.Bytes(o)));
+        }
+        if let Some(k) = x.key {
+            fields.push(entry("key", Value.Text(k)));
+        }
+        Value.Map(fields)
+    }))),
+    entry("apps", Value.Array(n.apps.map(face_value))),
+]));
+
+/**
+ * Reads the notifications file: at most `MAX_NOTICES`, each with a number
+ * of 1 or more used once, a known kind, an app path and address of at most
+ * 4,096 bytes, a sentence of 1–200 characters, a key of at most 64 bytes, a
+ * time within years 1970 to 9999 and a 32-byte origin. An app's icon
+ * breaking the icon rules is dropped.
+ *
+ * Example:
+ *     read_notifications(bytes)?
+ */
+fun read_notifications(bytes: u8[]): Result<Notifications, Unreadable> {
+    let v = root(
+        bytes,
+        "notifications",
+        5,
+        16 * MAX_NOTICES + 8 * MAX_NOTICES + 16,
+        MAX_NOTIFICATIONS_FILE,
+    )?.get("notifications").ok_or(Unreadable.Broken("there are no notifications"))?;
+    let xs = match v.get("items") {
+        Some(Array(xs)) if xs.len <= MAX_NOTICES => xs,
+        _ => {
+            return Err(
+                Unreadable.Broken("its notifications aren't a list of at most {MAX_NOTICES}"),
+            );
+        }
+    };
+    let mut items: Notification[] = [];
+    let mut next = 1;
+    for x of xs {
+        let note = item_of(x)?;
+        if items.any(fun(y: Notification) = y.id == note.id) {
+            return Err(Unreadable.Broken("a notification is listed twice"));
+        }
+        if note.id >= next {
+            next = note.id + 1;
+        }
+        items.push(note);
+    }
+    let mut apps: Face[] = [];
+    match v.get("apps") {
+        Some(Array(ys)) if ys.len <= MAX_NOTICES => {
+            for y of ys {
+                let path = text(y, "path").unwrap_or("");
+                if path == "" || path.len > MAX_ADDRESS || apps.any(fun(a: Face) = a.path == path) {
+                    return Err(Unreadable.Broken("an app is listed twice, or has no path"));
+                }
+                apps.push(Face {
+                    path: path,
+                    name: named(y)?,
+                    icon: icon(blob(y, "icon")),
+                    colour: colour_in(y),
+                });
+            }
+        }
+        None => {}
+        _ => {
+            return Err(Unreadable.Broken("its apps aren't a list"));
+        }
+    }
+    Ok(Notifications { items: items, apps: apps, next: next, lately: [] })
+}
+
+/** One notification, every field checked. */
+fun item_of(x: Value): Result<Notification, Unreadable> {
+    let id = match x.get("id").and_then(fun(n: Value) = n.as_i64()) {
+        Some(n) if n >= 1 => n,
+        _ => {
+            return Err(Unreadable.Broken("a notification's number isn't one"));
+        }
+    };
+    let kind = match text(x, "kind") {
+        Some("app") => Kind.App,
+        _ => {
+            return Err(Unreadable.Broken("a notification's kind isn't one this Rapidkoi knows"));
+        }
+    };
+    let path = text(x, "path").unwrap_or("");
+    let address = text(x, "address").unwrap_or("");
+    if path == "" || path.len > MAX_ADDRESS || address == "" || address.len > MAX_ADDRESS {
+        return Err(Unreadable.Broken("a notification's address is empty or too long"));
+    }
+    let said = text(x, "text").unwrap_or("");
+    if said == "" || said.char_count() > MAX_NOTICE_TEXT {
+        return Err(Unreadable.Broken("a notification's sentence is empty or too long"));
+    }
+    let key = text(x, "key");
+    if key.map(fun(k: string) = k == "" || k.len > MAX_NOTICE_KEY).unwrap_or(false) {
+        return Err(Unreadable.Broken("a notification's key is empty or too long"));
+    }
+    let sent = match x.get("sent").and_then(fun(n: Value) = n.as_i64()) {
+        Some(n) if n >= 0 && n <= LAST_SEEN => n,
+        _ => {
+            return Err(Unreadable.Broken("a notification's time isn't one"));
+        }
+    };
+    let read = match x.get("read") {
+        Some(Bool(b)) => b,
+        _ => {
+            return Err(Unreadable.Broken("a notification's read isn't true or false"));
+        }
+    };
+    let origin = match blob(x, "origin") {
+        Some(o) if o.len == 32 => Some(o),
+        None => None,
+        _ => {
+            return Err(Unreadable.Broken("a notification's app key isn't 32 bytes"));
+        }
+    };
+    Ok(Notification {
+        id: id,
+        kind: kind,
+        path: path,
+        origin: origin,
+        text: said,
+        address: address,
+        key: key,
+        sent: sent,
+        read: read,
+    })
+}

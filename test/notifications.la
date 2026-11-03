@@ -1,0 +1,151 @@
+// Notifications (PRP-065), pure: keeping one at the front, a key replacing
+// its own, the caps per app and in all, the rate, withdrawing, the order
+// they're listed in, opening, dismissing and forgetting. No guest, no display.
+import rapidkoi.window.notifications {
+    Kind,
+    Notification,
+    Notifications,
+    no_notifications,
+    add,
+    withdraw,
+    forget_notifications,
+    listed,
+    unread,
+    open_at,
+    dismiss,
+    face_for,
+    kind_name,
+};
+import rapidkoi.data.remembered { Face };
+
+const COUNTER: string = "counter.rkb";
+const NOTES: string = "rapidkoi://notes.dafifi.net";
+
+fun note(path: string, text: string, key: Option<string>, sent: i64): Notification = Notification {
+    id: 0,
+    kind: Kind.App,
+    path: path,
+    origin: None,
+    text: text,
+    address: path,
+    key: key,
+    sent: sent,
+    read: false,
+};
+
+fun face(path: string): Face = Face { path: path, name: "App {path}", icon: None, colour: None };
+
+/** `n` with `text` from `path`, sent at `at`. */
+fun sent(
+    n: Notifications,
+    path: string,
+    text: string,
+    key: Option<string>,
+    at: i64,
+): Notifications = add(n, note(path, text, key, at), face(path), at);
+
+fun texts_of(n: Notifications): string[] = listed(n).map(fun(x: Notification) = x.text);
+
+@test
+fun a_notification_kept_goes_to_the_front_with_its_own_number() {
+    let n = sent(sent(no_notifications(), COUNTER, "one", None, 0), NOTES, "two", None, 1);
+    assert_eq(texts_of(n), ["two", "one"]);
+    assert_eq(n.items.map(fun(x: Notification) = x.id), [2, 1]);
+    assert_eq(unread(n), 2);
+    // Each app is kept once, with its name for the new tab.
+    assert_eq(n.apps.len, 2);
+    assert_eq(face_for(n, n.items[0]).map(fun(f: Face) = f.name), Some("App {NOTES}"));
+    assert_eq(kind_name(Kind.App), "app");
+}
+
+@test
+fun the_same_key_replaces_only_that_app_s_own() {
+    let n = sent(no_notifications(), COUNTER, "count 5", Some("count"), 0);
+    let theirs = sent(n, NOTES, "a note", Some("count"), 1);
+    let again = sent(theirs, COUNTER, "count 6", Some("count"), 2);
+    assert_eq(texts_of(again), ["count 6", "a note"]);
+    // No key never replaces.
+    let plain = sent(sent(no_notifications(), COUNTER, "a", None, 0), COUNTER, "b", None, 1);
+    assert_eq(plain.items.len, 2);
+}
+
+@test
+fun withdrawing_takes_back_only_its_own() {
+    let n = sent(
+        sent(no_notifications(), COUNTER, "count 5", Some("count"), 0),
+        NOTES,
+        "a note",
+        Some("count"),
+        1,
+    );
+    let w = withdraw(n, COUNTER, None, "count");
+    assert_eq(texts_of(w), ["a note"]);
+    // Its app goes with its last notification.
+    assert_eq(w.apps.map(fun(f: Face) = f.path), [NOTES]);
+    // A key it never sent changes nothing.
+    assert_eq(texts_of(withdraw(n, COUNTER, None, "other")), ["a note", "count 5"]);
+}
+
+@test
+fun one_app_keeps_its_newest_20_and_all_keep_the_newest_200() {
+    let mut n = sent(no_notifications(), NOTES, "theirs", None, 0);
+    // A minute apart, so the rate never drops one.
+    for i of range(1, 22) {
+        n = sent(n, COUNTER, "c{i}", None, i * 60 * 1000);
+    }
+    let mine = n.items.filter(fun(x: Notification) = x.path == COUNTER);
+    assert_eq(mine.len, 20);
+    assert_eq(mine[0].text, "c21");
+    assert_eq(mine[19].text, "c2");
+    assert_eq(n.items.any(fun(x: Notification) = x.text == "theirs"), true);
+    let mut all = no_notifications();
+    for i of range(0, 201) {
+        all = sent(all, "app{i}.rkb", "n{i}", None, i);
+    }
+    assert_eq(all.items.len, 200);
+    assert_eq(all.items[199].text, "n1");
+}
+
+@test
+fun past_10_in_a_minute_the_rest_are_dropped() {
+    let mut n = no_notifications();
+    for i of range(0, 11) {
+        n = sent(n, COUNTER, "c{i}", None, 1000 + i);
+    }
+    assert_eq(n.items.len, 10);
+    // Another app isn't held to this one's rate.
+    assert_eq(sent(n, NOTES, "theirs", None, 1011).items.len, 11);
+    // A minute on, it may send again.
+    assert_eq(sent(n, COUNTER, "later", None, 1000 + 60 * 1000).items[0].text, "later");
+}
+
+@test
+fun unread_come_first_and_opening_marks_one_read() {
+    let n = sent(
+        sent(sent(no_notifications(), COUNTER, "a", None, 0), COUNTER, "b", None, 1),
+        COUNTER,
+        "c",
+        None,
+        2,
+    );
+    let (opened, got) = open_at(n, 1);
+    assert_eq(got.map(fun(x: Notification) = x.text), Some("b"));
+    assert_eq(texts_of(opened), ["c", "a", "b"]);
+    assert_eq(unread(opened), 2);
+    // Past the end: nothing opens, nothing changes.
+    let (same, none) = open_at(n, 3);
+    assert_eq((none.is_none(), unread(same)), (true, 3));
+    assert_eq(open_at(n, -1).1.is_none(), true);
+}
+
+@test
+fun dismissing_removes_one_and_forgetting_removes_an_app_s() {
+    let n = sent(sent(no_notifications(), COUNTER, "a", None, 0), NOTES, "b", None, 1);
+    assert_eq(texts_of(dismiss(n, 0)), ["a"]);
+    assert_eq(texts_of(dismiss(n, 5)), ["b", "a"]);
+    let f = forget_notifications(n, NOTES, None);
+    assert_eq(texts_of(f), ["a"]);
+    assert_eq(f.apps.map(fun(a: Face) = a.path), [COUNTER]);
+    // At one address, another app (by its first key) keeps its own.
+    assert_eq(forget_notifications(n, NOTES, Some([1; 32])).items.len, 2);
+}

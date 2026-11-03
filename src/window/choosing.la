@@ -11,7 +11,8 @@
 import kivuli { Cmd };
 import std.crypto { equal };
 import window.window { Model, Naming, app, add_tab, close, show_tab, with_tab, page_of };
-import window.tabs { AppPage, Tab, Page, Pin, open_path, close_page, failed_page };
+import window.tabs { AppPage, Tab, Page, Pin, close_page, failed_page };
+import boot.appboot { opened as opened_app };
 import window.recent { remember };
 import window.actions { Msg };
 import trust.verify { Change, Identity, known_for, separate };
@@ -301,8 +302,11 @@ fun opened(m: Model, id: i64, path: string, origin: u8[]): (Model, Cmd<Msg>) {
     if is_address(path) && parse(path).is_ok() {
         return begin_app(m, id, path, origin);
     }
-    // A signed file: its key is trusted now, so it opens as that app.
-    (with_tab(m, id, fun(_: AppPage) = open_path(m.engine, m.ring, path)), Cmd.none())
+    // A signed file: its key is trusted now, so it opens as that app,
+    // through the pipeline (PRP-069).
+    let held = Ref.new(m.modules);
+    let page = opened_app(held, m.engine, m.now, m.ring, path);
+    (with_tab(Model { modules: held.get(), ..m }, id, fun(_: AppPage) = page), Cmd.none())
 }
 
 /**

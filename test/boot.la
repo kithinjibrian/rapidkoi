@@ -1,0 +1,78 @@
+// Rapidkoi's start, stage by stage (PRP-068, DECISION-096): each stage on
+// its own, then the whole start on a fresh folder. No display.
+import rapidkoi.boot.boot { start_with, setup, builtins, first_window };
+import rapidkoi.data.store { store_at };
+import rapidkoi.guest.modules { holds };
+import rapidkoi.window.window { Model, is_blank };
+import rapidkoi.window.tabs { Pin };
+import rapidkoi.window.newtab { BUNDLE };
+import rapidkoi.bundles.bundle { read };
+import kivuli { Cmd };
+import rapidkoi.window.actions { Msg };
+import std.fs;
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun is_focus(c: Cmd<Msg>): bool = match c {
+    Focus(name) => name == "address",
+    _ => false,
+};
+
+@test
+fun setup_reads_the_clock() {
+    // Nothing is dated 1970 (PRP-064's fix): the clock from the start.
+    assert(setup().now > 0);
+}
+
+@test
+fun builtins_start_the_new_tab_and_keep_its_module() {
+    let m = builtins(setup(), BUNDLE);
+    assert(m.newtab.is_some());
+    assert(holds(m.modules, read(BUNDLE).unwrap().module));
+}
+
+@test
+fun a_new_tab_that_won_t_start_leaves_the_tab_empty() {
+    // Not a bundle: the new tab can't start, and the rest starts anyway.
+    let m = builtins(setup(), [1, 2, 3]);
+    assert(m.newtab.is_none());
+}
+
+@test
+fun with_nothing_named_the_window_is_the_blank_tab_and_the_address_box() {
+    let (before, after, cmd) = first_window(setup(), ["./main"]);
+    assert(after.current.map(fun(id: i64) = is_blank(after, id)).unwrap_or(false));
+    assert_eq(before.current, after.current);
+    assert(is_focus(cmd));
+}
+
+@test
+fun the_whole_start_on_a_fresh_folder() {
+    let dir = "test/tmp/boot-fresh";
+    clean(dir);
+    let (m, cmd) = start_with(["./main"], Some(store_at(dir)), BUNDLE);
+    // Restored: Settings pinned on a first run (PRP-064).
+    assert_eq(m.pinned.map(fun(p: Pin) = p.path), ["builtin:settings"]);
+    // The new tab started, and what it asked when it opened answered.
+    assert_eq(m.newtab.map(fun(p) = p.asks.len), Some(0));
+    // The blank tab in front, the focus in the address box.
+    assert(m.current.map(fun(id: i64) = is_blank(m, id)).unwrap_or(false));
+    assert(is_focus(cmd));
+    clean(dir);
+}
+
+@test
+fun with_no_folder_nothing_is_saved() {
+    let (m, _) = start_with(["./main"], None, BUNDLE);
+    assert(m.store.is_none());
+    assert(m.newtab.is_some());
+}

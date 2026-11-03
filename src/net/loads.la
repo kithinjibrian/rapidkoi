@@ -20,7 +20,6 @@ import window.tabs {
     Cached,
     Pending,
     loading,
-    from_loaded,
     refused,
     close_page,
     failed_page,
@@ -42,7 +41,8 @@ import net.fetching { Fetched, Source };
 import net.keeping { Keeping, open_app };
 import net.checks { check_after, held_of };
 
-import bundles.loader { Refusal, from_fetched, current };
+import bundles.loader { Refusal, current };
+import boot.appboot { Source as AppSource, loaded as loaded_app, started };
 import trust.verify { Change, known_for, moves };
 import trust.publishers { apps_at, known_of };
 import data.states { saved_state_in, move_state };
@@ -310,7 +310,10 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
         Signed(_, _, _, src) if m.store.is_some() => Some(src),
         _ => None,
     };
-    let (page, notice) = match from_fetched(m.engine, m.ring, f) {
+    // Checked, then compiled through the modules kept for the run (PRP-069):
+    // the same version opened again compiles nothing.
+    let held = Ref.new(m.modules);
+    let (page, notice) = match loaded_app(held, m.engine, m.now, m.ring, AppSource.Fetched(f)) {
         Ok(l) => {
             // The instance it was loading for, with that instance's state;
             // a new window of an app already open runs the version open (PRP-048).
@@ -327,7 +330,7 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
                         moved: src.moved,
                     },
                 ),
-                ..from_loaded(m.engine, l, p.path, pending.link),
+                ..started(m.engine, l, p.path, pending.link),
             };
             let fresh = named(
                 m,
@@ -379,7 +382,7 @@ fun arrive(m: Model, id: i64, number: i64, f: Fetched): (Model, Cmd<Msg>) {
         _ => page,
     };
     // Every window of the app moves, or none (PRP-048).
-    let (after, said) = landed(m, id, pending.kept, page, notice);
+    let (after, said) = landed(Model { modules: held.get(), ..m }, id, pending.kept, page, notice);
     // What this load says is about this tab's app (PRP-051).
     let told = match said {
         Some(n) => for_tab(after, id, n),

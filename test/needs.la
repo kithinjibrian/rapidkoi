@@ -1,0 +1,24 @@
+// Which permission each ask needs (PRP-030, PRP-065, PRP-067), pure: the
+// new tab's, Settings', notifications' and All apps'; the rest need none.
+import rapidkoi.guest.needs { needed };
+import rapidkoi.guest.nodes { Effect };
+import rapidkoi.bundles.permissions { Permission };
+import support { t };
+
+@test
+fun all_apps_asks_need_theirs() {
+    assert_eq(needed(Effect.Apps(t("a"))), Some(Permission.ReadApps));
+    assert_eq(needed(Effect.OpenApp(t("a"), 0)), Some(Permission.OpenApps));
+    assert_eq(needed(Effect.AppPermissions(t("a"), 0)), Some(Permission.OpenApps));
+    assert_eq(needed(Effect.ForgetApp(t("a"), 0)), Some(Permission.OpenApps));
+    assert_eq(needed(Effect.PinApp(t("a"), 0)), Some(Permission.ManagePins));
+    assert_eq(needed(Effect.UnpinApp(t("a"), 0)), Some(Permission.ManagePins));
+}
+
+@test
+fun the_others_are_as_before() {
+    assert_eq(needed(Effect.Pins(t("a"))), Some(Permission.ReadPins));
+    assert_eq(needed(Effect.Notify(t("a"), "Hi", [], None)), Some(Permission.Notify));
+    assert_eq(needed(Effect.Withdraw(t("a"), "k")), None);
+    assert_eq(needed(Effect.Now(t("a"))), None);
+}

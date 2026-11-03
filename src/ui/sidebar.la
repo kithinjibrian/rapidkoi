@@ -26,6 +26,7 @@ import kivuli {
     menu_separator,
     overlay,
     scroll_fit,
+    spacer,
     text,
     Group,
 };
@@ -39,6 +40,7 @@ import ui.tokens { SPACE_XS, SPACE_SM, HEADER_ICON, TAB_CLOSE, TAB_CLOSE_ICON, g
 import ui.themes { heading };
 import ui.schemes { Theme };
 import ui.frame_looks { app_button, app_current, tab_close, tab_close_on_hover, count_badge };
+import ui.icons { Icon, icon as iconsax };
 
 /**
  * Builds the sidebar's apps and +, top to bottom.
@@ -79,9 +81,12 @@ fun view(m: Model): View<Msg> {
         app_button(t),
     ).tooltip("Add a tab").shortcut("Ctrl+T").align(Align.Center);
     // Chrome's way: + right after the last app, at the bottom once they
-    // scroll. No spacer: a fitting scroll takes no spare room.
+    // scroll; a fitting scroll takes no spare room. All apps at the dock's
+    // end, past the spare room (PRP-067).
     // Room between apps, so each sits apart in the dock (the owner, session 178).
-    column([scroll_fit(column(all).style([gap(SPACE_SM)])), plus]).style([gap(SPACE_SM)])
+    column([scroll_fit(column(all).style([gap(SPACE_SM)])), plus, spacer(), all_apps(m)]).style([
+        gap(SPACE_SM),
+    ])
 }
 
 /**
@@ -120,7 +125,7 @@ fun dock_order(m: Model): i64[] {
                         }
                     }
                 }
-                if !pinned && first {
+                if !pinned && first && tab.page.path != ALL_APPS {
                     if let Some(shown) = app_tab(m, tab.page.path, origin_of(tab.page)) {
                         out.push(shown);
                     }
@@ -243,9 +248,14 @@ fun with_close(
 
 /** A tab's ×: always shown on the current tab, with Ctrl+W; on the others, while hovered. */
 fun close_button(t: Theme, closing: Msg, name: string, current: bool): View<Msg> {
-    let x = ui_button_with([icon("window-close-symbolic").size(TAB_CLOSE_ICON)], closing).tooltip(
-        "Close {name}",
-    ).place(Align.End, Align.Start);
+    let x = ui_button_with(
+        [
+            image(iconsax(Icon.Close, t.on_frame)).style([square(TAB_CLOSE_ICON)]).align(
+                Align.Center,
+            ),
+        ],
+        closing,
+    ).tooltip("Close {name}").place(Align.End, Align.Start);
     // One Ctrl+W in the window: the current tab's.
     if current { x.style(tab_close(t)).shortcut("Ctrl+W") } else { x.style(tab_close_on_hover(t)) }
 }
@@ -270,3 +280,26 @@ fun face(t: Theme, name: string, path: string, bytes: Option<u8[]>): View<Msg> =
     // The dock keeps its size whatever the text size (PRP-038).
     None => text(initial(name)).style(heading(Theme { scale: 1.0, ..t })).align(Align.Center),
 };
+
+/** All apps' settings key and path (PRP-067): its tab is the dock's last button, never listed. */
+const ALL_APPS: string = "builtin:allapps";
+
+/**
+ * The dock's last button (PRP-067): opens All apps, ringed while it's in
+ * front as the current app is.
+ */
+fun all_apps(m: Model): View<Msg> {
+    let t = m.theme;
+    let mut look = app_button(t);
+    if m.current.and_then(fun(id: i64) = tab_by_id(m, id)).map(
+        fun(tab: Tab) = tab.page.path == ALL_APPS,
+    ).unwrap_or(false) {
+        for x of app_current(t) {
+            look.push(x);
+        }
+    }
+    ui_button_with(
+        [image(iconsax(Icon.Apps, t.on_frame)).style([square(HEADER_ICON)]).align(Align.Center)],
+        Msg.OpenAllApps,
+    ).style(look).tooltip("All apps").align(Align.Center)
+}

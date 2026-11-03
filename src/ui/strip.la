@@ -44,7 +44,7 @@ import ui.tokens {
     SPACE_SM,
     square,
     margin_x,
-    TAB_CLOSE_ICON,
+    CLOSE_ICON,
     INSTANCE_CHIP,
     INSTANCE_NAME_WIDTH,
     STRIP_WIDTH,
@@ -175,7 +175,7 @@ fun chip(m: Model, x: Tab, current: bool): View<Msg> {
         item("Close", Msg.CloseTab(x.id)),
     ]).align(Align.Center);
     let close = ui_button_with(
-        [icon("window-close-symbolic").size(TAB_CLOSE_ICON)],
+        [image(iconsax(Icon.Close, t.on_frame)).style([square(CLOSE_ICON)]).align(Align.Center)],
         Msg.CloseTab(x.id),
     ).style(tab_close_on_hover(t)).tooltip("Close {name}").align(Align.Center);
     row([named, close]).style(instance_chip(t, current)).align(Align.Center)

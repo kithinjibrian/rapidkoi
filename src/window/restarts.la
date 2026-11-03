@@ -7,7 +7,8 @@
  * Used by: window.navigate, net.loads
  */
 import wasmtime { Engine };
-import bundles.loader { load };
+import boot.appboot { Source, loaded };
+import guest.modules { Modules };
 import trust.verify { Keyring };
 import guest.running { start };
 import window.tabs {
@@ -47,7 +48,10 @@ fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = match p
  * server) and starts it with `saved` state when the new build's state
  * version matches; otherwise fresh. ⟳ Reload uses it.
  *
+ * @param held the modules kept for the run: through the pipeline (PRP-069),
+ *     an unchanged file compiles nothing
  * @param engine the program's engine
+ * @param now when, for the modules kept
  * @param ring this session's trusted keys
  * @param path the page's file or address
  * @param saved the running page's state and state version, if it had one
@@ -56,15 +60,17 @@ fun with_saved(p: AppPage, state: u8[], version: i64): (AppPage, bool) = match p
  *     its shape changed (`migrate` comes with PRP-006)
  *
  * Example:
- *     load_again(engine, ring, page.path, Some((state, 1)), page.link)
+ *     load_again(held, engine, now, ring, page.path, Some((state, 1)), page.link)
  */
 fun load_again(
+    held: Ref<Modules>,
     engine: Engine,
+    now: i64,
     ring: Keyring,
     path: string,
     saved: Option<(u8[], i64)>,
     link: string[],
-): (AppPage, bool) = match load(engine, ring, path) {
+): (AppPage, bool) = match loaded(held, engine, now, ring, Source.File(path)) {
     Err(r) => (refused(r, path), false),
     Ok(l) => {
         let fresh = AppPage {

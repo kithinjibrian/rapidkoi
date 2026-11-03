@@ -1,0 +1,104 @@
+/**
+ * The files `saving` remembers, as its notices name them (moved unchanged
+ * from `saving.la` for its size, PRP-065): each one's file name and the
+ * words a sentence about it uses.
+ *
+ * Depends on: nothing
+ * Used by: data.saving
+ */
+
+/** How the notices name one remembered file. */
+struct Part {
+    file: string,
+    /** "your pins", as the middle of a sentence. */
+    noun: string,
+    /** "Your pins", to start one. */
+    title: string,
+    /** "were" or "was". */
+    verb: string,
+    /** "them" or "it". */
+    it: string,
+    /** What else the person should know when it's set aside. */
+    after: string,
+}
+
+const TRUST: Part = Part {
+    file: "trust",
+    noun: "your trusted keys",
+    title: "Your trusted keys",
+    verb: "were",
+    it: "them",
+    after: "; sites will be trusted on first use again",
+};
+
+const PINS: Part = Part {
+    file: "pins",
+    noun: "your pins",
+    title: "Your pins",
+    verb: "were",
+    it: "them",
+    after: "",
+};
+
+const STATE: Part = Part {
+    file: "states",
+    noun: "this app's state",
+    title: "This app's state",
+    verb: "was",
+    it: "it",
+    after: "",
+};
+
+const PEOPLE: Part = Part {
+    file: "people",
+    noun: "your sign-in settings",
+    title: "Your sign-in settings",
+    verb: "were",
+    it: "them",
+    after: "",
+};
+
+const OPEN: Part = Part {
+    file: "open",
+    noun: "your open apps",
+    title: "Your open apps",
+    verb: "were",
+    it: "them",
+    after: "",
+};
+
+const PREFS: Part = Part {
+    file: "preferences",
+    noun: "your settings",
+    title: "Your settings",
+    verb: "were",
+    it: "them",
+    after: "",
+};
+
+const NOTIFICATIONS: Part = Part {
+    file: "notifications",
+    noun: "your notifications",
+    title: "Your notifications",
+    verb: "were",
+    it: "them",
+    after: "",
+};
+
+const RECENT: Part = Part {
+    file: "recent",
+    noun: "your recent places",
+    title: "Your recent places",
+    verb: "were",
+    it: "them",
+    after: "",
+};
+
+const APPS: Part = Part {
+    file: "apps",
+    noun: "your apps",
+    title: "Your apps",
+    verb: "were",
+    it: "them",
+    after: "",
+};

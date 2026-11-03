@@ -2,7 +2,7 @@
  * Apps' icons by place (PRP-060), pure: what a built-in app's
  * `icon:PLACE` picture draws. The app's own icon, from wherever Rapidkoi
  * already holds it: your pins, your open windows, your recent places, your
- * last session. Or, for an app it has no icon for (a bare `.wasm`, or one
+ * notifications, your last session. Or, for an app it has no icon for (a bare `.wasm`, or one
  * it has never seen), Rapidkoi's mark: the app's initial on a colour from
  * the theme, as the dock draws it. The app naming it never holds the bytes.
  *
@@ -45,6 +45,24 @@ fun icon_for(m: Model, place: string): u8[] {
     }
     // Your recent places' apps (PRP-062), none of them open now perhaps.
     for f of m.recent.apps {
+        if place_of(f.path) == place {
+            name = f.name;
+            if let Some(i) = f.icon {
+                return i;
+            }
+        }
+    }
+    // Every app you've opened (PRP-067): All apps' icons.
+    for a of m.apps.items {
+        if place_of(a.path) == place {
+            name = a.face.name;
+            if let Some(i) = a.face.icon {
+                return i;
+            }
+        }
+    }
+    // The apps that sent you notifications (PRP-065).
+    for f of m.notifications.apps {
         if place_of(f.path) == place {
             name = f.name;
             if let Some(i) = f.icon {

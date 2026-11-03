@@ -1,0 +1,122 @@
+/**
+ * The `apps` file (PRP-067): every app you've opened, with its name, icon
+ * and colour, its host when signed, and when you first and last opened it.
+ * Read as hostile, every field checked, as the other files in the data
+ * folder are.
+ *
+ * Depends on: cbor, data.remembered, data.recentfile, window.yourapps
+ * Used by: data.saving
+ */
+import cbor { Value };
+import data.remembered { Unreadable, Face, file, root, icon, entry, text, blob, colour_in };
+import data.recentfile { MAX_ADDRESS, LAST_SEEN, named };
+import window.yourapps { App, Apps, MAX_APPS };
+
+/** The file's cap in bytes: each app's icon is kept with it. */
+const MAX_APPS_FILE: i64 = 64 * 1024 * 1024;
+
+/** The longest host kept: a DNS name's. */
+const MAX_HOST: i64 = 253;
+
+/**
+ * Encodes the apps file.
+ *
+ * Example:
+ *     save(s, "apps", apps_file(m.apps))?
+ */
+fun apps_file(
+    a: Apps,
+): u8[] = file("apps", "apps", Value.Map([entry("items", Value.Array(a.items.map(fun(x: App) {
+    let mut fields = [
+        entry("path", Value.Text(x.path)),
+        entry("name", Value.Text(x.face.name)),
+        entry("first", Value.int(x.first)),
+        entry("last", Value.int(x.last)),
+    ];
+    if let Some(o) = x.origin {
+        fields.push(entry("origin", Value.Bytes(o)));
+    }
+    if let Some(h) = x.host {
+        fields.push(entry("host", Value.Text(h)));
+    }
+    if let Some(i) = x.face.icon {
+        fields.push(entry("icon", Value.Bytes(i)));
+    }
+    if let Some(c) = x.face.colour {
+        fields.push(entry("colour", Value.Text(c)));
+    }
+    Value.Map(fields)
+})))]));
+
+/**
+ * Reads the apps file: at most `MAX_APPS`, each once by path and first
+ * key, with a path of at most 4,096 bytes, a name, times within years
+ * 1970 to 9999, a 32-byte origin and a host of 1–253 bytes. An icon
+ * breaking the icon rules is dropped.
+ *
+ * Example:
+ *     read_apps(bytes)?
+ */
+fun read_apps(bytes: u8[]): Result<Apps, Unreadable> {
+    let v = root(bytes, "apps", 5, 10 * MAX_APPS + 16, MAX_APPS_FILE)?.get("apps").ok_or(
+        Unreadable.Broken("there are no apps"),
+    )?;
+    let xs = match v.get("items") {
+        Some(Array(xs)) if xs.len <= MAX_APPS => xs,
+        _ => {
+            return Err(Unreadable.Broken("its apps aren't a list of at most {MAX_APPS}"));
+        }
+    };
+    let mut items: App[] = [];
+    for x of xs {
+        let a = app_of(x)?;
+        if items.any(fun(y: App) = y.path == a.path && y.origin == a.origin) {
+            return Err(Unreadable.Broken("an app is listed twice"));
+        }
+        items.push(a);
+    }
+    Ok(Apps { items: items })
+}
+
+/** One app, every field checked. */
+fun app_of(x: Value): Result<App, Unreadable> {
+    let path = text(x, "path").unwrap_or("");
+    if path == "" || path.len > MAX_ADDRESS {
+        return Err(Unreadable.Broken("an app's path is empty or too long"));
+    }
+    let origin = match blob(x, "origin") {
+        Some(o) if o.len == 32 => Some(o),
+        None => None,
+        _ => {
+            return Err(Unreadable.Broken("an app's key isn't 32 bytes"));
+        }
+    };
+    let host = match x.get("host") {
+        None => None,
+        Some(Text(h)) if h != "" && h.len <= MAX_HOST => Some(h),
+        _ => {
+            return Err(Unreadable.Broken("an app's host is empty or too long"));
+        }
+    };
+    Ok(App {
+        path: path,
+        origin: origin,
+        host: host,
+        face: Face {
+            path: path,
+            name: named(x)?,
+            icon: icon(blob(x, "icon")),
+            colour: colour_in(x),
+        },
+        first: time_in(x, "first")?,
+        last: time_in(x, "last")?,
+    })
+}
+
+/** A time at `field`: milliseconds since 1970, at most `LAST_SEEN`. */
+fun time_in(x: Value, field: string): Result<i64, Unreadable> = match x.get(field).and_then(
+    fun(n: Value) = n.as_i64(),
+) {
+    Some(n) if n >= 0 && n <= LAST_SEEN => Ok(n),
+    _ => Err(Unreadable.Broken("an app's {field} time isn't one")),
+};

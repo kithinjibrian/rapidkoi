@@ -4,7 +4,7 @@
  * only copy), each drawn in a theme colour. Apps never reach these.
  *
  * Depends on: kivuli
- * Used by: ui.header, ui.addressbox
+ * Used by: ui.header, ui.addressbox, ui.bell
  */
 import kivuli { Image };
 
@@ -40,6 +40,14 @@ enum Icon {
     Dot,
     /** `gallery-slash.svg`: a picture an app named that can't be shown (PRP-047). */
     BrokenPicture,
+    /** `notification.svg`: the bell, your notifications (PRP-066). */
+    Bell,
+    /** `x.svg`: closing or dismissing something (the owner, 2026-11-03). */
+    Close,
+    /** `layout-grid-circles.svg`: All apps, at the dock's end (PRP-067). */
+    Apps,
+    /** `pin.svg`: on the dock (PRP-067: the address bar's, and All apps' mark, in place of ☆). */
+    Pin,
 }
 
 /** Every icon, for tests and for listing. */
@@ -58,6 +66,10 @@ const ALL: Icon[] = [
     Icon.Upgrade,
     Icon.Dot,
     Icon.BrokenPicture,
+    Icon.Bell,
+    Icon.Close,
+    Icon.Apps,
+    Icon.Pin,
 ];
 
 /**
@@ -82,6 +94,10 @@ fun file(i: Icon): string = match i {
     Upgrade => "refresh-arrow.svg",
     Dot => "dot.svg",
     BrokenPicture => "gallery-slash.svg",
+    Bell => "notification.svg",
+    Close => "x.svg",
+    Apps => "layout-grid-circles.svg",
+    Pin => "pin.svg",
 };
 
 /**
@@ -106,6 +122,10 @@ fun svg(i: Icon): string = match i {
     Upgrade => include_str("../../assets/icons/refresh-arrow.svg"),
     Dot => include_str("../../assets/icons/dot.svg"),
     BrokenPicture => include_str("../../assets/icons/gallery-slash.svg"),
+    Bell => include_str("../../assets/icons/notification.svg"),
+    Close => include_str("../../assets/icons/x.svg"),
+    Apps => include_str("../../assets/icons/layout-grid-circles.svg"),
+    Pin => include_str("../../assets/icons/pin.svg"),
 };
 
 /**

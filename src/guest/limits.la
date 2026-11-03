@@ -85,6 +85,12 @@ const MAX_IMAGE_PX: i64 = 4096;
 /** The longest label a typing box or picture may have, in bytes (DECISION-056). */
 const MAX_LABEL: i64 = 200;
 
+/** The longest notification's sentence, in characters (PRP-065). */
+const MAX_NOTICE_TEXT: i64 = 200;
+
+/** The longest notification's key, in bytes (PRP-065). */
+const MAX_NOTICE_KEY: i64 = 64;
+
 /** The most pictures one screen may name, by distinct source (PRP-047). */
 const MAX_PICTURES: i64 = 256;
 

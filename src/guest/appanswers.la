@@ -1,0 +1,149 @@
+/**
+ * Answering All apps (PRP-067): `apps` lists your apps A–Z, Settings
+ * always among them; `pin_app` and `unpin_app` change your pins; and
+ * `open_app`, `app_permissions` and `forget_app` are the window's own
+ * messages, as the dock's menu sends them, so Forget and permissions only
+ * open Rapidkoi's panel on that app, where the person decides. Each app
+ * is given as the new tab gives places: a name, a host or a file's name,
+ * an icon for Rapidkoi to draw; never a folder, state or key. Whether the
+ * app may ask is `guest.needs`' question; a blocked one is answered with
+ * no apps, and changes nothing.
+ *
+ * Depends on: cbor, kivuli, guest.nodes, guest.home, data.remembered, window.window, window.tabs, window.yourapps, window.pins, window.settings_app, window.actions
+ * Used by: guest.effects
+ */
+import cbor { Value, Entry };
+import kivuli { Cmd };
+import guest.nodes { Effect };
+import guest.home { place_of, address_shown };
+import window.window { Model };
+import window.tabs { AppPage, Pin };
+import window.yourapps { App, opened, listed };
+import data.remembered { Face };
+import window.pins { pins_app };
+import window.settings_app;
+import window.actions { Msg, PinAction };
+
+/**
+ * Your apps as All apps lists them, A–Z: Rapidkoi's Settings always among
+ * them, opened or not.
+ *
+ * Example:
+ *     shown_apps(m)
+ */
+fun shown_apps(m: Model): App[] {
+    let all = listed(m.apps);
+    if all.any(fun(a: App) = a.path == settings_app.SETTINGS_KEY) {
+        return all;
+    }
+    let s = settings_app.pin();
+    let settings = App {
+        path: s.path,
+        origin: None,
+        host: None,
+        face: Face { path: s.path, name: s.name, icon: s.icon, colour: None },
+        first: 0,
+        last: 0,
+    };
+    listed(opened(m.apps, settings))
+}
+
+/**
+ * Returns the `apps` answer: `{items: [...]}`, A–Z, each
+ * `{name, place, icon, from, address, publisher, signed, pinned, opened}`.
+ *
+ * Example:
+ *     apps_of(m)
+ */
+fun apps_of(m: Model): Value = Value.Map([entry("items", Value.Array(shown_apps(m).map(fun(a: App) {
+    let place = place_of(a.path);
+    let own = a.path.starts_with("builtin:");
+    Value.Map([
+        entry("name", Value.Text(a.face.name)),
+        entry("place", Value.Text(place)),
+        // Named for Rapidkoi to draw, never sent (PRP-060).
+        entry("icon", Value.Text("icon:{place}")),
+        entry("from", Value.Text(if own { "" } else { place })),
+        entry("address", Value.Text(address_shown(a.path))),
+        entry("publisher", Value.Text(a.host.unwrap_or(""))),
+        entry("signed", Value.Bool(a.host.is_some())),
+        entry("pinned", Value.Bool(m.pinned.any(fun(p: Pin) = pins_app(p, a.path, a.origin)))),
+        entry("opened", Value.int(a.last)),
+    ])
+})))]);
+
+/**
+ * Answers one All apps ask.
+ *
+ * @param m the window
+ * @param p the page that asked
+ * @param ask an `Apps`, `OpenApp`, `PinApp`, `UnpinApp`, `AppPermissions` or `ForgetApp`
+ * @param grant false when its permission is blocked or wasn't allowed
+ * @returns the window, the answer (only `apps` has one), and what opening
+ *     sends: the window's own message, after this update
+ *
+ * Example:
+ *     answer_app(m, page, ask, true)
+ */
+fun answer_app(m: Model, p: AppPage, ask: Effect, grant: bool): (Model, Option<Value>, Cmd<Msg>) {
+    if !grant {
+        return match ask {
+            Apps(_) => (m, Some(Value.Map([entry("items", Value.Array([]))])), Cmd.none()),
+            _ => (m, None, Cmd.none()),
+        };
+    }
+    match ask {
+        Apps(_) => (m, Some(apps_of(m)), Cmd.none()),
+        OpenApp(_, i) => (m, None, after(at(m, i), fun(a: App) = Msg.OpenPinned(a.path, a.origin))),
+        AppPermissions(_, i) => (
+            m,
+            None,
+            after(at(m, i), fun(a: App) = Msg.OnPin(a.path, a.origin, PinAction.Permissions)),
+        ),
+        ForgetApp(_, i) => (
+            m,
+            None,
+            after(at(m, i), fun(a: App) = Msg.OnPin(a.path, a.origin, PinAction.Forget)),
+        ),
+        // Pinned at the dock's end, unless it's there already.
+        PinApp(_, i) => match at(m, i) {
+            Some(a) if !m.pinned.any(fun(q: Pin) = pins_app(q, a.path, a.origin)) => {
+                let mut docked = m.pinned;
+                docked.push(Pin {
+                    name: a.face.name,
+                    path: a.path,
+                    icon: a.face.icon,
+                    origin: a.origin,
+                });
+                (Model { pinned: docked, ..m }, None, Cmd.none())
+            }
+            _ => (m, None, Cmd.none()),
+        },
+        UnpinApp(_, i) => match at(m, i) {
+            Some(a) => (
+                Model {
+                    pinned: m.pinned.filter(fun(q: Pin) = !pins_app(q, a.path, a.origin)),
+                    ..m,
+                },
+                None,
+                Cmd.none(),
+            ),
+            None => (m, None, Cmd.none()),
+        },
+        _ => (m, None, Cmd.none()),
+    }
+}
+
+/** Your app at `i` as All apps lists them now; nothing past the end. */
+fun at(m: Model, i: i64): Option<App> {
+    let all = shown_apps(m);
+    if i >= 0 && i < all.len { Some(all[i]) } else { None }
+}
+
+/** The window's own message for an app, after this update; nothing for none. */
+fun after(a: Option<App>, f: fun(App): Msg): Cmd<Msg> = match a {
+    Some(x) => Cmd.after(0, f(x)),
+    None => Cmd.none(),
+};
+
+fun entry(k: string, v: Value): Entry = Entry { key: Value.Text(k), value: v };

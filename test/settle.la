@@ -1,0 +1,41 @@
+// One Settle (PRP-068, DECISION-096): the passes after Rapidkoi starts and
+// after every message are the same function: tell what changed, answer,
+// fetch pictures, settle time zones, save. Nothing waiting, nothing
+// changed: it does nothing. No display.
+import rapidkoi.boot.settle { settled };
+import rapidkoi.data.saving { mark };
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.tabs { AppPage, open_module };
+import kivuli { Cmd };
+import rapidkoi.window.actions { Msg };
+import wasmtime { Engine, Module };
+import support { echo_init, asking, ask };
+
+fun is_none(c: Cmd<Msg>): bool = match c {
+    Nothing => true,
+    _ => false,
+};
+
+@test
+fun nothing_waiting_does_nothing() {
+    let m = with_pages(Engine.new(), []);
+    let (after, sends) = settled(m, m, Cmd.none(), mark(m));
+    assert_eq(after.tabs.len, 0);
+    assert(is_none(sends));
+}
+
+@test
+fun what_an_app_asked_is_answered() {
+    // An app that asks for the time when it opens: answered in the settle.
+    let engine = Engine.new();
+    let p = open_module(
+        "Clock",
+        "clock.wasm",
+        engine,
+        Module.from_text(engine, echo_init(asking([ask("now", "clock")]))).unwrap(),
+    );
+    assert_eq(p.asks.len, 1);
+    let m = with_pages(engine, [p]);
+    let (after, _) = settled(m, m, Cmd.none(), mark(m));
+    assert_eq(after.tabs[0].page.asks.len, 0);
+}

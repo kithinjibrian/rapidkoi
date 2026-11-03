@@ -6,7 +6,7 @@ import rapidkoi.shell { update };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.ui.layout { view };
 import rapidkoi.guest.effects { answer_all };
-import rapidkoi.data.saving { restore };
+import rapidkoi.data.restoring { restore };
 import rapidkoi.window.tabs { AppPage, Pin, Screen, open_module, state_of };
 import rapidkoi.window.restarts { with_saved };
 import rapidkoi.window.actions { Msg, Approval, Answer, PanelPage };

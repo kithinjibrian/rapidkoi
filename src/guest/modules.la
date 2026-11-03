@@ -1,0 +1,109 @@
+/**
+ * Compiled modules kept for the run (PRP-068, DECISION-096): compiling is
+ * the costly part of starting an app, so each module's bytes are compiled
+ * once and kept, keyed by their SHA-256. Changed bytes have another hash
+ * and compile fresh: an older compile never runs for changed code. At most
+ * `MAX_MODULES`; past it, the one used longest ago goes. Nothing is kept on
+ * disk. A module belongs to its engine: keep one `Modules` per engine.
+ *
+ * Depends on: std.crypto, wasmtime, guest.guest
+ * Used by: window.window, boot.appboot, boot.boot
+ */
+import std.crypto { sha256, equal };
+import wasmtime { Engine, Module };
+import guest.guest { GuestError, compile };
+
+/** The most modules kept. */
+const MAX_MODULES: i64 = 16;
+
+/** The modules kept: each its bytes' hash, the module, and when it was last used. */
+struct Modules {
+    items: (u8[], Module, i64)[],
+}
+
+/**
+ * Returns no modules kept.
+ *
+ * Example:
+ *     no_modules()
+ */
+fun no_modules(): Modules = Modules { items: [] };
+
+/**
+ * Returns the module for `bytes`: kept already, or compiled now and kept.
+ *
+ * @param m the modules kept
+ * @param engine the engine they were compiled with
+ * @param bytes the module's bytes
+ * @param now when it's used, for which goes first past the cap
+ * @returns the modules, now holding it, and the module; `Err` as `compile`
+ *     gives it, nothing kept
+ *
+ * Example:
+ *     let (kept, module) = compiled(m.modules, m.engine, bytes, m.now)?;
+ */
+fun compiled(
+    m: Modules,
+    engine: Engine,
+    bytes: u8[],
+    now: i64,
+): Result<(Modules, Module), GuestError> {
+    let key = sha256(bytes);
+    let mut rest: (u8[], Module, i64)[] = [];
+    let mut found: Option<Module> = None;
+    for x of m.items {
+        if equal(x.0, key) {
+            found = Some(x.1);
+        } else {
+            rest.push(x);
+        }
+    }
+    let module = match found {
+        Some(k) => k,
+        None => compile(engine, bytes)?,
+    };
+    rest.push((key, module, now));
+    Ok((Modules { items: newest(rest) }, module))
+}
+
+/**
+ * Whether the module for `bytes` is kept.
+ *
+ * Example:
+ *     holds(m.modules, bytes)
+ */
+fun holds(m: Modules, bytes: u8[]): bool {
+    let key = sha256(bytes);
+    m.items.any(fun(x: (u8[], Module, i64)) = equal(x.0, key))
+}
+
+/** At most `MAX_MODULES`: the ones used longest ago go first. */
+fun newest(items: (u8[], Module, i64)[]): (u8[], Module, i64)[] {
+    if items.len <= MAX_MODULES {
+        return items;
+    }
+    let by_use = items.sort_by(fun(a: (u8[], Module, i64), b: (u8[], Module, i64)) = a.2 > b.2);
+    let mut kept: (u8[], Module, i64)[] = [];
+    for i in 0..MAX_MODULES {
+        kept.push(by_use[i]);
+    }
+    kept
+}
+
+/**
+ * Returns a compile function for the loader (`compiled_with`) that
+ * compiles through the modules in `held`, keeping what it compiles there.
+ *
+ * Example:
+ *     let held = Ref.new(m.modules);
+ *     compiled_with(checked, maker(held, m.engine, m.now))
+ */
+fun maker(
+    held: Ref<Modules>,
+    engine: Engine,
+    now: i64,
+): fun(u8[]): Result<Module, GuestError> = fun(bytes: u8[]): Result<Module, GuestError> {
+    let (next, module) = compiled(held.get(), engine, bytes, now)?;
+    held.set(next);
+    Ok(module)
+};

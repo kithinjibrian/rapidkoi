@@ -1,0 +1,40 @@
+/**
+ * Which permission each ask needs (moved from `guest.effects` for its
+ * size, PRP-067), and whether a page declared it. The new tab's, Settings',
+ * notifications' and All apps' asks each name one; the rest need none.
+ *
+ * Depends on: guest.nodes, bundles.permissions, bundles.bundle, window.tabs
+ * Used by: guest.effects
+ */
+import guest.nodes { Effect };
+import bundles.permissions { Permission, name_of };
+import bundles.bundle { Manifest };
+import window.tabs { AppPage };
+
+/** Whether a page's manifest declares `p`: the loader let it through only if it may hold it. */
+fun holds(page: AppPage, p: Permission): bool = page.manifest.map(
+    fun(m: Manifest) = m.permissions.any(fun(n: string) = n == name_of(p)),
+).unwrap_or(false);
+
+/** The permission an ask needs, if any. */
+fun needed(ask: Effect): Option<Permission> = match ask {
+    Pins(_) => Some(Permission.ReadPins),
+    LeftOff(_) => Some(Permission.ReadLeftOff),
+    Recent(_) => Some(Permission.ReadLeftOff),
+    OpenRecent(_, _) => Some(Permission.OpenApps),
+    OpenPin(_, _) => Some(Permission.OpenApps),
+    Continue(_) => Some(Permission.OpenApps),
+    Session(_) => Some(Permission.RestoreSession),
+    RestoreSession(_) => Some(Permission.RestoreSession),
+    SetPreference(_, _, _) => Some(Permission.ChangeSettings),
+    // A withdraw needs none: an app holds only its own notifications (PRP-065).
+    Notify(_, _, _, _) => Some(Permission.Notify),
+    Notifications(_) | OpenNotification(_, _) | DismissNotification(_, _) => Some(
+        Permission.ReadNotifications,
+    ),
+    // All apps (PRP-067): Forget and permissions only open Rapidkoi's panel.
+    Apps(_) => Some(Permission.ReadApps),
+    OpenApp(_, _) | AppPermissions(_, _) | ForgetApp(_, _) => Some(Permission.OpenApps),
+    PinApp(_, _) | UnpinApp(_, _) => Some(Permission.ManagePins),
+    _ => None,
+};

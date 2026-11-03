@@ -1,0 +1,94 @@
+// The bell (PRP-066): its tooltip, its card's rows (unread first, then
+// "Earlier" and the read ones, or "No notifications"), and what its
+// messages do: a row opens its place and is read, × removes one, opening
+// the card closes ☰'s. Pure; no display.
+import rapidkoi.shell { update };
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.actions { Msg, BellAction };
+import rapidkoi.window.notifications { Notification, Kind, no_notifications, add, unread, listed };
+import rapidkoi.data.remembered { Face };
+import rapidkoi.ui.bell { tip, card };
+import kivuli.testing { texts };
+import wasmtime { Engine };
+
+/** `n` with `text` from the counter, sent at `at`, read or not. */
+fun told(n: Model, text: string, at: i64, read: bool): Model {
+    let note = Notification {
+        id: 0,
+        kind: Kind.App,
+        path: "counter.rkb",
+        origin: None,
+        text: text,
+        address: "counter.rkb",
+        key: None,
+        sent: at,
+        read: read,
+    };
+    let face = Face { path: "counter.rkb", name: "Counter", icon: None, colour: None };
+    Model { notifications: add(n.notifications, note, face, at), ..n }
+}
+
+fun fresh(): Model = with_pages(Engine.new(), []);
+
+/** Two unread and one read: the read one sent first. */
+fun three(): Model = told(
+    told(told(fresh(), "Your count is 1", 1, true), "Your count is 2", 2, false),
+    "Your count is 3",
+    3,
+    false,
+);
+
+fun has(words: string[], s: string): bool = words.any(fun(w: string) = w == s);
+
+@test
+fun the_bell_says_how_many_are_unread() {
+    assert_eq(tip(fresh()), "Notifications");
+    assert_eq(tip(three()), "Notifications, 2 unread");
+}
+
+@test
+fun the_card_lists_unread_first_then_earlier() {
+    let shown = texts(card(three()));
+    let at = fun(s: string): i64 {
+        for i in 0..shown.len {
+            if shown[i] == s {
+                return i;
+            }
+        }
+        -1
+    };
+    assert(at("Your count is 3") < at("Your count is 2"));
+    assert(at("Your count is 2") < at("Earlier"));
+    assert(at("Earlier") < at("Your count is 1"));
+    assert(has(shown, "2"));
+    // Nothing unread: no "Earlier", no count.
+    let read = texts(card(told(fresh(), "Old news", 1, true)));
+    assert_eq((has(read, "Old news"), has(read, "Earlier")), (true, false));
+    assert(has(texts(card(fresh())), "No notifications"));
+}
+
+@test
+fun a_row_opens_its_place_and_is_read_and_x_removes_one() {
+    let (shown, _) = update(three(), Msg.Bell(BellAction.Show(true)));
+    assert_eq(shown.bell, true);
+    let (opened, _) = update(shown, Msg.Bell(BellAction.Open(0)));
+    assert_eq((opened.bell, unread(opened.notifications)), (false, 1));
+    let (gone, _) = update(three(), Msg.Bell(BellAction.Dismiss(0)));
+    assert_eq(listed(gone.notifications).map(fun(x: Notification) = x.text), [
+        "Your count is 2",
+        "Your count is 1",
+    ]);
+    // Past the end: nothing changes.
+    let (same, _) = update(three(), Msg.Bell(BellAction.Open(9)));
+    assert_eq(unread(same.notifications), 2);
+    assert_eq(update(three(), Msg.Bell(BellAction.Dismiss(9))).0.notifications.items.len, 3);
+}
+
+@test
+fun opening_the_card_closes_the_menu_s() {
+    let (menu, _) = update(fresh(), Msg.Menu(true));
+    let (rung, _) = update(menu, Msg.Bell(BellAction.Show(true)));
+    assert_eq((rung.bell, rung.menu), (true, false));
+    let (closed, _) = update(rung, Msg.Bell(BellAction.Show(false)));
+    assert_eq(closed.bell, false);
+}

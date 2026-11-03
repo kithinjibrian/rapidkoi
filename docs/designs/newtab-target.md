@@ -81,7 +81,7 @@ The wordmark's gradient stays a picture: GTK's CSS can't fill text with a gradie
 1. **Recent places**: a record of places with when each was last open, replacing the one "where you left off"; an ask answering the newest five (title, summary, picture, icon, colour, link, time) and one opening a place by its index.
 2. **Show in Recent**: a switch per app in its ⚙ card; off forgets its places.
 3. **Shipped (PRP-060)**, with names and icons, and the new tab's Restore is real. **The session's apps**: Restore's answer gives each app's name, icon and colour, not only names and a window count.
-4. **Notifications**: the manifest's `notifications` permission; an ask to send one (a sentence and a place) and its limits (length, how many kept per app, how often, only while running); keeping them; a built-in permission for the new tab to read them; ordering (with a button first, newest first) and removal when no longer true; opening one opens its place.
+4. **Shipped (PRP-065)**, an app's own kind; See all comes with the notifications page. **Notifications**: the manifest's `notifications` permission; an ask to send one (a sentence and a place) and its limits (length, how many kept per app, how often, only while running); keeping them; a built-in permission for the new tab to read them; ordering (with a button first, newest first) and removal when no longer true; opening one opens its place.
 5. **The bell**: in the header before 👤 and ☰, an accent dot while anything is unread, opening a card of the latest.
 6. **The dock's dot**: on each entry with something unread.
 7. **The notifications page**: a built-in app (core decision 19, DECISION-027), Notifications' See all.

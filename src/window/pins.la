@@ -11,11 +11,13 @@ import std.crypto { equal };
 import window.window { Model, page_of, close };
 import window.tabs { Pin, AppPage };
 import window.recent { forget_app };
+import window.notifications { forget_notifications };
+import window.yourapps { forgotten };
 import people.people { with_shown_in_recent };
 
 /**
  * Forgets the current app: closes its tab, unpins it, drops its recent
- * places (PRP-062), and closes the panel. `saving` then saves both; the app's trusted key stays,
+ * places (PRP-062), notifications (PRP-065) and its entry in your apps (PRP-067), and closes the panel. `saving` then saves both; the app's trusted key stays,
  * so a swapped key still asks first (PRP-007).
  *
  * Example:
@@ -28,6 +30,10 @@ fun forget(m: Model): Model = match (m.current, page_of(m)) {
             pinned: closed.pinned.filter(fun(p: Pin) = !pins_app(p, a.path, origin_of(a))),
             // Its places go too (PRP-062).
             recent: forget_app(closed.recent, a.path, origin_of(a)),
+            // And its notifications (PRP-065).
+            notifications: forget_notifications(closed.notifications, a.path, origin_of(a)),
+            // And it's no longer one of your apps (PRP-067).
+            apps: forgotten(closed.apps, a.path, origin_of(a)),
             panel: None,
             confirm: None,
             ..closed,
@@ -43,6 +49,8 @@ fun forget(m: Model): Model = match (m.current, page_of(m)) {
  *     toggle_pin(m)
  */
 fun toggle_pin(m: Model): Model = match page_of(m) {
+    // All apps is the dock's own button, never pinned (PRP-067).
+    App(a) if a.path == "builtin:allapps" => m,
     App(a) if is_pinned(m, a.path, origin_of(a)) => Model {
         pinned: m.pinned.filter(fun(p: Pin) = !pins_app(p, a.path, origin_of(a))),
         ..m,

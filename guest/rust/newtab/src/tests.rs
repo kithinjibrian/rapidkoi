@@ -35,25 +35,17 @@ fn session(count: u32, places: &[&str]) -> Vec<u8> {
     e.into_writer()
 }
 
-/// A pins answer: each `{name, place, icon}`.
-fn pins(names: &[(&str, &str)]) -> Vec<u8> {
-    let mut e = Encoder::new(Vec::new());
-    e.array(names.len() as u64).unwrap();
-    for (name, place) in names {
-        e.map(3).unwrap();
-        e.str("name").unwrap().str(name).unwrap();
-        e.str("place").unwrap().str(place).unwrap();
-        e.str("icon").unwrap().str(&format!("icon:{place}")).unwrap();
-    }
-    e.into_writer()
-}
-
 #[test]
-fn it_asks_for_the_session_your_pins_and_places_each_time_it_s_shown_or_told_they_changed() {
+fn it_asks_for_the_session_places_and_notifications_each_time_it_s_shown_or_told_they_changed() {
+    // No pins (PRP-067): the dock has them, and All apps every app.
     for e in [Event::Opened, Event::Resume, Event::Change { tables: vec![] }] {
         assert_eq!(
             NewTab::default().step(e).1,
-            vec![Ask::session("session"), Ask::pins("pins"), Ask::recent("recent")]
+            vec![
+                Ask::session("session"),
+                Ask::recent("recent"),
+                Ask::notifications("notifications")
+            ]
         );
     }
 }
@@ -97,30 +89,6 @@ fn your_places_become_recent_and_a_card_opens_its_place() {
 #[test]
 fn with_no_places_there_s_no_recent() {
     assert!(recent(&[]).is_none());
-}
-
-#[test]
-fn your_pins_become_the_tiles_and_a_tile_opens_its_pin() {
-    let data =
-        Event::Data { msg: "pins".into(), cbor: pins(&[("Quote", "quote.dafifi.net"), ("Counter", "counter.rkb")]) };
-    let (t, asks) = NewTab::default().step(data);
-    assert!(asks.is_empty());
-    assert_eq!(
-        t.pins,
-        vec![
-            Pin { name: "Quote".into(), icon: "icon:quote.dafifi.net".into() },
-            Pin { name: "Counter".into(), icon: "icon:counter.rkb".into() },
-        ]
-    );
-    let _ = t.view();
-    let pressed = Event::Message { msg: Msg::OpenPin(1), value: None };
-    assert_eq!(t.step(pressed).1, vec![Ask::open_pin("open", 1)]);
-}
-
-#[test]
-fn with_no_pins_there_s_no_pinned_section() {
-    assert!(pinned(&[]).is_none());
-    assert!(pinned(&[Pin { name: "Quote".into(), icon: "icon:quote.dafifi.net".into() }]).is_some());
 }
 
 #[test]
@@ -169,4 +137,45 @@ fn a_card_leaves_out_an_empty_address_and_an_unknown_time() {
     };
     let _ = recent(&[settings]);
     let _ = note_at(&["Settings", ""], 0);
+}
+
+/// A notifications answer: `unread`, then each `(name, text)` from an app, sent at 5.
+fn alerts(unread: u32, list: &[(&str, &str)]) -> Vec<u8> {
+    let mut e = Encoder::new(Vec::new());
+    e.map(2).unwrap().str("unread").unwrap().u32(unread).unwrap();
+    e.str("items").unwrap().array(list.len() as u64).unwrap();
+    for (name, said) in list {
+        e.map(8).unwrap();
+        for (k, v) in [("kind", "app"), ("name", name), ("place", "counter.rkb"), ("icon", "icon:counter.rkb")] {
+            e.str(k).unwrap().str(v).unwrap();
+        }
+        e.str("text").unwrap().str(said).unwrap().str("address").unwrap().str("counter.rkb").unwrap();
+        e.str("sent").unwrap().i64(5).unwrap().str("read").unwrap().bool(false).unwrap();
+    }
+    e.into_writer()
+}
+
+#[test]
+fn notifications_show_only_while_one_is_unread_and_open_or_dismiss_by_index() {
+    // PRP-065: the newest four, each opening its place, × removing it.
+    let five = alerts(5, &[("Counter", "a"), ("Counter", "b"), ("Notes", "c"), ("Notes", "d"), ("Notes", "e")]);
+    let (t, asks) = NewTab::default().step(Event::Data { msg: "notifications".into(), cbor: five });
+    assert!(asks.is_empty());
+    assert_eq!((t.unread, t.notices.len()), (5, 5));
+    assert_eq!(
+        t.notices[0],
+        Alert { name: "Counter".into(), icon: "icon:counter.rkb".into(), text: "a".into(), sent: 5 }
+    );
+    assert!(notices::section(t.unread, &t.notices).is_some());
+    let _ = t.view();
+    let open = Event::Message { msg: Msg::OpenNotice(2), value: None };
+    assert_eq!(t.step(open).1, vec![Ask::open_notification("open", 2)]);
+    let (t, _) =
+        NewTab::default().step(Event::Data { msg: "notifications".into(), cbor: alerts(1, &[("Counter", "a")]) });
+    let dismiss = Event::Message { msg: Msg::DismissNotice(0), value: None };
+    assert_eq!(t.step(dismiss).1, vec![Ask::dismiss_notification("dismiss", 0)]);
+    // Everything read: no section.
+    let (read, _) =
+        NewTab::default().step(Event::Data { msg: "notifications".into(), cbor: alerts(0, &[("Counter", "a")]) });
+    assert!(notices::section(read.unread, &read.notices).is_none());
 }

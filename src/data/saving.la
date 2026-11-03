@@ -1,22 +1,18 @@
 /**
- * Remembering across restarts: `restore` reads trust, pins and your recent
- * places (PRP-062) into a new window's model; `persist` records the places a
- * message moved you through and saves whichever of them a
+ * Remembering across restarts: what's read at start is `data.restoring`'s
+ * (PRP-068); `persist` records the places a message moved you through and saves whichever of them a
  * message changed, right away (PRP-007). Broken files are set aside and a
  * newer Rapidkoi's are left alone, each with a notice; a failed save is a
  * notice too, never a crash.
  *
- * Depends on: std.env, std.time, data.store, data.states, people.people, people.identity, data.remembered, data.recentfile, trust.verify, window.window, window.remembering
+ * Depends on: std.env, std.time, data.store, data.states, data.remembered, data.restoring, data.recentfile, data.notificationsfile, data.yourappsfile, data.parts, trust.verify, window.window, window.remembering
  * Used by: shell
  */
-import data.preferences { MAX_PREFS_FILE, read_prefs, prefs_file };
-import ui.schemes { DEFAULT_PREFS, theme_for };
+import data.preferences { prefs_file };
 import std.env;
 import std.time;
 import data.states { Saved, move_state, keep_in, drop_app, drop_state_in };
-import people.people { People, Person, nobody };
-import people.people_codec { people_file, read_people, MAX_PEOPLE_FILE };
-import people.identity { existing };
+import people.people_codec { people_file };
 import data.store {
     Store,
     StoreError,
@@ -25,14 +21,10 @@ import data.store {
     save,
     remove,
     load,
-    skipping,
     reason as store_reason,
 };
 import data.remembered {
-    Recalled,
-    MAX_TRUST_FILE,
     recall,
-    read_trust,
     trust_file,
     Open,
     OpenTab,
@@ -41,93 +33,17 @@ import data.remembered {
     read_open,
     Face,
 };
-import data.pinfiles { MAX_PINS_FILE, read_pins, pins_file };
-import data.recentfile { MAX_RECENT_FILE, read_recent, recent_file, with_left_off };
-import window.recent { no_recent };
+import data.pinfiles { pins_file };
+import data.recentfile { recent_file };
+import data.notificationsfile { notifications_file };
+import data.parts { Part, TRUST, PINS, STATE, PEOPLE, OPEN, PREFS, RECENT, NOTIFICATIONS, APPS };
+import data.restoring { Reading, settle };
+import data.yourappsfile { apps_file };
 import window.remembering { noted };
-import window.settings_app;
-import trust.verify { keyring, keyring_of, identities, changes, moves };
+import trust.verify { identities, changes, moves };
 import window.window { Model, Notice, page_of };
-import window.notices { joined, with_more, couldnt_save, set_aside, not_kept, identity_trouble };
+import window.notices { joined, with_more, couldnt_save };
 import window.tabs { Tab, state_of, state_version_of };
-
-/** How the notices name one remembered file. */
-struct Part {
-    file: string,
-    /** "your pins", as the middle of a sentence. */
-    noun: string,
-    /** "Your pins", to start one. */
-    title: string,
-    /** "were" or "was". */
-    verb: string,
-    /** "them" or "it". */
-    it: string,
-    /** What else the person should know when it's set aside. */
-    after: string,
-}
-
-const TRUST: Part = Part {
-    file: "trust",
-    noun: "your trusted keys",
-    title: "Your trusted keys",
-    verb: "were",
-    it: "them",
-    after: "; sites will be trusted on first use again",
-};
-
-const PINS: Part = Part {
-    file: "pins",
-    noun: "your pins",
-    title: "Your pins",
-    verb: "were",
-    it: "them",
-    after: "",
-};
-
-const STATE: Part = Part {
-    file: "states",
-    noun: "this app's state",
-    title: "This app's state",
-    verb: "was",
-    it: "it",
-    after: "",
-};
-
-const PEOPLE: Part = Part {
-    file: "people",
-    noun: "your sign-in settings",
-    title: "Your sign-in settings",
-    verb: "were",
-    it: "them",
-    after: "",
-};
-
-const OPEN: Part = Part {
-    file: "open",
-    noun: "your open apps",
-    title: "Your open apps",
-    verb: "were",
-    it: "them",
-    after: "",
-};
-
-const PREFS: Part = Part {
-    file: "preferences",
-    noun: "your settings",
-    title: "Your settings",
-    verb: "were",
-    it: "them",
-    after: "",
-};
-
-const RECENT: Part = Part {
-    file: "recent",
-    noun: "your recent places",
-    title: "Your recent places",
-    verb: "were",
-    it: "them",
-    after: "",
-};
 
 /**
  * This session's data folder, from `$XDG_DATA_HOME` and `$HOME`.
@@ -139,76 +55,6 @@ fun session_store(): Result<Store, StoreError> = data_dir(
     env.get("XDG_DATA_HOME"),
     env.get("HOME"),
 ).map(store_at);
-
-/**
- * Reads what was remembered into a window: the keyring, the pins and your
- * recent places. Each part that can't be read starts empty, with a notice.
- *
- * @param m a new window's model
- * @param s the data folder
- * @returns the model with its store; the notices joined with " · "
- *
- * Example:
- *     restore(with_pages(engine, []), session_store()?)
- */
-fun restore(m: Model, s: Store): Model {
-    let notes: Ref<Notice[]> = Ref.new([]);
-    let held: Ref<Store> = Ref.new(s);
-    let ids = settle(
-        recall(s, TRUST.file, MAX_TRUST_FILE, read_trust),
-        TRUST,
-        notes,
-        held,
-    ).unwrap_or([]);
-    // A first run, with no pins yet, starts with Settings pinned (PRP-064).
-    let read = recall(s, PINS.file, MAX_PINS_FILE, read_pins);
-    let pins = match read {
-        Fresh => [settings_app.pin()],
-        _ => settle(read, PINS, notes, held).unwrap_or([]),
-    };
-    let places = settle(
-        recall(s, RECENT.file, MAX_RECENT_FILE, read_recent),
-        RECENT,
-        notes,
-        held,
-    ).unwrap_or(no_recent());
-    let kept = with_left_off(s, places);
-    let known = settle(
-        recall(s, PEOPLE.file, MAX_PEOPLE_FILE, read_people),
-        PEOPLE,
-        notes,
-        held,
-    ).unwrap_or(nobody());
-    let secret = match existing(s) {
-        Ok(found) => found,
-        Err(e) => {
-            say_to(notes, identity_trouble(e));
-            None
-        }
-    };
-    // Light or dark, contrast and text size (PRP-038): the defaults when unread.
-    let prefs = settle(
-        recall(s, PREFS.file, MAX_PREFS_FILE, read_prefs),
-        PREFS,
-        notes,
-        held,
-    ).unwrap_or(DEFAULT_PREFS);
-    let said = notes.get();
-    Model {
-        prefs: prefs,
-        theme: theme_for(prefs),
-        ring: if ids.len == 0 { keyring() } else { keyring_of(ids) },
-        pinned: pins,
-        recent: kept,
-        people: known,
-        // Read now if it exists (never made here), so the Account page can
-        // name you though no app has asked yet this run.
-        master: secret,
-        store: Some(held.get()),
-        notice: with_more(m.notice, joined(said)),
-        ..m,
-    }
-}
 
 /** Where the shared keyring was before a message: `before` can't tell, since every copy shares it. */
 struct Mark {
@@ -324,6 +170,19 @@ fun persist(before: Model, given: Model, at: Mark): Model {
             failed.push(e);
         }
     }
+    // What apps told you (PRP-065); the rate's memory isn't kept.
+    if after.notifications.items != before.notifications.items {
+        let bytes = notifications_file(after.notifications);
+        if let Some(e) = problem(save(s, NOTIFICATIONS.file, bytes), NOTIFICATIONS) {
+            failed.push(e);
+        }
+    }
+    // Your apps (PRP-067).
+    if after.apps != before.apps {
+        if let Some(e) = problem(save(s, APPS.file, apps_file(after.apps)), APPS) {
+            failed.push(e);
+        }
+    }
     Model { notice: with_more(after.notice, joined(failed)), ..after }
 }
 
@@ -355,61 +214,11 @@ fun forgotten(before: Model, after: Model): Model {
     }
 }
 
-/**
- * One file's outcome: its value when read; otherwise a notice, and (when
- * newer or unreadable) the file is never written this session.
- */
-fun settle<T>(r: Recalled<T>, p: Part, notes: Ref<Notice[]>, held: Ref<Store>): Option<T> {
-    let say = fun(s: Notice) = notes.update(fun(all: Notice[]) {
-        let mut next = all;
-        next.push(s);
-        next
-    });
-    match r {
-        Read(v) => {
-            return Some(v);
-        }
-        Fresh => {}
-        Broken(aside, _) => say(
-            set_aside(
-                p.noun,
-                "Rapidkoi couldn't read {p.noun}, so it set {p.it} aside in {aside}{p.after}",
-            ),
-        ),
-        Newer(_) => {
-            say(
-                not_kept(
-                    p.noun,
-                    "{p.title} {p.verb} saved by a newer Rapidkoi; changes this session won't be kept",
-                ),
-            );
-            held.update(fun(s: Store) = skipping(s, p.file));
-        }
-        // Not even readable (permissions?): don't overwrite what couldn't be read.
-        Failed(why) => {
-            say(
-                not_kept(
-                    p.noun,
-                    "Rapidkoi couldn't read {p.noun} ({why}); changes this session won't be kept",
-                ),
-            );
-            held.update(fun(s: Store) = skipping(s, p.file));
-        }
-    }
-    None
-}
-
 /** A failed save's notice, or nothing. */
 fun problem(r: Result<(), StoreError>, p: Part): Option<Notice> = match r {
     Err(e) => Some(couldnt_save(p.noun, store_reason(e))),
     Ok(()) => None,
 };
-
-fun say_to(notes: Ref<Notice[]>, s: Notice) = notes.update(fun(all: Notice[]) {
-    let mut next = all;
-    next.push(s);
-    next
-});
 
 /**
  * Returns what's open, as the open file keeps it (PRP-034): the app tabs
@@ -420,16 +229,18 @@ fun say_to(notes: Ref<Notice[]>, s: Notice) = notes.update(fun(all: Notice[]) {
  *     open_of(m)
  */
 fun open_of(m: Model): Open {
+    // All apps is where you find apps: never part of a session (PRP-067).
+    let kept = m.tabs.filter(fun(t: Tab) = t.page.path != "builtin:allapps");
     let mut current: Option<i64> = None;
     let mut i = 0;
-    for t of m.tabs {
+    for t of kept {
         if m.current == Some(t.id) {
             current = Some(i);
         }
         i += 1;
     }
     Open {
-        tabs: m.tabs.map(
+        tabs: kept.map(
             fun(t: Tab) = OpenTab {
                 path: t.page.path,
                 instance: t.page.instance,
@@ -445,7 +256,7 @@ fun open_of(m: Model): Open {
             },
         ),
         current: current,
-        apps: faces_of(m.tabs),
+        apps: faces_of(kept),
     }
 }
 
@@ -477,10 +288,8 @@ fun faces_of(open: Tab[]): Face[] {
  *     let (m, open) = restore_open(restore(m, s), s);
  */
 fun restore_open(m: Model, s: Store): (Model, Option<Open>) {
-    let notes: Ref<Notice[]> = Ref.new([]);
-    let held: Ref<Store> = Ref.new(m.store.unwrap_or(s));
-    let open = settle(recall(s, OPEN.file, MAX_OPEN_FILE, read_open), OPEN, notes, held);
-    let said = notes.get();
-    let notice = with_more(m.notice, joined(said));
-    (Model { store: Some(held.get()), notice: notice, ..m }, open)
+    let r = Reading { store: s, notes: Ref.new([]), held: Ref.new(m.store.unwrap_or(s)) };
+    let open = settle(recall(s, OPEN.file, MAX_OPEN_FILE, read_open), OPEN, r);
+    let notice = with_more(m.notice, joined(r.notes.get()));
+    (Model { store: Some(r.held.get()), notice: notice, ..m }, open)
 }

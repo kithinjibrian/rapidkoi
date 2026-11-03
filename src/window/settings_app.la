@@ -8,9 +8,11 @@
  * Used by: window.navigate
  */
 import wasmtime { Engine };
-import bundles.loader { Origin, Refusal, from_bytes };
+import bundles.loader { Refusal };
+import guest.modules { Modules, no_modules };
+import boot.appboot { Source, loaded, started };
 import trust.verify { keyring };
-import window.tabs { AppPage, Pin, from_loaded };
+import window.tabs { AppPage, Pin };
 import bundles.bundle { read, asset };
 
 /** Settings' path and settings key: no host or file, so a name of its own. */
@@ -28,11 +30,7 @@ const BUNDLE: u8[] = include_bytes("../../assets/apps/settings.rkb");
  * Example:
  *     settings_app.open(engine)
  */
-fun open(engine: Engine): Result<AppPage, Refusal> {
-    // Built in: the only bytes that may hold built-in permissions (PRP-030).
-    let l = from_bytes(engine, keyring(), "settings.rkb", BUNDLE, Origin.BuiltIn)?;
-    Ok(from_loaded(engine, l, SETTINGS_KEY, []))
-}
+fun open(engine: Engine): Result<AppPage, Refusal> = open_kept(Ref.new(no_modules()), engine, 0);
 
 /**
  * Settings as a pin (PRP-064): what a first run's pins start with, its
@@ -47,4 +45,19 @@ fun pin(): Pin {
         Err(_) => None,
     };
     Pin { name: "Settings", path: SETTINGS_KEY, icon: icon, origin: None }
+}
+
+/**
+ * Starts the Settings app, its module compiled through the modules kept for
+ * the run (PRP-068): opened again, it compiles nothing.
+ *
+ * @param held the modules kept; what's compiled is kept there
+ *
+ * Example:
+ *     settings_app.open_kept(held, m.engine, m.now)
+ */
+fun open_kept(held: Ref<Modules>, engine: Engine, now: i64): Result<AppPage, Refusal> {
+    // Built in: the only bytes that may hold built-in permissions (PRP-030).
+    let l = loaded(held, engine, now, keyring(), Source.BuiltIn("settings.rkb", BUNDLE))?;
+    Ok(started(engine, l, SETTINGS_KEY, []))
 }

@@ -1,0 +1,63 @@
+// Restore as a list of parts (PRP-068, DECISION-096): each part reads its
+// file into the window, in the list's order, which is the order said once;
+// a part's default may use what an earlier one restored. Each outcome's
+// notice is `saving.la`'s tests'. No guest, no display.
+import rapidkoi.data.restoring { restore, restorers, Restorer };
+import rapidkoi.data.store { store_at, save };
+import rapidkoi.window.window { with_pages };
+import rapidkoi.window.tabs { Pin };
+import rapidkoi.window.yourapps { App };
+import wasmtime { Engine };
+import std.fs;
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+@test
+fun the_parts_in_their_order() {
+    assert_eq(restorers().map(fun(p: Restorer) = p.name), [
+        "trust",
+        "pins",
+        "recent",
+        "people",
+        "identity",
+        "preferences",
+        "notifications",
+        "apps",
+    ]);
+}
+
+@test
+fun a_first_run_s_defaults_follow_the_order() {
+    // Pins before apps: a first run pins Settings (PRP-064), and your apps
+    // are seeded from what was restored before them (PRP-067).
+    let dir = "test/tmp/restoring-fresh";
+    clean(dir);
+    let m = restore(with_pages(Engine.new(), []), store_at(dir));
+    assert_eq(m.pinned.map(fun(p: Pin) = p.path), ["builtin:settings"]);
+    assert_eq(m.apps.items.map(fun(a: App) = a.path), ["builtin:settings"]);
+    assert_eq(m.notice, None);
+    clean(dir);
+}
+
+@test
+fun a_broken_part_is_set_aside_and_the_rest_restore() {
+    let dir = "test/tmp/restoring-broken";
+    clean(dir);
+    let s = store_at(dir);
+    save(s, "notifications", [1, 2, 3]).unwrap();
+    let m = restore(with_pages(Engine.new(), []), s);
+    // Its notice; its default; the parts after it still restored.
+    assert(m.notice.is_some());
+    assert_eq(m.notifications.items.len, 0);
+    assert_eq(m.apps.items.len, 1);
+    clean(dir);
+}

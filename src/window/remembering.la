@@ -1,17 +1,18 @@
 /**
- * Recording recent places as windows move (PRP-062), pure: given the window
+ * Recording recent places and your apps (PRP-067) as windows move (PRP-062), pure: given the window
  * before and after a message, the open windows it moved through. A window's
  * place is recorded when it first runs, when its address or title changes,
  * and when it leaves the front. Closing a window or replacing its app
  * records it where that happens (`window.window`, `window.navigate`,
  * `window.choosing`), so Forget can drop what it closes.
  *
- * Depends on: window.window, window.tabs, window.recent
+ * Depends on: window.window, window.tabs, window.recent, window.yourapps
  * Used by: data.saving
  */
 import window.window { Model };
 import window.tabs { Tab };
 import window.recent { remember, address_of };
+import window.yourapps { opened, app_of };
 
 /**
  * Returns `after` with the places its open windows moved through recorded,
@@ -26,12 +27,18 @@ fun noted(before: Model, after: Model): Model {
         fun(t: Tab) = after.current == Some(t.id),
     );
     let mut r = after.recent;
+    let mut a = after.apps;
     for t of ordered {
         if moved(before, after, t) {
             r = remember(r, after.people, t.page, now);
+            // One of your apps once it runs (PRP-067), Show in Recent or not: that
+            // switch is about places, not whether you have the app.
+            if running(t) {
+                a = opened(a, app_of(t.page, now));
+            }
         }
     }
-    Model { recent: r, ..after }
+    Model { recent: r, apps: a, ..after }
 }
 
 /**
@@ -51,3 +58,9 @@ fun moved(before: Model, after: Model, t: Tab): bool {
     let left_front = before.current == Some(t.id) && after.current != Some(t.id);
     !ran || address_of(b) != address_of(t.page) || b.title != t.page.title || left_front
 }
+
+/** Whether a window's app is running: one that failed or is loading isn't yet one of yours. */
+fun running(t: Tab): bool = match t.page.screen {
+    Running(_, _, _) => true,
+    _ => false,
+};

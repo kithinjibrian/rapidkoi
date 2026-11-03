@@ -7,14 +7,15 @@
  * Depends on: kivuli, kivuli.ui, window.actions, window.window, window.notices, ui.themes, ui.frame_looks, ui.tokens
  * Used by: ui.layout
  */
-import kivuli { View, Align, Background, Styling, row, text, icon };
+import kivuli { View, Align, Background, Styling, row, text, image };
 import kivuli.ui { Button, button_with as ui_button_with };
 import window.actions { Msg };
 import window.window { Model, Notice };
 import window.notices { shown };
 import ui.themes { body, paint };
 import ui.frame_looks { tab_close };
-import ui.tokens { SPACE_SM, SPACE_MD, TAB_CLOSE_ICON, gap, padding_xy };
+import ui.tokens { SPACE_SM, SPACE_MD, CLOSE_ICON, gap, padding_xy, square };
+import ui.icons { Icon, icon };
 
 /**
  * The bar, when there's a notice to show; `None` otherwise, so it takes no room.
@@ -26,7 +27,7 @@ fun bar(m: Model): Option<View<Msg>> {
     let n: Notice = shown(m)?;
     let t = m.theme;
     let close = ui_button_with(
-        [icon("window-close-symbolic").size(TAB_CLOSE_ICON)],
+        [image(icon(Icon.Close, t.on_frame)).style([square(CLOSE_ICON)]).align(Align.Center)],
         Msg.DismissNotice,
     ).style(tab_close(t)).tooltip("Close").align(Align.Center);
     let look: Styling[] = [

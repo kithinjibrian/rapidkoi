@@ -1,0 +1,293 @@
+/**
+ * Notifications (PRP-065, DECISION-093), pure: what apps told you, newest
+ * first. One record for every kind: an app's own now; invites, shares and
+ * updates, which only Rapidkoi makes, join with their own PRPs. An app
+ * gives a sentence, a place in itself and a key; Rapidkoi fills in the
+ * rest from the page that asked, so no app can speak for another. Each
+ * app's name and icon are kept once beside them, as recent places keep
+ * theirs.
+ *
+ * Depends on: data.remembered, window.tabs, window.recent, bundles.bundle
+ * Used by: window.window, data.notificationsfile, guest.noticeanswers, guest.home, ui.appicons, window.pins
+ */
+import data.remembered { Face };
+import window.tabs { AppPage };
+import window.recent { address_of };
+import bundles.bundle { Manifest };
+
+/** The most notifications kept for one app: past it, its oldest goes. */
+const MAX_PER_APP: i64 = 20;
+
+/** The most notifications kept in all. */
+const MAX_NOTICES: i64 = 200;
+
+/** The most an app may send in a minute; past it, the rest are dropped. */
+const MAX_PER_MINUTE: i64 = 10;
+
+/** A minute, in milliseconds. */
+const MINUTE: i64 = 60 * 1000;
+
+/** Who a notification is from, and so how it's drawn. */
+enum Kind {
+    /** An app's own: its icon and its sentence; the row opens its place. */
+    App,
+}
+
+/**
+ * Returns a kind's name, as the file keeps it and the new tab reads it.
+ *
+ * Example:
+ *     kind_name(Kind.App) == "app"
+ */
+fun kind_name(k: Kind): string = match k {
+    App => "app",
+};
+
+/** One notification. */
+struct Notification {
+    /** Rapidkoi's own number for it, rising. */
+    id: i64,
+    kind: Kind,
+    /** Its app's path, as its window names it. */
+    path: string,
+    /** Which app at its address, by first key; `None` when unsigned. */
+    origin: Option<u8[]>,
+    /** The sentence. */
+    text: string,
+    /** What opening it opens: a site's link with the app's fields, or a file's path. */
+    address: string,
+    /** The app's own name for it: sending again with it replaces this one. */
+    key: Option<string>,
+    /** When it was sent, in milliseconds since 1970. */
+    sent: i64,
+    /** Whether you opened it. */
+    read: bool,
+}
+
+/** When an app last sent, for the rate: kept for this run only. */
+struct Sent {
+    path: string,
+    origin: Option<u8[]>,
+    at: i64,
+}
+
+/** Your notifications, newest first, and each of their apps once. */
+struct Notifications {
+    items: Notification[],
+    apps: Face[],
+    /** The next notification's number. */
+    next: i64,
+    /** What was sent in the last minute, for the rate. */
+    lately: Sent[],
+}
+
+/**
+ * Returns no notifications.
+ *
+ * Example:
+ *     no_notifications()
+ */
+fun no_notifications(): Notifications = Notifications { items: [], apps: [], next: 1, lately: [] };
+
+/**
+ * Keeps an app's notification at the front: with a key, it replaces that
+ * app's one with the same key. Past `MAX_PER_APP` that app's oldest goes,
+ * past `MAX_NOTICES` the oldest of all. Past `MAX_PER_MINUTE` from one app
+ * in a minute, it's dropped.
+ *
+ * @param n your notifications
+ * @param note the notification; its `id` is given here
+ * @param app its app's name and icon, kept the newest
+ * @param now the time it's sent
+ * @returns the notifications, with it unless the rate dropped it
+ *
+ * Example:
+ *     add(m.notifications, note, face, m.now)
+ */
+fun add(n: Notifications, note: Notification, app: Face, now: i64): Notifications {
+    let lately_sent = n.lately.filter(fun(s: Sent) = s.at > now - MINUTE);
+    let theirs = fun(
+        path: string,
+        origin: Option<u8[]>,
+    ) = path == note.path && origin == note.origin;
+    if lately_sent.filter(fun(s: Sent) = theirs(s.path, s.origin)).len >= MAX_PER_MINUTE {
+        return Notifications { lately: lately_sent, ..n };
+    }
+    let given = Notification { id: n.next, ..note };
+    let mut items = [given];
+    let mut mine = 1;
+    for x of n.items {
+        let same_key = theirs(x.path, x.origin) && x.key.is_some() && x.key == note.key;
+        if same_key || items.len >= MAX_NOTICES {
+            continue;
+        }
+        if theirs(x.path, x.origin) {
+            if mine >= MAX_PER_APP {
+                continue;
+            }
+            mine += 1;
+        }
+        items.push(x);
+    }
+    let mut apps = [app];
+    for a of n.apps {
+        if a.path != app.path {
+            apps.push(a);
+        }
+    }
+    let mut lately = lately_sent;
+    lately.push(Sent { path: note.path, origin: note.origin, at: now });
+    Notifications { items: items, apps: faces_of(items, apps), next: n.next + 1, lately: lately }
+}
+
+/**
+ * Keeps a page's notification: `text` at its place with `fields`, from its
+ * app (its path and first key, name and icon), never anything it names.
+ *
+ * Example:
+ *     notify(m.notifications, page, "Your count reached 10", [("count", "10")], None, m.now)
+ */
+fun notify(
+    n: Notifications,
+    p: AppPage,
+    text: string,
+    fields: (string, string)[],
+    key: Option<string>,
+    now: i64,
+): Notifications {
+    let note = Notification {
+        id: 0,
+        kind: Kind.App,
+        path: p.path,
+        origin: p.trust.map(fun(t) = t.origin),
+        text: text,
+        address: address_of(AppPage { fields: fields, ..p }),
+        key: key,
+        sent: now,
+        read: false,
+    };
+    add(
+        n,
+        note,
+        Face {
+            path: p.path,
+            name: p.name,
+            icon: p.icon,
+            colour: p.manifest.and_then(fun(m: Manifest) = m.primary_color),
+        },
+        now,
+    )
+}
+
+/**
+ * Takes back an app's notification by its key, once it's no longer true;
+ * another app's with the same key stays.
+ *
+ * Example:
+ *     withdraw(m.notifications, page.path, origin, "reached-10")
+ */
+fun withdraw(
+    n: Notifications,
+    path: string,
+    origin: Option<u8[]>,
+    key: string,
+): Notifications = kept(
+    n,
+    n.items.filter(
+        fun(x: Notification) = !(x.path == path && x.origin == origin && x.key == Some(key)),
+    ),
+);
+
+/**
+ * Forgets one app's notifications: the app forgotten.
+ *
+ * Example:
+ *     forget_notifications(m.notifications, page.path, origin)
+ */
+fun forget_notifications(
+    n: Notifications,
+    path: string,
+    origin: Option<u8[]>,
+): Notifications = kept(
+    n,
+    n.items.filter(fun(x: Notification) = !(x.path == path && x.origin == origin)),
+);
+
+/**
+ * Returns your notifications as they're listed: unread first, then read,
+ * newest first within each.
+ *
+ * Example:
+ *     listed(m.notifications)
+ */
+fun listed(n: Notifications): Notification[] = n.items.filter(
+    fun(x: Notification) = !x.read,
+) + n.items.filter(fun(x: Notification) = x.read);
+
+/**
+ * Returns how many are unread.
+ *
+ * Example:
+ *     unread(m.notifications)
+ */
+fun unread(n: Notifications): i64 = n.items.filter(fun(x: Notification) = !x.read).len;
+
+/**
+ * Opens the notification at `index` as they're listed now: it's marked
+ * read, and given back so its place opens; nothing when there's none.
+ *
+ * Example:
+ *     open_at(m.notifications, 0)
+ */
+fun open_at(n: Notifications, index: i64): (Notifications, Option<Notification>) {
+    let all = listed(n);
+    if index < 0 || index >= all.len {
+        return (n, None);
+    }
+    let id = all[index].id;
+    let marked = n.items.map(
+        fun(x: Notification) = if x.id == id { Notification { read: true, ..x } } else { x },
+    );
+    (Notifications { items: marked, ..n }, Some(all[index]))
+}
+
+/**
+ * Removes the notification at `index` as they're listed now.
+ *
+ * Example:
+ *     dismiss(m.notifications, 0)
+ */
+fun dismiss(n: Notifications, index: i64): Notifications {
+    let all = listed(n);
+    if index < 0 || index >= all.len {
+        return n;
+    }
+    let id = all[index].id;
+    kept(n, n.items.filter(fun(x: Notification) = x.id != id))
+}
+
+/**
+ * Returns the name and icon kept for a notification's app.
+ *
+ * Example:
+ *     face_for(m.notifications, note)
+ */
+fun face_for(n: Notifications, note: Notification): Option<Face> {
+    for a of n.apps {
+        if a.path == note.path {
+            return Some(a);
+        }
+    }
+    None
+}
+
+/** The notifications, and only the apps some notification still names. */
+fun kept(n: Notifications, items: Notification[]): Notifications = Notifications {
+    items: items,
+    apps: faces_of(items, n.apps),
+    ..n,
+};
+
+fun faces_of(items: Notification[], apps: Face[]): Face[] = apps.filter(
+    fun(a: Face) = items.any(fun(x: Notification) = x.path == a.path),
+);

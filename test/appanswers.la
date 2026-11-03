@@ -1,0 +1,143 @@
+// Answering All apps (PRP-067), pure: `apps` lists your apps A–Z with
+// Settings always among them, each with where it's from, its publisher,
+// whether it's pinned and when you last opened it; pinning and unpinning
+// change your pins; opening, permissions and Forget are the window's own
+// messages, Forget and permissions only opening Rapidkoi's panel. Past the
+// end, or blocked, nothing happens. No guest, no display.
+import rapidkoi.guest.appanswers { answer_app, apps_of };
+import rapidkoi.guest.nodes { Effect };
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.tabs { Pin, failed_page };
+import rapidkoi.window.actions { Msg, PinAction };
+import rapidkoi.window.yourapps { App, Apps };
+import rapidkoi.data.remembered { Face };
+import kivuli { Cmd };
+import cbor { Value };
+import wasmtime { Engine };
+import support { t };
+
+fun app(path: string, name: string, host: Option<string>, last: i64): App = App {
+    path: path,
+    origin: host.map(fun(h: string) = [7; 32]),
+    host: host,
+    face: Face { path: path, name: name, icon: None, colour: None },
+    first: 1,
+    last: last,
+};
+
+/** A window with Notes (signed) and a local Counter, Notes pinned. */
+fun two(): Model = Model {
+    apps: Apps {
+        items: [
+            app("rapidkoi://notes.dafifi.net", "Notes", Some("notes.dafifi.net"), 9),
+            app("/home/me/counter.rkb", "Counter", None, 5),
+        ],
+    },
+    pinned: [
+        Pin {
+            name: "Notes",
+            path: "rapidkoi://notes.dafifi.net",
+            icon: None,
+            origin: Some([7; 32]),
+        },
+    ],
+    ..with_pages(Engine.new(), []),
+};
+
+fun ask(m: Model, e: Effect): (Model, Option<Value>, Cmd<Msg>) = answer_app(
+    m,
+    failed_page("builtin:allapps", ""),
+    e,
+    true,
+);
+
+fun items(v: Value): Value[] = match v.get("items") {
+    Some(Array(xs)) => xs,
+    _ => [],
+};
+
+fun text_of(v: Value, field: string): string = match v.get(field) {
+    Some(Text(s)) => s,
+    _ => "",
+};
+
+/** The messages a command sends later, as kivuli would. */
+fun later(c: Cmd<Msg>): Msg[] = match c {
+    After(_, msg) => [msg],
+    _ => [],
+};
+
+@test
+fun apps_lists_yours_a_to_z_with_settings() {
+    let listed = items(apps_of(two()));
+    assert_eq(listed.map(fun(v: Value) = text_of(v, "name")), ["Counter", "Notes", "Settings"]);
+    let counter = listed[0];
+    // A local app: from its file's name, never its folders; no publisher.
+    assert_eq(
+        (text_of(counter, "from"), text_of(counter, "address"), text_of(counter, "publisher")),
+        ("counter.rkb", "counter.rkb", ""),
+    );
+    assert_eq(
+        (counter.get("signed"), counter.get("pinned")),
+        (Some(Value.Bool(false)), Some(Value.Bool(false))),
+    );
+    assert_eq(counter.get("opened"), Some(Value.int(5)));
+    let notes = listed[1];
+    assert_eq(
+        (text_of(notes, "from"), text_of(notes, "publisher"), text_of(notes, "icon")),
+        ("notes.dafifi.net", "notes.dafifi.net", "icon:notes.dafifi.net"),
+    );
+    assert_eq(
+        (notes.get("signed"), notes.get("pinned")),
+        (Some(Value.Bool(true)), Some(Value.Bool(true))),
+    );
+    // Rapidkoi's own Settings: no address a person types.
+    assert_eq(text_of(listed[2], "address"), "");
+}
+
+@test
+fun blocked_answers_none() {
+    let (_, v, _) = answer_app(
+        two(),
+        failed_page("builtin:allapps", ""),
+        Effect.Apps(t("a")),
+        false,
+    );
+    assert_eq(v.map(fun(x: Value) = items(x).len), Some(0));
+}
+
+@test
+fun pin_and_unpin_change_your_pins() {
+    // Counter is first A–Z: pinned at the dock's end, then unpinned.
+    let (pinned, _, _) = ask(two(), Effect.PinApp(t("p"), 0));
+    assert_eq(pinned.pinned.map(fun(p: Pin) = p.name), ["Notes", "Counter"]);
+    // Pinning it again changes nothing.
+    assert_eq(ask(pinned, Effect.PinApp(t("p"), 0)).0.pinned.len, 2);
+    let (unpinned, _, _) = ask(pinned, Effect.UnpinApp(t("u"), 1));
+    assert_eq(unpinned.pinned.map(fun(p: Pin) = p.name), ["Counter"]);
+    // Past the end, or blocked: nothing.
+    assert_eq(ask(two(), Effect.PinApp(t("p"), 9)).0.pinned.len, 1);
+    let blocked = answer_app(
+        two(),
+        failed_page("builtin:allapps", ""),
+        Effect.PinApp(t("p"), 0),
+        false,
+    );
+    assert_eq(blocked.0.pinned.len, 1);
+}
+
+@test
+fun open_permissions_and_forget_are_the_window_s_own() {
+    let key: u8[] = [7; 32];
+    let notes = ("rapidkoi://notes.dafifi.net", Some(key));
+    assert_eq(later(ask(two(), Effect.OpenApp(t("o"), 1)).2), [Msg.OpenPinned(notes.0, notes.1)]);
+    assert_eq(later(ask(two(), Effect.AppPermissions(t("o"), 1)).2), [
+        Msg.OnPin(notes.0, notes.1, PinAction.Permissions),
+    ]);
+    assert_eq(later(ask(two(), Effect.ForgetApp(t("o"), 1)).2), [
+        Msg.OnPin(notes.0, notes.1, PinAction.Forget),
+    ]);
+    // Forget asks; nothing is forgotten here.
+    assert_eq(ask(two(), Effect.ForgetApp(t("o"), 1)).0.apps.items.len, 2);
+    assert_eq(later(ask(two(), Effect.OpenApp(t("o"), 9)).2), []);
+}

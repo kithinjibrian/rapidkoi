@@ -1,0 +1,207 @@
+/**
+ * Restore (PRP-068, DECISION-096): Rapidkoi's start reads what the data
+ * folder holds as a list of parts, each reading its file into the window.
+ * The list's order is the order: a part's default may use what an earlier
+ * one restored (your apps are seeded from Recent and your pins). Each file
+ * read is Read, Fresh (its default), Broken (set aside, with a notice) or
+ * Newer (left alone with a notice, and never written this run), as
+ * `settle` says.
+ *
+ * Depends on: data.store, data.remembered, data.parts, data.pinfiles, data.recentfile, data.notificationsfile, data.yourappsfile, data.preferences, people.people, people.people_codec, people.identity, trust.verify, ui.schemes, window.window, window.yourapps, window.recent, window.notifications, window.notices, window.settings_app
+ * Used by: boot.boot, data.saving
+ */
+import data.store { Store, skipping };
+import data.remembered { Recalled, MAX_TRUST_FILE, recall, read_trust };
+import data.parts { Part, TRUST, PINS, PEOPLE, PREFS, RECENT, NOTIFICATIONS, APPS };
+import data.pinfiles { MAX_PINS_FILE, read_pins };
+import data.recentfile { MAX_RECENT_FILE, read_recent, with_left_off };
+import data.notificationsfile { MAX_NOTIFICATIONS_FILE, read_notifications };
+import data.yourappsfile { MAX_APPS_FILE, read_apps };
+import data.preferences { MAX_PREFS_FILE, read_prefs };
+import people.people { nobody };
+import people.people_codec { read_people, MAX_PEOPLE_FILE };
+import people.identity { existing };
+import trust.verify { keyring, keyring_of };
+import ui.schemes { DEFAULT_PREFS, theme_for };
+import window.window { Model, Notice };
+import window.yourapps { seeded };
+import window.recent { no_recent };
+import window.notifications { no_notifications };
+import window.notices { joined, with_more, set_aside, not_kept, identity_trouble };
+import window.settings_app;
+
+/** What every part reads with: the data folder, the notices so far, and the store as it's become. */
+struct Reading {
+    store: Store,
+    notes: Ref<Notice[]>,
+    held: Ref<Store>,
+}
+
+/** One part of what Rapidkoi remembers: its name, and how it reads into the window. */
+struct Restorer {
+    name: string,
+    into: fun(Model, Reading): Model,
+}
+
+/**
+ * Returns the parts, in the order they're restored.
+ *
+ * Example:
+ *     restorers().map(fun(p: Restorer) = p.name)
+ */
+fun restorers(): Restorer[] = [
+    Restorer {
+        name: "trust",
+        into: fun(m: Model, r: Reading): Model {
+            let ids = settle(recall(r.store, TRUST.file, MAX_TRUST_FILE, read_trust), TRUST, r).unwrap_or(
+                [],
+            );
+            Model { ring: if ids.len == 0 { keyring() } else { keyring_of(ids) }, ..m }
+        },
+    },
+    Restorer {
+        name: "pins",
+        into: fun(m: Model, r: Reading): Model {
+            // A first run, with no pins yet, starts with Settings pinned (PRP-064).
+            let read = recall(r.store, PINS.file, MAX_PINS_FILE, read_pins);
+            let pins = match read {
+                Fresh => [settings_app.pin()],
+                _ => settle(read, PINS, r).unwrap_or([]),
+            };
+            Model { pinned: pins, ..m }
+        },
+    },
+    Restorer {
+        name: "recent",
+        into: fun(m: Model, r: Reading): Model {
+            let places = settle(recall(r.store, RECENT.file, MAX_RECENT_FILE, read_recent), RECENT, r).unwrap_or(
+                no_recent(),
+            );
+            Model { recent: with_left_off(r.store, places), ..m }
+        },
+    },
+    Restorer {
+        name: "people",
+        into: fun(m: Model, r: Reading): Model = Model {
+            people: settle(recall(r.store, PEOPLE.file, MAX_PEOPLE_FILE, read_people), PEOPLE, r).unwrap_or(
+                nobody(),
+            ),
+            ..m,
+        },
+    },
+    Restorer {
+        name: "identity",
+        // Read now if it exists (never made here), so the Account page can
+        // name you though no app has asked yet this run.
+        into: fun(m: Model, r: Reading): Model = match existing(r.store) {
+            Ok(found) => Model { master: found, ..m },
+            Err(e) => {
+                say(r, identity_trouble(e));
+                Model { master: None, ..m }
+            }
+        },
+    },
+    Restorer {
+        name: "preferences",
+        // Light or dark, contrast and text size (PRP-038): the defaults when unread.
+        into: fun(m: Model, r: Reading): Model {
+            let prefs = settle(recall(r.store, PREFS.file, MAX_PREFS_FILE, read_prefs), PREFS, r).unwrap_or(
+                DEFAULT_PREFS,
+            );
+            Model { prefs: prefs, theme: theme_for(prefs), ..m }
+        },
+    },
+    Restorer {
+        name: "notifications",
+        into: fun(m: Model, r: Reading): Model = Model {
+            notifications: settle(
+                recall(r.store, NOTIFICATIONS.file, MAX_NOTIFICATIONS_FILE, read_notifications),
+                NOTIFICATIONS,
+                r,
+            ).unwrap_or(no_notifications()),
+            ..m,
+        },
+    },
+    Restorer {
+        name: "apps",
+        // Your apps (PRP-067): with no file, or one set aside, from Recent and your pins.
+        into: fun(m: Model, r: Reading): Model = Model {
+            apps: settle(recall(r.store, APPS.file, MAX_APPS_FILE, read_apps), APPS, r).unwrap_or(
+                seeded(m.recent, m.pinned),
+            ),
+            ..m,
+        },
+    },
+];
+
+/**
+ * Reads what the data folder holds into a window, each part in turn; each
+ * that can't be read starts as its default, with a notice.
+ *
+ * @param m a new window's model
+ * @param s the data folder
+ * @returns the model with its store; the notices joined with " · "
+ *
+ * Example:
+ *     restore(with_pages(engine, []), session_store()?)
+ */
+fun restore(m: Model, s: Store): Model {
+    let r = Reading { store: s, notes: Ref.new([]), held: Ref.new(s) };
+    let mut at = m;
+    for p of restorers() {
+        at = p.into(at, r);
+    }
+    Model { store: Some(r.held.get()), notice: with_more(m.notice, joined(r.notes.get())), ..at }
+}
+
+/**
+ * One file's outcome: its value when read; otherwise a notice, and (when
+ * newer or unreadable) the file is never written this session.
+ *
+ * Example:
+ *     settle(recall(s, PINS.file, MAX_PINS_FILE, read_pins), PINS, r)
+ */
+fun settle<T>(read: Recalled<T>, p: Part, r: Reading): Option<T> {
+    match read {
+        Read(v) => {
+            return Some(v);
+        }
+        Fresh => {}
+        Broken(aside, _) => say(
+            r,
+            set_aside(
+                p.noun,
+                "Rapidkoi couldn't read {p.noun}, so it set {p.it} aside in {aside}{p.after}",
+            ),
+        ),
+        Newer(_) => {
+            say(
+                r,
+                not_kept(
+                    p.noun,
+                    "{p.title} {p.verb} saved by a newer Rapidkoi; changes this session won't be kept",
+                ),
+            );
+            r.held.update(fun(s: Store) = skipping(s, p.file));
+        }
+        // Not even readable (permissions?): don't overwrite what couldn't be read.
+        Failed(why) => {
+            say(
+                r,
+                not_kept(
+                    p.noun,
+                    "Rapidkoi couldn't read {p.noun} ({why}); changes this session won't be kept",
+                ),
+            );
+            r.held.update(fun(s: Store) = skipping(s, p.file));
+        }
+    }
+    None
+}
+
+/** Adds a notice to what's said. */
+fun say(r: Reading, n: Notice) = r.notes.update(fun(all: Notice[]) {
+    let mut next = all;
+    next.push(n);
+    next
+});

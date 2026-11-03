@@ -32,11 +32,11 @@ fun busy(): Model {
 fun a_fresh_window_shows_only_the_new_tab() {
     // The empty tab runs the new-tab app (PRP-027): its screen is the page.
     let (m, _) = start(["main"], None);
+    // With nothing remembered it draws only its wordmark, a picture (PRP-065).
     let page = texts(newtab_view(m));
-    assert(page.len > 0);
     // The frame's only other texts are its cards', built while closed: ⚙
-    // for the new tab (PRP-031; its icon, not its initial, since PRP-060)
-    // and ☰ (PRP-038).
+    // for the new tab (PRP-031; its icon, not its initial, since PRP-060),
+    // ☰'s (PRP-038) and the bell's (PRP-066): the bar's end is packed from its far end.
     assert_eq(
         texts(layout.view(m)),
         page + [
@@ -49,6 +49,8 @@ fun a_fresh_window_shows_only_the_new_tab() {
             "Settings",
             "About Rapidkoi",
             "Quit",
+            "Notifications",
+            "No notifications",
         ],
     );
 }

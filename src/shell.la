@@ -1,41 +1,43 @@
 /**
- * Rapidkoi's window as a kivuli app: `boot` from the command line, `update`
- * for every message, and `view`, the bare frame from `layout.la` (PRP-014).
+ * Rapidkoi's window as a kivuli app: `boot` from the command line (its
+ * stages are `boot.boot`'s, PRP-068), `update` for every message (ending in
+ * `boot.settle`), and `view`, the bare frame from `layout.la` (PRP-014).
  * The state and what changes it live in `window.la`; `view` never calls a
  * guest.
  *
- * Depends on: kivuli, wasmtime, window.actions, window.tabs, window.window, data.saving, data.store, net.loads, guest.effects, net.requests, people.access, people.account, ui.render, ui.layout
+ * Depends on: kivuli, boot.boot, boot.settle, window.actions, window.tabs, window.window, data.saving, data.store, net.loads, guest.effects, net.requests, people.access, people.account, ui.render, ui.layout
  * Used by: main
  */
 import kivuli { View, Cmd, Sub, FileFilter };
 import std.time;
-import wasmtime { Engine };
 import window.actions { Msg, PanelPage, ShieldPage, Confirm, TabAction, PinAction };
-import window.tabs { AppPage, Tab, Pin, handle, is_loading, to_front };
+import window.tabs { AppPage, Tab, Pin, handle, is_loading };
 import net.loads;
 import net.checks;
 import window.choosing;
 import window.notices { for_rapidkoi, told, dismiss, with_more, nothing_saved, data_not_removed };
-import guest.effects { answer_all, approve, tell_changes, tell_prefs };
+import guest.effects { approve };
 import net.requests;
 import net.downloads;
 import data.queries;
 import data.databases;
 import guest.storing;
 import data.kept;
-import sqlite;
-import guest.limits { SQLITE_HEAP, CHECK_EVERY_MS };
+import guest.limits { CHECK_EVERY_MS };
 import people.account { on_account, forget_account };
-import people.access { on_access, looked, news, set_permission };
+import people.access { on_access, set_permission };
 import people.people { with_looks };
-import window.window { Model, with_pages, title_of };
+import window.window { Model };
 import window.navigate;
+import window.ownapps;
 import window.pins;
 import window.zones;
-import window.instances { close_instance, close_app, start_rename, confirm_rename, touched };
+import window.instances { close_instance, close_app, start_rename, confirm_rename };
 import window.newtab;
-import data.saving { session_store, restore, persist, mark, forgotten };
-import data.sessions { begin_session, restored };
+import data.saving { session_store, mark, forgotten };
+import boot.settle { settled, both };
+import boot.boot as stages;
+import data.sessions { restored };
 import data.store { Store };
 import ui.render;
 import ui.layout;
@@ -66,54 +68,17 @@ fun start(argv: string[], s: Option<Store>): (Model, Cmd<Msg>) = start_with(argv
 
 /**
  * Builds the first window on a data folder (or none, saving nothing), the
- * new tab running `bundle`. Tests start here with a folder of their own.
- * The launch order (session 170), so no app runs before what it reads:
- * 1. Restore what the data folder holds: trust, pins, recent places,
- *    people and permission settings.
- * 2. Build the window: the empty tab, or the app's tab.
- * 3. Start the apps: the new tab, then the one named on the command line.
- * 4. Answer what they asked for when they opened.
+ * new tab running `bundle`: Rapidkoi's start, stage by stage (`boot.boot`,
+ * PRP-068). Tests start here with a folder of their own.
  *
  * Example:
  *     start_with(["./main"], Some(store_at("test/tmp/s")), newtab.BUNDLE)
  */
-fun start_with(argv: string[], s: Option<Store>, bundle: u8[]): (Model, Cmd<Msg>) {
-    let engine = Engine.new();
-    // Every app's database shares SQLite's memory: one cap for all (PRP-041).
-    sqlite.heap_limit(SQLITE_HEAP);
-    // 1. Restore.
-    // The clock from the start, so a place recorded before the first tick has its time.
-    let empty = Model { now: time.now_ms(), ..with_pages(engine, []) };
-    // The session that just ended becomes the previous one, for the new
-    // tab's Restore (PRP-035; the owner's model, session 186).
-    let recalled = match s {
-        Some(st) => begin_session(restore(empty, st), st),
-        None => empty,
-    };
-    // 2 and 3. The new tab's app, once for the window, now that what it
-    // reads is there; without it the empty tab is just empty (PRP-027).
-    // Nothing reopens on its own: the last session waits for Restore.
-    let remembered = Model { newtab: newtab.open_bundle(engine, bundle).ok(), ..recalled };
-    let reloads: Cmd<Msg> = Cmd.none();
-    if argv.len < 2 {
-        // Launch lands on the new tab (the owner, sessions 182–183). It
-        // clears the notice line; what restoring said still shows.
-        let window_ = Model { notice: remembered.notice, ..window.new_blank(remembered) };
-        // 4. What the apps asked for when they opened: the new tab's your
-        // pins, recent places and session, so the first screen shows them.
-        let (answered, sends) = answer_all(window_);
-        let focus: Cmd<Msg> = Cmd.focus("address");
-        return (answered, both(both(focus, reloads), sends));
-    }
-    let at = mark(remembered);
-    // 2 and 3: the app's tab, and the app in it.
-    let (placed, cmd) = navigate.open_file(remembered, argv[1]);
-    // 4. What both asked for.
-    let (answered, sends) = answer_all(placed);
-    let opened = persist(remembered, news(answered), at);
-    // What restoring said still shows: opening keeps notices (PRP-051).
-    (opened, both(both(reloads, cmd), sends))
-}
+fun start_with(
+    argv: string[],
+    s: Option<Store>,
+    bundle: u8[],
+): (Model, Cmd<Msg>) = stages.start_with(argv, s, bundle);
 
 /** A minute, in milliseconds: the time tick (PRP-053). */
 const MINUTE_MS: i64 = 60_000;
@@ -178,72 +143,16 @@ fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     } else {
         handled
     };
-    // An approval waits on its own tab now, not a no when it goes to the back (PRP-057).
-    let decided = next;
-    // What a v2 app asked for is answered before anything is drawn or saved:
-    // what on_resume and on_change asked for too.
-    // The instance now in front is the one its app reopens to (PRP-033).
-    let told = tell_prefs(m, tell_changes(m, resumed(m, touched(m, decided))));
-    let (first, asked) = answer_all(told);
-    // The Settings app's change lands while answering: every app is told
-    // then, and what they ask in turn answered (PRP-038).
-    let (answered, again) = if first.prefs != told.prefs {
-        answer_all(tell_prefs(told, first))
-    } else {
-        (first, Cmd.none())
-    };
-    // The pictures each screen names (PRP-047): what telling an app about
-    // one asks is answered, and what that answer shows is fetched too.
-    let (pictured, first_pictures) = downloads.fetch_all(answered);
-    let (replied, more) = answer_all(pictured);
-    let (shown_now, then_pictures) = downloads.fetch_all(replied);
-    let sends = both(both(asked, again), both(more, both(first_pictures, then_pictures)));
-    // What each app declares, and "New" cleared once its Access page is left.
-    (
-        // Offsets for times newly on screen, before anything is drawn (PRP-053).
-        persist(m, zones.settle(news(looked(m, shown_now))), at),
-        both(both(cmd, sends), into_view(m, answered)),
-    )
+    // An approval waits on its own tab now, not a no when it goes to the back
+    // (PRP-057). Leaving All apps closes it (PRP-067). The rest is Settle's,
+    // as after Rapidkoi starts (PRP-068).
+    settled(m, ownapps.left_all_apps(m, next), cmd, at)
 }
-
-/**
- * Scrolls the sidebar to the current tab when it changed (PRP-028): a
- * tab selected, made or closed to a neighbour may be out of sight. The
- * focus stays where it is.
- */
-fun into_view(before: Model, after: Model): Cmd<Msg> = match after.current {
-    Some(id) => if before.current != Some(id) { Cmd.scroll_to("tab-{id}") } else { Cmd.none() },
-    None => Cmd.none(),
-};
-
-/**
- * Tells the page now at the front that it's back (`on_resume`, PRP-030),
- * when the current tab changed to one that was already there: an app tab
- * that existed before this update, or the empty tab, whose page is the new
- * tab's. A page just opened heard `on_open` instead.
- */
-fun resumed(before: Model, after: Model): Model = match after.current {
-    Some(id) if before.current != Some(id) => if window.is_blank(after, id) {
-        Model { newtab: after.newtab.map(to_front), ..after }
-    } else if before.tabs.any(fun(t: Tab) = t.id == id) {
-        window.with_tab(after, id, to_front)
-    } else {
-        after
-    },
-    _ => after,
-};
 
 /** The page the window shows: its tab and its app's path; `None` on home. */
 fun shown(m: Model): Option<(i64, string)> = match (m.current, window.page_of(m)) {
     (Some(id), App(a)) => Some((id, a.path)),
     _ => None,
-};
-
-/** Two commands as one; either alone when the other does nothing, so a lone task stays a task. */
-fun both(a: Cmd<Msg>, b: Cmd<Msg>): Cmd<Msg> = match (a, b) {
-    (_, Nothing) => a,
-    (Nothing, _) => b,
-    _ => Cmd.batch([a, b]),
 };
 
 /** What share copies: an app's link at an address, else its file's path. */
@@ -323,9 +232,10 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     // once, and a toggle reopened it over everything (session 171).
     ClosePanel => (Model { panel: None, ..m }, Cmd.none()),
     TogglePin => (pins.toggle_pin(m), Cmd.none()),
-    // ☰ (PRP-038): Settings, About Rapidkoi, Quit.
     Menu(open) => (Model { menu: open, ..m }, Cmd.none()),
-    OpenSettings => (navigate.open_settings(Model { menu: false, ..m }), Cmd.none()),
+    Bell(action) => navigate.on_bell(m, action),
+    OpenSettings => (ownapps.open_settings(Model { menu: false, ..m }), Cmd.none()),
+    OpenAllApps => (ownapps.open_all_apps(m), Cmd.none()),
     // The owner's words (PRP-058); the chosen file opens as a typed path does.
     OpenApp => (
         Model { menu: false, ..m },

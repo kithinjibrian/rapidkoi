@@ -9,7 +9,7 @@ import rapidkoi.ui.icons { Icon, icon, filled };
 import rapidkoi.ui.schemes { DARK };
 import rapidkoi.window.actions { Msg, Confirm };
 import rapidkoi.window.tabs { AppPage, open_module };
-import kivuli.testing { click, press, type_into, submit };
+import kivuli.testing { click, press, type_into, submit, texts };
 import wasmtime { Engine, Module };
 import support { echo, said };
 
@@ -92,8 +92,35 @@ fun the_settings_card_steps_aside_while_a_dialog_asks() {
 }
 
 @test
-fun the_star_is_filled_in_the_brand_colour_while_the_app_is_pinned() {
-    // PRP-061: pinned, the ☆ is the accent-filled star; else the text-coloured outline.
-    assert_eq(addressbox.pin_icon(true, DARK), filled(Icon.Star, DARK.accent));
-    assert_eq(addressbox.pin_icon(false, DARK), icon(Icon.Star, DARK.text));
+fun the_pin_is_filled_in_the_brand_colour_while_the_app_is_pinned() {
+    // PRP-061, PRP-067: a pin, as All apps marks pinned apps (the owner,
+    // 2026-11-03: not ☆); pinned, filled in the accent, else the outline.
+    assert_eq(addressbox.pin_icon(true, DARK), filled(Icon.Pin, DARK.accent));
+    assert_eq(addressbox.pin_icon(false, DARK), icon(Icon.Pin, DARK.text));
+}
+
+@test
+fun rapidkoi_s_own_apps_show_its_chip_not_the_shield() {
+    // PRP-067: "Rapidkoi", then the address; no shield, which would say
+    // "Local file, not signed" about Rapidkoi's own apps.
+    let engine = Engine.new();
+    let all = with_pages(engine, [AppPage { path: "builtin:allapps", ..app(engine, "All apps") }]);
+    let v = addressbox.field(all);
+    assert(texts(v).any(fun(s: string) = s == "Rapidkoi"));
+    assert(click(v, "Site information").is_err());
+    // All apps is the dock's button: never pinned.
+    assert(click(v, "Pin").is_err());
+    // Settings can be pinned (PRP-064 pins it on a first run).
+    let settings = with_pages(engine, [
+        AppPage { path: "builtin:settings", ..app(engine, "Settings") },
+    ]);
+    assert(click(addressbox.field(settings), "Pin").is_ok());
+    assert(click(addressbox.field(settings), "Site information").is_err());
+    // Anyone else's app keeps its shield.
+    assert(
+        click(
+            addressbox.field(with_pages(engine, [app(engine, "notes")])),
+            "Site information",
+        ).is_ok(),
+    );
 }

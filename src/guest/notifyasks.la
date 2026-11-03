@@ -1,0 +1,117 @@
+/**
+ * Notification asks (PRP-065), pure: `notify` and `withdraw` from any app
+ * that declares `notifications`, and the new tab's `notifications`,
+ * `open_notification` and `dismiss_notification`, read and held to their
+ * shapes before anything is kept. A bad one stops the app with its
+ * sentence, as other bad asks do. Whether the app may is `guest.effects`'
+ * question.
+ *
+ * Depends on: cbor, guest.nodes, guest.limits, guest.links, net.address
+ * Used by: guest.contract
+ */
+import cbor { Value, encode };
+import guest.nodes { ContractError, Effect };
+import guest.limits { MAX_NOTICE_TEXT, MAX_NOTICE_KEY };
+import guest.links { fields_in };
+import net.address { MAX_LINK_FIELDS, name_ok };
+
+/**
+ * Reads a notification ask, or `None` when `kind` names none.
+ *
+ * @param kind the effect's kind
+ * @param msg its `msg`
+ * @param e the effect
+ * @returns the ask; `Err(Invalid)` for a missing or overlong sentence, a
+ *     bad key, bad fields or a bad index
+ *
+ * Example:
+ *     notice_ask_of("notify", msg, e)?
+ */
+fun notice_ask_of(kind: string, msg: Value, e: Value): Result<Option<Effect>, ContractError> {
+    if kind == "notify" {
+        let text = match e.get("text") {
+            Some(Text(t)) if t.trim() != "" && t.char_count() <= MAX_NOTICE_TEXT => t,
+            _ => {
+                return Err(bad("a notify needs a text of 1 to {MAX_NOTICE_TEXT} characters"));
+            }
+        };
+        let key = match e.get("key") {
+            None | Some(Null) => None,
+            Some(k) => Some(key_of(k)?),
+        };
+        return Ok(Some(Effect.Notify(msg, text, fields_of(e.get("fields"))?, key)));
+    }
+    if kind == "withdraw" {
+        return match e.get("key") {
+            Some(k) => Ok(Some(Effect.Withdraw(msg, key_of(k)?))),
+            None => Err(bad("a withdraw needs a key")),
+        };
+    }
+    if kind == "notifications" {
+        return Ok(Some(Effect.Notifications(msg)));
+    }
+    if kind == "open_notification" {
+        return Ok(Some(Effect.OpenNotification(msg, index_of(e, kind)?)));
+    }
+    if kind == "dismiss_notification" {
+        return Ok(Some(Effect.DismissNotification(msg, index_of(e, kind)?)));
+    }
+    Ok(None)
+}
+
+/** A key: 1 to `MAX_NOTICE_KEY` bytes of `a–z`, `0–9`, `_` and `-`. */
+fun key_of(k: Value): Result<string, ContractError> {
+    let shaped = fun(
+        c: char,
+    ) = c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' || c == '-';
+    match k {
+        Text(s) if s.len >= 1 && s.len <= MAX_NOTICE_KEY && s.chars().all(shaped) => Ok(s),
+        _ => Err(bad("a notification's key is 1 to {MAX_NOTICE_KEY} of a-z, 0-9, _ and -")),
+    }
+}
+
+/**
+ * A notification's place: its fields, a map of names to simple values, as
+ * a link carries them (at most `MAX_LINK_FIELDS`, each at most 1 KB).
+ */
+fun fields_of(v: Option<Value>): Result<(string, string)[], ContractError> {
+    let entries = match v {
+        None | Some(Null) => {
+            return Ok([]);
+        }
+        Some(Map(xs)) => xs,
+        Some(_) => {
+            return Err(bad("a notify's fields must map names to values"));
+        }
+    };
+    if entries.len > MAX_LINK_FIELDS {
+        return Err(bad("a notify's fields are at most {MAX_LINK_FIELDS}"));
+    }
+    let mut names: string[] = [];
+    for x of entries {
+        let name = match x.key {
+            Text(s) => s,
+            _ => {
+                return Err(bad("a notify's field names must be text"));
+            }
+        };
+        if let Err(why) = name_ok(name, false) {
+            return Err(bad("a notify's fields: {why}"));
+        }
+        names.push(name);
+    }
+    // Read as a link reads a state's fields, so a place says what a link would.
+    fields_in(encode(Value.Map(entries)), names).map_err(
+        fun(why: string) = bad("a notify's fields: {why}"),
+    )
+}
+
+/** An index of 0 or more. */
+fun index_of(e: Value, kind: string): Result<i64, ContractError> = match e.get("index").map(
+    fun(i: Value) = i.as_i64(),
+) {
+    Some(Some(i)) if i >= 0 => Ok(i),
+    _ => Err(bad("an {kind} needs an index of 0 or more")),
+};
+
+fun bad(problem: string): ContractError = nodes.invalid("update", problem);
