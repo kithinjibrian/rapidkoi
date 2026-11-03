@@ -12,7 +12,8 @@ import rapidkoi.data.pinfiles { read_pins };
 import rapidkoi.data.recentfile { read_recent };
 import rapidkoi.window.recent { Place };
 import rapidkoi.window.yourapps { App, opened, listed as listed_apps };
-import rapidkoi.data.saving { restore, persist, mark };
+import rapidkoi.data.saving { persist, mark };
+import rapidkoi.data.restoring { restore };
 import rapidkoi.window.notifications {
     Notification,
     Kind,

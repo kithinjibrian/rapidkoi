@@ -3,6 +3,7 @@
 // through them, and lists them; pressing one opens it. No display.
 import rapidkoi.window.allapps { BUNDLE, open };
 import rapidkoi.bundles.bundle { read, Manifest };
+import rapidkoi.guest.modules { holds };
 import rapidkoi.shell { start, update };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
@@ -59,3 +60,20 @@ fun it_lists_your_apps_and_opens_one() {
     let (_, c) = update(opened, click(view(opened), "Counter").unwrap());
     assert_eq(later(c), [Msg.OpenPinned("counter.rkb", None)]);
 }
+
+@test
+fun opening_it_again_compiles_nothing() {
+    // PRP-068: its module is kept for the run; opening it again after it
+    // closed reuses it.
+    let (m, _) = start(["./main"], None);
+    let (once, _) = update(m, Msg.OpenAllApps);
+    let kept = once.modules.items.len;
+    assert(holds(once.modules, module_of_bundle()));
+    let id = once.current.unwrap();
+    let (closed, _) = update(once, Msg.CloseTab(id));
+    let (again, _) = update(closed, Msg.OpenAllApps);
+    assert_eq(again.modules.items.len, kept);
+}
+
+/** All apps' module, out of its bundle. */
+fun module_of_bundle(): u8[] = read(BUNDLE).unwrap().module;

@@ -8,7 +8,8 @@
  * Used by: window.navigate
  */
 import wasmtime { Engine };
-import bundles.loader { Origin, Refusal, from_bytes };
+import bundles.loader { Origin, Refusal, from_bytes, from_bytes_with };
+import guest.modules { Modules, maker };
 import trust.verify { keyring };
 import window.tabs { AppPage, Pin, from_loaded };
 import bundles.bundle { read, asset };
@@ -47,4 +48,24 @@ fun pin(): Pin {
         Err(_) => None,
     };
     Pin { name: "Settings", path: SETTINGS_KEY, icon: icon, origin: None }
+}
+
+/**
+ * Starts the Settings app, its module compiled through the modules kept for
+ * the run (PRP-068): opened again, it compiles nothing.
+ *
+ * @param held the modules kept; what's compiled is kept there
+ *
+ * Example:
+ *     settings_app.open_kept(held, m.engine, m.now)
+ */
+fun open_kept(held: Ref<Modules>, engine: Engine, now: i64): Result<AppPage, Refusal> {
+    let l = from_bytes_with(
+        maker(held, engine, now),
+        keyring(),
+        "settings.rkb",
+        BUNDLE,
+        Origin.BuiltIn,
+    )?;
+    Ok(from_loaded(engine, l, SETTINGS_KEY, []))
 }

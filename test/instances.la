@@ -14,7 +14,7 @@ import kivuli.testing { click, pick, texts, type_into };
 import wasmtime { Engine, Module };
 import support { t, echo, event_in };
 import rapidkoi.trust.verify { Trust, Standing };
-import rapidkoi.data.saving { restore };
+import rapidkoi.data.restoring { restore };
 import rapidkoi.data.store { store_at };
 import rapidkoi.data.states { saved_state_in };
 import rapidkoi.data.remembered { Recalled };

@@ -759,6 +759,22 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## RESOLVED
 
+### DECISION-096 — Start-up as named pipelines, and compiled modules kept for the run
+
+**Status:** resolved (the owner, 2026-11-03: "I'm thinking of it like a chain or graph and not something done haphazardly", "the rapidkoi app itself should also have a boot sequence", caching over hiding, "let's start with rapidkoi itself", then "yes" to the drawn sequence; PRP-068)
+**Raised:** 2026-11-03, during PRP-067: All apps closing whenever you leave it means it starts again each time, and every start compiles its module.
+
+**Question:** How are Rapidkoi's start and an app's start coded, so their order is visible and each step happens once?
+
+**Outcome:**
+- **Rapidkoi's start is a chain of named stages**, each a function returning its result or a notice: Command → Setup → Data folder → Restore → Session → Built-ins → Window → Settle → Running. Restore reads a list of parts (file, reader, default), not one function per file. PRP-068.
+- **Settle is one set of passes** (tell what changed, answer, fetch pictures, settle time zones, save), run after Rapidkoi starts and after every update, so the two can't drift apart (PRP-065's empty-command bug reached start and not updates).
+- **Compiled modules are kept for the run**, keyed by a hash of the module's bytes, capped, oldest dropped: a changed app has a new hash and compiles fresh. Rapidkoi's start compiles the built-in apps into it once. Nothing is kept on disk: loading saved native code is a security decision of its own.
+- **Caching, not hiding:** All apps still closes when you leave it, and opens fresh (empty search) and cheaply.
+- **An app's start** becomes one pipeline too (Source → Checked → Compiled → Started → Answered → Shown), every way of opening an app entering at Source: its own PRP, after this one.
+
+---
+
 ### DECISION-094 — Your apps: every app you open is kept and listed; pinning only puts it on the dock
 
 **Status:** resolved (the owner, 2026-11-03, in conversation: "pinned apps shouldn't really be on the new tab because it duplicates the dock. what the dock should have is a button that opens to show all apps", "i feel like all apps should be an app on its own", then "yes" to All apps before widgets; PRP-067)

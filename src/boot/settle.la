@@ -1,0 +1,101 @@
+/**
+ * Settle (PRP-068, DECISION-096): the passes after Rapidkoi starts and after
+ * every message, in this order, so the two can't drift apart. The instance
+ * now in front is the one its app reopens to (PRP-033); the page now at the
+ * front hears it's back (`on_resume`); apps are told what changed that they
+ * read, and their choices (PRP-038); what they asked is answered, and what
+ * answering changed told in turn; the pictures their screens name are
+ * fetched (PRP-047) and what that asks answered; what each app declares,
+ * and the time zones for times newly on screen (PRP-053); then it's saved.
+ *
+ * Depends on: kivuli, window.window, window.tabs, window.instances, window.zones, guest.effects, net.downloads, people.access, data.saving, window.actions
+ * Used by: shell, boot.boot
+ */
+import kivuli { Cmd };
+import window.window { Model, is_blank, with_tab };
+import window.tabs { Tab, to_front };
+import window.instances { touched };
+import window.zones;
+import guest.effects { answer_all, tell_changes, tell_prefs };
+import net.downloads;
+import people.access { looked, news };
+import data.saving { Mark, persist };
+import window.actions { Msg };
+
+/**
+ * Settles the window after a change: `before` is the window as it was, `after`
+ * as the change left it, `cmd` what the change sends.
+ *
+ * @param at the keyring before the change (`saving.mark`)
+ * @returns the window settled and saved, and every command to send:
+ *     `cmd` first, then what answering and fetching send, then the sidebar's scroll
+ *
+ * Example:
+ *     settled(m, handled, cmd, at)
+ */
+fun settled(before: Model, after: Model, cmd: Cmd<Msg>, at: Mark): (Model, Cmd<Msg>) {
+    // What an app asked is answered before anything is drawn or saved: what
+    // on_resume and on_change asked too.
+    let told = tell_prefs(before, tell_changes(before, resumed(before, touched(before, after))));
+    let (first, asked) = answer_all(told);
+    // What answering changed is told then too, and what they ask in turn
+    // answered: the Settings app's choices (PRP-038), the new tab's own ×
+    // (PRP-065). Nothing changed, nothing waits: no-ops.
+    let (answered, again) = answer_all(tell_prefs(told, tell_changes(told, first)));
+    // The pictures each screen names (PRP-047): what telling an app about
+    // one asks is answered, and what that answer shows is fetched too.
+    let (pictured, first_pictures) = downloads.fetch_all(answered);
+    let (replied, more) = answer_all(pictured);
+    let (shown_now, then_pictures) = downloads.fetch_all(replied);
+    let sends = both(both(asked, again), both(more, both(first_pictures, then_pictures)));
+    (
+        // What each app declares, and "New" cleared once its Access page is
+        // left; offsets for times newly on screen, before anything is drawn (PRP-053).
+        persist(before, zones.settle(news(looked(before, shown_now))), at),
+        both(both(cmd, sends), into_view(before, answered)),
+    )
+}
+
+/**
+ * Tells the page now at the front that it's back (`on_resume`, PRP-030),
+ * when the current tab changed to one that was already there: an app tab
+ * that existed before, or the empty tab, whose page is the new tab's. A
+ * page just opened heard `on_open` instead.
+ */
+fun resumed(before: Model, after: Model): Model = match after.current {
+    Some(id) if before.current != Some(id) => if is_blank(after, id) {
+        Model { newtab: after.newtab.map(to_front), ..after }
+    } else if before.tabs.any(fun(t: Tab) = t.id == id) {
+        with_tab(after, id, to_front)
+    } else {
+        after
+    },
+    _ => after,
+};
+
+/**
+ * Two commands as one; either alone when the other does nothing, so a lone task stays a task.
+ *
+ * Example:
+ *     both(focus, sends)
+ */
+fun both(a: Cmd<Msg>, b: Cmd<Msg>): Cmd<Msg> = match (a, b) {
+    (_, Nothing) => a,
+    (Nothing, _) => b,
+    _ => Cmd.batch([a, b]),
+};
+
+/**
+ * Scrolls the sidebar to the current tab when it changed (PRP-028): a
+ * tab selected, made or closed to a neighbour may be out of sight. The
+ * focus stays where it is. A window that had no tabs (Rapidkoi starting)
+ * has nothing to scroll past.
+ */
+fun into_view(before: Model, after: Model): Cmd<Msg> = match after.current {
+    Some(id) => if before.current != Some(id) && before.tabs.len > 0 {
+        Cmd.scroll_to("tab-{id}")
+    } else {
+        Cmd.none()
+    },
+    None => Cmd.none(),
+};

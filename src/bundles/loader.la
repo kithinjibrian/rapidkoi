@@ -10,7 +10,7 @@
  */
 import trust.publishers { known_of };
 import wasmtime { Engine, Module };
-import guest.guest { compile, reason, OLDER };
+import guest.guest { GuestError, compile, reason, OLDER };
 import bundles.bundle { Manifest, asset };
 import bundles.rules { reason as bundle_reason };
 import bundles.signing { Opened, read_any };
@@ -205,6 +205,26 @@ fun from_bytes(
     origin: Origin,
 ): Result<Loaded, Refusal> = from_bundle(engine, ring, file, bytes, origin);
 
+/**
+ * Opens a bundle in memory as `from_bytes` does, its module compiled by
+ * `make`: Rapidkoi's own apps compile through the modules kept for the
+ * run (PRP-068), so opening one again compiles nothing.
+ *
+ * Example:
+ *     from_bytes_with(make, keyring(), "settings.rkb", BUNDLE, Origin.BuiltIn)
+ */
+fun from_bytes_with(
+    make: fun(u8[]): Result<Module, GuestError>,
+    ring: Keyring,
+    file: string,
+    bytes: u8[],
+    origin: Origin,
+): Result<Loaded, Refusal> {
+    let o = read_any(bytes).map_err(fun(e) = Refusal.Failed(file, bundle_reason(e)))?;
+    let trust = o.signed.map(fun(s) = standing_of(ring, s));
+    checked(make, o, trust, origin)
+}
+
 fun from_bundle(
     engine: Engine,
     ring: Keyring,
@@ -230,6 +250,14 @@ fun runs_here(m: Manifest): bool = m.contract == CONTRACT_VERSION as i64;
 fun from_opened(
     engine: Engine,
     file: string,
+    o: Opened,
+    trust: Option<Trust>,
+    origin: Origin,
+): Result<Loaded, Refusal> = checked(fun(bytes: u8[]) = compile(engine, bytes), o, trust, origin);
+
+/** A bundle checked, then its module made by `make`: a refused app's module is never compiled. */
+fun checked(
+    make: fun(u8[]): Result<Module, GuestError>,
     o: Opened,
     trust: Option<Trust>,
     origin: Origin,
@@ -259,7 +287,7 @@ fun from_opened(
             );
         }
     }
-    let module = compile(engine, b.module).map_err(fun(e) = Refusal.Failed(m.name, reason(e)))?;
+    let module = make(b.module).map_err(fun(e) = Refusal.Failed(m.name, reason(e)))?;
     let icon = match m.icon {
         Some(name) => asset(b, name),
         None => None,

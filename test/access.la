@@ -5,7 +5,7 @@
 import rapidkoi.shell { update };
 import rapidkoi.window.window as windows { Model, with_pages };
 import rapidkoi.people.access { Access, access_of };
-import rapidkoi.data.saving { restore };
+import rapidkoi.data.restoring { restore };
 import rapidkoi.window.actions { Msg, PanelPage };
 import rapidkoi.window.tabs { AppPage, Tab, open_module };
 import rapidkoi.bundles.bundle { Manifest };

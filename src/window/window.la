@@ -19,6 +19,7 @@ import window.tabs { Page, Tab, Pin, AppPage, state_of, close_page };
 import window.recent { Recent, no_recent, remember };
 import window.notifications { Notifications, no_notifications };
 import window.yourapps { Apps, no_apps };
+import guest.modules { Modules, no_modules };
 import data.remembered { Open };
 import guest.nodes { BatchStep };
 import window.handles { Files, no_files };
@@ -95,6 +96,8 @@ struct Model {
     apps: Apps,
     /** The tab you were on when All apps opened: where closing it takes you back (PRP-067). */
     before_all_apps: Option<i64>,
+    /** Compiled modules kept for the run (PRP-068): an app opened again compiles nothing. */
+    modules: Modules,
     /** Rapidkoi's own notice (PRP-051): about its files, your identity, its data folder; it follows you. */
     notice: Option<Notice>,
     /** Each tab's notice, about its app (PRP-051): shown while that tab is in front. */
@@ -170,6 +173,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         notifications: no_notifications(),
         apps: no_apps(),
         before_all_apps: None,
+        modules: no_modules(),
         notice: None,
         tab_notices: [],
         theme: DARK,

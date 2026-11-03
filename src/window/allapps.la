@@ -9,7 +9,8 @@
  * Used by: window.navigate
  */
 import wasmtime { Engine };
-import bundles.loader { Origin, Refusal, from_bytes };
+import bundles.loader { Origin, Refusal, from_bytes, from_bytes_with };
+import guest.modules { Modules, maker };
 import trust.verify { keyring };
 import window.tabs { AppPage, from_loaded };
 
@@ -31,5 +32,25 @@ const BUNDLE: u8[] = include_bytes("../../assets/apps/allapps.rkb");
 fun open(engine: Engine): Result<AppPage, Refusal> {
     // Built in: the only bytes that may hold built-in permissions (PRP-030).
     let l = from_bytes(engine, keyring(), "allapps.rkb", BUNDLE, Origin.BuiltIn)?;
+    Ok(from_loaded(engine, l, ALL_APPS_KEY, []))
+}
+
+/**
+ * Starts All apps, its module compiled through the modules kept for the run
+ * (PRP-068): opened again, it compiles nothing.
+ *
+ * @param held the modules kept; what's compiled is kept there
+ *
+ * Example:
+ *     allapps.open_kept(held, m.engine, m.now)
+ */
+fun open_kept(held: Ref<Modules>, engine: Engine, now: i64): Result<AppPage, Refusal> {
+    let l = from_bytes_with(
+        maker(held, engine, now),
+        keyring(),
+        "allapps.rkb",
+        BUNDLE,
+        Origin.BuiltIn,
+    )?;
     Ok(from_loaded(engine, l, ALL_APPS_KEY, []))
 }
