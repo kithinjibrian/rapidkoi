@@ -348,3 +348,16 @@ fun a_notification_is_answered_with_its_app_s_name_and_icon_never_its_path() {
         ]),
     );
 }
+
+@test
+fun all_apps_is_never_in_the_session_saved() {
+    // PRP-067 (the owner, 2026-11-03): Restore never brings All apps back.
+    let engine = Engine.new();
+    let all = AppPage { path: "builtin:allapps", ..app(engine, "All apps") };
+    let m = with_pages(engine, [app(engine, "notes"), all]);
+    let saved = open_of(m);
+    assert_eq(saved.tabs.map(fun(t: OpenTab) = t.path), ["apps/notes.wasm"]);
+    assert_eq(saved.apps.map(fun(f: Face) = f.path), ["apps/notes.wasm"]);
+    // In front, nothing is: Restore lands on the new tab.
+    assert_eq(open_of(Model { current: Some(m.tabs[1].id), ..m }).current, None);
+}

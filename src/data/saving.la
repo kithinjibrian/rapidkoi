@@ -229,16 +229,18 @@ fun problem(r: Result<(), StoreError>, p: Part): Option<Notice> = match r {
  *     open_of(m)
  */
 fun open_of(m: Model): Open {
+    // All apps is where you find apps: never part of a session (PRP-067).
+    let kept = m.tabs.filter(fun(t: Tab) = t.page.path != "builtin:allapps");
     let mut current: Option<i64> = None;
     let mut i = 0;
-    for t of m.tabs {
+    for t of kept {
         if m.current == Some(t.id) {
             current = Some(i);
         }
         i += 1;
     }
     Open {
-        tabs: m.tabs.map(
+        tabs: kept.map(
             fun(t: Tab) = OpenTab {
                 path: t.page.path,
                 instance: t.page.instance,
@@ -254,7 +256,7 @@ fun open_of(m: Model): Open {
             },
         ),
         current: current,
-        apps: faces_of(m.tabs),
+        apps: faces_of(kept),
     }
 }
 

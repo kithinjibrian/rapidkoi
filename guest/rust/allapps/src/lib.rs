@@ -45,7 +45,7 @@ enum Msg {
 type V = View<Msg>;
 
 /// Every picture the screen shows, each packed from `assets/` under its name.
-const ASSETS: [&str; 2] = ["search.svg", "pin.svg"];
+const ASSETS: [&str; 1] = ["search.svg"];
 
 /// One of the person's apps, as All apps keeps it.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
@@ -167,7 +167,7 @@ impl App for AllApps {
         // The first match is ringed while searching: Enter opens it.
         let first = if self.query.trim().is_empty() { None } else { shown.first().map(|a| a.at) };
         let grid = wrap(shown.iter().map(|a| self.tile(a, first == Some(a.at))))
-            .style([Layout::equal(), Layout::per_line(8), Spacing::gap(Space::Px(8))]);
+            .style([Spacing::gap(Space::Px(4))]);
         let page = column([head, search(&self.query), grid])
             .spacing(Space::Lg)
             .padding(Space::Lg)
@@ -192,24 +192,12 @@ impl App for AllApps {
 }
 
 impl AllApps {
-    /// One app: its icon (with the address bar's pin on its corner when
-    /// it's on the dock) and name (and where it's from, when names clash),
+    /// One app: its icon and name (and where it's from, when names clash),
     /// opening it.
     fn tile(&self, a: &Item, first: bool) -> V {
-        let face = image(&a.icon).style([Sizing::width(56), Sizing::height(56)]);
-        let icon = if a.pinned {
-            layers([
-                face,
-                boxed()
-                    .children([picture("pin.svg", 16, 16)])
-                    .style([Layout::place(Place::TopEnd)])
-                    .label("On the dock"),
-            ])
-        } else {
-            face
-        };
+        // No mark for pinned apps: their details say it (the owner, 2026-11-03).
         let mut lines = vec![
-            icon.style([Layout::align(Align::Center)]),
+            image(&a.icon).style([Sizing::width(56), Sizing::height(56), Layout::align(Align::Center)]),
             text(&a.name).style([Font::size(TextSize::Small), Layout::align(Align::Center), Text::truncate()]),
         ];
         if self.clashes(a) && !a.from.is_empty() {
@@ -223,6 +211,9 @@ impl AllApps {
             );
         }
         let mut look = vec![
+            // A fixed width packed from the start: stretched columns spread
+            // the apps apart (the owner, 2026-11-03).
+            Sizing::width(104),
             Sizing::height(116),
             Spacing::gap(Space::Sm),
             Spacing::padding_xy(Space::Px(12), Space::Px(4)),
