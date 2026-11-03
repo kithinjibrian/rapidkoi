@@ -9,9 +9,14 @@ Never deleted. Older entries are never modified.
 ## [Unreleased]
 
 ### Added
+- The bell (PRP-066): in the header before 👤 and ☰, with the accent's dot while anything is unread. Its card lists every notification, unread first, then "Earlier" and the read ones, each with its app's icon, its sentence, and its app and when; a row opens its place and marks it read, × removes it; with none, "No notifications". Opening the card marks nothing read.
 - Notifications (PRP-065, DECISION-093): an app that declares `notifications` can send you one while it runs: a sentence and a place in it, with a key that replaces or withdraws it. The first time, Rapidkoi asks (Don't allow, Allow once, Always allow); Blocked in ⚙ drops them and the app runs on. Rapidkoi keeps them in a `notifications` file (20 per app, 200 in all, at most 10 a minute from one app), with each app's name and icon; Forget removes an app's. The new tab's Notifications is real: only while something is unread, its count in the accent, then the newest four, unread first; a row opens its place and marks it read, × removes it. Contract 11 additions: `notify`, `withdraw`, and the new tab's `notifications`, `open_notification` and `dismiss_notification` (built-in `read_notifications`). The counter example has "Notify me".
 
+### Changed
+- Every × is Rapidkoi's own `x.svg` (`Icon.Close`): a tab's, an instance's, the notice bar's, the bell's rows', and the new tab's notifications' (packed as its asset, in the faint grey); GTK's `window-close-symbolic` and the letter × are gone.
+
 ### Fixed
+- The new tab's × on a notification did nothing: it was a text, which Rapidkoi doesn't make pressable (now a box); and an app's own change (dismissing) is told to it in the same update, not the next.
 - A recent place recorded before the first tick showed "1 Jan 1970": Rapidkoi reads the clock at launch, and the new tab leaves out a time it doesn't know (0) and an empty address; Rapidkoi's own apps answer with no address (`builtin:settings` was shown).
 
 ### Added

@@ -185,13 +185,10 @@ fun update(m: Model, msg: Msg): (Model, Cmd<Msg>) {
     // The instance now in front is the one its app reopens to (PRP-033).
     let told = tell_prefs(m, tell_changes(m, resumed(m, touched(m, decided))));
     let (first, asked) = answer_all(told);
-    // The Settings app's change lands while answering: every app is told
-    // then, and what they ask in turn answered (PRP-038).
-    let (answered, again) = if first.prefs != told.prefs {
-        answer_all(tell_prefs(told, first))
-    } else {
-        (first, Cmd.none())
-    };
+    // What answering changed is told then too, and what they ask in turn
+    // answered: the Settings app's choices (PRP-038), the new tab's own ×
+    // (PRP-065). Nothing changed, nothing waits: no-ops.
+    let (answered, again) = answer_all(tell_prefs(told, tell_changes(told, first)));
     // The pictures each screen names (PRP-047): what telling an app about
     // one asks is answered, and what that answer shows is fetched too.
     let (pictured, first_pictures) = downloads.fetch_all(answered);
@@ -323,8 +320,8 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     // once, and a toggle reopened it over everything (session 171).
     ClosePanel => (Model { panel: None, ..m }, Cmd.none()),
     TogglePin => (pins.toggle_pin(m), Cmd.none()),
-    // ☰ (PRP-038): Settings, About Rapidkoi, Quit.
     Menu(open) => (Model { menu: open, ..m }, Cmd.none()),
+    Bell(action) => navigate.on_bell(m, action),
     OpenSettings => (navigate.open_settings(Model { menu: false, ..m }), Cmd.none()),
     // The owner's words (PRP-058); the chosen file opens as a typed path does.
     OpenApp => (

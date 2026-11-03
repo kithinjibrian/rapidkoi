@@ -57,6 +57,8 @@ enum Msg {
     RestoreSession,
     /** ☰'s card open or closed (PRP-038). */
     Menu(bool),
+    /** The bell and its card (PRP-066). */
+    Bell(BellAction),
     /** Open Rapidkoi's Settings app in a tab, or show its tab. */
     OpenSettings,
     /** ☰'s Open App… and Ctrl+O (PRP-058): the system's chooser for a local app file. */
@@ -187,6 +189,16 @@ enum TabAction {
     Close,
     /** The panel's "Forget this app?" question. */
     Forget,
+}
+
+/** What the bell's card does (PRP-066). */
+enum BellAction {
+    /** Open or close the card. */
+    Show(bool),
+    /** Open the notification at this index, as they're listed: its place, and it's read. */
+    Open(i64),
+    /** Remove the notification at this index. */
+    Dismiss(i64),
 }
 
 /** What a home tile's menu can do. */

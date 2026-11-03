@@ -5,7 +5,7 @@ import rapidkoi.window.window as windows { Model, with_pages };
 import rapidkoi.ui.header;
 import rapidkoi.ui.addressbox;
 import rapidkoi.ui.layout;
-import rapidkoi.window.actions { Msg, ShieldPage };
+import rapidkoi.window.actions { Msg, ShieldPage, BellAction };
 import rapidkoi.window.tabs { AppPage, open_module };
 import rapidkoi.trust.verify { Trust, Standing };
 import kivuli.testing { click, is_disabled, type_into, texts };
@@ -64,10 +64,12 @@ fun no_back_home_or_forward_on_any_tab() {
 fun account_waits_and_the_menu_opens_its_card() {
     let m = window(plain());
     let end = header.end(m);
-    assert_eq(end.len, 2);
-    assert_eq(is_disabled(end[0], "Account (coming soon)"), Ok(true));
+    assert_eq(end.len, 3);
+    // PRP-066: the bell first, opening its card.
+    assert_eq(click(end[0], "Notifications"), Ok(Msg.Bell(BellAction.Show(true))));
+    assert_eq(is_disabled(end[1], "Account (coming soon)"), Ok(true));
     // PRP-038: ☰ opens Settings, About Rapidkoi and Quit.
-    assert_eq(click(end[1], "Menu"), Ok(Msg.Menu(true)));
+    assert_eq(click(end[2], "Menu"), Ok(Msg.Menu(true)));
     let card = header.menu_card(m.theme);
     assert_eq(texts(card), ["Open App…", "Settings", "About Rapidkoi", "Quit"]);
     assert_eq(click(card, "Settings"), Ok(Msg.OpenSettings));

@@ -100,6 +100,8 @@ struct Model {
     prefs: Prefs,
     /** Whether ☰'s card is open. */
     menu: bool,
+    /** The bell's card open (PRP-066). */
+    bell: bool,
     /** Whether the About dialog is shown. */
     about: bool,
     /** The last loading tick, in milliseconds since 1970: how long a load has taken. */
@@ -166,6 +168,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         theme: DARK,
         prefs: DEFAULT_PREFS,
         menu: false,
+        bell: false,
         about: false,
         now: 0,
         offsets: #{},

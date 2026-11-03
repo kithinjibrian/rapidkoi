@@ -41,7 +41,8 @@ import net.loads { begin, begin_app, begin_link, begin_restoring, resumed, begin
 import window.apps { tab_of };
 import window.pins { pins_app };
 import kivuli { Cmd };
-import window.actions { Msg, PanelPage, Confirm, PinAction };
+import window.actions { Msg, PanelPage, Confirm, PinAction, BellAction };
+import window.notifications { open_at, dismiss };
 import window.window {
     Model,
     page_of,
@@ -430,4 +431,25 @@ fun open_place(m: Model, to: string, origin: Option<u8[]>): (Model, Cmd<Msg>) = 
     },
     (Ok(_), Some(_)) if is_address(to) => open_pin(m, without_link(to), origin),
     _ => open_file(Model { draft: "", editing: false, ..go_home(m) }, to),
+};
+
+/**
+ * The bell's card (PRP-066): opening it closes ☰'s; a row opens its
+ * notification's place, marks it read and closes the card; × removes it.
+ * An index past the end changes nothing.
+ *
+ * Example:
+ *     on_bell(m, BellAction.Open(0))
+ */
+fun on_bell(m: Model, action: BellAction): (Model, Cmd<Msg>) = match action {
+    Show(open) => (Model { bell: open, menu: if open { false } else { m.menu }, ..m }, Cmd.none()),
+    Open(index) => match open_at(m.notifications, index) {
+        (marked, Some(x)) => open_place(
+            Model { notifications: marked, bell: false, ..m },
+            x.address,
+            x.origin,
+        ),
+        (_, None) => (m, Cmd.none()),
+    },
+    Dismiss(index) => (Model { notifications: dismiss(m.notifications, index), ..m }, Cmd.none()),
 };

@@ -39,6 +39,7 @@ import ui.tokens { SPACE_XS, SPACE_SM, HEADER_ICON, TAB_CLOSE, TAB_CLOSE_ICON, g
 import ui.themes { heading };
 import ui.schemes { Theme };
 import ui.frame_looks { app_button, app_current, tab_close, tab_close_on_hover, count_badge };
+import ui.icons { Icon, icon as iconsax };
 
 /**
  * Builds the sidebar's apps and +, top to bottom.
@@ -243,9 +244,14 @@ fun with_close(
 
 /** A tab's ×: always shown on the current tab, with Ctrl+W; on the others, while hovered. */
 fun close_button(t: Theme, closing: Msg, name: string, current: bool): View<Msg> {
-    let x = ui_button_with([icon("window-close-symbolic").size(TAB_CLOSE_ICON)], closing).tooltip(
-        "Close {name}",
-    ).place(Align.End, Align.Start);
+    let x = ui_button_with(
+        [
+            image(iconsax(Icon.Close, t.on_frame)).style([square(TAB_CLOSE_ICON)]).align(
+                Align.Center,
+            ),
+        ],
+        closing,
+    ).tooltip("Close {name}").place(Align.End, Align.Start);
     // One Ctrl+W in the window: the current tab's.
     if current { x.style(tab_close(t)).shortcut("Ctrl+W") } else { x.style(tab_close_on_hover(t)) }
 }

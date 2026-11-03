@@ -30,7 +30,7 @@ mod notices;
 use notices::Alert;
 
 /// Every picture the screen shows, each packed from `assets/` under its name.
-const ASSETS: [&str; 1] = ["wordmark.svg"];
+const ASSETS: [&str; 2] = ["wordmark.svg", "x.svg"];
 
 /// The Restore pill's colour behind its icons' rings.
 const PILL: (u8, u8, u8) = (0x23, 0x23, 0x23);

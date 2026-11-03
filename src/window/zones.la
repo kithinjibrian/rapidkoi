@@ -121,7 +121,19 @@ fun running_root(a: AppPage): Option<Node> = match a.screen {
  * Example:
  *     if shows_time(m) { subs.push(Sub.every(MINUTE_MS, Msg.Minute)) }
  */
-fun shows_time(m: Model): bool = front(m).map(fun(n: Node) = moments(n).len > 0).unwrap_or(false);
+fun shows_time(m: Model): bool = shown_moments(m).len > 0;
+
+/**
+ * Every moment shown: the screen in front's, and the notifications' while
+ * the bell's card is open (PRP-066).
+ */
+fun shown_moments(m: Model): i64[] {
+    let on_screen = front(m).map(moments).unwrap_or([]);
+    if !m.bell {
+        return on_screen;
+    }
+    on_screen + m.notifications.items.map(fun(x) = x.sent)
+}
 
 /**
  * Adds offsets for moments newly on the screen in front: at the end of `update`.
@@ -130,7 +142,7 @@ fun shows_time(m: Model): bool = front(m).map(fun(n: Node) = moments(n).len > 0)
  *     settle(next)
  */
 fun settle(m: Model): Model {
-    let at = front(m).map(moments).unwrap_or([]);
+    let at = shown_moments(m);
     if at.len == 0 {
         return m;
     }
@@ -147,7 +159,7 @@ fun settle(m: Model): Model {
  *     refresh(m, now)
  */
 fun refresh(m: Model, now: i64): Model = Model {
-    offsets: front(m).map(fun(n: Node) = fresh(moments(n), local_offset)).unwrap_or(#{}),
+    offsets: fresh(shown_moments(m), local_offset),
     now: now,
     ..m,
 };

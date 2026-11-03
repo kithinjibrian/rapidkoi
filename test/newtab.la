@@ -8,6 +8,9 @@ import rapidkoi.window.newtab { BUNDLE, open };
 import rapidkoi.window.tabs { AppPage, Pin, failed_page };
 import rapidkoi.data.store { store_at, save };
 import rapidkoi.data.pinfiles { pins_file };
+import rapidkoi.data.notificationsfile { notifications_file };
+import rapidkoi.data.remembered { Face };
+import rapidkoi.window.notifications { Notification, Kind, no_notifications, add as notify_add };
 import std.fs;
 import rapidkoi.shell { start, start_with, update };
 import rapidkoi.guest.nodes { Node };
@@ -256,4 +259,39 @@ fun an_app_you_closed_is_on_recent_and_its_card_opens_it_again() {
     fs.remove_file(path).unwrap();
     // No places: no Recent.
     assert(!shows(fresh(), "RECENT"));
+}
+
+@test
+fun a_notification_s_x_removes_it() {
+    // PRP-065: the real new tab's × is a box, so it can be pressed (a text
+    // with `on_press` is drawn as words only).
+    let dir = "test/tmp/newtab-notices";
+    if fs.is_file("{dir}/notifications") {
+        fs.remove_file("{dir}/notifications").unwrap();
+    }
+    let s = store_at(dir);
+    let note = Notification {
+        id: 0,
+        kind: Kind.App,
+        path: "counter.rkb",
+        origin: None,
+        text: "Your count is 1",
+        address: "counter.rkb",
+        key: None,
+        sent: 1,
+        read: false,
+    };
+    let face = Face { path: "counter.rkb", name: "Counter", icon: None, colour: None };
+    save(
+        s,
+        "notifications",
+        notifications_file(notify_add(no_notifications(), note, face, 1)),
+    ).unwrap();
+    let (m, _) = start(["./main"], Some(s));
+    assert(shows(m, "Your count is 1"));
+    let pressed = click(view(m), "Dismiss").unwrap();
+    let gone = step(m, pressed);
+    assert_eq(gone.notifications.items.len, 0);
+    assert(!shows(gone, "Your count is 1"));
+    fs.remove_file("{dir}/notifications").unwrap();
 }

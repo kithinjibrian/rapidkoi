@@ -9,7 +9,7 @@ use minicbor::{Decode, Encode};
 use rapidkoi::style::{Align, Border, Color, Corner, Font, Layout, Sizing, Spacing, Text, TextSize, Weight};
 use rapidkoi::{column, image, row, spacer, text, Notification, Space};
 
-use super::{card, halves, heading, note_at, Msg, V};
+use super::{card, halves, heading, note_at, picture, Msg, V};
 
 /// How many the section shows.
 const SHOWN: usize = 4;
@@ -66,8 +66,10 @@ fn one(i: u32, a: &Alert) -> V {
     ])
     .style([Spacing::gap(Space::Px(14)), Layout::grow()])
     .on_press(Msg::OpenNotice(i));
-    let dismiss = text("×")
-        .style([Font::size(TextSize::Heading), Text::color(Color::system("text_dim")), Layout::align(Align::Center)])
+    // A box around the ×: Rapidkoi presses boxes only. The picture is the
+    // shell's x.svg in its faint grey, which reads on light and dark.
+    let dismiss = column([picture("x.svg", 16, 16)])
+        .style([Layout::align(Align::Center)])
         .label("Dismiss")
         .on_press(Msg::DismissNotice(i));
     row([body, spacer(), dismiss]).style(

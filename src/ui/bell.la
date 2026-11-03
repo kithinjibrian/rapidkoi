@@ -1,0 +1,148 @@
+/**
+ * The bell (PRP-066), pure: in the header before 👤 and ☰, with the
+ * accent's dot while anything is unread, and its card of every
+ * notification: unread first, then "Earlier" and the read ones. A row is
+ * its app's icon (as built-in apps' `icon:PLACE` draws it), its sentence,
+ * bold while unread, and its app and when; pressing it opens its place,
+ * and × removes it. Opening the card marks nothing read.
+ *
+ * Depends on: kivuli, kivuli.ui, window.actions, window.window, window.notifications, guest.home, guest.times, guest.nodes, ui.appicons, ui.icons, ui.tokens, ui.themes, ui.frame_looks
+ * Used by: ui.header
+ */
+import kivuli { View, Align, Image, image, text, column, row, overlay, scroll_fit, button_with };
+import kivuli.ui { Button, button_with as ui_button_with, popover as ui_popover };
+import window.actions { Msg, BellAction };
+import window.window { Model };
+import window.notifications { Notification, listed, unread, face_for };
+import guest.home { place_of };
+import guest.times { words };
+import guest.nodes { Show };
+import ui.appicons { icon_for };
+import ui.icons { Icon, icon };
+import ui.tokens {
+    SPACE_XS,
+    SPACE_SM,
+    SPACE_MD,
+    SPACE_LG,
+    HEADER_ICON,
+    UPDATE_DOT,
+    NOTICE_ICON,
+    CARD_WIDTH,
+    CLOSE_ICON,
+    gap,
+    square,
+    exactly,
+    margin_x,
+    padding_xy,
+};
+import ui.themes { body, dim, heading };
+import ui.frame_looks { app_row, count_badge };
+import ui.schemes { Theme };
+
+/**
+ * Returns the bell's tooltip: "Notifications", with how many are unread.
+ *
+ * Example:
+ *     tip(m) == "Notifications, 3 unread"
+ */
+fun tip(m: Model): string {
+    let n = unread(m.notifications);
+    if n == 0 { "Notifications" } else { "Notifications, {n} unread" }
+}
+
+/**
+ * Returns the bell and its card, hanging from it while `m.bell`.
+ *
+ * Example:
+ *     bell.view(m)
+ */
+fun view(m: Model): View<Msg> {
+    let t = m.theme;
+    // The dot over the bell's own top end, as the address box's upgrade
+    // draws its own: a picture, since an empty label is a line of text tall.
+    let mut dot: View<Msg>[] = [];
+    if unread(m.notifications) > 0 {
+        dot.push(
+            image(icon(Icon.Dot, t.accent)).style([square(UPDATE_DOT)]).place(
+                Align.End,
+                Align.Start,
+            ),
+        );
+    }
+    // The overlay exactly the icon's size and centred, as 👤's and ☰'s
+    // pictures are (`header.tool`): left to fill the button, it put the bell
+    // at its top, and around the button, the dot too far out (the owner's
+    // screenshots, 2026-11-03).
+    let face: View<Msg>[] = [
+        overlay(image(icon(Icon.Bell, t.on_frame)).style([square(HEADER_ICON)]), dot).style([
+            square(HEADER_ICON),
+        ]).align(Align.Center),
+    ];
+    let button = ui_button_with(face, Msg.Bell(BellAction.Show(!m.bell))).style([
+        Button.ghost(),
+        Button.icon(),
+        margin_x(SPACE_XS),
+    ]).tooltip(tip(m)).align(Align.Center);
+    ui_popover(button, m.bell, card(m), Msg.Bell(BellAction.Show(false))).align(Align.Center)
+}
+
+/**
+ * Returns the bell's card: its heading with the unread count, then every
+ * notification as they're listed, or "No notifications".
+ *
+ * Example:
+ *     card(m)
+ */
+fun card(m: Model): View<Msg> {
+    let t = m.theme;
+    let count = unread(m.notifications);
+    let mut head: View<Msg>[] = [text("Notifications").style(heading(t)).align(Align.Center)];
+    if count > 0 {
+        head.push(text("{count}").style(count_badge(t)).align(Align.Center));
+    }
+    let top = row(head).style([gap(SPACE_SM), padding_xy(SPACE_SM, SPACE_SM)]);
+    let all = listed(m.notifications);
+    if all.len == 0 {
+        let none: View<Msg> = column([
+            image(icon(Icon.Bell, t.faint)).style([square(NOTICE_ICON)]).align(Align.Center),
+            text("No notifications").style(dim(t)).align(Align.Center),
+        ]).style([gap(SPACE_SM), padding_xy(SPACE_SM, SPACE_LG)]);
+        return column([top, none]).style([exactly(CARD_WIDTH)]);
+    }
+    let mut rows: View<Msg>[] = [];
+    for i in 0..all.len {
+        // "Earlier" before the first read one, when unread ones come before it.
+        if all[i].read && i > 0 && !all[i - 1].read {
+            rows.push(text("Earlier").style(dim(t)).style([padding_xy(SPACE_SM, SPACE_SM)]));
+        }
+        rows.push(line(m, i, all[i]));
+    }
+    column([top, scroll_fit(column(rows).style([gap(SPACE_XS)]))]).style([
+        gap(SPACE_XS),
+        exactly(CARD_WIDTH),
+    ])
+}
+
+/** One notification's row: its app's icon, sentence, app and when as one target, then ×. */
+fun line(m: Model, i: i64, x: Notification): View<Msg> {
+    let t = m.theme;
+    let place = place_of(x.path);
+    let name = face_for(m.notifications, x).map(fun(f) = f.name).unwrap_or(place);
+    let when = words(x.sent, Show.Relative, m.offsets.get(x.sent), m.now);
+    let picture: View<Msg> = image(Image.Bytes("{place}#notice", icon_for(m, place))).style([
+        square(NOTICE_ICON),
+    ]).align(Align.Center);
+    let said: View<Msg> = column([
+        text(x.text).style(if x.read { body(t) } else { heading(t) }).wrap(),
+        text(if when == "" { name } else { "{name} · {when}" }).style(dim(t)),
+    ]).style([gap(SPACE_XS)]).expand();
+    let go = button_with(
+        row([picture, said]).style([gap(SPACE_MD)]).expand(),
+        Msg.Bell(BellAction.Open(i)),
+    ).style(app_row()).expand();
+    let remove = ui_button_with(
+        [image(icon(Icon.Close, t.text)).style([square(CLOSE_ICON)]).align(Align.Center)],
+        Msg.Bell(BellAction.Dismiss(i)),
+    ).style([Button.ghost(), Button.icon()]).tooltip("Dismiss").align(Align.Center);
+    row([go, remove]).style([gap(SPACE_XS)])
+}
