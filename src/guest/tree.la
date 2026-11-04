@@ -9,13 +9,26 @@
  * Used by: guest.running
  */
 import cbor { Value, Limits, decode };
-import guest.nodes { Node, Typing, Described, ContractError, Axis, Part, Which, Show, invalid };
+import guest.nodes {
+    Node,
+    Context,
+    Choice,
+    Typing,
+    Described,
+    ContractError,
+    Axis,
+    Part,
+    Which,
+    Show,
+    invalid,
+};
 import guest.limits {
     MAX_VIEW,
     MAX_NODES,
     MAX_NODE_DEPTH,
     MAX_STRING,
     MAX_LABEL,
+    MAX_MENU,
     MAX_PARTS,
     FIRST_MOMENT,
     LAST_MOMENT,
@@ -129,6 +142,7 @@ fun node(
                 look,
                 facts,
                 given.get("on_press"),
+                read_context(given, here)?,
                 children(v, here, depth, count, seen, inside)?,
             ),
         );
@@ -182,6 +196,59 @@ fun node(
     // limits, so it can't hide an oversized tree.
     tally(v, here, depth, count)?;
     Ok(Node.Unsupported(kind))
+}
+
+/**
+ * What a right-click on a box does: its `on_context` message (PRP-070) or
+ * its `menu` (PRP-071). Both is refused here, since kivuli would stop the
+ * whole shell on a node with both.
+ */
+fun read_context(given: Value, here: string): Result<Option<Context>, ContractError> = match (
+    given.get("on_context"),
+    given.get("menu"),
+) {
+    (None, None) => Ok(None),
+    (Some(m), None) => Ok(Some(Context.Message(m))),
+    (None, Some(es)) => Ok(Some(Context.Menu(read_menu(es, here)?))),
+    (Some(_), Some(_)) => Err(invalid(here, "a box has \"on_context\" or \"menu\", not both")),
+};
+
+/** A box's menu: 1 to `MAX_MENU` items and separators, each label 1 to `MAX_LABEL` bytes. */
+fun read_menu(v: Value, here: string): Result<Choice[], ContractError> {
+    let entries = match v {
+        Array(xs) if xs.len >= 1 && xs.len <= MAX_MENU => xs,
+        _ => {
+            return Err(invalid(here, "\"menu\" must be an array of 1 to {MAX_MENU} entries"));
+        }
+    };
+    let mut out: Choice[] = [];
+    for e of entries {
+        out.push(read_choice(e, here)?);
+    }
+    Ok(out)
+}
+
+/** One menu entry: a label, its on_pick and maybe disabled, or a separator. */
+fun read_choice(e: Value, here: string): Result<Choice, ContractError> {
+    let wrong = invalid(here, "a menu entry needs a label and on_pick, or separator set to true");
+    match e {
+        Map(_) => {}
+        _ => {
+            return Err(wrong);
+        }
+    }
+    match (e.get("separator"), e.get("label"), e.get("on_pick"), e.get("disabled")) {
+        (Some(Bool(true)), None, None, None) => Ok(Choice.Separator),
+        (None, Some(Text(s)), Some(m), d) if s.len >= 1 && s.len <= MAX_LABEL => match d {
+            None => Ok(Choice.Item(s, m, false)),
+            Some(Bool(b)) => Ok(Choice.Item(s, m, b)),
+            Some(_) => Err(wrong),
+        },
+        (None, Some(Text(_)), Some(_), _) => Err(
+            invalid(here, "a menu item's label must be 1 to {MAX_LABEL} bytes"),
+        ),
+        _ => Err(wrong),
+    }
 }
 
 /**

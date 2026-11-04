@@ -8,9 +8,10 @@ import rapidkoi.shell { start, update };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.window { Model };
+import rapidkoi.window.tabs { Pin };
 import rapidkoi.window.yourapps { App, opened as kept };
 import rapidkoi.data.remembered { Face };
-import kivuli.testing { texts, click };
+import kivuli.testing { texts, click, pick };
 import kivuli { Cmd };
 import wasmtime { Engine };
 
@@ -82,3 +83,43 @@ fun opening_it_again_compiles_nothing() {
 
 /** All apps' module, out of its bundle. */
 fun module_of_bundle(): u8[] = read(BUNDLE).unwrap().module;
+
+@test
+fun a_tile_s_menu_opens_and_pins_it() {
+    // PRP-071: a right-click on a tile opens its menu; its items do what its details do.
+    let (m, _) = start(["./main"], None);
+    let counter = App {
+        path: "counter.rkb",
+        origin: None,
+        host: None,
+        face: Face { path: "counter.rkb", name: "Counter", icon: None, colour: None },
+        first: 1,
+        last: 1,
+    };
+    let (opened, _) = update(Model { apps: kept(m.apps, counter), ..m }, Msg.OpenAllApps);
+    let (_, c) = update(opened, pick(view(opened), "Counter", "Open").unwrap());
+    assert_eq(later(c), [Msg.OpenPinned("counter.rkb", None)]);
+    assert(!opened.pinned.any(fun(p: Pin) = p.path == "counter.rkb"));
+    let (pinned, _) = update(opened, pick(view(opened), "Counter", "Pin to dock").unwrap());
+    assert(pinned.pinned.any(fun(p: Pin) = p.path == "counter.rkb"));
+}
+
+@test
+fun a_tile_s_app_info_shows_rapidkoi_s_screen() {
+    // PRP-072: All apps asks; Rapidkoi shows App info in its place.
+    let (m, _) = start(["./main"], None);
+    let counter = App {
+        path: "counter.rkb",
+        origin: None,
+        host: None,
+        face: Face { path: "counter.rkb", name: "Counter", icon: None, colour: None },
+        first: 1,
+        last: 1,
+    };
+    let (opened, _) = update(Model { apps: kept(m.apps, counter), ..m }, Msg.OpenAllApps);
+    let (_, c) = update(opened, pick(view(opened), "Counter", "App info").unwrap());
+    assert_eq(later(c), [Msg.AppInfo("counter.rkb", None)]);
+    let (info, _) = update(opened, Msg.AppInfo("counter.rkb", None));
+    assert(click(view(info), "Pin to dock").is_ok());
+    assert(click(view(info), "Forget this app…").is_ok());
+}

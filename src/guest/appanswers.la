@@ -1,9 +1,9 @@
 /**
  * Answering All apps (PRP-067): `apps` lists your apps A–Z, Settings
  * always among them; `pin_app` and `unpin_app` change your pins; and
- * `open_app`, `app_permissions` and `forget_app` are the window's own
- * messages, as the dock's menu sends them, so Forget and permissions only
- * open Rapidkoi's panel on that app, where the person decides. Each app
+ * `open_app`, `app_info` and `forget_app` are the window's own
+ * messages, so App info and Forget are Rapidkoi's own screens over All
+ * apps (PRP-072), where the person decides. Each app
  * is given as the new tab gives places: a name, a host or a file's name,
  * an icon for Rapidkoi to draw; never a folder, state or key. Whether the
  * app may ask is `guest.needs`' question; a blocked one is answered with
@@ -22,7 +22,7 @@ import window.yourapps { App, opened, listed };
 import data.remembered { Face };
 import window.pins { pins_app };
 import window.settings_app;
-import window.actions { Msg, PinAction };
+import window.actions { Msg };
 
 /**
  * Your apps as All apps lists them, A–Z: Rapidkoi's Settings always among
@@ -77,7 +77,7 @@ fun apps_of(m: Model): Value = Value.Map([entry("items", Value.Array(shown_apps(
  *
  * @param m the window
  * @param p the page that asked
- * @param ask an `Apps`, `OpenApp`, `PinApp`, `UnpinApp`, `AppPermissions` or `ForgetApp`
+ * @param ask an `Apps`, `OpenApp`, `PinApp`, `UnpinApp`, `AppInfo` or `ForgetApp`
  * @param grant false when its permission is blocked or wasn't allowed
  * @returns the window, the answer (only `apps` has one), and what opening
  *     sends: the window's own message, after this update
@@ -95,15 +95,11 @@ fun answer_app(m: Model, p: AppPage, ask: Effect, grant: bool): (Model, Option<V
     match ask {
         Apps(_) => (m, Some(apps_of(m)), Cmd.none()),
         OpenApp(_, i) => (m, None, after(at(m, i), fun(a: App) = Msg.OpenPinned(a.path, a.origin))),
-        AppPermissions(_, i) => (
-            m,
-            None,
-            after(at(m, i), fun(a: App) = Msg.OnPin(a.path, a.origin, PinAction.Permissions)),
-        ),
+        AppInfo(_, i) => (m, None, after(at(m, i), fun(a: App) = Msg.AppInfo(a.path, a.origin))),
         ForgetApp(_, i) => (
             m,
             None,
-            after(at(m, i), fun(a: App) = Msg.OnPin(a.path, a.origin, PinAction.Forget)),
+            after(at(m, i), fun(a: App) = Msg.ForgetFromInfo(a.path, a.origin)),
         ),
         // Pinned at the dock's end, unless it's there already.
         PinApp(_, i) => match at(m, i) {

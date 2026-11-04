@@ -2,9 +2,9 @@
 //! `./main` like Settings. It lists every app the person has opened, A–Z or
 //! last used first, with a search box: typing filters by name and Enter
 //! opens the first match. When two apps share a name, each also shows where
-//! it's from. Each app's details (on a right-click, a later PRP) show what can be done with it:
-//! open, pin or unpin, its permissions, Forget. Forget and permissions only
-//! open Rapidkoi's own panel on the app, where the person decides.
+//! it's from. A right-click on an app opens its menu (PRP-071): Open, Pin or
+//! Unpin, App info, Forget. App info and Forget are Rapidkoi's own screens
+//! over All apps (PRP-072), where the person decides.
 //!
 //! It reads with the built-in `read_apps`, opens with `open_apps`, and pins
 //! with `manage_pins` (`scripts/allapps.sh` declares them). It asks for an
@@ -19,8 +19,8 @@ use rapidkoi::style::{
     TextSize, Weight, When,
 };
 use rapidkoi::{
-    column, image, input, layers, row, spacer, text, text_of, wrap, App, Apps, Ask, Event, Message, Next, Space,
-    State, View,
+    column, image, input, item, layers, row, separator, spacer, text, wrap, App, Apps, Ask, Choice, Event,
+    Message, Next, Space, State, View,
 };
 
 /// What All apps' screen sends.
@@ -34,11 +34,10 @@ enum Msg {
     Order(bool),
     /// Open the app at this index in Rapidkoi's list.
     Open(u32),
-    /// Show this app's details; again, close them.
-    Details(u32),
     Pin(u32),
     Unpin(u32),
-    Permissions(u32),
+    /// Rapidkoi's App info on this app (PRP-072).
+    Info(u32),
     Forget(u32),
 }
 
@@ -85,8 +84,6 @@ struct AllApps {
     query: String,
     /// Last used first, else A–Z.
     by_last: bool,
-    /// The app whose details are open, by its index.
-    details: Option<u32>,
 }
 
 impl AllApps {
@@ -107,7 +104,7 @@ impl AllApps {
     }
 
     fn ask(self, ask: Ask) -> Next<Self> {
-        Next::state(AllApps { details: None, ..self }).ask(ask)
+        Next::state(self).ask(ask)
     }
 }
 
@@ -141,20 +138,16 @@ impl App for AllApps {
                 None => Next::state(self),
             },
             Event::Message { msg, value } => match msg {
-                Msg::Typed => Next::state(AllApps { query: value.unwrap_or_default(), details: None, ..self }),
+                Msg::Typed => Next::state(AllApps { query: value.unwrap_or_default(), ..self }),
                 Msg::Submit => match self.shown().first().map(|a| a.at) {
                     Some(i) => self.ask(Ask::open_app("open", i)),
                     None => Next::state(self),
                 },
                 Msg::Order(last) => Next::state(AllApps { by_last: last, ..self }),
-                Msg::Details(i) => {
-                    let which = if self.details == Some(i) { None } else { Some(i) };
-                    Next::state(AllApps { details: which, ..self })
-                }
                 Msg::Open(i) => self.ask(Ask::open_app("open", i)),
                 Msg::Pin(i) => self.ask(Ask::pin_app("pin", i)),
                 Msg::Unpin(i) => self.ask(Ask::unpin_app("unpin", i)),
-                Msg::Permissions(i) => self.ask(Ask::app_permissions("permissions", i)),
+                Msg::Info(i) => self.ask(Ask::app_info("info", i)),
                 Msg::Forget(i) => self.ask(Ask::forget_app("forget", i)),
             },
             _ => Next::state(self),
@@ -168,26 +161,12 @@ impl App for AllApps {
         let first = if self.query.trim().is_empty() { None } else { shown.first().map(|a| a.at) };
         let grid = wrap(shown.iter().map(|a| self.tile(a, first == Some(a.at))))
             .style([Spacing::gap(Space::Px(4))]);
-        let page = column([head, search(&self.query), grid])
+        column([head, search(&self.query), grid])
             .spacing(Space::Lg)
             .padding(Space::Lg)
             // Rapidkoi never scrolls an app's page (PRP-046): a short window scrolls this.
-            .style([Layout::scroll(), Layout::grow()]);
-        let open = self.details.and_then(|i| self.apps.iter().find(|a| a.at == i));
-        let screen = match open {
-            // The details over the page, on a dimmed backdrop that closes them.
-            Some(a) => layers([
-                page,
-                boxed()
-                    .style([Layout::place(Place::Fill), Background::color(Color::rgba(0, 0, 0, 120))])
-                    .label("Close")
-                    .on_press(Msg::Details(a.at)),
-                details(a).style([Sizing::width(360), Layout::place(Place::Center)]),
-            ])
-            .style([Layout::grow()]),
-            None => page,
-        };
-        screen.screen_title("All apps")
+            .style([Layout::scroll(), Layout::grow()])
+            .screen_title("All apps")
     }
 }
 
@@ -195,7 +174,7 @@ impl AllApps {
     /// One app: its icon and name (and where it's from, when names clash),
     /// opening it.
     fn tile(&self, a: &Item, first: bool) -> V {
-        // No mark for pinned apps: their details say it (the owner, 2026-11-03).
+        // No mark for pinned apps: their menu says it (the owner, 2026-11-03).
         let mut lines = vec![
             image(&a.icon).style([Sizing::width(56), Sizing::height(56), Layout::align(Align::Center)]),
             text(&a.name).style([Font::size(TextSize::Small), Layout::align(Align::Center), Text::truncate()]),
@@ -220,15 +199,14 @@ impl AllApps {
             Border::corner(Corner::Px(12)),
             When(Look::Hover, [Background::color(lift(0.07))]),
         ];
-        if first || self.details == Some(a.at) {
+        if first {
             look.push(Background::color(lift(0.07)));
         }
         if first {
             look.push(Border::all(2, Color::system("accent")));
         }
-        // Its details open on a right-click once the contract has
-        // `on_context` (a later PRP): no ⋯ on the tile (the owner, 2026-11-03).
-        column(lines).style(look).label(&a.name).on_press(Msg::Open(a.at))
+        // A menu on a right-click (PRP-071): no ⋯ on the tile (the owner, 2026-11-03).
+        column(lines).style(look).label(&a.name).on_press(Msg::Open(a.at)).menu(menu_of(a))
     }
 }
 
@@ -285,83 +263,6 @@ fn search(query: &str) -> V {
     ])
 }
 
-/// An app's details, as a card: what it is and where it's from, then what can be done with it.
-fn details(a: &Item) -> V {
-    let row_of = |label: &str, value: V| {
-        row([
-            text(label).style([
-                Font::size(TextSize::Small),
-                Text::color(Color::system("text_dim")),
-                Sizing::width(110),
-            ]),
-            value.style([Font::size(TextSize::Small)]),
-        ])
-        .spacing(Space::Md)
-    };
-    let publisher = if a.signed { format!("{}, signed", a.publisher) } else { String::from("Not signed") };
-    let opened = if a.opened > 0 { text_of([rapidkoi::time(a.opened).relative()]) } else { text("Not yet") };
-    let mut info = Vec::new();
-    // Rapidkoi's own apps have no publisher or address to show.
-    if !a.address.is_empty() {
-        info.push(row_of("Publisher", text(&publisher)));
-    }
-    info.push(row_of("Last opened", opened));
-    let mut who = vec![text(&a.name).heading()];
-    if !a.address.is_empty() {
-        who.push(text(&a.address).style([Font::size(TextSize::Small), Text::color(Color::system("text_dim"))]));
-    }
-    let top = row([
-        image(&a.icon).style([Sizing::width(52), Sizing::height(52), Layout::align(Align::Center)]),
-        column(who).spacing(Space::Xs),
-    ])
-    .spacing(Space::Md);
-    let pin = if a.pinned { action("Unpin from dock", Msg::Unpin(a.at), "text") } else { action("Pin to dock", Msg::Pin(a.at), "text") };
-    let actions = column([
-        open_button(a.at),
-        pin,
-        action("Permissions", Msg::Permissions(a.at), "text"),
-        boxed().style([Sizing::height(1), Background::color(Color::system("border"))]).role(Role::Separator),
-        action("Forget this app…", Msg::Forget(a.at), "danger"),
-    ])
-    .spacing(Space::Xs);
-    column([top, column(info).spacing(Space::Sm), actions])
-        .spacing(Space::Md)
-        .padding(Space::Lg)
-        .style([
-            Background::color(Color::system("surface")),
-            Border::all(1, Color::system("border")),
-            Border::corner(Corner::Px(12)),
-        ])
-}
-
-/// The details' first action: Open, in the accent, across the card.
-fn open_button(at: u32) -> V {
-    boxed()
-        .children([text("Open").style([
-            Text::color(Color::system("on_accent")),
-            Font::weight(Weight::Bold),
-            Layout::align(Align::Center),
-        ])])
-        .style([
-            Background::color(Color::system("accent")),
-            Border::corner(Corner::Round),
-            Spacing::padding_xy(Space::Px(10), Space::Px(16)),
-        ])
-        .on_press(Msg::Open(at))
-}
-
-/// One of the details' other actions: a round row, its words at the start in `ink`.
-fn action(word: &str, msg: Msg, ink: &str) -> V {
-    boxed()
-        .children([text(word).style([Text::color(Color::system(ink))])])
-        .style([
-            Border::corner(Corner::Round),
-            Spacing::padding_xy(Space::Px(10), Space::Px(12)),
-            When(Look::Hover, [Background::color(lift(0.08))]),
-        ])
-        .on_press(msg)
-}
-
 /// A picture from the bundle, at its size.
 fn picture(name: &str, w: u16, h: u16) -> V {
     debug_assert!(ASSETS.contains(&name), "{name} isn't packed");
@@ -377,3 +278,15 @@ rapidkoi::export!(AllApps);
 
 #[cfg(test)]
 mod tests;
+
+/// A tile's right-click menu (PRP-071; App info since PRP-072).
+fn menu_of(a: &Item) -> Vec<Choice<Msg>> {
+    let pin = if a.pinned { item("Unpin from dock", Msg::Unpin(a.at)) } else { item("Pin to dock", Msg::Pin(a.at)) };
+    vec![
+        item("Open", Msg::Open(a.at)),
+        pin,
+        item("App info", Msg::Info(a.at)),
+        separator(),
+        item("Forget this app…", Msg::Forget(a.at)),
+    ]
+}

@@ -34,7 +34,7 @@ fun needed(ask: Effect): Option<Permission> = match ask {
     ),
     // All apps (PRP-067): Forget and permissions only open Rapidkoi's panel.
     Apps(_) => Some(Permission.ReadApps),
-    OpenApp(_, _) | AppPermissions(_, _) | ForgetApp(_, _) => Some(Permission.OpenApps),
+    OpenApp(_, _) | AppInfo(_, _) | ForgetApp(_, _) => Some(Permission.OpenApps),
     PinApp(_, _) | UnpinApp(_, _) => Some(Permission.ManagePins),
     _ => None,
 };

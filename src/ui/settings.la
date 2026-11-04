@@ -123,6 +123,13 @@ fun dialog_view(m: Model): View<Msg> {
             "Forget",
             Msg.Forget,
         ),
+        // App info's app, which may not be open (PRP-072).
+        Some(ForgetInfo) => (
+            "Forget {m.info.map(fun(i) = i.page.name).unwrap_or("this app")}?",
+            "Its windows, pin, data and settings here will be removed. Next time you open it, it won't know you.",
+            "Forget",
+            Msg.Forget,
+        ),
         None => {
             let none: View<Msg>[] = [];
             return column(none);
@@ -187,41 +194,8 @@ fun front(m: Model, p: AppPage, you: Account, reach: Access): View<Msg> {
             app_rows.push(choice(t, "Permissions", Some(said), Msg.PanelGo(PanelPage.Permissions)));
         }
     }
-    // The person's last word over the app's looks (PRP-038).
-    if shows("app_settings.looks") {
-        let key = key_of(p);
-        let (colours, text_size) = looks_of(m.people, key);
-        app_rows.push(
-            switch_row(
-                t,
-                "Use my colours",
-                "use_my_colours",
-                colours,
-                fun(on: bool) = Msg.OwnLooks(key, on, text_size),
-            ),
-        );
-        app_rows.push(
-            switch_row(
-                t,
-                "Use my text size",
-                "use_my_text_size",
-                text_size,
-                fun(on: bool) = Msg.OwnLooks(key, colours, on),
-            ),
-        );
-    }
-    // Whether its places are kept (PRP-062); every app's but the new tab's (PRP-064).
-    if shows("app_settings.recent") && p.path != "builtin:newtab" {
-        let key = key_of(p);
-        app_rows.push(
-            switch_row(
-                t,
-                "Show in Recent",
-                "show_in_recent",
-                shows_in_recent(m.people, key),
-                fun(on: bool) = Msg.ShowInRecent(key, on),
-            ),
-        );
+    for r of looks_rows(m, p) {
+        app_rows.push(r);
     }
     if app_rows.len > 0 {
         parts.push(section(t, "App settings", app_rows));
@@ -237,6 +211,54 @@ fun front(m: Model, p: AppPage, you: Account, reach: Access): View<Msg> {
         );
     }
     column(parts).style([gap(SPACE_SM)])
+}
+
+/**
+ * The switches over an app's looks (PRP-038) and Recent (PRP-062), as its
+ * `controls` allow: the ⚙'s and App info's (PRP-072).
+ *
+ * Example:
+ *     looks_rows(m, page)
+ */
+fun looks_rows(m: Model, p: AppPage): View<Msg>[] {
+    let t = m.theme;
+    let key = key_of(p);
+    let mut rows: View<Msg>[] = [];
+    // The person's last word over the app's looks (PRP-038).
+    if grants.shows_row(p, "app_settings.looks") {
+        let (colours, text_size) = looks_of(m.people, key);
+        rows.push(
+            switch_row(
+                t,
+                "Use my colours",
+                "use_my_colours",
+                colours,
+                fun(on: bool) = Msg.OwnLooks(key, on, text_size),
+            ),
+        );
+        rows.push(
+            switch_row(
+                t,
+                "Use my text size",
+                "use_my_text_size",
+                text_size,
+                fun(on: bool) = Msg.OwnLooks(key, colours, on),
+            ),
+        );
+    }
+    // Whether its places are kept (PRP-062); every app's but the new tab's (PRP-064).
+    if grants.shows_row(p, "app_settings.recent") && p.path != "builtin:newtab" {
+        rows.push(
+            switch_row(
+                t,
+                "Show in Recent",
+                "show_in_recent",
+                shows_in_recent(m.people, key),
+                fun(on: bool) = Msg.ShowInRecent(key, on),
+            ),
+        );
+    }
+    rows
 }
 
 /** A row with a switch at its end, found by `name`. */

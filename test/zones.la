@@ -17,7 +17,7 @@ import wasmtime { Engine, Module };
 
 fun parts(ps: Part[]): Node = Node.Parts(ps, plain(), no_facts());
 
-fun boxed(kids: Node[]): Node = Node.Boxed(plain(), no_facts(), None, kids);
+fun boxed(kids: Node[]): Node = Node.Boxed(plain(), no_facts(), None, None, kids);
 
 fun tree(): Node = boxed([
     parts([Part.Plain("Edited "), Part.Time(1000, Show.Relative)]),

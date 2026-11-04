@@ -85,6 +85,9 @@ const MAX_IMAGE_PX: i64 = 4096;
 /** The longest label a typing box or picture may have, in bytes (DECISION-056). */
 const MAX_LABEL: i64 = 200;
 
+/** The most entries a box's menu may have, separators included (PRP-071). */
+const MAX_MENU: i64 = 32;
+
 /** The longest notification's sentence, in characters (PRP-065). */
 const MAX_NOTICE_TEXT: i64 = 200;
 

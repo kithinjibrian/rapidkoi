@@ -31,13 +31,13 @@ fun each_ask_reads_with_its_index() {
     assert_eq(at("open_app", Value.int(2)), Ok(Effect.OpenApp(t("m"), 2)));
     assert_eq(at("pin_app", Value.int(0)), Ok(Effect.PinApp(t("m"), 0)));
     assert_eq(at("unpin_app", Value.int(1)), Ok(Effect.UnpinApp(t("m"), 1)));
-    assert_eq(at("app_permissions", Value.int(3)), Ok(Effect.AppPermissions(t("m"), 3)));
+    assert_eq(at("app_info", Value.int(3)), Ok(Effect.AppInfo(t("m"), 3)));
     assert_eq(at("forget_app", Value.int(4)), Ok(Effect.ForgetApp(t("m"), 4)));
 }
 
 @test
 fun a_missing_or_negative_index_stops_the_app() {
-    for kind of ["open_app", "pin_app", "unpin_app", "app_permissions", "forget_app"] {
+    for kind of ["open_app", "pin_app", "unpin_app", "app_info", "forget_app"] {
         assert_eq(at(kind, Value.int(-1)), Err("an {kind} needs an index of 0 or more"));
         assert_eq(at(kind, t("first")), Err("an {kind} needs an index of 0 or more"));
         assert_eq(read_one([("kind", t(kind))]), Err("an {kind} needs an index of 0 or more"));

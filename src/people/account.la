@@ -10,7 +10,7 @@
  */
 import window.actions { Msg };
 import window.tabs { AppPage, Page };
-import window.window { Model, page_of };
+import window.window { Model, page_of, settings_page };
 import window.notices { identity_trouble };
 import people.people { People, Person, MAX_NAME, person, with_person, forget_person };
 import people.identity { Master, IdentityError, public_key, user_label };
@@ -76,9 +76,10 @@ fun on_account(m: Model, msg: Msg): Model {
             ..m,
         };
     }
-    let a = match page_of(m) {
-        App(a) => a,
-        _ => {
+    // App info's app while it's shown (PRP-072), else the one in front.
+    let a = match settings_page(m) {
+        Some(a) => a,
+        None => {
             return m;
         }
     };
@@ -162,18 +163,26 @@ fun forget_app(
  *     forget_account(m, window.forget(m))
  */
 fun forget_account(before: Model, after: Model): Model = match page_of(before) {
-    App(a) => match a.trust {
-        Some(t) => match forget_app(after.people, after.master, t.host, t.origin) {
-            Ok(p) => Model { people: p, ..after },
-            Err(e) => Model {
-                people: forget_person(after.people, t.host, t.origin),
-                notice: Some(identity_trouble(e)),
-                ..after,
-            },
-        },
-        None => after,
-    },
+    App(a) => forget_account_of(a, after),
     _ => after,
+};
+
+/**
+ * `forget_account` for app page `a`, open or not (PRP-072: App info).
+ *
+ * Example:
+ *     forget_account_of(info.page, next)
+ */
+fun forget_account_of(a: AppPage, after: Model): Model = match a.trust {
+    Some(t) => match forget_app(after.people, after.master, t.host, t.origin) {
+        Ok(p) => Model { people: p, ..after },
+        Err(e) => Model {
+            people: forget_person(after.people, t.host, t.origin),
+            notice: Some(identity_trouble(e)),
+            ..after,
+        },
+    },
+    None => after,
 };
 
 /** At most `MAX_NAME` characters. */

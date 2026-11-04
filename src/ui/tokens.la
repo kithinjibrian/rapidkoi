@@ -54,6 +54,8 @@ const ADDRESS_ICON: i64 = 20;
 const CARD_WIDTH: i64 = 360;
 /** The list of the apps at one address (PRP-050): wider than a card, for each row's fingerprint, Default and Rename. */
 const APPS_WIDTH: i64 = 460;
+/** App info's icon (PRP-072), in pixels: beside its name, as the ⚙'s is, larger. */
+const INFO_ICON: i64 = 64;
 /** The app's icon at the top of the shield's card, in pixels: every icon's 20 (the owner, session 136). */
 const CARD_ICON: i64 = 20;
 /** The current app's ring in the sidebar, in pixels. */

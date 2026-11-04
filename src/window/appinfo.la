@@ -1,0 +1,282 @@
+/**
+ * App info (PRP-072): Rapidkoi's screen about one of your apps, shown in
+ * All apps' place. It never starts the app. Its page is built from what
+ * Rapidkoi keeps: the app's name and icon from your apps, its trust from
+ * the keyring, then, in a task, its manifest checked as at opening (a
+ * signed app's kept copy, a local file, a built-in's bundle), its kept
+ * copy's facts and its database's size. Nothing is fetched. Forget here
+ * forgets the app without opening it, as the ⚙'s Forget does.
+ *
+ * Depends on: kivuli, std.crypto, trust.verify, bundles.loader, data.kept, data.databases, data.saving, net.address, people.account, window.window, window.tabs, window.yourapps, window.info, window.pins, window.settings_app, window.notices, window.actions
+ * Used by: shell, ui.appinfo
+ */
+import kivuli { Cmd };
+import std.crypto { equal };
+import trust.verify { Keyring, Trust, Identity, Standing, known_for, check_site_at };
+import bundles.loader { Checked, Origin, checked_file, checked_bytes, vetted };
+import data.kept { kept_for, has, files, read_meta, size_of, remove, reason as kept_reason };
+import data.databases;
+import data.store { Store };
+import data.saving { forgotten_of };
+import net.address { parse, shown, is_address };
+import people.account { forget_account_of };
+import window.window { Model, close };
+import window.tabs { AppPage, Cached, Pin, failed };
+import window.yourapps { App, same };
+import window.info { Info, InfoPage, Facts, no_facts };
+import window.pins { forget_of, is_pinned };
+import window.settings_app;
+import window.notices { with_more, data_not_removed };
+import window.actions { Msg, Confirm };
+
+/**
+ * Shows App info for the app at `path` with first key `origin`, and reads
+ * what it needs in a task. An app that isn't one of yours shows nothing.
+ *
+ * Example:
+ *     open_info(m, "rapidkoi://notes.dafifi.net", Some(key))
+ */
+fun open_info(m: Model, path: string, origin: Option<u8[]>): (Model, Cmd<Msg>) {
+    let a = match m.apps.items.iter().find(fun(y: App) = same(y, path, origin)) {
+        Some(a) => a,
+        None => {
+            return (m, Cmd.none());
+        }
+    };
+    let page = page_for(m.ring, a);
+    let held = m.store;
+    let ring = m.ring;
+    (
+        Model { info: Some(Info { app: a, page: page, ready: false, at: InfoPage.Main }), ..m },
+        Cmd.task(
+            fun(): Facts = read_facts(held, ring, a, page),
+            fun(f: Facts) = Msg.InfoRead(path, origin, f),
+        ),
+    )
+}
+
+/**
+ * Fills in what the task read, when App info still shows that app: an
+ * answer for another is dropped.
+ *
+ * Example:
+ *     arrived(m, path, origin, facts)
+ */
+fun arrived(m: Model, path: string, origin: Option<u8[]>, f: Facts): Model = match m.info {
+    Some(i) if same(i.app, path, origin) => Model {
+        info: Some(Info { page: with_facts(i.page, f), ready: true, ..i }),
+        ..m,
+    },
+    _ => m,
+};
+
+/** Shows `page` in App info's right column. */
+fun went(m: Model, page: InfoPage): Model = match m.info {
+    Some(i) => Model { info: Some(Info { at: page, ..i }), ..m },
+    None => m,
+};
+
+/** Closes App info, and its Forget question with it. */
+fun close_info(m: Model): Model = Model {
+    info: None,
+    confirm: if m.confirm == Some(Confirm.ForgetInfo) { None } else { m.confirm },
+    ..m,
+};
+
+/**
+ * Pins App info's app at the dock's end (`on`) or unpins it.
+ *
+ * Example:
+ *     pinned(m, true)
+ */
+fun pinned(m: Model, on: bool): Model = match m.info {
+    Some(i) => {
+        let origin = i.app.origin;
+        if on && !is_pinned(m, i.app.path, origin) {
+            let mut more = m.pinned;
+            more.push(Pin {
+                name: i.app.face.name,
+                path: i.app.path,
+                icon: i.app.face.icon,
+                origin: origin,
+            });
+            Model { pinned: more, ..m }
+        } else if !on {
+            Model { pinned: m.pinned.filter(fun(p: Pin) = !same_pin(p, i.app)), ..m }
+        } else {
+            m
+        }
+    }
+    None => m,
+};
+
+/**
+ * Forgets App info's app, open or not, as the ⚙'s Forget does: its tabs,
+ * its database and kept copy (a failure is the notice), its saved states,
+ * its account, its pin, places, notifications and place in your apps.
+ * App info closes, back to the grid.
+ *
+ * Example:
+ *     forget_info(m)
+ */
+fun forget_info(m: Model): Model {
+    let i = match m.info {
+        Some(i) => i,
+        None => {
+            return Model { confirm: None, ..m };
+        }
+    };
+    let a = i.page;
+    let copy = copy_removed_of(m, a);
+    let db = data_cleared_of(m, a);
+    let said = (if db.is_some() { db } else { copy }).map(
+        fun(why: string) = data_not_removed(a.name, why),
+    );
+    let mut at = m;
+    for t of m.tabs {
+        if same(i.app, t.page.path, t.page.trust.map(fun(x: Trust) = x.origin)) {
+            at = close(at, t.id);
+        }
+    }
+    let gone = forget_account_of(a, forgotten_of(a, forget_of(at, a)));
+    Model { notice: with_more(gone.notice, said), info: None, ..gone }
+}
+
+/**
+ * Removes app page `a`'s kept copy, when it's a signed app (PRP-043).
+ * Returns why, when it couldn't.
+ */
+fun copy_removed_of(m: Model, a: AppPage): Option<string> = match (m.store, a.trust) {
+    (Some(s), Some(t)) => match remove(kept_for(s, t.host, t.origin)) {
+        Ok(()) => None,
+        Err(e) => Some(kept_reason(e)),
+    },
+    _ => None,
+};
+
+/** Removes app page `a`'s database (PRP-041). Returns why, when it couldn't. */
+fun data_cleared_of(m: Model, a: AppPage): Option<string> = match m.store {
+    Some(s) => match databases.path_for(s, a) {
+        Some(path) => match databases.clear(path) {
+            Ok(()) => None,
+            Err(why) => Some(why),
+        },
+        None => None,
+    },
+    None => None,
+};
+
+/**
+ * The page App info starts from, before anything is read: the app's name
+ * and icon as your apps keep them, and its trust as the keyring has it.
+ */
+fun page_for(ring: Keyring, a: App): AppPage = AppPage {
+    name: a.face.name,
+    icon: a.face.icon,
+    trust: trusted(ring, a),
+    ..failed(a.face.name, a.path, ""),
+};
+
+/** Its host: as kept, else its address's for a signed app. */
+fun host_of(a: App): Option<string> = match (a.host, a.origin) {
+    (Some(h), _) => Some(h),
+    (None, Some(_)) if is_address(a.path) => parse(a.path).ok().map(shown),
+    _ => None,
+};
+
+/** Its trust as the keyring has it: the identity with its first key, trusted. */
+fun trusted(ring: Keyring, a: App): Option<Trust> = match (host_of(a), a.origin) {
+    (Some(h), Some(o)) => known_for(ring, h).iter().find(fun(k: Identity) = equal(k.origin, o)).map(
+        fun(k: Identity) = Trust {
+            host: h,
+            key: k.key,
+            standing: Standing.Trusted,
+            build: [],
+            separate: k.separate,
+            since: k.since,
+            origin: k.origin,
+        },
+    ),
+    _ => None,
+};
+
+/** The page with what was read: a part that couldn't be read leaves what was there. */
+fun with_facts(p: AppPage, f: Facts): AppPage = AppPage {
+    manifest: f.manifest,
+    trust: match f.trust {
+        Some(t) => Some(t),
+        None => p.trust,
+    },
+    cached: f.cached,
+    data_size: f.data,
+    ..p,
+};
+
+/**
+ * Reads what App info needs for an app that isn't running, as opening
+ * would check it, without starting it or fetching anything: a built-in's
+ * bundle, a local file, or a signed app's kept copy; and its database's
+ * size. Touches the disk: run it in a task.
+ *
+ * Example:
+ *     read_facts(m.store, m.ring, app, page)
+ */
+fun read_facts(held: Option<Store>, ring: Keyring, a: App, page: AppPage): Facts {
+    let mut f = no_facts();
+    if a.path == settings_app.SETTINGS_KEY {
+        f = from_checked(
+            checked_bytes(ring, "settings.rkb", settings_app.BUNDLE, Origin.BuiltIn).ok(),
+        );
+    } else if !is_address(a.path) && !a.path.starts_with("builtin:") {
+        f = from_checked(checked_file(ring, a.path).ok());
+    } else {
+        match (held, host_of(a), a.origin) {
+            (Some(s), Some(h), Some(o)) => {
+                let k = kept_for(s, h, o);
+                if has(k) {
+                    // Checked as a site is, and not recorded: looking changes no trust.
+                    f = from_checked(
+                        check_site_at(known_for(ring, h), h, files(k), None).ok().and_then(
+                            fun(vr) = vetted(vr.0.opened, Some(vr.0.trust), Origin.External).ok(),
+                        ),
+                    );
+                    let meta = read_meta(k);
+                    f = Facts {
+                        cached: Some(Cached {
+                            checked: meta.map(fun(x) = x.checked).unwrap_or(0),
+                            reached: false,
+                            size: size_of(k),
+                            newer: None,
+                            moved: meta.and_then(fun(x) = x.moved),
+                        }),
+                        ..f,
+                    };
+                }
+            }
+            _ => {}
+        }
+    }
+    let trust = match f.trust {
+        Some(t) => Some(t),
+        None => page.trust,
+    };
+    let data = match held {
+        Some(s) => databases.path_for(s, AppPage { trust: trust, ..page }).map(
+            fun(path: string) = databases.size_of(path),
+        ),
+        None => None,
+    };
+    Facts { data: data, ..f }
+}
+
+/** A checked app's manifest and trust. */
+fun from_checked(c: Option<Checked>): Facts = match c {
+    Some(x) => Facts { manifest: x.manifest, trust: x.trust, ..no_facts() },
+    None => no_facts(),
+};
+
+/** Whether pin `p` is app `a`'s. */
+fun same_pin(p: Pin, a: App): bool = p.path == a.path && match (p.origin, a.origin) {
+    (Some(x), Some(y)) => equal(x, y),
+    _ => true,
+};

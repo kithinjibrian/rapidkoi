@@ -1,0 +1,253 @@
+/**
+ * App info's screen (PRP-072), pure: in All apps' place, two columns,
+ * drawn from the ⚙'s and the shield's own parts. On the left, who the app
+ * is: its icon, name and version, its description, Open and Pin, its
+ * publisher (the shield's facts), when you first and last opened it, and
+ * Forget across the column. On the right, across the rest, the ⚙'s
+ * sections: Account (Public key ›, Sign in, Name ›), App settings
+ * (Permissions ›, Servers ›, its looks, Recent) and App data; or one of
+ * the ⚙'s pages (Public key, Name, Servers, Permissions) with ← back. Rows its manifest
+ * gives wait for the read; a built-in's `controls` choose, as in the ⚙.
+ *
+ * Depends on: kivuli, kivuli.ui, window.window, window.actions, window.info, window.pins, people.account, people.access, ui.settings, ui.grants, ui.shield, ui.cards, ui.frame, ui.icons, ui.tokens, ui.themes
+ * Used by: ui.layout
+ */
+import kivuli { View, Align, Border, Radius, column, row, text, image, scroll };
+import kivuli.ui { Button, button as ui_button, button_with as ui_button_with };
+import window.window { Model };
+import window.actions { Msg, Confirm };
+import window.info { Info, InfoPage };
+import window.pins { is_pinned };
+import people.account { account_of };
+import people.access { access_of };
+import guest.nodes { ButtonLook };
+import ui.settings {
+    section,
+    switch_row,
+    servers_page,
+    servers_summary,
+    name_page,
+    key_page,
+    name_shown,
+    looks_rows,
+    fact_row,
+    size,
+};
+import ui.grants;
+import ui.shield { facts, signature_label, checked_words, date };
+import ui.cards { choice, line, sentence };
+import ui.frame { icon_of, initial };
+import ui.icons { Icon, icon };
+import ui.tokens {
+    SPACE_XS,
+    SPACE_SM,
+    SPACE_MD,
+    SPACE_LG,
+    SPACE_XL,
+    CARD_ICON,
+    CARD_WIDTH,
+    CIRCLE,
+    INFO_ICON,
+    gap,
+    padding,
+    padding_xy,
+    square,
+    exactly,
+    margin_x,
+};
+import ui.themes { body, dim, title, group, button as button_look };
+import ui.schemes { Theme };
+
+/**
+ * Builds App info for `i`, scrolling when the window is short.
+ *
+ * Example:
+ *     appinfo.view(m, info)
+ */
+fun view(m: Model, i: Info): View<Msg> {
+    let t = m.theme;
+    let back = ui_button_with(
+        [
+            row([
+                image(icon(Icon.Back, t.text)).style([square(CARD_ICON)]).align(Align.Center),
+                text("All apps").style(body(t)).align(Align.Center),
+            ]).style([gap(SPACE_XS)]),
+        ],
+        Msg.CloseInfo,
+    // Its arrow flush with the column under it: no inset at the sides, its
+    // hover reaching out past the edge instead.
+    ).style([Button.ghost(), padding_xy(SPACE_XS, SPACE_XS), margin_x(-SPACE_XS)]).shortcut(
+        "Escape",
+    ).align(Align.Start);
+    let right = match i.at {
+        Main => main_page(m, i),
+        Key => [
+            page_title(t, "Public key"),
+            in_group(t, key_page(m, t, i.page, account_of(m, i.page)).map(padded)),
+        ],
+        Name => [
+            page_title(t, "Name"),
+            column(name_page(account_of(m, i.page))).style(group(t)).style([
+                padding(SPACE_MD),
+                gap(SPACE_SM),
+            ]),
+        ],
+        Servers => [
+            page_title(t, "Servers"),
+            in_group(t, servers_page(t, access_of(m, i.page)).map(padded)),
+        ],
+        Permissions => [
+            page_title(t, "Permissions"),
+            in_group(t, grants.page(m, t, i.page).map(padded)),
+        ],
+    };
+    let both = row([
+        column(who(m, i)).style([gap(SPACE_LG), exactly(CARD_WIDTH)]),
+        column(right).style([gap(SPACE_LG)]).expand(),
+    ]).style([gap(SPACE_XL)]);
+    scroll(column([back, both]).style([gap(SPACE_LG), padding(SPACE_LG)]))
+}
+
+/** The left column: who the app is, and Forget. */
+fun who(m: Model, i: Info): View<Msg>[] {
+    let t = m.theme;
+    let p = i.page;
+    let f = facts(p);
+    let face: View<Msg> = match icon_of(p.path, p.icon) {
+        Some(img) => image(img).style([square(INFO_ICON)]),
+        None => text(initial(p.name)).style(title(t)),
+    };
+    let mut names: View<Msg>[] = [text(p.name).style(title(t))];
+    if let Some(v) = p.manifest.map(fun(x) = x.version) {
+        names.push(text(v).style(dim(t)));
+    }
+    let mut top: View<Msg>[] = [
+        row([face.align(Align.Center), column(names).align(Align.Center)]).style([gap(SPACE_MD)]),
+    ];
+    if let Some(d) = p.manifest.and_then(fun(x) = x.description) {
+        top.push(sentence(t, d));
+    }
+    let pinned = is_pinned(m, i.app.path, i.app.origin);
+    top.push(
+        row([
+            ui_button("Open", Msg.OpenPinned(i.app.path, i.app.origin)).style(
+                button_look(t, ButtonLook.Primary),
+            ),
+            ui_button(
+                if pinned { "Unpin from dock" } else { "Pin to dock" },
+                Msg.InfoPin(!pinned),
+            ).style(button_look(t, ButtonLook.Normal)),
+        ]).style([gap(SPACE_SM)]),
+    );
+    let mut parts: View<Msg>[] = [column(top).style([gap(SPACE_MD)])];
+    // The shield's facts, as its pages say them (PRP-021).
+    let mut publisher: View<Msg>[] = [line(t, "Signed", signature_label(f.signature))];
+    if let Some(who) = f.publisher {
+        publisher.push(line(t, "Publisher", who));
+    }
+    if let Some(when) = f.since {
+        publisher.push(line(t, "Known", when));
+    }
+    if let Some(v) = f.version {
+        publisher.push(line(t, "Version", v));
+    }
+    if let Some(c) = p.cached {
+        publisher.push(line(t, "Updates", checked_words(c, m.now)));
+    }
+    parts.push(section(t, "Publisher", publisher.map(padded)));
+    let mut used: View<Msg>[] = [];
+    if i.app.first > 0 {
+        used.push(fact_row(t, "First opened", date(i.app.first)));
+    }
+    if i.app.last > 0 {
+        used.push(fact_row(t, "Last opened", date(i.app.last)));
+    }
+    if used.len > 0 {
+        parts.push(section(t, "Used", used));
+    }
+    if grants.shows_row(p, "forget") {
+        // Across the column, as the ⚙'s is.
+        parts.push(
+            ui_button("Forget this app…", Msg.Ask(Confirm.ForgetInfo)).style(
+                button_look(t, ButtonLook.Danger),
+            ),
+        );
+    }
+    parts
+}
+
+/** The right column's own page: the ⚙'s sections, keyed by this app. */
+fun main_page(m: Model, i: Info): View<Msg>[] {
+    let t = m.theme;
+    let p = i.page;
+    let shows = fun(r: string): bool = grants.shows_row(p, r);
+    let you = account_of(m, p);
+    let mut parts: View<Msg>[] = [];
+    // An unsigned app has no account: no section rather than a dead one.
+    if let Some(x) = you.person {
+        let mut rows: View<Msg>[] = [];
+        if shows("account.public_key") {
+            let said = if x.signs_in {
+                you.label.unwrap_or("Not signed in yet")
+            } else {
+                "Not shared"
+            };
+            rows.push(choice(t, "Public key", Some(said), Msg.InfoGo(InfoPage.Key)));
+        }
+        if shows("account.identity") {
+            rows.push(switch_row(t, "Sign in", "sign_in", x.signs_in, Msg.SetSignIn));
+            rows.push(choice(t, "Name", Some(name_shown(m, you)), Msg.InfoGo(InfoPage.Name)));
+        }
+        if rows.len > 0 {
+            parts.push(section(t, "Account", rows));
+        }
+    }
+    let mut app_rows: View<Msg>[] = [];
+    // Its manifest's rows wait for the read.
+    if i.ready && shows("app_settings.permissions") {
+        if let Some(said) = grants.summary(m, p) {
+            app_rows.push(choice(t, "Permissions", Some(said), Msg.InfoGo(InfoPage.Permissions)));
+        }
+    }
+    if i.ready && shows("app_settings.servers") {
+        app_rows.push(
+            choice(
+                t,
+                "Servers",
+                Some(servers_summary(access_of(m, p))),
+                Msg.InfoGo(InfoPage.Servers),
+            ),
+        );
+    }
+    for r of looks_rows(m, p) {
+        app_rows.push(r);
+    }
+    if app_rows.len > 0 {
+        parts.push(section(t, "App settings", app_rows));
+    }
+    // What it keeps here: its database and its kept copy, once read.
+    let kept = p.data_size.unwrap_or(0) + p.cached.map(fun(c) = c.size).unwrap_or(0);
+    if i.ready && shows("app_data.state") {
+        parts.push(section(t, "App data", [fact_row(t, "Data", size(kept))]));
+    }
+    parts
+}
+
+/** One of the ⚙'s pages' top: a round ← back to App info's own page, and its title. */
+fun page_title(t: Theme, words: string): View<Msg> {
+    let back = ui_button_with(
+        [image(icon(Icon.Back, t.text)).style([square(CARD_ICON)]).align(Align.Center)],
+        Msg.InfoGo(InfoPage.Main),
+    ).style([
+        Button.ghost(),
+        Button.icon(),
+        Border { radius: Radius.All(CIRCLE), ..Border.theme() },
+    ]).tooltip("Back");
+    row([back, text(words).style(title(t)).align(Align.Center)]).style([gap(SPACE_XS)])
+}
+
+/** A page's rows in one group, as the ⚙'s sections hold theirs. */
+fun in_group(t: Theme, rows: View<Msg>[]): View<Msg> = column(rows).style(group(t));
+
+/** A row padded as the ⚙'s rows are. */
+fun padded(v: View<Msg>): View<Msg> = row([v.expand()]).style([padding_xy(SPACE_SM, SPACE_MD)]);

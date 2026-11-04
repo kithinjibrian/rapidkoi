@@ -11,7 +11,7 @@
 import window.notices { for_tab, more_servers };
 import window.actions { Msg };
 import window.tabs { AppPage, Page };
-import window.window { Model, page_of };
+import window.window { Model, page_of, settings_page };
 import people.people { Person, person, with_person, known, with_setting };
 import bundles.permissions { Setting, parse };
 import net.requests { allowed };
@@ -61,8 +61,8 @@ fun access_of(m: Model, p: AppPage): Access {
  * Example:
  *     on_access(m, "api.acme.com")
  */
-fun on_access(m: Model, server: string): Model = match page_of(m) {
-    App(p) => match p.trust {
+fun on_access(m: Model, server: string): Model = match settings_page(m) {
+    Some(p) => match p.trust {
         Some(t) => {
             let x = person(m.people, t.host, t.origin);
             let off = if has(x.off, server) {
@@ -76,7 +76,7 @@ fun on_access(m: Model, server: string): Model = match page_of(m) {
         }
         None => m,
     },
-    _ => m,
+    None => m,
 };
 
 /**
@@ -198,9 +198,9 @@ fun key_of(p: AppPage): string = match p.trust {
  *     set_permission(m, "read_pins", Setting.Blocked)
  */
 fun set_permission(m: Model, name: string, s: Setting): Model {
-    let p = match page_of(m) {
-        App(a) => a,
-        Home => match m.newtab {
+    let p = match settings_page(m) {
+        Some(a) => a,
+        None => match m.newtab {
             Some(n) => n,
             None => {
                 return m;

@@ -8,7 +8,7 @@ import rapidkoi.guest.appanswers { answer_app, apps_of };
 import rapidkoi.guest.nodes { Effect };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.tabs { Pin, failed_page };
-import rapidkoi.window.actions { Msg, PinAction };
+import rapidkoi.window.actions { Msg };
 import rapidkoi.window.yourapps { App, Apps };
 import rapidkoi.data.remembered { Face };
 import kivuli { Cmd };
@@ -131,11 +131,9 @@ fun open_permissions_and_forget_are_the_window_s_own() {
     let key: u8[] = [7; 32];
     let notes = ("rapidkoi://notes.dafifi.net", Some(key));
     assert_eq(later(ask(two(), Effect.OpenApp(t("o"), 1)).2), [Msg.OpenPinned(notes.0, notes.1)]);
-    assert_eq(later(ask(two(), Effect.AppPermissions(t("o"), 1)).2), [
-        Msg.OnPin(notes.0, notes.1, PinAction.Permissions),
-    ]);
+    assert_eq(later(ask(two(), Effect.AppInfo(t("o"), 1)).2), [Msg.AppInfo(notes.0, notes.1)]);
     assert_eq(later(ask(two(), Effect.ForgetApp(t("o"), 1)).2), [
-        Msg.OnPin(notes.0, notes.1, PinAction.Forget),
+        Msg.ForgetFromInfo(notes.0, notes.1),
     ]);
     // Forget asks; nothing is forgotten here.
     assert_eq(ask(two(), Effect.ForgetApp(t("o"), 1)).0.apps.items.len, 2);

@@ -25,8 +25,11 @@ enum ButtonLook {
 enum Node {
     /** A kind this shell doesn't know: shown as a placeholder. */
     Unsupported(string),
-    /** A box (PRP-037): its look, what it is, the message a press sends, and its children. */
-    Boxed(Look, Facts, Option<Value>, Self[]),
+    /**
+     * A box (PRP-037): its look, what it is, the message a press sends, what
+     * a right-click does (PRP-070, PRP-071), and its children.
+     */
+    Boxed(Look, Facts, Option<Value>, Option<Context>, Self[]),
     /** A text, its look and what it is. */
     Words(string, Look, Facts),
     /** A text made of parts Rapidkoi fills in before drawing (PRP-053): never drawn as it is. */
@@ -35,6 +38,23 @@ enum Node {
     Field(Typing, Look),
     /** A picture (PRP-047), and its look. */
     Pictured(Picture, Look),
+}
+
+/**
+ * What a right-click on a box does: send the app a message (`on_context`,
+ * PRP-070), or open a menu Rapidkoi draws (`menu`, PRP-071). One or the
+ * other: kivuli answers a right-click once.
+ */
+enum Context {
+    Message(Value),
+    Menu(Choice[]),
+}
+
+/** One entry of a box's menu (PRP-071). */
+enum Choice {
+    /** Its label, the message picking it sends, and whether it's disabled. */
+    Item(string, Value, bool),
+    Separator,
 }
 
 /** One part of a text (PRP-053): plain words, or a value only Rapidkoi knows. */
@@ -366,8 +386,8 @@ enum Effect {
     PinApp(Value, i64),
     /** Unpin your app at this index (needs `manage_pins`); not answered. */
     UnpinApp(Value, i64),
-    /** Open your app at this index with Rapidkoi's panel on its permissions (needs `open_apps`); not answered. */
-    AppPermissions(Value, i64),
+    /** Show Rapidkoi's App info on your app at this index (needs `open_apps`, PRP-072); not answered. */
+    AppInfo(Value, i64),
     /** Open your app at this index with Rapidkoi's "Forget this app?" (needs `open_apps`); not answered. */
     ForgetApp(Value, i64),
 }

@@ -127,7 +127,7 @@ fun from_bytes_refuses_what_isnt_a_bundle() {
 /** Whether a decoded tree holds a picture labelled `label`. */
 fun pictured(n: Node, label: string): bool = match n {
     Pictured(p, _) => p.label == Some(label),
-    Boxed(_, _, _, kids) => kids.any(fun(k: Node) = pictured(k, label)),
+    Boxed(_, _, _, _, kids) => kids.any(fun(k: Node) = pictured(k, label)),
     _ => false,
 };
 

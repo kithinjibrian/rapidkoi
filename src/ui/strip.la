@@ -27,6 +27,7 @@ import kivuli {
     image,
 };
 import kivuli.ui {
+    Menu,
     button as ui_button,
     button_with as ui_button_with,
     dropdown_menu,
@@ -173,7 +174,7 @@ fun chip(m: Model, x: Tab, current: bool): View<Msg> {
         item("Rename…", Msg.RenameInstance(x.id)),
         menu_separator(),
         item("Close", Msg.CloseTab(x.id)),
-    ]).align(Align.Center);
+    ]).style([Menu.look()]).align(Align.Center);
     let close = ui_button_with(
         [image(iconsax(Icon.Close, t.on_frame)).style([square(CLOSE_ICON)]).align(Align.Center)],
         Msg.CloseTab(x.id),
