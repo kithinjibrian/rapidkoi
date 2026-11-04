@@ -14,6 +14,7 @@ import net.keeping { Refreshed };
 import net.network { Reply };
 import cbor { Value };
 import bundles.permissions { Permission, Setting };
+import window.info { Facts, InfoPage };
 
 /** A message to the shell. */
 enum Msg {
@@ -63,6 +64,18 @@ enum Msg {
     OpenSettings,
     /** Open All apps (PRP-067): the dock's last button; its tab when it's open. */
     OpenAllApps,
+    /** Show App info over All apps for the app at this path and first key (PRP-072). */
+    AppInfo(string, Option<u8[]>),
+    /** What App info's task read for that app. */
+    InfoRead(string, Option<u8[]>, Facts),
+    /** Show App info for that app with Rapidkoi's "Forget this app?" over it: All apps' Forget. */
+    ForgetFromInfo(string, Option<u8[]>),
+    /** ← All apps: close App info. */
+    CloseInfo,
+    /** Pin App info's app (true) or unpin it. */
+    InfoPin(bool),
+    /** Show this page in App info's right column. */
+    InfoGo(InfoPage),
     /** ☰'s Open App… and Ctrl+O (PRP-058): the system's chooser for a local app file. */
     OpenApp,
     /** The app file the person chose, or `None` when they cancelled. */
@@ -211,8 +224,6 @@ enum PinAction {
     Unpin,
     /** Open it, with the panel's "Forget this app?" question. */
     Forget,
-    /** Open it, with the panel on its permissions (PRP-067: from All apps). */
-    Permissions,
 }
 
 /** The shield's card's pages (PRP-021). */
@@ -263,4 +274,6 @@ enum Answer {
 enum Confirm {
     /** Forget the app in this tab entirely (PRP-052); the tab it was asked about (PRP-057). */
     Forget(i64),
+    /** Forget App info's app, which may not be open (PRP-072). */
+    ForgetInfo,
 }

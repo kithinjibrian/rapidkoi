@@ -10,6 +10,7 @@ import window.window { Model, add_tab, open_tab_of, show_tab, close };
 import window.notices { for_rapidkoi, settings_failed, all_apps_failed };
 import window.settings_app;
 import window.allapps;
+import window.appinfo { close_info };
 import bundles.loader { why };
 
 /**
@@ -63,16 +64,21 @@ fun open_all_apps(m: Model): Model {
  * Example:
  *     left_all_apps(m, next)
  */
-fun left_all_apps(before: Model, after: Model): Model = match open_tab_of(
-    after,
-    allapps.ALL_APPS_KEY,
-) {
-    Some(id) if before.current == Some(id) && after.current != Some(id) => Model {
-        before_all_apps: None,
-        ..close(after, id),
-    },
-    _ => after,
-};
+fun left_all_apps(before: Model, after: Model): Model {
+    let left = match open_tab_of(after, allapps.ALL_APPS_KEY) {
+        Some(id) if before.current == Some(id) && after.current != Some(id) => Model {
+            before_all_apps: None,
+            ..close(after, id),
+        },
+        _ => after,
+    };
+    // App info is All apps' (PRP-072): away from it, it closes.
+    match (left.info, open_tab_of(left, allapps.ALL_APPS_KEY)) {
+        (Some(_), Some(id)) if left.current == Some(id) => left,
+        (Some(_), _) => close_info(left),
+        (None, _) => left,
+    }
+}
 
 /** All apps closed from its button: back to the tab you were on, when it's still open. */
 fun closed_all_apps(m: Model, id: i64): Model {

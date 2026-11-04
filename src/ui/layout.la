@@ -9,6 +9,8 @@
  * Used by: shell
  */
 import ui.questions;
+import ui.appinfo;
+import window.allapps { ALL_APPS_KEY };
 import kivuli { View, Align, Scheme, Overflowing, column, row, scroll, clip };
 import window.actions { Msg };
 import window.tabs { Page };
@@ -43,6 +45,11 @@ import ui.frame_looks { tooltips, frame as frame_look, sidebar as side_look };
  */
 fun content_area(m: Model): View<Msg> = match page_of(m) {
     // On an app page m.current is Some: page_of found its tab.
+    // App info, Rapidkoi's own screen in All apps' place (PRP-072).
+    App(a) if a.path == ALL_APPS_KEY && m.info.is_some() => match m.info {
+        Some(i) => appinfo.view(m, i),
+        None => app_view(m.current.unwrap_or(-1), a, m),
+    },
     App(a) => {
         let shown = app_view(m.current.unwrap_or(-1), a, m);
         // An app pads itself, so what it scrolls is cut at the window's edge

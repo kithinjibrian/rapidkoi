@@ -43,7 +43,7 @@ import window.remembering { noted };
 import trust.verify { identities, changes, moves };
 import window.window { Model, Notice, page_of };
 import window.notices { joined, with_more, couldnt_save };
-import window.tabs { Tab, state_of, state_version_of };
+import window.tabs { Tab, AppPage, state_of, state_version_of };
 
 /**
  * This session's data folder, from `$XDG_DATA_HOME` and `$HOME`.
@@ -196,11 +196,22 @@ fun persist(before: Model, given: Model, at: Mark): Model {
  * Example:
  *     forgotten(m, window.forget(m))
  */
-fun forgotten(before: Model, after: Model): Model {
+fun forgotten(before: Model, after: Model): Model = match page_of(before) {
     // The app forgotten is the one that was in front.
-    let (s, a) = match (after.store, page_of(before)) {
-        (Some(s), App(a)) => (s, a),
-        _ => {
+    App(a) => forgotten_of(a, after),
+    _ => after,
+};
+
+/**
+ * `forgotten` for app page `a`, open or not (PRP-072: App info).
+ *
+ * Example:
+ *     forgotten_of(info.page, next)
+ */
+fun forgotten_of(a: AppPage, after: Model): Model {
+    let s = match after.store {
+        Some(s) => s,
+        None => {
             return after;
         }
     };

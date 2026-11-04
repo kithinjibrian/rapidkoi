@@ -103,3 +103,23 @@ fun a_tile_s_menu_opens_and_pins_it() {
     let (pinned, _) = update(opened, pick(view(opened), "Counter", "Pin to dock").unwrap());
     assert(pinned.pinned.any(fun(p: Pin) = p.path == "counter.rkb"));
 }
+
+@test
+fun a_tile_s_app_info_shows_rapidkoi_s_screen() {
+    // PRP-072: All apps asks; Rapidkoi shows App info in its place.
+    let (m, _) = start(["./main"], None);
+    let counter = App {
+        path: "counter.rkb",
+        origin: None,
+        host: None,
+        face: Face { path: "counter.rkb", name: "Counter", icon: None, colour: None },
+        first: 1,
+        last: 1,
+    };
+    let (opened, _) = update(Model { apps: kept(m.apps, counter), ..m }, Msg.OpenAllApps);
+    let (_, c) = update(opened, pick(view(opened), "Counter", "App info").unwrap());
+    assert_eq(later(c), [Msg.AppInfo("counter.rkb", None)]);
+    let (info, _) = update(opened, Msg.AppInfo("counter.rkb", None));
+    assert(click(view(info), "Pin to dock").is_ok());
+    assert(click(view(info), "Forget this app…").is_ok());
+}

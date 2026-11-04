@@ -1,0 +1,165 @@
+// App info (PRP-072): Rapidkoi's own screen over All apps, about an app
+// that needn't be open. It never starts the app; its changes are the ⚙'s;
+// Forget here forgets without opening. No display: what the task reads is
+// handed to `update` as its message would be.
+import rapidkoi.shell { start, update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.window.actions { Msg, Confirm };
+import rapidkoi.window.window { Model };
+import rapidkoi.window.tabs { Pin };
+import rapidkoi.window.yourapps { App, opened as kept };
+import rapidkoi.window.info { Facts, InfoPage, no_facts };
+import rapidkoi.data.remembered { Face };
+import rapidkoi.bundles.bundle { Manifest, Controls };
+import rapidkoi.bundles.permissions { Permission, Setting };
+import rapidkoi.people.people { setting_of, looks_of };
+import kivuli.testing { texts, click, flip };
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+/** Whether a button with this label is there and sends something. */
+fun button(m: Model, s: string): bool = click(view(m), s).is_ok();
+
+fun counter(): App = App {
+    path: "counter.rkb",
+    origin: None,
+    host: None,
+    face: Face { path: "counter.rkb", name: "Counter", icon: None, colour: None },
+    first: 1762000000000,
+    last: 1762100000000,
+};
+
+fun manifest(controls: Option<Controls>): Manifest = Manifest {
+    contract: 11,
+    name: "Counter",
+    version: "0.3.0",
+    description: None,
+    state_version: 1,
+    icon: None,
+    banners: [],
+    servers: [],
+    permissions: ["notifications"],
+    controls: controls,
+    primary_color: None,
+};
+
+/** All apps open, Counter one of your apps, and App info on it: nothing read yet. */
+fun on_counter(): Model {
+    let (m, _) = start(["./main"], None);
+    let (all, _) = update(Model { apps: kept(m.apps, counter()), ..m }, Msg.OpenAllApps);
+    let (shown, _) = update(all, Msg.AppInfo("counter.rkb", None));
+    shown
+}
+
+/** `m` with what the task read for Counter. */
+fun read_back(m: Model, f: Facts): Model = update(m, Msg.InfoRead("counter.rkb", None, f)).0;
+
+@test
+fun it_shows_an_app_that_isn_t_open_without_starting_it() {
+    let m = on_counter();
+    let count = m.tabs.len;
+    assert(m.info.is_some());
+    assert(shows(m, "Counter"));
+    assert(button(m, "Open"));
+    assert(button(m, "Pin to dock"));
+    assert(button(m, "Forget this app…"));
+    assert(shows(m, "First opened"));
+    // Its manifest's rows wait for the read.
+    assert(!shows(m, "App data"));
+    let ready = read_back(m, Facts {
+        manifest: Some(manifest(None)),
+        data: Some(2048),
+        ..no_facts(),
+    });
+    assert(shows(ready, "App data"));
+    assert(shows(ready, "2 KB"));
+    assert(shows(ready, "Version"));
+    // Nothing started: no new tab.
+    assert_eq(ready.tabs.len, count);
+}
+
+@test
+fun a_read_for_another_app_is_dropped() {
+    let m = on_counter();
+    let (other, _) = update(
+        m,
+        Msg.InfoRead("notes.rkb", None, Facts { data: Some(9), ..no_facts() }),
+    );
+    assert_eq(other.info.map(fun(i) = i.ready), Some(false));
+    // An app that isn't one of yours shows nothing.
+    let (none, _) = update(Model { info: None, ..m }, Msg.AppInfo("nowhere.rkb", None));
+    assert(none.info.is_none());
+}
+
+@test
+fun its_changes_are_the_app_s_own_settings() {
+    let m = read_back(on_counter(), Facts { manifest: Some(manifest(None)), ..no_facts() });
+    let (blocked, _) = update(m, Msg.SetPermission("notifications", Setting.Blocked));
+    assert_eq(setting_of(blocked.people, "counter.rkb", Permission.Notify), Setting.Blocked);
+    let (own, _) = update(blocked, flip(view(blocked), "use_my_colours").unwrap());
+    assert_eq(looks_of(own.people, "counter.rkb").0, true);
+}
+
+@test
+fun back_and_leaving_all_apps_close_it() {
+    let m = on_counter();
+    // ← All apps is Escape's button; the tab chip and the dock say All apps too.
+    let (back, _) = update(m, Msg.CloseInfo);
+    assert(back.info.is_none());
+    assert(shows(back, "Counter"));
+    // Open leaves All apps, and App info with it.
+    let (opened, _) = update(m, Msg.NewTab);
+    assert(opened.info.is_none());
+}
+
+@test
+fun pin_and_unpin_from_it() {
+    let m = on_counter();
+    let (pinned, _) = update(m, click(view(m), "Pin to dock").unwrap());
+    assert(pinned.pinned.any(fun(p: Pin) = p.path == "counter.rkb"));
+    assert(button(pinned, "Unpin from dock"));
+    let (unpinned, _) = update(pinned, Msg.InfoPin(false));
+    assert(!unpinned.pinned.any(fun(p: Pin) = p.path == "counter.rkb"));
+}
+
+@test
+fun forget_asks_then_forgets_without_opening_it() {
+    let m = on_counter();
+    let count = m.tabs.len;
+    let (asked, _) = update(m, click(view(m), "Forget this app…").unwrap());
+    assert_eq(asked.confirm, Some(Confirm.ForgetInfo));
+    assert(shows(asked, "Forget Counter?"));
+    let (gone, _) = update(asked, Msg.Forget);
+    assert(gone.info.is_none());
+    assert(!gone.apps.items.any(fun(a: App) = a.path == "counter.rkb"));
+    assert_eq(gone.tabs.len, count);
+    // All apps' own Forget asks the same, over App info.
+    let (from_all, _) = update(on_counter(), Msg.ForgetFromInfo("counter.rkb", None));
+    assert_eq(from_all.confirm, Some(Confirm.ForgetInfo));
+}
+
+@test
+fun a_built_in_shows_only_its_controls_rows() {
+    let only_looks = Controls { address: [], settings: ["app_settings.looks"] };
+    let m = read_back(on_counter(), Facts {
+        manifest: Some(manifest(Some(only_looks))),
+        data: Some(1),
+        ..no_facts(),
+    });
+    assert(shows(m, "Use my colours"));
+    assert(!shows(m, "App data"));
+    assert(!button(m, "Forget this app…"));
+}
+
+@test
+fun the_settings_pages_open_beside_it_and_come_back() {
+    let m = read_back(on_counter(), Facts { manifest: Some(manifest(None)), ..no_facts() });
+    let (perms, _) = update(m, Msg.InfoGo(InfoPage.Permissions));
+    assert_eq(perms.info.map(fun(i) = i.at), Some(InfoPage.Permissions));
+    // The left column stays.
+    assert(shows(perms, "Counter"));
+    let (back, _) = update(perms, click(view(perms), "Back").unwrap());
+    assert_eq(back.info.map(fun(i) = i.at), Some(InfoPage.Main));
+    let (servers, _) = update(back, Msg.InfoGo(InfoPage.Servers));
+    assert_eq(servers.info.map(fun(i) = i.at), Some(InfoPage.Servers));
+}

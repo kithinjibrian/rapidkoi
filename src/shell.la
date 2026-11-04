@@ -30,6 +30,7 @@ import people.people { with_looks };
 import window.window { Model };
 import window.navigate;
 import window.ownapps;
+import window.appinfo;
 import window.pins;
 import window.zones;
 import window.instances { close_instance, close_app, start_rename, confirm_rename };
@@ -251,10 +252,22 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     Quit => (m, Cmd.quit()),
     OwnLooks(key, c, t) => (Model { people: with_looks(m.people, key, c, t), ..m }, Cmd.none()),
     ShowInRecent(key, on) => (pins.shown_in_recent(m, key, on), Cmd.none()),
+    AppInfo(path, origin) => appinfo.open_info(m, path, origin),
+    InfoRead(path, origin, f) => (appinfo.arrived(m, path, origin, f), Cmd.none()),
+    ForgetFromInfo(path, origin) => {
+        let (shown, cmd) = appinfo.open_info(m, path, origin);
+        let asked = if shown.info.is_some() { Some(Confirm.ForgetInfo) } else { shown.confirm };
+        (Model { confirm: asked, ..shown }, cmd)
+    }
+    CloseInfo => (appinfo.close_info(m), Cmd.none()),
+    InfoPin(on) => (appinfo.pinned(m, on), Cmd.none()),
+    InfoGo(page) => (appinfo.went(m, page), Cmd.none()),
     PanelGo(page) => (Model { panel: Some(page), ..m }, Cmd.none()),
     PanelBack => (Model { panel: Some(PanelPage.Main), ..m }, Cmd.none()),
     Ask(c) => (Model { confirm: Some(c), ..m }, Cmd.none()),
     Cancel => (Model { confirm: None, renaming: None, ..m }, Cmd.none()),
+    // App info's app, open or not (PRP-072).
+    Forget if m.confirm == Some(Confirm.ForgetInfo) => (appinfo.forget_info(m), Cmd.none()),
     Forget => {
         // The app the question asked about, wherever you are now (PRP-057).
         let m = match m.confirm {
@@ -262,7 +275,7 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
             Some(Forget(_)) => {
                 return (Model { confirm: None, ..m }, Cmd.none());
             }
-            None => m,
+            _ => m,
         };
         // Its database and its kept copy go with it (PRP-041, PRP-043); a failure is the notice.
         // Its next key is kept past it in forget_account (PRP-052), which never depends on these.

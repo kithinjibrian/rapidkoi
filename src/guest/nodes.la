@@ -386,8 +386,8 @@ enum Effect {
     PinApp(Value, i64),
     /** Unpin your app at this index (needs `manage_pins`); not answered. */
     UnpinApp(Value, i64),
-    /** Open your app at this index with Rapidkoi's panel on its permissions (needs `open_apps`); not answered. */
-    AppPermissions(Value, i64),
+    /** Show Rapidkoi's App info on your app at this index (needs `open_apps`, PRP-072); not answered. */
+    AppInfo(Value, i64),
     /** Open your app at this index with Rapidkoi's "Forget this app?" (needs `open_apps`); not answered. */
     ForgetApp(Value, i64),
 }

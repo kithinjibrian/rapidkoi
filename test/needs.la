@@ -9,7 +9,7 @@ import support { t };
 fun all_apps_asks_need_theirs() {
     assert_eq(needed(Effect.Apps(t("a"))), Some(Permission.ReadApps));
     assert_eq(needed(Effect.OpenApp(t("a"), 0)), Some(Permission.OpenApps));
-    assert_eq(needed(Effect.AppPermissions(t("a"), 0)), Some(Permission.OpenApps));
+    assert_eq(needed(Effect.AppInfo(t("a"), 0)), Some(Permission.OpenApps));
     assert_eq(needed(Effect.ForgetApp(t("a"), 0)), Some(Permission.OpenApps));
     assert_eq(needed(Effect.PinApp(t("a"), 0)), Some(Permission.ManagePins));
     assert_eq(needed(Effect.UnpinApp(t("a"), 0)), Some(Permission.ManagePins));

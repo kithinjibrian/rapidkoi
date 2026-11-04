@@ -76,29 +76,18 @@ fn each_action_asks_for_its_app_by_index() {
     assert_eq!(send(three(), Msg::Open(2), None).asks(), &[Ask::open_app("open", 2)]);
     assert_eq!(send(three(), Msg::Pin(1), None).asks(), &[Ask::pin_app("pin", 1)]);
     assert_eq!(send(three(), Msg::Unpin(1), None).asks(), &[Ask::unpin_app("unpin", 1)]);
-    assert_eq!(send(three(), Msg::Permissions(0), None).asks(), &[Ask::app_permissions("permissions", 0)]);
+    assert_eq!(send(three(), Msg::Info(0), None).asks(), &[Ask::app_info("info", 0)]);
     assert_eq!(send(three(), Msg::Forget(0), None).asks(), &[Ask::forget_app("forget", 0)]);
 }
 
 #[test]
-fn details_open_and_close() {
-    let open = send(three(), Msg::Details(1), None).into_state();
-    assert_eq!(open.details, Some(1));
-    // Pressed again, it closes; asking for anything closes it too.
-    assert_eq!(send(open.clone(), Msg::Details(1), None).into_state().details, None);
-    assert_eq!(send(open, Msg::Pin(1), None).into_state().details, None);
-    // Its view differs while it's open.
-    assert_ne!(three().view(), send(three(), Msg::Details(1), None).into_state().view());
-}
-
-#[test]
-fn each_tile_has_a_menu_of_what_its_details_offer() {
-    // PRP-071: Open, the pin item for its state, Permissions and Forget.
+fn each_tile_has_a_menu() {
+    // PRP-071, PRP-072: Open, the pin item for its state, App info and Forget.
     let a = three().apps[1].clone();
     let expected = vec![
         item("Open", Msg::Open(1)),
         item("Pin to dock", Msg::Pin(1)),
-        item("Permissions", Msg::Permissions(1)),
+        item("App info", Msg::Info(1)),
         separator(),
         item("Forget this app…", Msg::Forget(1)),
     ];

@@ -1,6 +1,6 @@
 /**
  * All apps' asks (PRP-067): `apps`, and `open_app`, `pin_app`,
- * `unpin_app`, `app_permissions` and `forget_app` by index, read and held
+ * `unpin_app`, `app_info` and `forget_app` by index, read and held
  * to their shapes before anything is done. A bad one stops the app with
  * its sentence, as other bad asks do. Whether the app may is
  * `guest.needs`' question.
@@ -36,8 +36,8 @@ fun app_ask_of(kind: string, msg: Value, e: Value): Result<Option<Effect>, Contr
     if kind == "unpin_app" {
         return Ok(Some(Effect.UnpinApp(msg, index_of(e, kind)?)));
     }
-    if kind == "app_permissions" {
-        return Ok(Some(Effect.AppPermissions(msg, index_of(e, kind)?)));
+    if kind == "app_info" {
+        return Ok(Some(Effect.AppInfo(msg, index_of(e, kind)?)));
     }
     if kind == "forget_app" {
         return Ok(Some(Effect.ForgetApp(msg, index_of(e, kind)?)));

@@ -232,7 +232,7 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
             (held, now, msg)
         }
         // All apps (PRP-067): `appanswers`'.
-        Apps(msg) | OpenApp(msg, _) | PinApp(msg, _) | UnpinApp(msg, _) | AppPermissions(msg, _) | ForgetApp(msg, _) => {
+        Apps(msg) | OpenApp(msg, _) | PinApp(msg, _) | UnpinApp(msg, _) | AppInfo(msg, _) | ForgetApp(msg, _) => {
             let (held, now, send) = answer_app(m, p, ask, grant);
             sends.push(send);
             (held, now, msg)

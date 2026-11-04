@@ -24,22 +24,28 @@ import people.people { with_shown_in_recent };
  *     forget(m)
  */
 fun forget(m: Model): Model = match (m.current, page_of(m)) {
-    (Some(id), App(a)) => {
-        let closed = close(m, id);
-        Model {
-            pinned: closed.pinned.filter(fun(p: Pin) = !pins_app(p, a.path, origin_of(a))),
-            // Its places go too (PRP-062).
-            recent: forget_app(closed.recent, a.path, origin_of(a)),
-            // And its notifications (PRP-065).
-            notifications: forget_notifications(closed.notifications, a.path, origin_of(a)),
-            // And it's no longer one of your apps (PRP-067).
-            apps: forgotten(closed.apps, a.path, origin_of(a)),
-            panel: None,
-            confirm: None,
-            ..closed,
-        }
-    }
+    (Some(id), App(a)) => forget_of(close(m, id), a),
     _ => m,
+};
+
+/**
+ * Forgets app page `a`'s pin, places, notifications and place in your apps,
+ * open or not (PRP-072: App info); its tabs are the caller's.
+ *
+ * Example:
+ *     forget_of(m, info.page)
+ */
+fun forget_of(m: Model, a: AppPage): Model = Model {
+    pinned: m.pinned.filter(fun(p: Pin) = !pins_app(p, a.path, origin_of(a))),
+    // Its places go too (PRP-062).
+    recent: forget_app(m.recent, a.path, origin_of(a)),
+    // And its notifications (PRP-065).
+    notifications: forget_notifications(m.notifications, a.path, origin_of(a)),
+    // And it's no longer one of your apps (PRP-067).
+    apps: forgotten(m.apps, a.path, origin_of(a)),
+    panel: None,
+    confirm: None,
+    ..m,
 };
 
 /**

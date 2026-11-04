@@ -392,10 +392,6 @@ fun on_pin(
         let tab = opened.current.unwrap_or(-1);
         (Model { panel: Some(PanelPage.Main), confirm: Some(Confirm.Forget(tab)), ..opened }, cmd)
     }
-    Permissions => {
-        let (opened, cmd) = open_pin(m, path, origin);
-        (Model { panel: Some(PanelPage.Permissions), ..opened }, cmd)
-    }
 };
 
 /**

@@ -19,6 +19,7 @@ import window.tabs { Page, Tab, Pin, AppPage, state_of, close_page };
 import window.recent { Recent, no_recent, remember };
 import window.notifications { Notifications, no_notifications };
 import window.yourapps { Apps, no_apps };
+import window.info { Info };
 import guest.modules { Modules, no_modules };
 import data.remembered { Open };
 import guest.nodes { BatchStep };
@@ -96,6 +97,8 @@ struct Model {
     apps: Apps,
     /** The tab you were on when All apps opened: where closing it takes you back (PRP-067). */
     before_all_apps: Option<i64>,
+    /** App info over All apps (PRP-072): the app it's about. */
+    info: Option<Info>,
     /** Compiled modules kept for the run (PRP-068): an app opened again compiles nothing. */
     modules: Modules,
     /** Rapidkoi's own notice (PRP-051): about its files, your identity, its data folder; it follows you. */
@@ -173,6 +176,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         notifications: no_notifications(),
         apps: no_apps(),
         before_all_apps: None,
+        info: None,
         modules: no_modules(),
         notice: None,
         tab_notices: [],
@@ -215,6 +219,19 @@ fun page_of(m: Model): Page = match m.current {
         None => Page.Home,
     },
     None => Page.Home,
+};
+
+/**
+ * Returns the app the ⚙'s rows act on (PRP-072): App info's, while it's
+ * shown, else the app in front; `None` on home.
+ *
+ * Example:
+ *     settings_page(m)
+ */
+fun settings_page(m: Model): Option<AppPage> = match (m.info, page_of(m)) {
+    (Some(i), _) => Some(i.page),
+    (None, App(a)) => Some(a),
+    (None, Home) => None,
 };
 
 /**

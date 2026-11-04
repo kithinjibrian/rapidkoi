@@ -1,0 +1,51 @@
+/**
+ * App info's state (PRP-072), data only: the app it's about, the page
+ * Rapidkoi builds for it without starting it, and what was read for it in
+ * a task. Its changes are `window.appinfo`'s, its screen `ui.appinfo`'s.
+ *
+ * Depends on: bundles.bundle, trust.verify, window.tabs, window.yourapps
+ * Used by: window.window, window.actions, window.appinfo, ui.appinfo
+ */
+import bundles.bundle { Manifest };
+import trust.verify { Trust };
+import window.tabs { AppPage, Cached };
+import window.yourapps { App };
+
+/** Which page of App info is shown: its own, or one of the ⚙'s pages beside it. */
+enum InfoPage {
+    Main,
+    Key,
+    Name,
+    Servers,
+    Permissions,
+}
+
+/** App info, while it's shown over All apps. */
+struct Info {
+    /** The app, as your apps keep it. */
+    app: App,
+    /**
+     * Its page, never started: its name, icon, manifest and trust, as the
+     * ⚙ and the shield read them. What was read fills it in.
+     */
+    page: AppPage,
+    /** Whether the read has come back: until then, rows from its manifest wait. */
+    ready: bool,
+    /** The page shown in its right column. */
+    at: InfoPage,
+}
+
+/** What a task read for an app that isn't open: each part `None` when it couldn't be read. */
+struct Facts {
+    /** Its manifest, checked as at opening. */
+    manifest: Option<Manifest>,
+    /** Who signed it, checked as at opening, or as last trusted. */
+    trust: Option<Trust>,
+    /** Its kept copy, when it's a signed app Rapidkoi keeps. */
+    cached: Option<Cached>,
+    /** Its database's size in bytes. */
+    data: Option<i64>,
+}
+
+/** Nothing read. */
+fun no_facts(): Facts = Facts { manifest: None, trust: None, cached: None, data: None };

@@ -29,6 +29,10 @@ fun asked_here(m: Model): bool {
             return true;
         }
     }
+    // Over App info, which is shown only in front (PRP-072).
+    if m.confirm == Some(Confirm.ForgetInfo) && m.info.is_some() {
+        return true;
+    }
     match m.approval {
         // The new tab's ask shows over the new tab, on an empty tab.
         Some(a) => a.tab == m.current || a.tab.is_none() && m.current.map(
