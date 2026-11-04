@@ -19,8 +19,8 @@ use rapidkoi::style::{
     TextSize, Weight, When,
 };
 use rapidkoi::{
-    column, image, input, layers, row, spacer, text, text_of, wrap, App, Apps, Ask, Event, Message, Next, Space,
-    State, View,
+    column, image, input, item, layers, row, separator, spacer, text, text_of, wrap, App, Apps, Ask, Choice, Event,
+    Message, Next, Space, State, View,
 };
 
 /// What All apps' screen sends.
@@ -226,8 +226,8 @@ impl AllApps {
         if first {
             look.push(Border::all(2, Color::system("accent")));
         }
-        // Its details on a right-click (PRP-070): no ⋯ on the tile (the owner, 2026-11-03).
-        column(lines).style(look).label(&a.name).on_press(Msg::Open(a.at)).on_context(Msg::Details(a.at))
+        // A menu on a right-click (PRP-071): no ⋯ on the tile (the owner, 2026-11-03).
+        column(lines).style(look).label(&a.name).on_press(Msg::Open(a.at)).menu(menu_of(a))
     }
 }
 
@@ -376,3 +376,15 @@ rapidkoi::export!(AllApps);
 
 #[cfg(test)]
 mod tests;
+
+/// A tile's right-click menu (PRP-071): what its details card offers.
+fn menu_of(a: &Item) -> Vec<Choice<Msg>> {
+    let pin = if a.pinned { item("Unpin from dock", Msg::Unpin(a.at)) } else { item("Pin to dock", Msg::Pin(a.at)) };
+    vec![
+        item("Open", Msg::Open(a.at)),
+        pin,
+        item("Permissions", Msg::Permissions(a.at)),
+        separator(),
+        item("Forget this app…", Msg::Forget(a.at)),
+    ]
+}

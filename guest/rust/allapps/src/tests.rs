@@ -92,9 +92,21 @@ fn details_open_and_close() {
 }
 
 #[test]
-fn each_tile_answers_a_right_click_with_its_details() {
-    // PRP-070: the tiles carry on_context; Msg::Details opens the card.
+fn each_tile_has_a_menu_of_what_its_details_offer() {
+    // PRP-071: Open, the pin item for its state, Permissions and Forget.
+    let a = three().apps[1].clone();
+    let expected = vec![
+        item("Open", Msg::Open(1)),
+        item("Pin to dock", Msg::Pin(1)),
+        item("Permissions", Msg::Permissions(1)),
+        separator(),
+        item("Forget this app…", Msg::Forget(1)),
+    ];
+    assert_eq!(rapidkoi::raw::boxed().menu(menu_of(&a)), rapidkoi::raw::boxed().menu(expected));
+    let pinned = Item { pinned: true, ..a };
+    let unpin = rapidkoi::raw::boxed().menu(menu_of(&pinned)).encode();
+    assert!(unpin.windows(15).any(|w| w == b"Unpin from dock"));
     let bytes = three().view().encode();
-    assert!(bytes.windows(10).any(|w| w == b"on_context"));
-    assert_eq!(send(three(), Msg::Details(2), None).into_state().details, Some(2));
+    assert!(bytes.windows(4).any(|w| w == b"menu"));
+    assert!(!bytes.windows(10).any(|w| w == b"on_context"));
 }

@@ -23,6 +23,9 @@ import kivuli {
     State,
     button,
     button_with,
+    item,
+    menu_separator,
+    MenuEntry,
     column,
     input,
     row,
@@ -39,12 +42,25 @@ import kivuli {
 };
 import cbor { Value };
 
-import guest.nodes { Look, Facts, Typing, Direction, Node, ButtonLook, Axis, Part, Spot };
+import guest.nodes {
+    Look,
+    Facts,
+    Typing,
+    Direction,
+    Node,
+    Context,
+    Choice,
+    ButtonLook,
+    Axis,
+    Part,
+    Spot,
+};
 import ui.tokens { SPACE_SM, RING_WIDTH, gap, margin, padding_xy };
 import ui.themes { body, dim, title, heading, field, paint as theme_paint, button as button_look };
 import ui.schemes { Theme };
 import ui.paint { Own, AS_STYLED, resolve_for, styles_of, align_of };
 import ui.pictured { picture_view };
+import kivuli.ui { Menu as MenuLook };
 
 /** What the shell's window sends its `update`. */
 enum Msg {
@@ -112,7 +128,7 @@ fun boxed(
     look: Look,
     facts: Facts,
     press: Option<Value>,
-    context: Option<Value>,
+    context: Option<Context>,
     kids: Node[],
     t: Theme,
     own: Own,
@@ -146,9 +162,13 @@ fun boxed(
         }
         None => spaced,
     };
-    // Its right-click, unless it's disabled: a disabled box sends nothing.
+    // Its right-click, unless it's disabled: a disabled box sends nothing
+    // and opens no menu.
     let answering = fun(v: View<Msg>): View<Msg> = match context {
-        Some(c) if !facts.disabled => v.on_context(Msg.Event(c, None)),
+        Some(Message(c)) if !facts.disabled => v.on_context(Msg.Event(c, None)),
+        // In the palette's popover colours: without a look of its own, the
+        // menu's words are drawn bare over the box.
+        Some(Menu(cs)) if !facts.disabled => v.menu(cs.map(entry)).style([MenuLook.look()]),
         _ => v,
     };
     match press {
@@ -163,6 +183,12 @@ fun boxed(
         None => placed(answering(spaced.style(styles)), look, Align.Fill),
     }
 }
+
+/** One entry of an app's menu (PRP-071): picking an item sends its message as a press does. */
+fun entry(c: Choice): MenuEntry<Msg> = match c {
+    Item(label, m, off) => item(label, Msg.Event(m, None)).disabled(off),
+    Separator => menu_separator(),
+};
 
 /** A box's children in its direction (contract 10 adds layers, wrapping and fitting rows). */
 fun laid_out(look: Look, kids: Node[], inside: View<Msg>[]): View<Msg> = match look.direction {

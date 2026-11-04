@@ -3,6 +3,8 @@
 import rapidkoi.guest.tree { read_tree };
 import rapidkoi.guest.nodes {
     Node,
+    Context,
+    Choice,
     Typing,
     Role,
     Colour,
@@ -12,7 +14,7 @@ import rapidkoi.guest.nodes {
     Which,
     Show,
 };
-import rapidkoi.guest.limits { MAX_NODES, MAX_NODE_DEPTH };
+import rapidkoi.guest.limits { MAX_NODES, MAX_NODE_DEPTH, MAX_MENU };
 import cbor { Value, encode };
 import support { t, kv, leaf, parent };
 
@@ -282,7 +284,7 @@ fun a_box_s_right_click_message_is_read() {
         leaf("text", [("text", t("Notes"))]),
     ]);
     match read(tile) {
-        Ok(Boxed(_, _, Some(press), Some(context), _)) => assert_eq(
+        Ok(Boxed(_, _, Some(press), Some(Message(context)), _)) => assert_eq(
             (press == t("open"), context == t("details")),
             (true, true),
         ),
@@ -292,4 +294,71 @@ fun a_box_s_right_click_message_is_read() {
         Ok(Boxed(_, _, None, None, _)) => {}
         _ => panic("expected a plain box"),
     }
+}
+
+/** A menu item, as an app writes it. */
+fun choice(label: string, msg: string): Value = kv([("label", t(label)), ("on_pick", t(msg))]);
+
+/** A pressable box with `menu` set to `entries`. */
+fun with_menu(entries: Value): Value = parent("box", [("on_press", t("open")), ("menu", entries)], [
+    leaf("text", [("text", t("Notes"))]),
+]);
+
+@test
+fun a_box_s_menu_is_read() {
+    // PRP-071: items, a separator, and a disabled item, in order.
+    let off = kv([
+        ("label", t("Forget")),
+        ("on_pick", t("forget")),
+        ("disabled", Value.Bool(true)),
+    ]);
+    let entries = Value.Array([choice("Open", "open"), kv([("separator", Value.Bool(true))]), off]);
+    match read(with_menu(entries)) {
+        Ok(Boxed(_, _, Some(_), Some(Menu(cs)), _)) => assert_eq(
+            cs == [
+                Choice.Item("Open", t("open"), false),
+                Choice.Separator,
+                Choice.Item("Forget", t("forget"), true),
+            ],
+            true,
+        ),
+        _ => panic("expected a box with a menu"),
+    }
+}
+
+@test
+fun a_bad_menu_stops_the_app() {
+    let bad = fun(entries: Value): bool = read(with_menu(entries)).is_err();
+    assert(bad(Value.Array([])));
+    assert(bad(t("Open")));
+    let mut many: Value[] = [];
+    for _ of range(0, MAX_MENU + 1) {
+        many.push(choice("Open", "open"));
+    }
+    assert(bad(Value.Array(many)));
+    assert(bad(Value.Array([choice("", "open")])));
+    let mut long = "";
+    for _ of range(0, 201) {
+        long = long + "x";
+    }
+    assert(bad(Value.Array([choice(long, "open")])));
+    assert(bad(Value.Array([kv([("label", t("Open"))])])));
+    assert(
+        bad(Value.Array([kv([("label", t("Open")), ("on_pick", t("o")), ("disabled", t("yes"))])])),
+    );
+    assert(bad(Value.Array([kv([("separator", Value.Bool(false))])])));
+    assert(bad(Value.Array([t("Open")])));
+    // A menu and an on_context both answer a right-click: refused before kivuli sees it.
+    let both = parent(
+        "box",
+        [("on_context", t("details")), ("menu", Value.Array([choice("Open", "open")]))],
+        [],
+    );
+    assert(read(both).is_err());
+    // MAX_MENU entries is fine.
+    let mut full: Value[] = [];
+    for _ of range(0, MAX_MENU) {
+        full.push(choice("Open", "open"));
+    }
+    assert(read(with_menu(Value.Array(full))).is_ok());
 }

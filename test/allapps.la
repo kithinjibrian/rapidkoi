@@ -8,9 +8,10 @@ import rapidkoi.shell { start, update };
 import rapidkoi.ui.layout { view };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.window.window { Model };
+import rapidkoi.window.tabs { Pin };
 import rapidkoi.window.yourapps { App, opened as kept };
 import rapidkoi.data.remembered { Face };
-import kivuli.testing { texts, click, context };
+import kivuli.testing { texts, click, pick };
 import kivuli { Cmd };
 import wasmtime { Engine };
 
@@ -84,8 +85,8 @@ fun opening_it_again_compiles_nothing() {
 fun module_of_bundle(): u8[] = read(BUNDLE).unwrap().module;
 
 @test
-fun a_right_click_on_a_tile_opens_its_details() {
-    // PRP-070: the details card, drawn by All apps, on a right-click.
+fun a_tile_s_menu_opens_and_pins_it() {
+    // PRP-071: a right-click on a tile opens its menu; its items do what its details do.
     let (m, _) = start(["./main"], None);
     let counter = App {
         path: "counter.rkb",
@@ -96,8 +97,9 @@ fun a_right_click_on_a_tile_opens_its_details() {
         last: 1,
     };
     let (opened, _) = update(Model { apps: kept(m.apps, counter), ..m }, Msg.OpenAllApps);
-    assert(!shows(opened, "Permissions"));
-    let (detailed, _) = update(opened, context(view(opened), "Counter").unwrap());
-    assert(shows(detailed, "Permissions"));
-    assert(shows(detailed, "Forget this app…"));
+    let (_, c) = update(opened, pick(view(opened), "Counter", "Open").unwrap());
+    assert_eq(later(c), [Msg.OpenPinned("counter.rkb", None)]);
+    assert(!opened.pinned.any(fun(p: Pin) = p.path == "counter.rkb"));
+    let (pinned, _) = update(opened, pick(view(opened), "Counter", "Pin to dock").unwrap());
+    assert(pinned.pinned.any(fun(p: Pin) = p.path == "counter.rkb"));
 }

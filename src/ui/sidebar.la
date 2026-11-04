@@ -30,7 +30,7 @@ import kivuli {
     text,
     Group,
 };
-import kivuli.ui { Button, button_with as ui_button_with, separator };
+import kivuli.ui { Button, Menu, button_with as ui_button_with, separator };
 import window.actions { Msg, TabAction, PinAction };
 import window.tabs { Tab, Pin, AppPage };
 import window.window { Model, order as tab_order, open_tab_of };
@@ -159,7 +159,7 @@ fun empty_tab(m: Model, id: i64): View<Msg> {
     }
     let button = ui_button_with([icon("tab-new-symbolic").size(HEADER_ICON)], Msg.Select(id)).style(
         look,
-    ).tooltip("New tab").menu([item("Close", Msg.CloseTab(id))]);
+    ).tooltip("New tab").menu([item("Close", Msg.CloseTab(id))]).style([Menu.look()]);
     with_close(t, id, button, "New tab", current)
 }
 
@@ -209,7 +209,7 @@ fun open_app(m: Model, tab: Tab, pinned: bool): View<Msg> {
         item(if pinned { "Unpin" } else { "Pin" }, Msg.OnTab(tab.id, TabAction.TogglePin)),
         menu_separator(),
         item("Forget this app…", Msg.OnTab(tab.id, TabAction.Forget)),
-    ]);
+    ]).style([Menu.look()]);
     let closing = if current {
         Msg.CloseTab(m.current.unwrap_or(tab.id))
     } else {
@@ -269,7 +269,7 @@ fun closed_pin(t: Theme, p: Pin): View<Msg> = ui_button_with(
     item("Unpin", Msg.OnPin(p.path, p.origin, PinAction.Unpin)),
     menu_separator(),
     item("Forget this app…", Msg.OnPin(p.path, p.origin, PinAction.Forget)),
-]).align(Align.Center);
+]).style([Menu.look()]).align(Align.Center);
 
 /** An app's icon, or its initial without one. */
 fun face(t: Theme, name: string, path: string, bytes: Option<u8[]>): View<Msg> = match icon_of(
