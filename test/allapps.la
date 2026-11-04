@@ -10,7 +10,7 @@ import rapidkoi.window.actions { Msg };
 import rapidkoi.window.window { Model };
 import rapidkoi.window.yourapps { App, opened as kept };
 import rapidkoi.data.remembered { Face };
-import kivuli.testing { texts, click };
+import kivuli.testing { texts, click, context };
 import kivuli { Cmd };
 import wasmtime { Engine };
 
@@ -82,3 +82,22 @@ fun opening_it_again_compiles_nothing() {
 
 /** All apps' module, out of its bundle. */
 fun module_of_bundle(): u8[] = read(BUNDLE).unwrap().module;
+
+@test
+fun a_right_click_on_a_tile_opens_its_details() {
+    // PRP-070: the details card, drawn by All apps, on a right-click.
+    let (m, _) = start(["./main"], None);
+    let counter = App {
+        path: "counter.rkb",
+        origin: None,
+        host: None,
+        face: Face { path: "counter.rkb", name: "Counter", icon: None, colour: None },
+        first: 1,
+        last: 1,
+    };
+    let (opened, _) = update(Model { apps: kept(m.apps, counter), ..m }, Msg.OpenAllApps);
+    assert(!shows(opened, "Permissions"));
+    let (detailed, _) = update(opened, context(view(opened), "Counter").unwrap());
+    assert(shows(detailed, "Permissions"));
+    assert(shows(detailed, "Forget this app…"));
+}

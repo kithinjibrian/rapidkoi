@@ -67,12 +67,13 @@ An app that doesn't know an event changes nothing. There's no event when Rapidko
 
 | Kind | Props | Children |
 |---|---|---|
-| `box` | `style`, `role`, `checked`, `selected`, `disabled`, `label`, `on_press`, and `title` on the root | yes |
+| `box` | `style`, `role`, `checked`, `selected`, `disabled`, `label`, `on_press`, `on_context`, and `title` on the root | yes |
 | `text` | `text` or `parts` (one of them, not both), `style`, `role`, `label` | no |
 | `input` | `value` (required), `placeholder`, `label` (1–200 bytes), `lines` (1–20; more than 1 is a box of several lines), `on_change` (none: disabled), `on_submit` (Enter, on one line; sent with the text as `value`), `style` | no |
 | `image` | `src` (required: `asset:NAME`, `blob:KEY` or an `http(s)://` address, at most 2 KB), `fit` (`contain`, the default, or `cover`), `color` (an `asset:` SVG only), `label` (1–200 bytes), `on_load`, `on_fail`, `style` | no |
 
 - A **box with `on_press`** is pressable: focusable, and pressed by a click, Enter or Space; it sends `on_message` with its message. `disabled: true` greys it, and it sends nothing.
+- A **box with `on_context`** (PRP-070, an addition) answers a right-click, a long press, or the Menu key (Shift+F10) while it has the focus: it sends `on_message` with that message, and Rapidkoi opens nothing; what follows is the app's to draw. A box may have both; nested, the innermost answers. Disabled, it sends nothing. The pointer's position isn't given.
 - A typing box's **`label`** says what it's for: Rapidkoi names the box by it, and screen readers hear it. Without one, its placeholder names it.
 - Any other kind is shown as an unsupported placeholder, its subtree still counted against the limits.
 - **Parts** (PRP-053): a text's `parts` is a list of at most 64, each a string (shown as written), `{ "name": "first" | "last" }` (your name for this app; nothing when unset), or `{ "time": ms, "show": … }` (a moment, whole milliseconds since 1970-01-01 00:00 UTC, within years 1 to 9999). Rapidkoi fills them in while drawing, in your zone, 24-hour clock, day before month; the app never learns the result. `show`: `time` "14:32"; `date` "Thu 31 Oct" (the year when it isn't this one); `date_time` "Thu 31 Oct, 14:32"; `weekday` "Thursday"; `relative` on your calendar: "just now", "5 minutes ago", "in 3 hours", "yesterday", "tomorrow", "Mon", "next Sun", "Thu 24 Oct", "24 Oct 2023", kept current by Rapidkoi. A moment Rapidkoi can't place in your zone is shown in UTC, " UTC" after it. Parts exist only on texts: typing boxes, titles and labels are never filled. Braces in a string are only braces.

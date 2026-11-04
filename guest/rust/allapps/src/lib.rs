@@ -2,7 +2,7 @@
 //! `./main` like Settings. It lists every app the person has opened, A–Z or
 //! last used first, with a search box: typing filters by name and Enter
 //! opens the first match. When two apps share a name, each also shows where
-//! it's from. Each app's details (on a right-click, a later PRP) show what can be done with it:
+//! it's from. Each app's details, on a right-click (PRP-070), show what can be done with it:
 //! open, pin or unpin, its permissions, Forget. Forget and permissions only
 //! open Rapidkoi's own panel on the app, where the person decides.
 //!
@@ -226,9 +226,8 @@ impl AllApps {
         if first {
             look.push(Border::all(2, Color::system("accent")));
         }
-        // Its details open on a right-click once the contract has
-        // `on_context` (a later PRP): no ⋯ on the tile (the owner, 2026-11-03).
-        column(lines).style(look).label(&a.name).on_press(Msg::Open(a.at))
+        // Its details on a right-click (PRP-070): no ⋯ on the tile (the owner, 2026-11-03).
+        column(lines).style(look).label(&a.name).on_press(Msg::Open(a.at)).on_context(Msg::Details(a.at))
     }
 }
 

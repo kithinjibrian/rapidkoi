@@ -13,7 +13,16 @@ import rapidkoi.ui.render {
     typing_facts,
 };
 import rapidkoi.ui.schemes { DARK };
-import kivuli.testing { Lookup, click, is_disabled, is_field_disabled, type_into, submit, texts };
+import kivuli.testing {
+    Lookup,
+    click,
+    context,
+    is_disabled,
+    is_field_disabled,
+    type_into,
+    submit,
+    texts,
+};
 import rapidkoi.guest.nodes { Look, Facts, Role, Colour, Typing, Node, Axis };
 import rapidkoi.guest.styles { plain, read_style };
 import rapidkoi.guest.roles { no_facts };
@@ -43,7 +52,7 @@ fun no_restart_when_the_app_never_loaded() {
     assert_eq(click(v, "Restart"), Err(Lookup.NotFound("button \"Restart\"")));
 }
 
-fun plain_box(kids: Node[]): Node = Node.Boxed(plain(), no_facts(), None, kids);
+fun plain_box(kids: Node[]): Node = Node.Boxed(plain(), no_facts(), None, None, kids);
 
 @test
 fun contract_5_texts_and_boxes_appear() {
@@ -65,11 +74,12 @@ fun a_pressable_box_is_a_button() {
         Look { background: Some(Colour.Named("accent")), ..plain() },
         Facts { role: Some(Role.Button), ..no_facts() },
         Some(t("add")),
+        None,
         [Node.Words("Add", plain(), no_facts())],
     );
     let v = screen(plain_box([add]), DARK);
     assert_eq(click(v, "Add"), Ok(Msg.Event(t("add"), None)));
-    let off = Node.Boxed(plain(), Facts { disabled: true, ..no_facts() }, Some(t("add")), [
+    let off = Node.Boxed(plain(), Facts { disabled: true, ..no_facts() }, Some(t("add")), None, [
         Node.Words("Add", plain(), no_facts()),
     ]);
     assert_eq(is_disabled(screen(off, DARK), "Add"), Ok(true));
@@ -156,7 +166,10 @@ fun a_scrolling_box_is_drawn_in_a_scrolled_area() {
     let words = [Node.Words("x", plain(), no_facts())];
     assert_eq(
         scrolled(
-            screen(Node.Boxed(look([("scroll", t("vertical"))]), no_facts(), None, words), DARK),
+            screen(
+                Node.Boxed(look([("scroll", t("vertical"))]), no_facts(), None, None, words),
+                DARK,
+            ),
         ),
         Some(true),
     );
@@ -166,6 +179,7 @@ fun a_scrolling_box_is_drawn_in_a_scrolled_area() {
                 Node.Boxed(
                     look([("scroll", t("vertical")), ("grow", Value.Bool(true))]),
                     no_facts(),
+                    None,
                     None,
                     words,
                 ),
@@ -250,4 +264,24 @@ fun a_typing_box_is_heard_by_its_label_else_its_placeholder() {
     };
     assert_eq(typing_facts(f).label, Some("Search notes"));
     assert_eq(typing_facts(Typing { label: None, ..f }).label, Some("Search"));
+}
+
+@test
+fun a_box_answers_a_right_click_with_its_message() {
+    // PRP-070: a click sends `on_press`, a right-click `on_context`; Rapidkoi opens nothing.
+    let tile = Node.Boxed(plain(), no_facts(), Some(t("open")), Some(t("details")), [
+        Node.Words("Notes", plain(), no_facts()),
+    ]);
+    let v = screen(plain_box([tile]), DARK);
+    assert_eq(click(v, "Notes"), Ok(Msg.Event(t("open"), None)));
+    assert_eq(context(v, "Notes"), Ok(Msg.Event(t("details"), None)));
+    // Disabled, it sends nothing on either.
+    let off = Node.Boxed(
+        plain(),
+        Facts { disabled: true, ..no_facts() },
+        Some(t("open")),
+        Some(t("details")),
+        [Node.Words("Notes", plain(), no_facts())],
+    );
+    assert(context(screen(off, DARK), "Notes").is_err());
 }

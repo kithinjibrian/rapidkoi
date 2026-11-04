@@ -23,7 +23,7 @@ fun picture(source: string): Node = Node.Pictured(
 
 fun shown(n: Node): Shown[] = match n {
     Pictured(p, _) => [p.shown],
-    Boxed(_, _, _, kids) => {
+    Boxed(_, _, _, _, kids) => {
         let mut out: Shown[] = [];
         for k of kids {
             out = out + shown(k);
@@ -35,7 +35,7 @@ fun shown(n: Node): Shown[] = match n {
 
 @test
 fun each_picture_is_drawn_as_its_page_has_it() {
-    let root = Node.Boxed(plain(), no_facts(), None, [
+    let root = Node.Boxed(plain(), no_facts(), None, None, [
         picture("asset:a.svg"),
         picture("asset:missing.svg"),
         picture("https://a.com/here.png"),
@@ -97,7 +97,7 @@ fun an_apps_screen_is_rebuilt_only_when_what_it_shows_changes() {
 @test
 fun an_icon_rapidkoi_hands_over_is_shown_at_once() {
     // PRP-060: `icon:PLACE` is drawn from what Rapidkoi holds, never fetched.
-    let root = Node.Boxed(plain(), no_facts(), None, [picture("icon:notes.dafifi.net")]);
+    let root = Node.Boxed(plain(), no_facts(), None, None, [picture("icon:notes.dafifi.net")]);
     let icon = fun(place: string): u8[] = if place == "notes.dafifi.net" { [7, 7] } else { [] };
     assert_eq(shown(with_shown(root, [], [], icon)) == [Shown.Ready([7, 7])], true);
 }

@@ -186,10 +186,11 @@ fun with_shown(
         Picture { shown: shown_of(p.source, assets, kept, icon), ..p },
         look,
     ),
-    Boxed(look, facts, press, kids) => Node.Boxed(
+    Boxed(look, facts, press, context, kids) => Node.Boxed(
         look,
         facts,
         press,
+        context,
         kids.map(fun(k: Node) = with_shown(k, assets, kept, icon)),
     ),
     _ => n,

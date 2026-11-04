@@ -42,14 +42,14 @@ fun a_counter_reads() {
     let d = read_tree(encode(root)).unwrap();
     assert_eq(d.title, Some("Counter"));
     match d.root {
-        Boxed(_, _, None, kids) => {
+        Boxed(_, _, None, _, kids) => {
             assert_eq(kids.len, 2);
             match kids[0] {
                 Words(s, _, f) => assert_eq((s, f.role == Some(Role.Heading)), ("Count: 3", true)),
                 _ => panic("expected a text"),
             }
             match kids[1] {
-                Boxed(l, f, Some(msg), inner) => {
+                Boxed(l, f, Some(msg), _, inner) => {
                     assert_eq(
                         (msg == t("add"), f.role == Some(Role.Button), inner.len),
                         (true, true, 1),
@@ -273,4 +273,23 @@ fun bad_parts_stop_it_with_where() {
         why(parts([moment(0, "soon")])),
         "{here}show must be time, date, date_time, relative or weekday",
     );
+}
+
+@test
+fun a_box_s_right_click_message_is_read() {
+    // PRP-070: `on_context`, beside `on_press`; a box without it is as before.
+    let tile = parent("box", [("on_press", t("open")), ("on_context", t("details"))], [
+        leaf("text", [("text", t("Notes"))]),
+    ]);
+    match read(tile) {
+        Ok(Boxed(_, _, Some(press), Some(context), _)) => assert_eq(
+            (press == t("open"), context == t("details")),
+            (true, true),
+        ),
+        _ => panic("expected a box answering a press and a right-click"),
+    }
+    match read(parent("box", [], [])) {
+        Ok(Boxed(_, _, None, None, _)) => {}
+        _ => panic("expected a plain box"),
+    }
 }

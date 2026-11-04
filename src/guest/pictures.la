@@ -170,7 +170,7 @@ fun gather(n: Node, out: Ref<Picture[]>) {
                 out.update(fun(xs: Picture[]) = xs + [p]);
             }
         }
-        Boxed(_, _, _, kids) => {
+        Boxed(_, _, _, _, kids) => {
             for k of kids {
                 gather(k, out);
             }

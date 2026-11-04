@@ -25,8 +25,11 @@ enum ButtonLook {
 enum Node {
     /** A kind this shell doesn't know: shown as a placeholder. */
     Unsupported(string),
-    /** A box (PRP-037): its look, what it is, the message a press sends, and its children. */
-    Boxed(Look, Facts, Option<Value>, Self[]),
+    /**
+     * A box (PRP-037): its look, what it is, the message a press sends, the
+     * message a right-click sends (`on_context`, PRP-070), and its children.
+     */
+    Boxed(Look, Facts, Option<Value>, Option<Value>, Self[]),
     /** A text, its look and what it is. */
     Words(string, Look, Facts),
     /** A text made of parts Rapidkoi fills in before drawing (PRP-053): never drawn as it is. */

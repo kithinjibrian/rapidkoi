@@ -90,3 +90,11 @@ fn details_open_and_close() {
     // Its view differs while it's open.
     assert_ne!(three().view(), send(three(), Msg::Details(1), None).into_state().view());
 }
+
+#[test]
+fn each_tile_answers_a_right_click_with_its_details() {
+    // PRP-070: the tiles carry on_context; Msg::Details opens the card.
+    let bytes = three().view().encode();
+    assert!(bytes.windows(10).any(|w| w == b"on_context"));
+    assert_eq!(send(three(), Msg::Details(2), None).into_state().details, Some(2));
+}

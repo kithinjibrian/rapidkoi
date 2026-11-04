@@ -54,7 +54,7 @@ fun walk(n: Node, each: fun(Part)) {
                 each(p);
             }
         }
-        Boxed(_, _, _, kids) => {
+        Boxed(_, _, _, _, kids) => {
             for k of kids {
                 walk(k, each);
             }

@@ -14,7 +14,13 @@ fun body(s: string): Node = Node.Words(s, plain(), no_facts());
 
 fun parts(ps: Part[]): Node = Node.Parts(ps, plain(), no_facts());
 
-fun boxed(kids: Node[], press: Option<Value>): Node = Node.Boxed(plain(), no_facts(), press, kids);
+fun boxed(kids: Node[], press: Option<Value>): Node = Node.Boxed(
+    plain(),
+    no_facts(),
+    press,
+    None,
+    kids,
+);
 
 /** UTC+3 for the moment T. */
 fun nairobi(): Map<i64, i64> {

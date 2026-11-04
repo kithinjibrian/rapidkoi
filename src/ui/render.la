@@ -77,7 +77,7 @@ fun screen(n: Node, t: Theme): View<Msg> = screen_as(n, t, AS_STYLED);
  */
 fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
     Unsupported(kind) => text("Unsupported component: {kind}").style(dim(t)).align(Align.Start),
-    Boxed(look, facts, press, kids) => boxed(look, facts, press, kids, t, own),
+    Boxed(look, facts, press, context, kids) => boxed(look, facts, press, context, kids, t, own),
     Words(s, look, facts) => placed(
         flowing(text(s), look).style(body(t) + drawn(look, facts, t, own, false)),
         look,
@@ -104,12 +104,15 @@ fun plain_of(ps: Part[]): string = ps.fold("", fun(out: string, p: Part) = match
  * the app said. With `on_press` it's a button around them: focusable, and
  * pressed by click, Enter or Space. Its base look is nothing at all (no
  * GTK button look, DECISION-031) but a focus ring, so the keyboard's place
- * always shows; the app's style goes over it.
+ * always shows; the app's style goes over it. With `on_context` (PRP-070),
+ * a right-click, a long press or the Menu key sends its message, opening
+ * nothing: what follows is the app's to draw.
  */
 fun boxed(
     look: Look,
     facts: Facts,
     press: Option<Value>,
+    context: Option<Value>,
     kids: Node[],
     t: Theme,
     own: Own,
@@ -143,12 +146,21 @@ fun boxed(
         }
         None => spaced,
     };
+    // Its right-click, unless it's disabled: a disabled box sends nothing.
+    let answering = fun(v: View<Msg>): View<Msg> = match context {
+        Some(c) if !facts.disabled => v.on_context(Msg.Event(c, None)),
+        _ => v,
+    };
     match press {
         Some(m) => {
             let pressed = button_with(spaced, Msg.Event(m, None)).style(bare(t) + styles);
-            placed(if facts.disabled { pressed.disabled(true) } else { pressed }, look, Align.Fill)
+            placed(
+                answering(if facts.disabled { pressed.disabled(true) } else { pressed }),
+                look,
+                Align.Fill,
+            )
         }
-        None => placed(spaced.style(styles), look, Align.Fill),
+        None => placed(answering(spaced.style(styles)), look, Align.Fill),
     }
 }
 
@@ -208,7 +220,7 @@ fun layer_place(s: Spot): (Align, Align) = match s {
 
 /** A node's look, for what its parent reads from it (a layer's place). */
 fun look_of(n: Node): Option<Look> = match n {
-    Boxed(l, _, _, _) => Some(l),
+    Boxed(l, _, _, _, _) => Some(l),
     Words(_, l, _) => Some(l),
     Parts(_, l, _) => Some(l),
     Field(_, l) => Some(l),
