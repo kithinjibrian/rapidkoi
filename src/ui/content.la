@@ -3,7 +3,7 @@
  * loading, stopped, refused, or Rapidkoi's question about a changed key).
  * Never calls a guest.
  *
- * Depends on: kivuli, window.actions, window.tabs, window.window, guest.nodes, guest.pictures, guest.placeholders, people.people, ui.render, ui.frame
+ * Depends on: kivuli, ui.widgets, window.actions, window.tabs, window.window, guest.nodes, guest.pictures, guest.placeholders, people.people, ui.render, ui.frame
  * Used by: ui.layout
  */
 import kivuli { View, Styling, Font, Size, column, lazy };
@@ -18,11 +18,13 @@ import guest.pictures { asset_of, icon_of };
 import ui.appicons { icon_for };
 import guest.placeholders { fill };
 import window.zones { moments };
-import people.people { name_in, looks_of };
+import people.people { name_in, looks_of, setting_of };
+import bundles.permissions { Permission, Setting };
 import people.access { key_of };
 import ui.paint { Own };
 import window.window { Model };
-import ui.render { screen_as, stopped, refused, loading };
+import ui.render { screen_as, screen_with, stopped, refused, loading };
+import ui.widgets;
 import ui.frame { unapproved };
 import ui.asking { which_view };
 
@@ -146,17 +148,33 @@ fun newtab_view(m: Model): View<Msg> = match m.newtab {
     Some(p) => match p.screen {
         // Its own messages go to it alone, as a tab's go to its app.
         // Rapidkoi's own app: your name for every app, times in your zone.
+        // Its `widgets` slot holds your widgets, drawn by Rapidkoi (PRP-073).
         Running(_, _, d) => sized(
-            screen_as(
+            screen_with(
                 fill(pictured(d.root, p, m), m.people.first, m.people.last, m.offsets, m.now),
                 m.theme,
                 own_of(p, m),
+                fun(_: string) = shown_widgets(m, p),
+                fun(_: i64, v: View<render.Msg>) = v,
             ),
             m,
         ).map(fun(inner: render.Msg) = Msg.FromNewTab(inner)),
         _ => column([]),
     },
     None => column([]),
+};
+
+/**
+ * Your widgets for the new tab's slot (PRP-073), unless you blocked its
+ * "Showing your widgets" in its ⚙: then the slot stays empty.
+ */
+fun shown_widgets(m: Model, p: AppPage): View<render.Msg> = match setting_of(
+    m.people,
+    key_of(p),
+    Permission.ShowWidgets,
+) {
+    Blocked => column([]),
+    _ => widgets.row_view(m),
 };
 
 /** A page's screen with its pictures as the page has them, and apps' icons as Rapidkoi holds them. */

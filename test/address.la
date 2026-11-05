@@ -5,6 +5,8 @@ import rapidkoi.net.address {
     AddressError,
     parse,
     without_link,
+    local_link,
+    local_place,
     url,
     site_url,
     shown,
@@ -212,4 +214,21 @@ fun a_link_s_fields_can_be_paths() {
         link_of(ok("https://tasks.example.com"), Some("1.0.0"), [("editor.task", "42")]),
         "https://tasks.example.com/@1.0.0?editor.task=42",
     );
+}
+
+@test
+fun a_local_app_s_place_keeps_its_fields() {
+    // A file has no link, so its fields follow `?`, as a site's do.
+    assert_eq(local_link("/home/a/counter.rkb", [("count", "2")]), "/home/a/counter.rkb?count=2");
+    assert_eq(local_link("counter.rkb", []), "counter.rkb");
+    assert_eq(local_link("notes.wasm", [("title", "A b")]), "notes.wasm?title=A%20b");
+    assert_eq(
+        local_place("/home/a/counter.rkb?count=2"),
+        ("/home/a/counter.rkb", [("count", "2")]),
+    );
+    assert_eq(local_place("notes.wasm?title=A%20b"), ("notes.wasm", [("title", "A b")]));
+    // No fields, or a `?` that's part of the file's own name: the file as it is.
+    assert_eq(local_place("counter.rkb"), ("counter.rkb", []));
+    assert_eq(local_place("what?.rkb"), ("what?.rkb", []));
+    assert_eq(local_place("counter.rkb?Bad..name=1"), ("counter.rkb?Bad..name=1", []));
 }

@@ -21,8 +21,8 @@ use rapidkoi::style::{
     TextSize, Weight, When,
 };
 use rapidkoi::{
-    column, image, layers, row, spacer, text, text_of, wrap, App, Ask, Event, Message, Next, Notifications,
-    Recent, Session, Space, State, View,
+    column, image, layers, row, spacer, text, text_of, wrap, App, Ask, Event, Message, Next, Notifications, Recent,
+    Session, Space, State, View,
 };
 
 mod notices;
@@ -91,6 +91,9 @@ impl App for NewTab {
         // The page fills the window's width (the owner's choice over the design's cap).
         let mut sections = vec![top(&self.restore)];
         sections.extend(notices::section(self.unread, &self.notices));
+        // The person's widgets, above Recent (PRP-073): Rapidkoi draws them
+        // here, and this app never sees them.
+        sections.push(rapidkoi::widget::__slot());
         sections.extend(recent(&self.recent));
         let page =
             column(sections).style([Spacing::padding_xy(Space::Px(32), Space::Px(36)), Spacing::gap(Space::Px(32))]);

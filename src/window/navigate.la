@@ -37,10 +37,10 @@ import window.window {
     go_home,
     same_app,
 };
-import net.address { is_address, parse, without_link };
+import net.address { is_address, parse, without_link, local_place };
 import window.settings_app;
 import window.ownapps { open_settings };
-import boot.appboot { opened };
+import boot.appboot { opened, opened_at };
 import bundles.loader { why };
 
 /**
@@ -88,7 +88,11 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
     // A link (PRP-036) is its app's address with a version and fields.
     let (path, version, fields) = match parse(text) {
         Ok(a) if is_address(text) => (without_link(text), a.version, a.fields),
-        _ => (text, None, []),
+        // A local app's place keeps its fields too: `counter.rkb?count=2`.
+        _ => {
+            let (file, named) = local_place(text);
+            (file, None, named)
+        }
     };
     // A link's fields always open a new window, beside what's open.
     if fields.len > 0 {
@@ -97,7 +101,11 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
             ..failed_page(path, ""),
         });
         let tidy = Model { draft: "", editing: false, ..placed };
-        return begin_link(tidy, placed.current.unwrap_or(-1), path, version, fields);
+        let id = placed.current.unwrap_or(-1);
+        if !is_address(path) {
+            return local(tidy, id, path, fields);
+        }
+        return begin_link(tidy, id, path, version, fields);
     }
     // Several apps at this address: the default, or which one (PRP-049, PRP-050).
     if let Some(asking) = asks_which(Model { draft: "", editing: false, ..m }, path) {
@@ -132,11 +140,18 @@ fun open_file(m: Model, text: string): (Model, Cmd<Msg>) {
     }
     // A new window starts fresh: state lives with its window, and only
     // Restore brings a saved one back (session 189). Its old notice goes.
-    // Through the pipeline (PRP-069): opened again, it compiles nothing.
-    let held = Ref.new(tidy.modules);
-    let page = opened(held, m.engine, m.now, m.ring, path);
+    local(tidy, id, path, [])
+}
+
+/**
+ * Starts a local file in tab `id`, at `fields` (none: fresh). Through the
+ * pipeline (PRP-069): opened again, it compiles nothing.
+ */
+fun local(m: Model, id: i64, path: string, fields: (string, string)[]): (Model, Cmd<Msg>) {
+    let held = Ref.new(m.modules);
+    let page = opened_at(held, m.engine, m.now, m.ring, path, fields);
     (
-        with_tab(tab_loaded(Model { modules: held.get(), ..tidy }, id), id, fun(_: AppPage) = page),
+        with_tab(tab_loaded(Model { modules: held.get(), ..m }, id), id, fun(_: AppPage) = page),
         Cmd.none(),
     )
 }

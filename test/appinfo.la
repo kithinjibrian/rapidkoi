@@ -13,7 +13,7 @@ import rapidkoi.data.remembered { Face };
 import rapidkoi.bundles.bundle { Manifest, Controls };
 import rapidkoi.bundles.permissions { Permission, Setting };
 import rapidkoi.people.people { setting_of, looks_of };
-import kivuli.testing { texts, click, flip };
+import kivuli.testing { texts, click, flip, press };
 
 fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
 
@@ -41,6 +41,7 @@ fun manifest(controls: Option<Controls>): Manifest = Manifest {
     permissions: ["notifications"],
     controls: controls,
     primary_color: None,
+    widgets: [],
 };
 
 /** All apps open, Counter one of your apps, and App info on it: nothing read yet. */
@@ -136,6 +137,18 @@ fun forget_asks_then_forgets_without_opening_it() {
     // All apps' own Forget asks the same, over App info.
     let (from_all, _) = update(on_counter(), Msg.ForgetFromInfo("counter.rkb", None));
     assert_eq(from_all.confirm, Some(Confirm.ForgetInfo));
+    // Escape is the question's Cancel alone: App info's back gives it up
+    // while asked (kivuli stops on two enabled buttons with one shortcut).
+    let escapes = match press(view(from_all), "Escape") {
+        Ok(Cancel) => true,
+        _ => false,
+    };
+    assert(escapes);
+    let backs = match press(view(on_counter()), "Escape") {
+        Ok(CloseInfo) => true,
+        _ => false,
+    };
+    assert(backs);
 }
 
 @test

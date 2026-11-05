@@ -45,6 +45,7 @@ fun the_built_in_bundle_is_unsigned_and_named() {
         "open_apps",
         "restore_session",
         "read_notifications",
+        "show_widgets",
     ]);
     assert_eq(
         b.manifest.controls,
@@ -68,6 +69,7 @@ fun declaring_all(permissions: string[], controls: Option<Controls>): u8[] = wri
         permissions: permissions,
         controls: controls,
         primary_color: None,
+        widgets: [],
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [("icon.png", png(128, 128))],
@@ -116,7 +118,7 @@ fun an_unknown_permission_needs_a_newer_rapidkoi() {
 fun it_opens_and_runs() {
     let p = open(Engine.new()).unwrap();
     assert_eq((p.name, p.trust.is_none()), ("New tab", true));
-    assert_eq(p.manifest.map(fun(m: Manifest) = m.permissions.len), Some(4));
+    assert_eq(p.manifest.map(fun(m: Manifest) = m.permissions.len), Some(5));
 }
 
 @test

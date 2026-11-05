@@ -1,0 +1,153 @@
+/**
+ * Widget cards (PRP-073), pure: what an app sends to fill a widget, read
+ * as a screen is and then held to a card's smaller rules. Boxes, texts
+ * (with parts) and styles only: no typing, pictures, scrolling, links,
+ * presses, right-clicks, roles or slots; at most `MAX_WIDGET_NODES` nodes,
+ * `MAX_WIDGET_DEPTH` deep and `MAX_WIDGET_BYTES` encoded. A card's only
+ * action is opening its own app: as a whole, or at one of up to
+ * `MAX_PLACES` places in it (PRP-074), never one inside another. A
+ * screen may hold neither a slot (unless its app shows widgets) nor a place.
+ *
+ * Depends on: cbor, guest.nodes, guest.limits, guest.tree
+ * Used by: guest.widgetasks, data.widgetsfile, window.tabs
+ */
+import cbor { Value, encode };
+import guest.nodes { Node, Facts, ContractError, invalid };
+import guest.limits { MAX_WIDGET_NODES, MAX_WIDGET_DEPTH, MAX_WIDGET_BYTES };
+import guest.tree { read_tree };
+
+/** The most places one card may hold (PRP-074). */
+const MAX_PLACES: i64 = 4;
+
+/**
+ * Reads a card an app sent.
+ *
+ * @param view the card's tree, as the ask carries it
+ * @returns its bytes, kept, and its tree, drawn; `Err` for one breaking
+ *     the screen's rules or a card's
+ *
+ * Example:
+ *     read_card(e.get("view").unwrap())?
+ */
+fun read_card(view: Value): Result<(u8[], Node), ContractError> {
+    let bytes = encode(view);
+    Ok((bytes, card_tree(bytes)?))
+}
+
+/**
+ * Reads a card's bytes: from an ask, or again from the widgets file.
+ *
+ * Example:
+ *     card_tree(card.view)?
+ */
+fun card_tree(bytes: u8[]): Result<Node, ContractError> {
+    if bytes.len > MAX_WIDGET_BYTES {
+        return Err(ContractError.TooLong("a widget's card", bytes.len));
+    }
+    let root = read_tree(bytes)?.root;
+    let count = Ref.new(0);
+    let places = Ref.new(0);
+    held(root, "card", 1, count, places, false)
+}
+
+/**
+ * Says whether a screen holds a place: only a widget's card may (PRP-074).
+ *
+ * Example:
+ *     has_place(d.root)
+ */
+fun has_place(n: Node): bool = match n {
+    Place(_, _, _) => true,
+    Boxed(_, _, _, _, kids) => kids.any(fun(k: Node) = has_place(k)),
+    _ => false,
+};
+
+/**
+ * Returns a card's places' fields, in their numbers' order.
+ *
+ * Example:
+ *     places_of(card.tree)[1]
+ */
+fun places_of(n: Node): (string, string)[][] = match n {
+    Place(_, fields, inner) => [fields] + places_of(inner),
+    Boxed(_, _, _, _, kids) => kids.fold(
+        [],
+        fun(out: (string, string)[][], k: Node) = out + places_of(k),
+    ),
+    _ => [],
+};
+
+/**
+ * Says whether a screen places one of Rapidkoi's slots: only its own apps may.
+ *
+ * Example:
+ *     has_slot(d.root)
+ */
+fun has_slot(n: Node): bool = match n {
+    Slot(_) => true,
+    Boxed(_, _, _, _, kids) => kids.any(fun(k: Node) = has_slot(k)),
+    _ => false,
+};
+
+/**
+ * One node of a card and what's inside it, counted in `count`, its places
+ * numbered in reading order in `places`; `in_place` inside one already.
+ */
+fun held(
+    n: Node,
+    here: string,
+    depth: i64,
+    count: Ref<i64>,
+    places: Ref<i64>,
+    in_place: bool,
+): Result<Node, ContractError> {
+    count.set(count.get() + 1);
+    if count.get() > MAX_WIDGET_NODES {
+        return Err(invalid(here, "a widget's card has more than {MAX_WIDGET_NODES} nodes"));
+    }
+    if depth > MAX_WIDGET_DEPTH {
+        return Err(invalid(here, "a widget's card is deeper than {MAX_WIDGET_DEPTH} nodes"));
+    }
+    match n {
+        Boxed(look, facts, press, context, kids) => {
+            if press.is_some() || context.is_some() {
+                return Err(invalid(here, "a widget's card can't be pressed or right-clicked"));
+            }
+            if look.scroll.is_some() {
+                return Err(invalid(here, "a widget's card can't scroll"));
+            }
+            plain(facts, here)?;
+            let mut i = 0;
+            let mut out: Node[] = [];
+            for k of kids {
+                out.push(held(k, "{here} > [{i}]", depth + 1, count, places, in_place)?);
+                i += 1;
+            }
+            Ok(Node.Boxed(look, facts, press, context, out))
+        }
+        Place(_, fields, inner) => {
+            if in_place {
+                return Err(invalid(here, "a widget's card can't have a place inside a place"));
+            }
+            let k = places.get();
+            if k >= MAX_PLACES {
+                return Err(invalid(here, "a widget's card has more than {MAX_PLACES} places"));
+            }
+            places.set(k + 1);
+            // The place is its box: counted with it, not as a node of its own.
+            count.set(count.get() - 1);
+            Ok(Node.Place(k, fields, held(inner, here, depth, count, places, true)?))
+        }
+        Words(_, _, facts) | Parts(_, _, facts) => plain(facts, here).map(fun(_) = n),
+        Field(_, _) => Err(invalid(here, "a widget's card can't have a typing box")),
+        Pictured(_, _) => Err(invalid(here, "a widget's card can't have a picture")),
+        Slot(_) => Err(invalid(here, "a widget's card can't hold Rapidkoi's slots")),
+        Unsupported(kind) => Err(invalid(here, "a widget's card can't have a {kind}")),
+    }
+}
+
+/** A card's pieces say nothing to a screen reader beyond their words: no roles. */
+fun plain(f: Facts, here: string): Result<(), ContractError> = match f.role {
+    Some(_) => Err(invalid(here, "a widget's card has no roles")),
+    None => Ok(()),
+};

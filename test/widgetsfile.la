@@ -1,0 +1,93 @@
+// The widgets file (PRP-073): it round-trips, a card breaking a card's
+// rules is dropped, and hostile fields are refused. No guest, no display.
+import rapidkoi.data.widgetsfile { widgets_file, read_widgets };
+import rapidkoi.window.widgets { Widgets, Card, Chosen };
+import rapidkoi.guest.cards { read_card };
+import cbor { Value, encode };
+import support { t, kv, boxed, words, press };
+
+const NOTES: string = "rapidkoi://notes.dafifi.net";
+
+fun card(name: string, view: Value): Card {
+    let (bytes, tree) = read_card(view).unwrap();
+    Card {
+        path: NOTES,
+        origin: Some([7; 32]),
+        name: name,
+        view: bytes,
+        tree: tree,
+        address: "{NOTES}/@0.9.0?note=1",
+        sent: 1762000000000,
+    }
+}
+
+fun chosen(name: string): Chosen = Chosen {
+    path: NOTES,
+    origin: Some([7; 32]),
+    name: name,
+    label: "Last edited",
+};
+
+/** A file holding `held` cards and `shown`, as Values. */
+fun file_of(held: Value[], shown: Value[]): u8[] = encode(
+    kv([
+        ("format", Value.int(1)),
+        ("kind", t("rapidkoi widgets")),
+        ("widgets", kv([("cards", Value.Array(held)), ("shown", Value.Array(shown))])),
+    ]),
+);
+
+fun card_value(name: string, view: u8[]): Value = kv([
+    ("path", t(NOTES)),
+    ("name", t(name)),
+    ("view", Value.Bytes(view)),
+    ("address", t(NOTES)),
+    ("sent", Value.int(1)),
+]);
+
+@test
+fun the_widgets_file_round_trips() {
+    let w = Widgets {
+        cards: [card("last_edited", boxed([], [words("Shopping list")]))],
+        shown: [chosen("last_edited")],
+        lately: [],
+        changes: 4,
+    };
+    let back = read_widgets(widgets_file(w)).unwrap();
+    assert_eq(back.cards.len, 1);
+    assert_eq(back.cards[0].view, w.cards[0].view);
+    assert_eq(back.cards[0].address, w.cards[0].address);
+    assert_eq(back.cards[0].origin, Some([7; 32]));
+    assert_eq(back.shown, w.shown);
+}
+
+@test
+fun a_card_breaking_a_card_s_rules_is_dropped_never_drawn() {
+    let good = encode(boxed([], [words("ok")]));
+    let pressable = encode(boxed([], [press("Add", "add")]));
+    let back = read_widgets(
+        file_of([card_value("a", good), card_value("b", pressable)], []),
+    ).unwrap();
+    assert_eq(back.cards.map(fun(c: Card) = c.name), ["a"]);
+}
+
+@test
+fun hostile_fields_make_the_file_unreadable() {
+    let good = encode(boxed([], [words("ok")]));
+    assert(read_widgets(file_of([card_value("Bad Name", good)], [])).is_err());
+    let shown = kv([("path", t(NOTES)), ("name", t("a")), ("label", t(""))]);
+    assert(read_widgets(file_of([], [shown])).is_err());
+    let twice = kv([("path", t(NOTES)), ("name", t("a")), ("label", t("A"))]);
+    assert(read_widgets(file_of([], [twice, twice])).is_err());
+    let five: Value[] = [0, 1, 2, 3, 4].map(
+        fun(i: i64) = kv([("path", t(NOTES)), ("name", t("w{i}")), ("label", t("A"))]),
+    );
+    assert(read_widgets(file_of([], five)).is_err());
+    let bad_key = kv([
+        ("path", t(NOTES)),
+        ("name", t("a")),
+        ("label", t("A")),
+        ("origin", Value.Bytes([1, 2])),
+    ]);
+    assert(read_widgets(file_of([], [bad_key])).is_err());
+}

@@ -403,6 +403,7 @@ fun newtab_stand_in(wat: string): u8[] = write(Bundle {
         permissions: ["read_pins", "read_left_off", "open_apps", "restore_session"],
         controls: None,
         primary_color: None,
+        widgets: [],
     },
     module: wat_to_wasm(wat).unwrap(),
     assets: [("icon.png", png(128, 128))],

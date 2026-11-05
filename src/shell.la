@@ -35,6 +35,7 @@ import window.pins;
 import window.zones;
 import window.instances { close_instance, close_app, start_rename, confirm_rename };
 import window.newtab;
+import window.widgetchoices;
 import data.saving { session_store, mark, forgotten };
 import boot.settle { settled, both };
 import boot.boot as stages;
@@ -182,6 +183,10 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     CloseApp(id) => (close_app(m, id), Cmd.none()),
     // The new tab's own clicks (session 185): what it asks for is answered
     // after, as for any app.
+    // The new tab's widgets are Rapidkoi's own, never the app's (PRP-073).
+    FromNewTab(OpenWidget(i)) => widgetchoices.opened(m, i),
+    FromNewTab(OpenWidgetPlace(i, k)) => widgetchoices.opened_at(m, i, k),
+    FromNewTab(RemoveWidget(i)) => (widgetchoices.removed(m, i), Cmd.none()),
     FromNewTab(inner) => (
         Model { newtab: m.newtab.map(fun(p: AppPage) = handle(p, inner)), ..m },
         Cmd.none(),
@@ -216,6 +221,10 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     },
     OpenPinned(path, origin) => navigate.open_pin(m, path, origin),
     OpenPlace(to, origin) => navigate.open_place(m, to, origin),
+    WidgetSwitch(name, on) => (widgetchoices.switched(m, name, on), Cmd.none()),
+    PickReplace(i) => (widgetchoices.picked(m, i), Cmd.none()),
+    Replace => (widgetchoices.replaced(m), Cmd.none()),
+    CancelReplace => (widgetchoices.cancelled(m), Cmd.none()),
     Approve(a) => approve(m, a),
     SetPermission(name, s) => (set_permission(m, name, s), Cmd.none()),
     TogglePanel => (

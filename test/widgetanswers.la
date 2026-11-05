@@ -1,0 +1,173 @@
+// Answering widget asks (PRP-073): a declared widget's card is kept as
+// the app's own, at its place, and nothing is answered; an undeclared one,
+// or a card breaking a card's rules, stops the app; an app that isn't
+// Rapidkoi's own (holding the built-in `show_widgets`) placing the widgets slot is stopped. Echo stand-in apps; no display.
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.guest.effects { answer_all };
+import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.boot.appboot { Source, loaded, started };
+import rapidkoi.guest.modules { no_modules };
+import rapidkoi.trust.verify { keyring };
+import rapidkoi.bundles.bundle { Bundle, Manifest, write };
+import rapidkoi.window.widgets { card_of, chosen_of };
+import rapidkoi.bundles.widgetlist { Widget };
+import cbor { Value, encode };
+import wasmtime { Engine, Module, wat_to_wasm };
+import support { echo_init, guest_of, result_of, t, kv, leaf, asking, boxed, words, press, png };
+
+/** An echo page asking `asks` at init, declaring the widget `count`. */
+fun page(asks: Value[]): AppPage {
+    let engine = Engine.new();
+    let p = open_module(
+        "Counter",
+        "counter.rkb",
+        engine,
+        Module.from_text(engine, echo_init(asking(asks))).unwrap(),
+    );
+    AppPage {
+        manifest: Some(Manifest {
+            contract: 11,
+            name: "Counter",
+            version: "1.0.0",
+            description: None,
+            state_version: 1,
+            icon: Some("icon.png"),
+            banners: [],
+            servers: [],
+            permissions: [],
+            controls: None,
+            primary_color: None,
+            widgets: [Widget { name: "count", label: "Count" }],
+        }),
+        ..p,
+    }
+}
+
+fun widget(name: string, view: Value): Value = kv([
+    ("kind", t("widget")),
+    ("msg", t("sent")),
+    ("name", t(name)),
+    ("view", view),
+    ("fields", kv([("count", Value.int(12))])),
+]);
+
+fun stopped_why(m: Model): string = match m.tabs[0].page.screen {
+    Stopped(why, _) => why,
+    _ => "running",
+};
+
+@test
+fun a_declared_widget_s_card_is_kept_as_the_app_s_own() {
+    let p = page([widget("count", boxed([], [words("12")]))]);
+    let (m, _) = answer_all(with_pages(Engine.new(), [p]));
+    assert_eq(stopped_why(m), "running");
+    let c = card_of(m.widgets, chosen_of(p, "count").unwrap()).unwrap();
+    assert_eq((c.path, c.origin, c.name), ("counter.rkb", None, "count"));
+    // Its place carries the app's fields, as a notification's does.
+    assert(c.address.contains("counter.rkb"));
+    // Nothing is on the new tab until you put it there.
+    assert_eq(m.widgets.shown.len, 0);
+}
+
+@test
+fun an_undeclared_widget_stops_the_app() {
+    let (m, _) = answer_all(
+        with_pages(Engine.new(), [page([widget("other", boxed([], [words("x")]))])]),
+    );
+    assert_eq(stopped_why(m), "This app filled a widget it didn't declare (\"other\")");
+    assert_eq(m.widgets.cards.len, 0);
+}
+
+@test
+fun a_card_breaking_a_card_s_rules_stops_the_app() {
+    let (m, _) = answer_all(
+        with_pages(Engine.new(), [page([widget("count", boxed([], [press("Add", "add")]))])]),
+    );
+    assert(stopped_why(m).contains("can't be pressed"));
+    assert_eq(m.widgets.cards.len, 0);
+}
+
+/** A built-in bundle whose screen places the widgets slot, declaring `permissions`. */
+fun slot_bundle(permissions: string[]): u8[] {
+    let tree = encode(boxed([], [words("hi"), leaf("box", [("slot", t("widgets"))])]));
+    write(Bundle {
+        manifest: Manifest {
+            contract: 11,
+            name: "New tab",
+            version: "0.1.0",
+            description: None,
+            state_version: 1,
+            icon: Some("icon.png"),
+            banners: [],
+            servers: [],
+            permissions: permissions,
+            controls: None,
+            primary_color: None,
+            widgets: [],
+        },
+        module: wat_to_wasm(guest_of(result_of(kv([])), None, None, tree)).unwrap(),
+        assets: [("icon.png", png(128, 128))],
+    }).unwrap()
+}
+
+fun shown(p: AppPage): string = match p.screen {
+    Running(_, _, _) => "running",
+    Stopped(why, _) => why,
+    _ => "other",
+};
+
+@test
+fun only_an_app_holding_show_widgets_may_place_the_slot() {
+    // Opened as Rapidkoi opens its new tab: the manifest is known before
+    // the first screen is checked.
+    let engine = Engine.new();
+    let held = Ref.new(no_modules());
+    let own = loaded(
+        held,
+        engine,
+        1,
+        keyring(),
+        Source.BuiltIn("newtab.rkb", slot_bundle(["show_widgets"])),
+    ).unwrap();
+    assert_eq(shown(started(engine, own, "builtin:newtab", [])), "running");
+    let without = loaded(
+        held,
+        engine,
+        1,
+        keyring(),
+        Source.BuiltIn("newtab.rkb", slot_bundle([])),
+    ).unwrap();
+    assert_eq(
+        shown(started(engine, without, "builtin:newtab", [])),
+        "This app placed Rapidkoi's widgets, which only Rapidkoi's own apps may",
+    );
+    // A bare module has no manifest, so no permission.
+    let tree = encode(boxed([], [words("hi"), leaf("box", [("slot", t("widgets"))])]));
+    let wat = guest_of(result_of(kv([])), None, None, tree);
+    let bare = open_module("Sneaky", "sneaky.wasm", engine, Module.from_text(engine, wat).unwrap());
+    assert_eq(
+        shown(bare),
+        "This app placed Rapidkoi's widgets, which only Rapidkoi's own apps may",
+    );
+}
+
+@test
+fun a_screen_with_a_place_is_stopped() {
+    // A place only goes in a widget's card (PRP-074).
+    let engine = Engine.new();
+    let tree = encode(
+        boxed([], [
+            kv([
+                ("kind", t("box")),
+                ("props", kv([("open", kv([]))])),
+                ("children", Value.Array([words("x")])),
+            ]),
+        ]),
+    );
+    let wat = guest_of(result_of(kv([])), None, None, tree);
+    let p = open_module("Sneaky", "sneaky.wasm", engine, Module.from_text(engine, wat).unwrap());
+    assert_eq(
+        shown(p),
+        "This app's screen has a place to open, which only goes in a widget's card",
+    );
+}

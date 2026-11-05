@@ -104,7 +104,23 @@ fun opened(
     now: i64,
     ring: Keyring,
     path: string,
+): AppPage = opened_at(held, engine, now, ring, path, []);
+
+/**
+ * The pipeline for a local file at a place in it: started with its link's
+ * fields set, as a site's link starts (PRP-036).
+ *
+ * Example:
+ *     opened_at(held, m.engine, m.now, m.ring, "counter.rkb", [("count", "2")])
+ */
+fun opened_at(
+    held: Ref<Modules>,
+    engine: Engine,
+    now: i64,
+    ring: Keyring,
+    path: string,
+    link: (string, string)[],
 ): AppPage = match loaded(held, engine, now, ring, Source.File(path)) {
-    Ok(l) => started(engine, l, path, []),
+    Ok(l) => started(engine, l, path, link),
     Err(r) => refused(r, path),
 };

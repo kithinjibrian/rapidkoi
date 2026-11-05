@@ -1,0 +1,112 @@
+// Widget cards (PRP-073), pure: boxes, texts and parts pass; typing,
+// pictures, presses, right-clicks, scrolling, roles and slots don't; nor
+// more than 64 nodes, deeper than 8 or over 16 KB. A built-in's slot box is
+// read, and found. Up to four places (PRP-074), numbered in reading
+// order, never one inside another. No guest, no display.
+import rapidkoi.guest.cards { read_card, card_tree, has_slot, has_place, places_of };
+import rapidkoi.guest.tree { read_tree };
+import rapidkoi.guest.nodes { ContractError };
+import cbor { Value, encode };
+import support { t, kv, leaf, parent, boxed, words, press };
+
+fun refused(v: Value): bool = read_card(v).is_err();
+
+fun problem(v: Value): string = match read_card(v) {
+    Err(Invalid(_, p)) => p,
+    Err(TooLong(_, _)) => "too long",
+    Err(Decode(_)) => "decode",
+    Ok(_) => "ok",
+};
+
+@test
+fun a_card_of_boxes_and_texts_is_read_and_kept_as_its_bytes() {
+    let v = boxed([], [words("Shopping list"), words("Eggs, flour")]);
+    let (bytes, _) = read_card(v).unwrap();
+    assert_eq(bytes, encode(v));
+    // Read again from the file, the same.
+    assert(card_tree(bytes).is_ok());
+    // Parts, so "2 hours ago" stays right without the app running.
+    let parts = leaf("text", [
+        ("parts", Value.Array([kv([("time", Value.int(0)), ("show", t("relative"))])])),
+    ]);
+    assert_eq(problem(boxed([], [parts])), "ok");
+}
+
+@test
+fun a_card_can_t_be_pressed_typed_into_or_hold_a_picture() {
+    assert(refused(boxed([], [press("Add", "add")])));
+    assert(refused(boxed([], [leaf("input", [("value", t(""))])])));
+    assert(
+        refused(boxed([], [leaf("image", [("src", t("asset:icon.png")), ("label", t("Icon"))])])),
+    );
+    assert(refused(boxed([("on_context", t("more"))], [])));
+    assert(refused(boxed([("role", t("button"))], [])));
+    assert(refused(boxed([("style", kv([("scroll", t("vertical"))]))], [words("a")])));
+    assert(refused(boxed([], [leaf("box", [("slot", t("widgets"))])])));
+    assert(refused(boxed([], [leaf("chart", [])])));
+}
+
+@test
+fun a_card_is_at_most_64_nodes_8_deep_and_16_kb() {
+    let mut kids: Value[] = [];
+    for i in 0..63 {
+        kids.push(words("{i}"));
+    }
+    assert_eq(problem(boxed([], kids)), "ok");
+    kids.push(words("one more"));
+    assert(problem(boxed([], kids)).contains("more than 64 nodes"));
+    let mut deep = words("bottom");
+    for _ in 0..7 {
+        deep = boxed([], [deep]);
+    }
+    assert_eq(problem(deep), "ok");
+    assert(problem(boxed([], [deep])).contains("deeper than 8"));
+    let mut long = "";
+    for _ in 0..17 * 64 {
+        long = long + "0123456789abcdef";
+    }
+    assert_eq(problem(boxed([], [words(long)])), "too long");
+}
+
+@test
+fun a_slot_box_is_read_and_found() {
+    let screen = encode(boxed([], [words("Rapidkoi"), leaf("box", [("slot", t("widgets"))])]));
+    assert(has_slot(read_tree(screen).unwrap().root));
+    assert(!has_slot(read_tree(encode(boxed([], [words("a")]))).unwrap().root));
+    // Only "widgets", and with no children.
+    assert(read_tree(encode(leaf("box", [("slot", t("other"))]))).is_err());
+    assert(read_tree(encode(boxed([("slot", t("widgets"))], [words("a")]))).is_err());
+}
+
+/** A box opening the place `fields`, holding a text. */
+fun opening(fields: (string, Value)[], label: string): Value = parent(
+    "box",
+    [("open", kv(fields))],
+    [words(label)],
+);
+
+@test
+fun a_card_holds_up_to_four_places_in_reading_order() {
+    let v = boxed([], [
+        opening([("new", Value.int(1))], "+"),
+        opening([("note", Value.int(7))], "Shopping list"),
+        opening([("note", Value.int(4))], "Garden plan"),
+        opening([], "Notes"),
+    ]);
+    let (_, read) = read_card(v).unwrap();
+    assert_eq(places_of(read), [[("new", "1")], [("note", "7")], [("note", "4")], []]);
+    assert(has_place(read));
+    let five = boxed([], [
+        opening([], "a"),
+        opening([], "b"),
+        opening([], "c"),
+        opening([], "d"),
+        opening([], "e"),
+    ]);
+    assert(problem(five).contains("more than 4 places"));
+    let nested = parent("box", [("open", kv([]))], [opening([], "inner")]);
+    assert(problem(nested).contains("place inside a place"));
+    assert(refused(boxed([], [opening([("Bad..name", Value.int(1))], "x")])));
+    // Pressed by nothing else.
+    assert(refused(parent("box", [("open", kv([])), ("on_press", t("go"))], [words("x")])));
+}

@@ -1,0 +1,145 @@
+/**
+ * The `widgets` file (PRP-073): each app's newest card for its widgets,
+ * as the bytes it sent, and the ones on the new tab, in order. Read as
+ * hostile, every field checked, as the other files in the data folder are;
+ * each card is held to a card's rules again (`guest.cards`), and one that
+ * fails is dropped, never drawn. What an app sent in the last minute (the
+ * rate) isn't kept: it starts again each run.
+ *
+ * Depends on: cbor, data.remembered, data.recentfile, window.widgets, guest.cards, guest.limits, bundles.widgetlist
+ * Used by: data.saving, data.restoring
+ */
+import cbor { Value };
+import data.remembered { Unreadable, file, root, entry, text, blob };
+import data.recentfile { MAX_ADDRESS, LAST_SEEN };
+import window.widgets { Widgets, Card, Chosen, MAX_CARDS, MAX_SHOWN };
+import guest.cards { card_tree };
+import guest.limits { MAX_WIDGET_BYTES, MAX_WIDGET_LABEL };
+import bundles.widgetlist { name_ok };
+
+/** The file's cap in bytes: every card at its largest, and room for the rest. */
+const MAX_WIDGETS_FILE: i64 = MAX_CARDS * (MAX_WIDGET_BYTES + 2 * MAX_ADDRESS) + 64 * 1024;
+
+/**
+ * Encodes the widgets file.
+ *
+ * Example:
+ *     save(s, "widgets", widgets_file(m.widgets))?
+ */
+fun widgets_file(w: Widgets): u8[] = file("widgets", "widgets", Value.Map([
+    entry("cards", Value.Array(w.cards.map(fun(c: Card) {
+        let mut fields = [
+            entry("path", Value.Text(c.path)),
+            entry("name", Value.Text(c.name)),
+            entry("view", Value.Bytes(c.view)),
+            entry("address", Value.Text(c.address)),
+            entry("sent", Value.int(c.sent)),
+        ];
+        if let Some(o) = c.origin {
+            fields.push(entry("origin", Value.Bytes(o)));
+        }
+        Value.Map(fields)
+    }))),
+    entry("shown", Value.Array(w.shown.map(fun(c: Chosen) {
+        let mut fields = [
+            entry("path", Value.Text(c.path)),
+            entry("name", Value.Text(c.name)),
+            entry("label", Value.Text(c.label)),
+        ];
+        if let Some(o) = c.origin {
+            fields.push(entry("origin", Value.Bytes(o)));
+        }
+        Value.Map(fields)
+    }))),
+]));
+
+/**
+ * Reads the widgets file: at most `MAX_CARDS` cards and `MAX_SHOWN` on the
+ * new tab, each with an app path and address of at most 4,096 bytes, a
+ * widget name of its shape, a label of 1–40 bytes, a time within years
+ * 1970 to 9999 and a 32-byte origin. A card breaking a card's rules is
+ * dropped; anything else wrong makes the file unreadable.
+ *
+ * Example:
+ *     read_widgets(bytes)?
+ */
+fun read_widgets(bytes: u8[]): Result<Widgets, Unreadable> {
+    let v = root(bytes, "widgets", 5, 8 * MAX_CARDS + 8 * MAX_SHOWN + 16, MAX_WIDGETS_FILE)?.get(
+        "widgets",
+    ).ok_or(Unreadable.Broken("there are no widgets"))?;
+    let cs = match v.get("cards") {
+        Some(Array(xs)) if xs.len <= MAX_CARDS => xs,
+        _ => {
+            return Err(Unreadable.Broken("its cards aren't a list of at most {MAX_CARDS}"));
+        }
+    };
+    let ss = match v.get("shown") {
+        Some(Array(xs)) if xs.len <= MAX_SHOWN => xs,
+        _ => {
+            return Err(Unreadable.Broken("its new tab isn't a list of at most {MAX_SHOWN}"));
+        }
+    };
+    let mut kept: Card[] = [];
+    for x of cs {
+        let (path, origin, name) = whose(x)?;
+        let address = text(x, "address").unwrap_or("");
+        if address == "" || address.len > MAX_ADDRESS {
+            return Err(Unreadable.Broken("a widget's address is empty or too long"));
+        }
+        let sent = match x.get("sent").and_then(fun(n: Value) = n.as_i64()) {
+            Some(n) if n >= 0 && n <= LAST_SEEN => n,
+            _ => {
+                return Err(Unreadable.Broken("a widget's time isn't one"));
+            }
+        };
+        let view = blob(x, "view").ok_or(Unreadable.Broken("a widget has no card"))?;
+        // Checked again, as if the app had just sent it: a bad one is dropped.
+        if let Ok(tree) = card_tree(view) {
+            kept.push(Card {
+                path: path,
+                origin: origin,
+                name: name,
+                view: view,
+                tree: tree,
+                address: address,
+                sent: sent,
+            });
+        }
+    }
+    let mut shown: Chosen[] = [];
+    for x of ss {
+        let (path, origin, name) = whose(x)?;
+        let label = text(x, "label").unwrap_or("");
+        if label.trim() == "" || label.len > MAX_WIDGET_LABEL {
+            return Err(Unreadable.Broken("a widget's label is empty or too long"));
+        }
+        let c = Chosen { path: path, origin: origin, name: name, label: label };
+        if shown.any(
+            fun(y: Chosen) = y.path == c.path && y.origin == c.origin && y.name == c.name,
+        ) {
+            return Err(Unreadable.Broken("a widget is on the new tab twice"));
+        }
+        shown.push(c);
+    }
+    Ok(Widgets { cards: kept, shown: shown, lately: [], changes: 0 })
+}
+
+/** A widget's app and name, checked. */
+fun whose(x: Value): Result<(string, Option<u8[]>, string), Unreadable> {
+    let path = text(x, "path").unwrap_or("");
+    if path == "" || path.len > MAX_ADDRESS {
+        return Err(Unreadable.Broken("a widget's app is empty or too long"));
+    }
+    let name = text(x, "name").unwrap_or("");
+    if !name_ok(name) {
+        return Err(Unreadable.Broken("a widget's name isn't one"));
+    }
+    let origin = match blob(x, "origin") {
+        Some(o) if o.len == 32 => Some(o),
+        None => None,
+        _ => {
+            return Err(Unreadable.Broken("a widget's app key isn't 32 bytes"));
+        }
+    };
+    Ok((path, origin, name))
+}

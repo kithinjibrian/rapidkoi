@@ -1,15 +1,15 @@
 //! Notifications on the new tab (PRP-065, board A5): only while something
 //! is unread, the heading with the unread count in the accent, then the
-//! newest four, unread first, two by two. Each is its app's icon, its
+//! newest four, unread first, on one line. Each is its app's icon, its
 //! sentence, and its app and when, in dim; the row opens its place and ×
 //! removes it. Rapidkoi gives the app's name and icon: the app that sent it
 //! gave only the sentence and the place.
 
 use minicbor::{Decode, Encode};
 use rapidkoi::style::{Align, Border, Color, Corner, Font, Layout, Sizing, Spacing, Text, TextSize, Weight};
-use rapidkoi::{column, image, row, spacer, text, Notification, Space};
+use rapidkoi::{column, image, row, spacer, text, wrap, Notification, Space};
 
-use super::{card, halves, heading, note_at, picture, Msg, V};
+use super::{card, heading, note_at, picture, Msg, V};
 
 /// How many the section shows.
 const SHOWN: usize = 4;
@@ -51,7 +51,13 @@ pub(crate) fn section(unread: u32, alerts: &[Alert]) -> Option<V> {
     let head =
         row([heading("NOTIFICATIONS").style([Layout::align(Align::Center)]), count]).style([Spacing::gap(Space::Sm)]);
     let items = alerts.iter().take(SHOWN).enumerate().map(|(i, a)| one(i as u32, a));
-    Some(column([head, halves(items)]).style([Spacing::gap(Space::Px(12))]))
+    Some(column([head, in_a_line(items)]).style([Spacing::gap(Space::Px(12))]))
+}
+
+/// Four equal places on one line, as the widgets sit (the owner's word,
+/// 2026-11-05); fewer on a narrow window.
+pub(crate) fn in_a_line(children: impl IntoIterator<Item = V>) -> V {
+    wrap(children).style([Layout::equal(), Layout::per_line(SHOWN as u8), Spacing::gap(Space::Px(16))])
 }
 
 /// One notification: the row opens it, × beside it removes it.

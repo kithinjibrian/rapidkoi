@@ -40,6 +40,7 @@ fun manifest(): Manifest = Manifest {
     permissions: [],
     controls: None,
     primary_color: None,
+    widgets: [],
 };
 
 /** Notes at `path`, signed by notes.acme.com's key in `standing`. */

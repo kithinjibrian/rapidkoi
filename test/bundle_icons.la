@@ -17,6 +17,7 @@ fun with_icon(icon: Option<(string, u8[])>): Bundle = Bundle { manifest: Manifes
     permissions: [],
     controls: None,
     primary_color: None,
+    widgets: [],
 }, module: [0, 97, 115, 109, 1, 0, 0, 0], assets: match icon {
     Some(i) => [i],
     None => [],

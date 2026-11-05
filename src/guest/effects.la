@@ -9,7 +9,7 @@
  * declare is stopped. Each answer goes back through the app's `update`,
  * which may ask again, up to `MAX_ANSWERS` in a row.
  *
- * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, guest.needs, bundles.permissions, ui.render, net.requests, guest.storing, guest.noticeanswers, guest.appanswers, window.actions
+ * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, guest.needs, bundles.permissions, ui.render, net.requests, guest.storing, guest.noticeanswers, guest.appanswers, guest.widgetanswers, window.actions
  * Used by: shell
  */
 import people.identity { Master, master, public_key, sign_in };
@@ -28,6 +28,7 @@ import window.actions { Msg, Approval, Answer };
 import net.requests;
 import guest.noticeanswers { answer_notice };
 import guest.appanswers { answer_app, apps_of };
+import guest.widgetanswers { answer_widget, undeclared };
 import guest.needs { holds, needed };
 import guest.storing;
 import ui.render;
@@ -134,17 +135,14 @@ fun answer_slot(m: Model, slot: Slot): (Model, Cmd<Msg>[]) {
         }
         if answered >= MAX_ANSWERS {
             // It keeps asking: stop it, like any app that won't settle.
-            let stopped = put(
-                at,
-                slot,
-                fun(page: AppPage) = stop(
-                    page,
-                    "This app asked Rapidkoi for too many things at once",
-                ),
-            );
-            return (stopped, sends);
+            let why = "This app asked Rapidkoi for too many things at once";
+            return (put(at, slot, fun(page: AppPage) = stop(page, why)), sends);
         }
         let ask = p.asks[0];
+        // Filling a widget it didn't declare stops it, as a permission does (PRP-073).
+        if let Some(why) = undeclared(p, ask) {
+            return (put(at, slot, fun(page: AppPage) = stop(page, why)), sends);
+        }
         let mut grant = true;
         if let Some(wanted) = needed(ask) {
             // Reaching for what it didn't declare stops it (the owner, session 166).
@@ -167,12 +165,12 @@ fun answer_slot(m: Model, slot: Slot): (Model, Cmd<Msg>[]) {
                     // call, session 173).
                     let calm = at.panel.is_none() && at.shield.is_none();
                     if at.approval.is_none() && in_front(at, slot) && calm {
-                        let tab = match slot {
-                            InTab(id) => Some(id),
-                            NewTab => None,
-                        };
                         at = Model {
-                            approval: Some(Approval { tab: tab, permission: wanted, app: p.name }),
+                            approval: Some(Approval {
+                                tab: tab_of(slot),
+                                permission: wanted,
+                                app: p.name,
+                            }),
                             ..at,
                         };
                     }
@@ -204,8 +202,7 @@ fun answer_slot(m: Model, slot: Slot): (Model, Cmd<Msg>[]) {
 fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>[]) {
     let mut sends: Cmd<Msg>[] = [];
     let ask = p.asks[0];
-    let rest: Effect[] = [];
-    let mut later = rest;
+    let mut later: Effect[] = [];
     for i in 1..p.asks.len {
         later.push(p.asks[i]);
     }
@@ -231,6 +228,8 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
             sends.push(send);
             (held, now, msg)
         }
+        // Widgets (PRP-073): `widgetanswers`'; checked as declared above.
+        Widget(msg, _, _, _, _) => (answer_widget(m, p, ask), None, msg),
         // All apps (PRP-067): `appanswers`'.
         Apps(msg) | OpenApp(msg, _) | PinApp(msg, _) | UnpinApp(msg, _) | AppInfo(msg, _) | ForgetApp(msg, _) => {
             let (held, now, send) = answer_app(m, p, ask, grant);

@@ -5,12 +5,13 @@
  * files named, writes only OUT (never over an existing file without
  * `--force`), never runs the module, and opens no window.
  *
- * Depends on: std.fs, std.env, bundles.bundle, commands.publish
+ * Depends on: std.fs, std.env, bundles.bundle, bundles.widgetlist, commands.publish
  * Used by: main
  */
 import std.fs;
 import bundles.bundle { Bundle, Manifest, Controls, write };
 import bundles.rules { reason };
+import bundles.widgetlist { Widget };
 import guest.limits { CONTRACT_VERSION };
 import std.env;
 import commands.publish { pack_project, icon_name };
@@ -30,6 +31,8 @@ struct Request {
     controls: Option<Controls>,
     /** `--color primary=#rrggbb` (PRP-063). */
     primary_color: Option<string>,
+    /** `--widget NAME=Label`, each (PRP-073). */
+    widgets: Widget[],
     out: string,
     force: bool,
 }
@@ -109,6 +112,7 @@ fun make(args: string[]): Result<string, string> {
         permissions: r.permissions,
         controls: r.controls,
         primary_color: r.primary_color,
+        widgets: r.widgets,
     };
     let bytes = write(Bundle { manifest: manifest, module: module, assets: assets }).map_err(
         reason,
@@ -137,6 +141,7 @@ fun parse(args: string[]): Result<Request, string> {
     let mut settings: string[] = [];
     let mut out: Option<string> = None;
     let mut primary_color: Option<string> = None;
+    let mut widgets: Widget[] = [];
     let mut force = false;
     let mut i = 0;
     while i < args.len {
@@ -192,6 +197,10 @@ fun parse(args: string[]): Result<Request, string> {
                 return Err("--color takes primary=#rrggbb");
             }
             primary_color = Some(c);
+        } else if a == "--widget" {
+            // Checked with the manifest, before anything is written (PRP-073).
+            let (name, label) = pair(v, "--widget takes NAME=Label")?;
+            widgets.push(Widget { name: name, label: label });
         } else if a == "-o" {
             out = Some(v);
         } else {
@@ -218,6 +227,7 @@ fun parse(args: string[]): Result<Request, string> {
             None
         },
         primary_color: primary_color,
+        widgets: widgets,
         out: out.ok_or("-o is required")?,
         force: force,
     })

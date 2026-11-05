@@ -94,6 +94,24 @@ const MAX_NOTICE_TEXT: i64 = 200;
 /** The longest notification's key, in bytes (PRP-065). */
 const MAX_NOTICE_KEY: i64 = 64;
 
+/** The most widgets an app may declare (PRP-073). */
+const MAX_WIDGETS: i64 = 16;
+
+/** The longest widget name, in bytes of `a–z 0–9 _ -` (PRP-073). */
+const MAX_WIDGET_NAME: i64 = 32;
+
+/** The longest widget label, in bytes (PRP-073). */
+const MAX_WIDGET_LABEL: i64 = 40;
+
+/** The most nodes in a widget's card (PRP-073). */
+const MAX_WIDGET_NODES: i64 = 64;
+
+/** The deepest a widget's card may nest (PRP-073). */
+const MAX_WIDGET_DEPTH: i64 = 8;
+
+/** The largest widget's card, encoded, in bytes (PRP-073). */
+const MAX_WIDGET_BYTES: i64 = 16 * 1024;
+
 /** The most pictures one screen may name, by distinct source (PRP-047). */
 const MAX_PICTURES: i64 = 256;
 

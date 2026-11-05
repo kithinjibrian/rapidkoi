@@ -9,6 +9,7 @@
  * Used by: guest.running
  */
 import cbor { Value, Limits, decode };
+import guest.notifyasks { fields_of };
 import guest.nodes {
     Node,
     Context,
@@ -120,6 +121,31 @@ fun node(
         }
     };
     if kind == "box" {
+        // Where Rapidkoi draws its own into a built-in app (PRP-073); only
+        // those may place one (`window.tabs`).
+        if let Some(name) = given.get("slot") {
+            return match name {
+                Text("widgets") if v.get("children").is_none() => Ok(Node.Slot("widgets")),
+                _ => Err(invalid(here, "slot must be \"widgets\", on a box with no children")),
+            };
+        }
+        // A place to open in a widget's card (PRP-074): its fields, as a
+        // card's own are; `guest.cards` allows it in a card only.
+        let place = match given.get("open") {
+            None => None,
+            Some(fields) => {
+                let pressed = given.get("on_press").is_some() || given.get("menu").is_some();
+                if pressed || given.get("on_context").is_some() {
+                    return Err(
+                        invalid(here, "a box that opens a place is pressed by nothing else"),
+                    );
+                }
+                Some(fields_of(Some(fields)).map_err(fun(e: ContractError) = match e {
+                    Invalid(_, why) => invalid(here, why),
+                    _ => e,
+                })?)
+            }
+        };
         let look = read_style(given.get("style"), here)?;
         let facts = read_facts(given, here)?;
         // A scroll inside one that scrolls the same way never scrolls: say so (PRP-046).
@@ -137,15 +163,17 @@ fun node(
             Some(a) => Some(joined(scrolling, a)),
             None => scrolling,
         };
-        return Ok(
-            Node.Boxed(
-                look,
-                facts,
-                given.get("on_press"),
-                read_context(given, here)?,
-                children(v, here, depth, count, seen, inside)?,
-            ),
+        let made = Node.Boxed(
+            look,
+            facts,
+            given.get("on_press"),
+            read_context(given, here)?,
+            children(v, here, depth, count, seen, inside)?,
         );
+        return Ok(match place {
+            Some(fields) => Node.Place(0, fields, made),
+            None => made,
+        });
     }
     if kind == "text" {
         let look = read_style(given.get("style"), here)?;

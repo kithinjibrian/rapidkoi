@@ -38,6 +38,17 @@ enum Node {
     Field(Typing, Look),
     /** A picture (PRP-047), and its look. */
     Pictured(Picture, Look),
+    /**
+     * Where Rapidkoi draws something of its own into a built-in app's
+     * screen, by name (PRP-073: `widgets`, the new tab's cards).
+     */
+    Slot(string),
+    /**
+     * A box in a widget's card that opens its app at a place (PRP-074):
+     * its number among the card's places, in reading order (`guest.cards`
+     * numbers them), the place's fields, and the box.
+     */
+    Place(i64, (string, string)[], Self),
 }
 
 /**
@@ -378,6 +389,11 @@ enum Effect {
     OpenNotification(Value, i64),
     /** Remove your notification at this index (needs `read_notifications`); not answered. */
     DismissNotification(Value, i64),
+    /**
+     * One of the app's widgets filled (PRP-073): its name, its card's bytes
+     * and tree, checked, and its place's fields; not answered.
+     */
+    Widget(Value, string, u8[], Node, (string, string)[]),
     /** Your apps, A–Z (PRP-067, needs `read_apps`); answered with `msg`. */
     Apps(Value),
     /** Open your app at this index, as listed now (needs `open_apps`); not answered. */

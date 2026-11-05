@@ -94,6 +94,15 @@ const RECENT: Part = Part {
     after: "",
 };
 
+const WIDGETS: Part = Part {
+    file: "widgets",
+    noun: "your widgets",
+    title: "Your widgets",
+    verb: "were",
+    it: "them",
+    after: "",
+};
+
 const APPS: Part = Part {
     file: "apps",
     noun: "your apps",

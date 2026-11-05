@@ -1,0 +1,302 @@
+/**
+ * Widgets (PRP-073, DECISION-097), pure: each app's newest card for every
+ * widget it declares, filled while it runs, and the ones you put on the new
+ * tab, four at most, in the order you added them. An app gives a name, a
+ * card and a place; Rapidkoi fills in the rest from the page that sent it,
+ * so no app fills another's. An app never learns which are shown.
+ *
+ * Depends on: guest.nodes, window.tabs, window.recent, bundles.bundle, bundles.widgetlist
+ * Used by: window.window, data.widgetsfile, guest.widgetanswers, ui.widgets, window.pins
+ */
+import guest.nodes { Node };
+import window.tabs { AppPage };
+import window.recent { address_of };
+import bundles.bundle { Manifest };
+import bundles.widgetlist { Widget };
+
+/** The most cards on the new tab. */
+const MAX_SHOWN: i64 = 4;
+
+/** The most cards an app may send in a minute; past it, the rest are dropped. */
+const MAX_PER_MINUTE: i64 = 30;
+
+/** The most cards kept in all: 16 for each of 500 apps would be too many to keep. */
+const MAX_CARDS: i64 = 256;
+
+/** A minute, in milliseconds. */
+const MINUTE: i64 = 60 * 1000;
+
+/** One app's widget, by its app (path and first key) and its name. */
+struct Chosen {
+    path: string,
+    /** Which app at its address, by first key; `None` when unsigned. */
+    origin: Option<u8[]>,
+    name: string,
+    /** Its label when you added it, for the question about replacing it. */
+    label: string,
+}
+
+/** An app's newest card for one of its widgets. */
+struct Card {
+    path: string,
+    origin: Option<u8[]>,
+    name: string,
+    /** The card as the app sent it, checked: what's kept. */
+    view: u8[],
+    /** The card read from `view`: what's drawn. */
+    tree: Node,
+    /** What clicking it opens: a site's link with the app's fields, or a file's path. */
+    address: string,
+    /** When it was sent, in milliseconds since 1970. */
+    sent: i64,
+}
+
+/** When an app last sent, for the rate: kept for this run only. */
+struct Sent {
+    path: string,
+    origin: Option<u8[]>,
+    at: i64,
+}
+
+/** Every card kept, the ones on the new tab, and the rate's memory. */
+struct Widgets {
+    cards: Card[],
+    shown: Chosen[],
+    lately: Sent[],
+    /** Counts every change worth saving, so `saving` compares a number. */
+    changes: i64,
+}
+
+/**
+ * Returns no widgets.
+ *
+ * Example:
+ *     no_widgets()
+ */
+fun no_widgets(): Widgets = Widgets { cards: [], shown: [], lately: [], changes: 0 };
+
+/**
+ * Returns the widgets page `p`'s app declares; none for a bare module.
+ *
+ * Example:
+ *     declared(page)
+ */
+fun declared(p: AppPage): Widget[] = p.manifest.map(fun(m: Manifest) = m.widgets).unwrap_or([]);
+
+/**
+ * Returns page `p`'s widget by name, as `Chosen`, if its app declares it.
+ *
+ * Example:
+ *     chosen_of(page, "count")
+ */
+fun chosen_of(p: AppPage, name: string): Option<Chosen> {
+    for w of declared(p) {
+        if w.name == name {
+            return Some(Chosen {
+                path: p.path,
+                origin: p.trust.map(fun(t) = t.origin),
+                name: w.name,
+                label: w.label,
+            });
+        }
+    }
+    None
+}
+
+/**
+ * Keeps page `p`'s card for widget `name`, replacing the one before. Past
+ * `MAX_PER_MINUTE` from one app in a minute it's dropped; past `MAX_CARDS`
+ * the oldest card goes, unless it's on the new tab.
+ *
+ * @param w the widgets
+ * @param p the page that sent it: its app and its place are taken from it
+ * @param name the widget, one its app declares
+ * @param view the card's bytes, checked
+ * @param tree the card read from them
+ * @param fields its place's fields
+ * @param now the time it's sent
+ * @returns the widgets, with it unless the rate dropped it
+ *
+ * Example:
+ *     keep(m.widgets, page, "count", bytes, tree, [("count", "12")], m.now)
+ */
+fun keep(
+    w: Widgets,
+    p: AppPage,
+    name: string,
+    view: u8[],
+    tree: Node,
+    fields: (string, string)[],
+    now: i64,
+): Widgets {
+    let origin = p.trust.map(fun(t) = t.origin);
+    let lately_sent = w.lately.filter(fun(s: Sent) = s.at > now - MINUTE);
+    if lately_sent.filter(
+        fun(s: Sent) = s.path == p.path && s.origin == origin,
+    ).len >= MAX_PER_MINUTE {
+        return Widgets { lately: lately_sent, ..w };
+    }
+    let card = Card {
+        path: p.path,
+        origin: origin,
+        name: name,
+        view: view,
+        tree: tree,
+        address: address_of(AppPage { fields: fields, ..p }),
+        sent: now,
+    };
+    let mut cards = [card];
+    for c of w.cards {
+        if !(c.path == p.path && c.origin == origin && c.name == name) {
+            cards.push(c);
+        }
+    }
+    // Newest first: past the cap, the oldest not on the new tab goes (one
+    // card is added at a time, so one goes).
+    if cards.len > MAX_CARDS {
+        let mut i = cards.len - 1;
+        while i > 0 && is_shown(w, of_card(cards[i])) {
+            i -= 1;
+        }
+        let mut out: Card[] = [];
+        for j in 0..cards.len {
+            if j != i {
+                out.push(cards[j]);
+            }
+        }
+        cards = out;
+    }
+    let mut lately = lately_sent;
+    lately.push(Sent { path: p.path, origin: origin, at: now });
+    Widgets { cards: cards, lately: lately, changes: w.changes + 1, ..w }
+}
+
+/**
+ * Returns the newest card for a widget, if its app has sent one.
+ *
+ * Example:
+ *     card_of(m.widgets, c)
+ */
+fun card_of(w: Widgets, c: Chosen): Option<Card> {
+    for x of w.cards {
+        if same(of_card(x), c) {
+            return Some(x);
+        }
+    }
+    None
+}
+
+/**
+ * Says whether a widget is on the new tab.
+ *
+ * Example:
+ *     is_shown(m.widgets, c)
+ */
+fun is_shown(w: Widgets, c: Chosen): bool = w.shown.any(fun(s: Chosen) = same(s, c));
+
+/**
+ * Says whether the new tab has no room for another card.
+ *
+ * Example:
+ *     full(m.widgets)
+ */
+fun full(w: Widgets): bool = w.shown.len >= MAX_SHOWN;
+
+/**
+ * Puts a widget on the new tab, at the end; `None` when it's full. One
+ * already there stays where it is.
+ *
+ * Example:
+ *     add(m.widgets, c)
+ */
+fun add(w: Widgets, c: Chosen): Option<Widgets> {
+    if is_shown(w, c) {
+        return Some(w);
+    }
+    if full(w) {
+        return None;
+    }
+    Some(Widgets { shown: w.shown + [c], changes: w.changes + 1, ..w })
+}
+
+/**
+ * Puts a widget on the new tab in the place of the one at `index`.
+ *
+ * Example:
+ *     replace(m.widgets, 2, c)
+ */
+fun replace(w: Widgets, index: i64, c: Chosen): Widgets {
+    if index < 0 || index >= w.shown.len || is_shown(w, c) {
+        return w;
+    }
+    let mut shown: Chosen[] = [];
+    for i in 0..w.shown.len {
+        shown.push(if i == index { c } else { w.shown[i] });
+    }
+    Widgets { shown: shown, changes: w.changes + 1, ..w }
+}
+
+/**
+ * Takes a widget off the new tab; its card is kept.
+ *
+ * Example:
+ *     remove(m.widgets, c)
+ */
+fun remove(w: Widgets, c: Chosen): Widgets = Widgets {
+    shown: w.shown.filter(fun(s: Chosen) = !same(s, c)),
+    changes: w.changes + 1,
+    ..w,
+};
+
+/**
+ * Forgets one app's cards and takes its widgets off the new tab: the app forgotten.
+ *
+ * Example:
+ *     forget_widgets(m.widgets, page.path, origin)
+ */
+fun forget_widgets(w: Widgets, path: string, origin: Option<u8[]>): Widgets = Widgets {
+    cards: w.cards.filter(fun(c: Card) = !(c.path == path && c.origin == origin)),
+    shown: w.shown.filter(fun(c: Chosen) = !(c.path == path && c.origin == origin)),
+    changes: w.changes + 1,
+    ..w,
+};
+
+/**
+ * Drops an app's cards and new-tab places for widgets it no longer
+ * declares: when it starts with a new manifest.
+ *
+ * Example:
+ *     prune(m.widgets, page)
+ */
+fun prune(w: Widgets, p: AppPage): Widgets {
+    let origin = p.trust.map(fun(t) = t.origin);
+    let names = declared(p).map(fun(x: Widget) = x.name);
+    let stays = fun(
+        path: string,
+        o: Option<u8[]>,
+        name: string,
+    ): bool = !(path == p.path && o == origin) || names.any(fun(n: string) = n == name);
+    let cards = w.cards.filter(fun(c: Card) = stays(c.path, c.origin, c.name));
+    let shown = w.shown.filter(fun(c: Chosen) = stays(c.path, c.origin, c.name));
+    if cards.len == w.cards.len && shown.len == w.shown.len {
+        return w;
+    }
+    Widgets { cards: cards, shown: shown, changes: w.changes + 1, ..w }
+}
+
+/**
+ * Returns how many of page `p`'s app's widgets are on the new tab.
+ *
+ * Example:
+ *     shown_count(m.widgets, page)
+ */
+fun shown_count(w: Widgets, p: AppPage): i64 {
+    let origin = p.trust.map(fun(t) = t.origin);
+    w.shown.filter(fun(c: Chosen) = c.path == p.path && c.origin == origin).len
+}
+
+/** A card's widget, without its label. */
+fun of_card(c: Card): Chosen = Chosen { path: c.path, origin: c.origin, name: c.name, label: "" };
+
+/** Whether two name the same widget of the same app. */
+fun same(a: Chosen, b: Chosen): bool = a.path == b.path && a.origin == b.origin && a.name == b.name;

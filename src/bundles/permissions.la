@@ -28,6 +28,8 @@ enum Permission {
     ReadApps,
     /** Pinning an app to the dock, or unpinning it (PRP-067). */
     ManagePins,
+    /** Placing the slot Rapidkoi draws your widgets into (PRP-073): never reading them. */
+    ShowWidgets,
 }
 
 /** Who may hold a permission. */
@@ -119,6 +121,7 @@ const ALL: Permission[] = [
     Permission.ReadNotifications,
     Permission.ReadApps,
     Permission.ManagePins,
+    Permission.ShowWidgets,
 ];
 
 /**
@@ -137,6 +140,7 @@ fun name_of(p: Permission): string = match p {
     ReadNotifications => "read_notifications",
     ReadApps => "read_apps",
     ManagePins => "manage_pins",
+    ShowWidgets => "show_widgets",
 };
 
 /**
@@ -155,6 +159,7 @@ fun tier_of(p: Permission): Tier = match p {
     ReadNotifications => Tier.BuiltIn,
     ReadApps => Tier.BuiltIn,
     ManagePins => Tier.BuiltIn,
+    ShowWidgets => Tier.BuiltIn,
 };
 
 /**
@@ -173,6 +178,7 @@ fun words_of(p: Permission): string = match p {
     ReadNotifications => "reading your notifications",
     ReadApps => "reading your apps",
     ManagePins => "changing your pins",
+    ShowWidgets => "showing your widgets",
 };
 
 /**
@@ -191,6 +197,7 @@ fun label_of(p: Permission): string = match p {
     ReadNotifications => "Reading your notifications",
     ReadApps => "Reading your apps",
     ManagePins => "Changing your pins",
+    ShowWidgets => "Showing your widgets",
 };
 
 /**
@@ -209,6 +216,7 @@ fun wish_of(p: Permission): string = match p {
     ReadNotifications => "read your notifications",
     ReadApps => "read your apps",
     ManagePins => "change your pins",
+    ShowWidgets => "show your widgets",
 };
 
 /**

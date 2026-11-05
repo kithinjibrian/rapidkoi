@@ -20,6 +20,7 @@ fun manifest(): Manifest = Manifest {
     permissions: [],
     controls: None,
     primary_color: None,
+    widgets: [],
 };
 
 fun good(): Bundle = Bundle {

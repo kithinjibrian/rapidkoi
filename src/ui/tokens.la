@@ -25,6 +25,8 @@ const TEXT_TITLE: i64 = 18;
 const TEXT_HEADING: i64 = 14;
 /** The address box's text, in points: a step above the body (the owner, 2026-11-03). */
 const TEXT_ADDRESS: i64 = 12;
+/** Small text, relative to the body: the new tab's section headings, as apps' `small` (PRP-073). */
+const TEXT_SMALL: f64 = 0.875;
 
 /** The window's default width, in pixels. */
 const WINDOW_WIDTH: i64 = 960;
@@ -58,6 +60,18 @@ const APPS_WIDTH: i64 = 460;
 const INFO_ICON: i64 = 64;
 /** The app's icon at the top of the shield's card, in pixels: every icon's 20 (the owner, session 136). */
 const CARD_ICON: i64 = 20;
+/** How far a card on the new tab lifts the page toward the text: the new tab's own cards' 0.04 (PRP-073). */
+const CARD_LIFT: f64 = 0.04;
+/** A widget card's height on the new tab (PRP-073). */
+const WIDGET_HEIGHT: i64 = 168;
+/** A widget's preview on App info's Widgets page: width and height (PRP-073). */
+const PREVIEW_WIDTH: i64 = 220;
+const PREVIEW_HEIGHT: i64 = 120;
+/** A widget's preview in the ⚙ card, smaller so the card keeps its width (PRP-073). */
+const PREVIEW_SMALL_WIDTH: i64 = 150;
+const PREVIEW_SMALL_HEIGHT: i64 = 84;
+/** The app's icon on a widget card's top line (PRP-073). */
+const WIDGET_ICON: i64 = 16;
 /** The current app's ring in the sidebar, in pixels. */
 const RING_WIDTH: i64 = 1;
 /** The sidebar's × button, in pixels (square). */

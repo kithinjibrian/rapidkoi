@@ -262,6 +262,7 @@ fun bundle_of(p: Project): Result<Bundle, string> {
             permissions: [],
             controls: None,
             primary_color: p.primary_color,
+            widgets: p.widgets,
         },
         module: load(p.module)?,
         assets: assets,

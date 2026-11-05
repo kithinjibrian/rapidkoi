@@ -350,4 +350,5 @@ fun newtab_manifest(): Manifest = Manifest {
     permissions: ["read_pins", "restore_session"],
     controls: None,
     primary_color: None,
+    widgets: [],
 };

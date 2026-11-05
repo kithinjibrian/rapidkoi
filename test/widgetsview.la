@@ -1,0 +1,201 @@
+// Widgets' screens (PRP-073): the new tab's row (its cards, a click opening
+// one, its menu taking it off, nothing with none added), App info's
+// Widgets › row and page with a switch each, and "Replace a widget?" for a
+// fifth. No display: views read through kivuli.testing.
+import rapidkoi.shell { start, update };
+import rapidkoi.ui.layout { view };
+import rapidkoi.ui.widgets as screens;
+import rapidkoi.ui.render;
+import rapidkoi.ui.content { shown_widgets };
+import rapidkoi.people.people { with_setting };
+import rapidkoi.people.access { key_of };
+import rapidkoi.bundles.permissions { Permission, Setting };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.window.window { Model };
+import rapidkoi.window.yourapps { App, opened as kept };
+import rapidkoi.window.info { Facts, InfoPage, no_facts };
+import rapidkoi.window.widgets { Widgets, Chosen, Card, no_widgets };
+import rapidkoi.data.remembered { Face };
+import rapidkoi.bundles.bundle { Manifest };
+import rapidkoi.bundles.widgetlist { Widget };
+import rapidkoi.guest.cards { read_card };
+import kivuli.testing { texts, click, pick, flip };
+import support { boxed, words, parent, kv };
+import cbor { Value };
+
+fun counter(): App = App {
+    path: "counter.rkb",
+    origin: None,
+    host: None,
+    face: Face { path: "counter.rkb", name: "Counter", icon: None, colour: None },
+    first: 1762000000000,
+    last: 1762100000000,
+};
+
+fun declaring(names: string[]): Manifest = Manifest {
+    contract: 11,
+    name: "Counter",
+    version: "0.3.0",
+    description: None,
+    state_version: 1,
+    icon: None,
+    banners: [],
+    servers: [],
+    permissions: [],
+    controls: None,
+    primary_color: None,
+    widgets: names.map(fun(n: string) = Widget { name: n, label: "Label {n}" }),
+};
+
+fun chosen(name: string): Chosen = Chosen {
+    path: "counter.rkb",
+    origin: None,
+    name: name,
+    label: "Label {name}",
+};
+
+/** Rapidkoi started with Counter one of your apps, and `w` your widgets. */
+fun started(w: Widgets): Model {
+    let (m, _) = start(["./main"], None);
+    Model { apps: kept(m.apps, counter()), widgets: w, ..m }
+}
+
+/** App info on Counter, read back declaring `names`. */
+fun info_on(w: Widgets, names: string[]): Model {
+    let (all, _) = update(started(w), Msg.OpenAllApps);
+    let (shown, _) = update(all, Msg.AppInfo("counter.rkb", None));
+    update(
+        shown,
+        Msg.InfoRead("counter.rkb", None, Facts { manifest: Some(declaring(names)), ..no_facts() }),
+    ).0
+}
+
+fun shows(m: Model, s: string): bool = texts(view(m)).any(fun(x: string) = x == s);
+
+@test
+fun the_new_tab_s_row_shows_your_cards_and_a_click_opens_one() {
+    let (bytes, tree) = read_card(boxed([], [words("12")])).unwrap();
+    let card = Card {
+        path: "counter.rkb",
+        origin: None,
+        name: "count",
+        view: bytes,
+        tree: tree,
+        address: "counter.rkb",
+        sent: 0,
+    };
+    let w = Widgets { cards: [card], shown: [chosen("count")], lately: [], changes: 0 };
+    let m = started(w);
+    let shown = texts(screens.row_view(m));
+    assert(shown.any(fun(s: string) = s == "WIDGETS"));
+    assert(shown.any(fun(s: string) = s == "Counter"));
+    assert(shown.any(fun(s: string) = s == "12"));
+    let opens = match click(screens.row_view(m), "Open Counter") {
+        Ok(OpenWidget(i)) => i,
+        _ => -1,
+    };
+    assert_eq(opens, 0);
+    let removes = match pick(screens.row_view(m), "Open Counter", "Remove from new tab") {
+        Ok(RemoveWidget(i)) => i,
+        _ => -1,
+    };
+    assert_eq(removes, 0);
+    // Through the window: removed.
+    let (gone, _) = update(m, Msg.FromNewTab(render.Msg.RemoveWidget(0)));
+    assert_eq(gone.widgets.shown.len, 0);
+    // None added: no heading, nothing.
+    assert_eq(texts(screens.row_view(started(no_widgets()))).len, 0);
+}
+
+@test
+fun blocking_the_new_tab_s_showing_your_widgets_empties_its_slot() {
+    let m = started(Widgets { cards: [], shown: [chosen("count")], lately: [], changes: 0 });
+    let tab = m.newtab.unwrap();
+    assert(texts(shown_widgets(m, tab)).len > 0);
+    let blocked = Model {
+        people: with_setting(m.people, key_of(tab), Permission.ShowWidgets, Setting.Blocked),
+        ..m,
+    };
+    assert_eq(texts(shown_widgets(blocked, tab)).len, 0);
+}
+
+@test
+fun a_widget_not_sent_yet_shows_its_label() {
+    let m = started(Widgets { cards: [], shown: [chosen("count")], lately: [], changes: 0 });
+    assert(texts(screens.row_view(m)).any(fun(s: string) = s == "Label count"));
+}
+
+@test
+fun app_info_s_widgets_page_has_a_switch_each() {
+    let m = info_on(no_widgets(), ["count", "total"]);
+    assert(shows(m, "Widgets"));
+    assert(shows(m, "0 of 2 on new tab"));
+    let (page, _) = update(m, Msg.InfoGo(InfoPage.Widgets));
+    assert(shows(page, "Label count"));
+    assert(shows(page, "Label total"));
+    let (on, _) = update(page, flip(view(page), "widget:count").unwrap());
+    assert_eq(on.widgets.shown.map(fun(c: Chosen) = c.name), ["count"]);
+    let (main, _) = update(on, Msg.InfoGo(InfoPage.Main));
+    assert(shows(main, "1 of 2 on new tab"));
+    // An app declaring none has no Widgets row.
+    assert(!shows(info_on(no_widgets(), []), "Widgets"));
+}
+
+@test
+fun a_fifth_asks_which_to_replace() {
+    let others = ["a", "b", "c", "d"].map(
+        fun(n: string) = Chosen { path: "notes.rkb", origin: None, name: n, label: "Note {n}" },
+    );
+    let m = info_on(Widgets { cards: [], shown: others, lately: [], changes: 0 }, ["count"]);
+    let (page, _) = update(m, Msg.InfoGo(InfoPage.Widgets));
+    let (asking, _) = update(page, Msg.WidgetSwitch("count", true));
+    assert(shows(asking, "Replace a widget?"));
+    assert(click(view(asking), "Cancel").is_ok());
+    let (picked, _) = update(asking, Msg.PickReplace(1));
+    let (done, _) = update(picked, click(view(picked), "Replace").unwrap());
+    assert_eq(done.widgets.shown.map(fun(c: Chosen) = c.name), ["a", "count", "c", "d"]);
+    assert(!shows(done, "Replace a widget?"));
+}
+
+@test
+fun a_card_s_place_is_its_own_button_on_the_new_tab() {
+    // PRP-074: the place opens its own fields; the rest of the card, the card's.
+    let view = boxed([], [
+        parent("box", [("open", kv([("note", Value.int(7))]))], [words("Shopping list")]),
+    ]);
+    let (bytes, read) = read_card(view).unwrap();
+    let card = Card {
+        path: "counter.rkb",
+        origin: None,
+        name: "count",
+        view: bytes,
+        tree: read,
+        address: "counter.rkb",
+        sent: 0,
+    };
+    let m = started(Widgets { cards: [card], shown: [chosen("count")], lately: [], changes: 0 });
+    let placed = match click(screens.row_view(m), "Open") {
+        Ok(OpenWidgetPlace(i, k)) => (i, k),
+        _ => (-1, -1),
+    };
+    assert_eq(placed, (0, 0));
+    // DECISION-098: a card with places isn't a button itself (kivuli holds
+    // no button in a button), so the first button holding the place's text
+    // is the place's own; the card's top line opens the card's place.
+    let by_text = match click(screens.row_view(m), "Shopping list") {
+        Ok(OpenWidgetPlace(i, k)) => (i, k),
+        _ => (-1, -1),
+    };
+    assert_eq(by_text, (0, 0));
+    let top = match click(screens.row_view(m), "Open Counter") {
+        Ok(OpenWidget(i)) => i,
+        _ => -1,
+    };
+    assert_eq(top, 0);
+    // Its right-click menu stays on the whole card, named for its app.
+    let removes = match pick(screens.row_view(m), "card:Counter", "Remove from new tab") {
+        Ok(RemoveWidget(i)) => i,
+        _ => -1,
+    };
+    assert_eq(removes, 0);
+}

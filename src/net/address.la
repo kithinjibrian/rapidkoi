@@ -233,6 +233,46 @@ fun without_link(text: string): string {
     base.slice(0, at) + if end < 0 { "" } else { after.slice(end, after.len) }
 }
 
+/**
+ * Returns a local app's place: its file, and the fields its link names
+ * after `?`, as a site's link carries them, so a place in it outlives its
+ * window (Recent, notifications, widgets). No fields: the file alone.
+ *
+ * Example:
+ *     local_link("/home/a/counter.rkb", [("count", "2")]) == "/home/a/counter.rkb?count=2"
+ */
+fun local_link(path: string, fields: (string, string)[]): string {
+    if fields.len == 0 {
+        return path;
+    }
+    let q = fields.map(fun(f: (string, string)) = "{f.0}={encode_value(f.1)}").join("&");
+    "{path}?{q}"
+}
+
+/**
+ * Reads a local app's place back into its file and fields: only a `?`
+ * after a bundle's or module's name (`.rkb`, `.wasm`) starts them, so a
+ * file whose own name holds a `?` is still that file. Fields that don't
+ * read as a link's are no fields.
+ *
+ * Example:
+ *     local_place("counter.rkb?count=2") == ("counter.rkb", [("count", "2")])
+ */
+fun local_place(text: string): (string, (string, string)[]) {
+    let q = find(text, "?");
+    if q < 0 {
+        return (text, []);
+    }
+    let file = text.slice(0, q);
+    if !(file.ends_with(".rkb") || file.ends_with(".wasm")) {
+        return (text, []);
+    }
+    match fields_of(text.slice(q + 1, text.len)) {
+        Ok(fs) if fs.len > 0 => (file, fs),
+        _ => (text, []),
+    }
+}
+
 /** `/@1.2.0[/rest]` → the version and the rest; any other path → no version. */
 fun version_of(path: string): Result<(Option<string>, string), AddressError> {
     if !path.starts_with("/@") {

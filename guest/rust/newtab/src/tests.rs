@@ -10,6 +10,14 @@ fn the_screen_names_only_packed_pictures() {
 }
 
 #[test]
+fn the_screen_places_the_widgets_slot() {
+    // PRP-073: Rapidkoi draws the person's widgets there; this app never sees them.
+    let bytes = NewTab::default().view().encode();
+    let at = |needle: &[u8]| bytes.windows(needle.len()).position(|w| w == needle);
+    assert!(at(b"slot").is_some() && at(b"widgets").is_some());
+}
+
+#[test]
 fn every_picture_is_in_assets_and_packed() {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/");
     let script = include_str!("../../../../scripts/newtab.sh");
@@ -41,11 +49,7 @@ fn it_asks_for_the_session_places_and_notifications_each_time_it_s_shown_or_told
     for e in [Event::Opened, Event::Resume, Event::Change { tables: vec![] }] {
         assert_eq!(
             NewTab::default().step(e).1,
-            vec![
-                Ask::session("session"),
-                Ask::recent("recent"),
-                Ask::notifications("notifications")
-            ]
+            vec![Ask::session("session"), Ask::recent("recent"), Ask::notifications("notifications")]
         );
     }
 }
@@ -178,4 +182,12 @@ fn notifications_show_only_while_one_is_unread_and_open_or_dismiss_by_index() {
     let (read, _) =
         NewTab::default().step(Event::Data { msg: "notifications".into(), cbor: alerts(0, &[("Counter", "a")]) });
     assert!(notices::section(read.unread, &read.notices).is_none());
+}
+
+#[test]
+fn notifications_sit_four_on_one_line() {
+    // The owner's word (2026-11-05): one line of four, as the widgets, not two by two.
+    let items = || [text::<Msg>("a"), text("b")];
+    let expected = wrap(items()).style([Layout::equal(), Layout::per_line(4), Spacing::gap(Space::Px(16))]);
+    assert_eq!(notices::in_a_line(items()), expected);
 }

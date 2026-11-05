@@ -7,16 +7,17 @@
  * Newer (left alone with a notice, and never written this run), as
  * `settle` says.
  *
- * Depends on: data.store, data.remembered, data.parts, data.pinfiles, data.recentfile, data.notificationsfile, data.yourappsfile, data.preferences, people.people, people.people_codec, people.identity, trust.verify, ui.schemes, window.window, window.yourapps, window.recent, window.notifications, window.notices, window.settings_app
+ * Depends on: data.store, data.remembered, data.parts, data.pinfiles, data.recentfile, data.notificationsfile, data.yourappsfile, data.widgetsfile, data.preferences, people.people, people.people_codec, people.identity, trust.verify, ui.schemes, window.window, window.yourapps, window.recent, window.notifications, window.widgets, window.notices, window.settings_app
  * Used by: boot.boot, data.saving
  */
 import data.store { Store, skipping };
 import data.remembered { Recalled, MAX_TRUST_FILE, recall, read_trust };
-import data.parts { Part, TRUST, PINS, PEOPLE, PREFS, RECENT, NOTIFICATIONS, APPS };
+import data.parts { Part, TRUST, PINS, PEOPLE, PREFS, RECENT, NOTIFICATIONS, APPS, WIDGETS };
 import data.pinfiles { MAX_PINS_FILE, read_pins };
 import data.recentfile { MAX_RECENT_FILE, read_recent, with_left_off };
 import data.notificationsfile { MAX_NOTIFICATIONS_FILE, read_notifications };
 import data.yourappsfile { MAX_APPS_FILE, read_apps };
+import data.widgetsfile { MAX_WIDGETS_FILE, read_widgets };
 import data.preferences { MAX_PREFS_FILE, read_prefs };
 import people.people { nobody };
 import people.people_codec { read_people, MAX_PEOPLE_FILE };
@@ -27,6 +28,7 @@ import window.window { Model, Notice };
 import window.yourapps { seeded };
 import window.recent { no_recent };
 import window.notifications { no_notifications };
+import window.widgets { no_widgets };
 import window.notices { joined, with_more, set_aside, not_kept, identity_trouble };
 import window.settings_app;
 
@@ -119,6 +121,15 @@ fun restorers(): Restorer[] = [
                 NOTIFICATIONS,
                 r,
             ).unwrap_or(no_notifications()),
+            ..m,
+        },
+    },
+    Restorer {
+        name: "widgets",
+        into: fun(m: Model, r: Reading): Model = Model {
+            widgets: settle(recall(r.store, WIDGETS.file, MAX_WIDGETS_FILE, read_widgets), WIDGETS, r).unwrap_or(
+                no_widgets(),
+            ),
             ..m,
         },
     },

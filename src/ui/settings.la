@@ -36,6 +36,7 @@ import ui.themes { body, dim, title, group, button as button_look };
 import ui.schemes { Theme };
 import ui.grants;
 import ui.strip;
+import ui.widgets;
 
 /**
  * Builds site settings' card on a page, for an app page.
@@ -58,6 +59,9 @@ fun card(m: Model, p: AppPage, page: PanelPage): View<Msg> {
         Name => detail(t, "Name", Msg.PanelBack, name_page(you)),
         Access => detail(t, "Servers", Msg.PanelBack, servers_page(t, reach)),
         Permissions => detail(t, "Permissions", Msg.PanelBack, grants.page(m, t, p)),
+        Widgets => detail(t, "Widgets", Msg.PanelBack, [
+            column(widgets.page_rows(m, p, true)).style(group(t)),
+        ]),
     };
     sized(shown)
 }
@@ -97,6 +101,9 @@ const RAPIDKOI_VERSION: string = "0.1.0";
  *     dialog_view(m)
  */
 fun dialog_view(m: Model): View<Msg> {
+    if m.replacing.is_some() {
+        return widgets.replace_view(m);
+    }
     if m.renaming.is_some() {
         return strip.rename_view(m);
     }
@@ -192,6 +199,12 @@ fun front(m: Model, p: AppPage, you: Account, reach: Access): View<Msg> {
     if let Some(said) = grants.summary(m, p) {
         if shows("app_settings.permissions") {
             app_rows.push(choice(t, "Permissions", Some(said), Msg.PanelGo(PanelPage.Permissions)));
+        }
+    }
+    // Only an app that declares widgets has a Widgets row (PRP-073).
+    if let Some(said) = widgets.summary(m, p) {
+        if shows("app_settings.widgets") {
+            app_rows.push(choice(t, "Widgets", Some(said), Msg.PanelGo(PanelPage.Widgets)));
         }
     }
     for r of looks_rows(m, p) {

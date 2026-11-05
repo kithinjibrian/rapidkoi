@@ -1,0 +1,231 @@
+// Widgets (PRP-073), pure: keeping an app's newest card per widget, the
+// rate, the new tab's four (adding, replacing, removing), forgetting an app,
+// dropping what it no longer declares; and your choices: a switch, a fifth
+// asking which to replace, a card opening its place. Echo stand-in pages; no display.
+import rapidkoi.window.widgets {
+    Widgets,
+    Chosen,
+    no_widgets,
+    keep,
+    add,
+    replace,
+    remove,
+    forget_widgets,
+    prune,
+    card_of,
+    is_shown,
+    full,
+    chosen_of,
+    declared,
+    shown_count,
+};
+import rapidkoi.window.widgetchoices {
+    switched,
+    picked,
+    replaced,
+    cancelled,
+    opened,
+    opened_at,
+    removed,
+};
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.tabs { AppPage, open_module };
+import rapidkoi.window.actions { Msg };
+import rapidkoi.bundles.bundle { Manifest };
+import rapidkoi.bundles.widgetlist { Widget };
+import rapidkoi.guest.cards { read_card };
+import rapidkoi.guest.nodes { Node };
+import kivuli { Cmd };
+import wasmtime { Engine, Module };
+import support { echo, boxed, words, parent, kv };
+import cbor { Value };
+
+/** An echo page at `path` declaring `names`, each labelled after its name. */
+fun page_at(path: string, names: string[]): AppPage {
+    let engine = Engine.new();
+    let p = open_module("App", path, engine, Module.from_text(engine, echo()).unwrap());
+    AppPage {
+        manifest: Some(Manifest {
+            contract: 11,
+            name: "App",
+            version: "1.0.0",
+            description: None,
+            state_version: 1,
+            icon: Some("icon.png"),
+            banners: [],
+            servers: [],
+            permissions: [],
+            controls: None,
+            primary_color: None,
+            widgets: names.map(fun(n: string) = Widget { name: n, label: "Label {n}" }),
+        }),
+        ..p,
+    }
+}
+
+fun card(s: string): (u8[], Node) = read_card(boxed([], [words(s)])).unwrap();
+
+/** `w` with `p`'s widget `name` sent at `at`, showing `s`. */
+fun sent(w: Widgets, p: AppPage, name: string, s: string, at: i64): Widgets {
+    let (bytes, tree) = card(s);
+    keep(w, p, name, bytes, tree, [], at)
+}
+
+fun chosen(p: AppPage, name: string): Chosen = chosen_of(p, name).unwrap();
+
+@test
+fun an_app_s_widgets_are_its_manifest_s() {
+    let p = page_at("notes.rkb", ["last_edited", "count"]);
+    assert_eq(declared(p).len, 2);
+    assert_eq(chosen(p, "count").label, "Label count");
+    assert(chosen_of(p, "pinned").is_none());
+}
+
+@test
+fun a_new_card_replaces_the_one_before_for_that_widget_only() {
+    let p = page_at("notes.rkb", ["last_edited", "count"]);
+    let w = sent(sent(no_widgets(), p, "count", "12", 0), p, "last_edited", "Shopping", 1);
+    let again = sent(w, p, "count", "13", 2);
+    assert_eq(again.cards.len, 2);
+    assert_eq(card_of(again, chosen(p, "count")).map(fun(c) = c.sent), Some(2));
+    assert_eq(card_of(again, chosen(p, "last_edited")).map(fun(c) = c.sent), Some(1));
+    // Each kept change is counted, so it's saved.
+    assert_eq(again.changes, 3);
+}
+
+@test
+fun past_30_in_a_minute_from_one_app_cards_are_dropped() {
+    let p = page_at("notes.rkb", ["count"]);
+    let mut w = no_widgets();
+    for i in 0..30 {
+        w = sent(w, p, "count", "{i}", i);
+    }
+    let over = sent(w, p, "count", "late", 30);
+    assert_eq(card_of(over, chosen(p, "count")).map(fun(c) = c.sent), Some(29));
+    // A minute later it's kept again.
+    let later = sent(over, p, "count", "later", 61_000);
+    assert_eq(card_of(later, chosen(p, "count")).map(fun(c) = c.sent), Some(61_000));
+}
+
+@test
+fun four_go_on_the_new_tab_and_a_fifth_doesn_t() {
+    let p = page_at("notes.rkb", ["a", "b", "c", "d", "e"]);
+    let mut w = no_widgets();
+    for n of ["a", "b", "c", "d"] {
+        w = add(w, chosen(p, n)).unwrap();
+    }
+    assert(full(w));
+    assert(add(w, chosen(p, "e")).is_none());
+    // One already there stays where it is.
+    assert_eq(add(w, chosen(p, "a")).map(fun(x: Widgets) = x.shown.len), Some(4));
+    assert_eq(shown_count(w, p), 4);
+    let swapped = replace(w, 2, chosen(p, "e"));
+    assert_eq(swapped.shown.map(fun(c: Chosen) = c.name), ["a", "b", "e", "d"]);
+    let fewer = remove(swapped, chosen(p, "b"));
+    assert_eq(fewer.shown.map(fun(c: Chosen) = c.name), ["a", "e", "d"]);
+    assert(!is_shown(fewer, chosen(p, "b")));
+}
+
+@test
+fun forgetting_an_app_takes_its_cards_and_places_only() {
+    let notes = page_at("notes.rkb", ["count"]);
+    let counter = page_at("counter.rkb", ["count"]);
+    let w = add(
+        add(
+            sent(sent(no_widgets(), notes, "count", "1", 0), counter, "count", "2", 1),
+            chosen(notes, "count"),
+        ).unwrap(),
+        chosen(counter, "count"),
+    ).unwrap();
+    let left = forget_widgets(w, "notes.rkb", None);
+    assert_eq(left.cards.map(fun(c) = c.path), ["counter.rkb"]);
+    assert_eq(left.shown.map(fun(c: Chosen) = c.path), ["counter.rkb"]);
+}
+
+@test
+fun a_widget_no_longer_declared_is_dropped() {
+    let before = page_at("notes.rkb", ["count", "old"]);
+    let w = add(
+        sent(sent(no_widgets(), before, "old", "x", 0), before, "count", "1", 1),
+        chosen(before, "old"),
+    ).unwrap();
+    let after = prune(w, page_at("notes.rkb", ["count"]));
+    assert_eq(after.cards.map(fun(c) = c.name), ["count"]);
+    assert_eq(after.shown.len, 0);
+}
+
+/** A window showing `p`, with your widgets `w`. */
+fun showing(p: AppPage, w: Widgets): Model = Model { widgets: w, ..with_pages(Engine.new(), [p]) };
+
+@test
+fun a_switch_adds_and_takes_off_the_app_in_front_s_widget() {
+    let p = page_at("notes.rkb", ["count"]);
+    let on = switched(showing(p, no_widgets()), "count", true);
+    assert(is_shown(on.widgets, chosen(p, "count")));
+    let off = switched(on, "count", false);
+    assert(!is_shown(off.widgets, chosen(p, "count")));
+    // A name it doesn't declare does nothing.
+    assert_eq(switched(on, "nope", true).widgets.shown.len, 1);
+}
+
+@test
+fun a_fifth_asks_which_to_replace_and_replace_puts_it_there() {
+    let p = page_at("notes.rkb", ["a", "b", "c", "d", "e"]);
+    let mut m = showing(p, no_widgets());
+    for n of ["a", "b", "c", "d"] {
+        m = switched(m, n, true);
+    }
+    let asking = switched(m, "e", true);
+    assert_eq(asking.widgets.shown.len, 4);
+    assert_eq(asking.replacing.map(fun(r: (Chosen, i64)) = r.1), Some(0));
+    let done = replaced(picked(asking, 3));
+    assert_eq(done.widgets.shown.map(fun(c: Chosen) = c.name), ["a", "b", "c", "e"]);
+    assert(done.replacing.is_none());
+    // Cancel changes nothing.
+    assert_eq(cancelled(asking).widgets.shown.map(fun(c: Chosen) = c.name), ["a", "b", "c", "d"]);
+    assert(cancelled(asking).replacing.is_none());
+}
+
+@test
+fun a_card_opens_its_place_and_its_menu_takes_it_off() {
+    let p = page_at("notes.rkb", ["count"]);
+    let w = add(sent(no_widgets(), p, "count", "12", 0), chosen(p, "count")).unwrap();
+    let m = showing(p, w);
+    let (_, open) = opened(m, 0);
+    match open {
+        Nothing => assert(false),
+        _ => {}
+    }
+    let (_, none) = opened(m, 3);
+    match none {
+        Nothing => {}
+        _ => assert(false),
+    }
+    assert_eq(removed(m, 0).widgets.shown.len, 0);
+    assert_eq(removed(m, 5).widgets.shown.len, 1);
+}
+
+@test
+fun a_card_s_place_opens_its_app_there() {
+    // PRP-074: the place's fields come from the kept card, by its number.
+    let p = page_at("notes.rkb", ["latest"]);
+    let view = boxed([], [
+        parent("box", [("open", kv([("note", Value.int(7))]))], [words("Shopping")]),
+    ]);
+    let (bytes, tree) = read_card(view).unwrap();
+    let w = add(keep(no_widgets(), p, "latest", bytes, tree, [], 0), chosen(p, "latest")).unwrap();
+    let m = showing(p, w);
+    let (_, open) = opened_at(m, 0, 0);
+    match open {
+        Nothing => assert(false),
+        _ => {}
+    }
+    // A place the card doesn't have, or a card that isn't there: nothing.
+    for (i, k) of [(0, 1), (0, -1), (3, 0)] {
+        let (_, none) = opened_at(m, i, k);
+        match none {
+            Nothing => {}
+            _ => assert(false),
+        }
+    }
+}

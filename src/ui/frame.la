@@ -9,7 +9,7 @@
  */
 import kivuli { View, Image, Align, button, column, row, text };
 import window.actions { Msg };
-import net.address { parse, link_of };
+import net.address { parse, link_of, local_link };
 import bundles.bundle { Manifest };
 import window.tabs { AppPage, is_loading };
 import trust.verify { Change, Standing };
@@ -189,12 +189,16 @@ fun file_of(path: string): string {
 /**
  * Returns what the address box shows for an app (PRP-036): an address's
  * full link, its running version and the fields the app named; a file's
- * name.
+ * name and its fields, as its place keeps them (`counter.rkb?count=2`).
  *
  * Example:
  *     address_of(page)
  */
 fun address_of(p: AppPage): string = match parse(p.path) {
     Ok(a) => link_of(a, p.manifest.map(fun(m: Manifest) = m.version), p.fields),
-    Err(_) => file_of(p.path),
+    Err(_) => if p.path.starts_with("builtin:") {
+        file_of(p.path)
+    } else {
+        local_link(file_of(p.path), p.fields)
+    },
 };
