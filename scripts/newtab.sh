@@ -14,7 +14,7 @@ a=guest/rust/newtab/assets
     --name "New tab" --version 0.1.0 --icon guest/rust/newtab/icon.svg --color primary=#ff7700 \
     --asset wordmark.svg=$a/wordmark.svg --asset x.svg=$a/x.svg \
     --permission read_left_off --permission open_apps --permission restore_session \
-    --permission read_notifications \
+    --permission read_notifications --permission show_widgets \
     --control address=settings --control address=share \
     --control settings=app_settings.permissions \
     -o assets/apps/newtab.rkb --force

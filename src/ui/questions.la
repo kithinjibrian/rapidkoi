@@ -24,6 +24,10 @@ import ui.tokens { SPACE_LG, APPS_WIDTH, padding, at_most };
  *     asked_here(m)
  */
 fun asked_here(m: Model): bool {
+    // "Replace a widget?" (PRP-073): asked from App info or the ⚙, in front.
+    if m.replacing.is_some() {
+        return true;
+    }
     if let Some(Forget(tab)) = m.confirm {
         if m.current == Some(tab) {
             return true;
@@ -69,12 +73,14 @@ fun over(m: Model, area: View<Msg>, card: View<Msg>): View<Msg> {
 }
 
 /**
- * What answering "no" sends: Don't allow for an approval, Cancel for Forget.
+ * What answering "no" sends: Cancel for Replace, Don't allow for an approval, Cancel for Forget.
  *
  * Example:
  *     cancel(m)
  */
-fun cancel(m: Model): Msg = if m.approval.is_some() {
+fun cancel(m: Model): Msg = if m.replacing.is_some() {
+    Msg.CancelReplace
+} else if m.approval.is_some() {
     Msg.Approve(Answer.Deny)
 } else {
     Msg.Cancel

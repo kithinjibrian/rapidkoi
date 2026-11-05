@@ -18,6 +18,7 @@ enum InfoPage {
     Name,
     Servers,
     Permissions,
+    Widgets,
 }
 
 /** App info, while it's shown over All apps. */

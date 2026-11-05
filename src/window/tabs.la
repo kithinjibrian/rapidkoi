@@ -4,9 +4,11 @@
  * one again from saved state is `restarts.la`. Calls guests (bounded by
  * fuel); never draws.
  *
- * Depends on: cbor, wasmtime, guest.guest, bundles.bundle, bundles.loader, trust.verify, net.address, guest.contract, ui.render, guest.running
+ * Depends on: cbor, wasmtime, guest.guest, bundles.bundle, bundles.loader, trust.verify, net.address, guest.contract, ui.render, guest.running, guest.cards, bundles.permissions
  * Used by: window.actions, ui.frame, home, panel, shell
  */
+import guest.cards { has_slot, has_place };
+import bundles.permissions { Permission, name_of };
 import cbor { Value };
 import wasmtime { Engine, Module };
 import guest.guest { Guest, open, reason };
@@ -207,22 +209,17 @@ fun loading(path: string, number: i64, pending: Pending): AppPage = AppPage {
  * Example:
  *     from_loaded(engine, loaded, "rapidkoi://localhost:8000", [])
  */
-fun from_loaded(
-    engine: Engine,
-    l: Loaded,
-    path: string,
-    link: (string, string)[],
-): AppPage = AppPage {
-    manifest: l.manifest,
-    icon: l.icon,
-    trust: l.trust,
-    ..open_program(
-        l.name,
-        path,
-        Program { engine: engine, module: l.module, assets: l.assets },
-        link,
-    ),
-};
+fun from_loaded(engine: Engine, l: Loaded, path: string, link: (string, string)[]): AppPage {
+    let program = Program { engine: engine, module: l.module, assets: l.assets };
+    // Its manifest before its first screen: what it may place depends on it (PRP-073).
+    let base = AppPage {
+        manifest: l.manifest,
+        icon: l.icon,
+        trust: l.trust,
+        ..blank(l.name, path, program),
+    };
+    ran(base, start(program, None, link))
+}
 
 /**
  * Starts a compiled app as a page.
@@ -259,32 +256,35 @@ fun open_module_at(
 ): AppPage = open_program(name, path, Program { engine: engine, module: module, assets: [] }, link);
 
 /** A page running `program`, fresh, with whatever its `init` asked for. */
-fun open_program(name: string, path: string, program: Program, link: (string, string)[]): AppPage {
-    ran(
-        AppPage {
-            name: name,
-            manifest: None,
-            icon: None,
-            path: path,
-            title: None,
-            trust: None,
-            program: Some(program),
-            asks: [],
-            load: 0,
-            in_flight: 0,
-            screen: Screen.Stopped("", true),
-            instance: "",
-            label: None,
-            seen: 0,
-            link: [],
-            fields: [],
-            data_size: None,
-            cached: None,
-            pictures: [],
-        },
-        start(program, None, link),
-    )
-}
+fun open_program(
+    name: string,
+    path: string,
+    program: Program,
+    link: (string, string)[],
+): AppPage = ran(blank(name, path, program), start(program, None, link));
+
+/** A page for `program` before its first screen: nothing known yet but its name and path. */
+fun blank(name: string, path: string, program: Program): AppPage = AppPage {
+    name: name,
+    manifest: None,
+    icon: None,
+    path: path,
+    title: None,
+    trust: None,
+    program: Some(program),
+    asks: [],
+    load: 0,
+    in_flight: 0,
+    screen: Screen.Stopped("", true),
+    instance: "",
+    label: None,
+    seen: 0,
+    link: [],
+    fields: [],
+    data_size: None,
+    cached: None,
+    pictures: [],
+};
 
 /**
  * Handles a message from the page's own screen.
@@ -303,6 +303,8 @@ fun handle(p: AppPage, msg: Msg): AppPage = match (p.screen, msg) {
     // Events and answers only reach a running screen; otherwise, ignore them.
     (_, Event(_, _)) => p,
     (_, Answer(_, _)) => p,
+    // Rapidkoi's own, on the new tab's widgets (PRP-073): never the app's.
+    (_, OpenWidget(_)) | (_, OpenWidgetPlace(_, _)) | (_, RemoveWidget(_)) => p,
     (_, Restart) => {
         close_page(p);
         match p.program {
@@ -369,6 +371,19 @@ fun ran(p: AppPage, r: Ran): AppPage {
     };
     let after = AppPage { screen: r.screen, asks: r.asks, link: link, ..p };
     match r.screen {
+        // Rapidkoi's slots are for its own apps (PRP-073): the built-in
+        // `show_widgets`, which only an app built into `./main` can hold.
+        Running(g, _, d) if has_slot(d.root) && !declares(p, Permission.ShowWidgets) => {
+            g.close();
+            let why = "This app placed Rapidkoi's widgets, which only Rapidkoi's own apps may";
+            AppPage { screen: Screen.Stopped(why, true), asks: [], ..after }
+        }
+        // A place only goes in a widget's card (PRP-074).
+        Running(g, _, d) if has_place(d.root) => {
+            g.close();
+            let why = "This app's screen has a place to open, which only goes in a widget's card";
+            AppPage { screen: Screen.Stopped(why, true), asks: [], ..after }
+        }
         Running(g, state, _) => match fields_in(state, link) {
             Ok(fs) => titled(AppPage { fields: fs, ..after }),
             Err(why) => {
@@ -466,3 +481,8 @@ fun titled(p: AppPage): AppPage = match p.screen {
     Running(_, _, d) => AppPage { title: d.title, ..p },
     _ => p,
 };
+
+/** Whether a page's manifest declares a permission: a built-in one only an app built into `./main` gets past loading. */
+fun declares(p: AppPage, x: Permission): bool = p.manifest.map(
+    fun(m: Manifest) = m.permissions.any(fun(n: string) = n == name_of(x)),
+).unwrap_or(false);

@@ -4,11 +4,13 @@
  * tables and keys are refused, so a typo never passes silently. Paths are
  * made absolute from the toml's folder; `~/` expands from `$HOME`.
  *
- * Depends on: std.toml, std.env
+ * Depends on: std.toml, std.env, bundles.widgetlist, bundles.rules
  * Used by: commands.pack, commands.publish
  */
 import std.toml { Value, Limits, parse_with, as_text, as_i64, as_table, as_array };
 import std.env;
+import bundles.widgetlist { Widget, check_widgets };
+import bundles.rules { BundleError };
 
 /** What a project describes. Paths are absolute. */
 struct Project {
@@ -32,6 +34,8 @@ struct Project {
     banners: (string, string)[],
     /** [colors] primary, if given (PRP-063). */
     primary_color: Option<string>,
+    /** [[widgets]]: each a name and a label (PRP-073). */
+    widgets: Widget[],
     /** [assets]: name → file. */
     assets: (string, string)[],
     /** [publish] key: the secret key file. */
@@ -58,6 +62,8 @@ enum ProjectError {
     UnknownTable(string),
     /** A key a table doesn't have: table ("" at the top), name. */
     UnknownKey(string, string),
+    /** A widget breaking the manifest's rules (PRP-073), and why. */
+    BadWidget(string),
     /** `~/` with no `$HOME`. */
     NoHome(string, string),
 }
@@ -94,7 +100,7 @@ fun parse_project(text: string, dir: string, home: Option<string>): Result<Proje
     let bounds = Limits { bytes: 64 * 1024, depth: 8, values: 10_000 };
     let doc = parse_with(text, bounds).map_err(fun(e) = ProjectError.Toml(e.message()))?;
     for (k, v) of doc {
-        let known = k == "app" || k == "banners" || k == "assets" || k == "publish" || k == "network" || k == "colors";
+        let known = k == "app" || k == "banners" || k == "assets" || k == "publish" || k == "network" || k == "colors" || k == "widgets";
         if !known {
             return Err(match as_table(v) {
                 Some(_) => ProjectError.UnknownTable(k),
@@ -138,6 +144,7 @@ fun parse_project(text: string, dir: string, home: Option<string>): Result<Proje
         icon: words(app, "app", "icon")?.map(fun(p: string) = at(dir, p)),
         banners: files(table(doc, "banners")?, "banners", dir)?,
         primary_color: words(colors, "colors", "primary")?,
+        widgets: widgets_in(doc)?,
         assets: files(table(doc, "assets")?, "assets", dir)?,
         key: key,
         site: at(dir, words(publish, "publish", "site")?.unwrap_or("site")),
@@ -167,6 +174,7 @@ fun reason(e: ProjectError): string = "rapidkoi.toml: " + match e {
     } else {
         "unknown key [{t}] {k}"
     },
+    BadWidget(why) => "[[widgets]] {why}",
     NoHome(t, k) => "[{t}] {k} starts with ~/ but $HOME isn't set",
 };
 
@@ -252,6 +260,36 @@ fun files(
         }
     }
     Ok(out)
+}
+
+/**
+ * `[[widgets]]` (PRP-073): each `name` and `label`, checked as a manifest's
+ * are, so a bad one is refused before anything is packed.
+ */
+fun widgets_in(doc: Map<string, Value>): Result<Widget[], ProjectError> {
+    let wrong = ProjectError.Wrong(
+        "widgets",
+        "widgets",
+        "a list of tables, each a name and a label",
+    );
+    let items = match doc.get("widgets") {
+        Some(v) => as_array(v).ok_or(wrong)?,
+        None => [],
+    };
+    let mut out: Widget[] = [];
+    for v of items {
+        let t = as_table(v).ok_or(wrong)?;
+        only(t, "widgets", ["name", "label"])?;
+        out.push(Widget {
+            name: required(t, "widgets", "name")?,
+            label: required(t, "widgets", "label")?,
+        });
+    }
+    match check_widgets(out) {
+        Ok(()) => Ok(out),
+        Err(Wrong(_, why)) => Err(ProjectError.BadWidget(why)),
+        Err(_) => Err(wrong),
+    }
 }
 
 /** A path from the project's folder; absolute paths stay as they are. */

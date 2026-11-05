@@ -44,7 +44,7 @@ fun a_fresh_window_shows_only_the_new_tab() {
             "0.1.0",
             "App settings",
             "Permissions",
-            "4 allowed",
+            "5 allowed",
             "Open App…",
             "Settings",
             "About Rapidkoi",

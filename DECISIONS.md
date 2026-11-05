@@ -759,6 +759,39 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## RESOLVED
 
+### DECISION-098 — A card with places: kivuli won't put a button inside a button
+
+**Status:** resolved (the owner, 2026-11-05: chose A, "Card isn't a button")
+**Raised:** 2026-11-05, the owner on screen: "clicking on + new note doesn't work. clicking on hello world doesn't open that note"
+
+**Question:** PRP-074 drew each place as a button inside the card's own button. kivuli refuses that by design (`button_with`'s content holds nothing interactive, `../kivuli/src/view/walk.la`, `check_content`: "a button in a button fights it for clicks and focus"), so a place's click never reaches Rapidkoi. How should a card with places be drawn?
+
+**Options:**
+- **A. A card with places isn't a button.** Its top line (icon, name, when) becomes the place that opens the card's own place, beside the app's places; blank space opens nothing. The right-click menu stays on the card. Only Rapidkoi changes.
+- **B. Ask kivuli for pressables inside a pressable** (a kivuli PRP, under its rules), and wait for it.
+
+**Decision:** A. A card with places is drawn as a frame, not a button, named `card:{app}` for its right-click menu; its top line is a button (tooltip "Open {app}") that opens the card's own place, and each place is its own button. A card without places stays one button. Previews never press anything, so they don't change.
+
+**Why:** it keeps kivuli's rule (a button holds nothing interactive), and each part of the card says where it goes.
+
+---
+
+### DECISION-097 — Widgets: you add every card, apps fill them while they run, Rapidkoi draws them into the new tab
+
+**Status:** resolved (the owner, 2026-11-04: "an app can declare as many widgets as they want … on app info we have a widget page … site settings on the address bar should also have widgets", "i think we can have 4 cards unless we do scrolling", then "approved"; PRP-073)
+**Raised:** 2026-11-03, with All apps (DECISION-094: widgets after All apps)
+
+**Question:** How does an app show something on the new tab without being opened, who decides what's there, and when does it change?
+
+**Outcome (PRP-073):**
+- An app declares its widgets in its manifest (a name and a label each, at most 16) and fills them with the `widget` ask while it runs. Rapidkoi keeps the newest card for each, across restarts.
+- Nothing is on the new tab unless you put it there, from App info › Widgets or ⚙ › Widgets. At most four, in one row above Recent; a fifth asks which to replace. An app never learns which are shown.
+- **Widgets are output only** (the owner, 2026-11-04: "what would happen if widgets were purely outputs and can't wake up the app silently", then "yes record it"): a card shows, and clicking it opens its app, visibly, at a place. Rapidkoi never starts an app without a window for a card: not to refresh it (option B is ruled out, not deferred) and not to act on a press. Cards change only while their app runs. What that costs: a card is as fresh as the app's last run (parts and the top line's "· when" say how old), and acting (ticking a task) means opening the app. A card may hold several places to open (PRP-074), which keeps this rule.
+- A card is boxes, texts (with parts) and styles, capped; its only action is opening its own app. Rapidkoi draws the frame and top line (icon, name, when).
+- The new tab app places a `slot: "widgets"` box, and Rapidkoi draws the row into it: the new tab never receives other apps' cards. Placing it needs the built-in permission `show_widgets` (the owner, 2026-11-04: "doesn't new tab need a permission"), like every built-in ability, not a check on the app's path; blocked in the new tab's ⚙, the slot stays empty.
+
+---
+
 ### DECISION-096 — Start-up as named pipelines, and compiled modules kept for the run
 
 **Status:** resolved (the owner, 2026-11-03: "I'm thinking of it like a chain or graph and not something done haphazardly", "the rapidkoi app itself should also have a boot sequence", caching over hiding, "let's start with rapidkoi itself", then "yes" to the drawn sequence; PRP-068)

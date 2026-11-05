@@ -31,6 +31,7 @@ fun the_parts_in_their_order() {
         "identity",
         "preferences",
         "notifications",
+        "widgets",
         "apps",
     ]);
 }

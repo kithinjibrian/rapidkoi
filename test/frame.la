@@ -106,6 +106,8 @@ fun the_address_box_shows_the_window_s_link() {
     // PRP-036: what you see is what you'd share, the version included.
     let p = counter();
     assert_eq(address_of(p), "counter.wasm");
+    // A local app's fields follow its name, as its place keeps them.
+    assert_eq(address_of(AppPage { fields: [("count", "2")], ..p }), "counter.wasm?count=2");
     let site = AppPage { path: "rapidkoi://localhost:8000", ..p };
     assert_eq(address_of(site), "rapidkoi://localhost:8000");
     let versioned = AppPage {
@@ -121,6 +123,7 @@ fun the_address_box_shows_the_window_s_link() {
             permissions: [],
             controls: None,
             primary_color: None,
+            widgets: [],
         }),
         fields: [("count", "3")],
         ..site,

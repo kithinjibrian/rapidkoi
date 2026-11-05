@@ -34,6 +34,7 @@ fun declaring(controls: Option<Controls>): AppPage {
             permissions: ALL,
             controls: controls,
             primary_color: None,
+            widgets: [],
         }),
         ..open_module(
             "New tab",

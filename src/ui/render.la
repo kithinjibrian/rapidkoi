@@ -70,6 +70,12 @@ enum Msg {
     Restart,
     /** Rapidkoi's answer to an app's effect: its msg, and the bytes or nothing (PRP-011). */
     Answer(Value, Value),
+    /** A widget card on the new tab clicked, by its place in the row (PRP-073): Rapidkoi's, never the app's. */
+    OpenWidget(i64),
+    /** One of a widget card's places clicked (PRP-074): the card's place in the row, and the place's number in the card. */
+    OpenWidgetPlace(i64, i64),
+    /** A widget card's "Remove from new tab", by its place in the row (PRP-073). */
+    RemoveWidget(i64),
 }
 
 /**
@@ -91,9 +97,43 @@ fun screen(n: Node, t: Theme): View<Msg> = screen_as(n, t, AS_STYLED);
  * Example:
  *     screen_as(tree, m.theme, own)
  */
-fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
+fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = screen_with(
+    n,
+    t,
+    own,
+    fun(_: string) = column([]),
+    fun(_: i64, v: View<Msg>) = v,
+);
+
+/**
+ * Builds a tree's view with what Rapidkoi draws into its slots (PRP-073):
+ * only a built-in app places one, and only the new tab's is filled.
+ *
+ * Example:
+ *     screen_with(tree, m.theme, own, fun(_: string) = widgets.row_view(m))
+ */
+fun screen_with(
+    n: Node,
+    t: Theme,
+    own: Own,
+    slot: fun(string): View<Msg>,
+    place: fun(i64, View<Msg>): View<Msg>,
+): View<Msg> = match n {
     Unsupported(kind) => text("Unsupported component: {kind}").style(dim(t)).align(Align.Start),
-    Boxed(look, facts, press, context, kids) => boxed(look, facts, press, context, kids, t, own),
+    Slot(name) => slot(name),
+    // A widget card's place (PRP-074): its box, made pressable where the caller says.
+    Place(k, _, inner) => place(k, screen_with(inner, t, own, slot, place)),
+    Boxed(look, facts, press, context, kids) => boxed(
+        look,
+        facts,
+        press,
+        context,
+        kids,
+        t,
+        own,
+        slot,
+        place,
+    ),
     Words(s, look, facts) => placed(
         flowing(text(s), look).style(body(t) + drawn(look, facts, t, own, false)),
         look,
@@ -106,7 +146,13 @@ fun screen_as(n: Node, t: Theme, own: Own): View<Msg> = match n {
     ),
     Pictured(p, look) => picture_view(p, look, t, own),
     // Filled into words before drawing (`guest.placeholders`); unfilled, only the app's own words show.
-    Parts(ps, look, facts) => screen_as(Node.Words(plain_of(ps), look, facts), t, own),
+    Parts(ps, look, facts) => screen_with(
+        Node.Words(plain_of(ps), look, facts),
+        t,
+        own,
+        slot,
+        place,
+    ),
 };
 
 /** A text's plain parts, joined: what's left of it with nothing filled in. */
@@ -132,8 +178,10 @@ fun boxed(
     kids: Node[],
     t: Theme,
     own: Own,
+    slot: fun(string): View<Msg>,
+    place: fun(i64, View<Msg>): View<Msg>,
 ): View<Msg> {
-    let inside = kids.map(fun(k: Node) = screen_as(k, t, own));
+    let inside = kids.map(fun(k: Node) = screen_with(k, t, own, slot, place));
     let layout = laid_out(look, kids, inside);
     let resolved = resolve_for(look, t, own, false);
     let mut inner: Styling[] = [];
@@ -251,7 +299,8 @@ fun look_of(n: Node): Option<Look> = match n {
     Parts(_, l, _) => Some(l),
     Field(_, l) => Some(l),
     Pictured(_, l) => Some(l),
-    Unsupported(_) => None,
+    Unsupported(_) | Slot(_) => None,
+    Place(_, _, inner) => look_of(inner),
 };
 
 /** The way a scrolling box is kept to, when it scrolls one way only (kivuli 0.57, DECISION-057). */

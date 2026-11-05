@@ -18,6 +18,7 @@ import window.actions { Msg, PanelPage, ShieldPage, Confirm, Approval };
 import window.tabs { Page, Tab, Pin, AppPage, state_of, close_page };
 import window.recent { Recent, no_recent, remember };
 import window.notifications { Notifications, no_notifications };
+import window.widgets { Widgets, Chosen, no_widgets };
 import window.yourapps { Apps, no_apps };
 import window.info { Info };
 import guest.modules { Modules, no_modules };
@@ -95,6 +96,10 @@ struct Model {
     notifications: Notifications,
     /** Every app you've opened, until you Forget it (PRP-067). */
     apps: Apps,
+    /** Apps' widget cards, and the ones on the new tab (PRP-073). */
+    widgets: Widgets,
+    /** A fifth widget waiting for "Replace a widget?", and the card picked to go (PRP-073). */
+    replacing: Option<(Chosen, i64)>,
     /** The tab you were on when All apps opened: where closing it takes you back (PRP-067). */
     before_all_apps: Option<i64>,
     /** App info over All apps (PRP-072): the app it's about. */
@@ -175,6 +180,8 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         recent: no_recent(),
         notifications: no_notifications(),
         apps: no_apps(),
+        widgets: no_widgets(),
+        replacing: None,
         before_all_apps: None,
         info: None,
         modules: no_modules(),

@@ -5,11 +5,11 @@
  * publisher (the shield's facts), when you first and last opened it, and
  * Forget across the column. On the right, across the rest, the ⚙'s
  * sections: Account (Public key ›, Sign in, Name ›), App settings
- * (Permissions ›, Servers ›, its looks, Recent) and App data; or one of
- * the ⚙'s pages (Public key, Name, Servers, Permissions) with ← back. Rows its manifest
+ * (Permissions ›, Servers ›, Widgets ›, its looks, Recent) and App data; or one of
+ * the ⚙'s pages (Public key, Name, Servers, Permissions, Widgets) with ← back. Rows its manifest
  * gives wait for the read; a built-in's `controls` choose, as in the ⚙.
  *
- * Depends on: kivuli, kivuli.ui, window.window, window.actions, window.info, window.pins, people.account, people.access, ui.settings, ui.grants, ui.shield, ui.cards, ui.frame, ui.icons, ui.tokens, ui.themes
+ * Depends on: kivuli, kivuli.ui, window.window, window.actions, window.info, window.pins, people.account, people.access, ui.settings, ui.grants, ui.questions, ui.widgets, ui.shield, ui.cards, ui.frame, ui.icons, ui.tokens, ui.themes
  * Used by: ui.layout
  */
 import kivuli { View, Align, Border, Radius, column, row, text, image, scroll };
@@ -34,6 +34,8 @@ import ui.settings {
     size,
 };
 import ui.grants;
+import ui.questions;
+import ui.widgets;
 import ui.shield { facts, signature_label, checked_words, date };
 import ui.cards { choice, line, sentence };
 import ui.frame { icon_of, initial };
@@ -76,9 +78,12 @@ fun view(m: Model, i: Info): View<Msg> {
         Msg.CloseInfo,
     // Its arrow flush with the column under it: no inset at the sides, its
     // hover reaching out past the edge instead.
-    ).style([Button.ghost(), padding_xy(SPACE_XS, SPACE_XS), margin_x(-SPACE_XS)]).shortcut(
-        "Escape",
-    ).align(Align.Start);
+    ).style([Button.ghost(), padding_xy(SPACE_XS, SPACE_XS), margin_x(-SPACE_XS)]);
+    // While a question is asked over App info, Escape is its Cancel: kivuli
+    // stops on two enabled buttons with one shortcut, inert or not.
+    let back = if questions.asked_here(m) { back } else { back.shortcut("Escape") }.align(
+        Align.Start,
+    );
     let right = match i.at {
         Main => main_page(m, i),
         Key => [
@@ -100,6 +105,7 @@ fun view(m: Model, i: Info): View<Msg> {
             page_title(t, "Permissions"),
             in_group(t, grants.page(m, t, i.page).map(padded)),
         ],
+        Widgets => [page_title(t, "Widgets"), in_group(t, widgets.page_rows(m, i.page, false))],
     };
     let both = row([
         column(who(m, i)).style([gap(SPACE_LG), exactly(CARD_WIDTH)]),
@@ -218,6 +224,12 @@ fun main_page(m: Model, i: Info): View<Msg>[] {
                 Msg.InfoGo(InfoPage.Servers),
             ),
         );
+    }
+    // Only an app that declares widgets has a Widgets row (PRP-073).
+    if i.ready && shows("app_settings.widgets") {
+        if let Some(said) = widgets.summary(m, p) {
+            app_rows.push(choice(t, "Widgets", Some(said), Msg.InfoGo(InfoPage.Widgets)));
+        }
     }
     for r of looks_rows(m, p) {
         app_rows.push(r);

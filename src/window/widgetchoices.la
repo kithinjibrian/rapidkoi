@@ -1,0 +1,136 @@
+/**
+ * Your choices about widgets (PRP-073), pure: a switch on a Widgets page
+ * (App info's or the ⚙'s) puts that app's widget on the new tab or takes
+ * it off; a fifth asks "Replace a widget?" first; a card's click opens its
+ * place and its menu takes it off. Only these change what's shown: an app
+ * never can.
+ *
+ * Depends on: kivuli, window.window, window.actions, window.widgets, guest.cards, net.address
+ * Used by: shell
+ */
+import kivuli { Cmd };
+import window.window { Model, settings_page };
+import window.actions { Msg };
+import window.widgets { add, remove, replace, chosen_of, card_of };
+import guest.cards { places_of };
+import net.address { parse, link_of, local_link, local_place, is_address };
+
+/**
+ * A widget's switch: on adds it at the end of the new tab's row, or asks
+ * which card to replace when four are there; off takes it off.
+ *
+ * Example:
+ *     switched(m, "count", true)
+ */
+fun switched(m: Model, name: string, on: bool): Model {
+    let c = match settings_page(m).and_then(fun(p) = chosen_of(p, name)) {
+        Some(c) => c,
+        None => {
+            return m;
+        }
+    };
+    if !on {
+        return Model { widgets: remove(m.widgets, c), ..m };
+    }
+    match add(m.widgets, c) {
+        Some(w) => Model { widgets: w, ..m },
+        // Full: the first card is picked to start with (board 6). The ⚙'s
+        // card closes, so the question isn't under it.
+        None => Model { replacing: Some((c, 0)), panel: None, ..m },
+    }
+}
+
+/**
+ * Picks the card "Replace a widget?" would replace.
+ *
+ * Example:
+ *     picked(m, 2)
+ */
+fun picked(m: Model, index: i64): Model = match m.replacing {
+    Some((c, _)) if index >= 0 && index < m.widgets.shown.len => Model {
+        replacing: Some((c, index)),
+        ..m,
+    },
+    _ => m,
+};
+
+/**
+ * Replace: the waiting widget takes the picked card's place.
+ *
+ * Example:
+ *     replaced(m)
+ */
+fun replaced(m: Model): Model = match m.replacing {
+    Some((c, i)) => Model { widgets: replace(m.widgets, i, c), replacing: None, ..m },
+    None => m,
+};
+
+/**
+ * Cancel: nothing changes, and the switch stays off.
+ *
+ * Example:
+ *     cancelled(m)
+ */
+fun cancelled(m: Model): Model = Model { replacing: None, ..m };
+
+/**
+ * A card on the new tab clicked: its app opens at the card's place, as a
+ * recent place opens; one not sent yet opens its app where it starts.
+ *
+ * Example:
+ *     opened(m, 0)
+ */
+fun opened(m: Model, index: i64): (Model, Cmd<Msg>) {
+    if index < 0 || index >= m.widgets.shown.len {
+        return (m, Cmd.none());
+    }
+    let c = m.widgets.shown[index];
+    match card_of(m.widgets, c) {
+        Some(x) => (m, Cmd.after(0, Msg.OpenPlace(x.address, x.origin))),
+        // Not sent yet: its app, where it starts.
+        None => (m, Cmd.after(0, Msg.OpenPlace(c.path, c.origin))),
+    }
+}
+
+/**
+ * One of a card's places clicked (PRP-074): its app opens at that place's
+ * fields, read from the kept card, never from the click. A place the card
+ * doesn't have opens nothing.
+ *
+ * Example:
+ *     opened_at(m, 0, 2)
+ */
+fun opened_at(m: Model, index: i64, place: i64): (Model, Cmd<Msg>) {
+    if index < 0 || index >= m.widgets.shown.len {
+        return (m, Cmd.none());
+    }
+    match card_of(m.widgets, m.widgets.shown[index]) {
+        Some(x) => {
+            let all = places_of(x.tree);
+            if place < 0 || place >= all.len {
+                return (m, Cmd.none());
+            }
+            (m, Cmd.after(0, Msg.OpenPlace(at(x.address, all[place]), x.origin)))
+        }
+        None => (m, Cmd.none()),
+    }
+}
+
+/** A card's own address with other fields: a site's link, or a local app's file. */
+fun at(card: string, fields: (string, string)[]): string = match parse(card) {
+    Ok(a) if is_address(card) => link_of(a, a.version, fields),
+    _ => local_link(local_place(card).0, fields),
+};
+
+/**
+ * A card's "Remove from new tab".
+ *
+ * Example:
+ *     removed(m, 0)
+ */
+fun removed(m: Model, index: i64): Model {
+    if index < 0 || index >= m.widgets.shown.len {
+        return m;
+    }
+    Model { widgets: remove(m.widgets, m.widgets.shown[index]), ..m }
+}

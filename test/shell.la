@@ -350,6 +350,7 @@ fun reading(declared: string[]): Model {
             permissions: declared,
             controls: None,
             primary_color: None,
+            widgets: [],
         }),
         ..p,
     };

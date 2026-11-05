@@ -21,6 +21,7 @@ import window.tabs {
     refused,
     failed,
     open_program,
+    from_loaded,
 };
 
 /**
@@ -73,17 +74,8 @@ fun load_again(
 ): (AppPage, bool) = match loaded(held, engine, now, ring, Source.File(path)) {
     Err(r) => (refused(r, path), false),
     Ok(l) => {
-        let fresh = AppPage {
-            manifest: l.manifest,
-            icon: l.icon,
-            trust: l.trust,
-            ..open_program(
-                l.name,
-                path,
-                Program { engine: engine, module: l.module, assets: l.assets },
-                [],
-            ),
-        };
+        // Its manifest before its first screen, as `tabs.from_loaded` gives it (PRP-073).
+        let fresh = from_loaded(engine, l, path, []);
         let now = state_version_of(fresh);
         match saved {
             Some((state, version)) if version == now => {

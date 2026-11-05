@@ -3,9 +3,9 @@
 // ends as it did before the pipeline; every app compiles through the
 // modules kept for the run, so a file opened twice compiles once and a
 // changed one compiles again. No display.
-import rapidkoi.boot.appboot { Source, opened, loaded, started };
+import rapidkoi.boot.appboot { Source, opened, opened_at, loaded, started };
 import rapidkoi.guest.modules { Modules, no_modules };
-import rapidkoi.window.tabs { AppPage, Screen };
+import rapidkoi.window.tabs { AppPage, Screen, state_of };
 import rapidkoi.window.newtab { BUNDLE };
 import rapidkoi.bundles.bundle { Bundle, Manifest, write };
 import rapidkoi.trust.verify { keyring };
@@ -38,6 +38,7 @@ fun bundle_at(path: string, contract: i64, permissions: string[]): string {
             permissions: permissions,
             controls: None,
             primary_color: None,
+            widgets: [],
         },
         module: wat_to_wasm(echo()).unwrap(),
         assets: [("icon.png", png(128, 128))],
@@ -97,6 +98,18 @@ fun each_failure_ends_as_before() {
     // A module that won't compile: stopped.
     write_bytes("test/tmp/appboot-bad.wasm", [0, 1, 2, 3]).unwrap();
     assert_eq(running(open_here(held, engine, "test/tmp/appboot-bad.wasm")), false);
+}
+
+@test
+fun a_local_file_opens_at_its_place() {
+    // The local place fix: `counter.rkb?count=3` starts it with count 3, as a site's link does.
+    let engine = Engine.new();
+    let wasm = "test/tmp/appboot-place.wasm";
+    write_counting(wasm);
+    let p = opened_at(Ref.new(no_modules()), engine, 1, keyring(), wasm, [("count", "3")]);
+    assert(running(p));
+    assert(state_of(p).map(fun(s: u8[]) = s.len > 0).unwrap_or(false));
+    assert_ne(state_of(p), state_of(open_here(Ref.new(no_modules()), engine, wasm)));
 }
 
 @test

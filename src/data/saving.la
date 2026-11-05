@@ -5,7 +5,7 @@
  * newer Rapidkoi's are left alone, each with a notice; a failed save is a
  * notice too, never a crash.
  *
- * Depends on: std.env, std.time, data.store, data.states, data.remembered, data.restoring, data.recentfile, data.notificationsfile, data.yourappsfile, data.parts, trust.verify, window.window, window.remembering
+ * Depends on: std.env, std.time, data.store, data.states, data.remembered, data.restoring, data.recentfile, data.notificationsfile, data.widgetsfile, data.yourappsfile, data.parts, trust.verify, window.window, window.remembering
  * Used by: shell
  */
 import data.preferences { prefs_file };
@@ -36,7 +36,20 @@ import data.remembered {
 import data.pinfiles { pins_file };
 import data.recentfile { recent_file };
 import data.notificationsfile { notifications_file };
-import data.parts { Part, TRUST, PINS, STATE, PEOPLE, OPEN, PREFS, RECENT, NOTIFICATIONS, APPS };
+import data.widgetsfile { widgets_file };
+import data.parts {
+    Part,
+    TRUST,
+    PINS,
+    STATE,
+    PEOPLE,
+    OPEN,
+    PREFS,
+    RECENT,
+    NOTIFICATIONS,
+    APPS,
+    WIDGETS,
+};
 import data.restoring { Reading, settle };
 import data.yourappsfile { apps_file };
 import window.remembering { noted };
@@ -174,6 +187,12 @@ fun persist(before: Model, given: Model, at: Mark): Model {
     if after.notifications.items != before.notifications.items {
         let bytes = notifications_file(after.notifications);
         if let Some(e) = problem(save(s, NOTIFICATIONS.file, bytes), NOTIFICATIONS) {
+            failed.push(e);
+        }
+    }
+    // Your widgets (PRP-073): counted changes, so the cards aren't compared.
+    if after.widgets.changes != before.widgets.changes {
+        if let Some(e) = problem(save(s, WIDGETS.file, widgets_file(after.widgets)), WIDGETS) {
             failed.push(e);
         }
     }

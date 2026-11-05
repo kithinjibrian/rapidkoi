@@ -9,7 +9,7 @@
  * Used by: window.window, window.navigate, window.choosing, window.remembering, data.recentfile, guest.home, ui.suggestions, ui.appicons
  */
 import data.remembered { Face };
-import net.address { parse, link_of };
+import net.address { parse, link_of, local_link };
 import bundles.bundle { Manifest };
 import window.tabs { AppPage };
 import people.people { People, shows_in_recent };
@@ -166,7 +166,8 @@ fun shown(who: People, p: AppPage): bool {
  */
 fun address_of(p: AppPage): string = match parse(p.path) {
     Ok(a) => link_of(a, p.manifest.map(fun(m: Manifest) = m.version), p.fields),
-    Err(_) => p.path,
+    // A local app's fields stay in its place too: `counter.rkb?count=2`.
+    Err(_) => if p.path.starts_with("builtin:") { p.path } else { local_link(p.path, p.fields) },
 };
 
 /** A page's place, seen now. */

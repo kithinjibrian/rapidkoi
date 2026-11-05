@@ -6,12 +6,13 @@
  * caches): `update` calls this, `view` only reads the offsets (CLAUDE.md's
  * exceptions). Not the words (`guest.times`).
  *
- * Depends on: std.time, guest.nodes, window.window, window.tabs
+ * Depends on: std.time, guest.nodes, window.window, window.tabs, window.widgets
  * Used by: shell, ui.content
  */
 import std.time { TimeError, local_offset, now_ms };
 import guest.nodes { Node, Part };
 import window.window { Model, page_of };
+import window.widgets { card_of };
 import window.tabs { AppPage, Page };
 
 /**
@@ -59,6 +60,8 @@ fun walk(n: Node, each: fun(Part)) {
                 walk(k, each);
             }
         }
+        // A widget card's place (PRP-074): its box's times too.
+        Place(_, _, inner) => walk(inner, each),
         _ => {}
     }
 }
@@ -128,7 +131,18 @@ fun shows_time(m: Model): bool = shown_moments(m).len > 0;
  * the bell's card is open (PRP-066).
  */
 fun shown_moments(m: Model): i64[] {
-    let on_screen = front(m).map(moments).unwrap_or([]);
+    let mut on_screen = front(m).map(moments).unwrap_or([]);
+    // The new tab's widgets (PRP-073): when each was sent, and its own times.
+    match page_of(m) {
+        Home => {
+            for c of m.widgets.shown {
+                if let Some(x) = card_of(m.widgets, c) {
+                    on_screen = on_screen + [x.sent] + moments(x.tree);
+                }
+            }
+        }
+        _ => {}
+    }
     if !m.bell {
         return on_screen;
     }

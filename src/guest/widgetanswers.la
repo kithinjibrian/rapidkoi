@@ -1,0 +1,47 @@
+/**
+ * Answering widget asks (PRP-073): an app's card is kept as its own (its
+ * path and first key, its place), never anything it names. Nothing is
+ * answered, so an app never learns whether its widgets are shown. A name
+ * it didn't declare stops it, as an undeclared permission does.
+ *
+ * Depends on: guest.nodes, window.window, window.tabs, window.widgets
+ * Used by: guest.effects
+ */
+import guest.nodes { Effect };
+import window.window { Model };
+import window.tabs { AppPage };
+import window.widgets { keep, prune, chosen_of };
+
+/**
+ * Keeps a page's card.
+ *
+ * @param m the window
+ * @param p the page that sent it
+ * @param ask a `Widget`; anything else leaves `m` as it is
+ * @returns the window with the card kept, and the app's cards for widgets
+ *     it no longer declares dropped
+ *
+ * Example:
+ *     answer_widget(m, page, ask)
+ */
+fun answer_widget(m: Model, p: AppPage, ask: Effect): Model = match ask {
+    Widget(_, name, bytes, tree, fields) => Model {
+        widgets: keep(prune(m.widgets, p), p, name, bytes, tree, fields, m.now),
+        ..m,
+    },
+    _ => m,
+};
+
+/**
+ * Says why a page's ask is refused, when it fills a widget its manifest
+ * doesn't declare; `None` for every other ask.
+ *
+ * Example:
+ *     undeclared(page, ask)
+ */
+fun undeclared(p: AppPage, ask: Effect): Option<string> = match ask {
+    Widget(_, name, _, _, _) if chosen_of(p, name).is_none() => Some(
+        "This app filled a widget it didn't declare (\"{name}\")",
+    ),
+    _ => None,
+};

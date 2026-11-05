@@ -42,6 +42,7 @@ fun page(asks: Value[], declared: string[]): AppPage {
             permissions: declared,
             controls: None,
             primary_color: None,
+            widgets: [],
         }),
         ..p,
     }

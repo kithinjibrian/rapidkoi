@@ -213,6 +213,7 @@ fun plain(version: string): u8[] = write(Bundle {
         permissions: [],
         controls: None,
         primary_color: None,
+        widgets: [],
     },
     module: [0, 97, 115, 109, 1, 0, 0, 0],
     assets: [("icon.png", png(128, 128))],

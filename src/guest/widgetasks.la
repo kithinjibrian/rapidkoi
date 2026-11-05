@@ -1,0 +1,52 @@
+/**
+ * The widget ask (PRP-073), pure: `widget` from any running app, its name
+ * shaped, its card held to a card's rules (`guest.cards`) and its place's
+ * fields as a notification's are, before anything is kept. A bad one stops
+ * the app with its sentence, as other bad asks do. Whether the app declares
+ * the name is `guest.widgetanswers`' question.
+ *
+ * Depends on: cbor, guest.nodes, guest.cards, guest.notifyasks, bundles.widgetlist, guest.limits
+ * Used by: guest.contract
+ */
+import cbor { Value };
+import guest.nodes { ContractError, Effect };
+import guest.cards { read_card };
+import guest.notifyasks { fields_of };
+import bundles.widgetlist { name_ok };
+import guest.limits { MAX_WIDGET_NAME };
+
+/**
+ * Reads a widget ask, or `None` when `kind` names none.
+ *
+ * @param kind the effect's kind
+ * @param msg its `msg`
+ * @param e the effect
+ * @returns the ask; `Err(Invalid)` for a bad name, a missing or bad card,
+ *     or bad fields
+ *
+ * Example:
+ *     widget_ask_of("widget", msg, e)?
+ */
+fun widget_ask_of(kind: string, msg: Value, e: Value): Result<Option<Effect>, ContractError> {
+    if kind != "widget" {
+        return Ok(None);
+    }
+    let name = match e.get("name") {
+        Some(Text(n)) if name_ok(n) => n,
+        _ => {
+            return Err(
+                nodes.invalid(
+                    "update",
+                    "a widget needs a name of 1 to {MAX_WIDGET_NAME} of a-z, 0-9, _ and -",
+                ),
+            );
+        }
+    };
+    let (bytes, tree) = match e.get("view") {
+        Some(v) => read_card(v)?,
+        None => {
+            return Err(nodes.invalid("update", "a widget needs a view"));
+        }
+    };
+    Ok(Some(Effect.Widget(msg, name, bytes, tree, fields_of(e.get("fields"))?)))
+}

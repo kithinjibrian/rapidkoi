@@ -1,7 +1,18 @@
 // Recent places (PRP-062), pure: recording moves a place to the front with
 // its newest title and time, keeps the newest 100 and each app once, and
-// forgetting an app or searching works on them. No guest, no display.
-import rapidkoi.window.recent { Place, Recent, no_recent, record, forget_app, matching };
+// forgetting an app or searching works on them; a local app's place keeps its fields. An echo stand-in for that; no display.
+import rapidkoi.window.recent {
+    Place,
+    Recent,
+    no_recent,
+    record,
+    forget_app,
+    matching,
+    address_of,
+};
+import rapidkoi.window.tabs { AppPage, open_module };
+import wasmtime { Engine, Module };
+import support { echo };
 import rapidkoi.data.remembered { Face };
 
 fun place(address: string, path: string, title: Option<string>, seen: i64): Place = Place {
@@ -94,4 +105,24 @@ fun places_match_by_title_name_or_address_ignoring_case() {
     assert_eq(matching(r, "dafifi").len, 1);
     assert_eq(matching(r, "weather").len, 0);
     assert_eq(matching(r, "  ").len, 0);
+}
+
+@test
+fun a_local_app_s_place_keeps_its_fields() {
+    // The local place fix: a file's fields follow `?`, so Recent, a
+    // notification and a widget reopen it there.
+    let engine = Engine.new();
+    let p = open_module(
+        "Counter",
+        "/home/a/counter.rkb",
+        engine,
+        Module.from_text(engine, echo()).unwrap(),
+    );
+    assert_eq(address_of(AppPage { fields: [("count", "2")], ..p }), "/home/a/counter.rkb?count=2");
+    assert_eq(address_of(p), "/home/a/counter.rkb");
+    // Rapidkoi's own apps keep their path.
+    assert_eq(
+        address_of(AppPage { path: "builtin:settings", fields: [("page", "a")], ..p }),
+        "builtin:settings",
+    );
 }

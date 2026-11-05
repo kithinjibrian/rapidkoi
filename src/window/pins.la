@@ -12,6 +12,7 @@ import window.window { Model, page_of, close };
 import window.tabs { Pin, AppPage };
 import window.recent { forget_app };
 import window.notifications { forget_notifications };
+import window.widgets { forget_widgets };
 import window.yourapps { forgotten };
 import people.people { with_shown_in_recent };
 
@@ -41,6 +42,8 @@ fun forget_of(m: Model, a: AppPage): Model = Model {
     recent: forget_app(m.recent, a.path, origin_of(a)),
     // And its notifications (PRP-065).
     notifications: forget_notifications(m.notifications, a.path, origin_of(a)),
+    // And its widgets (PRP-073).
+    widgets: forget_widgets(m.widgets, a.path, origin_of(a)),
     // And it's no longer one of your apps (PRP-067).
     apps: forgotten(m.apps, a.path, origin_of(a)),
     panel: None,

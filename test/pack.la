@@ -137,6 +137,29 @@ fun permissions_are_declared_with_a_flag() {
 }
 
 @test
+fun widgets_are_declared_with_a_flag() {
+    // PRP-073: `--widget NAME=Label`, checked before anything is written.
+    let out = path("widgets.rkb");
+    let flags = [
+        module("widgets"),
+        "--name",
+        "M",
+        "--version",
+        "0.1.0",
+        "--icon",
+        icon("widgets_are_declared_with_a_flag"),
+        "--widget",
+        "count=Note count",
+    ];
+    assert_eq(make(flags + ["-o", out]).is_ok(), true);
+    let b = read(read_bytes(out).unwrap()).unwrap();
+    assert_eq(b.manifest.widgets.map(fun(w) = (w.name, w.label)), [("count", "Note count")]);
+    fs.remove_file(out).unwrap();
+    assert(make(flags + ["--widget", "Bad=x", "-o", out]).is_err());
+    assert_eq(make(flags + ["--widget", "nolabel", "-o", out]), Err("--widget takes NAME=Label"));
+}
+
+@test
 fun controls_are_declared_with_a_flag() {
     // PRP-031: scripts/newtab.sh chooses the new tab's ⚙ and share this way.
     let out = path("ctl.rkb");

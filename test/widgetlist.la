@@ -1,0 +1,95 @@
+// A manifest's widgets (PRP-073), pure: they round-trip through a bundle,
+// a manifest without them declares none, and the rules (16 at most, a
+// name's shape, used once, a label of 1–40 bytes) are kept both ways; so
+// are `[[widgets]]` in rapidkoi.toml and `pack --widget`. No files, no guest.
+import rapidkoi.bundles.bundle { Bundle, Manifest, read, write };
+import rapidkoi.bundles.widgetlist { Widget, widgets_of, check_widgets, name_ok };
+import rapidkoi.bundles.rules { reason };
+import rapidkoi.bundles.project { parse_project, reason as project_reason };
+import cbor { Value };
+import support { t, kv, png };
+
+fun bundle_of(ws: Widget[]): Bundle = Bundle {
+    manifest: Manifest {
+        contract: 11,
+        name: "Notes",
+        version: "0.1.0",
+        description: None,
+        state_version: 1,
+        icon: Some("icon.png"),
+        banners: [],
+        servers: [],
+        permissions: [],
+        controls: None,
+        primary_color: None,
+        widgets: ws,
+    },
+    module: [0, 97, 115, 109, 1, 0, 0, 0],
+    assets: [("icon.png", png(128, 128))],
+};
+
+fun w(name: string, label: string): Widget = Widget { name: name, label: label };
+
+fun why(ws: Widget[]): string = match check_widgets(ws) {
+    Err(e) => reason(e),
+    Ok(_) => "ok",
+};
+
+@test
+fun widgets_round_trip_through_a_bundle() {
+    let ws = [w("last_edited", "Last edited"), w("count", "Note count")];
+    let back = read(write(bundle_of(ws)).unwrap()).unwrap();
+    assert_eq(back.manifest.widgets, ws);
+    // None declared: none written, none read.
+    assert_eq(read(write(bundle_of([])).unwrap()).unwrap().manifest.widgets.len, 0);
+    assert_eq(widgets_of(kv([("name", t("Notes"))])).unwrap().len, 0);
+}
+
+@test
+fun widgets_keep_their_rules() {
+    assert_eq(why([w("count", "Count")]), "ok");
+    let mut many: Widget[] = [];
+    for i in 0..17 {
+        many.push(w("w{i}", "W"));
+    }
+    assert(why(many).contains("too many"));
+    assert(why([w("Count", "Count")]).contains("isn't a name"));
+    assert(why([w("count", "A"), w("count", "B")]).contains("named twice"));
+    assert(why([w("count", "")]).contains("label"));
+    assert(why([w("count", "01234567890123456789012345678901234567890")]).contains("label"));
+    assert(name_ok("last-edited_2"));
+    assert(!name_ok("012345678901234567890123456789012"));
+    // A bundle breaking them isn't written.
+    assert(write(bundle_of([w("Bad", "x")])).is_err());
+    // Read: not a list, or an entry without both.
+    assert(widgets_of(kv([("widgets", t("count"))])).is_err());
+    assert(widgets_of(kv([("widgets", Value.Array([kv([("name", t("count"))])]))])).is_err());
+}
+
+const APP: string = "[app]\nname = \"Notes\"\nversion = \"1.0.0\"\nmodule = \"notes.wasm\"\n";
+
+@test
+fun rapidkoi_toml_declares_widgets_as_a_list_of_tables() {
+    let text = APP + "\n[[widgets]]\nname = \"last_edited\"\nlabel = \"Last edited\"\n\n[[widgets]]\nname = \"count\"\nlabel = \"Note count\"\n";
+    let p = parse_project(text, "/work/notes", None).unwrap();
+    assert_eq(p.widgets, [w("last_edited", "Last edited"), w("count", "Note count")]);
+    assert_eq(parse_project(APP, "/work/notes", None).unwrap().widgets.len, 0);
+    let bad = match parse_project(
+        APP + "\n[[widgets]]\nname = \"Bad\"\nlabel = \"x\"\n",
+        "/w",
+        None,
+    ) {
+        Err(e) => project_reason(e),
+        Ok(_) => "ok",
+    };
+    assert(bad.starts_with("rapidkoi.toml: [[widgets]] "));
+    let extra = match parse_project(
+        APP + "\n[[widgets]]\nname = \"a\"\nlabel = \"A\"\nicon = \"x\"\n",
+        "/w",
+        None,
+    ) {
+        Err(e) => project_reason(e),
+        Ok(_) => "ok",
+    };
+    assert_eq(extra, "rapidkoi.toml: unknown key [widgets] icon");
+}

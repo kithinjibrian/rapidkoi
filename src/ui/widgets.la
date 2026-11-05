@@ -1,0 +1,349 @@
+/**
+ * Widgets' screens (PRP-073, boards 4 to 7; places, PRP-074), pure: a card, its frame and
+ * top line Rapidkoi's (the app's icon, name and when it was sent), the
+ * app's own view under them; the new tab's row of up to four, drawn into
+ * its `widgets` slot; the Widgets page App info and the ⚙ share; and
+ * "Replace a widget?".
+ *
+ * Depends on: kivuli, kivuli.ui, guest.nodes, guest.times, guest.placeholders, ui.render, ui.paint, window.window, window.actions, window.tabs, window.widgets, window.yourapps, bundles.widgetlist, ui.frame, ui.themes, ui.tokens
+ * Used by: ui.content, ui.appinfo, ui.settings
+ */
+import kivuli {
+    View,
+    Align,
+    Styling,
+    Border,
+    Radius,
+    Sizing,
+    Width,
+    Background,
+    Font,
+    Size,
+    Weight,
+    When,
+    State,
+    column,
+    row,
+    text,
+    image,
+    spacer,
+    button_with,
+    item,
+    wrap,
+};
+import kivuli.ui { Menu, button as ui_button, switch };
+import guest.nodes { ButtonLook, Show, Colour };
+import guest.times { words };
+import guest.placeholders { fill };
+import guest.cards { has_place };
+import ui.render { screen_with };
+import ui.paint { AS_STYLED, colour_of };
+import window.window { Model };
+import window.actions { Msg };
+import window.tabs { AppPage };
+import window.widgets { Chosen, MAX_SHOWN, card_of, is_shown, declared, chosen_of, shown_count };
+import window.yourapps { App, same };
+import bundles.widgetlist { Widget };
+import ui.frame { icon_of, initial };
+import ui.themes {
+    body,
+    dim,
+    heading,
+    title,
+    group,
+    line,
+    bare,
+    paint as theme_paint,
+    button as button_look,
+};
+import ui.schemes { Theme };
+import ui.tokens {
+    SPACE_XS,
+    SPACE_SM,
+    SPACE_MD,
+    PAGE_RADIUS,
+    BUTTON_RADIUS,
+    CARD_LIFT,
+    TEXT_SMALL,
+    WIDGET_HEIGHT,
+    WIDGET_ICON,
+    PREVIEW_WIDTH,
+    PREVIEW_HEIGHT,
+    PREVIEW_SMALL_WIDTH,
+    PREVIEW_SMALL_HEIGHT,
+    gap,
+    padding_xy,
+    square,
+};
+
+/**
+ * Draws the new tab's widgets into its slot: the heading and up to four
+ * cards in equal columns, or nothing when none are added. A card opens its
+ * place; its right-click menu takes it off.
+ *
+ * Example:
+ *     widgets.row_view(m)
+ */
+fun row_view(m: Model): View<render.Msg> {
+    let t = m.theme;
+    let shown = m.widgets.shown;
+    if shown.len == 0 {
+        return column([]);
+    }
+    let mut cells: View<render.Msg>[] = [];
+    for i in 0..MAX_SHOWN {
+        if i >= shown.len {
+            // An empty place keeps the others a quarter wide each: four
+            // equal places on one line.
+            cells.push(column([]).expand());
+            continue;
+        }
+        let name = app_of(m, shown[i]).map(fun(a: App) = a.face.name).unwrap_or(shown[i].label);
+        // Its places are pressable here, and nowhere else (PRP-074).
+        let pressing = fun(k: i64, v: View<render.Msg>): View<render.Msg> = button_with(
+            v,
+            render.Msg.OpenWidgetPlace(i, k),
+        ).style(bare(t) + place_look(t)).tooltip("Open");
+        // A card with places isn't a button: kivuli holds no button in a
+        // button, so its top line opens the card's place (DECISION-098).
+        let placed = card_of(m.widgets, shown[i]).map(fun(x) = has_place(x.tree)).unwrap_or(false);
+        let card = if placed {
+            // Framed around the card's inside, as the button frames it: on
+            // the same box, its height would leave out its own padding.
+            column([face_and_view(m, shown[i], pressing, Some(render.Msg.OpenWidget(i)))]).style(
+                card_frame(t, false, false),
+            ).style([tall(WIDGET_HEIGHT)]).name("card:{name}")
+        } else {
+            button_with(face_and_view(m, shown[i], pressing, None), render.Msg.OpenWidget(i)).style(
+                bare(t) + card_frame(t, false, true),
+            ).style([tall(WIDGET_HEIGHT)]).tooltip("Open {name}")
+        };
+        cells.push(
+            card.menu([item("Remove from new tab", render.Msg.RemoveWidget(i))]).style([
+                Menu.look(),
+            ]).expand(),
+        );
+    }
+    // Its heading as the new tab's own (RECENT): small, bold, dim.
+    let small: Styling = Font { size: Size.Scale(TEXT_SMALL), weight: Weight.Bold, ..Font.theme() };
+    column([
+        text("WIDGETS").style(dim(t) + [small]),
+        wrap(cells).equal().max_per_line(MAX_SHOWN).style([gap(SPACE_MD)]),
+    ]).style([gap(SPACE_MD)])
+}
+
+/**
+ * Returns the summary on the Widgets › row: how many of the app's are on
+ * the new tab; `None` when it declares none, and the row isn't shown.
+ *
+ * Example:
+ *     summary(m, page) == Some("2 of 3 on new tab")
+ */
+fun summary(m: Model, p: AppPage): Option<string> {
+    let all = declared(p);
+    if all.len == 0 {
+        return None;
+    }
+    Some("{shown_count(m.widgets, p)} of {all.len} on new tab")
+}
+
+/**
+ * Builds the Widgets page's rows: a preview, the label and a switch for
+ * each widget the app declares.
+ *
+ * @param small the ⚙'s smaller previews, so its card keeps its width
+ *
+ * Example:
+ *     page_rows(m, page, false)
+ */
+fun page_rows(m: Model, p: AppPage, small: bool): View<Msg>[] {
+    let t = m.theme;
+    let (w, h) = if small {
+        (PREVIEW_SMALL_WIDTH, PREVIEW_SMALL_HEIGHT)
+    } else {
+        (PREVIEW_WIDTH, PREVIEW_HEIGHT)
+    };
+    declared(p).map(fun(x: Widget): View<Msg> {
+        let on = chosen_of(p, x.name).map(fun(c: Chosen) = is_shown(m.widgets, c)).unwrap_or(false);
+        row([
+            preview(m, chosen_of(p, x.name), w, h),
+            text(x.label).style(body(t)).align(Align.Center),
+            spacer(),
+            switch(on, fun(v: bool) = Msg.WidgetSwitch(x.name, v)).name("widget:{x.name}").align(
+                Align.Center,
+            ),
+        ]).style([gap(SPACE_MD), padding_xy(SPACE_MD, SPACE_SM)])
+    })
+}
+
+/**
+ * Builds "Replace a widget?": the four cards on the new tab to choose
+ * from, the picked one ringed, then Cancel and Replace. Empty when nothing
+ * is being replaced.
+ *
+ * Example:
+ *     replace_view(m)
+ */
+fun replace_view(m: Model): View<Msg> {
+    let t = m.theme;
+    let picked = match m.replacing {
+        Some((_, i)) => i,
+        None => {
+            return column([]);
+        }
+    };
+    let mut cells: View<Msg>[] = [];
+    for i in 0..m.widgets.shown.len {
+        let c = m.widgets.shown[i];
+        cells.push(
+            button_with(as_window(face_and_view(m, c, as_drawn, None)), Msg.PickReplace(i)).style(
+                bare(t) + card_frame(t, i == picked, true),
+            ).style([sized(PREVIEW_WIDTH, PREVIEW_HEIGHT)]),
+        );
+    }
+    let mut pairs: View<Msg>[] = [];
+    let mut i = 0;
+    while i < cells.len {
+        let mut two = [cells[i]];
+        if i + 1 < cells.len {
+            two.push(cells[i + 1]);
+        }
+        pairs.push(row(two).style([gap(SPACE_MD)]));
+        i += 2;
+    }
+    column([
+        text("Replace a widget?").style(title(t)).align(Align.Start),
+        column(pairs).style([gap(SPACE_MD)]),
+        row([
+            spacer(),
+            ui_button("Cancel", Msg.CancelReplace).style(button_look(t, ButtonLook.Normal)),
+            ui_button("Replace", Msg.Replace).style(button_look(t, ButtonLook.Primary)),
+        ]).style([gap(SPACE_SM)]),
+    ]).style([gap(SPACE_MD)])
+}
+
+/** A preview on the Widgets page: the card as the new tab would show it, smaller. */
+fun preview(m: Model, c: Option<Chosen>, w: i64, h: i64): View<Msg> = match c {
+    Some(x) => as_window(face_and_view(m, x, as_drawn, None)).style(
+        card_frame(m.theme, false, false),
+    ).style([sized(w, h)]),
+    None => column([]).style([sized(w, h)]),
+};
+
+/**
+ * A card's inside: Rapidkoi's top line (the app's icon or initial, its
+ * name, and when it was sent), then the app's view with its parts filled.
+ * One not sent yet shows its label under the top line, dim. With `opens`,
+ * the top line is a button sending it: a card with places isn't one itself.
+ */
+fun face_and_view(
+    m: Model,
+    c: Chosen,
+    place: fun(i64, View<render.Msg>): View<render.Msg>,
+    opens: Option<render.Msg>,
+): View<render.Msg> {
+    let t = m.theme;
+    let app = app_of(m, c);
+    let name = app.map(fun(a: App) = a.face.name).unwrap_or(c.label);
+    let icon: View<render.Msg> = match app.and_then(fun(a: App) = icon_of(a.path, a.face.icon)) {
+        Some(img) => image(img).style([square(WIDGET_ICON)]).align(Align.Center),
+        None => text(initial(name)).style(dim(t)).align(Align.Center),
+    };
+    let mut top: View<render.Msg>[] = [icon, text(name).style(body(t)).align(Align.Center)];
+    let below = match card_of(m.widgets, c) {
+        Some(x) => {
+            let when = words(x.sent, Show.Relative, m.offsets.get(x.sent), m.now);
+            top.push(text("· {when}").style(dim(t)).align(Align.Center));
+            screen_with(
+                fill(x.tree, m.people.first, m.people.last, m.offsets, m.now),
+                t,
+                AS_STYLED,
+                fun(_: string) = column([]),
+                place,
+            )
+        }
+        None => text(c.label).style(dim(t)),
+    };
+    let line = match opens {
+        // A card with places: its top line is its own place's button.
+        Some(msg) => button_with(row(top).style([gap(SPACE_XS)]), msg).style(
+            bare(t) + place_look(t),
+        ).tooltip("Open {name}"),
+        None => row(top).style([gap(SPACE_XS)]),
+    };
+    // A card with places: its edges give up what the places' own room
+    // takes, so their text lines up with other cards' and four fit.
+    let edge = match opens {
+        Some(_) => padding_xy(SPACE_MD - SPACE_SM, SPACE_MD - SPACE_XS),
+        None => padding_xy(SPACE_MD, SPACE_MD),
+    };
+    column([line, spacer(), below]).style([gap(SPACE_SM), edge])
+}
+
+/** A place drawn as it is: in a preview, where nothing in a card is pressed. */
+fun as_drawn(_: i64, v: View<render.Msg>): View<render.Msg> = v;
+
+/**
+ * A place's look on the new tab: the controls' hover under the pointer,
+ * rounded as buttons are, with room around its text so the hover is a block.
+ */
+fun place_look(t: Theme): Styling[] = [
+    padding_xy(SPACE_SM, SPACE_XS),
+    Border { radius: Radius.All(BUTTON_RADIUS), ..Border.theme() },
+    When(State.Hover, [Background { color: theme_paint(t.control_hover), ..Background.theme() }]),
+];
+
+/** The app a widget is from, as your apps keep it: its name and icon. */
+fun app_of(m: Model, c: Chosen): Option<App> {
+    for a of m.apps.items {
+        if same(a, c.path, c.origin) {
+            return Some(a);
+        }
+    }
+    None
+}
+
+/**
+ * A card drawn among the window's own views. It holds no presses, so
+ * nothing in it ever sends: the message given here is never used.
+ */
+fun as_window(v: View<render.Msg>): View<Msg> = v.map(fun(_: render.Msg) = Msg.CancelReplace);
+
+/**
+ * A card's frame, as the new tab draws its own cards: the page lifted a
+ * little toward the text, an edge in the controls' colour, rounded; the
+ * accent's edge when `ringed`, and under the pointer when it can be pressed.
+ */
+fun card_frame(t: Theme, ringed: bool, pressable: bool): Styling[] {
+    let lifted = Colour.Mix(Colour.Named("background"), Colour.Named("text"), CARD_LIFT);
+    let edged = fun(colour: string): Styling = Border {
+        all: line(colour),
+        radius: Radius.All(PAGE_RADIUS),
+        ..Border.theme(),
+    };
+    let mut out: Styling[] = [Background { color: colour_of(lifted, t), ..Background.theme() }];
+    out.push(edged(if ringed { t.accent } else { t.control }));
+    if pressable {
+        out.push(When(State.Hover, [edged(t.accent)]));
+    }
+    out
+}
+
+/** Exactly `h` high, as wide as its place. */
+fun tall(h: i64): Sizing = Sizing {
+    min_height: Width.Px(h),
+    height: Width.Px(h),
+    max_height: Width.Px(h),
+    ..Sizing.theme(),
+};
+
+/** Exactly `w` wide and `h` high. */
+fun sized(w: i64, h: i64): Sizing = Sizing {
+    min_width: Width.Px(w),
+    width: Width.Px(w),
+    max_width: Width.Px(w),
+    min_height: Width.Px(h),
+    height: Width.Px(h),
+    max_height: Width.Px(h),
+    ..Sizing.theme(),
+};

@@ -1,0 +1,119 @@
+/**
+ * A manifest's widgets (PRP-073), pure: each a name and a label, read,
+ * written and checked. A manifest without them declares none.
+ *
+ * Depends on: cbor, guest.limits, bundles.rules
+ * Used by: bundles.bundle, bundles.project, commands.pack, window.widgets
+ */
+import cbor { Value, Entry };
+import guest.limits { MAX_WIDGETS, MAX_WIDGET_NAME, MAX_WIDGET_LABEL };
+import bundles.rules { BundleError };
+
+/** One widget an app declares: its name, as the app fills it, and its label, as you see it. */
+struct Widget {
+    name: string,
+    label: string,
+}
+
+/**
+ * Reads a manifest's `widgets`: a list of `{ name, label }` maps; none when missing.
+ *
+ * Example:
+ *     widgets_of(manifest)?
+ */
+fun widgets_of(m: Value): Result<Widget[], BundleError> {
+    let xs = match m.get("widgets") {
+        None => {
+            return Ok([]);
+        }
+        Some(Array(xs)) => xs,
+        Some(_) => {
+            return Err(BundleError.Wrong("widgets", "must be a list"));
+        }
+    };
+    // Counted before anything is copied out.
+    if xs.len > MAX_WIDGETS {
+        return Err(too_many(xs.len));
+    }
+    let mut out: Widget[] = [];
+    for x of xs {
+        match (x.get("name"), x.get("label")) {
+            (Some(Text(n)), Some(Text(l))) => out.push(Widget { name: n, label: l }),
+            _ => {
+                return Err(BundleError.Wrong("widgets", "each needs a name and a label"));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/**
+ * Writes widgets as the manifest keeps them.
+ *
+ * Example:
+ *     widgets_value(m.widgets)
+ */
+fun widgets_value(ws: Widget[]): Value = Value.Array(
+    ws.map(
+        fun(w: Widget) = Value.Map([
+            Entry { key: Value.Text("name"), value: Value.Text(w.name) },
+            Entry { key: Value.Text("label"), value: Value.Text(w.label) },
+        ]),
+    ),
+);
+
+/**
+ * Checks widgets: at most `MAX_WIDGETS`, each name 1–32 bytes of `a–z 0–9
+ * _ -` used once, each label 1–40 bytes.
+ *
+ * Example:
+ *     check_widgets(m.widgets)?
+ */
+fun check_widgets(ws: Widget[]): Result<(), BundleError> {
+    if ws.len > MAX_WIDGETS {
+        return Err(too_many(ws.len));
+    }
+    let mut seen: string[] = [];
+    for w of ws {
+        if !name_ok(w.name) {
+            return Err(
+                BundleError.Wrong(
+                    "widgets",
+                    "\"{w.name}\" isn't a name: 1 to {MAX_WIDGET_NAME} of a-z, 0-9, _ and -",
+                ),
+            );
+        }
+        if seen.any(fun(n: string) = n == w.name) {
+            return Err(BundleError.Wrong("widgets", "\"{w.name}\" is named twice"));
+        }
+        if w.label.trim() == "" || w.label.len > MAX_WIDGET_LABEL {
+            return Err(
+                BundleError.Wrong(
+                    "widgets",
+                    "\"{w.name}\"'s label must be 1 to {MAX_WIDGET_LABEL} bytes",
+                ),
+            );
+        }
+        seen.push(w.name);
+    }
+    Ok(())
+}
+
+/**
+ * Whether a widget's name has its shape: 1 to `MAX_WIDGET_NAME` bytes of
+ * `a–z 0–9 _ -`.
+ *
+ * Example:
+ *     name_ok("last_edited") == true
+ */
+fun name_ok(name: string): bool {
+    let shaped = fun(
+        c: char,
+    ) = c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' || c == '-';
+    name.len >= 1 && name.len <= MAX_WIDGET_NAME && name.chars().all(shaped)
+}
+
+fun too_many(n: i64): BundleError = BundleError.Wrong(
+    "widgets",
+    "lists too many ({n}; at most {MAX_WIDGETS})",
+);

@@ -4,7 +4,7 @@
  * writes bytes, checking every rule in `rules.la` both ways. Unsigned and
  * local; hashes and signatures come with format 2 (DECISION-009).
  *
- * Depends on: cbor, guest.limits, bundles.rules, net.network
+ * Depends on: cbor, guest.limits, bundles.rules, bundles.widgetlist, net.network
  * Used by: commands.pack, window.tabs, panel
  */
 import cbor { Value, Entry, Limits, decode, encode };
@@ -20,6 +20,7 @@ import guest.limits {
     MAX_PERMISSION_NAME,
 };
 import bundles.rules { BundleError, reason };
+import bundles.widgetlist { Widget, widgets_of, widgets_value, check_widgets };
 import net.network { check_server };
 
 /** The format this Rapidkoi reads and writes. */
@@ -49,6 +50,8 @@ struct Manifest {
     controls: Option<Controls>,
     /** Its primary colour, `#rrggbb`, if it names one (PRP-063): `colors.primary` in the manifest. */
     primary_color: Option<string>,
+    /** The widgets it declares (PRP-073): none when it names none. */
+    widgets: Widget[],
 }
 
 /**
@@ -195,6 +198,9 @@ fun manifest_fields(m: Manifest): Entry[] {
     if let Some(c) = m.primary_color {
         fields.push(entry("colors", Value.Map([entry("primary", Value.Text(c))])));
     }
+    if m.widgets.len > 0 {
+        fields.push(entry("widgets", widgets_value(m.widgets)));
+    }
     fields
 }
 
@@ -243,6 +249,7 @@ fun check(b: Bundle): Result<(), BundleError> {
         }
     }
     check_permissions(m.permissions)?;
+    check_widgets(m.widgets)?;
     if let Some(c) = m.controls {
         check_controls(c)?;
     }
@@ -313,6 +320,7 @@ fun manifest_of(m: Value): Result<Manifest, BundleError> {
         permissions: permissions,
         controls: controls_of(m)?,
         primary_color: primary_of(m)?,
+        widgets: widgets_of(m)?,
     })
 }
 

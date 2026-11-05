@@ -38,6 +38,8 @@ fun fill(n: Node, first: string, last: string, offsets: Map<i64, i64>, now: i64)
         context,
         kids.map(fun(k: Node) = fill(k, first, last, offsets, now)),
     ),
+    // A widget card's place (PRP-074): its box's parts too.
+    Place(k, fields, inner) => Node.Place(k, fields, fill(inner, first, last, offsets, now)),
     // Plain words, typing boxes and anything else: as the app gave them.
     _ => n,
 };
