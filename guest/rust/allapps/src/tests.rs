@@ -92,6 +92,10 @@ fn each_tile_has_a_menu() {
         item("Forget this app…", Msg::Forget(1)),
     ];
     assert_eq!(rapidkoi::raw::boxed().menu(menu_of(&a)), rapidkoi::raw::boxed().menu(expected));
+    // Rapidkoi's own apps (from nowhere) have no Forget.
+    let own = Item { from: String::new(), ..a.clone() };
+    let kept = vec![item("Open", Msg::Open(1)), item("Pin to dock", Msg::Pin(1)), item("App info", Msg::Info(1))];
+    assert_eq!(rapidkoi::raw::boxed().menu(menu_of(&own)), rapidkoi::raw::boxed().menu(kept));
     let pinned = Item { pinned: true, ..a };
     let unpin = rapidkoi::raw::boxed().menu(menu_of(&pinned)).encode();
     assert!(unpin.windows(15).any(|w| w == b"Unpin from dock"));
