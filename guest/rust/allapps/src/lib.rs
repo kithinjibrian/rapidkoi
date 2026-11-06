@@ -3,7 +3,7 @@
 //! last used first, with a search box: typing filters by name and Enter
 //! opens the first match. When two apps share a name, each also shows where
 //! it's from. A right-click on an app opens its menu (PRP-071): Open, Pin or
-//! Unpin, App info, Forget. App info and Forget are Rapidkoi's own screens
+//! Unpin, App info, Forget (none for Rapidkoi's own apps). App info and Forget are Rapidkoi's own screens
 //! over All apps (PRP-072), where the person decides.
 //!
 //! It reads with the built-in `read_apps`, opens with `open_apps`, and pins
@@ -15,12 +15,12 @@
 use minicbor::{Decode, Encode};
 use rapidkoi::raw::{boxed, Role};
 use rapidkoi::style::{
-    Align, Background, Border, Color, Corner, Font, Layout, Place, Sizing, Spacing, State as Look, Text,
-    TextSize, Weight, When,
+    Align, Background, Border, Color, Corner, Font, Layout, Place, Sizing, Spacing, State as Look, Text, TextSize,
+    Weight, When,
 };
 use rapidkoi::{
-    column, image, input, item, layers, row, separator, spacer, text, wrap, App, Apps, Ask, Choice, Event,
-    Message, Next, Space, State, View,
+    column, image, input, item, layers, row, separator, spacer, text, wrap, App, Apps, Ask, Choice, Event, Message,
+    Next, Space, State, View,
 };
 
 /// What All apps' screen sends.
@@ -90,7 +90,8 @@ impl AllApps {
     /// The apps shown: matching what's typed, in the chosen order.
     fn shown(&self) -> Vec<&Item> {
         let q = self.query.trim().to_lowercase();
-        let mut out: Vec<&Item> = self.apps.iter().filter(|a| q.is_empty() || a.name.to_lowercase().contains(&q)).collect();
+        let mut out: Vec<&Item> =
+            self.apps.iter().filter(|a| q.is_empty() || a.name.to_lowercase().contains(&q)).collect();
         if self.by_last {
             // Stable: apps opened at the same time keep their A–Z order.
             out.sort_by(|a, b| b.opened.cmp(&a.opened));
@@ -159,8 +160,7 @@ impl App for AllApps {
         let shown = self.shown();
         // The first match is ringed while searching: Enter opens it.
         let first = if self.query.trim().is_empty() { None } else { shown.first().map(|a| a.at) };
-        let grid = wrap(shown.iter().map(|a| self.tile(a, first == Some(a.at))))
-            .style([Spacing::gap(Space::Px(4))]);
+        let grid = wrap(shown.iter().map(|a| self.tile(a, first == Some(a.at)))).style([Spacing::gap(Space::Px(4))]);
         column([head, search(&self.query), grid])
             .spacing(Space::Lg)
             .padding(Space::Lg)
@@ -180,14 +180,12 @@ impl AllApps {
             text(&a.name).style([Font::size(TextSize::Small), Layout::align(Align::Center), Text::truncate()]),
         ];
         if self.clashes(a) && !a.from.is_empty() {
-            lines.push(
-                text(&a.from).style([
-                    Font::size(TextSize::Small),
-                    Text::color(Color::system("text_dim")),
-                    Layout::align(Align::Center),
-                    Text::truncate(),
-                ]),
-            );
+            lines.push(text(&a.from).style([
+                Font::size(TextSize::Small),
+                Text::color(Color::system("text_dim")),
+                Layout::align(Align::Center),
+                Text::truncate(),
+            ]));
         }
         let mut look = vec![
             // A fixed width packed from the start: stretched columns spread
@@ -282,11 +280,11 @@ mod tests;
 /// A tile's right-click menu (PRP-071; App info since PRP-072).
 fn menu_of(a: &Item) -> Vec<Choice<Msg>> {
     let pin = if a.pinned { item("Unpin from dock", Msg::Unpin(a.at)) } else { item("Pin to dock", Msg::Pin(a.at)) };
-    vec![
-        item("Open", Msg::Open(a.at)),
-        pin,
-        item("App info", Msg::Info(a.at)),
-        separator(),
-        item("Forget this app…", Msg::Forget(a.at)),
-    ]
+    let mut menu = vec![item("Open", Msg::Open(a.at)), pin, item("App info", Msg::Info(a.at))];
+    // Rapidkoi's own apps (from nowhere) are part of Rapidkoi: nothing to forget.
+    if !a.from.is_empty() {
+        menu.push(separator());
+        menu.push(item("Forget this app…", Msg::Forget(a.at)));
+    }
+    menu
 }

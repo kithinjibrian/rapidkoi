@@ -96,10 +96,16 @@ fun answer_app(m: Model, p: AppPage, ask: Effect, grant: bool): (Model, Option<V
         Apps(_) => (m, Some(apps_of(m)), Cmd.none()),
         OpenApp(_, i) => (m, None, after(at(m, i), fun(a: App) = Msg.OpenPinned(a.path, a.origin))),
         AppInfo(_, i) => (m, None, after(at(m, i), fun(a: App) = Msg.AppInfo(a.path, a.origin))),
+        // Rapidkoi's own apps are part of Rapidkoi: never forgotten, whoever asks.
         ForgetApp(_, i) => (
             m,
             None,
-            after(at(m, i), fun(a: App) = Msg.ForgetFromInfo(a.path, a.origin)),
+            after(
+                at(m, i).and_then(
+                    fun(a: App) = if a.path.starts_with("builtin:") { None } else { Some(a) },
+                ),
+                fun(a: App) = Msg.ForgetFromInfo(a.path, a.origin),
+            ),
         ),
         // Pinned at the dock's end, unless it's there already.
         PinApp(_, i) => match at(m, i) {

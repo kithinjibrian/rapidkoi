@@ -139,3 +139,9 @@ fun open_permissions_and_forget_are_the_window_s_own() {
     assert_eq(ask(two(), Effect.ForgetApp(t("o"), 1)).0.apps.items.len, 2);
     assert_eq(later(ask(two(), Effect.OpenApp(t("o"), 9)).2), []);
 }
+
+@test
+fun rapidkoi_s_own_apps_can_t_be_forgotten() {
+    // Settings, always listed, is third A–Z: Forget asks nothing of the window.
+    assert_eq(later(ask(two(), Effect.ForgetApp(t("f"), 2)).2), []);
+}
