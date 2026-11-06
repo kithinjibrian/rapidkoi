@@ -760,6 +760,27 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## RESOLVED
 
+### DECISION-101 — Backup words: 12, shown once, restored in Settings › You
+
+**Status:** resolved (the owner, 2026-11-06: "12 i'm the only one using rapidkoi", "show once, like a hardware wallet", then "yes that fits, record it"); not built, and every part gets the owner's security review when it is
+**Raised:** 2026-11-06, from DECISION-022 (backup words before sync)
+
+**Question:** How does a person back up who they are (the master secret), and get it back on a new computer, before pairing and ponds exist?
+
+**Decision:**
+- **12 words** from the standard 2,048-word list (BIP-39's English list, its checksum catching a mistyped word): they are the whole master secret, now **16 random bytes** (was 32). App keys are still worked out from it with HKDF, so apps still can't link you.
+- **The old 32-byte secret goes, once:** it can't be 12 words, and only the owner uses Rapidkoi, so there's no second kind to carry. The owner becomes a new person to every app once; nothing replaces an identity silently (how the old file is set aside is the PRP's).
+- **First launch shows no words:** the secret is made quietly, as now.
+- **Settings › You › Backup words** shows the 12 in a numbered grid **once**, asks for 3 of them back (picked at random), then says "Backed up". They can never be shown again, as on a hardware wallet: a "show again" would let anyone at the unlocked computer copy who you are in seconds, and Rapidkoi has no lock of its own (DECISION-022). Lose the paper, and you start fresh (or, once built, pair a device).
+- **A reminder:** a one-time notice once you've signed in to an app, until you back up or dismiss it.
+- **Restoring: Settings › You › Use backup words,** never at first launch. A wrong word: "These words aren't right". On a computer that has never been anyone (no app has asked who you are), the words become you. On one that already is someone: "Replace who you are on this computer? Apps that know you here will see a stranger." (Replace, in danger; Cancel). Replacing starts this computer's apps afresh, as if each were forgotten, so no app can link the two identities (DECISION-084).
+
+**Rules out:** words shown again later; a Rapidkoi password or lock; restoring offered at first launch; keeping 32-byte secrets alongside.
+
+**Not decided here:** the reminder's words and where it shows; how "replace" clears each app (its database, kept copy, state, the generation); the cryptography and its review (`std.crypto` has `random_bytes` and HKDF; the word list is a file Rapidkoi carries); a computer-password check before showing the words, which could come later without changing the rest.
+
+---
+
 ### DECISION-022 — Accounts: no Rapidkoi account; you are a key on your devices
 
 **Status:** resolved (the owner, 2026-11-06: "so a person manages their identity and ponds are just for data", then "yes record it"); per-app keys, sign-in and names built in PRP-011 and PRP-052; pairing and backup words not built
