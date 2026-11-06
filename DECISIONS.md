@@ -735,17 +735,6 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ---
 
-### DECISION-022 — Accounts: per-app identity and sign-in
-
-**Status:** deferred (keys, auto sign-in and names built in PRP-011; recovery, sync and apps reaching their server still to come)
-**Raised:** 2026-10-18 — Session 26
-**Revisit when:** The owner wants sign-in (the vision's passkeys held by Rapidkoi).
-
-**Question:** How Rapidkoi gives each app its own user ID for the person (so apps can't link them across apps), a name the person chooses per app, and sign-in and out. Where keys live, how IDs are derived, and what an app's server can verify.
-
-**Notes:** Authentication: a design talk of its own and the owner's security review (SECURITY RULE). Until then the panel's Account row says "Not signed in".
-
----
 
 ### DECISION-023 — Reading a file's mode back (std.fs)
 
@@ -770,6 +759,27 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 ---
 
 ## RESOLVED
+
+### DECISION-022 — Accounts: no Rapidkoi account; you are a key on your devices
+
+**Status:** resolved (the owner, 2026-11-06: "so a person manages their identity and ponds are just for data", then "yes record it"); per-app keys, sign-in and names built in PRP-011 and PRP-052; pairing and backup words not built
+**Raised:** 2026-10-18 — Session 26
+
+**Question:** How Rapidkoi gives each app its own user ID for the person (so apps can't link them across apps), a name the person chooses, and sign-in; and whether there's a Rapidkoi account behind it, given ponds (Rapidkoi's, or one the person runs).
+
+**Decision:**
+- **No Rapidkoi account, ever:** no email, no password, nothing to log in to. A person is a master secret on their devices; each app gets its own key worked out from it (PRP-011), and one switch per app says whether it may know who you are (DECISION-084).
+- **A new device becomes you** by pairing with one you already have (both show the same short code; you allow it on the old one, which sends the master secret sealed for the new one), or, with no device left, by typing your 12 backup words (DECISION-075).
+- **Ponds are just for data:** sealed synced app data, and a sealed backup of the master secret that only the words or your own devices can open. Whoever runs a pond, Rapidkoi included, can't read it. Leaving a pond, for another or your own, never changes who you are.
+- **Someone else, or a fresh you, starts new:** a new master secret, a stranger to every app. Two people on one computer use the computer's own logins; Rapidkoi has no profiles.
+
+**Why:** an identity held in an account on a pond ties the person to that pond: switching would mean moving the account or becoming a stranger to every app. A key on the person's devices makes a pond plain storage they can leave (core decision 30; the Pond's rule 4, "No accounts").
+
+**Gives up:** "forgot password" recovery. Lose every device and the backup words, and nobody can restore you, Rapidkoi included.
+
+**Not decided here:** whether backup words come before sync (they protect a single device already); how an app's server checks a sign-in signature (a spec and an SDK helper); whether the vision's "passkeys held by Rapidkoi" means anything beyond these keys; what the header's 👤 opens; the cryptography and every screen's words, which get the owner's security review when built.
+
+---
 
 ### DECISION-100 — The new Settings stays a built-in app, and reads who you are and whom you trust
 
