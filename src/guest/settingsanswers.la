@@ -1,0 +1,213 @@
+/**
+ * Answering Settings (PRP-075, DECISION-100): `you` gives the name every
+ * app shows and the apps you're signed in to, each with the name it sees,
+ * when you first opened it and your public key for it; `publishers` gives
+ * the keys you trust, one per app, with when each was first trusted, the
+ * apps it signs and how many times it rotated; `set_name` changes the name
+ * every app shows. Public facts only: the master secret never leaves the
+ * shell. Whether the app may ask is `guest.needs`' question; a blocked
+ * read is answered with nothing in it, and a blocked change changes
+ * nothing. Also the master secret's one reader (`secret`), shared with
+ * `guest.effects`' sign-in.
+ *
+ * Depends on: cbor, std.crypto, people.identity, people.people, people.account, trust.verify, trust.keys, window.window, window.yourapps, window.notices, guest.nodes, guest.home
+ * Used by: guest.effects
+ */
+import cbor { Value, Entry };
+import std.crypto { equal };
+import people.identity { Master, master, public_key };
+import people.people { Person, name_in };
+import people.account { generation_for };
+import trust.verify { Identity };
+import trust.keys { hex };
+import window.window { Model };
+import window.yourapps { App };
+import window.notices { identity_trouble };
+import guest.nodes { Effect };
+import guest.home { place_of };
+
+/** The most apps or keys one answer lists. */
+const MAX_LISTED: i64 = 256;
+
+/**
+ * Answers one Settings ask.
+ *
+ * @param m the window
+ * @param ask a `You`, `Publishers` or `SetName`
+ * @param grant whether the app may (`guest.needs`)
+ * @returns the window (the secret read, or the name changed), and the answer for a read
+ *
+ * Example:
+ *     answer_settings(m, Effect.You(msg), true)
+ */
+fun answer_settings(m: Model, ask: Effect, grant: bool): (Model, Option<Value>) = match ask {
+    You(_) => {
+        // Blocked: no name and no apps, and the secret isn't read.
+        if !grant {
+            return (
+                m,
+                Some(
+                    Value.Map([
+                        entry("first", Value.Text("")),
+                        entry("last", Value.Text("")),
+                        entry("apps", Value.Array([])),
+                    ]),
+                ),
+            );
+        }
+        let (held, mm) = secret(m);
+        (held, Some(you_of(held, mm)))
+    }
+    Publishers(_) => (m, Some(if grant { publishers_of(m) } else { listing("items", []) })),
+    SetName(_, first, last) => (if grant { named(m, first, last) } else { m }, None),
+    _ => (m, None),
+};
+
+/**
+ * Returns the `you` answer: `{first, last, apps: [...]}`, each app you're
+ * signed in to as `{name, place, icon, first, last, since, key}`, in the
+ * order you first met them, at most 256. `key` is your public key for it
+ * as hex, or empty without the master secret.
+ *
+ * Example:
+ *     you_of(m, Some(mm))
+ */
+fun you_of(m: Model, mm: Option<Master>): Value {
+    let mut apps: Value[] = [];
+    for x of m.people.apps {
+        if !x.signs_in || apps.len >= MAX_LISTED {
+            continue;
+        }
+        let app = app_for(m, x.host, x.origin);
+        let place = app.map(fun(a: App) = place_of(a.path)).unwrap_or(x.host);
+        let (first, last) = name_in(m.people, x.host, x.origin);
+        apps.push(
+            Value.Map([
+                entry("name", Value.Text(app.map(fun(a: App) = a.face.name).unwrap_or(x.host))),
+                entry("place", Value.Text(place)),
+                // Named for Rapidkoi to draw, never sent (PRP-060).
+                entry("icon", Value.Text("icon:{place}")),
+                entry("first", Value.Text(first)),
+                entry("last", Value.Text(last)),
+                entry("since", Value.int(app.map(fun(a: App) = a.first).unwrap_or(0))),
+                entry("key", Value.Text(key_hex(m, mm, x))),
+            ]),
+        );
+    }
+    Value.Map([
+        entry("first", Value.Text(m.people.first)),
+        entry("last", Value.Text(m.people.last)),
+        entry("apps", Value.Array(apps)),
+    ])
+}
+
+/**
+ * Returns the `publishers` answer: `{items: [...]}`, one per app's key
+ * (its latest), newest first, each `{host, key, since, signs, rotations}`,
+ * at most 256.
+ *
+ * Example:
+ *     publishers_of(m)
+ */
+fun publishers_of(m: Model): Value {
+    // Each app once, by host and first key, in the order first met.
+    let mut firsts: Identity[] = [];
+    let mut latest: Identity[] = [];
+    let mut seen: i64[] = [];
+    for i of m.ring.known.get() {
+        let mut at = -1;
+        for n of range(0, firsts.len) {
+            if firsts[n].host == i.host && equal(firsts[n].origin, i.origin) {
+                at = n;
+            }
+        }
+        if at < 0 {
+            firsts.push(i);
+            latest.push(i);
+            seen.push(1);
+        } else {
+            latest[at] = i;
+            seen[at] = seen[at] + 1;
+        }
+    }
+    let mut items: Value[] = [];
+    let mut n = latest.len - 1;
+    while n >= 0 && items.len < MAX_LISTED {
+        let i = latest[n];
+        let signs = match app_for(m, i.host, i.origin) {
+            Some(a) => [Value.Text(a.face.name)],
+            None => match i.name {
+                Some(name) => [Value.Text(name)],
+                None => [],
+            },
+        };
+        items.push(
+            Value.Map([
+                entry("host", Value.Text(i.host)),
+                entry("key", Value.Text(hex(i.key))),
+                entry("since", Value.int(firsts[n].since)),
+                entry("signs", Value.Array(signs)),
+                entry("rotations", Value.int(seen[n] - 1)),
+            ]),
+        );
+        n -= 1;
+    }
+    listing("items", items)
+}
+
+/**
+ * Changes the name every app shows, as ⚙'s Name page for every app does
+ * (`people.account`); `settingsasks` held each part to 64 characters.
+ *
+ * Example:
+ *     named(m, "Ada", "Lovelace")
+ */
+fun named(m: Model, first: string, last: string): Model {
+    let mut p = m.people;
+    p.first = first;
+    p.last = last;
+    Model { people: p, ..m }
+}
+
+/**
+ * The master secret: cached in the model, else read or made in the store
+ * (none without one). Reading it is the data folder's own small file, so it
+ * happens in `update` (CLAUDE.md's exceptions), as sign-in always has.
+ *
+ * Example:
+ *     let (held, mm) = secret(m);
+ */
+fun secret(m: Model): (Model, Option<Master>) {
+    if let Some(mm) = m.master {
+        return (m, Some(mm));
+    }
+    let s = match m.store {
+        Some(s) => s,
+        None => {
+            return (m, None);
+        }
+    };
+    match master(s) {
+        Ok(mm) => (Model { master: Some(mm), ..m }, Some(mm)),
+        Err(e) => (Model { notice: Some(identity_trouble(e)), ..m }, None),
+    }
+}
+
+/** The app you opened at `host` with this first key, if it's among your apps. */
+fun app_for(m: Model, host: string, origin: u8[]): Option<App> = m.apps.items.iter().find(
+    fun(a: App) = a.host == Some(host) && a.origin.map(fun(o: u8[]) = equal(o, origin)).unwrap_or(
+        false,
+    ),
+);
+
+/** Your public key for an app as hex; empty when it can't be worked out. */
+fun key_hex(m: Model, mm: Option<Master>, x: Person): string = match mm {
+    Some(secret) => generation_for(m.people, secret, x.host, x.origin).and_then(
+        fun(g: i64) = public_key(secret, x.host, x.origin, g),
+    ).map(hex).unwrap_or(""),
+    None => "",
+};
+
+fun listing(key: string, items: Value[]): Value = Value.Map([entry(key, Value.Array(items))]);
+
+fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };

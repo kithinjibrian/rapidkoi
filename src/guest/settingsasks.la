@@ -1,0 +1,52 @@
+/**
+ * Settings' asks (PRP-075): `you`, `publishers` and `set_name`, read and
+ * held to their shapes before anything is done. A bad one stops the app
+ * with its sentence, as other bad asks do. Whether the app may is
+ * `guest.needs`' question.
+ *
+ * Depends on: cbor, guest.nodes
+ * Used by: guest.contract
+ */
+import cbor { Value };
+import guest.nodes { ContractError, Effect };
+
+/** The most characters in each part of a name, as ⚙'s Name page keeps (`people.account`). */
+const MAX_NAME_PART: i64 = 64;
+
+/**
+ * Reads a Settings ask, or `None` when `kind` names none.
+ *
+ * @param kind the effect's kind
+ * @param msg its `msg`
+ * @param e the effect
+ * @returns the ask; `Err(Invalid)` for a name that isn't two texts of at most 64 characters
+ *
+ * Example:
+ *     settings_ask_of("set_name", msg, e)?
+ */
+fun settings_ask_of(kind: string, msg: Value, e: Value): Result<Option<Effect>, ContractError> {
+    if kind == "you" {
+        return Ok(Some(Effect.You(msg)));
+    }
+    if kind == "publishers" {
+        return Ok(Some(Effect.Publishers(msg)));
+    }
+    if kind != "set_name" {
+        return Ok(None);
+    }
+    match (part(e, "first"), part(e, "last")) {
+        (Some(first), Some(last)) => Ok(Some(Effect.SetName(msg, first, last))),
+        _ => Err(
+            ContractError.Invalid(
+                "update",
+                "a set_name needs a first and a last name of at most {MAX_NAME_PART} characters",
+            ),
+        ),
+    }
+}
+
+/** One part of a name: text of at most `MAX_NAME_PART` characters. */
+fun part(e: Value, field: string): Option<string> = match e.get(field) {
+    Some(Text(s)) if s.chars().count() <= MAX_NAME_PART => Some(s),
+    _ => None,
+};

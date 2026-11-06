@@ -43,11 +43,14 @@ fun contrast_is_wcag_s_ratio() {
 fun the_person_s_choices_pick_the_set_and_scale() {
     assert_eq(theme_for(DEFAULT_PREFS).name, "dark");
     assert_eq(theme_for(DEFAULT_PREFS).scale, 1.0);
-    assert_eq(theme_for(Prefs { light: true, more_contrast: false, text_size: 100 }).name, "light");
     assert_eq(
-        theme_for(Prefs { light: false, more_contrast: true, text_size: 100 }).name,
+        theme_for(Prefs { light: true, more_contrast: false, text_size: 100, restore: false }).name,
+        "light",
+    );
+    assert_eq(
+        theme_for(Prefs { light: false, more_contrast: true, text_size: 100, restore: false }).name,
         "dark, more contrast",
     );
-    let big = theme_for(Prefs { light: true, more_contrast: true, text_size: 150 });
+    let big = theme_for(Prefs { light: true, more_contrast: true, text_size: 150, restore: false });
     assert_eq((big.name, big.scale), ("light, more contrast", 1.5));
 }

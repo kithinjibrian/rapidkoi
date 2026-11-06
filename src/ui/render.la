@@ -60,6 +60,7 @@ import ui.themes { body, dim, title, heading, field, paint as theme_paint, butto
 import ui.schemes { Theme };
 import ui.paint { Own, AS_STYLED, resolve_for, styles_of, align_of };
 import ui.pictured { picture_view };
+import ui.sliding { slid };
 import kivuli.ui { Menu as MenuLook };
 
 /** What the shell's window sends its `update`. */
@@ -145,6 +146,11 @@ fun screen_with(
         Align.Fill,
     ),
     Pictured(p, look) => picture_view(p, look, t, own),
+    Slider(s, look) => placed(
+        slid(s, fun(v: Value, n: i64) = Msg.Event(v, Some("{n}"))),
+        look,
+        Align.Fill,
+    ),
     // Filled into words before drawing (`guest.placeholders`); unfilled, only the app's own words show.
     Parts(ps, look, facts) => screen_with(
         Node.Words(plain_of(ps), look, facts),
@@ -298,6 +304,7 @@ fun look_of(n: Node): Option<Look> = match n {
     Words(_, l, _) => Some(l),
     Parts(_, l, _) => Some(l),
     Field(_, l) => Some(l),
+    Slider(_, l) => Some(l),
     Pictured(_, l) => Some(l),
     Unsupported(_) | Slot(_) => None,
     Place(_, _, inner) => look_of(inner),

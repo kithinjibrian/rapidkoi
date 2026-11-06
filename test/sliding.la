@@ -1,0 +1,88 @@
+// A slider (PRP-075, a contract 11 addition), pure: read from an app's
+// tree and held to its rules, then drawn with kivuli.ui's slider and moved
+// through kivuli.testing. No display.
+import rapidkoi.guest.tree { read_tree };
+import rapidkoi.guest.nodes { Node, Sliding, ContractError };
+import rapidkoi.ui.render { Msg, screen };
+import rapidkoi.ui.schemes { DARK };
+import kivuli.testing { slide, Lookup };
+import cbor { Value, encode };
+import support { t, kv, leaf };
+
+fun slider(props: (string, Value)[]): Value = leaf("slider", props);
+
+fun good(): (string, Value)[] = [
+    ("min", Value.int(0)),
+    ("max", Value.int(7)),
+    ("value", Value.int(2)),
+    ("label", t("Text size")),
+    ("on_change", t("size")),
+];
+
+fun with(props: (string, Value)[], key: string, v: Value): (string, Value)[] {
+    let mut out = props.filter(fun(p: (string, Value)) = p.0 != key);
+    out.push((key, v));
+    out
+}
+
+fun without(props: (string, Value)[], key: string): (string, Value)[] = props.filter(
+    fun(p: (string, Value)) = p.0 != key,
+);
+
+fun why(v: Value): string = match read_tree(encode(v)) {
+    Err(Invalid(_, problem)) => problem,
+    Err(_) => "another error",
+    Ok(_) => "ok",
+};
+
+fun read(v: Value): Node = read_tree(encode(v)).unwrap().root;
+
+@test
+fun a_slider_reads() {
+    match read(slider(with(good(), "step", Value.int(1)))) {
+        Slider(s, _) => {
+            assert_eq((s.min, s.max, s.value, s.step), (0, 7, 2, 1));
+            assert_eq(s.label, "Text size");
+            assert_eq(s.on_change, Some(t("size")));
+        }
+        _ => assert(false),
+    }
+}
+
+@test
+fun a_value_outside_the_range_is_held_to_it_and_step_is_one_unless_said() {
+    match read(slider(with(good(), "value", Value.int(40)))) {
+        Slider(s, _) => assert_eq((s.value, s.step), (7, 1)),
+        _ => assert(false),
+    }
+    match read(slider(with(good(), "value", Value.int(-3)))) {
+        Slider(s, _) => assert_eq(s.value, 0),
+        _ => assert(false),
+    }
+}
+
+@test
+fun a_bad_slider_stops_the_app() {
+    let bad = "This app drew a slider Rapidkoi can't show";
+    assert_eq(why(slider(without(good(), "label"))), bad);
+    assert_eq(why(slider(with(good(), "label", t("")))), bad);
+    assert_eq(why(slider(with(good(), "min", Value.int(7)))), bad);
+    assert_eq(why(slider(with(good(), "max", Value.int(2_000_000)))), bad);
+    assert_eq(why(slider(with(good(), "step", Value.int(0)))), bad);
+    assert_eq(why(slider(with(good(), "value", t("2")))), bad);
+    assert_eq(why(slider(without(good(), "max"))), bad);
+}
+
+@test
+fun moving_it_sends_the_number_as_text() {
+    let v = screen(read(slider(good())), DARK);
+    assert_eq(slide(v, "Text size", 5), Ok(Msg.Event(t("size"), Some("5"))));
+    // Past the end: held to it, as the widget does.
+    assert_eq(slide(v, "Text size", 99), Ok(Msg.Event(t("size"), Some("7"))));
+}
+
+@test
+fun without_on_change_it_s_disabled() {
+    let v = screen(read(slider(without(good(), "on_change"))), DARK);
+    assert_eq(slide(v, "Text size", 3), Err(Lookup.Silent("slider \"Text size\"")));
+}

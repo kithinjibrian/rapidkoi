@@ -32,6 +32,8 @@ fun each_permission_has_its_name_tier_and_words() {
         "read_apps",
         "manage_pins",
         "show_widgets",
+        "read_you",
+        "read_publishers",
     ]);
     // Any app may send you notifications (PRP-065); everything else is Rapidkoi's own apps'.
     for p of ALL {
@@ -58,6 +60,13 @@ fun each_permission_has_its_name_tier_and_words() {
     // PRP-073: the new tab's slot, never its widgets' contents.
     assert_eq(label_of(Permission.ShowWidgets), "Showing your widgets");
     assert_eq(wish_of(Permission.ShowWidgets), "show your widgets");
+    // PRP-075: Settings' You and Publishers.
+    assert_eq(label_of(Permission.ReadYou), "Reading who you are to your apps");
+    assert_eq(wish_of(Permission.ReadPublishers), "read the keys you trust");
+    assert_eq(
+        parse(["read_you", "read_publishers"]),
+        Ok([Permission.ReadYou, Permission.ReadPublishers]),
+    );
 }
 
 @test

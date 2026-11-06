@@ -140,6 +140,7 @@ fun held(
         }
         Words(_, _, facts) | Parts(_, _, facts) => plain(facts, here).map(fun(_) = n),
         Field(_, _) => Err(invalid(here, "a widget's card can't have a typing box")),
+        Slider(_, _) => Err(invalid(here, "a widget's card can't have a slider")),
         Pictured(_, _) => Err(invalid(here, "a widget's card can't have a picture")),
         Slot(_) => Err(invalid(here, "a widget's card can't hold Rapidkoi's slots")),
         Unsupported(kind) => Err(invalid(here, "a widget's card can't have a {kind}")),

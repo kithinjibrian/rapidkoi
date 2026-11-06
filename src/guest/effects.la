@@ -9,7 +9,7 @@
  * declare is stopped. Each answer goes back through the app's `update`,
  * which may ask again, up to `MAX_ANSWERS` in a row.
  *
- * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, guest.needs, bundles.permissions, ui.render, net.requests, guest.storing, guest.noticeanswers, guest.appanswers, guest.widgetanswers, window.actions
+ * Depends on: kivuli, people.identity, people.people, window.tabs, window.window, guest.contract, guest.home, guest.needs, bundles.permissions, ui.render, net.requests, guest.storing, guest.noticeanswers, guest.appanswers, guest.settingsanswers, guest.widgetanswers, window.actions
  * Used by: shell
  */
 import people.identity { Master, master, public_key, sign_in };
@@ -28,6 +28,7 @@ import window.actions { Msg, Approval, Answer };
 import net.requests;
 import guest.noticeanswers { answer_notice };
 import guest.appanswers { answer_app, apps_of };
+import guest.settingsanswers { answer_settings, secret };
 import guest.widgetanswers { answer_widget, undeclared };
 import guest.needs { holds, needed };
 import guest.storing;
@@ -234,6 +235,11 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
         Apps(msg) | OpenApp(msg, _) | PinApp(msg, _) | UnpinApp(msg, _) | AppInfo(msg, _) | ForgetApp(msg, _) => {
             let (held, now, send) = answer_app(m, p, ask, grant);
             sends.push(send);
+            (held, now, msg)
+        }
+        // Settings (PRP-075): `settingsanswers`'.
+        You(msg) | Publishers(msg) | SetName(msg, _, _) => {
+            let (held, now) = answer_settings(m, ask, grant);
             (held, now, msg)
         }
         Pins(msg) => (m, Some(if grant { pins_of(m) } else { Value.Array([]) }), msg),
@@ -462,23 +468,6 @@ fun respond(m: Model, p: AppPage, ask: Effect): (Model, Value) {
     match made {
         Ok(bytes) => (held, Value.Bytes(bytes)),
         Err(e) => (Model { notice: Some(identity_trouble(e)), ..held }, Value.Null),
-    }
-}
-
-/** The master secret: cached in the model, else read or made in the store (none without one). */
-fun secret(m: Model): (Model, Option<Master>) {
-    if let Some(mm) = m.master {
-        return (m, Some(mm));
-    }
-    let s = match m.store {
-        Some(s) => s,
-        None => {
-            return (m, None);
-        }
-    };
-    match master(s) {
-        Ok(mm) => (Model { master: Some(mm), ..m }, Some(mm)),
-        Err(e) => (Model { notice: Some(identity_trouble(e)), ..m }, None),
     }
 }
 

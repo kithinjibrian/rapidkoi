@@ -1,0 +1,142 @@
+// Answering Settings (PRP-075): `you` (your name, the apps you're signed
+// in to, your key for each), `publishers` (the keys you trust) and
+// `set_name`, each only for an app that may. No guest, no display.
+import rapidkoi.guest.settingsanswers { answer_settings, you_of, publishers_of, named, secret };
+import rapidkoi.guest.nodes { Effect };
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.yourapps { App, opened };
+import rapidkoi.data.remembered { Face };
+import rapidkoi.data.store { Store, store_at };
+import rapidkoi.people.people { People, Person, person, with_person };
+import rapidkoi.people.identity { public_key };
+import rapidkoi.trust.verify { Identity, keyring_of };
+import rapidkoi.trust.keys { hex };
+import wasmtime { Engine };
+import cbor { Value };
+import std.fs;
+import support { t, kv };
+
+const NOTES: string = "notes.dafifi.net";
+const COUNTER: string = "counter.dafifi.net";
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+fun app(host: string, origin: u8[], name: string, first: i64): App = App {
+    path: "rapidkoi://{host}",
+    origin: Some(origin),
+    host: Some(host),
+    face: Face { path: "rapidkoi://{host}", name: name, icon: None, colour: None },
+    first: first,
+    last: first,
+};
+
+fun signed(p: People, host: string, origin: u8[], on: bool): People = with_person(p, Person {
+    signs_in: on,
+    ..person(p, host, origin),
+});
+
+fun trusted(host: string, key: u8[], origin: u8[], since: i64): Identity = Identity {
+    host: host,
+    key: key,
+    sequence: 1,
+    separate: false,
+    since: since,
+    origin: origin,
+    name: None,
+    default: true,
+};
+
+/** Ada, signed in to Notes, not to Counter; Notes' key rotated once. */
+fun scene(): Model {
+    let m = with_pages(Engine.new(), []);
+    let who = signed(
+        signed(People { first: "Ada", last: "L", ..m.people }, NOTES, [1; 32], true),
+        COUNTER,
+        [2; 32],
+        false,
+    );
+    Model {
+        people: who,
+        apps: opened(
+            opened(m.apps, app(NOTES, [1; 32], "Notes", 1000)),
+            app(COUNTER, [2; 32], "Counter", 2000),
+        ),
+        ring: keyring_of([
+            trusted(NOTES, [1; 32], [1; 32], 500),
+            trusted(COUNTER, [2; 32], [2; 32], 600),
+            trusted(NOTES, [9; 32], [1; 32], 700),
+        ]),
+        ..m,
+    }
+}
+
+@test
+fun you_lists_only_the_apps_you_re_signed_in_to() {
+    let v = you_of(scene(), None);
+    assert_eq(v.get("first"), Some(t("Ada")));
+    let apps = v.get("apps").unwrap().as_array().unwrap();
+    assert_eq(apps.len, 1);
+    let a = apps[0];
+    assert_eq(a.get("name"), Some(t("Notes")));
+    assert_eq(a.get("place"), Some(t(NOTES)));
+    assert_eq(a.get("icon"), Some(t("icon:{NOTES}")));
+    // Its own name unset: the one every app shows.
+    assert_eq((a.get("first"), a.get("last")), (Some(t("Ada")), Some(t("L"))));
+    assert_eq(a.get("since"), Some(Value.int(1000)));
+    // No master secret: no key.
+    assert_eq(a.get("key"), Some(t("")));
+}
+
+@test
+fun you_gives_your_public_key_for_each_app() {
+    let dir = "test/tmp/settingsanswers-key";
+    clean(dir);
+    let m = Model { store: Some(store_at(dir)), ..scene() };
+    let (held, mm) = secret(m);
+    let v = you_of(held, mm);
+    let key = v.get("apps").unwrap().as_array().unwrap()[0].get("key");
+    assert_eq(key, Some(t(hex(public_key(mm.unwrap(), NOTES, [1; 32], 0).unwrap()))));
+    clean(dir);
+}
+
+@test
+fun publishers_lists_each_app_s_latest_key_newest_first() {
+    let items = publishers_of(scene()).get("items").unwrap().as_array().unwrap();
+    assert_eq(items.len, 2);
+    // Counter was met after Notes.
+    assert_eq(items[0].get("host"), Some(t(COUNTER)));
+    assert_eq(items[0].get("rotations"), Some(Value.int(0)));
+    assert_eq(items[0].get("signs"), Some(Value.Array([t("Counter")])));
+    // Notes: its rotated key, trusted since its first.
+    assert_eq(items[1].get("key"), Some(t(hex([9; 32]))));
+    assert_eq(items[1].get("since"), Some(Value.int(500)));
+    assert_eq(items[1].get("rotations"), Some(Value.int(1)));
+}
+
+@test
+fun a_name_changes_the_one_every_app_shows() {
+    let m = named(scene(), "Grace", "Hopper");
+    assert_eq((m.people.first, m.people.last), ("Grace", "Hopper"));
+}
+
+@test
+fun an_app_that_may_not_gets_nothing_and_changes_nothing() {
+    let m = scene();
+    let (_, you) = answer_settings(m, Effect.You(t("y")), false);
+    assert_eq(you, Some(kv([("first", t("")), ("last", t("")), ("apps", Value.Array([]))])));
+    let (_, trust) = answer_settings(m, Effect.Publishers(t("p")), false);
+    assert_eq(trust, Some(kv([("items", Value.Array([]))])));
+    let (after, nothing) = answer_settings(m, Effect.SetName(t("n"), "Grace", ""), false);
+    assert_eq((after.people.first, nothing), ("Ada", None));
+    let (changed, _) = answer_settings(m, Effect.SetName(t("n"), "Grace", ""), true);
+    assert_eq(changed.people.first, "Grace");
+}

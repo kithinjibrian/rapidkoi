@@ -1,44 +1,140 @@
-//! Rapidkoi's Settings (PRP-038): a built-in app, packed into `./main` like
-//! the new tab. It reads the person's choices (light or dark, more
-//! contrast, text size) and changes them through the built-in
-//! `change_settings` permission (`scripts/settings.sh` declares it). Each
-//! change applies at once; Rapidkoi tells every app, this one included.
+//! Rapidkoi's Settings (PRP-038, redesigned in PRP-075): a built-in app,
+//! packed into `./main` like the new tab. Categories down the side
+//! (Appearance, Startup, You, Publishers, About Rapidkoi), Find above the
+//! page, and a details column beside You's and Publishers' lists. Only
+//! what's Rapidkoi-wide: each app's own choices stay in ⚙ and App info.
+//!
+//! It reads the person's choices (any app may), who they are to their apps
+//! (`read_you`) and the keys they trust (`read_publishers`), and changes
+//! the choices and their name with `change_settings` (DECISION-100;
+//! `scripts/settings.sh` declares them). Each change applies at once;
+//! Rapidkoi tells every app, this one included.
 //!
 //! Build and pack: `scripts/settings.sh`, which writes `assets/apps/settings.rkb`.
 
-use rapidkoi::style::Layout;
-use rapidkoi::{
-    button, checkbox, column, row, spacer, tabs, text, App, Ask, Event, Message, Next, Preference, Prefs, Space, State,
-    View,
-};
+mod find;
+mod lists;
+mod pages;
 
-/// The smallest and largest text size, in percent, and each step.
-const SMALLEST: u16 = 80;
-const LARGEST: u16 = 200;
-const STEP: u16 = 10;
+use find::{found, Page};
+use minicbor::{Decode, Encode};
+use rapidkoi::{App, Ask, Event, Message, Next, Preference, Prefs, Publishers, Start, State, View, You};
+
+/// The text size's stops, in percent (PRP-075): closer together near 100.
+const STOPS: [u16; 8] = [80, 90, 100, 110, 125, 150, 175, 200];
 
 /// What Settings' screen sends.
 #[derive(Debug, Clone, PartialEq, Message)]
 enum Msg {
+    /// Open the category at this index (`find::PAGES`).
+    Go(u8),
+    /// Find's text changed: the event's value.
+    Find,
     /// Light (`true`) or dark.
-    Light(bool),
+    Theme(bool),
     Contrast,
-    Smaller,
-    Bigger,
+    /// The text size slider moved: its stop's index is the event's value.
+    Size,
+    /// Open with the last session (`true`), or a new tab.
+    Start(bool),
+    /// Show this app you're signed in to in the details.
+    PickApp(u32),
+    /// Show this key in the details.
+    PickKey(u32),
+    /// Open, or leave, the page for your name.
+    EditName(bool),
+    /// Your first or last name changed: the event's value.
+    First,
+    Last,
 }
 
-#[derive(Default, State)]
+/// An app you're signed in to, as Settings keeps it.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+struct Signed {
+    #[n(0)]
+    name: String,
+    #[n(1)]
+    place: String,
+    /// The name it sees.
+    #[n(2)]
+    first: String,
+    #[n(3)]
+    last: String,
+    /// When you first opened it; 0 when not known.
+    #[n(4)]
+    since: i64,
+    /// Your public key for it, as hex; empty when Rapidkoi couldn't say.
+    #[n(5)]
+    key: String,
+}
+
+/// A key you trust, as Settings keeps it.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+struct Key {
+    #[n(0)]
+    host: String,
+    #[n(1)]
+    key: String,
+    #[n(2)]
+    since: i64,
+    #[n(3)]
+    signs: Vec<String>,
+    #[n(4)]
+    rotations: u32,
+}
+
+#[derive(Default, Clone, State)]
 struct Settings {
-    /// Whether Rapidkoi answered yet.
+    /// Whether Rapidkoi answered the choices yet.
     read: bool,
+    /// The category open, by its index.
+    page: u8,
+    /// What's typed in Find.
+    find: String,
     light: bool,
     more_contrast: bool,
     text_size: u16,
+    restore: bool,
+    /// The name every app shows.
+    first: String,
+    last: String,
+    /// Whether the page for your name is open, over You.
+    naming: bool,
+    apps: Vec<Signed>,
+    keys: Vec<Key>,
+    /// Which app and which key the details show.
+    app: u32,
+    key: u32,
 }
 
 impl Settings {
+    /// The category shown: the open one, or Find's first match when it isn't one.
+    fn shown(&self) -> Option<Page> {
+        let matches = found(&self.find);
+        let open = Page::at(self.page);
+        if matches.contains(&open) {
+            Some(open)
+        } else {
+            matches.first().copied()
+        }
+    }
+
+    /// The text size's stop: the one it's at, or the nearest below.
+    fn stop(&self) -> usize {
+        STOPS.iter().rposition(|s| *s <= self.text_size).unwrap_or(0)
+    }
+
     fn change(self, p: Preference) -> Next<Self> {
         Next::state(self).ask(Ask::set_preference("set", p))
+    }
+
+    fn named(self) -> Next<Self> {
+        let ask = Ask::set_name("name", &self.first, &self.last);
+        Next::state(self).ask(ask)
+    }
+
+    fn read_all(self) -> Next<Self> {
+        Next::state(self).ask(Ask::preferences("prefs")).ask(Ask::you("you")).ask(Ask::publishers("keys"))
     }
 }
 
@@ -47,103 +143,96 @@ impl App for Settings {
 
     fn handle(self, event: Event<Msg>) -> Next<Self> {
         match event {
-            Event::Opened | Event::Resume | Event::Change { .. } => Next::state(self).ask(Ask::preferences("prefs")),
-            Event::Data { msg, cbor } if msg == "prefs" => match Prefs::read(&cbor) {
-                Some(p) => Next::state(Settings {
-                    read: true,
-                    light: p.light,
-                    more_contrast: p.more_contrast,
-                    text_size: p.text_size,
-                }),
-                None => Next::state(self),
+            Event::Opened | Event::Resume | Event::Change { .. } => self.read_all(),
+            Event::Data { msg, cbor } => match msg.as_str() {
+                "prefs" => match Prefs::read(&cbor) {
+                    Some(p) => Next::state(Settings {
+                        read: true,
+                        light: p.light,
+                        more_contrast: p.more_contrast,
+                        text_size: p.text_size,
+                        restore: p.start == Start::Restore,
+                        ..self
+                    }),
+                    None => Next::state(self),
+                },
+                "you" => match You::read(&cbor) {
+                    Some(y) => {
+                        let apps: Vec<Signed> = y
+                            .apps
+                            .into_iter()
+                            .map(|a| Signed {
+                                name: a.name,
+                                place: a.place,
+                                first: a.first,
+                                last: a.last,
+                                since: a.since,
+                                key: a.key,
+                            })
+                            .collect();
+                        let app = if (self.app as usize) < apps.len() { self.app } else { 0 };
+                        // While the name is being typed, what's typed stays.
+                        let (first, last) = if self.naming { (self.first, self.last) } else { (y.first, y.last) };
+                        Next::state(Settings { apps, app, first, last, ..self })
+                    }
+                    None => Next::state(self),
+                },
+                "keys" => match Publishers::read(&cbor) {
+                    Some(p) => {
+                        let keys: Vec<Key> = p
+                            .items
+                            .into_iter()
+                            .map(|k| Key {
+                                host: k.host,
+                                key: k.key,
+                                since: k.since,
+                                signs: k.signs,
+                                rotations: k.rotations,
+                            })
+                            .collect();
+                        let key = if (self.key as usize) < keys.len() { self.key } else { 0 };
+                        Next::state(Settings { keys, key, ..self })
+                    }
+                    None => Next::state(self),
+                },
+                _ => Next::state(self),
             },
-            Event::Message { msg, .. } => match msg {
-                Msg::Light(on) => self.change(Preference::Light(on)),
+            Event::Message { msg, value } => match msg {
+                // Picking a category clears Find, and leaves the name's page.
+                Msg::Go(i) => Next::state(Settings { page: i, find: String::new(), naming: false, ..self }),
+                Msg::Find => Next::state(Settings { find: value.unwrap_or_default(), ..self }),
+                Msg::Theme(light) => self.change(Preference::Light(light)),
                 Msg::Contrast => {
                     let on = !self.more_contrast;
                     self.change(Preference::MoreContrast(on))
                 }
-                Msg::Smaller if self.text_size > SMALLEST => {
-                    let n = self.text_size - STEP;
-                    self.change(Preference::TextSize(n))
+                Msg::Size => match value.and_then(|v| v.parse::<usize>().ok()).and_then(|i| STOPS.get(i)) {
+                    Some(size) => {
+                        let size = *size;
+                        Settings { text_size: size, ..self }.change(Preference::TextSize(size))
+                    }
+                    None => Next::state(self),
+                },
+                Msg::Start(restore) => {
+                    let start = if restore { Start::Restore } else { Start::NewTab };
+                    Settings { restore, ..self }.change(Preference::Start(start))
                 }
-                Msg::Bigger if self.text_size < LARGEST => {
-                    let n = self.text_size + STEP;
-                    self.change(Preference::TextSize(n))
-                }
-                _ => Next::state(self),
+                Msg::PickApp(i) => Next::state(Settings { app: i, ..self }),
+                Msg::PickKey(i) => Next::state(Settings { key: i, ..self }),
+                Msg::EditName(open) => Next::state(Settings { naming: open, ..self }),
+                Msg::First => Settings { first: value.unwrap_or_default(), ..self }.named(),
+                Msg::Last => Settings { last: value.unwrap_or_default(), ..self }.named(),
             },
             _ => Next::state(self),
         }
     }
 
     fn view(&self) -> View<Msg> {
-        if !self.read {
-            return column([text("Settings").title()]).padding(Space::Lg).screen_title("Settings");
-        }
-        let line = |label: &str, control: View<Msg>| row([text(label), spacer(), control]).spacing(Space::Md);
-        column([
-            text("Settings").title(),
-            text("Appearance").heading(),
-            line(
-                "Theme",
-                tabs(&[("dark", "Dark"), ("light", "Light")], if self.light { "light" } else { "dark" }, |k| {
-                    Msg::Light(k == "light")
-                }),
-            ),
-            line("More contrast", checkbox("More contrast", self.more_contrast).on_toggle(Msg::Contrast)),
-            line(
-                "Text size",
-                row([
-                    button("−").on_press_if(self.text_size > SMALLEST, Msg::Smaller),
-                    text(&format!("{}%", self.text_size)),
-                    button("+").on_press_if(self.text_size < LARGEST, Msg::Bigger),
-                ])
-                .spacing(Space::Sm),
-            ),
-        ])
-        .spacing(Space::Md)
-        .padding(Space::Lg)
-        // Rapidkoi never scrolls an app's page (PRP-046): a short window scrolls this.
-        .style([Layout::scroll(), Layout::grow()])
-        .screen_title("Settings")
+        pages::screen(self)
     }
 }
 
 rapidkoi::export!(Settings);
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn at(size: u16) -> Settings {
-        Settings { read: true, light: false, more_contrast: false, text_size: size }
-    }
-
-    fn press(s: Settings, msg: Msg) -> Vec<Ask> {
-        s.handle(Event::Message { msg, value: None }).asks().to_vec()
-    }
-
-    #[test]
-    fn it_reads_on_open_and_on_every_change() {
-        for e in [Event::Opened, Event::Resume, Event::Change { tables: vec![] }] {
-            assert_eq!(Settings::default().handle(e).asks(), &[Ask::preferences("prefs")]);
-        }
-    }
-
-    #[test]
-    fn each_control_asks_for_its_change() {
-        assert_eq!(press(at(100), Msg::Light(true)), vec![Ask::set_preference("set", Preference::Light(true))]);
-        assert_eq!(press(at(100), Msg::Contrast), vec![Ask::set_preference("set", Preference::MoreContrast(true))]);
-        assert_eq!(press(at(100), Msg::Bigger), vec![Ask::set_preference("set", Preference::TextSize(110))]);
-        assert_eq!(press(at(100), Msg::Smaller), vec![Ask::set_preference("set", Preference::TextSize(90))]);
-    }
-
-    #[test]
-    fn text_size_stops_at_80_and_200() {
-        assert_eq!(press(at(80), Msg::Smaller), vec![]);
-        assert_eq!(press(at(200), Msg::Bigger), vec![]);
-        // The buttons show it: disabled at the ends.
-        assert_ne!(at(80).view(), at(90).view());
-    }
-}
+mod tests;

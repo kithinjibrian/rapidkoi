@@ -1,8 +1,8 @@
 /**
  * The person's choices (PRP-038): the `preferences` file (light or dark,
- * more contrast, text size), read as hostile input; what every app may
- * read of them (three coarse values, never colours); and a change asked for
- * by Rapidkoi's Settings app, checked.
+ * more contrast, text size, and what Rapidkoi opens with, PRP-075), read
+ * as hostile input; what every app may read of them (four coarse values,
+ * never colours); and a change asked for by Rapidkoi's Settings app, checked.
  *
  * Depends on: cbor, ui.schemes, data.remembered
  * Used by: data.saving, guest.effects
@@ -27,6 +27,7 @@ fun prefs_file(p: Prefs): u8[] = encode(
         entry("light", Value.Bool(p.light)),
         entry("more_contrast", Value.Bool(p.more_contrast)),
         entry("text_size", Value.int(p.text_size)),
+        entry("restore", Value.Bool(p.restore)),
     ]),
 );
 
@@ -54,12 +55,14 @@ fun read_prefs(bytes: u8[]): Result<Prefs, Unreadable> {
         light: flag("light", DEFAULT_PREFS.light),
         more_contrast: flag("more_contrast", DEFAULT_PREFS.more_contrast),
         text_size: size,
+        // Missing in files before PRP-075: a new tab, as before.
+        restore: flag("restore", DEFAULT_PREFS.restore),
     })
 }
 
 /**
  * What an app reads (the `preferences` ask, open to every app): the theme,
- * more contrast and the text size, nothing else.
+ * more contrast, the text size and what Rapidkoi opens with, nothing else.
  *
  * Example:
  *     prefs_value(m.prefs)
@@ -68,14 +71,16 @@ fun prefs_value(p: Prefs): Value = Value.Map([
     entry("theme", Value.Text(if p.light { "light" } else { "dark" })),
     entry("more_contrast", Value.Bool(p.more_contrast)),
     entry("text_size", Value.int(p.text_size)),
+    entry("start", Value.Text(if p.restore { "restore" } else { "new_tab" })),
 ]);
 
 /**
  * Applies one change the Settings app asked for (`set_preference`).
  *
  * @param p the choices now
- * @param name `theme`, `more_contrast` or `text_size`
- * @param v its new value: `"dark"` or `"light"`, true or false, 80–200 in steps of 10
+ * @param name `theme`, `more_contrast`, `text_size` or `start`
+ * @param v its new value: `"dark"` or `"light"`, true or false, 80–200 in
+ *     steps of 5, `"new_tab"` or `"restore"`
  * @returns the new choices; `Err` with the sentence that stops the app
  *
  * Example:
@@ -93,12 +98,17 @@ fun apply(p: Prefs, name: string, v: Value): Result<Prefs, string> = match name 
     },
     "text_size" => match v.as_i64() {
         Some(n) if valid_size(n) => Ok(Prefs { text_size: n, ..p }),
-        _ => Err("text_size must be 80 to 200, in steps of 10"),
+        _ => Err("text_size must be 80 to 200, in steps of 5"),
+    },
+    "start" => match v.as_text() {
+        Some("new_tab") => Ok(Prefs { restore: false, ..p }),
+        Some("restore") => Ok(Prefs { restore: true, ..p }),
+        _ => Err("start must be new_tab or restore"),
     },
     _ => Err("there's no preference called {name}"),
 };
 
-/** 80 to 200, in steps of 10. */
-fun valid_size(n: i64): bool = n >= MIN_TEXT_SIZE && n <= MAX_TEXT_SIZE && n % 10 == 0;
+/** 80 to 200, in steps of 5: the slider's stops 125 and 175 among them (PRP-075). */
+fun valid_size(n: i64): bool = n >= MIN_TEXT_SIZE && n <= MAX_TEXT_SIZE && n % 5 == 0;
 
 fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };

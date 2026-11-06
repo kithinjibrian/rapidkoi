@@ -36,6 +36,8 @@ enum Node {
     Parts(Part[], Look, Facts),
     /** A typing box. */
     Field(Typing, Look),
+    /** A slider (PRP-075, a contract 11 addition). */
+    Slider(Sliding, Look),
     /** A picture (PRP-047), and its look. */
     Pictured(Picture, Look),
     /**
@@ -147,6 +149,16 @@ struct Typing {
     on_change: Option<Value>,
     /** The message Enter sends, on one line. */
     on_submit: Option<Value>,
+}
+
+/** A slider (PRP-075): range, value within it, step ≥ 1, label (its name), message (`None`: disabled). */
+struct Sliding {
+    min: i64,
+    max: i64,
+    value: i64,
+    step: i64,
+    label: string,
+    on_change: Option<Value>,
 }
 
 /** Which way a box lays out its children. */
@@ -406,6 +418,12 @@ enum Effect {
     AppInfo(Value, i64),
     /** Open your app at this index with Rapidkoi's "Forget this app?" (needs `open_apps`); not answered. */
     ForgetApp(Value, i64),
+    /** Your name and the apps you're signed in to (PRP-075, needs `read_you`); answered with `msg`. */
+    You(Value),
+    /** The publishers' keys you trust (PRP-075, needs `read_publishers`); answered with `msg`. */
+    Publishers(Value),
+    /** Change the name every app shows: first, last (PRP-075, needs `change_settings`); not answered. */
+    SetName(Value, string, string),
 }
 
 /** One statement an app asks its database to run (PRP-041), its shape checked. */
