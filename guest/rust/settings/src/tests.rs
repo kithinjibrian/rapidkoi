@@ -17,13 +17,14 @@ fn signed(name: &str, key: &str) -> Signed {
         last: String::new(),
         since: 1_760_000_000_000,
         key: key.into(),
+        icon: format!("icon:{}.dafifi.net", name.to_lowercase()),
     }
 }
 
 fn trusted(host: &str) -> Key {
     Key {
         host: host.into(),
-        key: "c1d944e07a2f13b6".into(),
+        key: "c1d9-44e0-7a2f-13b6".into(),
         since: 1_761_000_000_000,
         signs: vec!["Counter".into()],
         rotations: 1,
@@ -111,11 +112,15 @@ fn the_answers_are_kept() {
 
 #[test]
 fn you_lists_the_apps_and_shows_the_picked_one_s_details() {
-    let s =
-        Settings { page: Page::You.index(), apps: vec![signed("Notes", "4b2e9d71"), signed("Counter", "")], ..read() };
+    let s = Settings {
+        page: Page::You.index(),
+        apps: vec![signed("Notes", "4b2e-9d71-c0a8-63f5"), signed("Counter", "")],
+        ..read()
+    };
     let shown = texts(&s);
     assert!(shown.contains("Signed in to") && shown.contains("Notes") && shown.contains("Counter"));
-    assert!(shown.contains("4B2E 9D71"));
+    // The fingerprint as Rapidkoi gives it, as the shield shows it.
+    assert!(shown.contains("4b2e-9d71-c0a8-63f5"));
     let other = send(s, Msg::PickApp(1), None).into_state();
     assert!(texts(&other).contains("Not available"));
 }
@@ -125,22 +130,21 @@ fn no_apps_no_list_and_no_details() {
     let s = Settings { page: Page::You.index(), ..read() };
     let shown = texts(&s);
     assert!(!shown.contains("Signed in to"));
-    assert!(!shown.contains("Your key for it"));
+    assert!(!shown.contains("Signed in to"));
 }
 
 #[test]
 fn publishers_lists_the_keys_and_shows_the_picked_one_s_details() {
     let s = Settings { page: Page::Publishers.index(), keys: vec![trusted("counter.dafifi.net")], ..read() };
     let shown = texts(&s);
-    assert!(shown.contains("counter.dafifi.net") && shown.contains("C1D9 44E0 7A2F 13B6"));
-    assert!(shown.contains("Fingerprint") && shown.contains("Rotations"));
+    assert!(shown.contains("counter.dafifi.net") && shown.contains("c1d9-44e0-7a2f-13b6"));
+    assert!(shown.contains("Since") && shown.contains("Rotations"));
 }
 
 #[test]
-fn the_name_page_sends_both_parts_as_typed() {
+fn the_name_is_typed_on_you_and_both_parts_are_sent() {
     let s = Settings { page: Page::You.index(), first: "Ada".into(), last: "L".into(), ..read() };
-    let s = send(s, Msg::EditName(true), None).into_state();
-    assert!(texts(&s).contains("First name"));
+    assert!(texts(&s).contains("First name") && texts(&s).contains("Last name"));
     let next = send(s, Msg::First, Some("Grace"));
     assert_eq!(next.asks(), &[Ask::set_name("name", "Grace", "L")]);
     let s = next.into_state();

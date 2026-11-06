@@ -5,7 +5,7 @@
 //! cards' small drawings are the only raw colours, each the other theme's.
 
 use crate::find::{Page, PAGES};
-use crate::lists::{name_page, publishers, you};
+use crate::lists::{publishers, you};
 use crate::{Msg, Settings, STOPS};
 use rapidkoi::raw::{boxed, Role};
 use rapidkoi::style::{Align, Background, Border, Color, Corner, Font, Layout, Sizing, Spacing, TextSize, Weight};
@@ -14,8 +14,7 @@ use rapidkoi::{column, image, input, row, slider, spacer, text, wrap, Space, Vie
 type V = View<Msg>;
 
 /// Every picture the screen shows, each packed from `assets/` under its name.
-pub const ASSETS: [&str; 7] =
-    ["brush.svg", "startup.svg", "user.svg", "shield.svg", "info.svg", "chevron.svg", "search.svg"];
+pub const ASSETS: [&str; 6] = ["brush.svg", "startup.svg", "user.svg", "shield.svg", "info.svg", "search.svg"];
 
 /// The page's width, Find's included; the side's.
 const CONTENT: u16 = 680;
@@ -27,7 +26,13 @@ pub(crate) fn sys(name: &str) -> Color {
 
 pub(crate) fn icon(name: &str, size: u16, colour: &str) -> V {
     debug_assert!(crate::pages::ASSETS.contains(&name), "{name} isn't packed");
-    image(&format!("asset:{name}")).color(sys(colour)).style([Sizing::width(size), Sizing::height(size)])
+    mid(image(&format!("asset:{name}")).color(sys(colour)).style([Sizing::width(size), Sizing::height(size)]))
+}
+
+/// Centred across its parent: down a row, along a column. A box's `align`
+/// is where it sits in its parent, never where its children sit.
+pub(crate) fn mid(v: V) -> V {
+    v.style([Layout::align(Align::Center)])
 }
 
 pub(crate) fn dim(s: &str) -> V {
@@ -42,12 +47,13 @@ pub fn screen(s: &Settings) -> V {
         None => main.push(dim("No results")),
         Some(p) => {
             let (body, details) = body(s, p);
-            let mut parts = vec![column(body).spacing(Space::Lg).style([Sizing::max_width(CONTENT), Layout::grow()])];
-            if let Some(d) = details {
-                parts.push(d);
+            let list = column(body).spacing(Space::Lg);
+            match details {
+                // Beside the details, the list is exactly Find's width and the
+                // details take the rest: no gap between them.
+                Some(d) => main.push(row([list.style([Sizing::width(CONTENT)]), d]).spacing(Space::Lg)),
+                None => main.push(list.style([Sizing::max_width(CONTENT), Layout::grow()])),
             }
-            // The details drop under the list when the window is narrow.
-            main.push(wrap(parts).spacing(Space::Lg));
         }
     }
     row([side(s, page), column(main).spacing(Space::Lg).style([Layout::grow()])])
@@ -102,8 +108,7 @@ fn find_box(s: &Settings) -> V {
         Border::all(0, Color::rgba(0, 0, 0, 0)),
     ]);
     row([icon("search.svg", 18, "text_dim"), field]).spacing(Space::Sm).style([
-        Layout::align(Align::Center),
-        Spacing::padding_xy(Space::Xs, Space::Md),
+        Spacing::padding_xy(Space::Sm, Space::Lg),
         Background::color(sys("surface")),
         Border::corner(Corner::Round),
         Sizing::max_width(CONTENT),
@@ -112,9 +117,7 @@ fn find_box(s: &Settings) -> V {
 
 fn title(page: Option<Page>) -> V {
     match page {
-        Some(p) => row([icon(p.icon(), 24, "accent"), text(p.name()).title()])
-            .spacing(Space::Md)
-            .style([Layout::align(Align::Center)]),
+        Some(p) => row([icon(p.icon(), 24, "accent"), mid(text(p.name()).title())]).spacing(Space::Md),
         None => text("Settings").title(),
     }
 }
@@ -129,7 +132,6 @@ fn body(s: &Settings, p: Page) -> (Vec<V>, Option<V>) {
             vec![section("When Rapidkoi opens", group(starts(s)).role(Role::TabList).label("When Rapidkoi opens"))],
             None,
         ),
-        Page::You if s.naming => (name_page(s), None),
         Page::You => you(s),
         Page::Publishers => publishers(s),
         Page::About => (vec![about()], None),
@@ -214,7 +216,7 @@ fn themes(s: &Settings) -> V {
                 Border::corner(Corner::Large),
                 Border::all(2, if on { sys("accent") } else { Color::rgba(0, 0, 0, 0) }),
             ])
-            .children([drawing, row([dot(on), text(name)]).spacing(Space::Sm).style([Layout::align(Align::Center)])])
+            .children([drawing, row([dot(on), mid(text(name))]).spacing(Space::Sm)])
     };
     wrap([card("Dark", false), card("Light", true)])
         .spacing(Space::Md)
@@ -225,7 +227,12 @@ fn themes(s: &Settings) -> V {
 
 /// A choice's round mark: filled when it's the one.
 fn dot(on: bool) -> V {
-    let mark = boxed().style([Sizing::width(16), Sizing::height(16), Border::corner(Corner::Round)]);
+    let mark = boxed().style([
+        Sizing::width(16),
+        Sizing::height(16),
+        Border::corner(Corner::Round),
+        Layout::align(Align::Center),
+    ]);
     if on {
         mark.style([Border::all(5, sys("accent")), Background::color(sys("on_accent"))])
     } else {
@@ -254,34 +261,36 @@ fn contrast(s: &Settings) -> V {
             .checked(on)
             .label("More contrast")
             .on_press(Msg::Contrast)
-            .style([Layout::row(), Layout::align(Align::Center)])
-            .children([text("More contrast"), spacer(), track]),
+            .style([Layout::row()])
+            .children([mid(text("More contrast")), spacer(), mid(track)]),
     )
 }
 
 fn size(s: &Settings) -> V {
     let at = s.stop();
-    let marks = STOPS.iter().enumerate().map(|(i, n)| {
+    // The stops' numbers spread end to end, as the slider's stops are: room
+    // between each, none before the first or after the last.
+    let mut marks = Vec::new();
+    for (i, n) in STOPS.iter().enumerate() {
+        if i > 0 {
+            marks.push(spacer());
+        }
         let label = text(&n.to_string()).style([Font::size(TextSize::Small)]);
-        let label = if i == at { label.style([Font::weight(Weight::Bold)]) } else { label.dim() };
-        column([label]).style([Layout::grow(), Layout::align(Align::Center)])
-    });
-    let track = column([
-        slider(0, (STOPS.len() - 1) as i64, at as i64).label("Text size").on_change(Msg::Size).style([Layout::grow()]),
-        row(marks.collect::<Vec<_>>()),
-    ])
-    .spacing(Space::Xs)
-    .style([Layout::grow()]);
+        marks.push(if i == at { label.style([Font::weight(Weight::Bold)]) } else { label.dim() });
+    }
+    let track =
+        column([slider(0, (STOPS.len() - 1) as i64, at as i64).label("Text size").on_change(Msg::Size), row(marks)])
+            .spacing(Space::Xs)
+            .style([Layout::grow()]);
     padded(
         column([
             row([text("Text size"), spacer(), dim(&format!("{}%", s.text_size))]),
             row([
-                dim("A").style([Font::size(TextSize::Small)]),
+                mid(dim("A").style([Font::size(TextSize::Small)])),
                 track,
-                dim("A").style([Font::size(TextSize::Heading)]),
+                mid(dim("A").style([Font::size(TextSize::Heading)])),
             ])
-            .spacing(Space::Md)
-            .style([Layout::align(Align::Center)]),
+            .spacing(Space::Md),
         ])
         .spacing(Space::Sm),
     )
@@ -298,8 +307,8 @@ fn starts(s: &Settings) -> Vec<V> {
                     .selected(on)
                     .label(words)
                     .on_press(Msg::Start(restore))
-                    .style([Layout::row(), Spacing::gap(Space::Md), Layout::align(Align::Center)])
-                    .children([dot(on), text(words)]),
+                    .style([Layout::row(), Spacing::gap(Space::Md)])
+                    .children([dot(on), mid(text(words))]),
             )
         })
         .collect()
@@ -316,10 +325,9 @@ fn about() -> V {
                     Border::corner(Corner::Large),
                     Background::color(sys("accent")),
                 ]),
-                column([text("Rapidkoi").style([Font::weight(Weight::Bold)]), dim(version)]),
+                mid(column([text("Rapidkoi").style([Font::weight(Weight::Bold)]), dim(version)])),
             ])
-            .spacing(Space::Md)
-            .style([Layout::align(Align::Center)]),
+            .spacing(Space::Md),
         ),
         padded(row([text("Apps' contract"), spacer(), dim(&rapidkoi::__CONTRACT_VERSION.to_string())])),
     ])

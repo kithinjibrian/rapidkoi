@@ -14,7 +14,7 @@ RAPIDKOI_VERSION="$version" cargo build --manifest-path guest/rust/Cargo.toml --
 ./main pack guest/rust/target/wasm32-unknown-unknown/release/settings.wasm \
     --name "Settings" --version "$version" --icon guest/rust/settings/icon.svg --color primary=#71717a \
     --asset brush.svg=$a/brush.svg --asset startup.svg=$a/startup.svg --asset user.svg=$a/user.svg \
-    --asset shield.svg=$a/shield.svg --asset info.svg=$a/info.svg --asset chevron.svg=$a/chevron.svg \
+    --asset shield.svg=$a/shield.svg --asset info.svg=$a/info.svg \
     --asset search.svg=$a/search.svg \
     --permission change_settings --permission read_you --permission read_publishers \
     --control address=settings \

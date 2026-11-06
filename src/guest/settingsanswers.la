@@ -2,8 +2,8 @@
  * Answering Settings (PRP-075, DECISION-100): `you` gives the name every
  * app shows and the apps you're signed in to, each with the name it sees,
  * when you first opened it and your public key for it; `publishers` gives
- * the keys you trust, one per app, with when each was first trusted, the
- * apps it signs and how many times it rotated; `set_name` changes the name
+ * the keys you trust, one per app, each as its fingerprint, with when it
+ * was first trusted, the apps it signs and how many times it rotated; `set_name` changes the name
  * every app shows. Public facts only: the master secret never leaves the
  * shell. Whether the app may ask is `guest.needs`' question; a blocked
  * read is answered with nothing in it, and a blocked change changes
@@ -19,7 +19,7 @@ import people.identity { Master, master, public_key };
 import people.people { Person, name_in };
 import people.account { generation_for };
 import trust.verify { Identity };
-import trust.keys { hex };
+import trust.keys { fingerprint };
 import window.window { Model };
 import window.yourapps { App };
 import window.notices { identity_trouble };
@@ -67,7 +67,7 @@ fun answer_settings(m: Model, ask: Effect, grant: bool): (Model, Option<Value>) 
  * Returns the `you` answer: `{first, last, apps: [...]}`, each app you're
  * signed in to as `{name, place, icon, first, last, since, key}`, in the
  * order you first met them, at most 256. `key` is your public key for it
- * as hex, or empty without the master secret.
+ * as its fingerprint, as the shield and ⚙ show it, or empty without the master secret.
  *
  * Example:
  *     you_of(m, Some(mm))
@@ -90,7 +90,7 @@ fun you_of(m: Model, mm: Option<Master>): Value {
                 entry("first", Value.Text(first)),
                 entry("last", Value.Text(last)),
                 entry("since", Value.int(app.map(fun(a: App) = a.first).unwrap_or(0))),
-                entry("key", Value.Text(key_hex(m, mm, x))),
+                entry("key", Value.Text(key_shown(m, mm, x))),
             ]),
         );
     }
@@ -144,7 +144,8 @@ fun publishers_of(m: Model): Value {
         items.push(
             Value.Map([
                 entry("host", Value.Text(i.host)),
-                entry("key", Value.Text(hex(i.key))),
+                // Its fingerprint, as the shield shows it: never the key itself.
+                entry("key", Value.Text(fingerprint(i.key))),
                 entry("since", Value.int(firsts[n].since)),
                 entry("signs", Value.Array(signs)),
                 entry("rotations", Value.int(seen[n] - 1)),
@@ -200,11 +201,11 @@ fun app_for(m: Model, host: string, origin: u8[]): Option<App> = m.apps.items.it
     ),
 );
 
-/** Your public key for an app as hex; empty when it can't be worked out. */
-fun key_hex(m: Model, mm: Option<Master>, x: Person): string = match mm {
+/** Your public key for an app as its fingerprint, as ⚙ shows it; empty when it can't be worked out. */
+fun key_shown(m: Model, mm: Option<Master>, x: Person): string = match mm {
     Some(secret) => generation_for(m.people, secret, x.host, x.origin).and_then(
         fun(g: i64) = public_key(secret, x.host, x.origin, g),
-    ).map(hex).unwrap_or(""),
+    ).map(fingerprint).unwrap_or(""),
     None => "",
 };
 

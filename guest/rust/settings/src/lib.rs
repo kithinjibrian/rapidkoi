@@ -41,8 +41,6 @@ enum Msg {
     PickApp(u32),
     /// Show this key in the details.
     PickKey(u32),
-    /// Open, or leave, the page for your name.
-    EditName(bool),
     /// Your first or last name changed: the event's value.
     First,
     Last,
@@ -63,9 +61,12 @@ struct Signed {
     /// When you first opened it; 0 when not known.
     #[n(4)]
     since: i64,
-    /// Your public key for it, as hex; empty when Rapidkoi couldn't say.
+    /// Your public key for it, as its fingerprint; empty when Rapidkoi couldn't say.
     #[n(5)]
     key: String,
+    /// `icon:PLACE`: Rapidkoi draws it.
+    #[n(6)]
+    icon: String,
 }
 
 /// A key you trust, as Settings keeps it.
@@ -98,8 +99,6 @@ struct Settings {
     /// The name every app shows.
     first: String,
     last: String,
-    /// Whether the page for your name is open, over You.
-    naming: bool,
     apps: Vec<Signed>,
     keys: Vec<Key>,
     /// Which app and which key the details show.
@@ -168,12 +167,11 @@ impl App for Settings {
                                 last: a.last,
                                 since: a.since,
                                 key: a.key,
+                                icon: a.icon,
                             })
                             .collect();
                         let app = if (self.app as usize) < apps.len() { self.app } else { 0 };
-                        // While the name is being typed, what's typed stays.
-                        let (first, last) = if self.naming { (self.first, self.last) } else { (y.first, y.last) };
-                        Next::state(Settings { apps, app, first, last, ..self })
+                        Next::state(Settings { apps, app, first: y.first, last: y.last, ..self })
                     }
                     None => Next::state(self),
                 },
@@ -198,8 +196,8 @@ impl App for Settings {
                 _ => Next::state(self),
             },
             Event::Message { msg, value } => match msg {
-                // Picking a category clears Find, and leaves the name's page.
-                Msg::Go(i) => Next::state(Settings { page: i, find: String::new(), naming: false, ..self }),
+                // Picking a category clears Find.
+                Msg::Go(i) => Next::state(Settings { page: i, find: String::new(), ..self }),
                 Msg::Find => Next::state(Settings { find: value.unwrap_or_default(), ..self }),
                 Msg::Theme(light) => self.change(Preference::Light(light)),
                 Msg::Contrast => {
@@ -219,7 +217,6 @@ impl App for Settings {
                 }
                 Msg::PickApp(i) => Next::state(Settings { app: i, ..self }),
                 Msg::PickKey(i) => Next::state(Settings { key: i, ..self }),
-                Msg::EditName(open) => Next::state(Settings { naming: open, ..self }),
                 Msg::First => Settings { first: value.unwrap_or_default(), ..self }.named(),
                 Msg::Last => Settings { last: value.unwrap_or_default(), ..self }.named(),
             },

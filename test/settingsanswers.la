@@ -10,7 +10,7 @@ import rapidkoi.data.store { Store, store_at };
 import rapidkoi.people.people { People, Person, person, with_person };
 import rapidkoi.people.identity { public_key };
 import rapidkoi.trust.verify { Identity, keyring_of };
-import rapidkoi.trust.keys { hex };
+import rapidkoi.trust.keys { fingerprint };
 import wasmtime { Engine };
 import cbor { Value };
 import std.fs;
@@ -104,7 +104,7 @@ fun you_gives_your_public_key_for_each_app() {
     let (held, mm) = secret(m);
     let v = you_of(held, mm);
     let key = v.get("apps").unwrap().as_array().unwrap()[0].get("key");
-    assert_eq(key, Some(t(hex(public_key(mm.unwrap(), NOTES, [1; 32], 0).unwrap()))));
+    assert_eq(key, Some(t(fingerprint(public_key(mm.unwrap(), NOTES, [1; 32], 0).unwrap()))));
     clean(dir);
 }
 
@@ -117,7 +117,7 @@ fun publishers_lists_each_app_s_latest_key_newest_first() {
     assert_eq(items[0].get("rotations"), Some(Value.int(0)));
     assert_eq(items[0].get("signs"), Some(Value.Array([t("Counter")])));
     // Notes: its rotated key, trusted since its first.
-    assert_eq(items[1].get("key"), Some(t(hex([9; 32]))));
+    assert_eq(items[1].get("key"), Some(t(fingerprint([9; 32]))));
     assert_eq(items[1].get("since"), Some(Value.int(500)));
     assert_eq(items[1].get("rotations"), Some(Value.int(1)));
 }
