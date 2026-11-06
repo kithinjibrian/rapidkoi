@@ -13,6 +13,7 @@ Fixed and kept for the record: `kivuli-group-hover.md` (0.52), `kivuli-scroll-fi
 14. [Bug: an overlay layer with a maximum size takes the clicks of everything under it (0.62)](#14-bug-an-overlay-layer-with-a-maximum-size-takes-the-clicks-of-everything-under-it-062) (DECISION-062)
 16. [An input group's add-ons, inset as the caller asks](#16-an-input-groups-add-ons-inset-as-the-caller-asks) (DECISION-065)
 17. [Bug: a button's shortcut inside a closed popover doesn't fire](#17-bug-a-buttons-shortcut-inside-a-closed-popover-doesnt-fire-066) (DECISION-090)
+18. [An inert node's buttons keep their shortcuts](#18-an-inert-nodes-buttons-keep-their-shortcuts-068) (DECISION-099)
 
 
 ---
@@ -206,3 +207,12 @@ DECISION-090.
 
 **How Rapidkoi will use it.** Ctrl+O for Open App…, from anywhere. Nothing else changes.
 
+## 18. An inert node's buttons keep their shortcuts (0.68)
+
+DECISION-099.
+
+**What happens.** `.inert(true)` sets `can_target` and `can_focus` off (`render/styling.la:150`), and nothing else: a button inside stays enabled. Its `.shortcut` still presses it from the keyboard, and the clash check (`view/keys.la:101`, run from `render/live.la:251`) still counts it. Rapidkoi asks a question over an inert page whose own button has Escape; the question's Cancel has Escape too, and kivuli stopped the app (the owner, 2026-11-05: "two enabled buttons have the shortcut \"Escape\""). `ui.dialog`'s page (`view/mapping.la:258`) is made inert the same way, so a dialog's Cancel with Escape over a page with an Escape button would stop too.
+
+**What Rapidkoi needs.** A button inside an inert node counts as disabled for its shortcut: the key doesn't press it, the clash check leaves it out, and `kivuli.testing.press` agrees. Inert already means "nothing here takes the pointer or focus"; the keyboard is the third way in. How is kivuli's to choose.
+
+**How Rapidkoi will use it.** App info's ← All apps keeps Escape unconditionally; the question over it answers Escape alone.

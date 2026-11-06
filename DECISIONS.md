@@ -457,6 +457,18 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## DEFERRED — Acknowledged, not yet needed
 
+### DECISION-099 — An inert page's buttons keep their shortcuts (kivuli)
+
+**Status:** deferred (requested: `docs/specs/kivuli-requests.md` § 18)
+**Raised:** 2026-11-05, the owner: Forget in All apps stopped Rapidkoi with "kivuli: two enabled buttons have the shortcut \"Escape\""
+**Revisit when:** kivuli leaves an inert node's buttons out of shortcuts; then App info's ← All apps can keep Escape unconditionally.
+
+**Question:** a question over an app's area makes the area `.inert(true)`, and its card's Cancel takes Escape. App info's ← All apps, under it, also takes Escape. kivuli's `.inert` sets only `can_target` and `can_focus` (`render/styling.la:150`), so the button stays enabled: its shortcut still fires, and the clash check (`view/keys.la:101`, `render/live.la:251`) counts it and stops the app.
+
+**Meanwhile:** fixed in Rapidkoi, not worked around: App info's back takes Escape only while no question is asked over it (`ui.appinfo`, `questions.asked_here`). Two of Rapidkoi's own buttons claiming one key was Rapidkoi's mistake; the request is that kivuli treat an inert page's buttons as unpressable, so a screen behind a question can't take keys from it.
+
+---
+
 ### DECISION-095 — An app can't put the focus in a typing box, or take arrow keys (contract)
 
 **Status:** deferred
