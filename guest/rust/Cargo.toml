@@ -6,8 +6,3 @@ resolver = "2"
 opt-level = "s"
 lto = true
 panic = "abort"
-
-# PRP-075, while rapidkoi-rust's additions aren't tagged yet: build against
-# the local checkout. Remove once the built-ins move to v0.5.0-pre.9.
-[patch."https://github.com/kithinjibrian/rapidkoi-rust"]
-rapidkoi = { path = "../../../rapidkoi-rust/rapidkoi" }
