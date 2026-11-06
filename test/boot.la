@@ -9,6 +9,8 @@ import rapidkoi.window.newtab { BUNDLE };
 import rapidkoi.bundles.bundle { read };
 import kivuli { Cmd };
 import rapidkoi.window.actions { Msg };
+import rapidkoi.data.remembered { Open };
+import rapidkoi.ui.schemes { Prefs };
 import std.fs;
 
 fun clean(path: string) {
@@ -26,6 +28,25 @@ fun is_focus(c: Cmd<Msg>): bool = match c {
     Focus(name) => name == "address",
     _ => false,
 };
+
+fun restores(c: Cmd<Msg>): bool = match c {
+    Batch(all) => all.any(restores),
+    After(_, msg) => match msg {
+        RestoreSession => true,
+        _ => false,
+    },
+    _ => false,
+};
+
+/** A window whose last session had something in it, opening with `restore`. */
+fun ended(restore: bool): Model {
+    let m = setup();
+    Model {
+        prefs: Prefs { restore: restore, ..m.prefs },
+        previous: Some(Open { apps: [], tabs: [], current: None }),
+        ..m,
+    }
+}
 
 @test
 fun setup_reads_the_clock() {
@@ -53,6 +74,30 @@ fun with_nothing_named_the_window_is_the_blank_tab_and_the_address_box() {
     assert(after.current.map(fun(id: i64) = is_blank(after, id)).unwrap_or(false));
     assert_eq(before.current, after.current);
     assert(is_focus(cmd));
+}
+
+@test
+fun opening_with_the_last_session_restores_it() {
+    // PRP-075: Settings' Startup.
+    let (_, after, cmd) = first_window(ended(true), ["./main"]);
+    assert(restores(cmd));
+    assert(after.current.map(fun(id: i64) = is_blank(after, id)).unwrap_or(false));
+}
+
+@test
+fun opening_with_a_new_tab_never_restores() {
+    let (_, _, cmd) = first_window(ended(false), ["./main"]);
+    assert(!restores(cmd));
+    assert(is_focus(cmd));
+}
+
+@test
+fun nothing_to_restore_opens_the_new_tab() {
+    let m = setup();
+    let (_, _, cmd) = first_window(Model { prefs: Prefs { restore: true, ..m.prefs }, ..m }, [
+        "./main",
+    ]);
+    assert(!restores(cmd));
 }
 
 @test

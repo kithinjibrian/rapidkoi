@@ -59,7 +59,7 @@ dependencies = [
 [[package]]
 name = "rapidkoi"
 version = "0.1.0"
-source = "git+https://github.com/kithinjibrian/rapidkoi-rust?tag=v0.5.0-pre.7#7853d2edfaf90070ec7ccc9052acabfa6c910a6e"
+source = "git+https://github.com/kithinjibrian/rapidkoi-rust?tag=v0.5.0-pre.9#6939a2f8132d618b74defd6a8700a7688b1f86a3"
 dependencies = [
  "minicbor",
  "rapidkoi-derive",
@@ -68,7 +68,7 @@ dependencies = [
 [[package]]
 name = "rapidkoi-derive"
 version = "0.1.0"
-source = "git+https://github.com/kithinjibrian/rapidkoi-rust?tag=v0.5.0-pre.7#7853d2edfaf90070ec7ccc9052acabfa6c910a6e"
+source = "git+https://github.com/kithinjibrian/rapidkoi-rust?tag=v0.5.0-pre.9#6939a2f8132d618b74defd6a8700a7688b1f86a3"
 dependencies = [
  "proc-macro2",
  "quote",

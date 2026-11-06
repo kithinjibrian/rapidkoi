@@ -30,6 +30,10 @@ enum Permission {
     ManagePins,
     /** Placing the slot Rapidkoi draws your widgets into (PRP-073): never reading them. */
     ShowWidgets,
+    /** Your name, and the apps you're signed in to with your public key for each (PRP-075). */
+    ReadYou,
+    /** The publishers' keys you trust (PRP-075). */
+    ReadPublishers,
 }
 
 /** Who may hold a permission. */
@@ -122,6 +126,8 @@ const ALL: Permission[] = [
     Permission.ReadApps,
     Permission.ManagePins,
     Permission.ShowWidgets,
+    Permission.ReadYou,
+    Permission.ReadPublishers,
 ];
 
 /**
@@ -141,6 +147,8 @@ fun name_of(p: Permission): string = match p {
     ReadApps => "read_apps",
     ManagePins => "manage_pins",
     ShowWidgets => "show_widgets",
+    ReadYou => "read_you",
+    ReadPublishers => "read_publishers",
 };
 
 /**
@@ -160,6 +168,8 @@ fun tier_of(p: Permission): Tier = match p {
     ReadApps => Tier.BuiltIn,
     ManagePins => Tier.BuiltIn,
     ShowWidgets => Tier.BuiltIn,
+    ReadYou => Tier.BuiltIn,
+    ReadPublishers => Tier.BuiltIn,
 };
 
 /**
@@ -179,6 +189,8 @@ fun words_of(p: Permission): string = match p {
     ReadApps => "reading your apps",
     ManagePins => "changing your pins",
     ShowWidgets => "showing your widgets",
+    ReadYou => "reading who you are to your apps",
+    ReadPublishers => "reading the keys you trust",
 };
 
 /**
@@ -198,6 +210,8 @@ fun label_of(p: Permission): string = match p {
     ReadApps => "Reading your apps",
     ManagePins => "Changing your pins",
     ShowWidgets => "Showing your widgets",
+    ReadYou => "Reading who you are to your apps",
+    ReadPublishers => "Reading the keys you trust",
 };
 
 /**
@@ -217,6 +231,8 @@ fun wish_of(p: Permission): string = match p {
     ReadApps => "read your apps",
     ManagePins => "change your pins",
     ShowWidgets => "show your widgets",
+    ReadYou => "read who you are to your apps",
+    ReadPublishers => "read the keys you trust",
 };
 
 /**

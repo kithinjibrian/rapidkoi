@@ -1,0 +1,26 @@
+/**
+ * An app's slider (PRP-075, a contract 11 addition), drawn with
+ * `kivuli.ui`'s slider in the theme's colours: found and heard by its
+ * label, disabled without a message. Pure.
+ *
+ * Depends on: kivuli, kivuli.ui, cbor, guest.nodes
+ * Used by: ui.render
+ */
+import kivuli { View };
+import kivuli.ui { slider };
+import cbor { Value };
+import guest.nodes { Sliding };
+
+/**
+ * Draws a slider; each move sends `send(its message, the new number)`.
+ *
+ * Example:
+ *     slid(s, fun(v: Value, n: i64) = Msg.Event(v, Some("{n}")))
+ */
+fun slid<M>(s: Sliding, send: fun(Value, i64): M): View<M> {
+    let message = s.on_change.unwrap_or(Value.Null);
+    let drawn = slider(s.min, s.max, s.value, fun(n: i64) = send(message, n)).step(s.step).name(
+        s.label,
+    );
+    if s.on_change.is_none() { drawn.disabled(true) } else { drawn }
+}

@@ -771,6 +771,24 @@ Its first use is sync: what earlier entries call "the relay" (DECISION-068 to 07
 
 ## RESOLVED
 
+### DECISION-100 — The new Settings stays a built-in app, and reads who you are and whom you trust
+
+**Status:** resolved (the owner, 2026-11-06: chose "Keep it an app"; PRP-075)
+**Raised:** 2026-11-06, with the Settings canvas (Appearance, Startup, You, Publishers, About)
+
+**Question:** The new Settings has You (your name, the apps you're signed in to, your key for each) and Publishers (the keys you trust). DECISION-027's test keeps screens that verify or show account details native, since any app can draw a copy. Who draws it?
+
+**Options:**
+- **A. Rapidkoi, natively,** like App info (PRP-072); `settings.rkb` retired.
+- **B. Split:** the app draws Appearance and Startup, Rapidkoi draws You and Publishers.
+- **C. Keep it an app,** with built-in permissions to read identity and trust.
+
+**Decision:** C. Settings stays the built-in WebAssembly app of PRP-038. It reads the new pages' facts through built-in permissions (`read_you`, `read_publishers`) and changes your name and the startup choice through `change_settings`; no other app may declare them. Contract 11 gains a slider and these asks as additions, with no new version (as PRP-055 and PRP-062).
+
+**What it costs, noted:** a hostile app can draw a copy of these pages, as it could of today's Settings. The copy can't change anything (it has none of the permissions), and the address box still says which app is drawing. Each new host call needs the owner's security review before it's built (CLAUDE.md).
+
+---
+
 ### DECISION-098 — A card with places: kivuli won't put a button inside a button
 
 **Status:** resolved (the owner, 2026-11-05: chose A, "Card isn't a button")

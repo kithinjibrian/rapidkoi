@@ -1,0 +1,59 @@
+// Settings' asks (PRP-075), pure: `you`, `publishers` and `set_name`, read
+// and held to their shapes; a bad one is the sentence that stops the app.
+// No guest, no display.
+import rapidkoi.guest.contract { read_update };
+import rapidkoi.guest.nodes { Effect };
+import cbor { Value, encode };
+import support { t, kv };
+
+/** What one effect reads as: its effect, or the sentence that stops the app. */
+fun read_one(effect: (string, Value)[]): Result<Effect, string> {
+    let mut fields = [("msg", t("m"))];
+    for f of effect {
+        fields.push(f);
+    }
+    let bytes = encode(kv([("state", kv([])), ("effects", Value.Array([kv(fields)]))]));
+    match read_update(bytes) {
+        Ok(u) => Ok(u.effects[0]),
+        Err(Invalid(_, what)) => Err(what),
+        Err(e) => Err("{e}"),
+    }
+}
+
+fun named(first: Value, last: Value): Result<Effect, string> = read_one([
+    ("kind", t("set_name")),
+    ("first", first),
+    ("last", last),
+]);
+
+/** `n` characters, each two bytes, so the cap counts characters. */
+fun long(n: i64): string {
+    let mut s = "";
+    for _ in 0..n {
+        s = s + "é";
+    }
+    s
+}
+
+@test
+fun you_and_publishers_read() {
+    assert_eq(read_one([("kind", t("you"))]), Ok(Effect.You(t("m"))));
+    assert_eq(read_one([("kind", t("publishers"))]), Ok(Effect.Publishers(t("m"))));
+}
+
+@test
+fun a_name_reads_with_both_parts() {
+    assert_eq(named(t("Ada"), t("Lovelace")), Ok(Effect.SetName(t("m"), "Ada", "Lovelace")));
+    // Empty clears a part.
+    assert_eq(named(t(""), t("")), Ok(Effect.SetName(t("m"), "", "")));
+    // 64 characters is the most, as ⚙'s Name page keeps.
+    assert_eq(named(t(long(64)), t("")), Ok(Effect.SetName(t("m"), long(64), "")));
+}
+
+@test
+fun a_name_too_long_or_not_text_stops_the_app() {
+    let why = "a set_name needs a first and a last name of at most 64 characters";
+    assert_eq(named(t(long(65)), t("")), Err(why));
+    assert_eq(named(t(""), Value.int(3)), Err(why));
+    assert_eq(read_one([("kind", t("set_name")), ("first", t("Ada"))]), Err(why));
+}

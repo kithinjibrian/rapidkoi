@@ -15,6 +15,7 @@ import guest.nodes {
     Context,
     Choice,
     Typing,
+    Sliding,
     Described,
     ContractError,
     Axis,
@@ -213,6 +214,9 @@ fun node(
         };
         return Ok(Node.Field(typing, read_style(given.get("style"), here)?));
     }
+    if kind == "slider" {
+        return Ok(Node.Slider(sliding(given, here)?, read_style(given.get("style"), here)?));
+    }
     if kind == "image" {
         if v.get("children").is_some() {
             return Err(invalid(here, "an image has no children"));
@@ -393,4 +397,46 @@ fun tally(v: Value, here: string, depth: i64, count: Ref<i64>): Result<(), Contr
         tally(item, here, depth + 1, count)?;
     }
     Ok(())
+}
+
+/** The farthest a slider's ends may be from 0 (PRP-075). */
+const MAX_SLIDER: i64 = 1_000_000;
+
+/**
+ * A slider's props (PRP-075): whole `min` < `max` within ±1,000,000, a
+ * whole `value` held to them, a `step` of at least 1 (1 unless said), and
+ * a `label` of 1 to `MAX_LABEL` bytes; anything else stops the app.
+ */
+fun sliding(given: Value, here: string): Result<Sliding, ContractError> {
+    let bad = invalid(here, "This app drew a slider Rapidkoi can't show");
+    let whole = fun(key: string): Option<i64> = given.get(key).and_then(fun(v: Value) = v.as_i64());
+    let (min, max, value) = match (whole("min"), whole("max"), whole("value")) {
+        (Some(a), Some(b), Some(v)) if a < b && a >= -MAX_SLIDER && b <= MAX_SLIDER => (a, b, v),
+        _ => {
+            return Err(bad);
+        }
+    };
+    let step = match given.get("step") {
+        None => 1,
+        Some(_) => match whole("step") {
+            Some(n) if n >= 1 => n,
+            _ => {
+                return Err(bad);
+            }
+        },
+    };
+    let label = match given.get("label") {
+        Some(Text(s)) if s.len >= 1 && s.len <= MAX_LABEL => s,
+        _ => {
+            return Err(bad);
+        }
+    };
+    Ok(Sliding {
+        min: min,
+        max: max,
+        value: if value < min { min } else if value > max { max } else { value },
+        step: step,
+        label: label,
+        on_change: given.get("on_change"),
+    })
 }

@@ -36,5 +36,9 @@ fun needed(ask: Effect): Option<Permission> = match ask {
     Apps(_) => Some(Permission.ReadApps),
     OpenApp(_, _) | AppInfo(_, _) | ForgetApp(_, _) => Some(Permission.OpenApps),
     PinApp(_, _) | UnpinApp(_, _) => Some(Permission.ManagePins),
+    // Settings (PRP-075).
+    You(_) => Some(Permission.ReadYou),
+    Publishers(_) => Some(Permission.ReadPublishers),
+    SetName(_, _, _) => Some(Permission.ChangeSettings),
     _ => None,
 };

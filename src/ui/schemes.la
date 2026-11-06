@@ -16,12 +16,19 @@ struct Prefs {
     light: bool,
     /** More contrast, on either. */
     more_contrast: bool,
-    /** The base text size, in percent: 80 to 200, in steps of 10. */
+    /** The base text size, in percent: 80 to 200, in steps of 5. */
     text_size: i64,
+    /** Whether Rapidkoi opens with the last session, when there's one (PRP-075); else a new tab. */
+    restore: bool,
 }
 
 /** Dark, no extra contrast, 100%: what Rapidkoi starts with. */
-const DEFAULT_PREFS: Prefs = Prefs { light: false, more_contrast: false, text_size: 100 };
+const DEFAULT_PREFS: Prefs = Prefs {
+    light: false,
+    more_contrast: false,
+    text_size: 100,
+    restore: false,
+};
 
 /** The smallest text size, in percent. */
 const MIN_TEXT_SIZE: i64 = 80;

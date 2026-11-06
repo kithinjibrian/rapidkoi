@@ -77,8 +77,8 @@ fun session(m: Model, s: Store): Model = begin_session(m, s);
 /**
  * Stage 5: the new tab's app, once for the window, now that what it reads
  * is there; without it the empty tab is just empty (PRP-027). Its module is
- * kept for the run. Nothing reopens on its own: the last session waits
- * for Restore.
+ * kept for the run. The last session waits for Restore, or for stage 6
+ * when Settings says to open with it.
  *
  * Example:
  *     builtins(m, newtab.BUNDLE)
@@ -92,7 +92,9 @@ fun builtins(m: Model, bundle: u8[]): Model {
 /**
  * Stage 6: the window. With nothing named, the blank tab, the focus in the
  * address bar (the owner, sessions 182–183), what restoring said still
- * showing; given a file or address (tests, `start_with`), its tab.
+ * showing, and the last session restored over it when the person chose
+ * that in Settings (PRP-075); given a file or address (tests,
+ * `start_with`), its tab.
  *
  * @returns the window before and after, and what the stage sends, for Settle
  *
@@ -102,6 +104,15 @@ fun builtins(m: Model, bundle: u8[]): Model {
 fun first_window(m: Model, argv: string[]): (Model, Model, Cmd<Msg>) {
     if argv.len < 2 {
         let blank = Model { notice: m.notice, ..new_blank(m) };
+        // As the new tab's Restore would, once the window is there: the
+        // same message, so restoring has one way in.
+        if m.prefs.restore && m.previous.is_some() {
+            return (
+                blank,
+                blank,
+                Cmd.batch([Cmd.focus("address"), Cmd.after(0, Msg.RestoreSession)]),
+            );
+        }
         // Settled from the blank tab itself: nothing resumes, nothing is told.
         return (blank, blank, Cmd.focus("address"));
     }

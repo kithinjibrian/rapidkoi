@@ -70,11 +70,13 @@ An app that doesn't know an event changes nothing. There's no event when Rapidko
 | `box` | `style`, `role`, `checked`, `selected`, `disabled`, `label`, `on_press`, `on_context` or `menu`, and `title` on the root | yes |
 | `text` | `text` or `parts` (one of them, not both), `style`, `role`, `label` | no |
 | `input` | `value` (required), `placeholder`, `label` (1–200 bytes), `lines` (1–20; more than 1 is a box of several lines), `on_change` (none: disabled), `on_submit` (Enter, on one line; sent with the text as `value`), `style` | no |
+| `slider` | `min`, `max` (whole numbers, `min` < `max`, within ±1,000,000), `value` (whole; held to the range), `step` (≥ 1; 1 when left out), `label` (required, 1–200 bytes: its name), `on_change` (none: disabled), `style` (PRP-075, an addition) | no |
 | `image` | `src` (required: `asset:NAME`, `blob:KEY` or an `http(s)://` address, at most 2 KB), `fit` (`contain`, the default, or `cover`), `color` (an `asset:` SVG only), `label` (1–200 bytes), `on_load`, `on_fail`, `style` | no |
 
 - A **box with `on_press`** is pressable: focusable, and pressed by a click, Enter or Space; it sends `on_message` with its message. `disabled: true` greys it, and it sends nothing.
 - A **box with `on_context`** (PRP-070, an addition) answers a right-click, a long press, or the Menu key (Shift+F10) while it has the focus: it sends `on_message` with that message, and Rapidkoi opens nothing; what follows is the app's to draw. A box may have both; nested, the innermost answers. Disabled, it sends nothing. The pointer's position isn't given.
 - A **box with `menu`** (PRP-071, an addition) opens a menu Rapidkoi draws, as its own, at the pointer, on the same right-click. `menu` is an array of 1 to 32 entries: an item `{ "label": text of 1 to 200 bytes, "on_pick": message, "disabled": bool (optional) }` or a separator `{ "separator": true }`. Picking an item sends `on_message` with its `on_pick`; a disabled item sends nothing, and a disabled box opens no menu. A box has `on_context` or `menu`, not both. Anything else stops the app with its sentence. Items are plain text: no icons, submenus or styles.
+- A **slider** (PRP-075, an addition) sends `on_message` with its `on_change` and the new number, in decimal, as `value`, as a typing box sends its text. A bad one stops the app: "This app drew a slider Rapidkoi can't show".
 - A typing box's **`label`** says what it's for: Rapidkoi names the box by it, and screen readers hear it. Without one, its placeholder names it.
 - Any other kind is shown as an unsupported placeholder, its subtree still counted against the limits.
 - **Parts** (PRP-053): a text's `parts` is a list of at most 64, each a string (shown as written), `{ "name": "first" | "last" }` (your name for this app; nothing when unset), or `{ "time": ms, "show": … }` (a moment, whole milliseconds since 1970-01-01 00:00 UTC, within years 1 to 9999). Rapidkoi fills them in while drawing, in your zone, 24-hour clock, day before month; the app never learns the result. `show`: `time` "14:32"; `date` "Thu 31 Oct" (the year when it isn't this one); `date_time` "Thu 31 Oct, 14:32"; `weekday` "Thursday"; `relative` on your calendar: "just now", "5 minutes ago", "in 3 hours", "yesterday", "tomorrow", "Mon", "next Sun", "Thu 24 Oct", "24 Oct 2023", kept current by Rapidkoi. A moment Rapidkoi can't place in your zone is shown in UTC, " UTC" after it. Parts exist only on texts: typing boxes, titles and labels are never filled. Braces in a string are only braces.
@@ -161,9 +163,10 @@ Each has a `kind` and a `msg` (any CBOR value, carried back in the reply):
 | `identity` | the person's key for this app (signed apps) | `on_answer`: bytes, or null |
 | `sign` + `challenge` (1–1024 bytes) | a sign-in signature | `on_answer`: bytes, or null |
 | `fetch` + `method`, `url`, `headers`, `body` or `body_blob` | a request to the app's own or declared servers (HTTPS; `http://localhost` from this machine); `body_blob` (a blob's key, PRP-055) sends that blob as the body, up to 16 MB, read once the request is allowed; never both | `on_response` or `on_fail` |
-| `preferences` | `{ "theme", "more_contrast", "text_size" }` | `on_answer` |
+| `preferences` | `{ "theme", "more_contrast", "text_size", "start" }` | `on_answer` |
 | `now` | the time now in UTC, in milliseconds since 1970, rounded down to a second (PRP-053); nothing about where you are | `on_answer` |
 | `set_preference` + `name`, `value` | Settings only (`change_settings`) | not answered |
+| `you`, `publishers`, `set_name` + `first`, `last` | Settings only (PRP-075, an addition; DECISION-100): `you` needs the built-in `read_you`, `publishers` `read_publishers`, `set_name` `change_settings`. `you` is `{ "first", "last", "apps": [{ "name", "place", "icon", "first", "last", "since", "key" }] }`: the name every app shows, then each app you're signed in to, in the order you met them, at most 256, with the name it sees, when you first opened it (ms; 0 unknown) and your public key for it as its fingerprint, as the shield shows keys (`7f3a-91c2-0b5e-d4a8`; empty without the master secret). `publishers` is `{ "items": [{ "host", "key", "since", "signs", "rotations" }] }`: one per app's key, its latest, `key` its fingerprint, newest first, at most 256. `set_name` sets the name every app shows, each part text of at most 64 characters, or the app stops | `on_answer`; `set_name` not answered |
 | `sql`, `sql_batch` | its database (below) | `on_answer` or `on_fail` |
 | `blob_get`, `blob_list` | its blobs (below) | `on_answer` or `on_fail` |
 | `file_open`, `file_save`, `file_save_as` | one of the person's files, chosen in Rapidkoi's dialog (below, PRP-056) | `on_answer` (`null` when cancelled) or `on_fail` |
@@ -231,7 +234,7 @@ One of the person's files reaches your app only when they choose it in Rapidkoi'
 
 ## The person's choices
 
-`preferences` gives `{ "theme": "dark" | "light", "more_contrast": bool, "text_size": 80–200 }` and nothing else; when one changes, every running app gets `on_change`. Text size sets the body size (`body`, `small`, `rem`, and Rapidkoi's named sizes follow it). Per app, ⚙'s **Use my colours** turns raw and mixed colours into Rapidkoi's, and **Use my text size** makes raw sizes follow too.
+`preferences` gives `{ "theme": "dark" | "light", "more_contrast": bool, "text_size": 80–200 in steps of 5, "start": "new_tab" | "restore" }` and nothing else (`start`, what Rapidkoi opens with, PRP-075); when one changes, every running app gets `on_change`. Text size sets the body size (`body`, `small`, `rem`, and Rapidkoi's named sizes follow it). Per app, ⚙'s **Use my colours** turns raw and mixed colours into Rapidkoi's, and **Use my text size** makes raw sizes follow too.
 
 ## Messages
 
