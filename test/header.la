@@ -61,15 +61,15 @@ fun no_back_home_or_forward_on_any_tab() {
 }
 
 @test
-fun account_waits_and_the_menu_opens_its_card() {
+fun the_bell_then_the_menu_with_its_card() {
     let m = window(plain());
     let end = header.end(m);
-    assert_eq(end.len, 3);
+    // No 👤: there's no account (DECISION-022).
+    assert_eq(end.len, 2);
     // PRP-066: the bell first, opening its card.
     assert_eq(click(end[0], "Notifications"), Ok(Msg.Bell(BellAction.Show(true))));
-    assert_eq(is_disabled(end[1], "Account (coming soon)"), Ok(true));
     // PRP-038: ☰ opens Settings, About Rapidkoi and Quit.
-    assert_eq(click(end[2], "Menu"), Ok(Msg.Menu(true)));
+    assert_eq(click(end[1], "Menu"), Ok(Msg.Menu(true)));
     let card = header.menu_card(m.theme);
     assert_eq(texts(card), ["Open App…", "Settings", "About Rapidkoi", "Quit"]);
     assert_eq(click(card, "Settings"), Ok(Msg.OpenSettings));

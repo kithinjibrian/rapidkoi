@@ -1,6 +1,6 @@
 /**
  * The header bar, pure (PRP-019): the current app's instances (PRP-033);
- * the address box; the bell (PRP-066), 👤 account and ☰ menu;
+ * the address box; the bell (PRP-066) and ☰ menu;
  * then GTK's window controls, styled as ghost
  * buttons like the rest (`WindowControls.look()`). Every icon is one
  * of Rapidkoi's own (`ui/icons.la`) in the theme's text colour, on a
@@ -79,8 +79,8 @@ fun bar(m: Model): Bar<Msg> {
 
 /**
  * Returns the bar's end, before the window controls, in order: the bell
- * (PRP-066), 👤 account,
- * disabled until its own PRP, and ☰ with its card (PRP-038).
+ * (PRP-066) and ☰ with its card (PRP-038). No 👤: there's no account
+ * (DECISION-022); who you are is Settings › You.
  *
  * Example:
  *     header.end(m)
@@ -88,7 +88,6 @@ fun bar(m: Model): Bar<Msg> {
 fun end(m: Model): View<Msg>[] = [
     // The bell first, with its card (PRP-066).
     bell.view(m),
-    tool(m.theme, Icon.Account, "Account (coming soon)", None),
     // Centred down the bar as the button inside is: the popover around it
     // otherwise sits at the bar's top (the owner's screenshot, session 202).
     ui_popover(
