@@ -78,7 +78,7 @@ fun a_pin_s_actions() {
 fun open_app_opens_the_chooser_from_the_menu_and_ctrl_o() {
     // PRP-058: first in ☰'s card, and Ctrl+O from anywhere.
     let m = two();
-    let card = menu_card(m.theme);
+    let card = menu_card(m.theme, false);
     assert_eq(texts(card)[0], "Open App…");
     assert_eq(click(card, "Open App…"), Ok(Msg.OpenApp));
     assert_eq(press(view(m), "Ctrl+O"), Ok(Msg.OpenApp));

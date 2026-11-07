@@ -63,6 +63,8 @@ enum Msg {
     Bell(BellAction),
     /** Open Rapidkoi's Settings app in a tab, or show its tab. */
     OpenSettings,
+    /** ☰'s "Back up your words" (PRP-077): Settings with the words over it. */
+    BackUp,
     /** Open All apps (PRP-067): the dock's last button; its tab when it's open. */
     OpenAllApps,
     /** Show App info over All apps for the app at this path and first key (PRP-072). */

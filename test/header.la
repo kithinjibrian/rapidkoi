@@ -1,5 +1,5 @@
 // The header bar (PRP-019, PRP-021, PRP-032): the address box with its
-// shield (and its card) and pin, then account and menu; no ← ⌂ →. Through kivuli.testing; no display.
+// shield (and its card) and pin, then the bell and menu; no ← ⌂ →. Through kivuli.testing; no display.
 import rapidkoi.shell { update };
 import rapidkoi.window.window as windows { Model, with_pages };
 import rapidkoi.ui.header;
@@ -61,6 +61,23 @@ fun no_back_home_or_forward_on_any_tab() {
 }
 
 @test
+fun not_backed_up_the_menu_says_so_and_offers_backing_up() {
+    // PRP-077: the dot's words for a screen reader, and the item first.
+    let m = Model { unbacked: true, ..window(plain()) };
+    let end = header.end(m);
+    assert_eq(click(end[1], "Menu, back up your words"), Ok(Msg.Menu(true)));
+    let card = header.menu_card(m.theme, true);
+    assert_eq(texts(card), [
+        "Back up your words",
+        "Open App…",
+        "Settings",
+        "About Rapidkoi",
+        "Quit",
+    ]);
+    assert_eq(click(card, "Back up your words"), Ok(Msg.BackUp));
+}
+
+@test
 fun the_bell_then_the_menu_with_its_card() {
     let m = window(plain());
     let end = header.end(m);
@@ -70,7 +87,7 @@ fun the_bell_then_the_menu_with_its_card() {
     assert_eq(click(end[0], "Notifications"), Ok(Msg.Bell(BellAction.Show(true))));
     // PRP-038: ☰ opens Settings, About Rapidkoi and Quit.
     assert_eq(click(end[1], "Menu"), Ok(Msg.Menu(true)));
-    let card = header.menu_card(m.theme);
+    let card = header.menu_card(m.theme, false);
     assert_eq(texts(card), ["Open App…", "Settings", "About Rapidkoi", "Quit"]);
     assert_eq(click(card, "Settings"), Ok(Msg.OpenSettings));
     assert_eq(click(card, "About Rapidkoi"), Ok(Msg.About(true)));
