@@ -488,7 +488,7 @@ fun only_rapidkoi_s_settings_may_change_them() {
         stopped_why(no),
         "This app asked for changing Rapidkoi's settings without declaring it",
     );
-    let bad = [("name", t("text_size")), ("value", Value.int(135))];
+    let bad = [("name", t("text_size")), ("value", Value.int(133))];
     let (refused, _) = asked(holding("set_preference", bad, ["change_settings"]));
-    assert_eq(stopped_why(refused), "text_size must be 80 to 200, in steps of 10");
+    assert_eq(stopped_why(refused), "text_size must be 80 to 200, in steps of 5");
 }

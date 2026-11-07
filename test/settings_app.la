@@ -11,7 +11,7 @@ import rapidkoi.window.actions { Msg };
 import rapidkoi.window.settings_app { SETTINGS_KEY, BUNDLE };
 import rapidkoi.bundles.bundle { read };
 import rapidkoi.data.store { Store, store_at };
-import kivuli.testing { click, texts };
+import kivuli.testing { click, slide, texts };
 import wasmtime { Engine };
 import std.fs;
 
@@ -34,7 +34,10 @@ fun clean(path: string) {
 @test
 fun the_built_in_bundle_may_change_settings() {
     let b = read(BUNDLE).unwrap();
-    assert_eq((b.manifest.name, b.manifest.permissions), ("Settings", ["change_settings"]));
+    assert_eq(
+        (b.manifest.name, b.manifest.permissions),
+        ("Settings", ["change_settings", "read_you", "read_publishers", "manage_identity"]),
+    );
 }
 
 @test
@@ -52,7 +55,8 @@ fun its_controls_change_the_person_s_choices_at_once() {
     let m = step(with_pages(Engine.new(), []), Msg.OpenSettings);
     let light = step(m, click(view(m), "Light").unwrap());
     assert_eq((light.prefs.light, light.theme.name), (true, "light"));
-    let bigger = step(light, click(view(light), "+").unwrap());
+    // The slider's fourth stop is 110% (PRP-075).
+    let bigger = step(light, slide(view(light), "Text size", 3).unwrap());
     assert_eq((bigger.prefs.text_size, bigger.theme.scale), (110, 1.1));
     // The app read the change back: its view says so.
     assert_eq(texts(view(bigger)).any(fun(s: string) = s == "110%"), true);

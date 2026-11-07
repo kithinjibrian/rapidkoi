@@ -18,7 +18,7 @@ import window.window { Model };
 import window.backupcard { BackupCard, Card, Step };
 import window.appinfo { forget_info, page_for };
 import window.info { Info, InfoPage };
-import window.yourapps { App };
+import window.yourapps { App, forgotten };
 import window.notices { identity_trouble, REMINDER, SAVE_FAILED };
 
 /** How many words are asked back. */
@@ -228,6 +228,9 @@ fun everyone_forgotten(m: Model): Model {
         }
         let one = Info { app: a, page: page_for(at.ring, a), ready: true, at: InfoPage.Main };
         at = forget_info(Model { info: Some(one), ..at });
+        // Gone from your apps even when the keyring no longer knows its key,
+        // which Forget matches it by.
+        at = Model { apps: forgotten(at.apps, a.path, a.origin), ..at };
     }
     Model { info: m.info, ..at }
 }
