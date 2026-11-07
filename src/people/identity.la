@@ -135,6 +135,19 @@ fun backup_of(s: Store): Result<Option<Backup>, IdentityError> = match load(s, F
 };
 
 /**
+ * Whether there's someone here who hasn't written their words down: an
+ * identity file saying not backed up. Unreadable is false, so no error
+ * shows as a dot (PRP-077).
+ *
+ * Example:
+ *     unbacked(store)
+ */
+fun unbacked(s: Store): bool = match backup_of(s) {
+    Ok(Some(b)) => !b.backed_up,
+    _ => false,
+};
+
+/**
  * Records what the person did about backing up, the secret unchanged.
  *
  * Example:

@@ -1,13 +1,16 @@
 // Backup words (PRP-076): Rapidkoi's card over Settings showing the words
 // once and three asked back; restoring, and replacing who you are only once
 // asked; the reminder. Writes only under test/tmp/; no display.
-import rapidkoi.window.backup { backed_up, card, step, reminded, reminder_closed };
+import rapidkoi.window.backup { backed_up, card, step, reminded, reminder_closed, back_up };
 import rapidkoi.window.backupcard { Card, Step };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.yourapps { App, opened };
 import rapidkoi.window.notices { REMINDER };
 import rapidkoi.data.remembered { Face };
 import rapidkoi.data.store { store_at };
+import rapidkoi.data.restoring { restore };
+import rapidkoi.window.settings_app { SETTINGS_KEY };
+import rapidkoi.window.tabs { Tab };
 import rapidkoi.people.identity { master, words_for, backup_of, Backup };
 import rapidkoi.people.words { words_of };
 import rapidkoi.ui.wordscard { card_view };
@@ -120,6 +123,8 @@ fun words_on_a_computer_that_was_nobody_become_you() {
     assert(after.backup.is_none());
     assert_eq(master(after.store.unwrap()).unwrap().secret, [255; 16]);
     assert(backed_up(after));
+    // No dot on ☰ (PRP-077): the words were typed, so they're written down.
+    assert(!after.unbacked);
     done_with(after);
 }
 
@@ -184,4 +189,43 @@ fun no_reminder_once_backed_up() {
     // The words are 12 of the list, and the same as the secret's.
     assert_eq(list12, words_of(master(done.store.unwrap()).unwrap().secret));
     done_with(done);
+}
+
+@test
+fun the_dot_waits_for_someone_and_stays_until_backed_up() {
+    // PRP-077: nobody yet, nothing to lose.
+    let m = window_at("dot");
+    assert(!m.unbacked);
+    // An app given your key: someone, not backed up.
+    master(m.store.unwrap()).unwrap();
+    let given = reminded(m);
+    assert(given.unbacked);
+    // Closing the reminder leaves the dot.
+    let closed = Model { notice: None, ..reminder_closed(given) };
+    assert(closed.unbacked);
+    // A restart reads it back.
+    assert(restore(with_pages(Engine.new(), []), closed.store.unwrap()).unbacked);
+    // Backed up: gone.
+    let checking = step(card(closed, TAB, false), Step.Next);
+    let (list12, asked) = asked_of(checking);
+    let done = answer(checking, asked.map(fun(p: i64) = list12[p]));
+    assert(!done.unbacked);
+    assert(!restore(with_pages(Engine.new(), []), done.store.unwrap()).unbacked);
+    done_with(done);
+}
+
+@test
+fun back_up_opens_settings_with_the_words_over_it() {
+    let m = window_at("menu");
+    master(m.store.unwrap()).unwrap();
+    let opened = back_up(Model { current: None, ..reminded(m) });
+    let settings = opened.tabs.filter(fun(t: Tab) = t.page.path == SETTINGS_KEY);
+    assert_eq(settings.len, 1);
+    assert_eq(opened.current, Some(settings[0].id));
+    assert_eq(opened.backup.map(fun(b) = b.tab), Some(settings[0].id));
+    assert(match opened.backup.map(fun(b) = b.card) {
+        Some(Showing(w)) => w.len == 12,
+        _ => false,
+    });
+    done_with(opened);
 }

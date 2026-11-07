@@ -22,6 +22,7 @@ import kivuli {
     column,
     button_with,
     separator,
+    overlay,
 };
 import kivuli.ui { Button, WindowControls, button_with as ui_button_with, popover as ui_popover };
 import window.actions { Msg };
@@ -32,6 +33,7 @@ import ui.bell;
 import ui.icons { Icon, icon };
 import ui.tokens {
     HEADER_ICON,
+    UPDATE_DOT,
     SPACE_XS,
     SPACE_SM,
     SPACE_MD,
@@ -79,7 +81,8 @@ fun bar(m: Model): Bar<Msg> {
 
 /**
  * Returns the bar's end, before the window controls, in order: the bell
- * (PRP-066) and ☰ with its card (PRP-038). No 👤: there's no account
+ * (PRP-066) and ☰ with its card (PRP-038), dotted while you aren't backed
+ * up (PRP-077). No 👤: there's no account
  * (DECISION-022); who you are is Settings › You.
  *
  * Example:
@@ -90,29 +93,65 @@ fun end(m: Model): View<Msg>[] = [
     bell.view(m),
     // Centred down the bar as the button inside is: the popover around it
     // otherwise sits at the bar's top (the owner's screenshot, session 202).
-    ui_popover(
-        tool(m.theme, Icon.Menu, "Menu", Some(Msg.Menu(!m.menu))),
-        m.menu,
-        menu_card(m.theme),
+    ui_popover(menu_button(m), m.menu, menu_card(m.theme, m.unbacked),
         Msg.Menu(false),
     ).align(Align.Center),
 ];
 
 /**
- * ☰'s card (PRP-038): Settings, then About Rapidkoi and Quit.
+ * ☰, with `caution`'s dot over its top end while you aren't backed up
+ * (PRP-077), placed as the bell's is.
+ */
+fun menu_button(m: Model): View<Msg> {
+    let t = m.theme;
+    let mut dot: View<Msg>[] = [];
+    if m.unbacked {
+        dot.push(
+            image(icon(Icon.Dot, t.caution)).style([square(UPDATE_DOT)]).place(
+                Align.End,
+                Align.Start,
+            ),
+        );
+    }
+    // The overlay the icon's size and centred, as the bell's (`bell.view`).
+    let face: View<Msg>[] = [
+        overlay(image(icon(Icon.Menu, t.on_frame)).style([square(HEADER_ICON)]), dot).style([
+            square(HEADER_ICON),
+        ]).align(Align.Center),
+    ];
+    let tip = if m.unbacked { "Menu, back up your words" } else { "Menu" };
+    // Centred down the bar, as the address box is: GTK puts a header bar's
+    // children at its top otherwise (the owner's screenshot, session 105).
+    // Room on each side, so the buttons don't crowd (the owner, session 116).
+    ui_button_with(face, Msg.Menu(!m.menu)).style([
+        Button.ghost(),
+        Button.icon(),
+        margin_x(SPACE_XS),
+    ]).tooltip(tip).align(Align.Center)
+}
+
+/**
+ * ☰'s card (PRP-038): Settings, then About Rapidkoi and Quit; first, while
+ * you aren't backed up, "Back up your words" (PRP-077).
  *
  * Example:
- *     menu_card(m.theme)
+ *     menu_card(m.theme, m.unbacked)
  */
-fun menu_card(t: Theme): View<Msg> = column([
+fun menu_card(t: Theme, unbacked: bool): View<Msg> {
+    let mut items: View<Msg>[] = [];
+    if unbacked {
+        items.push(item(t, "Back up your words", Msg.BackUp));
+        items.push(separator());
+    }
     // The owner's words (PRP-058); Ctrl+O from anywhere, the card built while closed too.
-    item(t, "Open App…", Msg.OpenApp).shortcut("Ctrl+O"),
-    separator(),
-    item(t, "Settings", Msg.OpenSettings),
-    separator(),
-    item(t, "About Rapidkoi", Msg.About(true)),
-    item(t, "Quit", Msg.Quit),
-]).style([gap(SPACE_XS)]);
+    items.push(item(t, "Open App…", Msg.OpenApp).shortcut("Ctrl+O"));
+    items.push(separator());
+    items.push(item(t, "Settings", Msg.OpenSettings));
+    items.push(separator());
+    items.push(item(t, "About Rapidkoi", Msg.About(true)));
+    items.push(item(t, "Quit", Msg.Quit));
+    column(items).style([gap(SPACE_XS)])
+}
 
 /** One of the card's rows: its words at the start; the whole row is the button, hovering round. */
 fun item(t: Theme, label: string, msg: Msg): View<Msg> = button_with(
@@ -123,22 +162,3 @@ fun item(t: Theme, label: string, msg: Msg): View<Msg> = button_with(
     padding_xy(SPACE_MD, SPACE_SM),
     Border { radius: Radius.All(CIRCLE), ..Border.theme() },
 ]);
-
-/** An icon button: a ghost square holding the icon, found by its tooltip; `None` shows it disabled. */
-fun tool(t: Theme, i: Icon, tip: string, msg: Option<Msg>): View<Msg> {
-    // Centred in the button: an exact size puts the picture in kivuli's
-    // clamp, which fills the button's height and draws it at the top
-    // otherwise (session 106).
-    let face: View<Msg>[] = [
-        image(icon(i, t.on_frame)).style([square(HEADER_ICON)]).align(Align.Center),
-    ];
-    let b = match msg {
-        Some(m) => ui_button_with(face, m),
-        // kivuli: `.disabled(true)` drops the message, so any one will do.
-        None => ui_button_with(face, Msg.Home).disabled(true),
-    };
-    // Centred down the bar, as the address box is: GTK puts a header bar's
-    // children at its top otherwise (the owner's screenshot, session 105).
-    // Room on each side, so the buttons don't crowd (the owner, session 116).
-    b.style([Button.ghost(), Button.icon(), margin_x(SPACE_XS)]).tooltip(tip).align(Align.Center)
-}

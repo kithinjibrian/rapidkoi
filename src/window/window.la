@@ -107,6 +107,8 @@ struct Model {
     info: Option<Info>,
     /** Rapidkoi's backup-words card over Settings (PRP-076), while open. */
     backup: Option<BackupCard>,
+    /** Someone, not backed up: ☰'s dot (PRP-077). The identity file's, cached for `view`. */
+    unbacked: bool,
     /** Compiled modules kept for the run (PRP-068): an app opened again compiles nothing. */
     modules: Modules,
     /** Rapidkoi's own notice (PRP-051): about its files, your identity, its data folder; it follows you. */
@@ -186,6 +188,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         widgets: no_widgets(),
         replacing: None,
         backup: None,
+        unbacked: false,
         before_all_apps: None,
         info: None,
         modules: no_modules(),

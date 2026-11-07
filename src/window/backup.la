@@ -8,11 +8,11 @@
  * key while you aren't backed up. The identity file is Rapidkoi's own small
  * file, read and written here as sign-in always has (CLAUDE.md).
  *
- * Depends on: std.crypto, people.identity, people.words, window.window, window.backupcard, window.appinfo, window.info, window.notices
- * Used by: shell, guest.effects, guest.settingsanswers, ui.backup
+ * Depends on: std.crypto, people.identity, people.words, window.window, window.backupcard, window.appinfo, window.info, window.notices, window.ownapps
+ * Used by: shell, guest.effects, guest.settingsanswers, ui.wordscard
  */
 import std.crypto { random_bytes };
-import people.identity { Backup, master, backup_of, note_backup, adopt, words_for };
+import people.identity { Backup, master, backup_of, note_backup, adopt, words_for, unbacked };
 import people.words { secret_of, same_word };
 import window.window { Model };
 import window.backupcard { BackupCard, Card, Step };
@@ -20,6 +20,8 @@ import window.appinfo { forget_info, page_for };
 import window.info { Info, InfoPage };
 import window.yourapps { App, forgotten };
 import window.notices { identity_trouble, REMINDER, SAVE_FAILED };
+import window.ownapps { open_settings };
+import window.settings_app { SETTINGS_KEY };
 
 /** How many words are asked back. */
 const ASKED: i64 = 3;
@@ -58,11 +60,11 @@ fun open_words(m: Model, tab: i64): Model {
         return m;
     }
     match master(s) {
-        Ok(mm) => Model {
+        Ok(mm) => refreshed(Model {
             master: Some(mm),
             backup: Some(BackupCard { tab: tab, card: Card.Showing(words_for(mm)) }),
             ..m,
-        },
+        }),
         Err(e) => Model { notice: Some(identity_trouble(e)), ..m },
     }
 }
@@ -148,12 +150,14 @@ fun step(m: Model, s: Step): Model {
  *     reminded(m)
  */
 fun reminded(m: Model): Model = match m.store {
+    // Whatever the notice, someone is here now: ☰'s dot (PRP-077).
     Some(s) => match backup_of(s) {
         Ok(Some(b)) if !b.backed_up && !b.reminded && m.notice.is_none() => Model {
             notice: Some(REMINDER),
+            unbacked: true,
             ..m,
         },
-        _ => m,
+        _ => refreshed(m),
     },
     None => m,
 };
@@ -181,6 +185,38 @@ fun reminder_closed(m: Model): Model {
     }
 }
 
+/**
+ * ☰'s "Back up your words" (PRP-077): Settings in front, and the words over
+ * it. Settings that can't start says why, as from the menu, and no card opens.
+ *
+ * Example:
+ *     back_up(m)
+ */
+fun back_up(m: Model): Model {
+    let opened = open_settings(Model { menu: false, ..m });
+    match opened.current {
+        Some(id) if opened.tabs.any(fun(t) = t.id == id && t.page.path == SETTINGS_KEY) => {
+            open_words(opened, id)
+        }
+        _ => opened,
+    }
+}
+
+/**
+ * `m.unbacked` read again from the identity file: in `update` only, as
+ * Rapidkoi's own small file (CLAUDE.md).
+ *
+ * Example:
+ *     refreshed(m)
+ */
+fun refreshed(m: Model): Model = Model {
+    unbacked: match m.store {
+        Some(s) => unbacked(s),
+        None => false,
+    },
+    ..m,
+};
+
 /** Written down: kept as backed up (the words never show again), the reminder gone. */
 fun written(m: Model): Model {
     let s = match m.store {
@@ -190,7 +226,11 @@ fun written(m: Model): Model {
         }
     };
     match note_backup(s, Backup { backed_up: true, reminded: true }) {
-        Ok(()) => Model { notice: if m.notice == Some(REMINDER) { None } else { m.notice }, ..m },
+        Ok(()) => Model {
+            notice: if m.notice == Some(REMINDER) { None } else { m.notice },
+            unbacked: false,
+            ..m,
+        },
         Err(_) => Model { notice: Some(SAVE_FAILED), ..m },
     }
 }
@@ -204,7 +244,7 @@ fun become(m: Model, secret: u8[]): Model {
         }
     };
     match adopt(s, secret) {
-        Ok(mm) => Model { master: Some(mm), backup: None, ..m },
+        Ok(mm) => Model { master: Some(mm), backup: None, unbacked: false, ..m },
         Err(_) => Model { notice: Some(SAVE_FAILED), ..m },
     }
 }

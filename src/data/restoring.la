@@ -21,7 +21,7 @@ import data.widgetsfile { MAX_WIDGETS_FILE, read_widgets };
 import data.preferences { MAX_PREFS_FILE, read_prefs };
 import people.people { nobody };
 import people.people_codec { read_people, MAX_PEOPLE_FILE };
-import people.identity { existing, retire_old };
+import people.identity { existing, retire_old, unbacked };
 import trust.verify { keyring, keyring_of };
 import ui.schemes { DEFAULT_PREFS, theme_for };
 import window.window { Model, Notice };
@@ -93,7 +93,7 @@ fun restorers(): Restorer[] = [
     },
     Restorer {
         name: "identity",
-        // Read now if it exists (never made here), so the Account page can
+        // Read now if it exists (never made here), so Settings can
         // name you though no app has asked yet this run.
         // A 32-byte identity can't be backup words: kept as identity-v1, and
         // a new one made when first needed, said once (PRP-076).
@@ -105,7 +105,7 @@ fun restorers(): Restorer[] = [
                 existing(r.store)
             },
         ) {
-            Ok(found) => Model { master: found, ..m },
+            Ok(found) => Model { master: found, unbacked: unbacked(r.store), ..m },
             Err(e) => {
                 say(r, identity_trouble(e));
                 Model { master: None, ..m }

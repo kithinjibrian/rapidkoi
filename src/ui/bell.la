@@ -69,8 +69,8 @@ fun view(m: Model): View<Msg> {
             ),
         );
     }
-    // The overlay exactly the icon's size and centred, as 👤's and ☰'s
-    // pictures are (`header.tool`): left to fill the button, it put the bell
+    // The overlay exactly the icon's size and centred, as ☰'s picture
+    // is (`header.menu_button`): left to fill the button, it put the bell
     // at its top, and around the button, the dot too far out (the owner's
     // screenshots, 2026-11-03).
     let face: View<Msg>[] = [
