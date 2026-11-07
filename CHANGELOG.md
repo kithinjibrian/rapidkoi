@@ -8,6 +8,9 @@ Never deleted. Older entries are never modified.
 
 ## [Unreleased]
 
+### Fixed
+- On kivuli 0.68.2 (lugha-gtk 0.1.62): GTK no longer warns "Trying to measure … but it needs at least …" at start, when tabs open, or with an app open.
+
 ### Removed
 - The header's 👤 is gone: it waited for an account Rapidkoi will never have (DECISION-022). Who you are is Settings › You; the bar is the bell and ☰.
 
