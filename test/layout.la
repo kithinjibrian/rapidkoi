@@ -89,11 +89,11 @@ fun the_shell_shows_the_layout() {
 }
 
 @test
-fun account_and_menu_wait_greyed_out_on_home_and_on_apps() {
+fun the_menu_works_on_home_and_on_apps() {
     let (home, _) = update(busy(), Msg.Home);
     for m of [home, busy()] {
         let v = layout.view(m);
-        assert_eq(is_disabled(v, "Account (coming soon)"), Ok(true));
+        assert(is_disabled(v, "Account (coming soon)").is_err());
         assert_eq(is_disabled(v, "Menu"), Ok(false));
     }
 }

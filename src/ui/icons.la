@@ -20,8 +20,6 @@ enum Icon {
     Home,
     /** `menu.svg`. */
     Menu,
-    /** `profile-circle.svg`. */
-    Account,
     /** `rotate-right.svg`. */
     Reload,
     /** `settings.svg`. */
@@ -56,7 +54,6 @@ const ALL: Icon[] = [
     Icon.Forward,
     Icon.Home,
     Icon.Menu,
-    Icon.Account,
     Icon.Reload,
     Icon.Settings,
     Icon.Shield,
@@ -84,7 +81,6 @@ fun file(i: Icon): string = match i {
     Share => "export-circle2.svg",
     Home => "home.svg",
     Menu => "menu.svg",
-    Account => "profile-circle.svg",
     Reload => "rotate-right.svg",
     Settings => "settings.svg",
     Shield => "shield-tick.svg",
@@ -112,7 +108,6 @@ fun svg(i: Icon): string = match i {
     Share => include_str("../../assets/icons/export-circle2.svg"),
     Home => include_str("../../assets/icons/home.svg"),
     Menu => include_str("../../assets/icons/menu.svg"),
-    Account => include_str("../../assets/icons/profile-circle.svg"),
     Reload => include_str("../../assets/icons/rotate-right.svg"),
     Settings => include_str("../../assets/icons/settings.svg"),
     Shield => include_str("../../assets/icons/shield-tick.svg"),
