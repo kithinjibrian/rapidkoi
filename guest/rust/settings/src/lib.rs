@@ -44,6 +44,10 @@ enum Msg {
     /// Your first or last name changed: the event's value.
     First,
     Last,
+    /// Ask Rapidkoi for its card with your backup words (PRP-076).
+    BackupWords,
+    /// Ask Rapidkoi for its card to type your backup words into.
+    UseBackupWords,
 }
 
 /// An app you're signed in to, as Settings keeps it.
@@ -96,6 +100,8 @@ struct Settings {
     more_contrast: bool,
     text_size: u16,
     restore: bool,
+    /// Whether your backup words are written down: never a word (PRP-076).
+    backed_up: bool,
     /// The name every app shows.
     first: String,
     last: String,
@@ -171,7 +177,8 @@ impl App for Settings {
                             })
                             .collect();
                         let app = if (self.app as usize) < apps.len() { self.app } else { 0 };
-                        Next::state(Settings { apps, app, first: y.first, last: y.last, ..self })
+                        let backed_up = y.backed_up;
+                        Next::state(Settings { apps, app, first: y.first, last: y.last, backed_up, ..self })
                     }
                     None => Next::state(self),
                 },
@@ -219,6 +226,9 @@ impl App for Settings {
                 Msg::PickKey(i) => Next::state(Settings { key: i, ..self }),
                 Msg::First => Settings { first: value.unwrap_or_default(), ..self }.named(),
                 Msg::Last => Settings { last: value.unwrap_or_default(), ..self }.named(),
+                // Rapidkoi's own cards: the words never come here.
+                Msg::BackupWords => Next::state(self).ask(Ask::backup_words("backup")),
+                Msg::UseBackupWords => Next::state(self).ask(Ask::use_backup_words("restore")),
             },
             _ => Next::state(self),
         }

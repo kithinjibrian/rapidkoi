@@ -5,7 +5,7 @@
 // messages, Forget and permissions only opening Rapidkoi's panel. Past the
 // end, or blocked, nothing happens. No guest, no display.
 import rapidkoi.guest.appanswers { answer_app, apps_of };
-import rapidkoi.guest.nodes { Effect };
+import rapidkoi.guest.effectkinds { Effect };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.tabs { Pin, failed_page };
 import rapidkoi.window.actions { Msg };

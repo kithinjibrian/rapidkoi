@@ -2,7 +2,7 @@
 // an app's permissions and Forget by index, read and held to their shapes;
 // a bad one is the sentence that stops the app. No guest, no display.
 import rapidkoi.guest.contract { read_update };
-import rapidkoi.guest.nodes { Effect };
+import rapidkoi.guest.effectkinds { Effect };
 import cbor { Value, encode };
 import support { t, kv };
 

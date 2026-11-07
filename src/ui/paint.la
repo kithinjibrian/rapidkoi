@@ -388,5 +388,6 @@ fun theme_hex(name: string, t: Theme): string = match name {
     "border" => t.edge,
     "danger" => t.danger,
     "on_danger" => t.on_danger,
+    "caution" => t.caution,
     _ => t.text,
 };

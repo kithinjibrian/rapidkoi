@@ -8,7 +8,8 @@
  * Used by: guest.contract
  */
 import cbor { Value };
-import guest.nodes { Query, BatchStep, ContractError };
+import guest.nodes { ContractError };
+import guest.effectkinds { Query, BatchStep };
 import guest.limits { MAX_SQL, MAX_SQL_PARAMS, MAX_SQL_VALUE, MAX_ROWS, MAX_STEPS };
 import guest.blobasks { blob_step_of };
 

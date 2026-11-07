@@ -20,7 +20,7 @@ import window.window { Model, with_tab, is_blank, with_prefs };
 import window.notices { identity_trouble };
 import data.preferences { prefs_value, apply };
 import guest.contract { reply };
-import guest.nodes { Effect };
+import guest.effectkinds { Effect };
 import cbor { Value };
 import std.time;
 import kivuli { Cmd };
@@ -29,6 +29,7 @@ import net.requests;
 import guest.noticeanswers { answer_notice };
 import guest.appanswers { answer_app, apps_of };
 import guest.settingsanswers { answer_settings, secret };
+import window.backup { reminded, card };
 import guest.widgetanswers { answer_widget, undeclared };
 import guest.needs { holds, needed };
 import guest.storing;
@@ -296,14 +297,16 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
                 }
             }
         }
-        Identity(msg) => {
+        // Your key given, not yet backed up: the reminder (PRP-076).
+        Identity(msg) | Sign(msg, _) => {
             let (held, v) = respond(m, p, ask);
-            (held, Some(v), msg)
+            (if v == Value.Null { held } else { reminded(held) }, Some(v), msg)
         }
-        Sign(msg, _) => {
-            let (held, v) = respond(m, p, ask);
-            (held, Some(v), msg)
-        }
+        // Rapidkoi's own card over the asking tab (PRP-076): the words never reach the app.
+        BackupCard(msg, restore) => match tab_of(slot) {
+            Some(id) if grant => (card(m, id, restore), None, msg),
+            _ => (m, None, msg),
+        },
     };
     let done = match value {
         Some(v) => put(got, slot, fun(page: AppPage) {
@@ -324,7 +327,8 @@ fun answer_head(m: Model, slot: Slot, p: AppPage, grant: bool): (Model, Cmd<Msg>
  * Tells the page in front that something it may read changed while it
  * stayed there (`on_change`, PRP-031): your pins, your recent places (for
  * a permission it holds that isn't blocked), or one of its own permission
- * settings. A page that just came to the front heard `on_resume` instead.
+ * settings; for `read_you`, its backup card closing or who you are
+ * changing (PRP-076). A page that just came to the front heard `on_resume` instead.
  *
  * @param before the model before this update
  * @param after the model after it
@@ -362,7 +366,10 @@ fun tell_changes(before: Model, after: Model): Model {
         Permission.ReadNotifications,
     ) && before.notifications.items != after.notifications.items || reads(
         Permission.ReadApps,
-    ) && apps_of(before) != apps_of(after);
+    ) && apps_of(before) != apps_of(after) || reads(Permission.ReadYou) && (
+        // Rapidkoi's backup card closed over it, or who you are changed (PRP-076).
+        before.backup.is_some() && after.backup.is_none() || before.master != after.master
+    );
     if moved { put(after, slot, changed) } else { after }
 }
 

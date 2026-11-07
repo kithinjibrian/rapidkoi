@@ -9,7 +9,8 @@
  * Used by: guest.sqlasks, guest.contract
  */
 import cbor { Value };
-import guest.nodes { BatchStep, Owner, BlobRead, ContractError };
+import guest.nodes { ContractError };
+import guest.effectkinds { BatchStep, Owner, BlobRead };
 import guest.limits { MAX_BLOB_KEY, MAX_BLOB_PIECE, MAX_SQL_VALUE };
 
 /**

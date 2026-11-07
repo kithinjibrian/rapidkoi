@@ -31,6 +31,7 @@ import window.window { Model };
 import window.navigate;
 import window.ownapps;
 import window.appinfo;
+import window.backup;
 import window.pins;
 import window.zones;
 import window.instances { close_instance, close_app, start_rename, confirm_rename };
@@ -312,7 +313,9 @@ fun handle_msg(m: Model, msg: Msg): (Model, Cmd<Msg>) = match msg {
     CancelSeparate => (choosing.cancel_naming(m), Cmd.none()),
     Choose(origin) => choosing.choose(m, origin),
     Chip(open) => (Model { chip: open, ..m }, Cmd.none()),
-    DismissNotice => (dismiss(m), Cmd.none()),
+    // The reminder closed is kept closed (PRP-076).
+    DismissNotice => (dismiss(backup.reminder_closed(m)), Cmd.none()),
+    Backup(s) => (backup.step(m, s), Cmd.none()),
     SetDefault(origin, on) => (choosing.set_default_here(m, origin, on), Cmd.none()),
     Rename(origin) => (choosing.start_rename(m, origin), Cmd.none()),
     Fetched(id, number, f) => loads.arrive(m, id, number, f),

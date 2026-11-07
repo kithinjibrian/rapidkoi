@@ -21,7 +21,7 @@ import data.widgetsfile { MAX_WIDGETS_FILE, read_widgets };
 import data.preferences { MAX_PREFS_FILE, read_prefs };
 import people.people { nobody };
 import people.people_codec { read_people, MAX_PEOPLE_FILE };
-import people.identity { existing };
+import people.identity { existing, retire_old };
 import trust.verify { keyring, keyring_of };
 import ui.schemes { DEFAULT_PREFS, theme_for };
 import window.window { Model, Notice };
@@ -29,7 +29,7 @@ import window.yourapps { seeded };
 import window.recent { no_recent };
 import window.notifications { no_notifications };
 import window.widgets { no_widgets };
-import window.notices { joined, with_more, set_aside, not_kept, identity_trouble };
+import window.notices { joined, with_more, set_aside, not_kept, identity_trouble, NEW_IDENTITY };
 import window.settings_app;
 
 /** What every part reads with: the data folder, the notices so far, and the store as it's become. */
@@ -95,7 +95,16 @@ fun restorers(): Restorer[] = [
         name: "identity",
         // Read now if it exists (never made here), so the Account page can
         // name you though no app has asked yet this run.
-        into: fun(m: Model, r: Reading): Model = match existing(r.store) {
+        // A 32-byte identity can't be backup words: kept as identity-v1, and
+        // a new one made when first needed, said once (PRP-076).
+        into: fun(m: Model, r: Reading): Model = match retire_old(r.store).and_then(
+            fun(retired: bool) {
+                if retired {
+                    say(r, NEW_IDENTITY);
+                }
+                existing(r.store)
+            },
+        ) {
             Ok(found) => Model { master: found, ..m },
             Err(e) => {
                 say(r, identity_trouble(e));

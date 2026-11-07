@@ -13,6 +13,8 @@ import kivuli { View, Align, column, overlay, button_with, spacer };
 import window.window { Model };
 import window.actions { Msg, Confirm, Answer };
 import ui.themes { scrim, question_card };
+import ui.wordscard;
+import window.backupcard { Step };
 import ui.tokens { SPACE_LG, APPS_WIDTH, padding, at_most };
 
 /**
@@ -24,6 +26,10 @@ import ui.tokens { SPACE_LG, APPS_WIDTH, padding, at_most };
  *     asked_here(m)
  */
 fun asked_here(m: Model): bool {
+    // Rapidkoi's backup-words card over Settings (PRP-076).
+    if wordscard.shown_here(m) {
+        return true;
+    }
     // "Replace a widget?" (PRP-073): asked from App info or the ⚙, in front.
     if m.replacing.is_some() {
         return true;
@@ -78,7 +84,9 @@ fun over(m: Model, area: View<Msg>, card: View<Msg>): View<Msg> {
  * Example:
  *     cancel(m)
  */
-fun cancel(m: Model): Msg = if m.replacing.is_some() {
+fun cancel(m: Model): Msg = if wordscard.shown_here(m) {
+    Msg.Backup(Step.Close)
+} else if m.replacing.is_some() {
     Msg.CancelReplace
 } else if m.approval.is_some() {
     Msg.Approve(Answer.Deny)

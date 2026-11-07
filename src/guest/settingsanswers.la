@@ -23,8 +23,9 @@ import trust.keys { fingerprint };
 import window.window { Model };
 import window.yourapps { App };
 import window.notices { identity_trouble };
-import guest.nodes { Effect };
+import guest.effectkinds { Effect };
 import guest.home { place_of };
+import window.backup { backed_up };
 
 /** The most apps or keys one answer lists. */
 const MAX_LISTED: i64 = 256;
@@ -51,6 +52,7 @@ fun answer_settings(m: Model, ask: Effect, grant: bool): (Model, Option<Value>) 
                         entry("first", Value.Text("")),
                         entry("last", Value.Text("")),
                         entry("apps", Value.Array([])),
+                        entry("backed_up", Value.Bool(false)),
                     ]),
                 ),
             );
@@ -98,6 +100,8 @@ fun you_of(m: Model, mm: Option<Master>): Value {
         entry("first", Value.Text(m.people.first)),
         entry("last", Value.Text(m.people.last)),
         entry("apps", Value.Array(apps)),
+        // Whether the words are written down (PRP-076): never a word.
+        entry("backed_up", Value.Bool(backed_up(m))),
     ])
 }
 

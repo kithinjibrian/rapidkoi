@@ -4,7 +4,7 @@
 // they're empty and their kind is declared (DECISION-056).
 // Pure; no guest, no display.
 import rapidkoi.guest.contract { read_update };
-import rapidkoi.guest.nodes { LinkChange };
+import rapidkoi.guest.effectkinds { LinkChange };
 import rapidkoi.guest.links { fields_in, with_link };
 import rapidkoi.window.tabs { AppPage, Pending, open_module_at, handle, state_of };
 import rapidkoi.ui.render { Msg };

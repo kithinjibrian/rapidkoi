@@ -14,7 +14,7 @@
 import std.fs;
 import std.crypto { sha256 };
 import data.databases { Call, Queried, call };
-import guest.nodes { BatchStep, BlobRead };
+import guest.effectkinds { BatchStep, BlobRead };
 import guest.limits { MAX_BLOB };
 
 /** What a file task came to. */

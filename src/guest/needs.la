@@ -6,7 +6,7 @@
  * Depends on: guest.nodes, bundles.permissions, bundles.bundle, window.tabs
  * Used by: guest.effects
  */
-import guest.nodes { Effect };
+import guest.effectkinds { Effect };
 import bundles.permissions { Permission, name_of };
 import bundles.bundle { Manifest };
 import window.tabs { AppPage };
@@ -40,5 +40,6 @@ fun needed(ask: Effect): Option<Permission> = match ask {
     You(_) => Some(Permission.ReadYou),
     Publishers(_) => Some(Permission.ReadPublishers),
     SetName(_, _, _) => Some(Permission.ChangeSettings),
+    BackupCard(_, _) => Some(Permission.ManageIdentity),
     _ => None,
 };

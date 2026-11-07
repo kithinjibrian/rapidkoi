@@ -9,7 +9,8 @@
  * Used by: guest.contract
  */
 import cbor { Value };
-import guest.nodes { ContractError, Effect };
+import guest.nodes { ContractError };
+import guest.effectkinds { Effect };
 import guest.cards { read_card };
 import guest.notifyasks { fields_of };
 import bundles.widgetlist { name_ok };

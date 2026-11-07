@@ -1,0 +1,157 @@
+/**
+ * Backup words (PRP-076, DECISION-101): the 16-byte master secret as 12
+ * of BIP-39's English words and back. The secret's 128 bits and the first
+ * 4 bits of its SHA-256 (the checksum, which catches a mistyped word) make
+ * 132 bits, read in 12 groups of 11, each a word's place in the list. Pure:
+ * nothing here saves, logs or shows a word.
+ *
+ * Depends on: std.crypto
+ * Used by: people.identity, window.backup
+ */
+import std.crypto { sha256 };
+
+/** How many words; how many bytes of secret they are. */
+const WORD_COUNT: i64 = 12;
+const SECRET_BYTES: i64 = 16;
+
+/** Why typed words aren't a secret: each shown as "These words aren't right". */
+enum WordsError {
+    /** Not 12 words. */
+    Count,
+    /** The word at this place (from 0) isn't in the list. */
+    NotAWord(i64),
+    /** Every word is in the list, but they don't add up: one is wrong. */
+    Checksum,
+}
+
+/**
+ * BIP-39's English list: 2,048 words, sorted (`assets/words/`, MIT).
+ *
+ * Example:
+ *     list()[0]
+ */
+fun list(): string[] = include_str("../../assets/words/english.txt").lines();
+
+/**
+ * Returns the 12 words a 16-byte secret is.
+ *
+ * Example:
+ *     words_of(m.secret).join(" ")
+ */
+fun words_of(secret: u8[]): string[] {
+    // The identity file holds exactly 16 bytes (`people.identity`): anything else is a bug.
+    if secret.len != SECRET_BYTES {
+        panic("a backup-words secret is {SECRET_BYTES} bytes, not {secret.len}");
+    }
+    let bits = bits_of(secret, checksum(secret));
+    let all_words = list();
+    let mut out: string[] = [];
+    for i in 0..WORD_COUNT {
+        let mut at = 0;
+        for b in 0..11 {
+            at = at * 2 + bits[i * 11 + b];
+        }
+        out.push(all_words[at]);
+    }
+    out
+}
+
+/**
+ * Returns the secret 12 typed words are: any case, spaces around each trimmed.
+ *
+ * @returns the 16 bytes; `Err(Count)`, `Err(NotAWord(place))` or `Err(Checksum)`
+ *
+ * Example:
+ *     secret_of(typed)?
+ */
+fun secret_of(typed: string[]): Result<u8[], WordsError> {
+    if typed.len != WORD_COUNT {
+        return Err(WordsError.Count);
+    }
+    let all_words = list();
+    let mut bits: i64[] = [];
+    for i in 0..WORD_COUNT {
+        let at = match place_of(all_words, plain(typed[i])) {
+            Some(n) => n,
+            None => {
+                return Err(WordsError.NotAWord(i));
+            }
+        };
+        let mut b = 10;
+        while b >= 0 {
+            bits.push(at >> b & 1);
+            b -= 1;
+        }
+    }
+    let mut secret: u8[] = [];
+    for i in 0..SECRET_BYTES {
+        let mut byte = 0;
+        for b in 0..8 {
+            byte = byte * 2 + bits[i * 8 + b];
+        }
+        secret.push(byte as u8);
+    }
+    let mut sum = 0;
+    for b in 0..4 {
+        sum = sum * 2 + bits[SECRET_BYTES * 8 + b];
+    }
+    if sum != checksum(secret) {
+        return Err(WordsError.Checksum);
+    }
+    Ok(secret)
+}
+
+/**
+ * Whether a typed word is this word: any case, spaces around it trimmed.
+ *
+ * Example:
+ *     same_word(words[2], typed)
+ */
+fun same_word(word: string, typed: string): bool = plain(typed) == word;
+
+/** A typed word as the list holds them: trimmed, lower case. */
+fun plain(s: string): string {
+    let mut out = "";
+    for c of s.trim().chars() {
+        out = out + "{c.to_lower()}";
+    }
+    out
+}
+
+/** The first 4 bits of the secret's SHA-256, as a number 0–15. */
+fun checksum(secret: u8[]): i64 = sha256(secret)[0] as i64 >> 4;
+
+/** The secret's bits, then the checksum's 4, most significant first. */
+fun bits_of(secret: u8[], sum: i64): i64[] {
+    let mut bits: i64[] = [];
+    for byte of secret {
+        let mut b = 7;
+        while b >= 0 {
+            bits.push(byte as i64 >> b & 1);
+            b -= 1;
+        }
+    }
+    let mut b = 3;
+    while b >= 0 {
+        bits.push(sum >> b & 1);
+        b -= 1;
+    }
+    bits
+}
+
+/** A word's place in the sorted list, by halving. */
+fun place_of(words: string[], word: string): Option<i64> {
+    let (mut lo, mut hi) = (0, words.len - 1);
+    while lo <= hi {
+        let mid = (lo + hi) / 2;
+        if words[mid] == word {
+            return Some(mid);
+        }
+        if words[mid] < word {
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    None
+}

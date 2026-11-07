@@ -28,7 +28,7 @@ import data.blobs {
     remove_all,
 };
 import data.blobmap;
-import guest.nodes { Query, BatchStep, BlobRead };
+import guest.effectkinds { Query, BatchStep, BlobRead };
 import guest.limits {
     DATABASE_BYTES,
     QUERY_MS,

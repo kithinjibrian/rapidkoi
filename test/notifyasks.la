@@ -2,7 +2,7 @@
 // three, read and held to their shapes; a bad one is the sentence that
 // stops the app. No guest, no display.
 import rapidkoi.guest.contract { read_update };
-import rapidkoi.guest.nodes { Effect, Update };
+import rapidkoi.guest.effectkinds { Effect, Update };
 import cbor { Value, encode };
 import support { t, kv };
 

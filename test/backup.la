@@ -1,0 +1,187 @@
+// Backup words (PRP-076): Rapidkoi's card over Settings showing the words
+// once and three asked back; restoring, and replacing who you are only once
+// asked; the reminder. Writes only under test/tmp/; no display.
+import rapidkoi.window.backup { backed_up, card, step, reminded, reminder_closed };
+import rapidkoi.window.backupcard { Card, Step };
+import rapidkoi.window.window { Model, with_pages };
+import rapidkoi.window.yourapps { App, opened };
+import rapidkoi.window.notices { REMINDER };
+import rapidkoi.data.remembered { Face };
+import rapidkoi.data.store { store_at };
+import rapidkoi.people.identity { master, words_for, backup_of, Backup };
+import rapidkoi.people.words { words_of };
+import rapidkoi.ui.wordscard { card_view };
+import kivuli.testing { texts };
+import wasmtime { Engine };
+import std.fs;
+
+fun clean(path: string) {
+    if fs.is_dir(path) {
+        for name of fs.list_dir(path).unwrap() {
+            clean("{path}/{name}");
+        }
+        fs.remove_dir(path).unwrap();
+    } else if fs.exists(path) {
+        fs.remove_file(path).unwrap();
+    }
+}
+
+const TAB: i64 = 4;
+
+/** A window on its own data folder, Settings' tab in front. */
+fun window_at(name: string): Model {
+    let dir = "test/tmp/backup-{name}";
+    clean(dir);
+    let m = with_pages(Engine.new(), []);
+    Model { store: Some(store_at(dir)), current: Some(TAB), ..m }
+}
+
+fun done_with(m: Model) {
+    match m.store {
+        Some(s) => clean(s.dir),
+        None => {}
+    }
+}
+
+/** The words the card shows, and the places it asks back. */
+fun asked_of(m: Model): (string[], i64[]) = match m.backup.map(fun(b) = b.card) {
+    Some(Checking(shown, asked, _, _)) => (shown, asked),
+    _ => panic("not checking"),
+};
+
+/** Types `typed[i]` into each of the three, then Done. */
+fun answer(m: Model, typed: string[]): Model {
+    let mut at = m;
+    for i in 0..3 {
+        at = step(at, Step.Typed(i, typed[i]));
+    }
+    step(at, Step.Done)
+}
+
+/** Types twelve words into the restore card. */
+fun type_all(m: Model, list12: string[]): Model {
+    let mut at = m;
+    for i in 0..12 {
+        at = step(at, Step.Word(i, list12[i]));
+    }
+    at
+}
+
+const ZOO: string = "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong";
+
+@test
+fun the_words_show_once_and_three_come_back() {
+    let m = card(window_at("once"), TAB, false);
+    let shown = match m.backup.map(fun(b) = b.card) {
+        Some(Showing(w)) => w,
+        _ => panic("no words"),
+    };
+    assert_eq(shown.len, 12);
+    // They are this computer's secret.
+    assert_eq(shown, words_for(master(m.store.unwrap()).unwrap()));
+    assert(texts(card_view(m)).any(fun(x: string) = x == shown[0]));
+    let checking = step(m, Step.Next);
+    let (list12, asked) = asked_of(checking);
+    assert_eq(asked.len, 3);
+    assert(asked[0] < asked[1] && asked[1] < asked[2]);
+    let typed = asked.map(fun(p: i64) = "  {list12[p]} ");
+    let done = answer(checking, typed);
+    assert(done.backup.is_none());
+    assert(backed_up(done));
+    // Never shown again.
+    assert(card(done, TAB, false).backup.is_none());
+    done_with(done);
+}
+
+@test
+fun a_wrong_word_is_marked_and_the_card_stays() {
+    let checking = step(card(window_at("wrong"), TAB, false), Step.Next);
+    let (list12, asked) = asked_of(checking);
+    let typed = [list12[asked[0]], "nope", list12[asked[2]]];
+    let after = answer(checking, typed);
+    match after.backup.map(fun(b) = b.card) {
+        Some(Checking(_, _, _, wrong)) => assert_eq(wrong, [false, true, false]),
+        _ => panic("closed"),
+    }
+    assert(!backed_up(after));
+    // Back shows the words again; Close ends it, nothing kept.
+    assert(match step(after, Step.Back).backup.map(fun(b) = b.card) {
+        Some(Showing(_)) => true,
+        _ => false,
+    });
+    assert(step(after, Step.Close).backup.is_none());
+    done_with(after);
+}
+
+@test
+fun words_on_a_computer_that_was_nobody_become_you() {
+    let m = type_all(card(window_at("fresh"), TAB, true), ZOO.split(" "));
+    let after = step(m, Step.Use);
+    assert(after.backup.is_none());
+    assert_eq(master(after.store.unwrap()).unwrap().secret, [255; 16]);
+    assert(backed_up(after));
+    done_with(after);
+}
+
+@test
+fun bad_words_are_said_and_nothing_changes() {
+    let mut list12 = ZOO.split(" ");
+    list12[11] = "zoo";
+    let after = step(type_all(card(window_at("bad"), TAB, true), list12), Step.Use);
+    assert(texts(card_view(after)).any(fun(x: string) = x == "These words aren't right"));
+    assert(backup_of(after.store.unwrap()).unwrap().is_none());
+    done_with(after);
+}
+
+@test
+fun replacing_who_you_are_asks_then_forgets_every_app() {
+    let base = window_at("replace");
+    let before = master(base.store.unwrap()).unwrap();
+    let notes = App {
+        path: "rapidkoi://notes.dafifi.net",
+        origin: Some([1; 32]),
+        host: Some("notes.dafifi.net"),
+        face: Face { path: "rapidkoi://notes.dafifi.net", name: "Notes", icon: None, colour: None },
+        first: 1,
+        last: 1,
+    };
+    let m = Model { apps: opened(base.apps, notes), ..base };
+    let asking = step(type_all(card(m, TAB, true), ZOO.split(" ")), Step.Use);
+    assert(
+        texts(card_view(asking)).any(fun(x: string) = x == "Replace who you are on this computer?"),
+    );
+    // Cancel: nothing changed.
+    let kept = step(asking, Step.Close);
+    assert_eq(master(kept.store.unwrap()).unwrap().secret, before.secret);
+    let replaced = step(asking, Step.Replace);
+    assert_eq(master(replaced.store.unwrap()).unwrap().secret, [255; 16]);
+    assert_eq(replaced.master.map(fun(x) = x.secret), Some([255; 16]));
+    assert_eq(replaced.apps.items.len, 0);
+    done_with(replaced);
+}
+
+@test
+fun the_reminder_comes_once_and_stays_closed() {
+    let m = window_at("remind");
+    master(m.store.unwrap()).unwrap();
+    let shown = reminded(m);
+    assert_eq(shown.notice, Some(REMINDER));
+    let closed = Model { notice: None, ..reminder_closed(shown) };
+    assert_eq(reminded(closed).notice, None);
+    assert_eq(
+        backup_of(closed.store.unwrap()).unwrap().map(fun(b: Backup) = b.reminded),
+        Some(true),
+    );
+    done_with(closed);
+}
+
+@test
+fun no_reminder_once_backed_up() {
+    let checking = step(card(window_at("quiet"), TAB, false), Step.Next);
+    let (list12, asked) = asked_of(checking);
+    let done = answer(checking, asked.map(fun(p: i64) = list12[p]));
+    assert_eq(reminded(done).notice, None);
+    // The words are 12 of the list, and the same as the secret's.
+    assert_eq(list12, words_of(master(done.store.unwrap()).unwrap().secret));
+    done_with(done);
+}

@@ -1,7 +1,7 @@
 // File asks (PRP-056), pure: `file_open`, `file_save` and `file_save_as`
 // read from a `handle` result and held to their shapes. No dialog, no disk.
 import rapidkoi.guest.contract { read_update };
-import rapidkoi.guest.nodes { Effect };
+import rapidkoi.guest.effectkinds { Effect };
 import cbor { Value, encode };
 import support { t, kv };
 

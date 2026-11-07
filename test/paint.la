@@ -68,6 +68,13 @@ fun a_look_resolves_to_what_is_drawn() {
     assert_eq(d.states.len, 1);
     assert_eq(d.states[0].0 == State.Hover, true);
     assert_eq(d.states[0].1.background == Some(Paint.Color(hex(DARK.accent))), true);
+    // PRP-076: caution, the theme's amber.
+    assert_eq(
+        resolve(Look { background: Some(Colour.Named("caution")), ..l }, DARK).background == Some(
+            Paint.Color(hex(DARK.caution)),
+        ),
+        true,
+    );
     // Body and small text follow the base size; rem is a multiple of it.
     assert_eq(
         resolve(Look { size: Some(TextSize.Named("small")), ..l }, DARK).size == Some(

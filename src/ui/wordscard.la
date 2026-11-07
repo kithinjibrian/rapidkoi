@@ -1,0 +1,155 @@
+/**
+ * Rapidkoi's backup-words card (PRP-076), drawn over Settings' area as
+ * Forget's question is (PRP-057), as the canvas's boards 2, 3, 5 and 6:
+ * the words in a numbered grid, three asked back, twelve fields to
+ * restore from, and the replace question. Pure; only Rapidkoi draws it,
+ * and the fields are Rapidkoi's, never the app's.
+ *
+ * Depends on: kivuli, kivuli.ui, window.window, window.backupcard, window.actions, guest.nodes, ui.tokens, ui.themes, ui.schemes
+ * Used by: ui.layout
+ */
+import kivuli { View, Styling, Align, Font, Text, Background, Border, Radius, column, row, text };
+import kivuli.ui { button as ui_button, dialog_header, dialog_footer, input as ui_input };
+import window.window { Model };
+import window.backupcard { Card, Step };
+import window.actions { Msg };
+import guest.nodes { ButtonLook };
+import ui.tokens { SPACE_SM, SPACE_MD, BUTTON_RADIUS, gap, padding_xy };
+import ui.themes { body, dim, field, paint, line, button as button_look };
+import ui.schemes { Theme };
+
+/**
+ * Whether the card is over the tab in front.
+ *
+ * Example:
+ *     shown_here(m)
+ */
+fun shown_here(m: Model): bool = match m.backup {
+    Some(b) => m.current == Some(b.tab),
+    None => false,
+};
+
+/**
+ * The card's words and buttons for the step it's at; nothing when closed.
+ *
+ * Example:
+ *     card_view(m)
+ */
+fun card_view(m: Model): View<Msg> {
+    let t = m.theme;
+    let open = match m.backup {
+        Some(b) => b,
+        None => {
+            let none: View<Msg>[] = [];
+            return column(none);
+        }
+    };
+    match open.card {
+        Showing(words) => column([
+            dialog_header("Backup words", ""),
+            grid(cells_of(t, words)),
+            footer(t, "Cancel", Step.Close, "Next", Step.Next, ButtonLook.Primary),
+        ]).style([gap(SPACE_MD)]),
+        Checking(_, asked, typed, wrong) => {
+            let mut rows: View<Msg>[] = [dialog_header("Backup words", "")];
+            for i in 0..asked.len {
+                let label = "Word {asked[i] + 1}";
+                let box = ui_input(typed[i], fun(s: string) = Msg.Backup(Step.Typed(i, s))).name(
+                    label,
+                ).style(looked(t, wrong[i])).expand();
+                rows.push(
+                    row([text(label).style(body(t)).align(Align.Center), box]).style([
+                        gap(SPACE_MD),
+                    ]),
+                );
+            }
+            rows.push(footer(t, "Back", Step.Back, "Done", Step.Done, ButtonLook.Primary));
+            column(rows).style([gap(SPACE_SM)])
+        }
+        Restoring(typed, bad) => {
+            let mut cells: View<Msg>[] = [];
+            for i in 0..12 {
+                let box = ui_input(typed[i], fun(s: string) = Msg.Backup(Step.Word(i, s))).name(
+                    "Word {i + 1}",
+                ).style(looked(t, false)).style([Font.mono()]).expand();
+                cells.push(row([number(t, i + 1), box]).style([gap(SPACE_SM)]).expand());
+            }
+            let mut parts: View<Msg>[] = [dialog_header("Use backup words", ""), grid(cells)];
+            if bad {
+                parts.push(
+                    text("These words aren't right").style([Text.color(paint(t.danger))]).align(
+                        Align.Start,
+                    ),
+                );
+            }
+            parts.push(footer(t, "Cancel", Step.Close, "Use", Step.Use, ButtonLook.Primary));
+            column(parts).style([gap(SPACE_MD)])
+        }
+        Replacing(_) => column([
+            dialog_header(
+                "Replace who you are on this computer?",
+                "Apps that know you here will see a stranger.",
+            ),
+            footer(t, "Cancel", Step.Close, "Replace", Step.Replace, ButtonLook.Danger),
+        ]),
+    }
+}
+
+/** The 12 words, each a numbered cell in the control's colour, in mono. */
+fun cells_of(t: Theme, words: string[]): View<Msg>[] {
+    let mut out: View<Msg>[] = [];
+    for i in 0..words.len {
+        out.push(
+            row([
+                number(t, i + 1),
+                text(words[i]).style(body(t)).style([Font.mono()]).align(Align.Center),
+            ]).style([
+                gap(SPACE_SM),
+                padding_xy(SPACE_SM, SPACE_MD),
+                Background.color(paint(t.control)),
+                Border { radius: Radius.All(BUTTON_RADIUS), ..Border.theme() },
+            ]).expand(),
+        );
+    }
+    out
+}
+
+/** Cells three across, as the canvas has them. */
+fun grid(cells: View<Msg>[]): View<Msg> {
+    let mut rows: View<Msg>[] = [];
+    let mut i = 0;
+    while i < cells.len {
+        let mut line: View<Msg>[] = [];
+        for j in i..if i + 3 < cells.len { i + 3 } else { cells.len } {
+            line.push(cells[j]);
+        }
+        rows.push(row(line).style([gap(SPACE_SM)]));
+        i += 3;
+    }
+    column(rows).style([gap(SPACE_SM)])
+}
+
+/** A word's place, dim, before it. */
+fun number(t: Theme, n: i64): View<Msg> = text("{n}").style(dim(t)).align(Align.Center);
+
+/** A field's look; a wrong word's edge in danger. */
+fun looked(t: Theme, wrong: bool): Styling[] {
+    let mut out = field(t);
+    if wrong {
+        out.push(Border { all: line(t.danger), ..Border.theme() });
+    }
+    out
+}
+
+/** Cancel or Back, then the step's main button, at the card's end; Escape is the first. */
+fun footer(
+    t: Theme,
+    no: string,
+    back: Step,
+    yes: string,
+    go: Step,
+    look: ButtonLook,
+): View<Msg> = dialog_footer([
+    ui_button(no, Msg.Backup(back)).style(button_look(t, ButtonLook.Normal)).shortcut("Escape"),
+    ui_button(yes, Msg.Backup(go)).style(button_look(t, look)),
+]);

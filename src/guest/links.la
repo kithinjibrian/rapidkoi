@@ -9,7 +9,8 @@
  * Used by: guest.contract, guest.running, window.tabs
  */
 import cbor { Value, Entry, Limits, decode, encode };
-import guest.nodes { ContractError, LinkChange };
+import guest.nodes { ContractError };
+import guest.effectkinds { LinkChange };
 import guest.limits { MAX_STATE, MAX_STATE_DEPTH };
 import net.address { MAX_LINK_FIELDS, MAX_LINK_VALUE, name_ok };
 

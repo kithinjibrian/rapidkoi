@@ -6,6 +6,7 @@
  * Depends on: ui.render, net.fetching, net.keeping, data.files
  * Used by: ui.frame, home, panel, shell
  */
+import window.backupcard { Step };
 import data.databases { Queried };
 import data.files { Filed };
 import ui.render;
@@ -128,6 +129,8 @@ enum Msg {
     Choose(u8[]),
     /** × on the notice bar: close the notice showing (PRP-051). */
     DismissNotice,
+    /** A step of Rapidkoi's backup-words card (PRP-076). */
+    Backup(Step),
     /** Open or close the chip's list of the apps at this address (PRP-050). */
     Chip(bool),
     /** Tick or untick this app, by first key, as its address's default. */

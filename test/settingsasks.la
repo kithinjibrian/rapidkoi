@@ -2,7 +2,7 @@
 // and held to their shapes; a bad one is the sentence that stops the app.
 // No guest, no display.
 import rapidkoi.guest.contract { read_update };
-import rapidkoi.guest.nodes { Effect };
+import rapidkoi.guest.effectkinds { Effect };
 import cbor { Value, encode };
 import support { t, kv };
 
@@ -39,6 +39,13 @@ fun long(n: i64): string {
 fun you_and_publishers_read() {
     assert_eq(read_one([("kind", t("you"))]), Ok(Effect.You(t("m"))));
     assert_eq(read_one([("kind", t("publishers"))]), Ok(Effect.Publishers(t("m"))));
+}
+
+@test
+fun the_backup_cards_read_as_which_card_only() {
+    // PRP-076: the words stay Rapidkoi's.
+    assert_eq(read_one([("kind", t("backup_words"))]), Ok(Effect.BackupCard(t("m"), false)));
+    assert_eq(read_one([("kind", t("use_backup_words"))]), Ok(Effect.BackupCard(t("m"), true)));
 }
 
 @test

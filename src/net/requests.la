@@ -24,7 +24,7 @@ import guest.contract { reply };
 import ui.render;
 import window.actions { Msg };
 import guest.limits { MAX_IN_FLIGHT, MAX_BODY_DOWN, REQUEST_TIMEOUT_MS, MAX_BLOB };
-import guest.nodes { BlobRead };
+import guest.effectkinds { BlobRead };
 import data.databases { Call, path_for, call };
 
 /**

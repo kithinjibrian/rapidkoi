@@ -1,0 +1,46 @@
+/**
+ * Rapidkoi's backup-words card over Settings (PRP-076): which step it's at
+ * and what's been typed. Held only while the card is open, never saved,
+ * logged or sent to an app.
+ *
+ * Depends on: nothing
+ * Used by: window.window, window.backup, ui.backup
+ */
+
+/** One step of the card. */
+enum Card {
+    /** The 12 words, shown once. */
+    Showing(string[]),
+    /** Three asked back: the words, the places asked (from 0, in order), what's typed, which were wrong. */
+    Checking(string[], i64[], string[], bool[]),
+    /** Twelve being typed, and whether Use found them wrong. */
+    Restoring(string[], bool),
+    /** The words were right; replacing who you are here waits for the person's say. */
+    Replacing(u8[]),
+}
+
+/** The card, and the tab it's over: Settings'. */
+struct BackupCard {
+    tab: i64,
+    card: Card,
+}
+
+/** What the card's buttons and fields send (as `Msg.Backup`). */
+enum Step {
+    /** Showing → Checking. */
+    Next,
+    /** Checking → Showing. */
+    Back,
+    /** One of the three asked back was typed: its row, its text. */
+    Typed(i64, string),
+    /** Check the three: right, backed up and closed; wrong, marked. */
+    Done,
+    /** One of the twelve was typed: its place, its text. */
+    Word(i64, string),
+    /** Read the twelve: wrong, said; right, become them (or ask first). */
+    Use,
+    /** Yes, replace who you are here. */
+    Replace,
+    /** Cancel, or a click on the scrim: the card closes, what's typed goes. */
+    Close,
+}

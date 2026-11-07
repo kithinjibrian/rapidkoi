@@ -34,6 +34,8 @@ enum Permission {
     ReadYou,
     /** The publishers' keys you trust (PRP-075). */
     ReadPublishers,
+    /** Opening Rapidkoi's own cards for your backup words: never a word itself (PRP-076). */
+    ManageIdentity,
 }
 
 /** Who may hold a permission. */
@@ -128,6 +130,7 @@ const ALL: Permission[] = [
     Permission.ShowWidgets,
     Permission.ReadYou,
     Permission.ReadPublishers,
+    Permission.ManageIdentity,
 ];
 
 /**
@@ -149,6 +152,7 @@ fun name_of(p: Permission): string = match p {
     ShowWidgets => "show_widgets",
     ReadYou => "read_you",
     ReadPublishers => "read_publishers",
+    ManageIdentity => "manage_identity",
 };
 
 /**
@@ -170,6 +174,7 @@ fun tier_of(p: Permission): Tier = match p {
     ShowWidgets => Tier.BuiltIn,
     ReadYou => Tier.BuiltIn,
     ReadPublishers => Tier.BuiltIn,
+    ManageIdentity => Tier.BuiltIn,
 };
 
 /**
@@ -191,6 +196,7 @@ fun words_of(p: Permission): string = match p {
     ShowWidgets => "showing your widgets",
     ReadYou => "reading who you are to your apps",
     ReadPublishers => "reading the keys you trust",
+    ManageIdentity => "backing up who you are",
 };
 
 /**
@@ -212,6 +218,7 @@ fun label_of(p: Permission): string = match p {
     ShowWidgets => "Showing your widgets",
     ReadYou => "Reading who you are to your apps",
     ReadPublishers => "Reading the keys you trust",
+    ManageIdentity => "Backing up who you are",
 };
 
 /**
@@ -233,6 +240,7 @@ fun wish_of(p: Permission): string = match p {
     ShowWidgets => "show your widgets",
     ReadYou => "read who you are to your apps",
     ReadPublishers => "read the keys you trust",
+    ManageIdentity => "back up who you are",
 };
 
 /**

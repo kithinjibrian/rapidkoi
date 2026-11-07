@@ -1,5 +1,6 @@
-// Identity (PRP-011): the master secret, each app's key derived from it,
-// and host-bound sign-in signatures. Writes only under test/tmp/.
+// Identity (PRP-011, PRP-076): the master secret (16 bytes, so it can be
+// backup words), each app's key derived from it, host-bound sign-in
+// signatures, and backing up. Writes only under test/tmp/.
 import rapidkoi.people.identity {
     Master,
     IdentityError,
@@ -9,8 +10,16 @@ import rapidkoi.people.identity {
     sign_in_message,
     user_label,
     reason,
+    Backup,
+    retire_old,
+    backup_of,
+    note_backup,
+    adopt,
+    words_for,
 };
+import rapidkoi.people.words { secret_of };
 import rapidkoi.data.store { Store, store_at, save };
+import cbor { Value, Entry, encode };
 import std.crypto { ed25519_verify };
 import std.fs;
 
@@ -103,5 +112,83 @@ fun a_broken_or_newer_identity_is_refused_never_replaced() {
         reason(IdentityError.Broken("x")).starts_with("Rapidkoi couldn't read your identity"),
         true,
     );
+    clean(s.dir);
+}
+
+@test
+fun a_new_master_is_16_bytes_and_not_backed_up() {
+    let s = folder("new");
+    let m = master(s).unwrap();
+    assert_eq(m.secret.len, 16);
+    assert_eq(
+        backup_of(s).unwrap().map(fun(b: Backup) = (b.backed_up, b.reminded)),
+        Some((false, false)),
+    );
+    // Its 12 words are it.
+    assert_eq(words_for(m).len, 12);
+    assert_eq(secret_of(words_for(m)), Ok(m.secret));
+    clean(s.dir);
+}
+
+@test
+fun backing_up_is_kept_and_the_secret_stays() {
+    let s = folder("noted");
+    let m = master(s).unwrap();
+    note_backup(s, Backup { backed_up: true, reminded: false }).unwrap();
+    assert_eq(
+        backup_of(s).unwrap().map(fun(b: Backup) = (b.backed_up, b.reminded)),
+        Some((true, false)),
+    );
+    assert_eq(master(s).unwrap().secret, m.secret);
+    clean(s.dir);
+}
+
+@test
+fun typed_words_become_who_you_are() {
+    let s = folder("adopt");
+    let before = master(s).unwrap();
+    let secret: u8[] = [7; 16];
+    let m = adopt(s, secret).unwrap();
+    assert_eq(master(s).unwrap().secret, secret);
+    assert(
+        public_key(m, HOST, origin(1), 0).unwrap() != public_key(
+            before,
+            HOST,
+            origin(1),
+            0,
+        ).unwrap(),
+    );
+    // Restored from the words: backed up already.
+    assert_eq(backup_of(s).unwrap().map(fun(b: Backup) = b.backed_up), Some(true));
+    // Only 16 bytes are a secret.
+    assert(adopt(s, [7; 32]).is_err());
+    clean(s.dir);
+}
+
+@test
+fun an_old_32_byte_identity_is_kept_aside_once() {
+    let s = folder("old");
+    let old = encode(
+        Value.Map([
+            Entry { key: Value.Text("format"), value: Value.int(1) },
+            Entry { key: Value.Text("kind"), value: Value.Text("rapidkoi identity") },
+            Entry { key: Value.Text("master"), value: Value.Bytes([3; 32]) },
+        ]),
+    );
+    save(s, "identity", old).unwrap();
+    assert_eq(retire_old(s).unwrap(), true);
+    assert_eq(read_bytes("{s.dir}/identity-v1").unwrap(), old);
+    assert_eq(fs.exists("{s.dir}/identity"), false);
+    // A new one, when first needed; and nothing more to set aside.
+    assert_eq(master(s).unwrap().secret.len, 16);
+    assert_eq(retire_old(s).unwrap(), false);
+    clean(s.dir);
+}
+
+@test
+fun nothing_to_set_aside_without_an_identity() {
+    let s = folder("none");
+    assert_eq(retire_old(s).unwrap(), false);
+    assert(backup_of(s).unwrap().is_none());
     clean(s.dir);
 }

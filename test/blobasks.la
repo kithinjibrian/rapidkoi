@@ -2,7 +2,7 @@
 // `blob_list` read from a `handle` result and held to their shapes. No
 // guest, no database.
 import rapidkoi.guest.contract { read_update };
-import rapidkoi.guest.nodes { Effect, BatchStep };
+import rapidkoi.guest.effectkinds { Effect, BatchStep };
 import rapidkoi.guest.limits { MAX_BLOB_PIECE, MAX_BLOB_KEY };
 import cbor { Value, encode };
 import support { t, kv };

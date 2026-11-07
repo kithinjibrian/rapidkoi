@@ -2,7 +2,7 @@
 // in to, your key for each), `publishers` (the keys you trust) and
 // `set_name`, each only for an app that may. No guest, no display.
 import rapidkoi.guest.settingsanswers { answer_settings, you_of, publishers_of, named, secret };
-import rapidkoi.guest.nodes { Effect };
+import rapidkoi.guest.effectkinds { Effect };
 import rapidkoi.window.window { Model, with_pages };
 import rapidkoi.window.yourapps { App, opened };
 import rapidkoi.data.remembered { Face };
@@ -94,6 +94,8 @@ fun you_lists_only_the_apps_you_re_signed_in_to() {
     assert_eq(a.get("since"), Some(Value.int(1000)));
     // No master secret: no key.
     assert_eq(a.get("key"), Some(t("")));
+    // PRP-076: whether you're backed up, never a word; no data folder, not.
+    assert_eq(v.get("backed_up"), Some(Value.Bool(false)));
 }
 
 @test
@@ -132,7 +134,17 @@ fun a_name_changes_the_one_every_app_shows() {
 fun an_app_that_may_not_gets_nothing_and_changes_nothing() {
     let m = scene();
     let (_, you) = answer_settings(m, Effect.You(t("y")), false);
-    assert_eq(you, Some(kv([("first", t("")), ("last", t("")), ("apps", Value.Array([]))])));
+    assert_eq(
+        you,
+        Some(
+            kv([
+                ("first", t("")),
+                ("last", t("")),
+                ("apps", Value.Array([])),
+                ("backed_up", Value.Bool(false)),
+            ]),
+        ),
+    );
     let (_, trust) = answer_settings(m, Effect.Publishers(t("p")), false);
     assert_eq(trust, Some(kv([("items", Value.Array([]))])));
     let (after, nothing) = answer_settings(m, Effect.SetName(t("n"), "Grace", ""), false);

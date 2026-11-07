@@ -21,9 +21,10 @@ import window.notifications { Notifications, no_notifications };
 import window.widgets { Widgets, Chosen, no_widgets };
 import window.yourapps { Apps, no_apps };
 import window.info { Info };
+import window.backupcard { BackupCard };
 import guest.modules { Modules, no_modules };
 import data.remembered { Open };
-import guest.nodes { BatchStep };
+import guest.effectkinds { BatchStep };
 import window.handles { Files, no_files };
 import cbor { Value };
 import ui.frame { icon_of };
@@ -104,6 +105,8 @@ struct Model {
     before_all_apps: Option<i64>,
     /** App info over All apps (PRP-072): the app it's about. */
     info: Option<Info>,
+    /** Rapidkoi's backup-words card over Settings (PRP-076), while open. */
+    backup: Option<BackupCard>,
     /** Compiled modules kept for the run (PRP-068): an app opened again compiles nothing. */
     modules: Modules,
     /** Rapidkoi's own notice (PRP-051): about its files, your identity, its data folder; it follows you. */
@@ -182,6 +185,7 @@ fun with_pages(engine: Engine, pages: AppPage[]): Model {
         apps: no_apps(),
         widgets: no_widgets(),
         replacing: None,
+        backup: None,
         before_all_apps: None,
         info: None,
         modules: no_modules(),
