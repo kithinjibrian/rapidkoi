@@ -8,7 +8,7 @@
 import rapidkoi.data.databases { Call, Queried, path_for, call, size_of, clear };
 import rapidkoi.data.blobs { folder_for };
 import rapidkoi.data.store { store_at };
-import rapidkoi.guest.nodes { Query, BatchStep, Owner, BlobRead };
+import rapidkoi.guest.effectkinds { Query, BatchStep, Owner, BlobRead };
 import rapidkoi.guest.limits { MAX_ROWS, MAX_BLOB, MAX_BLOB_PIECE };
 import rapidkoi.window.tabs { failed_page };
 import cbor { Value };

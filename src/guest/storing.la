@@ -13,7 +13,7 @@
  */
 import kivuli { Cmd, FileFilter };
 import cbor { Value, Entry };
-import guest.nodes { Effect, FileOpen, FileSaveAs };
+import guest.effectkinds { Effect, FileOpen, FileSaveAs };
 import guest.contract { reply };
 import data.queries;
 import data.databases { Call, path_for };

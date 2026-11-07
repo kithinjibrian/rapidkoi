@@ -11,7 +11,7 @@
  */
 import cbor { Value };
 import kivuli { Cmd };
-import guest.nodes { Effect };
+import guest.effectkinds { Effect };
 import guest.home { notifications_of };
 import window.window { Model };
 import window.tabs { AppPage };

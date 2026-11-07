@@ -19,16 +19,8 @@ import guest.limits {
     MAX_STATE_DEPTH,
 };
 import net.network { Request, Reply };
-import guest.nodes {
-    ButtonLook,
-    Node,
-    Described,
-    ContractError,
-    Effect,
-    Update,
-    LinkChange,
-    Query,
-};
+import guest.nodes { ButtonLook, Node, Described, ContractError };
+import guest.effectkinds { Effect, Update, LinkChange, Query };
 import guest.links { read_link, read_kinds };
 import guest.sqlasks { sql_of, batch_of };
 import guest.blobasks { blob_get_of, blob_list_of, key_of as blob_key_of };

@@ -12,7 +12,7 @@
  */
 import kivuli { Cmd };
 import cbor { Value };
-import guest.nodes { BatchStep };
+import guest.effectkinds { BatchStep };
 import guest.pictures { blob_of };
 import window.downloaded { Kept };
 import data.databases { Call, Queried, path_for, call };

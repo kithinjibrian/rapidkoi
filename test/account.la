@@ -143,6 +143,8 @@ fun a_failed_removal_still_forgets_who_you_were() {
     // A folder where its database would be: removing it fails.
     let path = path_for(s, m.tabs[0].page).unwrap();
     fs.make_dirs(path).unwrap();
+    // The backup reminder (PRP-076) came with the key: closed, to read Forget's notice alone.
+    let m = Model { notice: None, ..m };
     let gone = step(step(m, Msg.Ask(Confirm.Forget(m.current.unwrap()))), Msg.Forget);
     assert_eq(gone.notice.map(fun(n) = n.short), Some("Notes's data couldn't be removed"));
     // Its next key was kept all the same.

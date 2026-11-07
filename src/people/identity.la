@@ -1,18 +1,20 @@
 /**
- * Who you are to each app (PRP-011): one master secret on this computer,
+ * Who you are to each app (PRP-011): one master secret on this computer
+ * (16 bytes since PRP-076, so it can be 12 backup words: `people.words`),
  * and each app's Ed25519 key derived from it with HKDF-SHA256 and the
  * app's identity (its host, the key first trusted for it, and how many
  * times you started over). Apps get only the public key; a sign-in
  * signature covers the verified host, so another host can't use it.
  * Nothing per-app secret is stored: seeds are worked out when needed.
  *
- * Depends on: std.crypto, cbor, data.store, trust.keys
+ * Depends on: std.crypto, cbor, data.store, trust.keys, people.words
  * Used by: guest.effects, people.account, data.saving
  */
 import std.crypto { random_bytes, hkdf_sha256, ed25519_public, ed25519_sign };
 import cbor { Value, Entry, Limits, decode, encode };
-import data.store { Store, StoreError, load, save, reason as store_reason };
+import data.store { Store, StoreError, load, save, remove, reason as store_reason };
 import trust.keys { hex };
+import people.words { words_of };
 
 /** This computer's master secret: never shown, never sent. */
 struct Master {
@@ -29,15 +31,29 @@ enum IdentityError {
     Broken(string),
 }
 
-/** The identity file: written once, never replaced. */
+/** The identity file: its secret never replaced without the person's say (PRP-076). */
 const FILE: string = "identity";
+
+/** Where a format-1 identity (a 32-byte secret, before backup words) is kept, never deleted. */
+const OLD_FILE: string = "identity-v1";
+
+/** The secret's size: 12 backup words' worth (DECISION-101). */
+const SECRET_BYTES: i64 = 16;
+
+/** What the person did about backing up: kept beside the secret. */
+struct Backup {
+    /** The words were written down (checked), or typed in to restore: never shown again. */
+    backed_up: bool,
+    /** The reminder was shown and closed. */
+    reminded: bool,
+}
 
 /** What every derivation starts with: changing it would change everyone's keys. */
 const LABEL: string = "rapidkoi identity v1";
 
 /**
- * Returns this computer's master secret, making it (32 random bytes,
- * owner-only, written safely) the first time.
+ * Returns this computer's master secret, making it (16 random bytes,
+ * owner-only, written safely, not yet backed up) the first time.
  *
  * @returns it; or why not. A broken or newer file is refused and left
  *     alone: replacing it would make you a stranger to every app.
@@ -49,15 +65,10 @@ fun master(s: Store): Result<Master, IdentityError> {
     match load(s, FILE, 4096).map_err(IdentityError.Store)? {
         Some(bytes) => read(bytes),
         None => {
-            let secret = random_bytes(32).map_err(fun(e) = IdentityError.Crypto(e.message()))?;
-            let file = encode(
-                Value.Map([
-                    entry("format", Value.int(1)),
-                    entry("kind", Value.Text("rapidkoi identity")),
-                    entry("master", Value.Bytes(secret)),
-                ]),
-            );
-            save(s, FILE, file).map_err(IdentityError.Store)?;
+            let secret = random_bytes(SECRET_BYTES).map_err(
+                fun(e) = IdentityError.Crypto(e.message()),
+            )?;
+            write(s, secret, Backup { backed_up: false, reminded: false })?;
             Ok(Master { secret: secret })
         }
     }
@@ -78,6 +89,85 @@ fun existing(s: Store): Result<Option<Master>, IdentityError> = match load(s, FI
     Some(bytes) => Ok(Some(read(bytes)?)),
     None => Ok(None),
 };
+
+/**
+ * Keeps a format-1 identity (a 32-byte secret, which can't be backup
+ * words) as `identity-v1`, never deleted, so the next `master` makes a
+ * new one (PRP-076, DECISION-101). Anything else is left as it is.
+ *
+ * @returns whether one was kept aside (the window says so, once)
+ *
+ * Example:
+ *     retire_old(store)?
+ */
+fun retire_old(s: Store): Result<bool, IdentityError> {
+    let bytes = match load(s, FILE, 4096).map_err(IdentityError.Store)? {
+        Some(b) => b,
+        None => {
+            return Ok(false);
+        }
+    };
+    let format = match decode(bytes, LIMITS) {
+        Ok(v) => v.get("format").and_then(fun(n: Value) = n.as_i64()),
+        Err(_) => None,
+    };
+    if format != Some(1) {
+        return Ok(false);
+    }
+    // Saved whole first, then removed: never a moment with neither.
+    save(s, OLD_FILE, bytes).map_err(IdentityError.Store)?;
+    remove(s, FILE).map_err(IdentityError.Store)?;
+    Ok(true)
+}
+
+/**
+ * Returns what the person did about backing up; `None` before there's an
+ * identity.
+ *
+ * Example:
+ *     backup_of(store)?
+ */
+fun backup_of(s: Store): Result<Option<Backup>, IdentityError> = match load(s, FILE, 4096).map_err(
+    IdentityError.Store,
+)? {
+    Some(bytes) => Ok(Some(file_of(bytes)?.1)),
+    None => Ok(None),
+};
+
+/**
+ * Records what the person did about backing up, the secret unchanged.
+ *
+ * Example:
+ *     note_backup(store, Backup { backed_up: true, reminded: true })?
+ */
+fun note_backup(s: Store, b: Backup): Result<(), IdentityError> {
+    let m = master(s)?;
+    write(s, m.secret, b)
+}
+
+/**
+ * Makes `secret` (from typed backup words) who you are on this computer,
+ * backed up, over any identity it had: only once the person said so
+ * (`window.backup`).
+ *
+ * Example:
+ *     adopt(store, secret)?
+ */
+fun adopt(s: Store, secret: u8[]): Result<Master, IdentityError> {
+    if secret.len != SECRET_BYTES {
+        return Err(IdentityError.Broken("its master secret isn't {SECRET_BYTES} bytes"));
+    }
+    write(s, secret, Backup { backed_up: true, reminded: true })?;
+    Ok(Master { secret: secret })
+}
+
+/**
+ * Returns the 12 backup words this master secret is.
+ *
+ * Example:
+ *     words_for(m)
+ */
+fun words_for(m: Master): string[] = words_of(m.secret);
 
 /**
  * Returns your public key for one app.
@@ -169,26 +259,57 @@ fun seed(m: Master, host: string, origin: u8[], generation: i64): Result<u8[], I
 }
 
 /** The identity file's master secret, checked. */
-fun read(bytes: u8[]): Result<Master, IdentityError> {
-    let v = decode(bytes, Limits {
-        max_depth: 2,
-        max_items: 16,
-        max_bytes: 4096,
-        max_string: 1024,
-    }).map_err(fun(_) = IdentityError.Broken("not CBOR"))?;
+fun read(bytes: u8[]): Result<Master, IdentityError> = file_of(bytes).map(
+    fun(f: (Master, Backup)) = f.0,
+);
+
+/** How much of an identity file is read. */
+const LIMITS: Limits = Limits { max_depth: 2, max_items: 16, max_bytes: 4096, max_string: 1024 };
+
+/** The identity file, format 2: its secret and what was done about backing it up. */
+fun file_of(bytes: u8[]): Result<(Master, Backup), IdentityError> {
+    let v = decode(bytes, LIMITS).map_err(fun(_) = IdentityError.Broken("not CBOR"))?;
     let format = v.get("format").map(fun(n: Value) = n.as_i64().unwrap_or(-1)).unwrap_or(-1);
-    if format > 1 {
+    if format > 2 {
         return Err(IdentityError.Broken("it was written by a newer Rapidkoi"));
     }
-    if format != 1 || v.get("kind").map(fun(k: Value) = k.as_text().unwrap_or("")) != Some(
+    // Format 1 is set aside at start (`retire_old`); met here, it's left alone.
+    if format != 2 || v.get("kind").map(fun(k: Value) = k.as_text().unwrap_or("")) != Some(
         "rapidkoi identity",
     ) {
         return Err(IdentityError.Broken("it isn't Rapidkoi's identity file"));
     }
-    match v.get("master") {
-        Some(Bytes(b)) if b.len == 32 => Ok(Master { secret: b }),
-        _ => Err(IdentityError.Broken("its master secret isn't 32 bytes")),
-    }
+    let secret = match v.get("master") {
+        Some(Bytes(b)) if b.len == SECRET_BYTES => b,
+        _ => {
+            return Err(IdentityError.Broken("its master secret isn't {SECRET_BYTES} bytes"));
+        }
+    };
+    let flag = fun(name: string): bool = match v.get(name) {
+        Some(Bool(b)) => b,
+        _ => false,
+    };
+    Ok(
+        (
+            Master { secret: secret },
+            Backup { backed_up: flag("backed_up"), reminded: flag("reminded") },
+        ),
+    )
 }
+
+/** Writes the identity file, format 2. */
+fun write(s: Store, secret: u8[], b: Backup): Result<(), IdentityError> = save(
+    s,
+    FILE,
+    encode(
+        Value.Map([
+            entry("format", Value.int(2)),
+            entry("kind", Value.Text("rapidkoi identity")),
+            entry("master", Value.Bytes(secret)),
+            entry("backed_up", Value.Bool(b.backed_up)),
+            entry("reminded", Value.Bool(b.reminded)),
+        ]),
+    ),
+).map_err(IdentityError.Store);
 
 fun entry(key: string, v: Value): Entry = Entry { key: Value.Text(key), value: v };

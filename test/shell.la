@@ -7,6 +7,7 @@ import rapidkoi.window.window { page_of, Model, with_pages, title_of };
 import rapidkoi.window.recent { Place };
 import rapidkoi.window.yourapps { App, Apps, no_apps, opened, app_of };
 import rapidkoi.window.actions { Msg, Confirm, PanelPage };
+import rapidkoi.window.backupcard { BackupCard, Card, Step };
 import rapidkoi.bundles.bundle { Manifest };
 import rapidkoi.bundles.permissions { Permission, Setting };
 import rapidkoi.people.people { nobody, with_setting };
@@ -379,6 +380,18 @@ fun its_own_setting_changing_is_a_change() {
     let m = reading(["read_pins"]);
     let set = step(m, Msg.SetPermission("read_pins", Setting.Ask));
     assert_eq(last_event(set, 0), v3(Happened.Change));
+}
+
+@test
+fun the_backup_card_closing_is_a_change_for_who_reads_you() {
+    // PRP-076: Settings re-reads `you` and sees it's backed up.
+    let open = fun(m: Model): Model = Model {
+        backup: Some(BackupCard { tab: 0, card: Card.Showing([]) }),
+        ..m,
+    };
+    let closed = step(open(reading(["read_you"])), Msg.Backup(Step.Close));
+    assert_eq(last_event(closed, 0), v3(Happened.Change));
+    assert_eq(last_event(step(open(reading([])), Msg.Backup(Step.Close)), 0), quiet());
 }
 
 @test

@@ -10,7 +10,8 @@
  * Used by: guest.contract
  */
 import cbor { Value, encode };
-import guest.nodes { ContractError, Effect };
+import guest.nodes { ContractError };
+import guest.effectkinds { Effect };
 import guest.limits { MAX_NOTICE_TEXT, MAX_NOTICE_KEY };
 import guest.links { fields_in };
 import net.address { MAX_LINK_FIELDS, name_ok };

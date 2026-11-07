@@ -1,0 +1,103 @@
+// Backup words (PRP-076, DECISION-101), pure: a 16-byte secret as 12 of
+// BIP-39's English words and back, with its checksum, against BIP-39's
+// published vectors. No display.
+import rapidkoi.people.words { WordsError, words_of, secret_of, same_word, list };
+
+/** 16 bytes, each `b`. */
+fun all(b: u8): u8[] {
+    let mut out: u8[] = [];
+    for _ in 0..16 {
+        out.push(b);
+    }
+    out
+}
+
+/** One hex digit's value. */
+fun nibble(c: string): i64 {
+    let digits = "0123456789abcdef";
+    for n in 0..16 {
+        if digits.slice(n, n + 1) == c {
+            return n;
+        }
+    }
+    panic("not a hex digit")
+}
+
+fun hex(s: string): u8[] {
+    let mut out: u8[] = [];
+    let mut i = 0;
+    while i < s.len {
+        out.push((nibble(s.slice(i, i + 1)) * 16 + nibble(s.slice(i + 1, i + 2))) as u8);
+        i += 2;
+    }
+    out
+}
+
+const VECTORS: (string, string)[] = [
+    (
+        "00000000000000000000000000000000",
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+    ),
+    (
+        "7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f",
+        "legal winner thank year wave sausage worth useful legal winner thank yellow",
+    ),
+    (
+        "80808080808080808080808080808080",
+        "letter advice cage absurd amount doctor acoustic avoid letter advice cage above",
+    ),
+    ("ffffffffffffffffffffffffffffffff", "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong"),
+    (
+        "9e885d952ad362caeb4efe34a8e91bd2",
+        "ozone drill grab fiber curtain grace pudding thank cruise elder eight picnic",
+    ),
+];
+
+@test
+fun the_list_is_bip_39_s() {
+    let all_words = list();
+    assert_eq(all_words.len, 2048);
+    assert_eq((all_words[0], all_words[2047]), ("abandon", "zoo"));
+    for i in 1..all_words.len {
+        assert(all_words[i - 1] < all_words[i]);
+    }
+}
+
+@test
+fun bip_39_s_vectors_both_ways() {
+    for (secret, phrase) of VECTORS {
+        assert_eq(words_of(hex(secret)).join(" "), phrase);
+        assert_eq(secret_of(phrase.split(" ")), Ok(hex(secret)));
+    }
+}
+
+@test
+fun case_and_spaces_don_t_matter() {
+    let typed = "  Zoo zoo ZOO zoo zoo zoo zoo zoo zoo zoo zoo  Wrong ".trim().split(" ").filter(
+        fun(w: string) = w != "",
+    );
+    assert_eq(secret_of(typed.map(fun(w: string) = "  {w} ")), Ok(all(255)));
+    assert(same_word("wrong", " WRONG "));
+    assert(!same_word("wrong", "wring"));
+}
+
+@test
+fun bad_words_are_refused() {
+    let good = "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong".split(" ");
+    // A word not in the list, by its place.
+    // Copies: an array is shared, not copied, by `=`.
+    let mut typo = good.map(fun(w: string) = w);
+    typo[3] = "zooo";
+    assert_eq(secret_of(typo), Err(WordsError.NotAWord(3)));
+    // Eleven, or thirteen.
+    let mut eleven: string[] = [];
+    for i in 0..11 {
+        eleven.push(good[i]);
+    }
+    assert_eq(secret_of(eleven), Err(WordsError.Count));
+    assert_eq(secret_of(good + ["zoo"]), Err(WordsError.Count));
+    // Every word real, the checksum not.
+    let mut swapped = good.map(fun(w: string) = w);
+    swapped[11] = "zoo";
+    assert_eq(secret_of(swapped), Err(WordsError.Checksum));
+}

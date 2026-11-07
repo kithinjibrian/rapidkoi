@@ -150,3 +150,14 @@ fn the_name_is_typed_on_you_and_both_parts_are_sent() {
     let s = next.into_state();
     assert_eq!(send(s, Msg::Last, Some("Hopper")).asks(), &[Ask::set_name("name", "Grace", "Hopper")]);
 }
+
+#[test]
+fn backup_words_open_rapidkoi_s_cards_and_never_come_here() {
+    // PRP-076: the rows ask; the words stay Rapidkoi's.
+    let s = Settings { page: Page::You.index(), ..read() };
+    assert!(texts(&s).contains("Not backed up") && texts(&s).contains("Use backup words"));
+    assert_eq!(send(s.clone(), Msg::BackupWords, None).asks(), &[Ask::backup_words("backup")]);
+    assert_eq!(send(s, Msg::UseBackupWords, None).asks(), &[Ask::use_backup_words("restore")]);
+    let done = Settings { page: Page::You.index(), backed_up: true, ..read() };
+    assert!(texts(&done).contains("Backed up") && !texts(&done).contains("Not backed up"));
+}

@@ -34,6 +34,7 @@ fun each_permission_has_its_name_tier_and_words() {
         "show_widgets",
         "read_you",
         "read_publishers",
+        "manage_identity",
     ]);
     // Any app may send you notifications (PRP-065); everything else is Rapidkoi's own apps'.
     for p of ALL {
@@ -63,6 +64,8 @@ fun each_permission_has_its_name_tier_and_words() {
     // PRP-075: Settings' You and Publishers.
     assert_eq(label_of(Permission.ReadYou), "Reading who you are to your apps");
     assert_eq(wish_of(Permission.ReadPublishers), "read the keys you trust");
+    // PRP-076.
+    assert_eq(label_of(Permission.ManageIdentity), "Backing up who you are");
     assert_eq(
         parse(["read_you", "read_publishers"]),
         Ok([Permission.ReadYou, Permission.ReadPublishers]),

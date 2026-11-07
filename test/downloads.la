@@ -20,7 +20,7 @@ import wasmtime { Engine, Module };
 import support { guest_of, result_of, t, kv, leaf, parent, png, settle, event_in };
 import rapidkoi.data.store { store_at };
 import rapidkoi.data.databases { Call, path_for, call, clear };
-import rapidkoi.guest.nodes { BatchStep };
+import rapidkoi.guest.effectkinds { BatchStep };
 import rapidkoi.bundles.bundle { Manifest };
 
 /** `/N.png` is an N × 10 PNG; `/huge.png` 5000 × 10; `/a.webp` a WebP; anything else 404. */

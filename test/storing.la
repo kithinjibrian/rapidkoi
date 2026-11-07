@@ -7,7 +7,7 @@ import rapidkoi.shell { update };
 import rapidkoi.window.window { Model, with_pages, with_tab };
 import rapidkoi.guest.effects { answer_all };
 import rapidkoi.guest.storing { ask };
-import rapidkoi.guest.nodes { Effect, FileOpen, FileSaveAs, BatchStep, BlobRead };
+import rapidkoi.guest.effectkinds { Effect, FileOpen, FileSaveAs, BatchStep, BlobRead };
 import rapidkoi.window.tabs { AppPage, open_module, state_of, handle };
 import rapidkoi.window.actions { Msg };
 import rapidkoi.ui.render;

@@ -21,7 +21,7 @@ import wasmtime { Engine, Module };
 import support { echo_init, t, kv, settle, event_in };
 import rapidkoi.data.store { store_at };
 import rapidkoi.data.databases { Call, path_for, call, clear };
-import rapidkoi.guest.nodes { BatchStep };
+import rapidkoi.guest.effectkinds { BatchStep };
 
 const TLS: string = "test/fixtures/tls";
 

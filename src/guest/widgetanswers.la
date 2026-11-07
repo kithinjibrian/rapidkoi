@@ -7,7 +7,7 @@
  * Depends on: guest.nodes, window.window, window.tabs, window.widgets
  * Used by: guest.effects
  */
-import guest.nodes { Effect };
+import guest.effectkinds { Effect };
 import window.window { Model };
 import window.tabs { AppPage };
 import window.widgets { keep, prune, chosen_of };

@@ -8,7 +8,8 @@
  * Used by: guest.contract
  */
 import cbor { Value };
-import guest.nodes { ContractError, Effect };
+import guest.nodes { ContractError };
+import guest.effectkinds { Effect };
 
 /** The most characters in each part of a name, as ⚙'s Name page keeps (`people.account`). */
 const MAX_NAME_PART: i64 = 64;
@@ -30,6 +31,10 @@ fun settings_ask_of(kind: string, msg: Value, e: Value): Result<Option<Effect>, 
     }
     if kind == "publishers" {
         return Ok(Some(Effect.Publishers(msg)));
+    }
+    // PRP-076: only which card; the words stay Rapidkoi's.
+    if kind == "backup_words" || kind == "use_backup_words" {
+        return Ok(Some(Effect.BackupCard(msg, kind == "use_backup_words")));
     }
     if kind != "set_name" {
         return Ok(None);

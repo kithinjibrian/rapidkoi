@@ -10,7 +10,8 @@
  */
 import guest.guest { Guest, open, reason };
 import guest.contract { read_update };
-import guest.nodes { ContractError, Effect, Update, LinkChange };
+import guest.nodes { ContractError };
+import guest.effectkinds { Effect, Update, LinkChange };
 import guest.events { Happened, event_for };
 import guest.links { with_link };
 import guest.tree { read_tree };

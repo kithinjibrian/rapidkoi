@@ -1,7 +1,7 @@
 // Which permission each ask needs (PRP-030, PRP-065, PRP-067), pure: the
 // new tab's, Settings', notifications' and All apps'; the rest need none.
 import rapidkoi.guest.needs { needed };
-import rapidkoi.guest.nodes { Effect };
+import rapidkoi.guest.effectkinds { Effect };
 import rapidkoi.bundles.permissions { Permission };
 import support { t };
 

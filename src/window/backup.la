@@ -1,0 +1,283 @@
+/**
+ * Backing up who you are (PRP-076, DECISION-101), the window's side:
+ * Rapidkoi's own card over Settings shows the 12 words once, asks three of
+ * them back, and takes twelve to restore, asking before it replaces who you
+ * are here. Settings only asks for the card (`backup_words`,
+ * `use_backup_words`) and reads whether you're backed up: no word ever
+ * reaches an app. Also the reminder, the first time an app is given your
+ * key while you aren't backed up. The identity file is Rapidkoi's own small
+ * file, read and written here as sign-in always has (CLAUDE.md).
+ *
+ * Depends on: std.crypto, people.identity, people.words, window.window, window.backupcard, window.appinfo, window.info, window.notices
+ * Used by: shell, guest.effects, guest.settingsanswers, ui.backup
+ */
+import std.crypto { random_bytes };
+import people.identity { Backup, master, backup_of, note_backup, adopt, words_for };
+import people.words { secret_of, same_word };
+import window.window { Model };
+import window.backupcard { BackupCard, Card, Step };
+import window.appinfo { forget_info, page_for };
+import window.info { Info, InfoPage };
+import window.yourapps { App, forgotten };
+import window.notices { identity_trouble, REMINDER, SAVE_FAILED };
+
+/** How many words are asked back. */
+const ASKED: i64 = 3;
+
+/**
+ * Whether the person has written their words down; false before there's an
+ * identity, or when it can't be read.
+ *
+ * Example:
+ *     backed_up(m)
+ */
+fun backed_up(m: Model): bool = match m.store {
+    Some(s) => match backup_of(s) {
+        Ok(Some(b)) => b.backed_up,
+        _ => false,
+    },
+    None => false,
+};
+
+/**
+ * Opens the words over Settings' tab `tab`, when they haven't been written
+ * down yet; making the secret first if no app has asked for it. Backed up,
+ * nothing opens: they're never shown again.
+ *
+ * Example:
+ *     open_words(m, 3)
+ */
+fun open_words(m: Model, tab: i64): Model {
+    let s = match m.store {
+        Some(s) => s,
+        None => {
+            return m;
+        }
+    };
+    if backed_up(m) {
+        return m;
+    }
+    match master(s) {
+        Ok(mm) => Model {
+            master: Some(mm),
+            backup: Some(BackupCard { tab: tab, card: Card.Showing(words_for(mm)) }),
+            ..m,
+        },
+        Err(e) => Model { notice: Some(identity_trouble(e)), ..m },
+    }
+}
+
+/**
+ * Opens a card over Settings' tab `tab`: the words, or (`restore`) twelve
+ * fields to type them into.
+ *
+ * Example:
+ *     card(m, 3, false)
+ */
+fun card(m: Model, tab: i64, restore: bool): Model = if restore {
+    open_restore(m, tab)
+} else {
+    open_words(m, tab)
+};
+
+/**
+ * Opens twelve empty fields over Settings' tab `tab`, to restore from.
+ *
+ * Example:
+ *     open_restore(m, 3)
+ */
+fun open_restore(m: Model, tab: i64): Model = Model {
+    backup: Some(BackupCard { tab: tab, card: Card.Restoring(blanks(12), false) }),
+    ..m,
+};
+
+/**
+ * Takes one step of the card; anything that doesn't fit the step it's at
+ * changes nothing.
+ *
+ * Example:
+ *     step(m, Step.Next)
+ */
+fun step(m: Model, s: Step): Model {
+    let open = match m.backup {
+        Some(b) => b,
+        None => {
+            return m;
+        }
+    };
+    let at = fun(c: Card): Model = Model { backup: Some(BackupCard { card: c, ..open }), ..m };
+    match (open.card, s) {
+        (_, Close) => Model { backup: None, ..m },
+        (Showing(shown), Next) => at(Card.Checking(shown, places(), blanks(ASKED), [false; 3])),
+        (Checking(shown, _, _, _), Back) => at(Card.Showing(shown)),
+        (Checking(shown, asked, typed, wrong), Typed(i, text)) if inside(i, ASKED) => {
+            at(Card.Checking(shown, asked, with(typed, i, text), with_flag(wrong, i, false)))
+        },
+        (Checking(shown, asked, typed, _), Done) => {
+            let mut wrong: bool[] = [];
+            for i in 0..ASKED {
+                wrong.push(!same_word(shown[asked[i]], typed[i]));
+            }
+            if wrong.any(fun(w: bool) = w) {
+                return at(Card.Checking(shown, asked, typed, wrong));
+            }
+            written(Model { backup: None, ..m })
+        },
+        (Restoring(typed, _), Word(i, text)) if inside(i, 12) => {
+            at(Card.Restoring(with(typed, i, text), false))
+        },
+        (Restoring(typed, _), Use) => match secret_of(typed) {
+            Err(_) => at(Card.Restoring(typed, true)),
+            // A computer that has never been anyone just becomes you.
+            Ok(secret) => if has_identity(m) {
+                at(Card.Replacing(secret))
+            } else {
+                become(m, secret)
+            },
+        },
+        (Replacing(secret), Replace) => become(everyone_forgotten(m), secret),
+        _ => m,
+    }
+}
+
+/**
+ * Shows the reminder when an app has just been given your key and you
+ * haven't backed up or closed it before; another notice showing waits.
+ *
+ * Example:
+ *     reminded(m)
+ */
+fun reminded(m: Model): Model = match m.store {
+    Some(s) => match backup_of(s) {
+        Ok(Some(b)) if !b.backed_up && !b.reminded && m.notice.is_none() => Model {
+            notice: Some(REMINDER),
+            ..m,
+        },
+        _ => m,
+    },
+    None => m,
+};
+
+/**
+ * The reminder closed with ×: it never comes back. Call before the notice
+ * goes; any other notice changes nothing.
+ *
+ * Example:
+ *     reminder_closed(m)
+ */
+fun reminder_closed(m: Model): Model {
+    if m.notice != Some(REMINDER) {
+        return m;
+    }
+    match m.store {
+        Some(s) => match backup_of(s) {
+            Ok(Some(b)) => match note_backup(s, Backup { reminded: true, ..b }) {
+                Ok(()) => m,
+                Err(e) => Model { notice: Some(identity_trouble(e)), ..m },
+            },
+            _ => m,
+        },
+        None => m,
+    }
+}
+
+/** Written down: kept as backed up (the words never show again), the reminder gone. */
+fun written(m: Model): Model {
+    let s = match m.store {
+        Some(s) => s,
+        None => {
+            return m;
+        }
+    };
+    match note_backup(s, Backup { backed_up: true, reminded: true }) {
+        Ok(()) => Model { notice: if m.notice == Some(REMINDER) { None } else { m.notice }, ..m },
+        Err(_) => Model { notice: Some(SAVE_FAILED), ..m },
+    }
+}
+
+/** Becomes the secret the words are: written, cached, the card closed. A failed write changes nothing. */
+fun become(m: Model, secret: u8[]): Model {
+    let s = match m.store {
+        Some(s) => s,
+        None => {
+            return m;
+        }
+    };
+    match adopt(s, secret) {
+        Ok(mm) => Model { master: Some(mm), backup: None, ..m },
+        Err(_) => Model { notice: Some(SAVE_FAILED), ..m },
+    }
+}
+
+/** Whether this computer already is someone: an identity file is there. */
+fun has_identity(m: Model): bool = match m.store {
+    Some(s) => backup_of(s).map(fun(b: Option<Backup>) = b.is_some()).unwrap_or(true),
+    None => false,
+};
+
+/**
+ * Every app forgotten, as App info's Forget does one (PRP-052, PRP-072):
+ * a new person to each, so none can link who you were to who you become.
+ * Rapidkoi's own apps have nothing of yours to forget.
+ */
+fun everyone_forgotten(m: Model): Model {
+    let mut at = m;
+    for a of m.apps.items {
+        if a.path.starts_with("builtin:") {
+            continue;
+        }
+        let one = Info { app: a, page: page_for(at.ring, a), ready: true, at: InfoPage.Main };
+        at = forget_info(Model { info: Some(one), ..at });
+        // Gone from your apps even when the keyring no longer knows its key,
+        // which Forget matches it by.
+        at = Model { apps: forgotten(at.apps, a.path, a.origin), ..at };
+    }
+    Model { info: m.info, ..at }
+}
+
+/** Three different places among the twelve, in order, from the secure generator. */
+fun places(): i64[] {
+    let mut out: i64[] = [];
+    // Each byte picks a place; a repeat draws again. Should the generator
+    // fail, the words are still asked, at fixed places.
+    while out.len < ASKED {
+        let byte = match random_bytes(1) {
+            Ok(b) => b[0] as i64,
+            Err(_) => {
+                return [2, 6, 10];
+            }
+        };
+        // 252 is the largest multiple of 12 under 256: no place is likelier.
+        if byte < 252 && !out.any(fun(p: i64) = p == byte % 12) {
+            out.push(byte % 12);
+        }
+    }
+    out.sort_by(fun(a: i64, b: i64) = a < b)
+}
+
+/** Whether `i` is a place among `n` (a `<` before `=>` would read as a type's arguments). */
+fun inside(i: i64, n: i64): bool = i >= 0 && i < n;
+
+fun blanks(n: i64): string[] {
+    let mut out: string[] = [];
+    for _ in 0..n {
+        out.push("");
+    }
+    out
+}
+
+fun with(xs: string[], i: i64, x: string): string[] {
+    let mut out: string[] = [];
+    for n in 0..xs.len {
+        out.push(if n == i { x } else { xs[n] });
+    }
+    out
+}
+
+fun with_flag(xs: bool[], i: i64, x: bool): bool[] {
+    let mut out: bool[] = [];
+    for n in 0..xs.len {
+        out.push(if n == i { x } else { xs[n] });
+    }
+    out
+}

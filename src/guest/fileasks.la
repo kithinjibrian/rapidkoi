@@ -9,7 +9,8 @@
  * Used by: guest.contract
  */
 import cbor { Value };
-import guest.nodes { FileOpen, FileSaveAs, ContractError };
+import guest.nodes { ContractError };
+import guest.effectkinds { FileOpen, FileSaveAs };
 import guest.blobasks { key_of };
 
 /** The most extensions an ask may offer. */

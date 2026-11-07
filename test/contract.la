@@ -2,7 +2,8 @@
 // address's fields and their kinds) and a request's reply. No guest and no
 // display. The screen's tests are in tree.la.
 import rapidkoi.guest.contract { read_update, reply };
-import rapidkoi.guest.nodes { ContractError, Effect, Update, LinkChange };
+import rapidkoi.guest.nodes { ContractError };
+import rapidkoi.guest.effectkinds { Effect, Update, LinkChange };
 import cbor { Value, Entry, encode, decode, Limits };
 import rapidkoi.net.network { Request, Reply };
 import support { t, kv };

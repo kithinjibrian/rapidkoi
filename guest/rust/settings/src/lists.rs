@@ -65,10 +65,13 @@ pub(crate) fn you(s: &Settings) -> (Vec<V>, Option<V>) {
             .spacing(Space::Md),
         )
     };
-    let mut sections = vec![section(
-        "You",
-        group(vec![me, field("First name", &s.first, Msg::First), field("Last name", &s.last, Msg::Last)]),
-    )];
+    let mut sections = vec![
+        section(
+            "You",
+            group(vec![me, field("First name", &s.first, Msg::First), field("Last name", &s.last, Msg::Last)]),
+        ),
+        section("Backup", backup(s)),
+    ];
     if s.apps.is_empty() {
         return (sections, None);
     }
@@ -100,6 +103,26 @@ pub(crate) fn you(s: &Settings) -> (Vec<V>, Option<V>) {
         ],
     );
     (sections, Some(details))
+}
+
+/// Backup words (PRP-076): written down or not, and restoring. Rapidkoi's
+/// own card opens from each; once written down, the first opens nothing.
+fn backup(s: &Settings) -> V {
+    let words =
+        boxed().role(Role::Button).label("Backup words").style([Layout::row(), Spacing::gap(Space::Sm)]).children([
+            mid(text("Backup words")),
+            spacer(),
+            mid(text(if s.backed_up { "Backed up" } else { "Not backed up" })
+                .style([Text::color(sys(if s.backed_up { "text_dim" } else { "caution" }))])),
+        ]);
+    let words = if s.backed_up { words } else { words.on_press(Msg::BackupWords) };
+    let restore = boxed()
+        .role(Role::Button)
+        .label("Use backup words")
+        .on_press(Msg::UseBackupWords)
+        .style([Layout::row()])
+        .children([mid(text("Use backup words"))]);
+    group(vec![padded(words), padded(restore)])
 }
 
 pub(crate) fn publishers(s: &Settings) -> (Vec<V>, Option<V>) {

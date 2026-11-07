@@ -33,6 +33,8 @@ const COLOUR_NAMES: string[] = [
     "border",
     "danger",
     "on_danger",
+    // A warning that isn't an error: amber, never the brand's orange (PRP-076).
+    "caution",
 ];
 
 /** The states a style can have a look for. */

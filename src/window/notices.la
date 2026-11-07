@@ -219,6 +219,24 @@ fun nothing_saved(why: string): Notice = Notice {
     full: why,
 };
 
+/** The backup words aren't written down yet: shown once an app is given your key (PRP-076). */
+const REMINDER: Notice = Notice {
+    short: "Write down your backup words",
+    full: "Write down your backup words: Settings › You › Backup words",
+};
+
+/** A format-1 identity was kept aside, and a new one comes with backup words (PRP-076). */
+const NEW_IDENTITY: Notice = Notice {
+    short: "Rapidkoi made you a new identity, with backup words",
+    full: "Rapidkoi made you a new identity, with backup words: your old one is kept in the data folder as identity-v1",
+};
+
+/** Backing up or restoring couldn't be saved: nothing changed (PRP-076). */
+const SAVE_FAILED: Notice = Notice {
+    short: "Rapidkoi couldn't save who you are",
+    full: "Rapidkoi couldn't save who you are: nothing changed",
+};
+
 /** Your identity couldn't be kept, worked out or read. */
 fun identity_trouble(e: IdentityError): Notice = Notice {
     short: match e {
